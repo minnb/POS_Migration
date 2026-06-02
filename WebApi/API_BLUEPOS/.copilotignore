@@ -1,0 +1,11 @@
+/bin/
+/obj/
+**/bin/
+**/obj/
+/ObservabilityLibNet462*
+/ObservabilityLibNet462*/
+/ObservabilityLibNet462*/
+/log*/
+*.logs
+*.log
+large_data_file.json

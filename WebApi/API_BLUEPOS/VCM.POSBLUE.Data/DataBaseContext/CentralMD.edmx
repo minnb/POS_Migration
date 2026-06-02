@@ -1,0 +1,975 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="CentralMD.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="CpnVchBOMCodeIssue">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ItemNo" Type="varchar" MaxLength="20" />
+          <Property Name="Code" Type="varchar" MaxLength="20" />
+          <Property Name="EmployeeCode" Type="varchar" MaxLength="30" />
+          <Property Name="Enabled" Type="bit" />
+          <Property Name="CreatedDate" Type="datetime" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="CpnVchBOMHeader">
+          <Key>
+            <PropertyRef Name="ItemNo" />
+          </Key>
+          <Property Name="ItemNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="ItemName" Type="nvarchar" MaxLength="300" Nullable="false" />
+          <Property Name="UnitOfMeasure" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="DiscountType" Type="int" Nullable="false" />
+          <Property Name="DiscountValue" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="MaxAmount" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="ArticleType" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ValueOfVoucher" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="StartingDate" Type="datetime" Nullable="false" />
+          <Property Name="EndingDate" Type="datetime" Nullable="false" />
+          <Property Name="Blocked" Type="tinyint" Nullable="false" />
+          <Property Name="CouponCode" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="LimitQty" Type="int" Nullable="false" />
+          <Property Name="LastDateModified" Type="datetime" Nullable="false" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="IsCheckItem" Type="bit" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+          <Property Name="IssueType" Type="varchar" MaxLength="20" />
+          <Property Name="MinAmount" Type="float" />
+          <Property Name="Company" Type="nvarchar" MaxLength="100" />
+          <Property Name="RefKey1" Type="nvarchar" MaxLength="300" />
+          <Property Name="RefKey2" Type="nvarchar" MaxLength="300" />
+          <Property Name="RefKey3" Type="nvarchar" MaxLength="300" />
+          <Property Name="RefKey4" Type="nvarchar" MaxLength="300" />
+          <Property Name="RefKey5" Type="nvarchar" MaxLength="300" />
+          <Property Name="IsMultiUse" Type="bit" />
+          <Property Name="LimitQtyUsed" Type="int" />
+          <Property Name="CpnVchType" Type="varchar" MaxLength="10" />
+          <Property Name="IsCheckAPI" Type="bit" />
+          <Property Name="SaleType" Type="varchar" MaxLength="50" />
+          <Property Name="StoreGroupCode" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="CpnVchBOMLine">
+          <Key>
+            <PropertyRef Name="Pkey" />
+          </Key>
+          <Property Name="ItemNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="LineNo" Type="int" Nullable="false" />
+          <Property Name="LineItemNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="UnitOfMeasure" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Barcode" Type="varchar" MaxLength="50" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="CpnVchCodeSend">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="50" />
+          <Property Name="PosID" Type="varchar" MaxLength="50" />
+          <Property Name="Date" Type="date" />
+          <Property Name="OrderNo" Type="varchar" MaxLength="50" />
+          <Property Name="ItemNo" Type="varchar" MaxLength="50" />
+          <Property Name="Code" Type="varchar" MaxLength="50" />
+          <Property Name="CreatedDate" Type="datetime" />
+          <Property Name="PhoneNumber" Type="varchar" MaxLength="12" />
+        </EntityType>
+        <EntityType Name="CXOfflinePercent">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="FromAmount" Type="float" />
+          <Property Name="ToAmount" Type="float" />
+          <Property Name="Percent" Type="float" />
+          <Property Name="FromDate" Type="datetime" />
+          <Property Name="ToDate" Type="datetime" />
+          <Property Name="Enabled" Type="bit" />
+          <Property Name="CreatedDate" Type="datetime" />
+          <Property Name="CreatedUser" Type="nvarchar" MaxLength="300" />
+          <Property Name="Counter" Type="int" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="POSDataSetup">
+          <Key>
+            <PropertyRef Name="Code" />
+          </Key>
+          <Property Name="Code" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="Value" Type="nvarchar(max)" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="StoreNo" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="POSTerminal">
+          <Key>
+            <PropertyRef Name="No" />
+          </Key>
+          <Property Name="MACAddress" Type="nvarchar" MaxLength="20" />
+          <Property Name="IPAddress" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="No" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="StoreNo" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="TerminalType" Type="int" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" />
+          <Property Name="Placement" Type="nvarchar" MaxLength="30" />
+          <Property Name="StatementMethod" Type="int" />
+          <Property Name="TerminalStatement" Type="tinyint" />
+          <Property Name="DefaultPriceGroup" Type="nvarchar" MaxLength="10" />
+          <Property Name="TerminalNetworkID" Type="nvarchar" MaxLength="20" />
+          <Property Name="TerminalIPAddress" Type="nvarchar" MaxLength="15" />
+          <Property Name="TerminalConnection" Type="int" />
+          <Property Name="ShowItemPictures" Type="tinyint" />
+          <Property Name="ShowItemHtml" Type="tinyint" />
+          <Property Name="DisplayTerminalClosed" Type="tinyint" />
+          <Property Name="DisplayLinkedItem" Type="tinyint" />
+          <Property Name="AutoLogoffAfter_Min" Type="int" />
+          <Property Name="ReturnInTransaction" Type="tinyint" />
+          <Property Name="ItemNoOnReceipt" Type="int" />
+          <Property Name="LastDateModified" Type="datetime" />
+          <Property Name="PrintReceiptLogo" Type="nvarchar" MaxLength="80" />
+          <Property Name="PrintReceiptBitmapNo" Type="int" />
+          <Property Name="RcptTextMaxLength" Type="int" />
+          <Property Name="ReceiptBarcode" Type="tinyint" />
+          <Property Name="ReceiptSetupLocation" Type="int" />
+          <Property Name="DisplayTextMaxLength" Type="int" />
+          <Property Name="CustomerDisplayText1" Type="nvarchar" MaxLength="40" />
+          <Property Name="CustomerDisplayText2" Type="nvarchar" MaxLength="40" />
+          <Property Name="PrintReceiptBCType" Type="int" />
+          <Property Name="ReceiptBarcodeWidth" Type="int" />
+          <Property Name="ReceiptBarcodeHeight" Type="int" />
+          <Property Name="DefaultSalesType" Type="nvarchar" MaxLength="20" />
+          <Property Name="StaffLoginValidation" Type="int" />
+          <Property Name="HardwareProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="MenuProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="InterfaceProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="FunctionalityProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="StyleProfile" Type="nvarchar" MaxLength="20" />
+          <Property Name="PrintNumberOfItems" Type="tinyint" />
+          <Property Name="PrintSecondReceipt" Type="tinyint" />
+          <Property Name="SalesTypeFilter" Type="nvarchar" MaxLength="250" />
+          <Property Name="DualDisHost" Type="nvarchar" MaxLength="30" />
+          <Property Name="BillNoseri" Type="nvarchar" MaxLength="50" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+          <Property Name="CreatedDate" Type="datetime" />
+          <Property Name="CreatedBy" Type="varchar" MaxLength="50" />
+          <Property Name="UpdatedDate" Type="datetime" />
+          <Property Name="UpdatedBy" Type="varchar" MaxLength="50" />
+          <Property Name="Status" Type="bit" />
+        </EntityType>
+        <EntityType Name="POSVersion">
+          <Key>
+            <PropertyRef Name="Source" />
+          </Key>
+          <Property Name="LastVersion" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="CurVersion" Type="varchar" MaxLength="10" />
+          <Property Name="UpdateTime" Type="datetime" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Source" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+          <Property Name="IsUpdate" Type="bit" />
+          <Property Name="Folder" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="RewardCodeSend">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="50" />
+          <Property Name="PosID" Type="varchar" MaxLength="50" />
+          <Property Name="Date" Type="date" />
+          <Property Name="OrderNo" Type="varchar" MaxLength="50" />
+          <Property Name="OfferNo" Type="varchar" MaxLength="50" />
+          <Property Name="Code" Type="varchar" MaxLength="50" />
+          <Property Name="CreatedDate" Type="datetime" />
+          <Property Name="IPServer" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="SignalStore">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="StoreNO" Type="varchar" MaxLength="50" />
+          <Property Name="POSTerminalID" Type="varchar" MaxLength="50" />
+          <Property Name="BusinessDate" Type="date" />
+          <Property Name="CreatedDate" Type="datetime" />
+        </EntityType>
+        <EntityType Name="Store">
+          <Key>
+            <PropertyRef Name="No" />
+          </Key>
+          <Property Name="No" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="IssueVoucherOnline" Type="bit" />
+          <Property Name="ResponsibilityCenter" Type="nvarchar" MaxLength="10" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Address" Type="nvarchar" MaxLength="250" />
+          <Property Name="City" Type="nvarchar" MaxLength="30" />
+          <Property Name="PostCode" Type="nvarchar" MaxLength="20" />
+          <Property Name="StoreManagerID" Type="nvarchar" MaxLength="20" />
+          <Property Name="StoreOpenfrom" Type="datetime" />
+          <Property Name="StoreOpento" Type="datetime" />
+          <Property Name="PhoneNo" Type="nvarchar" MaxLength="30" />
+          <Property Name="CountryCode" Type="nvarchar" MaxLength="10" />
+          <Property Name="LocationCode" Type="nvarchar" MaxLength="10" />
+          <Property Name="CurrencyCode" Type="nvarchar" MaxLength="10" />
+          <Property Name="StoreOpenAfterMidnight" Type="tinyint" />
+          <Property Name="LastDateModified" Type="datetime" />
+          <Property Name="FunctionalityProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="MenuProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="InterfaceProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="StyleProfile" Type="nvarchar" MaxLength="20" />
+          <Property Name="HardwareProfile" Type="nvarchar" MaxLength="10" />
+          <Property Name="StatementNos" Type="nvarchar" MaxLength="10" />
+          <Property Name="OneStatementPerDay" Type="tinyint" />
+          <Property Name="StatementMethod" Type="int" />
+          <Property Name="ClosingMethod" Type="int" />
+          <Property Name="RoundingAccount" Type="nvarchar" MaxLength="20" />
+          <Property Name="TotalDiscountTender" Type="nvarchar" MaxLength="10" />
+          <Property Name="PrintReceiptLogo" Type="nvarchar" MaxLength="80" />
+          <Property Name="PrintReceiptBitmapNo" Type="int" />
+          <Property Name="ItemNoOnReceipt" Type="int" />
+          <Property Name="County" Type="nvarchar" MaxLength="30" />
+          <Property Name="EmailAddress" Type="nvarchar" MaxLength="30" />
+          <Property Name="TaxCode" Type="nvarchar" MaxLength="20" />
+          <Property Name="BusinessAreaNo" Type="nvarchar" MaxLength="20" />
+          <Property Name="InfocodeReturn" Type="nvarchar" MaxLength="20" />
+          <Property Name="TenderTypeReturn" Type="nvarchar" MaxLength="20" />
+          <Property Name="BranchNo" Type="nvarchar" MaxLength="20" />
+          <Property Name="ForEvent" Type="tinyint" />
+          <Property Name="InfocodeAdjustBill" Type="nvarchar" MaxLength="20" />
+          <Property Name="InfocodeAdjustLine" Type="nvarchar" MaxLength="20" />
+          <Property Name="CustomerDefault" Type="nvarchar" MaxLength="20" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="StoreNoMapping">
+          <Key>
+            <PropertyRef Name="StoreNoBlue" />
+          </Key>
+          <Property Name="StoreNoBlue" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="StoreNoPLH" Type="varchar" MaxLength="50" />
+          <Property Name="StoreNoWPH" Type="varchar" MaxLength="50" />
+          <Property Name="Counter" Type="int" />
+          <Property Name="CreatedDate" Type="datetime" />
+        </EntityType>
+        <EntityType Name="SysWebApi">
+          <Key>
+            <PropertyRef Name="AppCode" />
+          </Key>
+          <Property Name="AppCode" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="Host" Type="varchar" MaxLength="250" Nullable="false" />
+          <Property Name="Version" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="Authorization" Type="varchar" MaxLength="30" Nullable="false" />
+          <Property Name="UserName" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="Password" Type="nvarchar" MaxLength="128" Nullable="false" />
+          <Property Name="PublicKey" Type="nvarchar(max)" Nullable="false" />
+          <Property Name="PrivateKey" Type="nvarchar(max)" Nullable="false" />
+          <Property Name="Blocked" Type="bit" Nullable="false" />
+          <Property Name="HttpProxy" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="Bypasslist" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" Nullable="false" />
+        </EntityType>
+        <EntityType Name="SysWebApiRoute">
+          <Key>
+            <PropertyRef Name="AppCode" />
+            <PropertyRef Name="Name" />
+          </Key>
+          <Property Name="AppCode" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="150" Nullable="false" />
+          <Property Name="Route" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="Blocked" Type="bit" Nullable="false" />
+          <Property Name="Version" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="Notes" Type="nvarchar" MaxLength="1000" Nullable="false" />
+        </EntityType>
+        <Association Name="FK_AppCode_SysWebApi">
+          <End Role="SysWebApi" Type="Self.SysWebApi" Multiplicity="1" />
+          <End Role="SysWebApiRoute" Type="Self.SysWebApiRoute" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SysWebApi">
+              <PropertyRef Name="AppCode" />
+            </Principal>
+            <Dependent Role="SysWebApiRoute">
+              <PropertyRef Name="AppCode" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="CentralMDStoreContainer">
+          <EntitySet Name="CpnVchBOMCodeIssue" EntityType="Self.CpnVchBOMCodeIssue" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="CpnVchBOMHeader" EntityType="Self.CpnVchBOMHeader" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="CpnVchBOMLine" EntityType="Self.CpnVchBOMLine" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="CpnVchCodeSend" EntityType="Self.CpnVchCodeSend" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="CXOfflinePercent" EntityType="Self.CXOfflinePercent" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="POSDataSetup" EntityType="Self.POSDataSetup" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="POSTerminal" EntityType="Self.POSTerminal" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="POSVersion" EntityType="Self.POSVersion" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="RewardCodeSend" EntityType="Self.RewardCodeSend" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SignalStore" EntityType="Self.SignalStore" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Store" EntityType="Self.Store" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="StoreNoMapping" EntityType="Self.StoreNoMapping" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SysWebApi" EntityType="Self.SysWebApi" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SysWebApiRoute" EntityType="Self.SysWebApiRoute" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="FK_AppCode_SysWebApi" Association="Self.FK_AppCode_SysWebApi">
+            <End Role="SysWebApi" EntitySet="SysWebApi" />
+            <End Role="SysWebApiRoute" EntitySet="SysWebApiRoute" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" xmlns:cg="http://schemas.microsoft.com/ado/2006/04/codegeneration" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" Namespace="CentralMD" Alias="Self" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" annotation:UseStrongSpatialTypes="false">
+        <EntityContainer Name="CentralMDContainer" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="CpnVchBOMCodeIssues" EntityType="CentralMD.CpnVchBOMCodeIssue" />
+          <EntitySet Name="CpnVchBOMHeaders" EntityType="CentralMD.CpnVchBOMHeader" />
+          <EntitySet Name="CpnVchBOMLines" EntityType="CentralMD.CpnVchBOMLine" />
+          <EntitySet Name="CXOfflinePercents" EntityType="CentralMD.CXOfflinePercent" />
+          <EntitySet Name="POSDataSetups" EntityType="CentralMD.POSDataSetup" />
+          <EntitySet Name="POSTerminals" EntityType="CentralMD.POSTerminal" />
+          <EntitySet Name="POSVersions" EntityType="CentralMD.POSVersion" />
+          <EntitySet Name="RewardCodeSends" EntityType="CentralMD.RewardCodeSend" />
+          <EntitySet Name="SignalStores" EntityType="CentralMD.SignalStore" />
+          <EntitySet Name="Stores" EntityType="CentralMD.Store" />
+          <EntitySet Name="StoreNoMappings" EntityType="CentralMD.StoreNoMapping" />
+          <EntitySet Name="SysWebApis" EntityType="CentralMD.SysWebApi" />
+          <EntitySet Name="SysWebApiRoutes" EntityType="CentralMD.SysWebApiRoute" />
+          <AssociationSet Name="FK_AppCode_SysWebApi" Association="CentralMD.FK_AppCode_SysWebApi">
+            <End Role="SysWebApi" EntitySet="SysWebApis" />
+            <End Role="SysWebApiRoute" EntitySet="SysWebApiRoutes" />
+          </AssociationSet>
+          <EntitySet Name="CpnVchCodeSends" EntityType="CentralMD.CpnVchCodeSend" />
+        </EntityContainer>
+        <EntityType Name="CpnVchBOMCodeIssue">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ItemNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="Code" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="EmployeeCode" Type="String" MaxLength="30" FixedLength="false" Unicode="false" />
+          <Property Name="Enabled" Type="Boolean" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="CpnVchBOMHeader">
+          <Key>
+            <PropertyRef Name="ItemNo" />
+          </Key>
+          <Property Name="ItemNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="ItemName" Type="String" Nullable="false" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="UnitOfMeasure" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="DiscountType" Type="Int32" Nullable="false" />
+          <Property Name="DiscountValue" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="MaxAmount" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="ArticleType" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ValueOfVoucher" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="StartingDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="EndingDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="Blocked" Type="Byte" Nullable="false" />
+          <Property Name="CouponCode" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="LimitQty" Type="Int32" Nullable="false" />
+          <Property Name="LastDateModified" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="IsCheckItem" Type="Boolean" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="IssueType" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="MinAmount" Type="Double" />
+          <Property Name="Company" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="RefKey1" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="RefKey2" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="RefKey3" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="RefKey4" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="RefKey5" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="IsMultiUse" Type="Boolean" />
+          <Property Name="LimitQtyUsed" Type="Int32" />
+          <Property Name="CpnVchType" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="IsCheckAPI" Type="Boolean" />
+          <Property Name="SaleType" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="StoreGroupCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="CpnVchBOMLine">
+          <Key>
+            <PropertyRef Name="Pkey" />
+          </Key>
+          <Property Name="ItemNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="LineNo" Type="Int32" Nullable="false" />
+          <Property Name="LineItemNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="UnitOfMeasure" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Barcode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Pkey" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="CXOfflinePercent">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="FromAmount" Type="Double" />
+          <Property Name="ToAmount" Type="Double" />
+          <Property Name="Percent" Type="Double" />
+          <Property Name="FromDate" Type="DateTime" Precision="3" />
+          <Property Name="ToDate" Type="DateTime" Precision="3" />
+          <Property Name="Enabled" Type="Boolean" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+          <Property Name="CreatedUser" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Counter" Type="Int32" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="POSDataSetup">
+          <Key>
+            <PropertyRef Name="Code" />
+          </Key>
+          <Property Name="Code" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="Value" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="StoreNo" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="POSTerminal">
+          <Key>
+            <PropertyRef Name="No" />
+          </Key>
+          <Property Name="MACAddress" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="IPAddress" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="No" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="StoreNo" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="TerminalType" Type="Int32" />
+          <Property Name="Description" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="Placement" Type="String" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="StatementMethod" Type="Int32" />
+          <Property Name="TerminalStatement" Type="Byte" />
+          <Property Name="DefaultPriceGroup" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="TerminalNetworkID" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="TerminalIPAddress" Type="String" MaxLength="15" FixedLength="false" Unicode="true" />
+          <Property Name="TerminalConnection" Type="Int32" />
+          <Property Name="ShowItemPictures" Type="Byte" />
+          <Property Name="ShowItemHtml" Type="Byte" />
+          <Property Name="DisplayTerminalClosed" Type="Byte" />
+          <Property Name="DisplayLinkedItem" Type="Byte" />
+          <Property Name="AutoLogoffAfter_Min" Type="Int32" />
+          <Property Name="ReturnInTransaction" Type="Byte" />
+          <Property Name="ItemNoOnReceipt" Type="Int32" />
+          <Property Name="LastDateModified" Type="DateTime" Precision="3" />
+          <Property Name="PrintReceiptLogo" Type="String" MaxLength="80" FixedLength="false" Unicode="true" />
+          <Property Name="PrintReceiptBitmapNo" Type="Int32" />
+          <Property Name="RcptTextMaxLength" Type="Int32" />
+          <Property Name="ReceiptBarcode" Type="Byte" />
+          <Property Name="ReceiptSetupLocation" Type="Int32" />
+          <Property Name="DisplayTextMaxLength" Type="Int32" />
+          <Property Name="CustomerDisplayText1" Type="String" MaxLength="40" FixedLength="false" Unicode="true" />
+          <Property Name="CustomerDisplayText2" Type="String" MaxLength="40" FixedLength="false" Unicode="true" />
+          <Property Name="PrintReceiptBCType" Type="Int32" />
+          <Property Name="ReceiptBarcodeWidth" Type="Int32" />
+          <Property Name="ReceiptBarcodeHeight" Type="Int32" />
+          <Property Name="DefaultSalesType" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="StaffLoginValidation" Type="Int32" />
+          <Property Name="HardwareProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="MenuProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="InterfaceProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="FunctionalityProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="StyleProfile" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="PrintNumberOfItems" Type="Byte" />
+          <Property Name="PrintSecondReceipt" Type="Byte" />
+          <Property Name="SalesTypeFilter" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="DualDisHost" Type="String" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="BillNoseri" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+          <Property Name="CreatedBy" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="UpdatedDate" Type="DateTime" Precision="3" />
+          <Property Name="UpdatedBy" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Status" Type="Boolean" />
+        </EntityType>
+        <EntityType Name="POSVersion">
+          <Key>
+            <PropertyRef Name="Source" />
+          </Key>
+          <Property Name="LastVersion" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="CurVersion" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="UpdateTime" Type="DateTime" Precision="3" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Source" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="IsUpdate" Type="Boolean" />
+          <Property Name="Folder" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="RewardCodeSend">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="StoreNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="PosID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Date" Type="DateTime" Precision="0" />
+          <Property Name="OrderNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="OfferNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Code" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+          <Property Name="IPServer" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="SignalStore">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="StoreNO" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="POSTerminalID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="BusinessDate" Type="DateTime" Precision="0" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+        </EntityType>
+        <EntityType Name="Store">
+          <Key>
+            <PropertyRef Name="No" />
+          </Key>
+          <Property Name="No" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="IssueVoucherOnline" Type="Boolean" />
+          <Property Name="ResponsibilityCenter" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="Address" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="City" Type="String" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="PostCode" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="StoreManagerID" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="StoreOpenfrom" Type="DateTime" Precision="3" />
+          <Property Name="StoreOpento" Type="DateTime" Precision="3" />
+          <Property Name="PhoneNo" Type="String" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="CountryCode" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="LocationCode" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="CurrencyCode" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="StoreOpenAfterMidnight" Type="Byte" />
+          <Property Name="LastDateModified" Type="DateTime" Precision="3" />
+          <Property Name="FunctionalityProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="MenuProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="InterfaceProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="StyleProfile" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="HardwareProfile" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="StatementNos" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="OneStatementPerDay" Type="Byte" />
+          <Property Name="StatementMethod" Type="Int32" />
+          <Property Name="ClosingMethod" Type="Int32" />
+          <Property Name="RoundingAccount" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="TotalDiscountTender" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="PrintReceiptLogo" Type="String" MaxLength="80" FixedLength="false" Unicode="true" />
+          <Property Name="PrintReceiptBitmapNo" Type="Int32" />
+          <Property Name="ItemNoOnReceipt" Type="Int32" />
+          <Property Name="County" Type="String" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="EmailAddress" Type="String" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="TaxCode" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="BusinessAreaNo" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="InfocodeReturn" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="TenderTypeReturn" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="BranchNo" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="ForEvent" Type="Byte" />
+          <Property Name="InfocodeAdjustBill" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="InfocodeAdjustLine" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="CustomerDefault" Type="String" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="StoreNoMapping">
+          <Key>
+            <PropertyRef Name="StoreNoBlue" />
+          </Key>
+          <Property Name="StoreNoBlue" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="StoreNoPLH" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="StoreNoWPH" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Counter" Type="Int32" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+        </EntityType>
+        <EntityType Name="SysWebApi">
+          <Key>
+            <PropertyRef Name="AppCode" />
+          </Key>
+          <Property Name="AppCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Host" Type="String" Nullable="false" MaxLength="250" FixedLength="false" Unicode="false" />
+          <Property Name="Version" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Authorization" Type="String" Nullable="false" MaxLength="30" FixedLength="false" Unicode="false" />
+          <Property Name="UserName" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="Password" Type="String" Nullable="false" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="PublicKey" Type="String" Nullable="false" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="PrivateKey" Type="String" Nullable="false" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="Blocked" Type="Boolean" Nullable="false" />
+          <Property Name="HttpProxy" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="Bypasslist" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="SysWebApiRoutes" Relationship="CentralMD.FK_AppCode_SysWebApi" FromRole="SysWebApi" ToRole="SysWebApiRoute" />
+        </EntityType>
+        <EntityType Name="SysWebApiRoute">
+          <Key>
+            <PropertyRef Name="AppCode" />
+            <PropertyRef Name="Name" />
+          </Key>
+          <Property Name="AppCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="false" />
+          <Property Name="Route" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="Blocked" Type="Boolean" Nullable="false" />
+          <Property Name="Version" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Notes" Type="String" Nullable="false" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="SysWebApi" Relationship="CentralMD.FK_AppCode_SysWebApi" FromRole="SysWebApiRoute" ToRole="SysWebApi" />
+        </EntityType>
+        <Association Name="FK_AppCode_SysWebApi">
+          <End Type="CentralMD.SysWebApi" Role="SysWebApi" Multiplicity="1" />
+          <End Type="CentralMD.SysWebApiRoute" Role="SysWebApiRoute" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SysWebApi">
+              <PropertyRef Name="AppCode" />
+            </Principal>
+            <Dependent Role="SysWebApiRoute">
+              <PropertyRef Name="AppCode" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="CpnVchCodeSend">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="StoreNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="PosID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Date" Type="DateTime" Precision="0" />
+          <Property Name="OrderNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ItemNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Code" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+          <Property Name="PhoneNumber" Type="String" MaxLength="12" FixedLength="false" Unicode="false" />
+        </EntityType>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S">
+        <Alias Key="Model" Value="CentralMD" />
+        <Alias Key="Target" Value="CentralMD.Store" />
+        <EntityContainerMapping CdmEntityContainer="CentralMDContainer" StorageEntityContainer="CentralMDStoreContainer">
+          <EntitySetMapping Name="CpnVchBOMCodeIssues">
+            <EntityTypeMapping TypeName="CentralMD.CpnVchBOMCodeIssue">
+              <MappingFragment StoreEntitySet="CpnVchBOMCodeIssue">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="Enabled" ColumnName="Enabled" />
+                <ScalarProperty Name="EmployeeCode" ColumnName="EmployeeCode" />
+                <ScalarProperty Name="Code" ColumnName="Code" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CpnVchBOMHeaders">
+            <EntityTypeMapping TypeName="CentralMD.CpnVchBOMHeader">
+              <MappingFragment StoreEntitySet="CpnVchBOMHeader">
+                <ScalarProperty Name="StoreGroupCode" ColumnName="StoreGroupCode" />
+                <ScalarProperty Name="SaleType" ColumnName="SaleType" />
+                <ScalarProperty Name="IsCheckAPI" ColumnName="IsCheckAPI" />
+                <ScalarProperty Name="CpnVchType" ColumnName="CpnVchType" />
+                <ScalarProperty Name="LimitQtyUsed" ColumnName="LimitQtyUsed" />
+                <ScalarProperty Name="IsMultiUse" ColumnName="IsMultiUse" />
+                <ScalarProperty Name="RefKey5" ColumnName="RefKey5" />
+                <ScalarProperty Name="RefKey4" ColumnName="RefKey4" />
+                <ScalarProperty Name="RefKey3" ColumnName="RefKey3" />
+                <ScalarProperty Name="RefKey2" ColumnName="RefKey2" />
+                <ScalarProperty Name="RefKey1" ColumnName="RefKey1" />
+                <ScalarProperty Name="Company" ColumnName="Company" />
+                <ScalarProperty Name="MinAmount" ColumnName="MinAmount" />
+                <ScalarProperty Name="IssueType" ColumnName="IssueType" />
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="IsCheckItem" ColumnName="IsCheckItem" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="LastDateModified" ColumnName="LastDateModified" />
+                <ScalarProperty Name="LimitQty" ColumnName="LimitQty" />
+                <ScalarProperty Name="CouponCode" ColumnName="CouponCode" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="EndingDate" ColumnName="EndingDate" />
+                <ScalarProperty Name="StartingDate" ColumnName="StartingDate" />
+                <ScalarProperty Name="ValueOfVoucher" ColumnName="ValueOfVoucher" />
+                <ScalarProperty Name="ArticleType" ColumnName="ArticleType" />
+                <ScalarProperty Name="MaxAmount" ColumnName="MaxAmount" />
+                <ScalarProperty Name="DiscountValue" ColumnName="DiscountValue" />
+                <ScalarProperty Name="DiscountType" ColumnName="DiscountType" />
+                <ScalarProperty Name="UnitOfMeasure" ColumnName="UnitOfMeasure" />
+                <ScalarProperty Name="ItemName" ColumnName="ItemName" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CpnVchBOMLines">
+            <EntityTypeMapping TypeName="CentralMD.CpnVchBOMLine">
+              <MappingFragment StoreEntitySet="CpnVchBOMLine">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Barcode" ColumnName="Barcode" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="UnitOfMeasure" ColumnName="UnitOfMeasure" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="LineItemNo" ColumnName="LineItemNo" />
+                <ScalarProperty Name="LineNo" ColumnName="LineNo" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CXOfflinePercents">
+            <EntityTypeMapping TypeName="CentralMD.CXOfflinePercent">
+              <MappingFragment StoreEntitySet="CXOfflinePercent">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="CreatedUser" ColumnName="CreatedUser" />
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="Enabled" ColumnName="Enabled" />
+                <ScalarProperty Name="ToDate" ColumnName="ToDate" />
+                <ScalarProperty Name="FromDate" ColumnName="FromDate" />
+                <ScalarProperty Name="Percent" ColumnName="Percent" />
+                <ScalarProperty Name="ToAmount" ColumnName="ToAmount" />
+                <ScalarProperty Name="FromAmount" ColumnName="FromAmount" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="POSDataSetups">
+            <EntityTypeMapping TypeName="CentralMD.POSDataSetup">
+              <MappingFragment StoreEntitySet="POSDataSetup">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Value" ColumnName="Value" />
+                <ScalarProperty Name="Code" ColumnName="Code" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="POSTerminals">
+            <EntityTypeMapping TypeName="CentralMD.POSTerminal">
+              <MappingFragment StoreEntitySet="POSTerminal">
+                <ScalarProperty Name="Status" ColumnName="Status" />
+                <ScalarProperty Name="UpdatedBy" ColumnName="UpdatedBy" />
+                <ScalarProperty Name="UpdatedDate" ColumnName="UpdatedDate" />
+                <ScalarProperty Name="CreatedBy" ColumnName="CreatedBy" />
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="BillNoseri" ColumnName="BillNoseri" />
+                <ScalarProperty Name="DualDisHost" ColumnName="DualDisHost" />
+                <ScalarProperty Name="SalesTypeFilter" ColumnName="SalesTypeFilter" />
+                <ScalarProperty Name="PrintSecondReceipt" ColumnName="PrintSecondReceipt" />
+                <ScalarProperty Name="PrintNumberOfItems" ColumnName="PrintNumberOfItems" />
+                <ScalarProperty Name="StyleProfile" ColumnName="StyleProfile" />
+                <ScalarProperty Name="FunctionalityProfile" ColumnName="FunctionalityProfile" />
+                <ScalarProperty Name="InterfaceProfile" ColumnName="InterfaceProfile" />
+                <ScalarProperty Name="MenuProfile" ColumnName="MenuProfile" />
+                <ScalarProperty Name="HardwareProfile" ColumnName="HardwareProfile" />
+                <ScalarProperty Name="StaffLoginValidation" ColumnName="StaffLoginValidation" />
+                <ScalarProperty Name="DefaultSalesType" ColumnName="DefaultSalesType" />
+                <ScalarProperty Name="ReceiptBarcodeHeight" ColumnName="ReceiptBarcodeHeight" />
+                <ScalarProperty Name="ReceiptBarcodeWidth" ColumnName="ReceiptBarcodeWidth" />
+                <ScalarProperty Name="PrintReceiptBCType" ColumnName="PrintReceiptBCType" />
+                <ScalarProperty Name="CustomerDisplayText2" ColumnName="CustomerDisplayText2" />
+                <ScalarProperty Name="CustomerDisplayText1" ColumnName="CustomerDisplayText1" />
+                <ScalarProperty Name="DisplayTextMaxLength" ColumnName="DisplayTextMaxLength" />
+                <ScalarProperty Name="ReceiptSetupLocation" ColumnName="ReceiptSetupLocation" />
+                <ScalarProperty Name="ReceiptBarcode" ColumnName="ReceiptBarcode" />
+                <ScalarProperty Name="RcptTextMaxLength" ColumnName="RcptTextMaxLength" />
+                <ScalarProperty Name="PrintReceiptBitmapNo" ColumnName="PrintReceiptBitmapNo" />
+                <ScalarProperty Name="PrintReceiptLogo" ColumnName="PrintReceiptLogo" />
+                <ScalarProperty Name="LastDateModified" ColumnName="LastDateModified" />
+                <ScalarProperty Name="ItemNoOnReceipt" ColumnName="ItemNoOnReceipt" />
+                <ScalarProperty Name="ReturnInTransaction" ColumnName="ReturnInTransaction" />
+                <ScalarProperty Name="AutoLogoffAfter_Min" ColumnName="AutoLogoffAfter_Min" />
+                <ScalarProperty Name="DisplayLinkedItem" ColumnName="DisplayLinkedItem" />
+                <ScalarProperty Name="DisplayTerminalClosed" ColumnName="DisplayTerminalClosed" />
+                <ScalarProperty Name="ShowItemHtml" ColumnName="ShowItemHtml" />
+                <ScalarProperty Name="ShowItemPictures" ColumnName="ShowItemPictures" />
+                <ScalarProperty Name="TerminalConnection" ColumnName="TerminalConnection" />
+                <ScalarProperty Name="TerminalIPAddress" ColumnName="TerminalIPAddress" />
+                <ScalarProperty Name="TerminalNetworkID" ColumnName="TerminalNetworkID" />
+                <ScalarProperty Name="DefaultPriceGroup" ColumnName="DefaultPriceGroup" />
+                <ScalarProperty Name="TerminalStatement" ColumnName="TerminalStatement" />
+                <ScalarProperty Name="StatementMethod" ColumnName="StatementMethod" />
+                <ScalarProperty Name="Placement" ColumnName="Placement" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="TerminalType" ColumnName="TerminalType" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="No" ColumnName="No" />
+                <ScalarProperty Name="IPAddress" ColumnName="IPAddress" />
+                <ScalarProperty Name="MACAddress" ColumnName="MACAddress" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="POSVersions">
+            <EntityTypeMapping TypeName="CentralMD.POSVersion">
+              <MappingFragment StoreEntitySet="POSVersion">
+                <ScalarProperty Name="Folder" ColumnName="Folder" />
+                <ScalarProperty Name="IsUpdate" ColumnName="IsUpdate" />
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Source" ColumnName="Source" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="UpdateTime" ColumnName="UpdateTime" />
+                <ScalarProperty Name="CurVersion" ColumnName="CurVersion" />
+                <ScalarProperty Name="LastVersion" ColumnName="LastVersion" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="RewardCodeSends">
+            <EntityTypeMapping TypeName="CentralMD.RewardCodeSend">
+              <MappingFragment StoreEntitySet="RewardCodeSend">
+                <ScalarProperty Name="IPServer" ColumnName="IPServer" />
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="Code" ColumnName="Code" />
+                <ScalarProperty Name="OfferNo" ColumnName="OfferNo" />
+                <ScalarProperty Name="OrderNo" ColumnName="OrderNo" />
+                <ScalarProperty Name="Date" ColumnName="Date" />
+                <ScalarProperty Name="PosID" ColumnName="PosID" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SignalStores">
+            <EntityTypeMapping TypeName="CentralMD.SignalStore">
+              <MappingFragment StoreEntitySet="SignalStore">
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="BusinessDate" ColumnName="BusinessDate" />
+                <ScalarProperty Name="POSTerminalID" ColumnName="POSTerminalID" />
+                <ScalarProperty Name="StoreNO" ColumnName="StoreNO" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Stores">
+            <EntityTypeMapping TypeName="CentralMD.Store">
+              <MappingFragment StoreEntitySet="Store">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="CustomerDefault" ColumnName="CustomerDefault" />
+                <ScalarProperty Name="InfocodeAdjustLine" ColumnName="InfocodeAdjustLine" />
+                <ScalarProperty Name="InfocodeAdjustBill" ColumnName="InfocodeAdjustBill" />
+                <ScalarProperty Name="ForEvent" ColumnName="ForEvent" />
+                <ScalarProperty Name="BranchNo" ColumnName="BranchNo" />
+                <ScalarProperty Name="TenderTypeReturn" ColumnName="TenderTypeReturn" />
+                <ScalarProperty Name="InfocodeReturn" ColumnName="InfocodeReturn" />
+                <ScalarProperty Name="BusinessAreaNo" ColumnName="BusinessAreaNo" />
+                <ScalarProperty Name="TaxCode" ColumnName="TaxCode" />
+                <ScalarProperty Name="EmailAddress" ColumnName="EmailAddress" />
+                <ScalarProperty Name="County" ColumnName="County" />
+                <ScalarProperty Name="ItemNoOnReceipt" ColumnName="ItemNoOnReceipt" />
+                <ScalarProperty Name="PrintReceiptBitmapNo" ColumnName="PrintReceiptBitmapNo" />
+                <ScalarProperty Name="PrintReceiptLogo" ColumnName="PrintReceiptLogo" />
+                <ScalarProperty Name="TotalDiscountTender" ColumnName="TotalDiscountTender" />
+                <ScalarProperty Name="RoundingAccount" ColumnName="RoundingAccount" />
+                <ScalarProperty Name="ClosingMethod" ColumnName="ClosingMethod" />
+                <ScalarProperty Name="StatementMethod" ColumnName="StatementMethod" />
+                <ScalarProperty Name="OneStatementPerDay" ColumnName="OneStatementPerDay" />
+                <ScalarProperty Name="StatementNos" ColumnName="StatementNos" />
+                <ScalarProperty Name="HardwareProfile" ColumnName="HardwareProfile" />
+                <ScalarProperty Name="StyleProfile" ColumnName="StyleProfile" />
+                <ScalarProperty Name="InterfaceProfile" ColumnName="InterfaceProfile" />
+                <ScalarProperty Name="MenuProfile" ColumnName="MenuProfile" />
+                <ScalarProperty Name="FunctionalityProfile" ColumnName="FunctionalityProfile" />
+                <ScalarProperty Name="LastDateModified" ColumnName="LastDateModified" />
+                <ScalarProperty Name="StoreOpenAfterMidnight" ColumnName="StoreOpenAfterMidnight" />
+                <ScalarProperty Name="CurrencyCode" ColumnName="CurrencyCode" />
+                <ScalarProperty Name="LocationCode" ColumnName="LocationCode" />
+                <ScalarProperty Name="CountryCode" ColumnName="CountryCode" />
+                <ScalarProperty Name="PhoneNo" ColumnName="PhoneNo" />
+                <ScalarProperty Name="StoreOpento" ColumnName="StoreOpento" />
+                <ScalarProperty Name="StoreOpenfrom" ColumnName="StoreOpenfrom" />
+                <ScalarProperty Name="StoreManagerID" ColumnName="StoreManagerID" />
+                <ScalarProperty Name="PostCode" ColumnName="PostCode" />
+                <ScalarProperty Name="City" ColumnName="City" />
+                <ScalarProperty Name="Address" ColumnName="Address" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="ResponsibilityCenter" ColumnName="ResponsibilityCenter" />
+                <ScalarProperty Name="IssueVoucherOnline" ColumnName="IssueVoucherOnline" />
+                <ScalarProperty Name="No" ColumnName="No" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="StoreNoMappings">
+            <EntityTypeMapping TypeName="CentralMD.StoreNoMapping">
+              <MappingFragment StoreEntitySet="StoreNoMapping">
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="StoreNoWPH" ColumnName="StoreNoWPH" />
+                <ScalarProperty Name="StoreNoPLH" ColumnName="StoreNoPLH" />
+                <ScalarProperty Name="StoreNoBlue" ColumnName="StoreNoBlue" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SysWebApis">
+            <EntityTypeMapping TypeName="CentralMD.SysWebApi">
+              <MappingFragment StoreEntitySet="SysWebApi">
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Bypasslist" ColumnName="Bypasslist" />
+                <ScalarProperty Name="HttpProxy" ColumnName="HttpProxy" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="PrivateKey" ColumnName="PrivateKey" />
+                <ScalarProperty Name="PublicKey" ColumnName="PublicKey" />
+                <ScalarProperty Name="Password" ColumnName="Password" />
+                <ScalarProperty Name="UserName" ColumnName="UserName" />
+                <ScalarProperty Name="Authorization" ColumnName="Authorization" />
+                <ScalarProperty Name="Version" ColumnName="Version" />
+                <ScalarProperty Name="Host" ColumnName="Host" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SysWebApiRoutes">
+            <EntityTypeMapping TypeName="CentralMD.SysWebApiRoute">
+              <MappingFragment StoreEntitySet="SysWebApiRoute">
+                <ScalarProperty Name="Notes" ColumnName="Notes" />
+                <ScalarProperty Name="Version" ColumnName="Version" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Route" ColumnName="Route" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CpnVchCodeSends">
+            <EntityTypeMapping TypeName="CentralMD.CpnVchCodeSend">
+              <MappingFragment StoreEntitySet="CpnVchCodeSend">
+                <ScalarProperty Name="PhoneNumber" ColumnName="PhoneNumber" />
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="Code" ColumnName="Code" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+                <ScalarProperty Name="OrderNo" ColumnName="OrderNo" />
+                <ScalarProperty Name="Date" ColumnName="Date" />
+                <ScalarProperty Name="PosID" ColumnName="PosID" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <edmx:Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </edmx:Connection>
+    <edmx:Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="True" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="True" />
+        <DesignerProperty Name="UseLegacyProvider" Value="False" />
+      </DesignerInfoPropertySet>
+    </edmx:Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

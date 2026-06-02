@@ -1,0 +1,298 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="CentralMDEntity.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Barcodes">
+          <Key>
+            <PropertyRef Name="BarcodeNo" />
+            <PropertyRef Name="ItemNo" />
+            <PropertyRef Name="UnitOfMeasureCode" />
+          </Key>
+          <Property Name="BarcodeNo" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="ItemNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="ShowForItem" Type="tinyint" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="Blocked" Type="tinyint" Nullable="false" />
+          <Property Name="LastDateModified" Type="datetime" />
+          <Property Name="VariantCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="UnitOfMeasureCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="DiscountPercent" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="Item">
+          <Key>
+            <PropertyRef Name="No" />
+          </Key>
+          <Property Name="No" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="No2" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="SearchDescription" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="LongDescription" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="BaseUnitOfMeasure" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="StatisticsGroup" Type="int" Nullable="false" />
+          <Property Name="CommissionGroup" Type="int" Nullable="false" />
+          <Property Name="UnitPrice" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="CostingMethod" Type="int" Nullable="false" />
+          <Property Name="UnitCost" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="StandardCost" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="VendorNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="VendorItemNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="MaximumInventory" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="ReorderQuantity" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="GrossWeight" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="NetWeight" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="UnitsPerParcel" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="UnitVolume" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="Blocked" Type="tinyint" Nullable="false" />
+          <Property Name="LastDateModified" Type="datetime" Nullable="false" />
+          <Property Name="PriceIncludesVAT" Type="tinyint" Nullable="false" />
+          <Property Name="TaxGroupCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="PreventNegativeInventory" Type="int" Nullable="false" />
+          <Property Name="MinimumOrderQuantity" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="MaximumOrderQuantity" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="SafetyStockQuantity" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="OrderMultiple" Type="decimal" Precision="38" Scale="20" Nullable="false" />
+          <Property Name="SalesUnitOfMeasure" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ManufacturerCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ItemCategoryCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ProductGroupCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ServiceItemGroup" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ItemTrackingCode" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="ProductionBOMNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="BlockedVINID" Type="tinyint" Nullable="false" />
+          <Property Name="CommonItemNo" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="ItemFamilyCode" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="DivisionCode" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="KeyinginPrice" Type="tinyint" Nullable="false" />
+          <Property Name="ZeroPriceValid" Type="tinyint" Nullable="false" />
+          <Property Name="Counter" Type="bigint" />
+          <Property Name="Pkey" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="SyncFileLog">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="FileName" Type="varchar" MaxLength="500" />
+          <Property Name="TableName" Type="varchar" MaxLength="50" />
+          <Property Name="Date" Type="date" />
+          <Property Name="Folder" Type="varchar" MaxLength="50" />
+          <Property Name="Status" Type="smallint" />
+          <Property Name="ErrorMsg" Type="nvarchar" MaxLength="50" />
+          <Property Name="SyncType" Type="varchar" MaxLength="50" />
+          <Property Name="CreatedDate" Type="datetime" />
+        </EntityType>
+        <EntityContainer Name="CentralMDEntityStoreContainer">
+          <EntitySet Name="Barcodes" EntityType="Self.Barcodes" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Item" EntityType="Self.Item" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SyncFileLog" EntityType="Self.SyncFileLog" Schema="dbo" store:Type="Tables" />
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" xmlns:cg="http://schemas.microsoft.com/ado/2006/04/codegeneration" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" Namespace="CentralMDEntity" Alias="Self" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" annotation:UseStrongSpatialTypes="false">
+        <EntityContainer Name="CentralMDEntityContainer" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Barcodes" EntityType="CentralMDEntity.Barcode" />
+          <EntitySet Name="Items" EntityType="CentralMDEntity.Item" />
+          <EntitySet Name="SyncFileLogs" EntityType="CentralMDEntity.SyncFileLog" />
+        </EntityContainer>
+        <EntityType Name="Barcode">
+          <Key>
+            <PropertyRef Name="BarcodeNo" />
+            <PropertyRef Name="ItemNo" />
+            <PropertyRef Name="UnitOfMeasureCode" />
+          </Key>
+          <Property Name="BarcodeNo" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="ItemNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="ShowForItem" Type="Byte" Nullable="false" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="Blocked" Type="Byte" Nullable="false" />
+          <Property Name="LastDateModified" Type="DateTime" Precision="3" />
+          <Property Name="VariantCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="UnitOfMeasureCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="DiscountPercent" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="Item">
+          <Key>
+            <PropertyRef Name="No" />
+          </Key>
+          <Property Name="No" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="No2" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="SearchDescription" Type="String" Nullable="false" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="LongDescription" Type="String" Nullable="false" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="BaseUnitOfMeasure" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="StatisticsGroup" Type="Int32" Nullable="false" />
+          <Property Name="CommissionGroup" Type="Int32" Nullable="false" />
+          <Property Name="UnitPrice" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="CostingMethod" Type="Int32" Nullable="false" />
+          <Property Name="UnitCost" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="StandardCost" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="VendorNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="VendorItemNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="MaximumInventory" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="ReorderQuantity" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="GrossWeight" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="NetWeight" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="UnitsPerParcel" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="UnitVolume" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="Blocked" Type="Byte" Nullable="false" />
+          <Property Name="LastDateModified" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="PriceIncludesVAT" Type="Byte" Nullable="false" />
+          <Property Name="TaxGroupCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="PreventNegativeInventory" Type="Int32" Nullable="false" />
+          <Property Name="MinimumOrderQuantity" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="MaximumOrderQuantity" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="SafetyStockQuantity" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="OrderMultiple" Type="Decimal" Nullable="false" Precision="38" Scale="20" />
+          <Property Name="SalesUnitOfMeasure" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ManufacturerCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ItemCategoryCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ProductGroupCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ServiceItemGroup" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ItemTrackingCode" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="ProductionBOMNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="BlockedVINID" Type="Byte" Nullable="false" />
+          <Property Name="CommonItemNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="ItemFamilyCode" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="DivisionCode" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="KeyinginPrice" Type="Byte" Nullable="false" />
+          <Property Name="ZeroPriceValid" Type="Byte" Nullable="false" />
+          <Property Name="Counter" Type="Int64" />
+          <Property Name="Pkey" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="SyncFileLog">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="FileName" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="TableName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Date" Type="DateTime" Precision="0" />
+          <Property Name="Folder" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Status" Type="Int16" />
+          <Property Name="ErrorMsg" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="SyncType" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CreatedDate" Type="DateTime" Precision="3" />
+        </EntityType>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S">
+        <Alias Key="Model" Value="CentralMDEntity" />
+        <Alias Key="Target" Value="CentralMDEntity.Store" />
+        <EntityContainerMapping CdmEntityContainer="CentralMDEntityContainer" StorageEntityContainer="CentralMDEntityStoreContainer">
+          <EntitySetMapping Name="Barcodes">
+            <EntityTypeMapping TypeName="CentralMDEntity.Barcode">
+              <MappingFragment StoreEntitySet="Barcodes">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="DiscountPercent" ColumnName="DiscountPercent" />
+                <ScalarProperty Name="UnitOfMeasureCode" ColumnName="UnitOfMeasureCode" />
+                <ScalarProperty Name="VariantCode" ColumnName="VariantCode" />
+                <ScalarProperty Name="LastDateModified" ColumnName="LastDateModified" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="ShowForItem" ColumnName="ShowForItem" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+                <ScalarProperty Name="BarcodeNo" ColumnName="BarcodeNo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Items">
+            <EntityTypeMapping TypeName="CentralMDEntity.Item">
+              <MappingFragment StoreEntitySet="Item">
+                <ScalarProperty Name="Pkey" ColumnName="Pkey" />
+                <ScalarProperty Name="Counter" ColumnName="Counter" />
+                <ScalarProperty Name="ZeroPriceValid" ColumnName="ZeroPriceValid" />
+                <ScalarProperty Name="KeyinginPrice" ColumnName="KeyinginPrice" />
+                <ScalarProperty Name="DivisionCode" ColumnName="DivisionCode" />
+                <ScalarProperty Name="ItemFamilyCode" ColumnName="ItemFamilyCode" />
+                <ScalarProperty Name="CommonItemNo" ColumnName="CommonItemNo" />
+                <ScalarProperty Name="BlockedVINID" ColumnName="BlockedVINID" />
+                <ScalarProperty Name="ProductionBOMNo" ColumnName="ProductionBOMNo" />
+                <ScalarProperty Name="ItemTrackingCode" ColumnName="ItemTrackingCode" />
+                <ScalarProperty Name="ServiceItemGroup" ColumnName="ServiceItemGroup" />
+                <ScalarProperty Name="ProductGroupCode" ColumnName="ProductGroupCode" />
+                <ScalarProperty Name="ItemCategoryCode" ColumnName="ItemCategoryCode" />
+                <ScalarProperty Name="ManufacturerCode" ColumnName="ManufacturerCode" />
+                <ScalarProperty Name="SalesUnitOfMeasure" ColumnName="SalesUnitOfMeasure" />
+                <ScalarProperty Name="OrderMultiple" ColumnName="OrderMultiple" />
+                <ScalarProperty Name="SafetyStockQuantity" ColumnName="SafetyStockQuantity" />
+                <ScalarProperty Name="MaximumOrderQuantity" ColumnName="MaximumOrderQuantity" />
+                <ScalarProperty Name="MinimumOrderQuantity" ColumnName="MinimumOrderQuantity" />
+                <ScalarProperty Name="PreventNegativeInventory" ColumnName="PreventNegativeInventory" />
+                <ScalarProperty Name="TaxGroupCode" ColumnName="TaxGroupCode" />
+                <ScalarProperty Name="PriceIncludesVAT" ColumnName="PriceIncludesVAT" />
+                <ScalarProperty Name="LastDateModified" ColumnName="LastDateModified" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="UnitVolume" ColumnName="UnitVolume" />
+                <ScalarProperty Name="UnitsPerParcel" ColumnName="UnitsPerParcel" />
+                <ScalarProperty Name="NetWeight" ColumnName="NetWeight" />
+                <ScalarProperty Name="GrossWeight" ColumnName="GrossWeight" />
+                <ScalarProperty Name="ReorderQuantity" ColumnName="ReorderQuantity" />
+                <ScalarProperty Name="MaximumInventory" ColumnName="MaximumInventory" />
+                <ScalarProperty Name="VendorItemNo" ColumnName="VendorItemNo" />
+                <ScalarProperty Name="VendorNo" ColumnName="VendorNo" />
+                <ScalarProperty Name="StandardCost" ColumnName="StandardCost" />
+                <ScalarProperty Name="UnitCost" ColumnName="UnitCost" />
+                <ScalarProperty Name="CostingMethod" ColumnName="CostingMethod" />
+                <ScalarProperty Name="UnitPrice" ColumnName="UnitPrice" />
+                <ScalarProperty Name="CommissionGroup" ColumnName="CommissionGroup" />
+                <ScalarProperty Name="StatisticsGroup" ColumnName="StatisticsGroup" />
+                <ScalarProperty Name="BaseUnitOfMeasure" ColumnName="BaseUnitOfMeasure" />
+                <ScalarProperty Name="LongDescription" ColumnName="LongDescription" />
+                <ScalarProperty Name="SearchDescription" ColumnName="SearchDescription" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="No2" ColumnName="No2" />
+                <ScalarProperty Name="No" ColumnName="No" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SyncFileLogs">
+            <EntityTypeMapping TypeName="CentralMDEntity.SyncFileLog">
+              <MappingFragment StoreEntitySet="SyncFileLog">
+                <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+                <ScalarProperty Name="SyncType" ColumnName="SyncType" />
+                <ScalarProperty Name="ErrorMsg" ColumnName="ErrorMsg" />
+                <ScalarProperty Name="Status" ColumnName="Status" />
+                <ScalarProperty Name="Folder" ColumnName="Folder" />
+                <ScalarProperty Name="Date" ColumnName="Date" />
+                <ScalarProperty Name="TableName" ColumnName="TableName" />
+                <ScalarProperty Name="FileName" ColumnName="FileName" />
+                <ScalarProperty Name="ID" ColumnName="ID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <edmx:Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </edmx:Connection>
+    <edmx:Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="True" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="True" />
+        <DesignerProperty Name="UseLegacyProvider" Value="False" />
+      </DesignerInfoPropertySet>
+    </edmx:Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

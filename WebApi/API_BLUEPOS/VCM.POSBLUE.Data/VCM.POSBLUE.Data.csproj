@@ -1,0 +1,583 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\EntityFramework.6.5.1\build\EntityFramework.props" Condition="Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.props')" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{521B2EE7-3381-47BE-8C46-FDB539DC7459}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>VCM.POSBLUE.Data</RootNamespace>
+    <AssemblyName>VCM.POSBLUE.Data</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\EntityFramework.6.5.1\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\EntityFramework.6.5.1\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.5.0.0\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=6.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.6.0.0\lib\net461\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Pipelines.Sockets.Unofficial, Version=1.0.0.0, Culture=neutral, PublicKeyToken=42ea0a778e13fbe2, processorArchitecture=MSIL">
+      <HintPath>..\packages\Pipelines.Sockets.Unofficial.2.2.8\lib\net461\Pipelines.Sockets.Unofficial.dll</HintPath>
+    </Reference>
+    <Reference Include="StackExchange.Redis, Version=2.0.0.0, Culture=neutral, PublicKeyToken=c219ff1ca8c2ce46, processorArchitecture=MSIL">
+      <HintPath>..\packages\StackExchange.Redis.2.8.0\lib\net461\StackExchange.Redis.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.DirectoryServices.AccountManagement" />
+    <Reference Include="System.IO.Compression, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Compression.4.3.0\lib\net46\System.IO.Compression.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Pipelines, Version=5.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Pipelines.5.0.1\lib\net461\System.IO.Pipelines.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.5.4\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.5.3\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.InteropServices.RuntimeInformation, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.InteropServices.RuntimeInformation.4.3.0\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Threading.Channels, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Channels.5.0.0\lib\net461\System.Threading.Channels.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Authen\LapConnection.cs" />
+    <Compile Include="Authen\LoginData.cs" />
+    <Compile Include="Common\CommonData.cs" />
+    <Compile Include="DataBaseContext\CentralGeneral.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralGeneral.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralGeneral.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralGeneral.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralMD.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMD.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralMD.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralMD.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMD.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\BussinessDateOpen.cs">
+      <DependentUpon>CentralSale.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\CentralSale.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSale.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\CentralSale.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSale.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\CentralSale.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSale.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\POSEOD_API.cs">
+      <DependentUpon>CentralSale.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\TransCpnVchIssue.cs">
+      <DependentUpon>CentralSale.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CentralSale\TransHeader.cs">
+      <DependentUpon>CentralSale.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CpnVchBOMCodeIssue.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CpnVchBOMHeader.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CpnVchBOMLine.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CpnVchCodeSend.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CXOfflinePercent.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CX_ExtraHeader.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CX_ExtraItemBill.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CX_LogAPI.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\CX_TransactionLoyalty.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\DCMStar.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DCMStar.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\DCMStar.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DCMStar.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\DCMStar.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DCMStar.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\ExtraHeader.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\ExtraItemBill.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LogAPI.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LogCommon.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LogSAP.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LogService.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LoyaltyEntity.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>LoyaltyEntity.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LoyaltyEntity.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\LoyaltyEntity.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>LoyaltyEntity.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\PLG\PLGContext.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLGContext.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\PLG\PLGContext.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLGContext.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\PLG\PLGContext.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLGContext.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\PLG\PL_VoucherCard.cs">
+      <DependentUpon>PLGContext.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\PLG\PL_VoucherCardTrans.cs">
+      <DependentUpon>PLGContext.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\PLG\VoucherCardLog.cs">
+      <DependentUpon>PLGContext.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\POSDataSetup.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\POSGiftInfo.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\POSTerminal.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\POSVersion.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\RewardCodeSend.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\Salary.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Salary.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\Salary.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Salary.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\Salary.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Salary.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\CentralSaleStaging.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSaleStaging.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\CentralSaleStaging.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\CentralSaleStaging.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSaleStaging.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\KIOS.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>KIOS.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\KIOS.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>KIOS.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\KIOS.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>KIOS.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\LogSaleKio.cs">
+      <DependentUpon>KIOS.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\TransBluePointOrig.cs">
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\TransDiscountEntry.cs">
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\TransHeaderOrig.cs">
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\TransHeaderStaging.cs">
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\TransLineOrig.cs">
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SaleStaging\TransPaymentEntry.cs">
+      <DependentUpon>CentralSaleStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\SignalStore.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\Store.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\StoreMapping.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\StoreNoMapping.cs">
+      <DependentUpon>CentralMD.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\StoreSetServer.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\TransactionLoyalty.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataBaseContext\VinIDOfflinePercent.cs">
+      <DependentUpon>LoyaltyEntity.tt</DependentUpon>
+    </Compile>
+    <Compile Include="LogServiceAPI\LogServiceData.cs" />
+    <Compile Include="Menu\MenuData.cs" />
+    <Compile Include="PLG\ConstStatus.cs" />
+    <Compile Include="PLG\PLGData.cs" />
+    <Compile Include="Redis\RedisConnect.cs" />
+    <Compile Include="Redis\RedisKeyConst.cs" />
+    <Compile Include="Redis\RedisSentinelData.cs" />
+    <Compile Include="Reposites\POSGiftInfoRepository.cs" />
+    <Compile Include="Salary\SalaryData.cs" />
+    <Compile Include="SAPData\SAPData.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ServerIPConnection.cs" />
+    <Compile Include="VINID\VinIDData.cs" />
+    <Compile Include="WriteLog\SyncFileLogData.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.Config">
+      <SubType>Designer</SubType>
+    </None>
+    <EntityDeploy Include="DataBaseContext\LoyaltyEntity.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>LoyaltyEntity.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="DataBaseContext\CentralGeneral.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralGeneral.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="DataBaseContext\CentralGeneral.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralGeneral.Context.cs</LastGenOutput>
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\CentralGeneral.edmx.diagram">
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\CentralGeneral.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralGeneral.cs</LastGenOutput>
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="DataBaseContext\DCMStar.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>DCMStar.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="DataBaseContext\CentralSale\CentralSale.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralSale.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="DataBaseContext\CentralMD.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralMD.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="DataBaseContext\CentralMD.edmx.diagram">
+      <DependentUpon>CentralMD.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\CentralSale\CentralSale.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSale.Context.cs</LastGenOutput>
+      <DependentUpon>CentralSale.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\CentralSale\CentralSale.edmx.diagram">
+      <DependentUpon>CentralSale.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\CentralSale\CentralSale.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSale.cs</LastGenOutput>
+      <DependentUpon>CentralSale.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\DCMStar.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>DCMStar.Context.cs</LastGenOutput>
+      <DependentUpon>DCMStar.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\DCMStar.edmx.diagram">
+      <DependentUpon>DCMStar.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\DCMStar.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>DCMStar.cs</LastGenOutput>
+      <DependentUpon>DCMStar.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\LoyaltyEntity.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>LoyaltyEntity.Context.cs</LastGenOutput>
+      <DependentUpon>LoyaltyEntity.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\LoyaltyEntity.edmx.diagram">
+      <DependentUpon>LoyaltyEntity.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\LoyaltyEntity.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>LoyaltyEntity.cs</LastGenOutput>
+      <DependentUpon>LoyaltyEntity.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="DataBaseContext\PLG\PLGContext.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PLGContext.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="DataBaseContext\PLG\PLGContext.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLGContext.Context.cs</LastGenOutput>
+      <DependentUpon>PLGContext.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\PLG\PLGContext.edmx.diagram">
+      <DependentUpon>PLGContext.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\PLG\PLGContext.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLGContext.cs</LastGenOutput>
+      <DependentUpon>PLGContext.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="DataBaseContext\SaleStaging\CentralSaleStaging.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralSaleStaging.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="DataBaseContext\Salary.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>Salary.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="DataBaseContext\Salary.edmx.diagram">
+      <DependentUpon>Salary.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\SaleStaging\CentralSaleStaging.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSaleStaging.Context.cs</LastGenOutput>
+      <DependentUpon>CentralSaleStaging.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\SaleStaging\CentralSaleStaging.edmx.diagram">
+      <DependentUpon>CentralSaleStaging.edmx</DependentUpon>
+    </None>
+    <None Include="DataBaseContext\SaleStaging\CentralSaleStaging.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSaleStaging.cs</LastGenOutput>
+      <DependentUpon>CentralSaleStaging.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="DataBaseContext\SaleStaging\KIOS.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>KIOS.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="DataBaseContext\SaleStaging\KIOS.edmx.diagram">
+      <DependentUpon>KIOS.edmx</DependentUpon>
+    </None>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DataBaseContext\CentralMD.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralMD.Context.cs</LastGenOutput>
+      <DependentUpon>CentralMD.edmx</DependentUpon>
+    </Content>
+    <Content Include="DataBaseContext\CentralMD.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralMD.cs</LastGenOutput>
+      <DependentUpon>CentralMD.edmx</DependentUpon>
+    </Content>
+    <Content Include="DataBaseContext\Salary.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Salary.Context.cs</LastGenOutput>
+      <DependentUpon>Salary.edmx</DependentUpon>
+    </Content>
+    <Content Include="DataBaseContext\Salary.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Salary.cs</LastGenOutput>
+      <DependentUpon>Salary.edmx</DependentUpon>
+    </Content>
+    <Content Include="DataBaseContext\SaleStaging\KIOS.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>KIOS.Context.cs</LastGenOutput>
+      <DependentUpon>KIOS.edmx</DependentUpon>
+    </Content>
+    <Content Include="DataBaseContext\SaleStaging\KIOS.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>KIOS.cs</LastGenOutput>
+      <DependentUpon>KIOS.edmx</DependentUpon>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\API_Common\TCX.API.Common.csproj">
+      <Project>{F7EFB675-5E0A-4111-A310-352F6EAE7F89}</Project>
+      <Name>TCX.API.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\VCM.POSBLUE.Model\VCM.POSBLUE.Model.csproj">
+      <Project>{9c332dd8-f9f9-4a31-8520-307939fcee5a}</Project>
+      <Name>VCM.POSBLUE.Model</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.5.1\build\EntityFramework.props'))" />
+    <Error Condition="!Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.5.1\build\EntityFramework.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Extensions.Logging.Abstractions.6.0.0\build\Microsoft.Extensions.Logging.Abstractions.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Extensions.Logging.Abstractions.6.0.0\build\Microsoft.Extensions.Logging.Abstractions.targets'))" />
+  </Target>
+  <Import Project="..\packages\EntityFramework.6.5.1\build\EntityFramework.targets" Condition="Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" />
+  <Import Project="..\packages\Microsoft.Extensions.Logging.Abstractions.6.0.0\build\Microsoft.Extensions.Logging.Abstractions.targets" Condition="Exists('..\packages\Microsoft.Extensions.Logging.Abstractions.6.0.0\build\Microsoft.Extensions.Logging.Abstractions.targets')" />
+</Project>

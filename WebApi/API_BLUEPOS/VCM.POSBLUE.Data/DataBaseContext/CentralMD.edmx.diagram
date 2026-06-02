@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="d215aa64f6f94aaba4603c3d20a2ff8c" Name="Diagram1" >
+        <EntityTypeShape EntityType="CentralMD.CpnVchBOMCodeIssue" Width="1.5" PointX="0.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralMD.CpnVchBOMHeader" Width="1.5" PointX="2.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralMD.CpnVchBOMLine" Width="1.5" PointX="4.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralMD.CXOfflinePercent" Width="1.5" PointX="6.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralMD.POSDataSetup" Width="1.5" PointX="6.75" PointY="4.75" />
+        <EntityTypeShape EntityType="CentralMD.POSTerminal" Width="1.5" PointX="6.75" PointY="7.75" />
+        <EntityTypeShape EntityType="CentralMD.POSVersion" Width="1.5" PointX="8.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralMD.RewardCodeSend" Width="1.5" PointX="0.75" PointY="8.75" />
+        <EntityTypeShape EntityType="CentralMD.SignalStore" Width="1.5" PointX="2.75" PointY="8.75" />
+        <EntityTypeShape EntityType="CentralMD.Store" Width="1.5" PointX="8.75" PointY="4.75" />
+        <EntityTypeShape EntityType="CentralMD.StoreNoMapping" Width="1.5" PointX="10.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralMD.SysWebApi" Width="1.5" PointX="11.375" PointY="4" />
+        <EntityTypeShape EntityType="CentralMD.SysWebApiRoute" Width="1.5" PointX="13.625" PointY="4.5" />
+        <AssociationConnector Association="CentralMD.FK_AppCode_SysWebApi" />
+        <EntityTypeShape EntityType="CentralMD.CpnVchCodeSend" Width="1.5" PointX="3.375" PointY="11.75" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

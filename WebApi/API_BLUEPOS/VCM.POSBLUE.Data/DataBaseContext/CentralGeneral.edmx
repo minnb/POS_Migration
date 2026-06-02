@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="CentralGeneral.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="POSGiftInfo">
+          <Key>
+            <PropertyRef Name="GiftCode" />
+          </Key>
+          <Property Name="GiftCode" Type="varchar" MaxLength="30" Nullable="false" />
+          <Property Name="GiftType" Type="varchar" MaxLength="30" Nullable="false" />
+          <Property Name="GiftValue" Type="int" Nullable="false" />
+          <Property Name="GiftStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="PublishDate" Type="datetime" />
+          <Property Name="FromDate" Type="datetime" />
+          <Property Name="ToDate" Type="datetime" />
+          <Property Name="PosCreated" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CreatedTime" Type="datetime" />
+          <Property Name="PosUsed" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="UsedTime" Type="datetime" />
+        </EntityType>
+        <EntityType Name="StoreSetServer">
+          <Key>
+            <PropertyRef Name="StoreNo" />
+          </Key>
+          <Property Name="StoreNo" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ServerIP" Type="varchar" MaxLength="20" />
+          <Property Name="ServerRead" Type="varchar" MaxLength="50" />
+          <Property Name="Description" Type="nvarchar" MaxLength="500" />
+          <Property Name="Status" Type="bit" />
+        </EntityType>
+        <EntityContainer Name="CentralGeneralStoreContainer">
+          <EntitySet Name="POSGiftInfo" EntityType="Self.POSGiftInfo" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="StoreSetServer" EntityType="Self.StoreSetServer" Schema="dbo" store:Type="Tables" />
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" xmlns:cg="http://schemas.microsoft.com/ado/2006/04/codegeneration" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" Namespace="CentralGeneral" Alias="Self" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" annotation:UseStrongSpatialTypes="false">
+        <EntityContainer Name="CentralGeneralContainer" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="StoreSetServers" EntityType="CentralGeneral.StoreSetServer" />
+          <EntitySet Name="POSGiftInfoes" EntityType="CentralGeneral.POSGiftInfo" />
+        </EntityContainer>
+        <EntityType Name="StoreSetServer">
+          <Key>
+            <PropertyRef Name="StoreNo" />
+          </Key>
+          <Property Name="StoreNo" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ServerIP" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="Description" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="Status" Type="Boolean" />
+          <Property Name="ServerRead" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="POSGiftInfo">
+          <Key>
+            <PropertyRef Name="GiftCode" />
+          </Key>
+          <Property Name="GiftCode" Type="String" Nullable="false" MaxLength="30" FixedLength="false" Unicode="false" />
+          <Property Name="GiftType" Type="String" Nullable="false" MaxLength="30" FixedLength="false" Unicode="false" />
+          <Property Name="GiftValue" Type="Int32" Nullable="false" />
+          <Property Name="GiftStatus" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="PublishDate" Type="DateTime" Precision="3" />
+          <Property Name="FromDate" Type="DateTime" Precision="3" />
+          <Property Name="ToDate" Type="DateTime" Precision="3" />
+          <Property Name="PosCreated" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CreatedTime" Type="DateTime" Precision="3" />
+          <Property Name="PosUsed" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="UsedTime" Type="DateTime" Precision="3" />
+        </EntityType>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S">
+        <Alias Key="Model" Value="CentralGeneral" />
+        <Alias Key="Target" Value="CentralGeneral.Store" />
+        <EntityContainerMapping CdmEntityContainer="CentralGeneralContainer" StorageEntityContainer="CentralGeneralStoreContainer">
+          <EntitySetMapping Name="StoreSetServers">
+            <EntityTypeMapping TypeName="CentralGeneral.StoreSetServer">
+              <MappingFragment StoreEntitySet="StoreSetServer">
+                <ScalarProperty Name="ServerRead" ColumnName="ServerRead" />
+                <ScalarProperty Name="Status" ColumnName="Status" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="ServerIP" ColumnName="ServerIP" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="POSGiftInfoes">
+            <EntityTypeMapping TypeName="CentralGeneral.POSGiftInfo">
+              <MappingFragment StoreEntitySet="POSGiftInfo">
+                <ScalarProperty Name="UsedTime" ColumnName="UsedTime" />
+                <ScalarProperty Name="PosUsed" ColumnName="PosUsed" />
+                <ScalarProperty Name="CreatedTime" ColumnName="CreatedTime" />
+                <ScalarProperty Name="PosCreated" ColumnName="PosCreated" />
+                <ScalarProperty Name="ToDate" ColumnName="ToDate" />
+                <ScalarProperty Name="FromDate" ColumnName="FromDate" />
+                <ScalarProperty Name="PublishDate" ColumnName="PublishDate" />
+                <ScalarProperty Name="GiftStatus" ColumnName="GiftStatus" />
+                <ScalarProperty Name="GiftValue" ColumnName="GiftValue" />
+                <ScalarProperty Name="GiftType" ColumnName="GiftType" />
+                <ScalarProperty Name="GiftCode" ColumnName="GiftCode" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <edmx:Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </edmx:Connection>
+    <edmx:Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="True" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="True" />
+        <DesignerProperty Name="UseLegacyProvider" Value="False" />
+      </DesignerInfoPropertySet>
+    </edmx:Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>
