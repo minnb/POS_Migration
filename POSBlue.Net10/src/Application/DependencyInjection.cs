@@ -14,7 +14,15 @@ public static class DependencyInjection
     {
         services.AddScoped<ICommonService, CommonService>();
         services.AddScoped<ICXService, CXService>();
-        // TODO (các phase sau): đăng ký thêm các I[Feature]Service → [Feature]Service.
+        services.AddScoped<ILoyaltyService, LoyaltyService>();
+        services.AddScoped<IOfferService, OfferService>();
+        services.AddScoped<IValidateService, ValidateService>();
+        services.AddScoped<ISAPService, SAPService>();
+        services.AddScoped<IWinLifeService, WinLifeService>();
+        services.AddScoped<IVoucherService, VoucherService>();
+        services.AddScoped<IVinIdTopUpService, VinIdTopUpService>();
+        services.AddScoped<IPLGService, PLGService>();
+        services.AddScoped<IPaymentService, PaymentService>();
         return services;
     }
 }

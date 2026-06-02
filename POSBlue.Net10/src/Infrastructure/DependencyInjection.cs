@@ -26,6 +26,9 @@ public static class DependencyInjection
         // Repositories
         services.AddScoped<IPosTerminalRepository, PosTerminalRepository>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
+        services.AddScoped<ICommonRepository, CommonRepository>();
+        services.AddScoped<IOfferRepository, OfferRepository>();
+        services.AddScoped<IValidateRepository, ValidateRepository>();
 
         // Messaging (RabbitMQ + SMS)
         services.AddSingleton<Messaging.RabbitMqConnectionProvider>();
@@ -45,9 +48,18 @@ public static class DependencyInjection
         // HTTP keystone (partner API calls)
         services.AddHttpClient();
         services.AddScoped<IApiCallClient, Http.ApiCallClient>();
+        // SyncDataPos services
+        services.AddScoped<ISyncDataPosService, SyncDataPosService>();
+        services.AddScoped<ISyncDataToPosClient, LegacySyncDataToPosClient>();
+        services.AddScoped<IDataRawService, DataRawService>();
+        services.AddScoped<IWinpayService, Application.Services.WinpayService>();
 
-        // TODO (các phase sau): đăng ký thêm repositories, Redis (StackExchange.Redis),
-        // RestSharp clients, SOAP gateways tại đây.
+        // SAP / ROP
+        services.AddScoped<ISapVoucherClient, Gateways.SAP.SapVoucherSoapClient>();
+        services.AddScoped<IRopVoucherService, Services.RopVoucherService>();
+
+        // WinLife / WinCode
+        services.AddScoped<IWinCodeRepository, WinCodeRepository>();
 
         return services;
     }
