@@ -83,10 +83,73 @@ public class WinXHttpService : IWinXService
         }
     }
 
+    public async Task<(string? ResolvedCode, string Message)> ResolveDynamicVouchersAsync(string posNo, string voucher)
+    {
+        var dto = await _configService.GetByAppCodeAsync("WINX");
+        if (dto == null) return (null, "Không tìm thấy cấu hình WinX");
+
+        var apiRoute = dto.GetRoute("GetVoucherCapillary");
+        if (apiRoute == null) return (null, "Không tìm thấy route GetVoucherCapillary của WinX");
+
+        int timeout = int.TryParse(dto.Version, out int t) && t > 0 ? t : 10;
+
+        try
+        {
+            var body = JsonConvert.SerializeObject(new { dynamic_codes = new[] { voucher } });
+            var client = _httpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(dto.Host);
+            client.Timeout = TimeSpan.FromSeconds(timeout);
+
+            if (!string.IsNullOrEmpty(dto.UserName) && !string.IsNullOrEmpty(dto.Password))
+                client.DefaultRequestHeaders.TryAddWithoutValidation(dto.UserName.Trim(), dto.Password.Trim());
+
+            _logger.LogInformation("WinX ResolveDynamicVouchers posNo={PosNo} voucher={Voucher}", posNo, voucher);
+            using var content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync(apiRoute.Route, content);
+            var responseStr = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                return (null, $"Lỗi kết nối WinX HTTP {(int)response.StatusCode}");
+
+            var resp = JsonConvert.DeserializeObject<WinXDynamicVoucherResponse>(responseStr);
+            if (resp?.Status == 200 && resp.Data?.Data?.Count > 0)
+                return (resp.Data.Data[0].Capillary_voucher_code, voucher);
+
+            if (resp?.Data?.Errors?.Count > 0)
+                return (null, resp.Data.Errors[0].Error ?? "Không tìm thấy voucher");
+
+            return (null, $"Không tìm thấy voucher {voucher}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WinX ResolveDynamicVouchers failed voucher={Voucher}", voucher);
+            return (null, ex.Message);
+        }
+    }
+
     private sealed class WinxApiResponse
     {
         public int Status { get; set; }
         public string? Message { get; set; }
         public object? Data { get; set; }
+    }
+
+    private sealed class WinXDynamicVoucherResponse
+    {
+        public int Status { get; set; }
+        public WinXDynamicVoucherData? Data { get; set; }
+    }
+    private sealed class WinXDynamicVoucherData
+    {
+        public List<WinXDynamicVoucherItem>? Data { get; set; }
+        public List<WinXDynamicVoucherError>? Errors { get; set; }
+    }
+    private sealed class WinXDynamicVoucherItem
+    {
+        public string? Capillary_voucher_code { get; set; }
+    }
+    private sealed class WinXDynamicVoucherError
+    {
+        public string? Error { get; set; }
     }
 }

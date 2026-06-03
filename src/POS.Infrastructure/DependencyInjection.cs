@@ -2,9 +2,11 @@ using Microsoft.Extensions.DependencyInjection;
 using POS.Application.Common.Repositories;
 using POS.Application.Gift.Repositories;
 using POS.Application.Gift.Services;
+using POS.Application.Loyalty.Services;
 using POS.Application.Payment.Services;
 using POS.Application.Shared.Services;
 using POS.Infrastructure.External;
+using POS.Infrastructure.External.Capillary;
 using POS.Infrastructure.External.GotIT;
 using POS.Infrastructure.External.OneU;
 using POS.Infrastructure.External.Urbox;
@@ -34,6 +36,8 @@ public static class DependencyInjection
         services.AddScoped<IUrboxService, UrboxHttpService>();
         services.AddScoped<IGotITService, GotITHttpService>();
         services.AddScoped<IOneUService, OneUHttpService>();
+        services.AddScoped<ICapillaryCouponService, CapillaryHttpService>();
+        services.AddScoped<ILoyaltyCapillaryService, LoyaltyCapillaryHttpService>();
 
         return services;
     }

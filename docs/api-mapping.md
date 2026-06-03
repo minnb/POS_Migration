@@ -79,12 +79,12 @@
 | Method | Endpoint | Trạng thái | Ghi chú |
 |---|---|---|---|
 | POST | `api/v2/partner/voucher/check` | ✅ | Body có field Partner: URBOX/GOTIT/ONEU |
-| POST | `api/v2/partner/voucher/update-status` | ⬜ | Body có field Partner |
-| POST | `api/v2/partner/coupon/check` | ⬜ | Body có field Partner: CAP |
-| POST | `api/v2/partner/coupon/redeem` | ⬜ | Body có field Partner: CAP |
-| GET | `api/v2/partner/coupon/list/user` | ⬜ | Query: partner, storeNo, mobile, status |
-| GET | `api/v2/partner/coupon/detail` | ⬜ | Query: partner, storeNo, serialNo |
-| POST | `api/v2/partner/coupon/re-active` | ⬜ | Body có field Partner: CAP |
+| POST | `api/v2/partner/voucher/update-status` | ✅ | Body có field Partner: URBOX/GOTIT/ONEU |
+| POST | `api/v2/partner/coupon/check` | ✅ | Body có field Partner: CAP; WinX dynamic voucher (WDV...) tự resolve |
+| POST | `api/v2/partner/coupon/redeem` | ✅ | Body có field Partner: CAP |
+| GET | `api/v2/partner/coupon/list/user` | ✅ | Query: partner, storeNo, mobile, status |
+| GET | `api/v2/partner/coupon/detail` | ✅ | Query: partner, storeNo, serialNo |
+| POST | `api/v2/partner/coupon/re-active` | ✅ | Body có field Partner: CAP |
 
 ---
 
@@ -296,7 +296,7 @@
 |---|---|---|
 | Common | 20 | ✅ 18/20 (2 endpoint TODO) |
 | Loyalty (v2 + VINID) | 22 | ⬜ |
-| Payment (Partner Voucher) | 7 | ⬜ |
+| Payment (Partner Voucher) | 7 | ✅ 7/7 |
 | Voucher CrownX | 3 | ⬜ |
 | Gift | 2 | ✅ 2/2 |
 | Offer | 8 | ⬜ |

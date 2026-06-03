@@ -61,4 +61,41 @@ public class PartnerVoucherService : IPartnerVoucherService
                 });
         }
     }
+
+    public async Task<(int HttpStatus, ResultResponse Body)> UpdateStatusVoucherAsync(UpdateStatusVoucherPartnerRequest request)
+    {
+        _logger.LogInformation("UpdateStatusVoucher partner={Partner} store={StoreNo} orderNo={OrderNo}", request.Partner, request.StoreNo, request.OrderNo);
+
+        switch (request.Partner.ToUpper())
+        {
+            case "URBOX":
+                var urboxResult = await _urbox.PayCodeAsync(request);
+                _logger.LogInformation("UpdateStatusVoucher URBOX success={Success} message={Message}", urboxResult.Success, urboxResult.Message);
+                return urboxResult.Success
+                    ? (200, new ResultResponse { Status = 200, Message = urboxResult.Message, Data = urboxResult.Data, MessageTechnical = string.Empty })
+                    : (400, new ResultResponse { Status = 400, Message = urboxResult.Message, Data = urboxResult.Data, MessageTechnical = string.Empty });
+
+            case "GOTIT":
+                var gotItResult = await _gotIt.MarkUseMultipleAsync(request);
+                _logger.LogInformation("UpdateStatusVoucher GOTIT success={Success} message={Message}", gotItResult.Success, gotItResult.Message);
+                return gotItResult.Success
+                    ? (200, new ResultResponse { Status = 200, Message = gotItResult.Message, Data = gotItResult.Data, MessageTechnical = string.Empty })
+                    : (400, new ResultResponse { Status = 400, Message = gotItResult.Message, Data = gotItResult.Data, MessageTechnical = string.Empty });
+
+            case "ONEU":
+                var oneUResult = await _oneU.RedeemAsync(request);
+                _logger.LogInformation("UpdateStatusVoucher ONEU status={Status}", oneUResult.Status);
+                return (oneUResult.Status, oneUResult);
+
+            default:
+                _logger.LogWarning("UpdateStatusVoucher unknown partner={Partner}", request.Partner);
+                return (400, new ResultResponse
+                {
+                    Status = 400,
+                    Message = $"Tham số PartnerCode truyền vào không đúng {request.Partner}",
+                    Data = null,
+                    MessageTechnical = string.Empty
+                });
+        }
+    }
 }

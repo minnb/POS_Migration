@@ -116,6 +116,82 @@ public class OneUHttpService : IOneUService
         }
     }
 
+    public async Task<ResultResponse> RedeemAsync(UpdateStatusVoucherPartnerRequest request)
+    {
+        try
+        {
+            var dto = await _configService.GetByAppCodeAsync("ONEU");
+            if (dto == null)
+                return new ResultResponse { Status = 400, Message = "Không tìm thấy cấu hình ONEU", Data = null };
+
+            var merchantCode = dto.Description.Trim();
+
+            var tokenResult = await GetTokenAsync(dto);
+            if (!tokenResult.Success)
+                return new ResultResponse { Status = 400, Message = "Lỗi không lấy được token OneU", Data = null, MessageTechnical = tokenResult.Message };
+
+            decimal totalAmount = request.Items?.Sum(x => x.LineAmount) ?? 0;
+            var vouchers = request.SerialNo.Select(s => new
+            {
+                type = "VOUCHER",
+                serial = s.Code,
+                merchant_code = merchantCode
+            }).ToList<object>();
+
+            var bodyJson = JsonConvert.SerializeObject(new
+            {
+                usecase = "WCM",
+                invoice_no = request.OrderNo,
+                apply_items = vouchers,
+                checkout_data = new
+                {
+                    total_amount = totalAmount,
+                    id = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % int.MaxValue),
+                    merchant = new { code = merchantCode, name = "Wincommerce" },
+                    store = new { code = request.StoreNo, name = "" },
+                    money_sources = new[] { new { payment_method_code = "ZVID" } },
+                    order_details = new { code = request.OrderNo }
+                }
+            });
+
+            var redeemRoute = dto.GetRoute("Redeem");
+            if (redeemRoute == null)
+                return new ResultResponse { Status = 400, Message = "Không tìm thấy route Redeem của ONEU", Data = null };
+
+            var (rawResponse, httpStatus) = await CallApiAsync(dto, tokenResult.Message, "Redeem", request.PosNo, redeemRoute.Route, bodyJson);
+
+            if (string.IsNullOrEmpty(rawResponse))
+                return new ResultResponse { Status = 400, Message = $"{httpStatus}_{rawResponse}", Data = null };
+
+            var redeemResp = JsonConvert.DeserializeObject<RedeemResponseOneU>(rawResponse);
+            if (redeemResp?.Meta == null)
+                return new ResultResponse { Status = 400, Message = $"{httpStatus}_{rawResponse}", Data = null };
+
+            if (redeemResp.Meta.Code == 200 && httpStatus == 200 &&
+                redeemResp.Data != null && !string.IsNullOrEmpty(redeemResp.Data.Transaction_id))
+            {
+                var dataVouchers = request.SerialNo.Select(s => new DataVoucherPartnerResponse
+                {
+                    Status = "200",
+                    Code = s.Code,
+                    VoucherAmount = (int)(redeemResp.Data.Total_discount),
+                    Amount = (int)s.Amount,
+                    Msg = redeemResp.Data.Transaction_id
+                }).ToList();
+
+                return new ResultResponse { Status = 200, Message = rawResponse, Data = dataVouchers, MessageTechnical = null };
+            }
+
+            var errorMsg = $"Code {redeemResp.Meta.Code} - {redeemResp.Meta.Message}";
+            return new ResultResponse { Status = 400, Message = errorMsg, Data = null, MessageTechnical = rawResponse };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "OneUHttpService.RedeemAsync failed posNo={PosNo} orderNo={OrderNo}", request.PosNo, request.OrderNo);
+            return new ResultResponse { Status = 503, Message = ex.Message, Data = null, MessageTechnical = JsonConvert.SerializeObject(ex) };
+        }
+    }
+
     private async Task<(bool Success, string Message)> GetTokenAsync(SysWebApiDto dto)
     {
         if (_cache.TryGetValue<string>(TokenCacheKey, out var cached) && !string.IsNullOrEmpty(cached))
@@ -212,5 +288,15 @@ public class OneUHttpService : IOneUService
     {
         public string? Item_type { get; set; }
         public long Item_value { get; set; }
+    }
+    private sealed class RedeemResponseOneU
+    {
+        public MetaOneU? Meta { get; set; }
+        public RedeemDataOneU? Data { get; set; }
+    }
+    private sealed class RedeemDataOneU
+    {
+        public string? Transaction_id { get; set; }
+        public decimal Total_discount { get; set; }
     }
 }

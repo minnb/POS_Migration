@@ -103,6 +103,74 @@ public class GotITHttpService : IGotITService
         }
     }
 
+    public async Task<(bool Success, string Message, List<DataVoucherPartnerResponse>? Data)> MarkUseMultipleAsync(UpdateStatusVoucherPartnerRequest request)
+    {
+        var dto = await _configService.GetByAppCodeAsync("GOTIT");
+        if (dto == null)
+            return (false, "Không tìm thấy cấu hình GOTIT", null);
+
+        var version = (dto.Version ?? string.Empty).ToUpper();
+        var routeName = version == "V6" ? "MarkUseMultipleV6" : "MarkUseMultiple";
+        var apiRoute = dto.GetRoute(routeName);
+        if (apiRoute == null)
+            return (false, $"Không tìm thấy route GotIT {routeName}", null);
+
+        var environment = (_appConfig["GotIT:Environment"] ?? "PRD").ToUpper();
+        var pin = dto.Authorization + request.StoreNo;
+
+        decimal totalAmount = request.Items?.Sum(x => x.LineAmount) ?? 1100m;
+        var skusInfo = new List<(string Sku, decimal Price, decimal Qty)>();
+        if (request.Items?.Count > 0)
+        {
+            foreach (var item in request.Items)
+                skusInfo.Add((GetSku(item.Barcode, environment), item.UnitPrice, item.Qty));
+        }
+
+        var grouped = skusInfo
+            .GroupBy(x => x.Sku)
+            .Select(g => new { Sku = g.Key, Price = (int)g.First().Price, Quantity = g.Sum(x => x.Qty) })
+            .ToList<object>();
+
+        var bodyJson = JsonConvert.SerializeObject(new
+        {
+            pin,
+            codes = request.SerialNo.Select(x => x.Code).ToList(),
+            total_bill = totalAmount,
+            bill_number = request.OrderNo,
+            skip_reserved_when_mark_used = true,
+            skus_info = grouped
+        });
+
+        try
+        {
+            var response = await CallGotITApiAsync(dto.Host, apiRoute.Route, bodyJson);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var raw = await response.Content.ReadAsStringAsync();
+                var gotItResp = JsonConvert.DeserializeObject<GotITResponse>(raw);
+
+                if (gotItResp == null || gotItResp.Data == null)
+                    return (false, "Mã code không hợp lệ hoặc không đúng.", null);
+
+                if (!gotItResp.Success)
+                    return (false, gotItResp.Message_vi ?? "Voucher không hợp lệ", null);
+
+                return ValidateStatus(gotItResp, version);
+            }
+
+            var errContent = await response.Content.ReadAsStringAsync();
+            return (false, response.StatusCode.ToString(), new List<DataVoucherPartnerResponse>
+            {
+                new() { Code = string.Empty, Msg = errContent }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GotITHttpService.MarkUseMultipleAsync failed posNo={PosNo} orderNo={OrderNo}", request.PosNo, request.OrderNo);
+            return (false, ex.Message, null);
+        }
+    }
+
     private static string GetSku(string barcode, string environment)
         => environment == "PRD" ? barcode : "SKU" + barcode;
 
