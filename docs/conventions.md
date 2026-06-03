@@ -287,3 +287,66 @@ var now = _dateTimeService.Now; // hoặc .UtcNow tùy API cũ dùng gì
 // ❌ SAI — khó mock khi unit test
 var now = DateTime.Now;
 ```
+
+---
+
+## 9. 🔴 Cấu hình API Đối tác — Lấy từ DB, KHÔNG từ appsettings
+
+> **Rule tuyệt đối:** Mọi config để gọi API đối tác ngoài (URL, route, credentials, key...)
+> phải lấy từ bảng `SysWebApi` + `SysWebApiRoute` trong CentralMD DB thông qua
+> `ISysWebApiConfigService` — **KHÔNG** hardcode trong appsettings.json.
+
+### Pattern ĐÚNG
+
+```csharp
+// ✅ ĐÚNG — inject ISysWebApiConfigService
+public class UrboxHttpService : IUrboxService
+{
+    private readonly ISysWebApiConfigService _configService;
+
+    public async Task<...> CheckSerialAsync(...)
+    {
+        var dto = await _configService.GetByAppCodeAsync("URBOX");
+        if (dto == null) return (false, "Không tìm thấy cấu hình URBOX", null);
+
+        var apiRoute = dto.GetRoute("CheckCodeUrbox");
+        // Dùng dto.Host, dto.UserName, dto.Password, dto.PrivateKey...
+    }
+}
+```
+
+### Pattern SAI
+
+```csharp
+// ❌ SAI — dùng IConfiguration cho partner config
+public class UrboxHttpService : IUrboxService
+{
+    private readonly IConfiguration _config;
+
+    public async Task<...> CheckSerialAsync(...)
+    {
+        var host = _config["Urbox:Host"];       // ❌ SAI
+        var appId = _config["Urbox:AppId"];     // ❌ SAI
+    }
+}
+```
+
+### AppCode cho các đối tác đã biết
+
+| Đối tác | AppCode | Route Names |
+|---|---|---|
+| WinX | `WINX` | `PosPostTransactions` |
+| Urbox | `URBOX` | `CheckCodeUrbox`, `PayCodeUrbox` |
+| GotIT | `GOTIT` | `CheckMultiple`, `CheckMultipleV6`, `MarkUseMultiple`, `MarkUseMultipleV6` |
+| OneU | `ONEU` | `Token` (Notes=audience), `Estimate`, `Redeem` |
+| Capillary | `CAP` | *(cần xác nhận khi convert)* |
+| VinID | `VINID` | *(cần xác nhận khi convert)* |
+
+### Những gì VẪN lấy từ appsettings.json
+
+| Key | Lý do |
+|---|---|
+| `ConnectionStrings:*` | Config DB — do ops quản lý theo môi trường |
+| `BasicAuth:Username/Password` | Auth của API server này |
+| `GotIT:Environment` | Config môi trường deploy (`PRD`/`DEV`) — không phải partner config |
+| `Serilog:*` | Logging config |

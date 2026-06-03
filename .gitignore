@@ -23,12 +23,11 @@ bld/
 [Ll]og/
 Logs/
 logs/
-retail-hcm-service
 TCX.POS/src/TCX.POS.WebApi.Host/logs
 VCM.Partner.NET8/src/WebApi.Partner/logs
-WebApi/API_BLUEPOS/VCM.POSBLUE.API/Logs
-WebApi/API_POS_PLH/VCM.POSBLUE.API/Logs
-WebApi/API_BLUEPOS/VCM.POSBLUE.API/FTPBLUEPOS
+POS.Backend/API_BLUEPOS/VCM.POSBLUE.API/Logs
+POS.Backend/API_POS_PLH/VCM.POSBLUE.API/Logs
+POS.Backend/API_BLUEPOS/VCM.POSBLUE.API/FTPBLUEPOS
 
 # Visual Studio 2015 cache/options directory
 .vs/

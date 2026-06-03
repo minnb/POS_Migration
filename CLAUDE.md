@@ -5,6 +5,20 @@
 
 ---
 
+## 0. File bắt buộc đọc trước khi làm bất cứ việc gì
+
+| Thứ tự | File | Nội dung |
+|---|---|---|
+| 1 | `CLAUDE.md` | File này — kiến trúc và quy tắc tổng thể |
+| 2 | `docs/conventions.md` | Coding conventions chi tiết |
+| 3 | `docs/lessons-learned.md` | ⚠️ Các lỗi đã xảy ra — KHÔNG được lặp lại |
+| 4 | `docs/api-mapping.md` | Trạng thái tiến độ convert |
+
+> `docs/lessons-learned.md` là file **quan trọng nhất sau CLAUDE.md**.
+> Mọi rule trong đó đều từ lỗi thực tế — bỏ qua sẽ lặp lại lỗi cũ.
+
+---
+
 ## 1. Bối cảnh dự án
 
 Dự án này là phiên bản mới của hệ thống **POS Backend API** cho chuỗi siêu thị bán lẻ tạp hóa.
@@ -211,6 +225,30 @@ throw new PosNotFoundException("POS_LOY_001", $"Không tìm thấy hội viên {
 - ❌ `Thread.Sleep` → dùng `await Task.Delay`
 - ❌ `WebClient` → dùng `IHttpClientFactory`
 
+### 4.7 🔴 Cấu hình API Đối tác — PHẢI lấy từ DB qua ISysWebApiConfigService
+
+> **Đây là lỗi đã xảy ra thực tế.** Xem chi tiết tại `docs/lessons-learned.md` mục 2026-06-03.
+
+Trong hệ thống cũ, **toàn bộ** config để gọi API bên ngoài (URL, route, credentials, key...)
+được lưu trong 2 bảng CentralMD DB:
+- `SysWebApi` — host, version, credentials, keys, description...
+- `SysWebApiRoute` — endpoint paths và notes theo từng AppCode
+
+**KHÔNG** lưu partner config trong appsettings.json.
+**LUÔN** dùng `ISysWebApiConfigService` để lấy config:
+
+```csharp
+// ✅ ĐÚNG
+var dto = await _configService.GetByAppCodeAsync("URBOX");
+var route = dto.GetRoute("CheckCodeUrbox");
+// Dùng dto.Host, dto.UserName, dto.Password, dto.PrivateKey...
+
+// ❌ SAI — TỰ Ý dùng IConfiguration cho partner config
+var host = _config["Urbox:Host"];  // host cần lấy từ DB, không phải appsettings
+```
+
+Chỉ được dùng `IConfiguration` cho: ConnectionStrings, BasicAuth, GotIT:Environment, Serilog.
+
 ---
 
 ## 5. Naming Conventions
@@ -337,3 +375,4 @@ Trước khi báo "xong" một module, Claude phải tự kiểm tra:
 - [ ] Không có hardcode string (connection string, URL, key)?
 - [ ] Đã đăng ký DI trong `Program.cs` hoặc `DependencyInjection.cs`?
 - [ ] Đã cập nhật `docs/api-mapping.md` đánh dấu ✅ endpoint vừa hoàn thành?
+- [ ] 🔴 Nếu module gọi API bên ngoài: config (URL/route/key) lấy từ `ISysWebApiConfigService` (DB), **không** lấy từ `IConfiguration` (appsettings)?
