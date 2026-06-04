@@ -1,5 +1,10 @@
 # Loyalty — Convert `GET api/v2/loyalty/customer/get`
 
+> File này là **template đại diện** cho toàn bộ module Loyalty.
+> Kiến trúc và pattern ở đây áp dụng cho tất cả endpoint Loyalty còn lại.
+
+---
+
 ## 1. Phân tích endpoint (code cũ)
 
 ### Route & Parameters
@@ -72,7 +77,7 @@ LoyaltyController.GetCustomerDetail()
   │       │   - PointsSummaries = [] [stub]
   │       │   - Status = "Hoạt động", System = "CAP"
   │       │
-  │       ├─ Redis HashSet: cache InfoMemberModel theo phone
+  │       ├─ Redis: cache InfoMemberModel theo phone key
   │       │
   │       └─ Handle error:
   │           408/timeout → GetMemberInfoOfflineSwitch()
@@ -145,84 +150,150 @@ LoyaltyController.GetCustomerDetail()
 | GetOtherStatusLoyalty | WinScore/WinMoney status | Return `null` |
 | GetProgramPointsSummaries | Tóm tắt điểm theo chương trình | Return `[]` |
 
+---
+
+## 2. Kiến trúc project mới (đã tối ưu)
+
+### So sánh số tầng gọi
+
+| | Code cũ | Project mới |
+|---|---|---|
+| Tầng 1 | `LoyaltyController` | `LoyaltyController` |
+| Tầng 2 | `LoyaltyService` (business logic, 1300+ dòng) | `LoyaltyService` (business logic + mapping) |
+| Tầng 3 | `LoyaltyCapillaryService` (auth token, logging) | `LoyaltyCapillaryHttpService` ← **gộp tầng 3+4 cũ** |
+| Tầng 4 | `CapillaryService` (HTTP call sync) | *(đã gộp vào tầng 3)* |
+| DI | `new()` trực tiếp — không testable | Constructor injection toàn bộ |
+
+**Kết quả: giảm từ 4 tầng → 2 tầng hiệu quả.**
+
+### Sơ đồ call flow mới
+
+```
+LoyaltyController
+  → ILoyaltyService
+    → ILoyaltyCapillaryService  (→ LoyaltyCapillaryHttpService: HTTP + auth + logging)
+    → IDistributedCache          (Redis offline cache — dùng interface built-in .NET)
+    → ISysWebApiConfigService    (lấy config Capillary từ DB)
+```
+
+### Lý do dùng `IDistributedCache` thay vì `IRedisService` tùy chỉnh
+
+Code cũ dùng `RedisManager` với hash operations. Project mới chỉ cần key-value:
+- Check offline flag: `await _cache.GetStringAsync("IsOfflineCapillary")`
+- Cache member: `await _cache.SetStringAsync("BLUEPOS:Loyalty:{phone}", json, options)`
+- Get cached: `await _cache.GetStringAsync("BLUEPOS:Loyalty:{phone}")`
+
+`IDistributedCache` là standard .NET interface → mockable trong test, không cần tạo thêm 4 file
+(`IRedisService`, `RedisService`, `ILoyaltyOfflineService`, `LoyaltyOfflineService`).
+
 ### Những gì đã có trong project mới (tái sử dụng)
 
 | Component | File | Dùng cho |
 |---|---|---|
+| `ILoyaltyCapillaryService` | `POS.Application/Loyalty/Services/` | Interface 9 methods Capillary |
+| `LoyaltyCapillaryHttpService` | `POS.Infrastructure/External/Capillary/` | HTTP call + auth token + logging (✅ đã impl) |
 | `ISysWebApiConfigService` | `POS.Application/Shared/Services/` | Lấy config Capillary từ DB |
 | `SysWebApiDto` | `POS.Application/Shared/DTOs/` | DTO config với `GetRoute()` |
-| `CapillaryHttpService` | `POS.Infrastructure/External/Capillary/` | Pattern HTTP call, token gen, phone format |
-| `ResultResponse` | `POS.Shared/Models/` | Response wrapper |
+| `CapCustomerDtos.cs` (và 4 file Capillary DTOs) | `POS.Application/Loyalty/DTOs/Capillary/` | DTO phản hồi từ Capillary API |
+| `ResultResponse` | `POS.Shared/Models/` | Response wrapper `{Status, Message, Data, MessageTechnical}` |
 | `BasicAuthFilter` | `POS.API/Filters/` | Authentication |
 
 ---
 
-## 2. Checklist chuyển đổi
+## 3. Checklist chuyển đổi
 
 ### Phase 1 — DTOs & Contracts
 - [ ] **[DTO-1]** `POS.Application/Loyalty/DTOs/GetCustomerRequest.cs`
-  - Fields: NumberCard, PosId, StoreNo, ClubCode, IsMobile, IsLog
+  - Fields: `NumberCard`, `PosId`, `StoreNo`, `ClubCode` (default ""), `IsMobile` (default false), `IsLog` (default true)
 - [ ] **[DTO-2]** `POS.Application/Loyalty/DTOs/InfoMemberResponse.cs`
-  - 30+ fields khớp 100% với `InfoMemberModel` cũ
-  - Sub-classes: ExtendedFieldItem, BLUEAvailablePromotion, MemberBusinessData, ProgramPointData
-- [x] **[DTO-3]** `POS.Application/Loyalty/DTOs/Capillary/` ✅ — 5 files:
-  - `CapCommonDtos.cs` — CapStatusCode, CapItemStatus, CapErrorResponse, CapServerError, CapIdentifier, CapFieldItem, CapCustomFields, CapExtendedFields
-  - `CapCustomerDtos.cs` — CapGetCustomerResponse + full nested types, CapCustomerRegistration, CapCustomerUpdate, CapLedgerResponse
-  - `CapTransactionDtos.cs` — CapAddTransactionRequest, CapAddTransactionResponse, CapLineItem, CapPaymentMode, CapRawSideEffect
-  - `CapPointsDtos.cs` — CapPointsRedeemRequest/Response, CapPointReverseRequest/Response, CapPointRedeemableResponse
-  - `CapRedemptionDtos.cs` — CapRedemptionResponse, CapRedemptionStatus, CapRedemptionData
+  - 30+ fields khớp 100% với JSON response mẫu ở mục 1
+  - Sub-classes: `BLUEAvailablePromotion`, `MemberBusinessData`, `ExtendedFieldItem`, `ProgramPointData`
+- [x] **[DTO-3]** `POS.Application/Loyalty/DTOs/Capillary/` ✅ — 5 files đã có:
+  - `CapCommonDtos.cs`, `CapCustomerDtos.cs`, `CapTransactionDtos.cs`, `CapPointsDtos.cs`, `CapRedemptionDtos.cs`
 - [ ] **[VAL-1]** `POS.Application/Loyalty/Validators/GetCustomerRequestValidator.cs`
-  - NumberCard: NotEmpty, MinimumLength(9)
-  - PosId, StoreNo: NotEmpty
+  - `NumberCard`: NotEmpty, MinimumLength(9)
+  - `PosId`, `StoreNo`: NotEmpty
 
-### Phase 2 — Service Interfaces
-- [x] **[IF-1]** `POS.Application/Loyalty/Services/ILoyaltyCapillaryService.cs` ✅
-  - 9 methods: GetCustomerDetailAsync, CustomerRegistrationAsync, CustomerUpdateAsync, AddTransactionAsync, GetPointsLedgerAsync, PointsRedeemAsync, PointReverseAsync, PointsRedeemableAsync, RedemptionValidationDataAsync
-- [ ] **[IF-2]** `POS.Application/Loyalty/Services/ILoyaltyOfflineService.cs`
-  - `IsOfflineCapillaryAsync()` → bool
-  - `GetCachedMemberAsync(string phoneNumber)` → InfoMemberResponse?
-- [ ] **[IF-3]** `POS.Application/Loyalty/Services/ILoyaltyService.cs`
+### Phase 2 — Service Interface
+- [x] **[IF-1]** `POS.Application/Loyalty/Services/ILoyaltyCapillaryService.cs` ✅ — 9 methods
+- [ ] **[IF-2]** `POS.Application/Loyalty/Services/ILoyaltyService.cs`
   - `GetCustomerAsync(GetCustomerRequest request)` → `(int StatusCode, ResultResponse Body)`
-- [ ] **[IF-4]** `POS.Application/Shared/Services/IRedisService.cs`
-  - `HashGetAsync<T>()`, `HashSetAsync<T>()`, `StringGetAsync()`, `StringSetAsync()`
+  - *(Các endpoint Loyalty tiếp theo sẽ thêm method vào interface này)*
 
 ### Phase 3 — Infrastructure
-- [ ] **[INF-1]** Add NuGet `StackExchange.Redis` vào `POS.Infrastructure`
-- [ ] **[INF-2]** `POS.Infrastructure/Services/RedisService.cs`
-  - Implement `IRedisService` với `IConnectionMultiplexer`
-- [x] **[INF-3]** `POS.Infrastructure/External/Capillary/LoyaltyCapillaryHttpService.cs` ✅
-  - Implement `ILoyaltyCapillaryService` (9 methods, full async)
-  - Pattern: `CallAsync()`, `CreateToken()`, `ToLowerCaseJson()` (lowercase property names)
-  - PHONE: query by mobile, ID: query by id
-  - DI đã đăng ký trong `POS.Infrastructure/DependencyInjection.cs`
-- [ ] **[INF-4]** `POS.Infrastructure/Services/LoyaltyOfflineService.cs`
-  - Implement `ILoyaltyOfflineService` dùng `IRedisService`
-  - Key pattern: `BLUEPOS:Loyalty:{phone4chars}`, field = phoneNumber
+- [x] **[INF-1]** `POS.Infrastructure/External/Capillary/LoyaltyCapillaryHttpService.cs` ✅ — đã impl đủ 9 methods
+- [ ] **[INF-2]** Đăng ký Redis cache trong `POS.Infrastructure/DependencyInjection.cs`:
+  ```csharp
+  services.AddStackExchangeRedisCache(options =>
+      options.Configuration = configuration["Redis:ConnectionString"]);
+  ```
+- [ ] **[INF-3]** `appsettings.json` — thêm:
+  ```json
+  "Redis": { "ConnectionString": "localhost:6379" }
+  ```
 
 ### Phase 4 — Application Service
 - [ ] **[SVC-1]** `POS.Application/Loyalty/Services/LoyaltyService.cs`
-  - `DetermineMemberType(numberCard, isMobile)` → enum (PHONE/ID/WINCARE/WINX/NONE)
-  - `IsVINID(numberCard)` → bool
-  - PHONE/ID: full Capillary flow
-  - WINCARE/WINX: return 404 stub
-  - VINID: return 400 stub
-  - Offline fallback khi 408/5xx
-  - Map CapillaryResponse → InfoMemberResponse
-  - Redis cache sau khi lấy được data
+
+  **Inject:**
+  - `ILoyaltyCapillaryService _capillaryService`
+  - `ISysWebApiConfigService _configService`
+  - `IDistributedCache _cache`
+  - `ILogger<LoyaltyService> _logger`
+
+  **Logic `GetCustomerAsync`:**
+  ```
+  1. IsVINID(numberCard)  → return 400 stub
+  2. DetermineMemberType(numberCard, isMobile) → PHONE/ID/WINCARE/WINX/NONE
+  3. NONE                 → return 400 "Số thẻ không hợp lệ"
+  4. WINCARE/WINX         → return 404 stub
+  5. IsOffline = cache.GetString("IsOfflineCapillary") != null
+     → if true: return cached member từ cache.GetString("BLUEPOS:Loyalty:{phone}")
+  6. PHONE: format "+84xxx"
+  7. config = await _configService.GetByAppCodeAsync("CAPILLARY")
+  8. result = await _capillaryService.GetCustomerDetailAsync(config, ...)
+  9. 408/timeout → return cached offline data
+     5xx         → return (101, offline response)
+  10. Map CapGetCustomerResponse → InfoMemberResponse (30+ fields)
+  11. Cache: await _cache.SetStringAsync("BLUEPOS:Loyalty:{phone}", json, midnight TTL)
+  12. Return (200, ResultResponse { Status=200, Message="OK", Data=infoMember, MessageTechnical=clubCode })
+  ```
+
+  **Helper methods (private):**
+  - `DetermineMemberType(string numberCard, bool isMobile)` → enum `MemberCapillaryType`
+  - `IsVINID(string numberCard)` → bool
+  - `MapToInfoMemberResponse(CapCustomerData customer, string memberCsn, string appCode)` → InfoMemberResponse
 
 ### Phase 5 — Controller & DI
 - [ ] **[CTRL-1]** `POS.API/Controllers/LoyaltyController.cs`
-  - `[HttpGet("v2/loyalty/customer/get")]`
-  - Validate numberCard length >= 9 tại controller
-  - Map (statusCode, body) từ service → IActionResult
-- [ ] **[DI-1]** `POS.Application/DependencyInjection.cs` — đăng ký `ILoyaltyService`
-- [ ] **[DI-2]** `POS.Infrastructure/DependencyInjection.cs` — đăng ký Redis, `ILoyaltyCapillaryService`, `ILoyaltyOfflineService`
-- [ ] **[CFG-1]** `appsettings.json` — thêm section `Redis:ConnectionString`
+  ```csharp
+  [Route("api")]
+  public class LoyaltyController : ControllerBase
+  {
+      [HttpGet("v2/loyalty/customer/get")]
+      public async Task<IActionResult> GetCustomer(
+          [FromQuery] string numberCard, [FromQuery] string posID,
+          [FromQuery] string storeNo,   [FromQuery] string clubCode = "",
+          [FromQuery] bool isMobile = false, [FromQuery] bool isLog = true)
+  ```
+  - Validate `numberCard.Length >= 9` trước khi gọi service
+  - Map `(statusCode, body)` từ service → `StatusCode(statusCode, body)`
+
+- [ ] **[DI-1]** `POS.Application/DependencyInjection.cs` — đăng ký:
+  ```csharp
+  services.AddScoped<ILoyaltyService, LoyaltyService>();
+  ```
+
+- [ ] **[DI-2]** `POS.Infrastructure/DependencyInjection.cs` — xác nhận đã đăng ký:
+  ```csharp
+  services.AddScoped<ILoyaltyCapillaryService, LoyaltyCapillaryHttpService>();
+  // + AddStackExchangeRedisCache từ INF-2
+  ```
 
 ### Phase 6 — Verification
 - [ ] **[VRF-1]** `dotnet build` thành công không có warning/error
-- [ ] **[VRF-2]** Test PHONE type: gọi với SĐT hợp lệ → verify 30+ fields trong response JSON
-- [ ] **[VRF-3]** Test invalid: numberCard < 9 ký tự → verify 400 response
-- [ ] **[VRF-4]** Test offline: set Redis key `IsOfflineCapillary=1` → verify trả dữ liệu cached
-- [ ] **[VRF-5]** Test WINCARE stub → verify 404 response đúng message
+- [ ] **[VRF-2]** Test PHONE: SĐT 10 số, `isMobile=false` → response 30+ fields khớp JSON mẫu
+- [ ] **[VRF-3]** Test invalid: `numberCard` < 9 ký tự → HTTP 400
+- [ ] **[VRF-4]** Test WINCARE (12 ký tự, `isMobile=true`) → HTTP 404 stub
+- [ ] **[VRF-5]** Test offline: set Redis key `IsOfflineCapillary=1` → trả dữ liệu cached
 - [ ] **[DOC-1]** Cập nhật `docs/api-mapping.md` đánh dấu ✅ endpoint này

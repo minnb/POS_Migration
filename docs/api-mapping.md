@@ -50,7 +50,7 @@
 | Method | Endpoint | Trạng thái | Ghi chú |
 |---|---|---|---|
 | GET | `api/v2/loyalty/retry` | ⬜ | Retry giao dịch thất bại |
-| GET | `api/v2/loyalty/customer/get` | ⬜ | Query: numberCard, posID, storeNo, clubCode, isMobile |
+| GET | `api/v2/loyalty/customer/get` | ✅ | Query: numberCard, posID, storeNo, clubCode, isMobile |
 | POST | `api/v2/loyalty/customer` | ⬜ | Tạo/đăng ký hội viên |
 | POST | `api/v2/loyalty/customer/update` | ⬜ | Cập nhật thông tin hội viên |
 | POST | `api/v2/loyalty/transaction/add` | ⬜ | Tích điểm bán hàng |

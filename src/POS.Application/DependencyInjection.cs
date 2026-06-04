@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using POS.Application.Common.Services;
 using POS.Application.Gift.Services;
+using POS.Application.Loyalty.Services;
 using POS.Application.Payment.Services;
 
 namespace POS.Application;
@@ -13,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<ICommonService, CommonService>();
         services.AddScoped<IGiftService, GiftService>();
         services.AddScoped<IPartnerVoucherService, PartnerVoucherService>();
+        services.AddScoped<ILoyaltyService, LoyaltyService>();
 
         // FluentValidation — đăng ký tất cả validators trong assembly này
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
