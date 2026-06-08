@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 using TCX.API.Common.Helpers;
 using TCX.API.Common.Shared;
@@ -107,6 +108,35 @@ namespace TCX.WebApiCore.Shared
                 FileHelper.WriteExpLogs(result, ex);
                 return (result, Timeout, (int)HttpStatusCode.ServiceUnavailable);
             }
+        }
+        public string ToCurlCommand()
+        {
+            var sb = new StringBuilder();
+            sb.Append($"curl -X {WebMethod}");
+
+            if (Headers != null)
+            {
+                foreach (var item in Headers)
+                {
+                    sb.Append($" -H \"{item.Key}: {item.Value}\"");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(AccessToken))
+            {
+                sb.Append($" -H \"Authorization: {TokenType} {AccessToken}\"");
+            }
+
+            if ((WebMethod == "POST" || WebMethod == "PUT") && !string.IsNullOrEmpty(JsonData))
+            {
+                sb.Append(" -H \"Content-Type: application/json\"");
+                sb.Append($" -d '{JsonData}'");
+            }
+
+            var url = Host.TrimEnd('/') + Endpoints;
+            sb.Append($" \"{url}\"");
+
+            return sb.ToString();
         }
     }
 }

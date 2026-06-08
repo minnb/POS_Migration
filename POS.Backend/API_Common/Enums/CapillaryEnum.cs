@@ -30,7 +30,8 @@
         PHONE = 1,
         NONE = 2,
         WINCARE = 3,
-        WINX = 4
+        WINX = 4,
+        FMV = 5
     }
     public enum GenderEnum
     {

@@ -304,6 +304,13 @@
   <ItemGroup>
     <Compile Include="AppServices\Capillary\CouponCapillaryService.cs" />
     <Compile Include="AppServices\Capillary\LoyaltyOfflineService.cs" />
+    <Compile Include="AppServices\FMV\AkaChainHelper.cs" />
+    <Compile Include="AppServices\FMV\AkaChainLoyaltyService.cs" />
+    <Compile Include="AppServices\FMV\Dtos\AccessTokenData.cs" />
+    <Compile Include="AppServices\FMV\Dtos\AkaChainErrorResponse.cs" />
+    <Compile Include="AppServices\FMV\Dtos\GetMemberProfile.cs" />
+    <Compile Include="AppServices\FMV\Dtos\InputDataAsync.cs" />
+    <Compile Include="AppServices\FMV\Dtos\MemberInputDataAsyncResponse.cs" />
     <Compile Include="AppServices\Offer\MMLSchemeService.cs" />
     <Compile Include="AppServices\Offer\MemberPointsService.cs" />
     <Compile Include="AppServices\Partner\AQuaService.cs" />
@@ -435,10 +442,6 @@
     <ProjectReference Include="..\API_Common\TCX.API.Common.csproj">
       <Project>{f7efb675-5e0a-4111-a310-352f6eae7f89}</Project>
       <Name>TCX.API.Common</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\API_WebApi.WINX\TCX.WebApi.WINX.csproj">
-      <Project>{1df49c32-22dd-4b46-8f19-9f5b875bc1e0}</Project>
-      <Name>TCX.WebApi.WINX</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

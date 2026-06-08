@@ -26,5 +26,6 @@ namespace TCX.API.Common.Enums
         CAP = 10,
         ONEU = 11,
         WINX = 12,
+        FMV = 13,
     }
 }
