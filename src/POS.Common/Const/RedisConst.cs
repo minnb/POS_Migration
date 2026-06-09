@@ -1,4 +1,4 @@
-namespace VCM.POSBLUE.Common.Const;
+namespace POS.Common.Const;
 
 public static class RedisConst
 {

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace VCM.POSBLUE.Common.Helpers;
+namespace POS.Common.Helpers;
 
 public static class HostHelper
 {

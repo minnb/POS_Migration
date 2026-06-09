@@ -1,4 +1,4 @@
-namespace VCM.POSBLUE.Common.Helpers;
+namespace POS.Common.Helpers;
 
 public interface IFileLogHelper
 {

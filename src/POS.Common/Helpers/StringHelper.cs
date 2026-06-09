@@ -1,7 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
-namespace VCM.POSBLUE.Common.Helpers;
+namespace POS.Common.Helpers;
 
 public static class StringHelper
 {

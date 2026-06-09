@@ -150,3 +150,15 @@ public class OtherStatusUpdate
     public string PosNo { get; set; } = string.Empty;
     public string? CashierID { get; set; }
 }
+
+public class StoreMappingModel
+{
+    public int ID { get; set; }
+    public string? OldTerminalID { get; set; }
+    public string? OldStoreID { get; set; }
+    public string? OldVinPayTerminalID { get; set; }
+    public string? OldVinPayStoreID { get; set; }
+    public string? NewTerminalID { get; set; }
+    public string? NewStoreID { get; set; }
+    public DateTime? CreatedDate { get; set; }
+}

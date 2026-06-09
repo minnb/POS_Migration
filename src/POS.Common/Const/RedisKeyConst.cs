@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
-using VCM.POSBLUE.Common.Helpers;
+using POS.Common.Helpers;
 
-namespace VCM.POSBLUE.Common.Const;
+namespace POS.Common.Const;
 
 public static class RedisKeyConst
 {

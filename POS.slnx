@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/POS.Api/POS.Api.csproj" />
+    <Project Path="src/POS.Application/POS.Application.csproj" />
     <Project Path="src/POS.Common/POS.Common.csproj" />
     <Project Path="src/POS.Infrastructure/POS.Infrastructure.csproj" />
   </Folder>

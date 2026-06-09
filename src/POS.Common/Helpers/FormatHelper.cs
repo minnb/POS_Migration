@@ -1,6 +1,6 @@
 using POS.Common.Enums;
 
-namespace VCM.POSBLUE.Common.Helpers;
+namespace POS.Common.Helpers;
 
 public static class FormatHelper
 {

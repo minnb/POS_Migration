@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace VCM.POSBLUE.Common.Helpers;
+namespace POS.Common.Helpers;
 
 public static class DateTimeHelper
 {

@@ -3,7 +3,41 @@
 ## Dự án
 Migrate POS.API từ .NET Framework 4.6 → .NET 10.
 - Source cũ: `POS.Backend/API_Common/` và `POS.Backend/API_BLUEPOS/`
-- Shared models/DTOs mới: `src/POS.Common/`
+- Solution mới: `POS.slnx`
+
+## Cấu trúc Solution (Clean Architecture)
+
+```
+src/
+├── POS.Common/          DTOs, Enums, ResultResponse  (Domain models)
+├── POS.Infrastructure/  Repositories, Redis, RabbitMQ (Infrastructure)
+├── POS.Application/     Services, Interfaces          (Application/Business logic)
+└── POS.Api/             Controllers, Filters          (Presentation)
+```
+
+**Dependency flow:**
+```
+POS.Api → POS.Application → POS.Infrastructure → POS.Common
+POS.Api → POS.Infrastructure (DI registration)
+POS.Api → POS.Common
+```
+
+### POS.Application — quy tắc
+- Namespace: `POS.Application.Interfaces` và `POS.Application.Services`
+- Interface service: `I{Name}Service` trong `Interfaces/`
+- Implementation: `{Name}Service` trong `Services/`
+- Service inject repository interface (từ `POS.Infrastructure.Repositories.Interfaces`)
+- Service inject `IRedisService` (từ `POS.Infrastructure.Redis`)
+- Service inject `IRabbitMQProducer` (từ `POS.Infrastructure.Messaging`)
+- **KHÔNG** inject concrete class (chỉ inject interface)
+
+### POS.Infrastructure — quy tắc
+- Repositories: `src/POS.Infrastructure/Repositories/`
+- Interfaces repository: `src/POS.Infrastructure/Repositories/Interfaces/`
+- Redis: `src/POS.Infrastructure/Redis/` (IRedisService, RedisService)
+- Redis internals: `src/POS.Infrastructure/Cache/` (IRedisManager, RedisManager, RedisOptions)
+- Messaging: `src/POS.Infrastructure/Messaging/` (IRabbitMQProducer, RabbitMQProducer)
+- DB Factories: `src/POS.Infrastructure/Database/`
 
 ---
 

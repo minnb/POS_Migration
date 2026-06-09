@@ -82,3 +82,20 @@ public class WincodeResult
     public string? DiscountType { get; set; }
     public string? MerchantId { get; set; }
 }
+
+public class AppliedCodeRequest
+{
+    public string? winCode { get; set; }
+    public int quantity { get; set; }
+}
+
+public class WinLife_UpdatePromotions_POS_Request
+{
+    public string? csn { get; set; }
+    public string? action { get; set; }
+    public string? storeCode { get; set; }
+    public string? posCode { get; set; }
+    public string? phoneNumber { get; set; }
+    public string? orderNo { get; set; }
+    public List<AppliedCodeRequest>? appliedCodes { get; set; }
+}
