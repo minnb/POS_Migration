@@ -1,3 +1,4 @@
+using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
 
 namespace POS.Infrastructure.Repositories.Interfaces;
@@ -10,4 +11,5 @@ public interface ICentralMDRepository
     Task<LoyaltyRateDto?> GetLoyaltyRateDataAsync(string code, CancellationToken ct = default);
     Task<List<string>?> GetSyncTableListAsync(CancellationToken ct = default);
     Task<ItemPointsMemberDto?> GetItemPointsMemberAsync(string pointsCode, string itemNo, string uom, CancellationToken ct = default);
+    Task<SysWebApiDto?> GetSysWebApiAsync(string appCode, CancellationToken ct = default);
 }

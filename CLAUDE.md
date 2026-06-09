@@ -114,3 +114,125 @@ src/POS.Common/
 ## Thêm DTO mới: dùng lệnh `/add-dto`
 
 Xem `.claude/commands/add-dto.md` để biết cách dùng.
+
+---
+
+## Quy tắc Cache — Redis StandAlone (BẮT BUỘC)
+
+> **Chi tiết đầy đủ: `.claude/skills/cache/SKILLS.md`** — đọc file này trước khi migrate bất kỳ function nào dùng cache.
+
+### Nguyên tắc cốt lõi
+
+Dự án cũ dùng IIS `MemoryCacheService` → dự án mới **BẮT BUỘC** dùng `IRedisService` (Redis StandAlone).
+Mọi nơi code cũ gọi `_memoryCacheService.GetCache<T>(...)`, `GetSysWebApi()`, `GetLoyaltyRateData()`... → phải có Redis cache tương ứng trong project mới.
+
+### Nơi đặt cache logic
+
+| Loại data | Nơi cache | Interface |
+|---|---|---|
+| Master data từ DB (SysWebApi, stores, rates…) | `CentralMDRepository` hoặc `LoyaltyRepository` | Thêm method vào `ICentralMDRepository` / `ILoyaltyRepository` |
+| OAuth2 token của external API | `{Name}AppService` trong `POS.Infrastructure/AppServices/` | Inject `IRedisService` trực tiếp |
+| KHÔNG cache config trong Application/Service layer | — | — |
+
+### Redis key convention
+
+- Master data: `MD:{TableName}` — Hash (field = code/appCode) hoặc String (full list)
+- OAuth token: `{Partner}:{Service}:AccessToken` — StringRaw
+
+### TTL
+
+- Config tĩnh (SysWebApi, CardLevel, Store...): `43200s` (12h)
+- Rate/price data: `3600s` (1h)
+- Short-lived (ItemPointsMember): `360s`
+- OAuth token: `expires_in - 60s` (từ response)
+- **KHÔNG** dùng no-TTL trong production
+
+### Pattern bắt buộc trong Repository
+
+```csharp
+// Hash pattern (lookup theo code)
+var cached = redis.HashGet<T>(KEY, field);
+if (cached != null) return cached;
+var data = await QueryFirstOrDefaultAsync<T>(sql, params, ct: ct);
+if (data != null) redis.HashSet(KEY, field, data, ttlSeconds: 43200);
+return data;
+
+// String pattern (full list)
+var cached = await redis.StringGetAsync<List<T>>(KEY);
+if (cached?.Count > 0) return cached;
+var data = (await QueryAsync<T>(sql, ct: ct)).ToList();
+if (data.Count > 0) redis.StringSet(KEY, data, ttlSeconds: 43200);
+return data;
+```
+
+### Checklist khi gặp MemoryCacheService trong code cũ
+
+1. Tra bảng mapping MemoryCacheConst → Redis key trong `.claude/skills/cache/SKILLS.md`
+2. Thêm method vào `ICentralMDRepository` nếu chưa có
+3. Implement theo pattern Hash hoặc String với TTL
+4. AppService/Service gọi qua Repository — KHÔNG gọi Redis trực tiếp (trừ token)
+
+---
+
+## Quy tắc migrate Controller — Rút ra từ thực tế
+
+### A. DI Registration — BẮT BUỘC sau mỗi interface mới
+
+Mỗi khi tạo `I{Name}Service` mới trong `POS.Application/Interfaces/`:
+1. Tạo stub hoặc implementation trong `POS.Application/Services/` (hoặc `POS.Infrastructure/` nếu cần HTTP client / DB)
+2. **Đăng ký ngay** trong `src/POS.Application/DependencyInjection.cs`:
+   ```csharp
+   services.AddScoped<I{Name}Service, {Name}Service>();
+   ```
+3. Nếu chưa implement thật, dùng stub trả `HttpStatusCode.NotImplemented` — KHÔNG throw exception.
+
+> **Lý do**: Quên đăng ký DI → `InvalidOperationException` lúc runtime, không phải lúc build.
+
+### B. ModelState Validation — `ValidateModelFilter` đã xử lý global
+
+`Program.cs` đã cấu hình `SuppressModelStateInvalidFilter = true` để `ValidateModelFilter` kiểm soát hoàn toàn format response (trả `ResultResponse`, không phải ASP.NET problem-details).
+
+**Hệ quả quan trọng khi migrate controller**:
+- `ValidateModelFilter` chạy **trước** action method → `if (!ModelState.IsValid) return ExceptionModels()` trong action là **dead code** (không bao giờ được gọi).
+- Vẫn có thể giữ dòng đó cho an toàn, nhưng không cần thiết.
+- **TUYỆT ĐỐI KHÔNG** thêm `services.Configure<ApiBehaviorOptions>(o => o.SuppressModelStateInvalidFilter = false)` — sẽ phá vỡ contract.
+
+### C. NullValueHandling.Ignore — Data: null bị omit
+
+`Program.cs` cấu hình `NullValueHandling = NullValueHandling.Ignore`.
+- Khi `ResultResponse.Data = null` → field `"Data"` bị bỏ qua trong JSON output.
+- POS machines không nhận `"Data": null` mà nhận response không có field `Data`.
+- Đây là behavior intentional (giảm bandwidth). **Không thay đổi**.
+
+### D. Return type khi service trả ResultResponse
+
+Nếu service trả `ResultResponse` (không phải plain data), KHÔNG dùng `OkResult(result)` — sẽ double-nest.
+
+Dùng:
+```csharp
+// Khi HTTP status = service status (dynamic)
+return StatusCode((int)result.Status, result);
+
+// Khi HTTP status luôn 200 (như RefundTransaction cũ)
+return Ok(result);
+
+// Khi cần tùy chỉnh field (như GetCustomerDetail đặt clubCode vào MessageTechnical)
+return StatusCode((int)status, new ResultResponse { Data = ..., Message = ..., Status = ..., MessageTechnical = ... });
+```
+
+`OkResult(data)` chỉ dùng khi `data` là object thuần (không phải `ResultResponse`).
+
+### E. Helpers cũ không có trong POS.Common mới
+
+Các helper sau **không tồn tại** trong `src/POS.Common/Helpers/` — inline trực tiếp:
+
+| Helper cũ | Logic inline | Ghi chú |
+|---|---|---|
+| `NumberHelper.IsPhoneNumber(phone)` | `phone.Length >= 9 && phone.Length <= 11 && phone.All(char.IsDigit)` | Thêm `// TODO: extract to helper` |
+| `LoyaltyHelper.MessageNotValidPhone(phone)` | `$"Số thẻ {phone} không hợp lệ"` | |
+| `FormatHelper.PhoneNumberVietNam(phone)` | Chưa có trong mới | Cần tạo nếu dùng |
+| `FileHelper.WriteExpLogs(...)` | → `_fileLogHelper.WriteExpLogs(...)` | Đã có `IFileLogHelper` |
+
+### F. Swagger chưa được cấu hình
+
+`Program.cs` chưa có `AddSwaggerGen()` / `UseSwagger()`. Route test dùng curl trực tiếp.

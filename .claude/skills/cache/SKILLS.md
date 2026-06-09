@@ -1,0 +1,204 @@
+# Skill: Redis Cache Pattern — thay thế IIS MemoryCache
+
+> **Áp dụng khi:** migrate bất kỳ function nào gọi `_memoryCacheService.GetSysWebApi()`,
+> `_memoryCacheService.GetCache<T>()`, `_memoryCacheService.GetLoyaltyRateData()`,
+> hoặc bất kỳ phương thức nào đọc từ IIS MemoryCache trong dự án cũ.
+
+---
+
+## Quy tắc cốt lõi
+
+**Dự án cũ** dùng IIS `MemoryCache` (in-process, reset khi recycle IIS).
+**Dự án mới** dùng **Redis StandAlone** (`IRedisService`) — cross-process, survive restart.
+
+> Mọi nơi dự án cũ đọc từ IIS MemoryCache → dự án mới PHẢI dùng Redis qua `IRedisService`.
+
+---
+
+## IRedisService — API tham khảo
+
+```csharp
+// Hash (cho collection có key phụ — truy cập theo field)
+Task<T?> HashGetAsync<T>(string key, string field);
+T?       HashGet<T>(string key, string field);
+void     HashSet<T>(string key, string field, T value, int? ttlSeconds = null);
+void     HashDelete(string key, string field);
+
+// String (cho list hoặc single object)
+Task<T?> StringGetAsync<T>(string key);
+string?  StringGetRaw(string key);           // dùng cho token (string thuần)
+void     StringSet<T>(string key, T value, int? ttlSeconds = null);
+void     StringSetRaw(string key, string value, TimeSpan? ttl = null); // dùng cho token
+```
+
+---
+
+## Redis key naming convention
+
+| Loại dữ liệu | Redis key | Redis type | Field |
+|---|---|---|---|
+| SysWebApi config | `MD:SysWebApi` | Hash | `{appCode}` (e.g. `"FMV"`) |
+| SysWebApi users | `MD:SysWebApiUser` | String | — (serialize cả list) |
+| LoyaltyRate | `MD:LoyaltyRate` | Hash | `{code}` |
+| CardLevel | `MD:CardLevel` | String | — |
+| Stores | `MD:Store` | String | — |
+| StoreSetup | `MD:StoreSetup` | String | — |
+| StoreSetConfig | `MD:StoreSetConfig` | String | — |
+| StoreMappingVinID | `MD:StoreMappingVinID` | String | — |
+| WinCode | `MD:WinCode` | String | — |
+| StagingDBConfig | `MD:StagingDBConfig` | String | — |
+| MemberBusiness | `MD:MemberBusiness` | String | — |
+| WinPayAccumulateSetup | `MD:WinPayAccumulateSetup` | String | — |
+| WinMoneyConversion | `MD:WinMoneyConversion` | String | — |
+| MemoryCacheConfig | `MD:MemoryCacheConfig` | String | — |
+| NotifyConfig | `MD:NotifyConfig` | String | — |
+| POSDataSetup | `MD:POSDataSetup` | Hash | `{code}` |
+| OfferStaffSetup | `MD:OfferStaffSetup` | String | — |
+| MMLSchemeHeader | `MD:MMLSchemeHeader` | Hash | `{code}` |
+| MMLSchemeItem | `MD:MMLSchemeItem` | String | — |
+| MMLSchemeResponse | `MD:MMLSchemeResponse` | Hash | `{headerCode}-{code}` |
+| ItemPointsMember | `MD:ItemPointsMember` | Hash | `{pointsCode}-{itemNo}-{uom}` |
+| OAuth2 access token | `{Partner}:{Service}:AccessToken` | StringRaw | — |
+
+> **Prefix `MD:`** = Master Data từ CentralMD DB.
+> **OAuth tokens** dùng key riêng không có prefix `MD:`.
+
+---
+
+## TTL strategy
+
+| Loại | TTL | Lý do |
+|---|---|---|
+| Config tĩnh (SysWebApi, Store, CardLevel…) | `43200s` (12h) | Thay đổi ít, refresh 2 lần/ngày |
+| Rate/price (LoyaltyRate) | `3600s` (1h) | Có thể cập nhật trong ngày |
+| Short-lived data (ItemPointsMember) | `360s` (6 phút) | Dữ liệu promotion thay đổi thường xuyên |
+| OAuth2 access token | `expires_in - 60s` | Từ response, buffer 60s để tránh race |
+| No TTL | Không dùng | Không dùng TTL vô hạn trong production |
+
+---
+
+## Code pattern bắt buộc
+
+### Pattern 1 — Hash (data có key phụ)
+
+```csharp
+// Dùng khi: data lookup theo code/id/appCode
+public async Task<SomeDto?> GetSomethingAsync(string code, CancellationToken ct = default)
+{
+    // 1. Check Redis
+    var cached = redis.HashGet<SomeDto>(KeySomething, code);
+    if (cached != null) return cached;
+
+    // 2. Query DB
+    const string sql = "SELECT * FROM SomeTable (NOLOCK) WHERE Blocked = 0 AND Code = @code;";
+    var data = await QueryFirstOrDefaultAsync<SomeDto>(sql, new { code }, ct: ct);
+
+    // 3. Cache nếu có data
+    if (data != null)
+        redis.HashSet(KeySomething, code, data, ttlSeconds: 43200);
+
+    return data;
+}
+```
+
+### Pattern 2 — String (list/collection)
+
+```csharp
+// Dùng khi: toàn bộ list, không lookup theo field
+public async Task<List<SomeDto>?> GetAllSomethingAsync(CancellationToken ct = default)
+{
+    // 1. Check Redis
+    var cached = await redis.StringGetAsync<List<SomeDto>>(KeyAllSomething);
+    if (cached?.Count > 0) return cached;
+
+    // 2. Query DB
+    const string sql = "SELECT * FROM SomeTable (NOLOCK) WHERE Blocked = 0;";
+    var data = (await QueryAsync<SomeDto>(sql, ct: ct)).ToList();
+
+    // 3. Cache nếu có data
+    if (data.Count > 0)
+        redis.StringSet(KeyAllSomething, data, ttlSeconds: 43200);
+
+    return data;
+}
+```
+
+### Pattern 3 — OAuth2 token caching
+
+```csharp
+// Dùng khi: external API cần bearer token, refresh khi hết hạn
+private const string TokenCacheKey = "{Partner}:{Service}:AccessToken";
+
+private async Task<string?> GetAccessTokenAsync()
+{
+    // 1. Check Redis (raw string)
+    var cached = redis.StringGetRaw(TokenCacheKey);
+    if (!string.IsNullOrEmpty(cached)) return cached;
+
+    // 2. Lấy token từ OAuth endpoint
+    // ... (POST form với client_id, client_secret)
+
+    // 3. Cache với TTL = expires_in - 60s
+    var expiresIn = int.TryParse(tokenData.Expires_in, out var e) ? Math.Max(e - 60, 60) : 240;
+    redis.StringSetRaw(TokenCacheKey, tokenData.Access_token, TimeSpan.FromSeconds(expiresIn));
+
+    return tokenData.Access_token;
+}
+```
+
+---
+
+## Nơi đặt logic cache
+
+```
+POS.Infrastructure/
+└── Repositories/
+    ├── Interfaces/ICentralMDRepository.cs   ← thêm method interface
+    ├── CentralMDRepository.cs               ← implement pattern Redis+DB
+    └── (hoặc LoyaltyRepository nếu từ Loyalty DB)
+
+POS.Infrastructure/
+└── AppServices/
+    └── {Name}AppService.cs                  ← chỉ token caching ở đây, KHÔNG cache config
+```
+
+> **KHÔNG** đặt Redis cache config (SysWebApi, stores, rates...) trực tiếp trong AppService hay Service.
+> Config cache PHẢI qua Repository → Repository handles Redis + DB fallback.
+> AppService chỉ được cache OAuth token (vì token là per-partner, không phải master data).
+
+---
+
+## Mapping MemoryCacheConst → Redis key
+
+Khi thấy `_memoryCacheService.GetCache<T>("MemoryXxx")` trong code cũ:
+
+| `MemoryCacheConst` cũ | Redis key mới | Ghi chú |
+|---|---|---|
+| `MemoryCacheSysWebApi` | `MD:SysWebApi` (Hash, field=appCode) | Thêm `GetSysWebApiAsync(appCode)` vào ICentralMDRepository |
+| `MemoryCacheSysWebUserApi` | `MD:SysWebApiUser` | String, full list |
+| `MemoryCardLevel` | `MD:CardLevel` | String, full list |
+| `MemoryCacheStores` | `MD:Store` | String, full list |
+| `MemoryCacheStoreSetup` | `MD:StoreSetup` | String, full list |
+| `MemoryStoreSetConfig` | `MD:StoreSetConfig` | String, full list |
+| `MemoryCacheStoreMappingVinID` | `MD:StoreMappingVinID` | String, full list — inject LoyaltyRepository |
+| `MemoryCacheWinCode` | `MD:WinCode` | String, full list |
+| `MemoryCacheStagingDBConfig` | `MD:StagingDBConfig` | String, full list |
+| `MemoryMemberBusiness` | `MD:MemberBusiness` | String, full list |
+| `WinPayAccumulateSetup` | `MD:WinPayAccumulateSetup` | String, full list |
+| `WinMoneyConversion` | `MD:WinMoneyConversion` | String, full list |
+| `MemoryCacheConfigLoyalty` | `MD:MemoryCacheConfig` | String, full list |
+| `MemoryGetNotifyConfig` | `MD:NotifyConfig` | String, full list |
+| `MemoryGetPOSDataSetup` | `MD:POSDataSetup` (Hash, field=code) | Lookup theo code |
+| `MemoryOfferStaffSetup` | `MD:OfferStaffSetup` | String, full list |
+| `Redis_Key_LoyaltyRate` | `MD:LoyaltyRate` (Hash, field=code) | Đã có trong CentralMDRepository |
+
+---
+
+## Checklist khi migrate function dùng MemoryCacheService
+
+- [ ] Xác định `MemoryCacheConst` key → Redis key tương ứng (xem bảng trên)
+- [ ] Nếu method chưa có trong Repository interface → thêm vào `ICentralMDRepository` hoặc `ILoyaltyRepository`
+- [ ] Implement trong Repository theo Pattern 1 hoặc 2 (KHÔNG bỏ TTL)
+- [ ] AppService/Service inject Repository (KHÔNG inject IRedisService trực tiếp cho config data)
+- [ ] Đối với OAuth token → dùng Pattern 3 trong AppService, inject IRedisService
+- [ ] Build pass + kiểm tra Redis key được set sau lần gọi đầu

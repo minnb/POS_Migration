@@ -9,6 +9,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<ICommonService, CommonService>();
+        services.AddScoped<IAkaChainLoyaltyService, AkaChainLoyaltyService>();
         return services;
     }
 }

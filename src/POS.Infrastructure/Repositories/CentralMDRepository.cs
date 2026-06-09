@@ -1,3 +1,4 @@
+using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Redis;
@@ -15,6 +16,7 @@ public sealed class CentralMDRepository(
     private const string KeyMMLSchemeResponse = "MD:MMLSchemeResponse";
     private const string KeyLoyaltyRate       = "MD:LoyaltyRate";
     private const string KeyItemPointsMember  = "MD:ItemPointsMember";
+    private const string KeySysWebApi         = "MD:SysWebApi";
 
     public async Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
     {
@@ -102,5 +104,23 @@ public sealed class CentralMDRepository(
         if (data != null)
             redis.HashSet(KeyItemPointsMember, field, data, ttlSeconds: 360);
         return data;
+    }
+
+    public async Task<SysWebApiDto?> GetSysWebApiAsync(string appCode, CancellationToken ct = default)
+    {
+        var cached = redis.HashGet<SysWebApiDto>(KeySysWebApi, appCode);
+        if (cached != null) return cached;
+
+        const string sqlApi   = "SELECT * FROM SysWebApi (NOLOCK) WHERE Blocked = 0 AND AppCode = @appCode;";
+        const string sqlRoute = "SELECT * FROM SysWebApiRoute (NOLOCK) WHERE Blocked = 0 AND AppCode = @appCode;";
+
+        var dto    = await QueryFirstOrDefaultAsync<SysWebApiDto>(sqlApi, new { appCode }, ct: ct);
+        if (dto == null) return null;
+
+        var routes = (await QueryAsync<SysWebApiRoute>(sqlRoute, new { appCode }, ct: ct)).ToList();
+        dto.SysWebApiRoute = routes;
+
+        redis.HashSet(KeySysWebApi, appCode, dto, ttlSeconds: 43200); // 12 giờ
+        return dto;
     }
 }

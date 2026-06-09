@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using POS.Infrastructure.AppServices;
+using POS.Infrastructure.AppServices.Interfaces;
 using POS.Infrastructure.Cache;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Logging;
@@ -53,6 +55,13 @@ public static class DependencyInjection
         // KibanaService dùng Serilog + Elasticsearch — Singleton an toàn vì chỉ
         // inject ILogger<KibanaService> (Singleton-safe).
         services.AddSingleton<IKibanaService, KibanaService>();
+
+        // ── AppServices (HTTP clients) ────────────────────────────────────────
+        // Named client "FMV": không set BaseAddress vì URL đọc từ DB (SysWebApi.Host).
+        // Timeout cũng đọc từ DB (SysWebApi.Version) nên set per-request trong service.
+        // AkaChainLoyaltyAppService: Scoped — inject ICentralMDRepository (Scoped) + IRedisService (Singleton).
+        services.AddHttpClient("FMV");
+        services.AddScoped<IAkaChainLoyaltyAppService, AkaChainLoyaltyAppService>();
 
         return services;
     }

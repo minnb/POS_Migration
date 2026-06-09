@@ -28,6 +28,14 @@ builder.Services
         options.SerializerSettings.DateTimeZoneHandling = DateTimeZoneHandling.Local;
     });
 
+// ── Tắt ModelStateInvalidFilter mặc định của [ApiController] ─────────────
+// [ApiController] thêm ModelStateInvalidFilter (order -2000) trả problem-details
+// format, chạy TRƯỚC ValidateModelFilter của chúng ta.
+// SuppressModelStateInvalidFilter = true → ValidateModelFilter kiểm soát hoàn toàn,
+// trả ResultResponse chuẩn (đúng contract với 5.000+ máy POS).
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+    options.SuppressModelStateInvalidFilter = true);
+
 // ── Memory Cache ──────────────────────────────────────────────────────────
 builder.Services.AddMemoryCache();
 
