@@ -12,6 +12,7 @@ using TCX.API.Common.Helpers;
 using TCX.API.Common.Models;
 using TCX.WebApiCore;
 using TCX.WebApiCore.AppServices.Coupon;
+using TCX.WebApiCore.AppServices.FMV;
 using TCX.WebApiCore.DbContext;
 using TCX.WebApiCore.Repository;
 using VCM.POSBLUE.Data.DataBaseContext;
@@ -30,6 +31,7 @@ namespace VCM.POSBLUE.API.Controllers
         private readonly OneUService _oneUService;
         private readonly WinXService _winXService;
         private readonly RedisManager _redisManager;
+        private readonly AkaChainLoyaltyService _akaChainLoyaltyService;
         public PaymentController()
         {
             _loyaltyRepository = new LoyaltyRepository();
@@ -41,6 +43,7 @@ namespace VCM.POSBLUE.API.Controllers
             _capillaryCouponService = new CouponCapillaryService();
             _oneUService = new OneUService();
             _winXService = new WinXService();
+            _akaChainLoyaltyService = new AkaChainLoyaltyService();
         }
 
         [HttpPost]
@@ -81,7 +84,7 @@ namespace VCM.POSBLUE.API.Controllers
                     case "ONEU":
                         var resultResponse = await _oneUService.Estimate(modelPOS);
                         httpResponseMessage = Request.CreateResponse(resultResponse.Status, resultResponse);
-                        break;
+                        break;                   
                     default:
                         httpResponseMessage = Request.CreateResponse(HttpStatusCode.BadRequest, ResponseHelper.SusscessResponse(HttpStatusCode.BadRequest, "Tham số PartnerCode truyền vào không đúng " + modelPOS.Partner ?? "", null));
                         break;
@@ -219,6 +222,10 @@ namespace VCM.POSBLUE.API.Controllers
                             MessageTechnical = result.Item2
                         });
 
+                    case "FMV":
+                        var resultCoupon = await _akaChainLoyaltyService.CheckCoupon(_memoryCacheService, modelPOS);
+                        httpResponseMessage = Request.CreateResponse(resultCoupon.Status, resultCoupon);
+                        break;
                     default:
                         httpResponseMessage = Request.CreateResponse(HttpStatusCode.BadRequest, ResponseHelper.SusscessResponse(HttpStatusCode.BadRequest, "Tham số PartnerCode truyền vào không đúng " + modelPOS.Partner ?? "", null));
                         break;

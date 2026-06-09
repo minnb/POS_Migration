@@ -306,11 +306,7 @@
     <Compile Include="AppServices\Capillary\LoyaltyOfflineService.cs" />
     <Compile Include="AppServices\FMV\AkaChainHelper.cs" />
     <Compile Include="AppServices\FMV\AkaChainLoyaltyService.cs" />
-    <Compile Include="AppServices\FMV\Dtos\AccessTokenData.cs" />
-    <Compile Include="AppServices\FMV\Dtos\AkaChainErrorResponse.cs" />
-    <Compile Include="AppServices\FMV\Dtos\GetMemberProfile.cs" />
-    <Compile Include="AppServices\FMV\Dtos\InputDataAsync.cs" />
-    <Compile Include="AppServices\FMV\Dtos\MemberInputDataAsyncResponse.cs" />
+    <Compile Include="AppServices\FMV\AkaChainMapping.cs" />
     <Compile Include="AppServices\Offer\MMLSchemeService.cs" />
     <Compile Include="AppServices\Offer\MemberPointsService.cs" />
     <Compile Include="AppServices\Partner\AQuaService.cs" />

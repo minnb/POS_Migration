@@ -16,6 +16,7 @@ using System.Web.Http.Results;
 using System.Web.Mvc;
 using TCX.API.Common.Const;
 using TCX.API.Common.Constants;
+using TCX.API.Common.Dtos;
 using TCX.API.Common.Dtos.Capillary;
 using TCX.API.Common.Dtos.CentralMD;
 using TCX.API.Common.Dtos.Loyalty;
@@ -24,7 +25,6 @@ using TCX.API.Common.Dtos.Ops;
 using TCX.API.Common.Enums;
 using TCX.API.Common.Helpers;
 using TCX.API.Common.Shared;
-using TCX.WebApiCore.AppServices.FMV.Dtos;
 using TCX.WebApiCore.Shared;
 using VCM.POSBLUE.Model.GiftBox;
 using VCM.POSBLUE.Model.VINID;
@@ -33,89 +33,8 @@ namespace TCX.WebApiCore.AppServices.FMV
 {
     public static class AkaChainHelper
     {
-        public static MemberInputDataAsyncRequest MappingInputDataRequest(VinIDSalesRequest model, string activityCode)
-        {
-            List<CartItem> cartItems = new List<CartItem>();
-            foreach (var item in model.TransLine)
-            {
-                cartItems.Add(new CartItem
-                {
-                    ProductCode = item.ItemCode,
-                    ProductName = item.Description,
-                    ProductCategory = item.Size,
-                    Quantity = item.Quantity,
-                    UnitPrice = item.UnitPrice,
-                    TotalAmount = item.LineAmountIncVAT
-                });
-            }
-            return new MemberInputDataAsyncRequest
-            {
-                MemberKeys = new MemberKeys
-                {
-                    Phone = "+" + FormatHelper.PhoneNumberWithCountryCode(model.CardNumber)
-                },
-                UsePoint = 0,
-                IsSimulation = false,
-                SimulationOfferId = null,
-                CustomEntityDataId = null,
-                ActivityCode = activityCode,
-                State = "Open",
-                CouponCode = new List<object>(),
-                ActivityData = new ActivityData
-                {
-                    BusinessTime = model.OrderTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"),
-                    Description = $"Bán hàng ngày {model.OrderTime:yyyy-MM-ddTHH:mm:ss.fffffffZ}",
-                    TotalCalcAmount = model.BillAmount,
-                    OrderCode = model.OrderNo,
-                    CartItems = cartItems,
-                    StoreCode = model.MerchantId,
-                    OriginalOrderCode = null
-                },
-                TouchPointCode = null,
-                UseBasePromotionSchemes = false
-            };
-        }
-        public static InfoMemberModel MappingInfoMember(MemberProfile memberProfile)
-        {
-            return new InfoMemberModel
-            {
-                CardNumber = FormatHelper.PhoneNumberVietNam(memberProfile.Phone),
-                VirtualCard = memberProfile.ReferralCode,
-                CMND = "",
-                MemberName = memberProfile.FullName,
-                Title = "",
-                CardLevel = "",
-                MemberCSN = FormatHelper.PhoneNumberVietNam(memberProfile.Phone),
-                PhoneNumber = FormatHelper.PhoneNumberVietNam(memberProfile.Phone),
-                OtherInfo = "",
-                QRCode = "",
-                Dob = "",
-                DateOfBirth = "",
-                BirthdayGiftInd = false,//Quà tặng sinh nhật
-                MemberPoint = memberProfile.TotalPoint,
-                TotalPoint = memberProfile.TotalPoint,
-                RedemptionValue = memberProfile.TotalPoint,
-                ExtraPoint = false,
-                CurrentRate = 0,
-                IsOfflineVinID = false,
-                IsShowMessage = false,
-                IsRedeem = true,
-                Status = "Hoạt động",
-                System = MemberCapillaryEnum.FMV.ToString(),//KM HV WIN
-                ClubCode = MemberCapillaryEnum.FMV.ToString(),//KM HV WIN
-                Email = "",
-                Gender = "",
-                Address = "",
-                ExternalId = "",
-                AvailablePromotion = null,
-                MemberBusiness = null,
-                OtherStatus = null,
-                ExtendedFields = null,
-                MemberType = MemberCapillaryEnum.FMV.ToString(),
-                Source = null,
-                PointsSummaries = null,
-            };
-        }
+
+        
         public static async Task<(HttpStatusCode, string)> CallApiAsync(MemoryCacheService memoryCacheService, string function, MethodApiEnum method, string dataRaw, string param = null)
         {
             try
@@ -204,7 +123,7 @@ namespace TCX.WebApiCore.AppServices.FMV
                     string responseString = await response.Content.ReadAsStringAsync();
                     if (!string.IsNullOrEmpty(responseString))
                     {
-                        var dataToken = StringHelper.StringToObject<AccessTokenData>(responseString);
+                        var dataToken = StringHelper.StringToObject<AccessTokenDataAkaChain>(responseString);
                         return (response.StatusCode, dataToken.Access_token);
                     }
                     return (response.StatusCode, $"NotFound access_token");

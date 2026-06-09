@@ -126,6 +126,15 @@
     <Compile Include="Const\RedisConst.cs" />
     <Compile Include="Const\RedisKeyConst.cs" />
     <Compile Include="Const\VoucherROPConst.cs" />
+    <Compile Include="Dtos\AkaChain\AccessTokenData.cs" />
+    <Compile Include="Dtos\AkaChain\AkaChainErrorResponse.cs" />
+    <Compile Include="Dtos\AkaChain\CouponCheckAkaChain.cs" />
+    <Compile Include="Dtos\AkaChain\GetMemberProfile.cs" />
+    <Compile Include="Dtos\AkaChain\InputReturnDataRequest.cs" />
+    <Compile Include="Dtos\AkaChain\InputReturnDataResponse.cs" />
+    <Compile Include="Dtos\AkaChain\MemberInputDataRequest.cs" />
+    <Compile Include="Dtos\AkaChain\MemberInputDataResponse.cs" />
+    <Compile Include="Dtos\AkaChain\CouponRedeemRequest.cs" />
     <Compile Include="Dtos\AuthDto.cs" />
     <Compile Include="Dtos\B2B\TransHeaderB2BDto.cs" />
     <Compile Include="Dtos\B2B\TransHistoryB2BDto.cs" />

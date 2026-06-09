@@ -309,7 +309,7 @@ namespace VCM.POSBLUE.API.Controllers
             
             if (NumberHelper.IsPhoneNumber(model.CardNumber))
             {
-                var result = await _akaChainLoyaltyService.InputDataAsync(_memoryCacheService, model);
+                var result = await _akaChainLoyaltyService.AddTransactionAsync(_memoryCacheService, model);
                 return Request.CreateResponse(result.Status, new ResultResponse
                 {
                     Data = result.Data,
@@ -349,13 +349,13 @@ namespace VCM.POSBLUE.API.Controllers
             
             if (NumberHelper.IsPhoneNumber(model.CardNumber))
             {
-                //switch offline loyalty
-                if (await _loyaltyOfflineService.IsOfflineCapillary())
-                {
-                    return Request.CreateResponse(_loyaltyOfflineService.GetAddTransactionOfflineSwitch(model.OrderNo, model.CardNumber));
-                }
+                ////switch offline loyalty
+                //if (await _loyaltyOfflineService.IsOfflineCapillary())
+                //{
+                //    return Request.CreateResponse(_loyaltyOfflineService.GetAddTransactionOfflineSwitch(model.OrderNo, model.CardNumber));
+                //}
 
-                return Request.CreateResponse(await _loyaltyService.RefundPointCapillary(_memoryCacheService, _redisManager, model));
+                return Request.CreateResponse(await _akaChainLoyaltyService.ReturnTransactionAsync(_memoryCacheService, model));
             }
             else
             {
