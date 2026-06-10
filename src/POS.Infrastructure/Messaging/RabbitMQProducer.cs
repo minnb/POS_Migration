@@ -12,9 +12,6 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
     private IConnection? _connection;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    private static readonly Dictionary<string, object?> QuorumQueueArgs =
-        new() { { "x-queue-type", "quorum" } };
-
     public RabbitMQProducer(IConfiguration configuration, ILogger<RabbitMQProducer> logger)
     {
         _options = configuration.GetSection(RabbitMQOptions.SectionName).Get<RabbitMQOptions>()
@@ -39,20 +36,17 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
 
             var factory = new ConnectionFactory
             {
+                HostName = _options.Host,
+                Port = _options.Port,
                 UserName = _options.Username,
                 Password = _options.Password,
                 VirtualHost = _options.VirtualHost,
-                Port = _options.Port,
                 AutomaticRecoveryEnabled = true,
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
                 RequestedHeartbeat = TimeSpan.FromSeconds(_options.RequestedHeartbeat),
             };
 
-            var endpoints = _options.Hosts
-                .Select(h => new AmqpTcpEndpoint(h, _options.Port))
-                .ToList();
-
-            _connection = await factory.CreateConnectionAsync(endpoints, ct);
+            _connection = await factory.CreateConnectionAsync(ct);
 
             _connection.ConnectionShutdownAsync += (_, args) =>
             {
@@ -96,7 +90,7 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
                 durable: true,
                 exclusive: false,
                 autoDelete: false,
-                arguments: QuorumQueueArgs);
+                arguments: null);
 
             var props = new BasicProperties
             {
