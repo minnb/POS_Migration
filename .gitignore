@@ -284,6 +284,8 @@ run*.log
 
 # ---- Giữ lại (override pattern *.json / *.config ở trên) các file CẦN push ----
 # .NET project cần appsettings.json + launchSettings.json để chạy/clone được
+appsettings.Development.json
+appsettings.Local.json
 !**/appsettings.json
 !**/appsettings.Development.json
 !**/launchSettings.json
