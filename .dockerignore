@@ -1,0 +1,6 @@
+POS.Backend/
+bin/
+obj/
+docs/
+.claude/
+.gitignore
