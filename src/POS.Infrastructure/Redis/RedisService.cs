@@ -53,4 +53,7 @@ public sealed class RedisService(IRedisManager manager) : IRedisService
 
     public void Delete(string key)
         => manager.DeleteAsync(key).GetAwaiter().GetResult();
+
+    public List<string> GetKeysByPattern(string pattern)
+        => manager.GetKeysByPatternAsync(pattern).GetAwaiter().GetResult();
 }

@@ -29,15 +29,59 @@ POS.Api → POS.Common
 - Service inject repository interface (từ `POS.Infrastructure.Repositories.Interfaces`)
 - Service inject `IRedisService` (từ `POS.Infrastructure.Redis`)
 - Service inject `IRabbitMQProducer` (từ `POS.Infrastructure.Messaging`)
+- Service inject `I{Name}AppService` (từ `POS.Infrastructure.AppServices.Interfaces`) khi cần gọi external HTTP
 - **KHÔNG** inject concrete class (chỉ inject interface)
+- **Controller BẮT BUỘC inject Application interface** — KHÔNG inject Infrastructure interface trực tiếp
 
 ### POS.Infrastructure — quy tắc
 - Repositories: `src/POS.Infrastructure/Repositories/`
 - Interfaces repository: `src/POS.Infrastructure/Repositories/Interfaces/`
+- AppServices (HTTP client wrappers): `src/POS.Infrastructure/AppServices/`
+- Interfaces AppService: `src/POS.Infrastructure/AppServices/Interfaces/` — đặt tên `I{Name}AppService`
 - Redis: `src/POS.Infrastructure/Redis/` (IRedisService, RedisService)
 - Redis internals: `src/POS.Infrastructure/Cache/` (IRedisManager, RedisManager, RedisOptions)
 - Messaging: `src/POS.Infrastructure/Messaging/` (IRabbitMQProducer, RabbitMQProducer)
 - DB Factories: `src/POS.Infrastructure/Database/`
+
+---
+
+## Quy tắc AppService — BẮT BUỘC khi migrate external HTTP client
+
+> Mọi service gọi external API (GotIT, Urbox, AkaChain, ...) **BẮT BUỘC** tuân theo pattern 3 lớp sau.
+
+### Pattern bắt buộc
+
+```
+Controller (POS.Api)
+  → inject I{Name}Service              ← POS.Application.Interfaces
+    → Application/Services/{Name}Service     (thin wrapper — chỉ delegate, không có logic)
+        → inject I{Name}AppService     ← POS.Infrastructure.AppServices.Interfaces
+          → Infrastructure/AppServices/{Name}Service  (HTTP client thực sự)
+```
+
+### Ví dụ đã có (tham chiếu khi tạo service mới)
+
+| Partner | Application interface | Infrastructure AppService |
+|---|---|---|
+| AkaChain/FMV | `IAkaChainLoyaltyService` | `IAkaChainLoyaltyAppService` / `AkaChainLoyaltyAppService` |
+| GotIT | `IGotITService` | `IGotITAppService` / `GotITService` |
+| Urbox | `IUrboxService` | `IUrboxAppService` / `UrboxService` |
+
+### Checklist khi tạo service HTTP client mới
+
+1. **Infrastructure**: Tạo `I{Name}AppService.cs` trong `AppServices/Interfaces/` — namespace `POS.Infrastructure.AppServices.Interfaces`
+2. **Infrastructure**: Tạo `{Name}Service.cs` trong `AppServices/` — implements `I{Name}AppService`
+3. **Infrastructure DI**: Đăng ký `services.AddScoped<I{Name}AppService, {Name}Service>()`
+4. **Application**: Tạo `I{Name}Service.cs` trong `Interfaces/` — namespace `POS.Application.Interfaces`, **cùng signature** với `I{Name}AppService`
+5. **Application**: Tạo `{Name}Service.cs` trong `Services/` — implements `I{Name}Service`, inject `I{Name}AppService`, mỗi method chỉ `=> appService.Method(...)`
+6. **Application DI**: Đăng ký `services.AddScoped<I{Name}Service, {Name}Service>()`
+7. **Controller**: Inject `I{Name}Service` (Application) — **KHÔNG** inject `I{Name}AppService` (Infrastructure)
+
+### Quy tắc đặt tên
+
+- Infrastructure interface: `I{Name}**App**Service` — có suffix `App` để phân biệt
+- Application interface: `I{Name}Service` — không có suffix `App`
+- Cả hai implementation class đều tên là `{Name}Service` (khác namespace)
 
 ---
 
@@ -114,6 +158,15 @@ src/POS.Common/
 ## Thêm DTO mới: dùng lệnh `/add-dto`
 
 Xem `.claude/commands/add-dto.md` để biết cách dùng.
+
+---
+
+## Quy tắc cấu hình External API — BẮT BUỘC
+
+> **Chi tiết đầy đủ: `.claude/skills/api/SKILLS.md`** — đọc file này trước khi tạo hoặc migrate bất kỳ AppService nào gọi external HTTP API.
+
+Mọi thông tin cấu hình (host, credentials, routes, timeout) đều lấy từ DB qua `ICentralMDRepository.GetSysWebApiAsync(appCode)` — đã cache Redis tự động.
+**KHÔNG** hardcode URL hoặc credentials, **KHÔNG** đọc từ `appsettings.json`.
 
 ---
 

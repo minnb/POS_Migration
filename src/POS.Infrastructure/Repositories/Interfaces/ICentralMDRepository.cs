@@ -1,5 +1,6 @@
 using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
+using POS.Common.Dtos.POS.Common;
 
 namespace POS.Infrastructure.Repositories.Interfaces;
 
@@ -12,4 +13,33 @@ public interface ICentralMDRepository
     Task<List<string>?> GetSyncTableListAsync(CancellationToken ct = default);
     Task<ItemPointsMemberDto?> GetItemPointsMemberAsync(string pointsCode, string itemNo, string uom, CancellationToken ct = default);
     Task<SysWebApiDto?> GetSysWebApiAsync(string appCode, CancellationToken ct = default);
+
+    /// <summary>Thay MemoryCacheService.GetPOSDataSetup cũ — full bảng POSDataSetup, cache Redis 12h.</summary>
+    Task<List<POSDataSetupModel>?> GetPOSDataSetupAsync(CancellationToken ct = default);
+
+    /// <summary>Thay MemoryCacheService.GetStoreSetConfig cũ — mapping store → Kafka topic, cache Redis 12h.</summary>
+    Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default);
+
+    // ── CommonService (migrated từ CommonData — phần CentralMD) ──────────────
+
+    /// <summary>SP [dbo].[POSMonitorInsert] — POS heartbeat/monitor. Lỗi → trả model rỗng (parity cũ).</summary>
+    Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model, CancellationToken ct = default);
+
+    /// <summary>SELECT POSTerminals theo IPAddress. Không có → null.</summary>
+    Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress, CancellationToken ct = default);
+
+    /// <summary>
+    /// Endpoint api/common/POSDataSetup — query DB trực tiếp KHÔNG cache
+    /// (parity CommonData.GetDataSetup cũ; bản cache 12h GetPOSDataSetupAsync chỉ dùng internal).
+    /// </summary>
+    Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = default);
+
+    /// <summary>SELECT full bảng POSVersion.</summary>
+    Task<List<POSVersionModel>?> GetPOSVersionAsync(CancellationToken ct = default);
+
+    /// <summary>EXISTS CpnVchBOMLine theo ItemNo + Barcode.</summary>
+    Task<bool> CheckCouponLineAsync(string itemNo, string barCode, CancellationToken ct = default);
+
+    /// <summary>INSERT SignalStore. Lỗi → false (parity cũ).</summary>
+    Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default);
 }

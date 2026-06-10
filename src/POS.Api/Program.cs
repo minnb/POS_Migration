@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using POS.Api.Filters;
@@ -54,12 +55,63 @@ builder.Services.AddAuthorization();
 // ── HTTP Client Factory ───────────────────────────────────────────────────
 builder.Services.AddHttpClient();
 
+// ── Swagger (chỉ DEV) ─────────────────────────────────────────────────────
+// Swagger chỉ được đăng ký khi chạy Debug/Development.
+// UAT và PROD không khởi tạo để tránh lộ API docs.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "POS API",
+            Version = "v1",
+            Description = "API hỗ trợ 5.000+ máy POS — chỉ khả dụng ở môi trường Development."
+        });
+
+        // Basic Auth scheme cho nút Authorize trên Swagger UI
+        options.AddSecurityDefinition("BasicAuth", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "basic",
+            Description = "Nhập username/password theo Basic Authentication."
+        });
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id   = "BasicAuth"
+                    }
+                },
+                []
+            }
+        });
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ── Swagger UI (chỉ DEV) ──────────────────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "POS API v1");
+        options.RoutePrefix = "swagger";   // truy cập: http://localhost:5147/swagger
+    });
+}
+
 app.MapControllers();
 
 app.Run();

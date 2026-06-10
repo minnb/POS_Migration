@@ -17,4 +17,10 @@ public interface IRedisService
     // Key operations
     bool KeyExists(string key);
     void Delete(string key);
+
+    /// <summary>
+    /// SCAN keys theo pattern (vd "GetFileFromFTP*") — thay RedisCacheService.GetKeys cũ.
+    /// Chỉ dùng với pattern hẹp (queue/retry keys).
+    /// </summary>
+    List<string> GetKeysByPattern(string pattern);
 }

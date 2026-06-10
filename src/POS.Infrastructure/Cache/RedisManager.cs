@@ -274,4 +274,28 @@ public sealed class RedisManager : IRedisManager
             return false;
         }
     }
+
+    public Task<List<string>> GetKeysByPatternAsync(string pattern)
+    {
+        try
+        {
+            // SERVER-side SCAN (không phải KEYS) — StackExchange.Redis tự dùng SCAN khi server hỗ trợ.
+            // Chỉ dùng cho pattern hẹp (queue keys, retry keys) — không quét pattern rộng trong production.
+            var conn = _lazyConnection.Value;
+            var result = new List<string>();
+            foreach (var endpoint in conn.GetEndPoints())
+            {
+                var server = conn.GetServer(endpoint);
+                if (server.IsReplica) continue;
+                foreach (var key in server.Keys(_options.DefaultDatabase, pattern))
+                    result.Add(key.ToString());
+            }
+            return Task.FromResult(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetKeysByPatternAsync failed — pattern: {Pattern}", pattern);
+            return Task.FromResult(new List<string>());
+        }
+    }
 }

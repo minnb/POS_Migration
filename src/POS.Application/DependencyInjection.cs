@@ -10,6 +10,10 @@ public static class DependencyInjection
     {
         services.AddScoped<ICommonService, CommonService>();
         services.AddScoped<IAkaChainLoyaltyService, AkaChainLoyaltyService>();
+        services.AddScoped<IGotITService, GotITService>();
+        services.AddScoped<IUrboxService, UrboxService>();
+        services.AddScoped<IDataRawService, DataRawService>();
+        services.AddScoped<ISyncDataPosService, SyncDataPosService>();
         return services;
     }
 }

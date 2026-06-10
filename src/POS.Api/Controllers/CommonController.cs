@@ -3,6 +3,7 @@ using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Application.Interfaces;
+using POS.Common;
 using POS.Common.Dtos.POS.Common;
 using POS.Common.Dtos.Reward;
 using POS.Infrastructure.Logging;
@@ -297,22 +298,15 @@ public sealed class CommonController(
         if (string.IsNullOrEmpty(posTerminal))
             return BadRequestResult("POSTerminal đang bị trống");
 
-        try
+        // STUB: SyncDataToPos.writeFileByManual nằm trong TichHopSAP.dll (net452) —
+        // dùng System.Web.Services + System.Data.Linq, KHÔNG chạy được trên .NET 10.
+        // Cùng pattern với SyncDataPosController.WriteFileByManual (api/posblue).
+        return StatusCode((int)HttpStatusCode.NotImplemented, new ResultResponse
         {
-            // TODO: inject ISyncDataService và gọi WriteFileByManualAsync(storeNo, posTerminal)
-            // Thay thế SyncDataToPos (VCM.POSBLUE.Business.Common) — component file-sync nặng,
-            // cần ISyncDataService riêng trong Application layer.
-            throw new NotImplementedException("WriteFileByManual: cần migrate SyncDataToPos sang ISyncDataService");
-        }
-        catch (NotImplementedException)
-        {
-            return BadRequestResult("WriteFileByManual chưa được migrate. Liên hệ dev team.");
-        }
-        catch (Exception ex)
-        {
-            fileLogHelper.WriteExpLogs("CommonController.WriteFileByManual", ex);
-            return BadRequestResult($"Lỗi hệ thống API WriteFileByManual: {ex.Message}");
-        }
+            Status = HttpStatusCode.NotImplemented,
+            Message = "Chức năng tạo file SOD chưa được migrate (TichHopSAP.dll). Liên hệ dev team.",
+            MessageTechnical = "SyncDataToPos.writeFileByManual (TichHopSAP.dll net452) chưa migrate"
+        });
     }
 
     // ─── GetListPOSDocumentNo ─────────────────────────────────────────────────

@@ -4,6 +4,7 @@ using POS.Infrastructure.AppServices;
 using POS.Infrastructure.AppServices.Interfaces;
 using POS.Infrastructure.Cache;
 using POS.Infrastructure.Database;
+using POS.Infrastructure.Files;
 using POS.Infrastructure.Logging;
 using POS.Infrastructure.Messaging;
 using POS.Infrastructure.Redis;
@@ -28,10 +29,13 @@ public static class DependencyInjection
         services.AddSingleton<CentralMDConnectionFactory>();
         services.AddSingleton<LoyaltyConnectionFactory>();
         services.AddSingleton<StagingDbConnectionFactory>();
+        // Routing per-store cho CentralSales (+ Staging/KIOS pass sau) — cache ServerIP vào Redis.
+        services.AddSingleton<StoreRoutedConnectionFactory>();
 
         // ── Repositories ──────────────────────────────────────────────────────
         // Scoped: mỗi HTTP request dùng 1 connection riêng (Dapper open/close per call).
         services.AddScoped<ICentralMDRepository, CentralMDRepository>();
+        services.AddScoped<ICentralSaleRepository, CentralSaleRepository>();
         services.AddScoped<IDataRawJsonRepository, DataRawJsonRepository>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
@@ -47,6 +51,14 @@ public static class DependencyInjection
         // Implements IAsyncDisposable → WebApplication tự gọi khi shutdown.
         services.AddSingleton<IRabbitMQProducer, RabbitMQProducer>();
 
+        // ── Kafka ─────────────────────────────────────────────────────────────
+        // Singleton: IProducer thread-safe, 1 connection cho toàn app (như static factory cũ).
+        // Dùng cho pipeline upload sale data (SyncDataPosController).
+        services.AddSingleton<IKafkaProducer, KafkaProducer>();
+
+        // ── File transfer (SyncDataPos) ───────────────────────────────────────
+        services.AddSingleton<IFtpFileTransfer, WinScpFileTransfer>();
+
         // ── Logging ───────────────────────────────────────────────────────────
         // FileLogHelper nhận baseDirectory từ config, không inject IConfiguration trực tiếp.
         var logDir = configuration["Logging:FileLogDirectory"] ?? "Logs";
@@ -56,12 +68,33 @@ public static class DependencyInjection
         // inject ILogger<KibanaService> (Singleton-safe).
         services.AddSingleton<IKibanaService, KibanaService>();
 
+        // ── Named HttpClients ─────────────────────────────────────────────────
+        // BaseAddress và Timeout KHÔNG set ở đây — đọc từ DB (SysWebApi.Host) per-request.
+        // Timeout set per-call trong service sau khi CreateClient().
+
+        // FMV: AkaChain Loyalty — timeout đọc từ DB.
+        // UseCookies = false: tắt cookie jar của handler (handler share giữa mọi request FMV)
+        // → server cookie không bị lưu lại rồi replay sang request sau (tránh cookie bleed).
+        // LƯU Ý: KHÔNG gửi cookie __tenant tới token endpoint — ABP tra tenant theo
+        // giá trị cookie và trả 500 "Tenant not found" (xem GetAccessTokenAsync).
+        services.AddHttpClient("FMV")
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                UseCookies = false
+            });
+
+        // GotIT: 35s timeout (set per-call). Prod certs → không bypass SSL.
+        services.AddHttpClient("GotIT");
+
         // ── AppServices (HTTP clients) ────────────────────────────────────────
-        // Named client "FMV": không set BaseAddress vì URL đọc từ DB (SysWebApi.Host).
-        // Timeout cũng đọc từ DB (SysWebApi.Version) nên set per-request trong service.
-        // AkaChainLoyaltyAppService: Scoped — inject ICentralMDRepository (Scoped) + IRedisService (Singleton).
-        services.AddHttpClient("FMV");
+        // Scoped: inject ICentralMDRepository (Scoped).
         services.AddScoped<IAkaChainLoyaltyAppService, AkaChainLoyaltyAppService>();
+
+        // ── Partner AppServices (HTTP clients) ───────────────────────────────
+        // Scoped: inject ICentralMDRepository (Scoped).
+        // UrboxService tạo HttpClient riêng per-call (cần per-request Signature header).
+        services.AddScoped<IGotITAppService, GotITService>();
+        services.AddScoped<IUrboxAppService, UrboxService>();
 
         return services;
     }

@@ -19,4 +19,5 @@ public interface IRedisManager
     // Utility
     Task<bool> KeyExistsAsync(string key);
     Task<bool> KeyExpireAsync(string key, TimeSpan expiry);
+    Task<List<string>> GetKeysByPatternAsync(string pattern);
 }

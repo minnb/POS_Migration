@@ -9,7 +9,7 @@ using POS.Infrastructure.Logging;
 
 namespace POS.Api.Controllers;
 
-[Route("api/common")]
+[Route("api")]
 public sealed class LoyaltyController(
     IKibanaService kibanaService,
     IFileLogHelper fileLogHelper,

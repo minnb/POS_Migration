@@ -1,5 +1,4 @@
-using System.Net;
-using System.Text;
+using Elastic.CommonSchema;
 using Newtonsoft.Json;
 using POS.Common;
 using POS.Common.Dtos;
@@ -14,6 +13,9 @@ using POS.Infrastructure.AppServices.Interfaces;
 using POS.Infrastructure.Logging;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 
 namespace POS.Infrastructure.AppServices;
@@ -49,28 +51,53 @@ public sealed class AkaChainLoyaltyAppService(
     private static int GetTimeout(SysWebApiDto config)
         => int.TryParse(config.Version, out var t) && t > 0 ? t : 30;
 
+    // ── Curl logger ───────────────────────────────────────────────────────────
+
+    private void LogCurl(string context, HttpMethod method, string url,
+        IEnumerable<(string Key, string Value)> headers, string? body = null)
+    {
+        var sb = new StringBuilder($"[CURL:{context}] curl -X {method.Method} '{url}'");
+        foreach (var (k, v) in headers)
+            sb.Append($" -H '{k}: {v}'");
+        if (!string.IsNullOrEmpty(body))
+            sb.Append($" -d '{body}'");
+        fileLogHelper.WriteLogs(sb.ToString());
+    }
+
     // ── OAuth2 Token ──────────────────────────────────────────────────────────
 
     private async Task<string?> GetAccessTokenAsync()
     {
-        // Redis cache hit
-        var cached = redis.StringGetRaw(TokenCacheKey);
-        if (!string.IsNullOrEmpty(cached)) return cached;
-
         try
         {
+            var cached = redis.StringGetRaw(TokenCacheKey);
+            if (!string.IsNullOrEmpty(cached)) return cached;
+
             var config = await GetFMVConfigAsync();
-            if (config == null) return null;
+            if (config == null)
+            {
+                fileLogHelper.WriteExpLogs("GetAccessTokenAsync",
+                    new Exception("FMV SysWebApi config not found in DB/Redis"));
+                return null;
+            }
 
             var tokenRoute = GetRoute(config, "GetToken");
-            if (tokenRoute == null) return null;
+            if (tokenRoute == null)
+            {
+                fileLogHelper.WriteExpLogs("GetAccessTokenAsync",
+                    new Exception("Route 'GetToken' not found in SysWebApiRoute for FMV"));
+                return null;
+            }
 
-            var client = httpClientFactory.CreateClient("FMV");
-            // Cookie: __tenant dùng UserName (= client_id) — giữ nguyên behavior cũ
-            client.DefaultRequestHeaders.TryAddWithoutValidation(
-                "Cookie", $".AspNetCore.Culture=c%3Dvi%7Cuic%3Dvi; __tenant={config.UserName}");
-
-            var form = new Dictionary<string, string>
+            // BUG FIX 1: Dùng Uri.EscapeDataString thay FormUrlEncodedContent.
+            // FormUrlEncodedContent encode space → '+' (HTML4).
+            // AkaChain token server (IdentityServer) parse scope bằng RFC 3986:
+            // space = '%20', không phải '+' → nhận '+' trả HTTP 500.
+            // Postman dùng %20 → OK. Code này phải khớp Postman.
+            //
+            // BUG FIX 2: Dùng httpClientFactory.CreateClient() thay new HttpClient().
+            // new HttpClient() trực tiếp bypass IHttpClientFactory → socket exhaustion.
+            var formData = new Dictionary<string, string>
             {
                 { "grant_type",    "client_credentials" },
                 { "client_id",     config.UserName ?? "" },
@@ -78,18 +105,57 @@ public sealed class AkaChainLoyaltyAppService(
                 { "scope",         "CustomerJourneyService MasterDataService MemberService TransactionService" }
             };
 
-            var response = await client.PostAsync(config.Host + tokenRoute, new FormUrlEncodedContent(form));
-            var body     = await response.Content.ReadAsStringAsync();
+            var tokenUrl = config.Host + tokenRoute;
+            var formBody = string.Join("&", formData.Select(kv =>
+                $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"));
 
-            if (string.IsNullOrEmpty(body)) return null;
+            // BUG FIX 3 (root cause của HTTP 500): KHÔNG gửi cookie __tenant.
+            // Server ABP nhận cookie '__tenant={UserName}' → tra tenant theo client_id
+            // → "Tenant not found! There is no tenant with the tenant id or name: ..." → HTTP 500.
+            // Token endpoint client_credentials tự xác định tenant qua client_id, không cần cookie.
+            // Code cũ (.NET Framework) cũng set cookie này nhưng handler UseCookies=true
+            // âm thầm DROP nó → chưa bao giờ được gửi thật → prod cũ chạy bình thường.
+            // Postman cũng strip Cookie header thủ công (cookie jar) → 200.
+            // Đã verify bằng curl: có cookie → 500, không cookie → 200.
+            LogCurl("GetAccessToken", HttpMethod.Post, tokenUrl,
+                [
+                    ("Content-Type", "application/x-www-form-urlencoded")
+                ], formBody);
 
-            var tokenData = JsonConvert.DeserializeObject<AccessTokenDataAkaChain>(body);
-            if (tokenData?.Access_token == null) return null;
+            var client = httpClientFactory.CreateClient("FMV");
+            using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
 
-            var expiresIn = int.TryParse(tokenData.Expires_in, out var e) ? Math.Max(e - 60, 60) : 240;
-            redis.StringSetRaw(TokenCacheKey, tokenData.Access_token, TimeSpan.FromSeconds(expiresIn));
+            // QUAN TRỌNG: new StringContent(..., Encoding.UTF8, "application/x-www-form-urlencoded")
+            // tự động append '; charset=utf-8' vào Content-Type header thực gửi đi.
+            // LogCurl chỉ log string truyền vào — KHÔNG phản ánh header thực tế.
+            // AkaChain token server từ chối 'application/x-www-form-urlencoded; charset=utf-8' → HTTP 500.
+            // Fix: tạo ByteArrayContent từ raw bytes rồi set Content-Type thủ công — không có charset.
+            var bodyBytes = Encoding.UTF8.GetBytes(formBody);
+            tokenRequest.Content = new ByteArrayContent(bodyBytes);
+            tokenRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
 
-            return tokenData.Access_token;
+            var response = await client.SendAsync(tokenRequest);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                fileLogHelper.WriteExpLogs("GetAccessTokenAsync",
+                    new Exception($"Token endpoint returned HTTP {(int)response.StatusCode}. Body: {responseString}"));
+                return null;
+            }
+
+            var dataToken = StringHelper.StringToObject<AccessTokenDataAkaChain>(responseString);
+            if (dataToken?.Access_token == null)
+            {
+                fileLogHelper.WriteExpLogs("GetAccessTokenAsync",
+                    new Exception($"Failed to parse access token. HTTP {(int)response.StatusCode}. Body: {responseString}"));
+                return null;
+            }
+
+            var expiresIn = dataToken.Expires_in > 0 ? Math.Max(dataToken.Expires_in - 60, 60) : 240;
+            redis.StringSetRaw(TokenCacheKey, dataToken.Access_token, TimeSpan.FromSeconds(expiresIn));
+
+            return dataToken.Access_token;
         }
         catch (Exception ex)
         {
@@ -132,7 +198,19 @@ public sealed class AkaChainLoyaltyAppService(
             request.Headers.TryAddWithoutValidation("__tenant",   config.PrivateKey ?? "");
 
             if (bodyJson != null)
-                request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
+            {
+                request.Content = new StringContent(bodyJson, Encoding.UTF8);
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            }
+
+            var curlHeaders = new List<(string, string)>
+            {
+                ("Authorization", $"Bearer {token}"),
+                ("__merchant",    config.PublicKey ?? ""),
+                ("__tenant",      config.PrivateKey ?? "")
+            };
+            if (bodyJson != null) curlHeaders.Add(("Content-Type", "application/json"));
+            LogCurl($"CallApi.{routeName}", method, fullUrl, curlHeaders, bodyJson);
 
             var response = await client.SendAsync(request);
             var body     = await response.Content.ReadAsStringAsync();

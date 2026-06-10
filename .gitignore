@@ -290,3 +290,6 @@ run*.log
 !global.json
 # Solution & project config mới
 !*.slnx
+
+# ---- Loại trừ thư mục backend cũ (không đẩy lên Git) ----
+POS.Backend/

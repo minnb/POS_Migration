@@ -1,5 +1,6 @@
 using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
+using POS.Common.Dtos.POS.Common;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
@@ -17,6 +18,8 @@ public sealed class CentralMDRepository(
     private const string KeyLoyaltyRate       = "MD:LoyaltyRate";
     private const string KeyItemPointsMember  = "MD:ItemPointsMember";
     private const string KeySysWebApi         = "MD:SysWebApi";
+    private const string KeyPOSDataSetup      = "MD:POSDataSetup";
+    private const string KeyStoreSetConfig    = "MD:StoreSetConfig";
 
     public async Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
     {
@@ -122,5 +125,143 @@ public sealed class CentralMDRepository(
 
         redis.HashSet(KeySysWebApi, appCode, dto, ttlSeconds: 43200); // 12 giờ
         return dto;
+    }
+
+    public async Task<List<POSDataSetupModel>?> GetPOSDataSetupAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<POSDataSetupModel>>(KeyPOSDataSetup);
+        if (cached?.Count > 0) return cached;
+
+        const string sql = "SELECT [Code], [Value] FROM POSDataSetup (NOLOCK);";
+        var data = (await QueryAsync<POSDataSetupModel>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyPOSDataSetup, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    public async Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<StoreSetConfig>>(KeyStoreSetConfig);
+        if (cached?.Count > 0) return cached;
+
+        // Giữ nguyên SQL từ MemoryCacheService.GetStoreSetConfig cũ
+        const string sql = @"SELECT DISTINCT A.StoreNo, B.*
+                             FROM CentralGeneral.dbo.[StoreSetServer] (NOLOCK) A
+                             INNER JOIN SysWebApiConfig (NOLOCK) B ON B.[Prefix] = A.[ServerIP]
+                             WHERE B.Blocked = 0 AND A.[Status] = 1;";
+        var data = (await QueryAsync<StoreSetConfig>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyStoreSetConfig, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    // ── CommonService (migrated từ CommonData — phần CentralMD) ──────────────
+    // Parity với CommonData cũ: catch → log/nuốt → trả default; timeout 120s.
+
+    public async Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model, CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = @"[dbo].[POSMonitorInsert] @StoreNo,@IpAddress,@PosTerminalID,@BluePosVersion,@BluePosVersionUpdate,@BluePosDatabaseStatus,@IsOpenBluePos,@DateTimePos,@IntervalJob,@LastTimeInsertAll,@LastTimeInsertChange,@JobVersion,@ScriptVersion,@ComputerName";
+            return await QueryFirstOrDefaultAsync<POSMonitorInsertResponse>(sql, new
+            {
+                model.StoreNo,
+                model.IpAddress,
+                model.PosTerminalID,
+                BluePosVersion = model.BluePosVersion ?? "",
+                model.BluePosVersionUpdate,
+                model.BluePosDatabaseStatus,
+                model.IsOpenBluePos,
+                model.DateTimePos,
+                model.IntervalJob,
+                model.LastTimeInsertAll,
+                model.LastTimeInsertChange,
+                JobVersion = model.JobVersion ?? "",
+                ScriptVersion = model.ScriptVersion ?? "",
+                model.ComputerName
+            }, commandTimeout: 120, ct: ct);
+        }
+        catch
+        {
+            return new POSMonitorInsertResponse();
+        }
+    }
+
+    public async Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress, CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = @"SELECT IPAddress, StoreNo, [No] AS TerminalPOS, TerminalNetworkID, StyleProfile,
+                                        DefaultSalesType, SalesTypeFilter, Pkey, DualDisHost, BillNoseri, Placement,
+                                        ISNULL(StatementMethod, 0) AS StatementMethod, TerminalStatement,
+                                        ISNULL(TerminalConnection, 0) AS TerminalConnection, PrintReceiptLogo,
+                                        CustomerDisplayText1, CustomerDisplayText2,
+                                        ISNULL(PrintReceiptBCType, 0) AS PrintReceiptBCType, InterfaceProfile
+                                 FROM POSTerminals (NOLOCK) WHERE IPAddress = @ipAddress;";
+            return await QueryFirstOrDefaultAsync<PosTerminalModel>(sql, new { ipAddress }, commandTimeout: 120, ct: ct);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    public async Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = "SELECT [Code], [Value] FROM POSDataSetup (NOLOCK);";
+            return (await QueryAsync<POSDataSetupModel>(sql, commandTimeout: 120, ct: ct)).ToList();
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    public async Task<List<POSVersionModel>?> GetPOSVersionAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = @"SELECT LastVersion, CurVersion, UpdateTime, [Counter], Source, Pkey, IsUpdate, Folder
+                                 FROM POSVersion (NOLOCK);";
+            return (await QueryAsync<POSVersionModel>(sql, commandTimeout: 120, ct: ct)).ToList();
+        }
+        catch (Exception)
+        {
+            return default;
+        }
+    }
+
+    public async Task<bool> CheckCouponLineAsync(string itemNo, string barCode, CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = @"SELECT CASE WHEN EXISTS (
+                                     SELECT 1 FROM CpnVchBOMLine (NOLOCK) WHERE ItemNo = @itemNo AND Barcode = @barCode
+                                 ) THEN 1 ELSE 0 END;";
+            return await QueryFirstOrDefaultAsync<bool>(sql, new { itemNo, barCode }, commandTimeout: 120, ct: ct);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = @"INSERT INTO SignalStore (StoreNO, POSTerminalID, BusinessDate, CreatedDate)
+                                 VALUES (@StoreNO, @POSTerminalID, @BusinessDate, @CreatedDate);";
+            await ExecuteAsync(sql,
+                new { model.StoreNO, model.POSTerminalID, model.BusinessDate, model.CreatedDate },
+                commandTimeout: 120, ct: ct);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

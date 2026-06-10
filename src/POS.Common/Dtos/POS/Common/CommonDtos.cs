@@ -14,45 +14,50 @@ public class BussinessDateOpenModel
 {
     public string? Code { get; set; }
     public string? StoreNo { get; set; }
-    public DateTime BussinessDate { get; set; }
+    public DateTime? BussinessDate { get; set; }
     public string? CreatedUser { get; set; }
-    public DateTime CreatedDate { get; set; }
+    public string? UpdatedUser { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 }
 
 public class SignalStoreModel
 {
+    public int ID { get; set; }
     public string? StoreNO { get; set; }
     public string? POSTerminalID { get; set; }
     public DateTime? BusinessDate { get; set; }
-    public DateTime CreatedDate { get; set; }
+    public DateTime? CreatedDate { get; set; }
 }
 
 // ─── Shift ───────────────────────────────────────────────────────────────────
 
+// Khớp ShiftHeaderModel cũ — result SP [API_POS_CHECK_SHIFT_HEADER]
 public class ShiftHeaderModel
 {
-    public bool IsShiftClosed { get; set; }
-    // TODO: add remaining fields from [API_POS_CHECK_SHIFT_HEADER] SP result
+    public string? ShiftCode { get; set; }
+    public bool? IsShiftClosed { get; set; }
 }
 
 // ─── POS Monitor ─────────────────────────────────────────────────────────────
 
+// Khớp POSMonitorInsertRequest cũ — LƯU Ý: IsOpenBluePos là int (POS gửi 0/1), không phải bool
 public class POSMonitorInsertRequest
 {
-    public string StoreNo { get; set; } = string.Empty;
-    public string IpAddress { get; set; } = string.Empty;
-    public string PosTerminalID { get; set; } = string.Empty;
-    public string BluePosVersion { get; set; } = string.Empty;
-    public DateTime BluePosVersionUpdate { get; set; }
+    public string? StoreNo { get; set; }
+    public string? IpAddress { get; set; }
+    public string? ComputerName { get; set; }
+    public string? PosTerminalID { get; set; }
+    public string? BluePosVersion { get; set; }
+    public DateTime? BluePosVersionUpdate { get; set; }
     public int BluePosDatabaseStatus { get; set; }
-    public bool IsOpenBluePos { get; set; }
-    public DateTime DateTimePos { get; set; }
+    public int IsOpenBluePos { get; set; }
+    public DateTime? DateTimePos { get; set; }
     public int IntervalJob { get; set; }
-    public DateTime LastTimeInsertAll { get; set; }
-    public DateTime LastTimeInsertChange { get; set; }
-    public string JobVersion { get; set; } = string.Empty;
-    public string ScriptVersion { get; set; } = string.Empty;
-    public string ComputerName { get; set; } = string.Empty;
+    public DateTime? LastTimeInsertAll { get; set; }
+    public DateTime? LastTimeInsertChange { get; set; }
+    public string? JobVersion { get; set; }
+    public string? ScriptVersion { get; set; }
 }
 
 public class POSMonitorInsertResponse
@@ -76,29 +81,35 @@ public class PosTerminalModel
     public string? BillNoseri { get; set; }
     public string? Placement { get; set; }
     public int StatementMethod { get; set; }
-    public string? TerminalStatement { get; set; }
+    public byte? TerminalStatement { get; set; }
     public int TerminalConnection { get; set; }
     public string? PrintReceiptLogo { get; set; }
     public string? CustomerDisplayText1 { get; set; }
     public string? CustomerDisplayText2 { get; set; }
     public int PrintReceiptBCType { get; set; }
-    // TODO: add remaining PosTerminal fields from CentralMD.POSTerminal table
+    public string? InterfaceProfile { get; set; }
 }
 
 // ─── POS Data Setup & Version ─────────────────────────────────────────────────
 
+// Khớp POSDataSetupModel cũ (API_Common/Models/Common/POSDataSetupModel.cs) — table CentralMD.POSDataSetup
 public class POSDataSetupModel
 {
-    public string? Key { get; set; }
+    public string? Code { get; set; }
     public string? Value { get; set; }
-    // TODO: add remaining fields from CentralMD.POSDataSetup table
 }
 
+// Khớp POSVersionModel cũ — table CentralMD.POSVersion (POS parse đủ các field này)
 public class POSVersionModel
 {
-    public string? Version { get; set; }
-    public string? Description { get; set; }
-    // TODO: add remaining fields from CentralMD.POSVersion table
+    public string? LastVersion { get; set; }
+    public string? CurVersion { get; set; }
+    public DateTime? UpdateTime { get; set; }
+    public long? Counter { get; set; }
+    public string? Source { get; set; }
+    public string? Pkey { get; set; }
+    public bool? IsUpdate { get; set; }
+    public string? Folder { get; set; }
 }
 
 // ─── Order Info ───────────────────────────────────────────────────────────────
@@ -134,19 +145,21 @@ public class ResponseUpdateTransModel
 
 public class POSEOD_APIModel
 {
-    public string StoreNo { get; set; } = string.Empty;
-    public string POSTerminal { get; set; } = string.Empty;
-    public DateTime? BussinessDate { get; set; }
-    public int? TotalSale { get; set; }
+    public string? POSTerminal { get; set; }
+    public string? StoreNo { get; set; }
+    public DateTime BussinessDate { get; set; }
+    public int TotalSale { get; set; }
 }
 
 // ─── Check Total Bill ─────────────────────────────────────────────────────────
 
+// Khớp CheckTotalBillResponse cũ (CommonData.CheckTotalBill)
 public class CheckTotalBillResponse
 {
     public bool Status { get; set; }
-    public string? Message { get; set; }
-    // TODO: add remaining fields from [dbo].[API_CheckTotalBill] SP result
+    public string? Description { get; set; }
+    public int TotalBillPOS { get; set; }
+    public int TotalBillCentral { get; set; }
 }
 
 // ─── Kios ──────────────────────────────────────────────────────────────────────
@@ -194,10 +207,14 @@ public class KiosCheckOrderResponse
 
 // ─── Document / Insurance / Coupon ───────────────────────────────────────────
 
+// Khớp POSDocumentNoModel cũ (API_Common/Models/Common/POSDocumentNoModel.cs)
 public class POSDocumentNoModel
 {
-    public string? DocumentNo { get; set; }
-    // TODO: add remaining fields from ListPOSDocumentNo result
+    public string? StoreNo { get; set; }
+    public string? POSTerminal { get; set; }
+    public string? LastNumber { get; set; }
+    public DateTime? LastDateTime { get; set; }
+    public string? DocumentType { get; set; }
 }
 
 public class InsuranceModel
@@ -210,8 +227,8 @@ public class TransCpnVchIssueModel
 {
     public string? ArticleNo { get; set; }
     public string? VoucherType { get; set; }
-    public int MaxQtyUse { get; set; }
-    public int QtyUse { get; set; }
+    public int? MaxQtyUse { get; set; }
+    public int? QtyUse { get; set; }
 }
 
 // ─── Logging ──────────────────────────────────────────────────────────────────

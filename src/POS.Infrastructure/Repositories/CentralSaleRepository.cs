@@ -1,0 +1,212 @@
+using Dapper;
+using Newtonsoft.Json;
+using POS.Common.Dtos.POS.Common;
+using POS.Infrastructure.Database;
+using POS.Infrastructure.Logging;
+using POS.Infrastructure.Repositories.Interfaces;
+using System.Data;
+
+namespace POS.Infrastructure.Repositories;
+
+/// <summary>
+/// Migrated từ CommonData (VCM.POSBLUE.Data/Common/CommonData.cs) — phần CentralSales.
+/// Connection routed per-store qua StoreRoutedConnectionFactory.
+/// CommandTimeout 120s như code cũ (db.Database.CommandTimeout = 2 * 60).
+/// </summary>
+public sealed class CentralSaleRepository(
+    StoreRoutedConnectionFactory connectionFactory,
+    IFileLogHelper fileLogHelper) : ICentralSaleRepository
+{
+    private const int Timeout = 120;
+
+    public async Task<TransCpnVchIssueModel?> TransactionQtyUseAsync(string articleNo, string siteCode, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            const string sql = @"SELECT Article_No AS ArticleNo, Voucher_Type AS VoucherType, MaxQtyUse, COUNT(*) AS QtyUse
+                                 FROM TransCpnVchIssue (NOLOCK)
+                                 WHERE Site = @siteCode AND Article_No = @articleNo
+                                 GROUP BY Article_No, Voucher_Type, MaxQtyUse;";
+            var data = await conn.QueryFirstOrDefaultAsync<TransCpnVchIssueModel>(
+                new CommandDefinition(sql, new { siteCode, articleNo }, commandTimeout: Timeout, cancellationToken: ct));
+
+            // Giữ default cũ: không có data → coi như chưa dùng lần nào
+            return data ?? new TransCpnVchIssueModel { ArticleNo = articleNo, MaxQtyUse = 9999, QtyUse = 0, VoucherType = "V" };
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("TransactionQtyUse", ex);
+            return default;
+        }
+    }
+
+    public async Task<BusinessDateResponse?> GetBusinessDateAsync(string siteCode, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            const string sql = "SELECT TOP 1 BussinessDate FROM BussinessDateOpen (NOLOCK) WHERE StoreNo = @siteCode;";
+            var bussinessDate = await conn.QueryFirstOrDefaultAsync<DateTime?>(
+                new CommandDefinition(sql, new { siteCode }, commandTimeout: Timeout, cancellationToken: ct));
+
+            // Parity cũ: store chưa có row → trả null (controller sẽ insert BussinessDateOpen mới)
+            if (bussinessDate == null) return null;
+            return new BusinessDateResponse { BussinessDate = bussinessDate, CurrentDate = DateTime.Now };
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    public async Task InsertBussinessDateOpenAsync(BussinessDateOpenModel model, CancellationToken ct = default)
+    {
+        // Parity cũ: chỉ insert khi store CHƯA có row nào; exception throw lên caller
+        using var conn = await connectionFactory.CreateOpenConnectionAsync(model.StoreNo ?? "", ct: ct);
+        const string sql = @"IF NOT EXISTS (SELECT 1 FROM BussinessDateOpen (NOLOCK) WHERE StoreNo = @StoreNo)
+                             INSERT INTO BussinessDateOpen (Code, StoreNo, BussinessDate, CreatedUser, CreatedDate)
+                             VALUES (@Code, @StoreNo, @BussinessDate, @CreatedUser, @CreatedDate);";
+        await conn.ExecuteAsync(new CommandDefinition(sql,
+            new { model.Code, model.StoreNo, model.BussinessDate, model.CreatedUser, model.CreatedDate },
+            commandTimeout: Timeout, cancellationToken: ct));
+    }
+
+    public async Task<ShiftHeaderModel?> GetShiftHeaderAsync(string siteCode, string posTerminal, DateTime businessDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            return await conn.QueryFirstOrDefaultAsync<ShiftHeaderModel>(new CommandDefinition(
+                "[dbo].[API_POS_CHECK_SHIFT_HEADER]",
+                new { SiteCode = siteCode, PosTerminal = posTerminal, BusinessDate = businessDate },
+                commandType: CommandType.StoredProcedure, commandTimeout: Timeout, cancellationToken: ct));
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetShiftHeader", ex);
+            // Parity cũ: lỗi → trả model rỗng (không phải null) — controller check null mới trả "Không có dữ liệu"
+            return new ShiftHeaderModel();
+        }
+    }
+
+    public async Task<bool> CheckSaleReturnAsync(string orderNo, CancellationToken ct = default)
+    {
+        try
+        {
+            var siteCode = orderNo.Substring(0, 4);
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            const string sql = @"SELECT CASE WHEN EXISTS (
+                                     SELECT 1 FROM TransHeader (NOLOCK) WHERE OrderNo = @orderNo AND SalesIsReturn = 1
+                                 ) THEN 1 ELSE 0 END;";
+            return await conn.ExecuteScalarAsync<bool>(
+                new CommandDefinition(sql, new { orderNo }, commandTimeout: Timeout, cancellationToken: ct));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo, CancellationToken ct = default)
+    {
+        var result = new List<SaleTableModel>();
+        try
+        {
+            var siteCode = orderNo.Substring(0, 4);
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+
+            // SP trả multi-resultset, mỗi resultset = 1 bảng sale (TransHeader, TransLine...).
+            // Code cũ dùng DataSet rồi serialize từng DataTable; ở đây dùng Dapper dynamic
+            // (mỗi row là IDictionary<string, object>) — JSON output tương đương.
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(
+                "API_SALE_INFO_ORDERNO", new { OrderNo = orderNo },
+                commandType: CommandType.StoredProcedure, commandTimeout: Timeout, cancellationToken: ct));
+
+            while (!grid.IsConsumed)
+            {
+                var rows = (await grid.ReadAsync()).Cast<IDictionary<string, object?>>().ToList();
+                if (rows.Count == 0) continue;
+
+                var tableModel = new SaleTableModel
+                {
+                    TableName = rows[0].TryGetValue("TableName", out var tn) ? tn?.ToString() : null
+                };
+
+                // Bỏ cột TableName + timestamp khỏi data như code cũ (timestamp là rowversion không serialize được)
+                foreach (var row in rows)
+                {
+                    row.Remove("TableName");
+                    row.Remove("timestamp");
+                }
+
+                tableModel.TableData = JsonConvert.SerializeObject(rows);
+                result.Add(tableModel);
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteLogs($"GetOrderInfo.Exception: {JsonConvert.SerializeObject(ex)}");
+            return result;
+        }
+    }
+
+    public async Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal, CancellationToken ct = default)
+    {
+        var data = new List<POSDocumentNoModel>();
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo, ct: ct);
+
+            const string sqlOrder = @"SELECT TOP 1 StoreNo, POSTerminalNo AS POSTerminal, OrderNo AS LastNumber,
+                                             'ORDER' AS DocumentType, OrderTime AS LastDateTime
+                                      FROM TransHeader (NOLOCK)
+                                      WHERE StoreNo = @storeNo AND POSTerminalNo = @posTerminal
+                                      ORDER BY OrderTime DESC;";
+            var orderLast = await conn.QueryFirstOrDefaultAsync<POSDocumentNoModel>(
+                new CommandDefinition(sqlOrder, new { storeNo, posTerminal }, commandTimeout: Timeout, cancellationToken: ct));
+
+            // LINQ cũ: Voucher_Type == "V" && Site + POSNo.Substring(1, 2) == posTerminal
+            // (EF Substring(1,2) = SQL SUBSTRING(POSNo, 2, 2))
+            const string sqlVoucher = @"SELECT TOP 1 Site AS StoreNo, @posTerminal AS POSTerminal, SerialNo AS LastNumber,
+                                               'VOUCHER' AS DocumentType, CreatedDate AS LastDateTime
+                                        FROM TransCpnVchIssue (NOLOCK)
+                                        WHERE Voucher_Type = 'V' AND Site = @storeNo
+                                          AND Site + SUBSTRING(POSNo, 2, 2) = @posTerminal
+                                        ORDER BY CreatedDate DESC;";
+            var voucherLast = await conn.QueryFirstOrDefaultAsync<POSDocumentNoModel>(
+                new CommandDefinition(sqlVoucher, new { storeNo, posTerminal }, commandTimeout: Timeout, cancellationToken: ct));
+
+            if (orderLast != null) data.Add(orderLast);
+            if (voucherLast != null) data.Add(voucherLast);
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("ListPOSDocumentNo", ex);
+        }
+        return data;
+    }
+
+    public async Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(model.StoreNo ?? "", ct: ct);
+            const string sql = @"UPDATE POSEOD_API SET TotalSale = @TotalSale
+                                 WHERE StoreNo = @StoreNo AND POSTerminal = @POSTerminal
+                                   AND CAST(BussinessDate AS DATE) = CAST(@BussinessDate AS DATE);
+                                 IF @@ROWCOUNT = 0
+                                     INSERT INTO POSEOD_API (StoreNo, POSTerminal, BussinessDate, TotalSale, CreatedDate)
+                                     VALUES (@StoreNo, @POSTerminal, @BussinessDate, @TotalSale, GETDATE());";
+            await conn.ExecuteAsync(new CommandDefinition(sql,
+                new { model.StoreNo, model.POSTerminal, model.BussinessDate, model.TotalSale },
+                commandTimeout: Timeout, cancellationToken: ct));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
