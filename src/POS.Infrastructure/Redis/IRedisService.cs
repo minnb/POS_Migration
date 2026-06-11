@@ -5,6 +5,7 @@ public interface IRedisService
     // Hash operations
     Task<T?> HashGetAsync<T>(string key, string field);
     T? HashGet<T>(string key, string field);
+    Task HashSetAsync<T>(string key, string field, T value, int? ttlSeconds = null);
     void HashSet<T>(string key, string field, T value, int? ttlSeconds = null);
     void HashDelete(string key, string field);
 

@@ -192,6 +192,26 @@ public sealed class CentralSaleRepository(
         return data;
     }
 
+    public async Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo, ct: ct);
+            const string sql = @"SELECT TOP 10 StoreNo, POSTerminalNo, CAST(OrderDate AS DATE) OrderDate, CreatedDate, OrderNo, MemberCardNo, AmountInclVAT
+                                 FROM TransHeader (NOLOCK)
+                                 WHERE StoreNo = @storeNo AND POSTerminalNo = @posNo
+                                 ORDER BY CreatedDate DESC;";
+            var data = await conn.QueryAsync<TransHeaderOrderModel>(
+                new CommandDefinition(sql, new { storeNo, posNo }, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetTopOrderNo", ex);
+            return [];
+        }
+    }
+
     public async Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
     {
         try

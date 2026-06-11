@@ -15,6 +15,9 @@ public sealed class RedisService(IRedisManager manager) : IRedisService
     public T? HashGet<T>(string key, string field)
         => manager.HashGetAsync<T>(key, field).GetAwaiter().GetResult();
 
+    public Task HashSetAsync<T>(string key, string field, T value, int? ttlSeconds = null)
+        => manager.HashSetAsync(key, field, value, ttlSeconds ?? 0);
+
     public void HashSet<T>(string key, string field, T value, int? ttlSeconds = null)
         => manager.HashSetAsync(key, field, value, ttlSeconds ?? 0).GetAwaiter().GetResult();
 

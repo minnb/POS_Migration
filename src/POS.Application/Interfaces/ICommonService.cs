@@ -23,6 +23,7 @@ public interface ICommonService
     Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo);
 
     Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal);
+    Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo);
     Task<bool> CheckCouponLineAsync(string itemNo, string barCode);
 
     Task<ResponseUpdateTransModel> InsertLineOrig_UpdateOrderInfoAsync(UpdateOrderInfoModel model);

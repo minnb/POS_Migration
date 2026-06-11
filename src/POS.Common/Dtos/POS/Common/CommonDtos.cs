@@ -127,6 +127,18 @@ public class TransHeader
     // TODO: add remaining fields when implementing GetOrderInfo (TransactionNo, POSTerminal, etc.)
 }
 
+// Top OrderNo gần nhất theo Store/POS — table CentralSales.TransHeader
+public class TransHeaderOrderModel
+{
+    public string? StoreNo { get; set; }
+    public string? POSTerminalNo { get; set; }
+    public DateTime? OrderDate { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public string? OrderNo { get; set; }
+    public string? MemberCardNo { get; set; }
+    public decimal? AmountInclVAT { get; set; }
+}
+
 // ─── Order Transaction Update ─────────────────────────────────────────────────
 
 public class UpdateOrderInfoModel

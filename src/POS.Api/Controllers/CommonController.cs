@@ -364,6 +364,33 @@ public sealed class CommonController(
         }
     }
 
+    // ─── GetTopOrderNo ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lấy top 10 OrderNo mới nhất của 1 POS (CentralSales.TransHeader, routed theo store).
+    /// </summary>
+    [HttpGet("GetTopOrderNo")]
+    public async Task<IActionResult> GetTopOrderNo(
+        [FromQuery] string storeNo,
+        [FromQuery] string posNo)
+    {
+        if (string.IsNullOrEmpty(storeNo)) return BadRequestResult("storeNo đang bị trống");
+        if (string.IsNullOrEmpty(posNo)) return BadRequestResult("posNo đang bị trống");
+
+        try
+        {
+            var data = await commonService.GetTopOrderNoAsync(storeNo, posNo);
+            if (data.Count == 0)
+                return BadRequestResult("Không có dữ liệu");
+            return OkResult(data);
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("CommonController.GetTopOrderNo", ex);
+            return BadRequestResult(ex);
+        }
+    }
+
     // ─── CheckCouponLine ──────────────────────────────────────────────────────
 
     [HttpGet("CheckCouponLine")]

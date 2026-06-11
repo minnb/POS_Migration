@@ -38,6 +38,9 @@ public sealed class CommonService(
     public Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal)
         => centralSaleRepository.ListPOSDocumentNoAsync(storeNo, posTerminal);
 
+    public Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo)
+        => centralSaleRepository.GetTopOrderNoAsync(storeNo, posNo);
+
     public Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model)
         => centralSaleRepository.UpdatePOSEODAsync(model);
 
