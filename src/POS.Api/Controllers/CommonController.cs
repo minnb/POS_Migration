@@ -300,7 +300,7 @@ public sealed class CommonController(
             if (data.Count == 0)
                 return BadRequestResult($"Đơn hàng: {orderNo} chưa được đồng bộ lên Central, vui lòng đợi dữ liệu đồng bộ thành công trước khi trả hàng");
 
-            kibanaService.LogResponse("GetOrderInfo", posNo, 0, orderNo, JsonConvert.SerializeObject(data));
+            //kibanaService.LogResponse("GetOrderInfo", posNo, 0, orderNo, JsonConvert.SerializeObject(data));
 
             if (!string.IsNullOrEmpty(storeNo))
             {

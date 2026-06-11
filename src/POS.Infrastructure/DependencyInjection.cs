@@ -95,7 +95,7 @@ public static class DependencyInjection
         // UrboxService tạo HttpClient riêng per-call (cần per-request Signature header).
         services.AddScoped<IGotITAppService, GotITService>();
         services.AddScoped<IUrboxAppService, UrboxService>();
-
+        services.AddScoped<IKafkaAppService, KafkaAppService>();
         return services;
     }
 }

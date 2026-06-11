@@ -1,10 +1,27 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 namespace POS.Common.Helpers;
 
 public static class StringHelper
 {
+    public static JObject? StringToJObject(string json)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(json))
+            {
+                //var jObject = JObject.Parse(consumeResult.Message.Value.Replace("'", ""));
+                return JObject.Parse(json);
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
     public static string Uppering(string str)
     {
         if (!string.IsNullOrEmpty(str))

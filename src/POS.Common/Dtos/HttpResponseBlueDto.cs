@@ -1,5 +1,6 @@
 namespace POS.Common.Dtos;
 
+
 public class HttResponsePartner
 {
     public MetaPartner? Meta { get; set; }

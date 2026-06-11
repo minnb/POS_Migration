@@ -1,8 +1,11 @@
-using System.Net;
-using System.Net.Sockets;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Common;
+using POS.Common.Dtos;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Sockets;
+using System.Text;
 
 namespace POS.Api.Controllers;
 
@@ -114,5 +117,27 @@ public abstract class BaseController : ControllerBase
                 : $"{ipServer}@{forwarded}";
         }
         catch { return "localhost"; }
+    }
+    public AuthDto? GetAuthData()
+    {
+        try
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            var authHeaderValue = AuthenticationHeaderValue.Parse(authHeader);
+            var credentials = Encoding.UTF8
+                .GetString(Convert.FromBase64String(authHeaderValue.Parameter ?? "0:0:0"))
+                .Split(':');
+
+            return new AuthDto()
+            {
+                AppCode = credentials[0],
+                StoreNo = credentials[1],
+                PosNo = credentials[2]
+            };
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

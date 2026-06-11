@@ -18,4 +18,6 @@ public interface ICentralSaleRepository
     Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo, CancellationToken ct = default);
     Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal, CancellationToken ct = default);
     Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default);
+    Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default);
+
 }

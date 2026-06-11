@@ -1,8 +1,12 @@
+using Confluent.Kafka;
 using Dapper;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Newtonsoft.Json;
+using POS.Common.Dtos.POS;
 using POS.Common.Dtos.POS.Common;
+using POS.Common.Helpers;
 using POS.Infrastructure.Database;
-using POS.Infrastructure.Logging;
+using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 using POS.Infrastructure.Repositories.Interfaces;
 using System.Data;
 
@@ -207,6 +211,68 @@ public sealed class CentralSaleRepository(
         catch
         {
             return false;
+        }
+    }
+
+    public async Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default)
+    {
+        try
+        {
+            var data = StringHelper.StringToObject<KafkaMessagePOS>(message.Replace("'", ""));
+            if (data == null)
+            {
+               return (false, "Lỗi convert Json");
+            }
+            string jsonData = JsonConvert.SerializeObject(data.Data);
+            var jObject = StringHelper.StringToJObject(message);
+            
+            if (jObject is null)
+            {
+                return (false, "Invalid message format");
+            }
+
+            string? type = (string?)jObject["Type"];
+            if (type == "HARDWARE")
+            {
+                return (true, "Continue");
+            }
+
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo ?? "", ct: ct);
+
+            var parameters = new DynamicParameters();
+            parameters.Add("@Type", data.Type);
+            parameters.Add("@Json", jsonData);
+            
+            // Call stored procedure
+            var result = await conn.QueryAsync<QueryResult>(
+                "Sale_InsertDataByOrder_KAFKA",
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: 90
+            );
+
+            if (result == null)
+            {
+                return (false, $"lỗi thực thi tra cứu log trong Interface_Errors");
+            }
+            else
+            {
+                var checkStatus = result.FirstOrDefault() ?? null;
+                if (checkStatus != null && checkStatus.STATUS == 0)
+                {
+                    return (false, $"lỗi thực thi tra cứu log trong Interface_Errors");
+                }
+
+                if (data.Type == "REGISTER" && !string.IsNullOrEmpty(posNo))
+                {
+                    //await RegisterExecuteAsync(dbContext, POSTerminal);
+                }
+                return (true, "OK");
+            }
+        }
+        catch(Exception ex) 
+        {
+            return (false, ex.Message);
         }
     }
 }
