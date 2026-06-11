@@ -2,14 +2,10 @@
 #   sudo docker compose up -d --build
 #
 # QUAN TRỌNG — chuyển đổi MỘT LẦN từ container mssql_2019 cũ (GIỮ NGUYÊN DATA):
-#   1. Tìm tên volume data cũ:
-#        sudo docker inspect mssql_2019 --format '{{range .Mounts}}{{.Name}}{{end}}'
-#   2. Tạo file .env cạnh file này với nội dung:
-#        SQL_DATA_VOLUME=<tên volume vừa tìm được>
-#   3. Xóa container cũ (DATA KHÔNG MẤT — data nằm trong volume, không nằm trong container):
+#   1. Xóa container cũ (DATA KHÔNG MẤT — data nằm trong volume my-sit-env_sql_data):
 #        sudo docker rm -f mssql_2019
-#   4. mkdir -p logs && sudo chown 1654:1654 logs
-#   5. sudo docker compose up -d --build
+#   2. mkdir -p logs && sudo chown 1654:1654 logs
+#   3. sudo docker compose up -d --build
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
@@ -58,6 +54,6 @@ services:
 volumes:
   sql_data:
     # Dùng lại volume DATA CŨ của mssql_2019 (external — compose không tạo volume mới).
-    # SQL_DATA_VOLUME đặt trong file .env — xem hướng dẫn ở đầu file.
+    # Mặc định: my-sit-env_sql_data (volume của compose cũ); có thể override qua .env nếu đổi server.
     external: true
-    name: ${SQL_DATA_VOLUME:?Tạo file .env với SQL_DATA_VOLUME=<tên volume cũ — xem comment đầu file>}
+    name: ${SQL_DATA_VOLUME:-my-sit-env_sql_data}
