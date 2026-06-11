@@ -38,9 +38,15 @@ public static class SerilogConfiguration
                 .WriteTo.Console(
                     outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
 
-            if (esOptions.Nodes.Length > 0)
+            // Bỏ entry rỗng — cho phép appsettings.{Env}.json blank index thừa của
+            // array Nodes để tắt ES sink (config layering merge array theo index)
+            var nodes = esOptions.Nodes
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Select(n => new Uri(n))
+                .ToArray();
+
+            if (nodes.Length > 0)
             {
-                var nodes = esOptions.Nodes.Select(n => new Uri(n)).ToArray();
 
                 // Tên dataset lấy từ IndexFormat (e.g. "posblue-logs-{0:yyyy.MM.dd}" → "posblue-logs")
                 // Với Elastic.Serilog.Sinks (ECS), index được quản lý bởi data stream thay vì

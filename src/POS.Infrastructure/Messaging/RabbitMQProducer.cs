@@ -12,6 +12,11 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
     private IConnection? _connection;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+    // Backoff sau khi connect fail: trong khoảng này mọi publish trả null ngay,
+    // tránh từng request phải trả giá TCP timeout khi broker chết/không tới được.
+    private static readonly TimeSpan ReconnectBackoff = TimeSpan.FromSeconds(30);
+    private DateTime _lastConnectFailureUtc = DateTime.MinValue;
+
     private static readonly Dictionary<string, object?> QuorumQueueArgs =
         new() { { "x-queue-type", "quorum" } };
 
@@ -31,11 +36,15 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
         // Fast path: reuse open connection
         if (_connection?.IsOpen == true) return _connection;
 
+        // Đang trong backoff window → fail fast, không xếp hàng sau semaphore
+        if (DateTime.UtcNow - _lastConnectFailureUtc < ReconnectBackoff) return null;
+
         await _lock.WaitAsync(ct);
         try
         {
             // Double-check after acquiring lock
             if (_connection?.IsOpen == true) return _connection;
+            if (DateTime.UtcNow - _lastConnectFailureUtc < ReconnectBackoff) return null;
 
             var factory = new ConnectionFactory
             {
@@ -46,11 +55,24 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
                 AutomaticRecoveryEnabled = true,
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
                 RequestedHeartbeat = TimeSpan.FromSeconds(_options.RequestedHeartbeat),
+                // Mặc định 30s/endpoint → 3 endpoint chết có thể treo 90s mỗi publish.
+                // 5s đủ cho mạng nội bộ, fail nhanh khi broker không tới được.
+                RequestedConnectionTimeout = TimeSpan.FromSeconds(5),
             };
 
+            // Bỏ entry rỗng — cho phép appsettings.{Env}.json/env var blank các index
+            // thừa của array Hosts (config layering merge array theo index, không xóa)
             var endpoints = _options.Hosts
+                .Where(h => !string.IsNullOrWhiteSpace(h))
                 .Select(h => new AmqpTcpEndpoint(h, _options.Port))
                 .ToList();
+
+            if (endpoints.Count == 0)
+            {
+                _logger.LogWarning("[RabbitMQ] No broker host configured — skipping publish");
+                _lastConnectFailureUtc = DateTime.UtcNow;
+                return null;
+            }
 
             _connection = await factory.CreateConnectionAsync(endpoints, ct);
 
@@ -61,11 +83,15 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
             };
 
             _logger.LogInformation("[RabbitMQ] Connected to broker");
+            _lastConnectFailureUtc = DateTime.MinValue;
             return _connection;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[RabbitMQ] Failed to connect to broker — messages will be dropped until connection is restored");
+            _lastConnectFailureUtc = DateTime.UtcNow;
+            _logger.LogWarning(ex,
+                "[RabbitMQ] Failed to connect to broker — dropping messages for {Backoff}s before retrying",
+                ReconnectBackoff.TotalSeconds);
             return null;
         }
         finally

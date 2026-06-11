@@ -112,6 +112,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// ── Health check (anonymous) — dùng cho Docker HEALTHCHECK / load balancer ─
+app.MapGet("/health", () => Results.Text("OK"));
+
 app.MapControllers();
 
 app.Run();

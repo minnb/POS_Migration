@@ -1,0 +1,52 @@
+# Server 2 vCPU / 8GB RAM — RAM được chia chủ động:
+#   mssql ≤ 4GB (SQL engine tự giới hạn 3GB), api ≤ 2GB, còn ~2GB cho OS + Redis + RabbitMQ (native)
+# Yêu cầu file .env cạnh file này: MSSQL_SA_PASSWORD=<password mạnh>
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: mssql_2019
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Đặt MSSQL_SA_PASSWORD trong file .env}
+      # QUAN TRỌNG: mặc định SQL Server chiếm ~80% RAM host (6.4GB/8GB) → nghẹt cả máy
+      MSSQL_MEMORY_LIMIT_MB: "3072"
+    mem_limit: 4g
+    healthcheck:
+      # 2019-latest dùng mssql-tools; các CU mới có thể là mssql-tools18 (cần -C)
+      test: [ "CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - mssql-data:/var/opt/mssql
+    ports:
+      - "1433:1433"
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: pos-api
+    ports:
+      - "8080:80"
+    # Redis + RabbitMQ chạy native trên host → container truy cập qua host.docker.internal
+    # (Redis/RabbitMQ trên host phải listen 0.0.0.0 hoặc IP bridge 172.17.0.1)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    mem_limit: 2g
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production # dùng appsettings.Production.json
+      DOTNET_gcServer: "0" # Workstation GC — hợp máy 2 vCPU / ít RAM
+      # Override credentials không muốn commit vào appsettings.Production.json, ví dụ:
+      # ConnectionStrings__CentralMD: "Data Source=mssql,1433;Initial Catalog=RPOSMasterData;User ID=sa;Password=${MSSQL_SA_PASSWORD};MultipleActiveResultSets=True;TrustServerCertificate=True"
+    volumes:
+      # Trên server chạy trước: mkdir -p logs && sudo chown 1654:1654 logs
+      # (container chạy non-root APP_UID=1654 — không chown sẽ không ghi được file log)
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
