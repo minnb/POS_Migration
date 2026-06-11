@@ -13,10 +13,46 @@ namespace POS.Api.Controllers;
 [Route("api/common")]
 public sealed class CommonController(
     ICommonService commonService,
+    IHealthCheckService healthCheckService,
     IKibanaService kibanaService,
     IFileLogHelper fileLogHelper
 ) : BaseController
 {
+    // ─── CheckConnection (chẩn đoán kết nối hạ tầng) ──────────────────────────
+
+    /// <summary>
+    /// Check kết nối Redis, RabbitMQ và SQL (CentralMD/CentralGeneral/CentralSale/
+    /// CentralSaleTemplate). Truyền ?storeNo=... để test CentralSaleTemplate theo
+    /// đúng logic routing StoreSetServer của store đó.
+    /// HTTP 200 = tất cả OK; 503 = có ít nhất 1 kết nối fail (chi tiết trong Data).
+    /// </summary>
+    [HttpGet("CheckConnection")]
+    public async Task<IActionResult> CheckConnection(
+        [FromQuery] string? storeNo = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var items = await healthCheckService.CheckAllAsync(storeNo, ct);
+            var failed = items.Count(x => !x.Ok);
+            var status = failed == 0 ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
+            return StatusCode((int)status, new ResultResponse
+            {
+                Status = status,
+                Message = failed == 0
+                    ? $"OK — {items.Count}/{items.Count} kết nối thành công"
+                    : $"{failed}/{items.Count} kết nối thất bại",
+                Data = items,
+                MessageTechnical = string.Empty
+            });
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("CommonController.CheckConnection", ex);
+            return BadRequestResult(ex);
+        }
+    }
+
     // ─── TransactionIssue ─────────────────────────────────────────────────────
 
     [HttpGet("TransactionIssue")]

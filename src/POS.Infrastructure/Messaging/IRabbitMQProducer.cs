@@ -12,4 +12,9 @@ public interface IRabbitMQProducer
     /// Overload đồng bộ cho backward compat với code gọi Task.Run(() => ...).
     /// </summary>
     void ProducerRabbtMQCluster(string queueName, string message);
+
+    /// <summary>
+    /// Check kết nối broker chủ động (bỏ qua backoff) — dùng cho api/common/CheckConnection.
+    /// </summary>
+    Task<(bool Ok, string Message)> CheckConnectionAsync(CancellationToken ct = default);
 }

@@ -133,6 +133,28 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
         => ProducerRabbtMQClusterAsync(queueName, message).GetAwaiter().GetResult();
 
     // ──────────────────────────────────────────
+    // Health check
+    // ──────────────────────────────────────────
+
+    public async Task<(bool Ok, string Message)> CheckConnectionAsync(CancellationToken ct = default)
+    {
+        var target = $"{_options.Host}:{_options.Port}";
+        try
+        {
+            // Check chủ động — reset backoff để thử kết nối thật ngay lập tức
+            _lastConnectFailureUtc = DateTime.MinValue;
+            var connection = await GetConnectionAsync(ct);
+            return connection?.IsOpen == true
+                ? (true, $"Connected {target} (vhost '{_options.VirtualHost}')")
+                : (false, $"Không kết nối được {target} — xem log [RabbitMQ] để biết chi tiết");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"{target} — {ex.Message}");
+        }
+    }
+
+    // ──────────────────────────────────────────
     // Dispose
     // ──────────────────────────────────────────
 

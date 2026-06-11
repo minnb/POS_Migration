@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<IUrboxService, UrboxService>();
         services.AddScoped<IDataRawService, DataRawService>();
         services.AddScoped<ISyncDataPosService, SyncDataPosService>();
+        services.AddScoped<IHealthCheckService, HealthCheckService>();
         return services;
     }
 }
