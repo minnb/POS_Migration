@@ -285,6 +285,10 @@ run*.log
 # ---- Giữ lại (override pattern *.json / *.config ở trên) các file CẦN push ----
 !**/launchSettings.json
 !global.json
+# appsettings gốc + theo môi trường (appsettings.*.local.json / Local.json vẫn bị ignore ở trên)
+!**/appsettings.json
+!**/appsettings.Development.json
+!**/appsettings.Production.json
 # Solution & project config mới
 !*.slnx
 
