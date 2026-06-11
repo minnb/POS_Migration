@@ -12,6 +12,7 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
     private IConnection? _connection;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+<<<<<<< HEAD
     // Backoff sau khi connect fail: trong khoảng này mọi publish trả null ngay,
     // tránh từng request phải trả giá TCP timeout khi broker chết/không tới được.
     private static readonly TimeSpan ReconnectBackoff = TimeSpan.FromSeconds(30);
@@ -20,6 +21,8 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
     private static readonly Dictionary<string, object?> QuorumQueueArgs =
         new() { { "x-queue-type", "quorum" } };
 
+=======
+>>>>>>> 3dede2682871059837b73842042db3f92935355b
     public RabbitMQProducer(IConfiguration configuration, ILogger<RabbitMQProducer> logger)
     {
         _options = configuration.GetSection(RabbitMQOptions.SectionName).Get<RabbitMQOptions>()
@@ -48,10 +51,11 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
 
             var factory = new ConnectionFactory
             {
+                HostName = _options.Host,
+                Port = _options.Port,
                 UserName = _options.Username,
                 Password = _options.Password,
                 VirtualHost = _options.VirtualHost,
-                Port = _options.Port,
                 AutomaticRecoveryEnabled = true,
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
                 RequestedHeartbeat = TimeSpan.FromSeconds(_options.RequestedHeartbeat),
@@ -60,6 +64,7 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
                 RequestedConnectionTimeout = TimeSpan.FromSeconds(5),
             };
 
+<<<<<<< HEAD
             // Bỏ entry rỗng — cho phép appsettings.{Env}.json/env var blank các index
             // thừa của array Hosts (config layering merge array theo index, không xóa)
             var endpoints = _options.Hosts
@@ -75,6 +80,9 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
             }
 
             _connection = await factory.CreateConnectionAsync(endpoints, ct);
+=======
+            _connection = await factory.CreateConnectionAsync(ct);
+>>>>>>> 3dede2682871059837b73842042db3f92935355b
 
             _connection.ConnectionShutdownAsync += (_, args) =>
             {
@@ -122,7 +130,7 @@ public sealed class RabbitMQProducer : IRabbitMQProducer, IAsyncDisposable
                 durable: true,
                 exclusive: false,
                 autoDelete: false,
-                arguments: QuorumQueueArgs);
+                arguments: null);
 
             var props = new BasicProperties
             {
