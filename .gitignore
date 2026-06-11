@@ -277,6 +277,9 @@ POSBlue.Net10/**/obj/
 run*.log
 *.err.log
 
+# Cấu hình local cho docker compose (SQL_DATA_VOLUME… — riêng từng máy, không push)
+.env
+
 # .NET user-secrets / local override (chứa thông tin nhạy cảm — KHÔNG push)
 **/secrets.json
 **/appsettings.*.local.json

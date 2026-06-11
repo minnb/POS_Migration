@@ -1,20 +1,51 @@
-# Compose này CHỈ chạy API. SQL Server dùng container mssql_2019 CÓ SẴN trên server
-# (quản lý bằng compose ở thư mục khác, publish port 14333:1433) — KHÔNG khai báo
-# service sqlserver ở đây để tránh trùng container/tạo volume rỗng mất data.
-# API kết nối SQL qua host.docker.internal,14333 (cấu hình trong appsettings.Production.json).
+# Compose DUY NHẤT cho cả API + SQL Server, chạy từ thư mục code:
+#   sudo docker compose up -d --build
 #
-# Chạy: sudo docker compose up -d --build
-# Trước lần chạy đầu: mkdir -p logs && sudo chown 1654:1654 logs
+# QUAN TRỌNG — chuyển đổi MỘT LẦN từ container mssql_2019 cũ (GIỮ NGUYÊN DATA):
+#   1. Tìm tên volume data cũ:
+#        sudo docker inspect mssql_2019 --format '{{range .Mounts}}{{.Name}}{{end}}'
+#   2. Tạo file .env cạnh file này với nội dung:
+#        SQL_DATA_VOLUME=<tên volume vừa tìm được>
+#   3. Xóa container cũ (DATA KHÔNG MẤT — data nằm trong volume, không nằm trong container):
+#        sudo docker rm -f mssql_2019
+#   4. mkdir -p logs && sudo chown 1654:1654 logs
+#   5. sudo docker compose up -d --build
 services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: mssql_2019
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=VnDevops@2026! # Bạn có thể đổi mật khẩu này, nhưng giữ nguyên độ khó
+      - MSSQL_PID=Developer # Bản Developer đầy đủ tính năng và miễn phí cho môi trường Test
+      # Chặn SQL Server nuốt ~80% RAM máy 8GB (nguyên nhân phụ làm API chậm chờn)
+      - MSSQL_MEMORY_LIMIT_MB=3072
+    mem_limit: 4g
+    ports:
+      - "14333:1433" # cổng cho tools bên ngoài; API nối thẳng mssql_2019:1433 trong network
+    volumes:
+      - sql_data:/var/opt/mssql # Lưu trữ dữ liệu cứng để không mất DB khi khởi động lại
+    healthcheck:
+      # 2019-latest dùng mssql-tools; các bản CU mới dùng mssql-tools18 (cần thêm -C)
+      test: [ "CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$SA_PASSWORD\" -Q 'SELECT 1' || /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$SA_PASSWORD\" -Q 'SELECT 1'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   webapp:
     build: .
     container_name: sit_dotnet_api
     ports:
       - "8080:80"
-    # SQL (14333), Redis (6379), RabbitMQ (5672) đều đi qua host.docker.internal
+    # Redis (6379) + RabbitMQ (5672) chạy native trên host → qua host.docker.internal
     # (Redis/RabbitMQ trên host phải listen 0.0.0.0 hoặc IP bridge 172.17.0.1)
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
     mem_limit: 2g
     environment:
       ASPNETCORE_ENVIRONMENT: Production # dùng appsettings.Production.json
@@ -23,3 +54,10 @@ services:
       # container chạy non-root APP_UID=1654 — không chown thư mục logs sẽ không ghi được file
       - ./logs:/app/logs
     restart: unless-stopped
+
+volumes:
+  sql_data:
+    # Dùng lại volume DATA CŨ của mssql_2019 (external — compose không tạo volume mới).
+    # SQL_DATA_VOLUME đặt trong file .env — xem hướng dẫn ở đầu file.
+    external: true
+    name: ${SQL_DATA_VOLUME:?Tạo file .env với SQL_DATA_VOLUME=<tên volume cũ — xem comment đầu file>}
