@@ -49,9 +49,13 @@ services:
     volumes:
       # container chạy non-root APP_UID=1654 — không chown thư mục logs sẽ không ghi được file
       - ./logs:/app/logs
+      # Giữ key DataProtection qua các lần rebuild — tắt cảnh báo "Storing keys in a
+      # directory that may not be persisted" lúc khởi động
+      - dp-keys:/home/app/.aspnet/DataProtection-Keys
     restart: unless-stopped
 
 volumes:
+  dp-keys:
   sql_data:
     # Dùng lại volume DATA CŨ của mssql_2019 (external — compose không tạo volume mới).
     # Mặc định: my-sit-env_sql_data (volume của compose cũ); có thể override qua .env nếu đổi server.
