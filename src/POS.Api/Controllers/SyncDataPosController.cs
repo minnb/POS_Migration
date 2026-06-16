@@ -399,10 +399,23 @@ public sealed class SyncDataPosController(
         try
         {
             var st1 = Stopwatch.StartNew();
-            if (!System.IO.File.Exists(filePath))
+
+            // UNC path (\\ip\FTPBLUEPOS\...) từ POS không resolve được trên Linux Docker
+            // → tách relative path sau FTPBLUEPOS\ và map về physical path local
+            var localPath = filePath;
+            if (filePath != null && filePath.StartsWith(@"\\"))
+            {
+                const string ftpRoot = "FTPBLUEPOS";
+                var idx = filePath.IndexOf(ftpRoot, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                    localPath = syncDataPosService.MapFtpPath(
+                        filePath[(idx + ftpRoot.Length)..].Replace('\\', '/'));
+            }
+
+            if (!System.IO.File.Exists(localPath))
                 return HttpResponseData(HttpStatusCode.BadRequest, $"File: {fileName} không tồn tại", null);
 
-            var readFile = await System.IO.File.ReadAllBytesAsync(filePath!);
+            var readFile = await System.IO.File.ReadAllBytesAsync(localPath!);
             st1.Stop();
             kibanaService.LogResponse("DowloadFileStream", GetIpServer(), st1.ElapsedMilliseconds, "",
                 $"StatusCode:OK download file {filePath}{fileName}");
