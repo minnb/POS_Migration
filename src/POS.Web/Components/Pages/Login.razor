@@ -1,0 +1,102 @@
+@page "/login"
+@layout Layout.EmptyLayout
+@attribute [AllowAnonymous]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+
+@inject IWebUserService UserService
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Đăng nhập – POS Dashboard</PageTitle>
+
+<MudPaper Elevation="4" Style="width:380px;padding:32px 28px;border-radius:12px;">
+    <div style="text-align:center;margin-bottom:24px;">
+        <MudIcon Icon="@Icons.Material.Filled.PointOfSale"
+                 Color="Color.Primary" Style="font-size:3rem;"/>
+        <MudText Typo="Typo.h6" Class="mt-1">POS Dashboard</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">WinMart Operations</MudText>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMsg))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3" Dense="true">@_errorMsg</MudAlert>
+    }
+
+    <MudTextField @bind-Value="_username" Label="Tên đăng nhập"
+                  Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person"
+                  Disabled="_loading" OnKeyDown="OnKeyDown"/>
+
+    <MudTextField @bind-Value="_password" Label="Mật khẩu"
+                  Variant="Variant.Outlined" FullWidth="true" Class="mb-4"
+                  Adornment="Adornment.End"
+                  AdornmentIcon="@(_showPass ? Icons.Material.Filled.Visibility
+                                             : Icons.Material.Filled.VisibilityOff)"
+                  OnAdornmentClick="@(() => _showPass = !_showPass)"
+                  InputType="@(_showPass ? InputType.Text : InputType.Password)"
+                  Disabled="_loading" OnKeyDown="OnKeyDown"/>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+               Size="Size.Large" OnClick="DoLogin" Disabled="_loading">
+        @if (_loading)
+        { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2"/> }
+        Đăng nhập
+    </MudButton>
+</MudPaper>
+
+@code {
+    private string _username = string.Empty;
+    private string _password = string.Empty;
+    private string _errorMsg = string.Empty;
+    private bool   _loading  = false;
+    private bool   _showPass = false;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoLogin();
+    }
+
+    private async Task DoLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMsg = "Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.";
+            return;
+        }
+
+        _loading  = true;
+        _errorMsg = string.Empty;
+
+        var user = await UserService.ValidateLoginAsync(_username.Trim(), _password);
+
+        if (user is null)
+        {
+            _errorMsg = "Tên đăng nhập hoặc mật khẩu không đúng.";
+            _loading  = false;
+            return;
+        }
+
+        var claims = new List<System.Security.Claims.Claim>
+        {
+            new(System.Security.Claims.ClaimTypes.Name, user.Username),
+            new(System.Security.Claims.ClaimTypes.Role, user.Role),
+            new("full_name",                            user.FullName),
+        };
+
+        if (!string.IsNullOrEmpty(user.StoreCodes))
+            claims.Add(new("store_codes", user.StoreCodes));
+
+        var identity  = new System.Security.Claims.ClaimsIdentity(
+                            claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new System.Security.Claims.ClaimsPrincipal(identity);
+
+        var ctx = HttpContextAccessor.HttpContext!;
+        await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
+            new AuthenticationProperties { IsPersistent = true });
+
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+}

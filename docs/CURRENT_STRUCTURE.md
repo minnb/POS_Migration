@@ -1,0 +1,1025 @@
+# CURRENT_STRUCTURE.md — Bản đồ hiện trạng POS Migration (.NET 10)
+
+> Generated: 2026-06-15 | Branch: main | Chỉ ghi những gì ĐÃ TỒN TẠI
+> Projects thực tế: `POS.Api`, `POS.Application`, `POS.Common`, `POS.Infrastructure`
+> (Note: task đề cập VCM.POSBLUE.* nhưng project đã được đổi tên sang POS.* khi khởi tạo solution mới)
+
+---
+
+## MỤC A — Cây thư mục thực tế
+
+```
+src/
+├── POS.Api/
+│   ├── appsettings.Development.json
+│   ├── appsettings.json
+│   ├── appsettings.Production.json
+│   ├── Authentication/
+│   │   └── BasicAuthHandler.cs
+│   ├── Controllers/
+│   │   ├── BaseController.cs
+│   │   ├── CommonController.cs
+│   │   ├── KafkaController.cs
+│   │   ├── LoyaltyController.cs
+│   │   ├── PaymentController.cs
+│   │   └── SyncDataPosController.cs
+│   ├── Filters/
+│   │   └── ValidateModelFilter.cs
+│   ├── Middleware/
+│   │   └── BasicAuthHandler.cs
+│   ├── Program.cs
+│   └── Properties/
+│       └── launchSettings.json
+│
+├── POS.Application/
+│   ├── DependencyInjection.cs
+│   ├── Interfaces/
+│   │   ├── IAkaChainLoyaltyService.cs
+│   │   ├── ICommonService.cs
+│   │   ├── IDataRawService.cs
+│   │   ├── IGotITService.cs
+│   │   ├── IHealthCheckService.cs
+│   │   ├── IKafkaService.cs
+│   │   ├── ISyncDataPosService.cs
+│   │   └── IUrboxService.cs
+│   └── Services/
+│       ├── AkaChainLoyaltyService.cs
+│       ├── CommonService.cs
+│       ├── DataRawService.cs
+│       ├── GotITService.cs
+│       ├── HealthCheckService.cs
+│       ├── KafkaService.cs
+│       ├── SyncDataPosService.cs
+│       └── UrboxService.cs
+│
+├── POS.Common/
+│   ├── ResultResponse.cs
+│   ├── Const/
+│   │   ├── RedisConst.cs
+│   │   └── RedisKeyConst.cs
+│   ├── Dtos/
+│   │   ├── AuthDto.cs
+│   │   ├── HttpResponseBlueDto.cs
+│   │   ├── KafkaMessage.cs
+│   │   ├── NotifyConfigDto.cs
+│   │   ├── RabbitMessageDto.cs
+│   │   ├── RedisDto.cs
+│   │   ├── SMSMessage.cs
+│   │   ├── SysWebApiDto.cs
+│   │   ├── SysWebApiUserDto.cs
+│   │   ├── AkaChain/
+│   │   │   └── AkaChainDto.cs
+│   │   ├── B2B/
+│   │   │   ├── TransHeaderB2BDto.cs
+│   │   │   ├── TransHistoryB2BDto.cs
+│   │   │   └── TransLineB2BDto.cs
+│   │   ├── Capillary/
+│   │   │   ├── CapillaryBaseDto.cs
+│   │   │   ├── Update_pos_enroll.cs
+│   │   │   ├── Coupons/CapillaryCouponsDto.cs
+│   │   │   ├── Customer/
+│   │   │   │   ├── CustomerLoyaltyDetailDto.cs
+│   │   │   │   ├── CustomerRegistrationDto.cs
+│   │   │   │   ├── CustomerUpdateRequest.cs
+│   │   │   │   ├── GetCustDetailCapillaryResponse.cs
+│   │   │   │   └── UpdateMobileEnrollRequest.cs
+│   │   │   ├── Enosta/
+│   │   │   │   ├── TransactionReturnRequest.cs
+│   │   │   │   └── TransactionReturnResponse.cs
+│   │   │   ├── Point/
+│   │   │   │   ├── PointDto.cs
+│   │   │   │   └── PointModePOSResponse.cs
+│   │   │   ├── Redemption/RedemptionResponse.cs
+│   │   │   ├── Tier/TierUpdateCriteriaCapillary.cs
+│   │   │   ├── Transaction/
+│   │   │   │   ├── AddTransactionRequest.cs
+│   │   │   │   ├── AddTransactionResponse.cs
+│   │   │   │   ├── TransactionCapillary.cs
+│   │   │   │   └── TransactionDetailResponse.cs
+│   │   │   └── Vouchers/ValidateVoucherCapillary.cs
+│   │   ├── CentralMD/
+│   │   │   └── CentralMDDto.cs  (StoreDto, StoreSetup, SysWebApiConfig, StoreSetConfig, SyncTableList,
+│   │   │                          CpnVchCodeQuotaRemn, CpnVchCodeSendQuota, CpnVchCodeSendDto,
+│   │   │                          CpnVchBOMHeaderDto, CpnVchBOMLineDto, ItemDto, ItemPointsMemberDto,
+│   │   │                          LoyaltyRateDto, MMLSchemeHeader, MMLSchemeItem, MMLSchemeResponse,
+│   │   │                          MMLSchemeRequest, MMLSchemeItemsRequest)
+│   │   ├── Coupon/CouponDto.cs
+│   │   ├── CXVoucher/CXVoucherDto.cs
+│   │   ├── DRW/UpdateStatusSfaffDiscountDto.cs
+│   │   ├── FileModel/FileModelDto.cs
+│   │   ├── Giftee/GifteeDto.cs
+│   │   ├── GotIT/GotITDto.cs
+│   │   ├── LogService/LogServiceDto.cs
+│   │   ├── Loyalty/
+│   │   │   ├── InfoMemberDto.cs
+│   │   │   ├── LoyaltyBaseDto.cs
+│   │   │   ├── TransactionLoyaltyDto.cs
+│   │   │   ├── CX/CXDto.cs
+│   │   │   ├── MemberBusiness/MemberBusinessDto.cs
+│   │   │   ├── ProgramPoints/ProgramPointsDto.cs
+│   │   │   ├── WinCode/WinCodeDto.cs
+│   │   │   └── WinScore/WinScoreDto.cs
+│   │   ├── MSN/MSNDto.cs
+│   │   ├── Ops/
+│   │   │   ├── HealthCheckItemDto.cs
+│   │   │   ├── Ops_Logging.cs
+│   │   │   └── Ops_Monitoring.cs
+│   │   ├── PartnerApi/
+│   │   │   ├── CheckVoucherPartnerDto.cs
+│   │   │   ├── SetKeyRedis.cs
+│   │   │   └── UrboxDto.cs
+│   │   ├── POS/
+│   │   │   ├── KafkaMessageDto.cs
+│   │   │   ├── KafkaMessagePOS.cs
+│   │   │   ├── POSRequest.cs
+│   │   │   ├── ValidateTransactionDto.cs
+│   │   │   ├── Common/CommonDtos.cs
+│   │   │   └── Gift/GiftBarcodeRequest.cs
+│   │   ├── RabbitMessageDto.cs (root — đã liệt kê)
+│   │   ├── Request/RequestDto.cs
+│   │   ├── Reward/RewardDto.cs
+│   │   ├── ROP/ROPDto.cs
+│   │   ├── StagingDB/
+│   │   │   ├── DataJsonDto.cs
+│   │   │   ├── DataRawJsonDto.cs
+│   │   │   └── StagingDBConfigDto.cs
+│   │   ├── Tax/
+│   │   │   ├── InvoiceCreated.cs
+│   │   │   └── TaxCustInfo.cs
+│   │   ├── Telegram/
+│   │   │   ├── MessageToTellegram.cs
+│   │   │   └── NotifyTelegram.cs
+│   │   ├── TopupVoucherVinID/TopupVoucherVinIDDto.cs
+│   │   ├── Vouchers/
+│   │   │   ├── VoucherDto.cs
+│   │   │   └── VoucherStatusResponseDto.cs
+│   │   ├── WinCare/WinCareDto.cs
+│   │   ├── WinCustomer/WinCustomerDto.cs
+│   │   ├── WinMoney/WinMoneyConversion.cs
+│   │   ├── Winpay/WinpayDto.cs
+│   │   └── WinX/WinXDto.cs
+│   ├── Enums/
+│   │   ├── ADConnectionStatus.cs
+│   │   ├── ApiEnum.cs
+│   │   ├── AppCodeEnum.cs
+│   │   ├── CapillaryEnum.cs
+│   │   ├── CXEnum.cs
+│   │   ├── DiscountTypeEnum.cs
+│   │   ├── EnumLogin.cs
+│   │   ├── EnvironmentEnum.cs
+│   │   ├── EStatus.cs
+│   │   ├── EStatusResponse.cs
+│   │   ├── GiftStatusEnum.cs
+│   │   ├── KafkaEnum.cs
+│   │   ├── LoyaltyEnum.cs
+│   │   ├── MemberBusinessesEnum.cs
+│   │   ├── OpsDashboardEnum.cs
+│   │   ├── PartnerEnum.cs
+│   │   ├── PrefixEnum.cs
+│   │   ├── SAP_PLH_Enum.cs
+│   │   ├── StampEnum.cs
+│   │   ├── SystemEnum.cs
+│   │   ├── TelegramEnum.cs
+│   │   ├── VATEnum.cs
+│   │   ├── VoucherROPEnum.cs
+│   │   ├── WinLifeRegisterEnum.cs
+│   │   └── WinpayEnum.cs
+│   └── Helpers/
+│       ├── DateTimeHelper.cs
+│       ├── FileLogHelper.cs
+│       ├── FormatHelper.cs
+│       ├── HostHelper.cs
+│       ├── ResponseHelper.cs
+│       └── StringHelper.cs
+│
+└── POS.Infrastructure/
+    ├── DependencyInjection.cs
+    ├── AppServices/
+    │   ├── AkaChainLoyaltyAppService.cs
+    │   ├── GotITService.cs
+    │   ├── KafkaAppService.cs
+    │   ├── UrboxService.cs
+    │   └── Interfaces/
+    │       ├── IAkaChainLoyaltyAppService.cs
+    │       ├── IGotITAppService.cs
+    │       ├── IKafkaAppService.cs
+    │       └── IUrboxAppService.cs
+    ├── Cache/
+    │   ├── IRedisManager.cs
+    │   ├── RedisManager.cs
+    │   └── RedisOptions.cs
+    ├── Database/
+    │   ├── BaseRepository.cs
+    │   ├── CentralMDConnectionFactory.cs
+    │   ├── IDbConnectionFactory.cs
+    │   ├── LoyaltyConnectionFactory.cs
+    │   ├── StagingDbConnectionFactory.cs
+    │   └── StoreRoutedConnectionFactory.cs
+    ├── Files/
+    │   ├── ConnectToSharedFolder.cs
+    │   ├── IFtpFileTransfer.cs
+    │   └── WinScpFileTransfer.cs
+    ├── Logging/
+    │   ├── ElasticsearchOptions.cs
+    │   ├── FileLogHelper.cs
+    │   ├── IFileLogHelper.cs
+    │   ├── IKibanaService.cs
+    │   ├── KibanaService.cs
+    │   └── SerilogConfiguration.cs
+    ├── Messaging/
+    │   ├── IKafkaProducer.cs
+    │   ├── IRabbitMQProducer.cs
+    │   ├── KafkaProducer.cs
+    │   ├── RabbitMQOptions.cs
+    │   └── RabbitMQProducer.cs
+    ├── Redis/
+    │   ├── IRedisService.cs
+    │   └── RedisService.cs
+    └── Repositories/
+        ├── CentralMDRepository.cs
+        ├── CentralSaleRepository.cs
+        ├── DataRawJsonRepository.cs
+        ├── LoyaltyRepository.cs
+        ├── OfferStaffRepository.cs
+        ├── WincodeRepository.cs
+        └── Interfaces/
+            ├── ICentralMDRepository.cs
+            ├── ICentralSaleRepository.cs
+            ├── IDataRawJsonRepository.cs
+            ├── ILoyaltyRepository.cs
+            ├── IOfferStaffRepository.cs
+            └── IWincodeRepository.cs
+```
+
+---
+
+## MỤC B — Danh sách Interface & Implementation
+
+### POS.Application
+
+| Interface | Implementation | Namespace | Project |
+|-----------|---------------|-----------|---------|
+| `ICommonService` | `CommonService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `IAkaChainLoyaltyService` | `AkaChainLoyaltyService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `IGotITService` | `GotITService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `IUrboxService` | `UrboxService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `IDataRawService` | `DataRawService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `ISyncDataPosService` | `SyncDataPosService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `IHealthCheckService` | `HealthCheckService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `IKafkaService` | `KafkaService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+
+### POS.Infrastructure — Repositories
+
+| Interface | Implementation | Namespace | Project |
+|-----------|---------------|-----------|---------|
+| `ICentralMDRepository` | `CentralMDRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+| `ICentralSaleRepository` | `CentralSaleRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+| `IDataRawJsonRepository` | `DataRawJsonRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+| `ILoyaltyRepository` | `LoyaltyRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+| `IOfferStaffRepository` | `OfferStaffRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+| `IWincodeRepository` | `WincodeRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+
+### POS.Infrastructure — AppServices
+
+| Interface | Implementation | Namespace | Project |
+|-----------|---------------|-----------|---------|
+| `IAkaChainLoyaltyAppService` | `AkaChainLoyaltyAppService` | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
+| `IGotITAppService` | `GotITService` (class name) | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
+| `IUrboxAppService` | `UrboxService` (class name) | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
+| `IKafkaAppService` | `KafkaAppService` | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
+
+### POS.Infrastructure — Cache / Redis / Messaging / Logging / Files
+
+| Interface | Implementation | Namespace | Project |
+|-----------|---------------|-----------|---------|
+| `IRedisManager` | `RedisManager` | `POS.Infrastructure.Cache` | POS.Infrastructure |
+| `IRedisService` | `RedisService` | `POS.Infrastructure.Redis` | POS.Infrastructure |
+| `IRabbitMQProducer` | `RabbitMQProducer` | `POS.Infrastructure.Messaging` | POS.Infrastructure |
+| `IKafkaProducer` | `KafkaProducer` | `POS.Infrastructure.Messaging` | POS.Infrastructure |
+| `IFileLogHelper` | `FileLogHelper` | `POS.Infrastructure.Logging` | POS.Infrastructure |
+| `IKibanaService` | `KibanaService` | `POS.Infrastructure.Logging` | POS.Infrastructure |
+| `IFtpFileTransfer` | `WinScpFileTransfer` | `POS.Infrastructure.Files` | POS.Infrastructure |
+| `IDbConnectionFactory` | `CentralMDConnectionFactory`, `LoyaltyConnectionFactory`, `StagingDbConnectionFactory`, `StoreRoutedConnectionFactory` | `POS.Infrastructure.Database` | POS.Infrastructure |
+
+---
+
+## MỤC C — DI Registration thực tế
+
+### `POS.Application.DependencyInjection.AddApplication()`
+
+| Service (Interface → Impl) | Lifetime | Ghi chú |
+|---------------------------|----------|---------|
+| `ICommonService` → `CommonService` | Scoped | Business chính: POS, Sale, Shift, KIOS |
+| `IAkaChainLoyaltyService` → `AkaChainLoyaltyService` | Scoped | Wrapper → `IAkaChainLoyaltyAppService` |
+| `IGotITService` → `GotITService` | Scoped | Wrapper → `IGotITAppService` |
+| `IUrboxService` → `UrboxService` | Scoped | Wrapper → `IUrboxAppService` |
+| `IDataRawService` → `DataRawService` | Scoped | File sale → Kafka → StagingDB |
+| `ISyncDataPosService` → `SyncDataPosService` | Scoped | Sync file POS ↔ server |
+| `IHealthCheckService` → `HealthCheckService` | Scoped | Chẩn đoán kết nối hạ tầng |
+| `IKafkaService` → `KafkaService` | Scoped | Publish sale messages lên Kafka |
+
+### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
+
+| Service | Lifetime | Ghi chú |
+|---------|----------|---------|
+| `CentralMDConnectionFactory` (concrete, no interface) | Singleton | DB Factory — không qua interface |
+| `LoyaltyConnectionFactory` (concrete, no interface) | Singleton | DB Factory — không qua interface |
+| `StagingDbConnectionFactory` (concrete, no interface) | Singleton | DB Factory — không qua interface |
+| `StoreRoutedConnectionFactory` (concrete, no interface) | Singleton | DB Factory — routing per-store, cache ServerIP vào Redis |
+| `ICentralMDRepository` → `CentralMDRepository` | Scoped | Master Data DB |
+| `ICentralSaleRepository` → `CentralSaleRepository` | Scoped | Sales DB (per-store routing) |
+| `IDataRawJsonRepository` → `DataRawJsonRepository` | Scoped | StagingDB |
+| `ILoyaltyRepository` → `LoyaltyRepository` | Scoped | Loyalty DB |
+| `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
+| `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
+| `IRedisManager` → `RedisManager` | Singleton | StackExchange.Redis low-level |
+| `IRedisService` → `RedisService` | Singleton | High-level Redis wrapper (sử dụng trong code) |
+| `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
+| `IKafkaProducer` → `KafkaProducer` | Singleton | IProducer thread-safe |
+| `IFtpFileTransfer` → `WinScpFileTransfer` | Singleton | Upload zip qua WinSCP |
+| `IFileLogHelper` → `FileLogHelper` (factory) | Singleton | baseDirectory từ `Logging:FileLogDirectory` |
+| `IKibanaService` → `KibanaService` | Singleton | Serilog → Elasticsearch |
+| Named HttpClient `"FMV"` | — | UseCookies=false, BaseAddress per-request |
+| Named HttpClient `"GotIT"` | — | BaseAddress per-request |
+| `IAkaChainLoyaltyAppService` → `AkaChainLoyaltyAppService` | Scoped | FMV/AkaChain HTTP client |
+| `IGotITAppService` → `GotITService` | Scoped | GotIT HTTP client |
+| `IUrboxAppService` → `UrboxService` | Scoped | Urbox HTTP client (tạo HttpClient riêng per-call) |
+| `IKafkaAppService` → `KafkaAppService` | Scoped | Kafka producer wrapper |
+
+### `Program.cs`
+
+| Registration | Lifetime | Ghi chú |
+|-------------|----------|---------|
+| Controllers + Newtonsoft.Json | — | DefaultContractResolver (PascalCase), NullValueHandling.Ignore, DateTimeZoneHandling.Local |
+| `ValidateModelFilter` (global) | — | Thay ModelStateInvalidFilter mặc định |
+| `ApiBehaviorOptions.SuppressModelStateInvalidFilter = true` | — | Cho phép ValidateModelFilter kiểm soát hoàn toàn |
+| `MemoryCache` | Singleton | Không dùng cho biz logic (chỉ còn trong code cũ chưa migrate) |
+| Authentication `"BasicAuth"` → `BasicAuthHandler` | — | Chỉ áp dụng route api/v2/... |
+| `HttpClient` (generic factory) | — | `IHttpClientFactory` |
+| Swagger | — | Chỉ đăng ký khi `IsDevelopment()` |
+| `app.MapGet("/health", ...)` | — | Health endpoint public (Docker HEALTHCHECK) |
+
+---
+
+## MỤC D — Repository: method signatures
+
+### `ICentralMDRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+```csharp
+Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
+Task<List<MMLSchemeItem>?> GetMMLSchemeItemAsync(CancellationToken ct = default)
+Task<MMLSchemeResponse?> GetMMLSchemeResponseAsync(string headerCode, string code, CancellationToken ct = default)
+Task<LoyaltyRateDto?> GetLoyaltyRateDataAsync(string code, CancellationToken ct = default)
+Task<List<string>?> GetSyncTableListAsync(CancellationToken ct = default)
+Task<ItemPointsMemberDto?> GetItemPointsMemberAsync(string pointsCode, string itemNo, string uom, CancellationToken ct = default)
+Task<SysWebApiDto?> GetSysWebApiAsync(string appCode, CancellationToken ct = default)
+Task<List<POSDataSetupModel>?> GetPOSDataSetupAsync(CancellationToken ct = default)          // cache Redis 12h
+Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default)            // cache Redis 12h
+Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model, CancellationToken ct = default)
+Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress, CancellationToken ct = default)
+Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = default)          // không cache
+Task<List<POSVersionModel>?> GetPOSVersionAsync(CancellationToken ct = default)
+Task<bool> CheckCouponLineAsync(string itemNo, string barCode, CancellationToken ct = default)
+Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
+```
+
+### `ICentralSaleRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+```csharp
+Task<TransCpnVchIssueModel?> TransactionQtyUseAsync(string articleNo, string siteCode, CancellationToken ct = default)
+Task<BusinessDateResponse?> GetBusinessDateAsync(string siteCode, CancellationToken ct = default)
+Task InsertBussinessDateOpenAsync(BussinessDateOpenModel model, CancellationToken ct = default)
+Task<ShiftHeaderModel?> GetShiftHeaderAsync(string siteCode, string posTerminal, DateTime businessDate, CancellationToken ct = default)
+Task<bool> CheckSaleReturnAsync(string orderNo, CancellationToken ct = default)
+Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo, CancellationToken ct = default)
+Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal, CancellationToken ct = default)
+Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default)
+Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
+Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default)
+```
+
+### `IDataRawJsonRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+```csharp
+Task<(bool Success, string Message, string? Detail)> InsertInvoiceCreatedAsync(
+    List<InvoiceCreated> invoiceCreated, string connectStringDb, CancellationToken ct = default)
+
+Task<(bool Success, string Message, object? Data, HttpStatusCode StatusCode)> ValidateTransactionAsync(
+    StoreDto storeInfo, string connectStringDb, string orderNo, string appCode = "WCM", CancellationToken ct = default)
+
+Task<(bool Success, string Message)> InsertDataRawJsonAsync(
+    string connectStringDb, List<DataRawJsonDto> request, CancellationToken ct = default)
+
+Task<string?> GetMessageWarningsVATCheckAsync(string actionType, CancellationToken ct = default)
+
+Task<List<string>?> GetSyncTableListAsync(CancellationToken ct = default)
+```
+
+### `ILoyaltyRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+```csharp
+Task<List<StoreMappingModel>?> GetLoyaltyStoreMappingAsync(CancellationToken ct = default)
+string ConnectStringLoyaltyDb()
+Task<bool> InsertWinPayAccumulateAsync(IDbConnection db, WinPayAccumulationData winPayAccumulationData, bool isRetry = false)
+bool InsertMemberRemnItem(List<MemberRemnItem> memberRemnItems, string parentKeyMemberRemnItem, ref string errMess)
+Task<Tuple<bool, string>> RefundMemberRemnItemAsync(string orderNo, string memberCard, CancellationToken ct = default)
+bool UpdateWinMoneyConversion(WinMoneyConversion winMoneyConversion, ref string errMess)
+Task<bool> UpdateStatusLoggingLoyaltyAsync(LoggingLoyaltyDto loggingLoyaltyDto, CancellationToken ct = default)
+Task<List<LoggingLoyaltyDto>?> GetLoggingLoyaltyAsync(string actionType, string status, CancellationToken ct = default)
+Task<List<LoggingLoyaltyDto>?> GetListLoggingLoyaltyAsync(string orderNo, string actionType, CancellationToken ct = default)
+Task<LoggingLoyaltyDto?> InsertLoggingLoyaltyAsync(LoggingLoyaltyDto loggingLoyaltyDto, string orderNo = "", bool isRetry = false, CancellationToken ct = default)
+Task<GiftCodeDto?> GetGiftCodeAsync(string orderNo, string saleType, string memberCard, int amount, CancellationToken ct = default)
+Task<bool> UpdateMemoryCacheConfigAsync(string code, bool isBlocked, CancellationToken ct = default)
+Task<MemoryCacheConfig?> GetMemoryCacheConfigAsync(string code, CancellationToken ct = default)
+```
+
+### `IOfferStaffRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+```csharp
+Task<(bool Success, string Message)> InsertOfferStaffTransactionAsync(OfferStaffTransactionDto request, CancellationToken ct = default)
+Task<OfferStaffRemnDto?> GetOfferStaffRemnAsync(string staffCode, string phoneNumber, string clubCode, CancellationToken ct = default)
+Task<OfferStaffSetupDto?> GetOfferStaffSetupAsync(CancellationToken ct = default)
+```
+
+### `IWincodeRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+```csharp
+Task<List<WinCodeCustomerDto>?> GetWinCodeCustomerAsync(string phoneNumber, CancellationToken ct = default)
+Task<Tuple<bool, string>> UpdateWincodeCustomerAsync(WinLife_UpdatePromotions_POS_Request request, CancellationToken ct = default)
+Task<Tuple<bool, string>> InsertWincodeCustomerAsync(WinLife_UpdatePromotions_POS_Request request, CancellationToken ct = default)
+```
+
+---
+
+## MỤC E — Service & AppService: method signatures
+
+### Application Services
+
+#### `ICommonService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<TransCpnVchIssueModel?> TransactionQtyUseAsync(string articleNo, string siteCode)
+Task<BusinessDateResponse?> GetBusinessDateAsync(string siteCode)
+Task InsertBussinessDateOpenAsync(BussinessDateOpenModel model)
+Task<bool> InsertSignalStoreAsync(SignalStoreModel model)
+Task<ShiftHeaderModel?> GetShiftHeaderAsync(string siteCode, string posTerminal, DateTime businessDate)
+Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model)
+Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress)
+Task<List<POSDataSetupModel>> GetDataSetupAsync()
+Task<List<POSVersionModel>> GetPOSVersionAsync()
+Task<bool> CheckSaleReturnAsync(string orderNo)
+Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo)
+Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal)
+Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo)
+Task<bool> CheckCouponLineAsync(string itemNo, string barCode)
+Task<ResponseUpdateTransModel> InsertLineOrig_UpdateOrderInfoAsync(UpdateOrderInfoModel model)
+Task<InsuranceModel?> GetInsuranceAsync(string receiptNo, string posNo, string staffCode)
+Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model)
+Task<CheckTotalBillResponse?> CheckTotalBillAsync(string storeNo, string posTerminal, DateTime bussinessDate, int posTotal)
+Task<(bool Success, string Message)> KiosInsertSaleAsync(KiosInsertSaleRequest model)
+Task LogSaleKiosAsync(LogSaleKiosModel model)
+Task<(bool Success, string Message, KiosCheckOrderResponse? Data)> KiosCheckOrderAsync(string storeNo, string posNo, string orderNo)
+Task<(bool Success, int Code, string Message, RewardCodeSendModel? Data)> SendCodeRewardAsync(RewardCodeRequest model)
+Task WriteLogApiAsync(LogAPIModel model)
+```
+
+#### `IAkaChainLoyaltyService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<ResultResponse> GetMemberProfileAsync(string key, string value)
+Task<ResultResponse> AddTransactionAsync(VinIDSalesRequest model)
+Task<ResultResponse> ReturnTransactionAsync(VinIDRefundRequest model)
+Task<ResultResponse> CheckCouponAsync(CheckVoucherPartnerPOSRequest model)
+```
+
+#### `IGotITService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>>> CheckMultiple(
+    CheckVoucherPartnerPOSRequest request, CancellationToken ct = default)
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>>> MarkUseMultiple(
+    UpdateStatusVoucherPartnerRequest request, CancellationToken ct = default)
+```
+
+#### `IUrboxService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>, List<UrboxProducts>>> CheckSerialUrbox(
+    CheckVoucherPartnerPOSRequest request, CancellationToken ct = default)
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>, List<UrboxProducts>>> PayCodelUrbox(
+    UpdateStatusVoucherPartnerRequest request, CancellationToken ct = default)
+```
+
+#### `IDataRawService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<(bool Success, string Message)> CreateFileSODFakeAsync(string storeNo, string localPath, CancellationToken ct = default)
+Task ProcessFileToStagingDBAsync(string pathFile, string fileName, string? extension, string pathBackup, CancellationToken ct = default)
+Task<List<string>> RetryInsDataRawToDBAsync(CancellationToken ct = default)
+```
+
+#### `ISyncDataPosService` (`POS.Application.Interfaces`)
+
+```csharp
+string MapFtpPath(string relativePath)
+string MapSitePath(string relativePath)
+Task<string?> GetPosDataSetupValueAsync(string code, CancellationToken ct = default)
+Task<List<PathFileAPIModel>> GetFileFromServerApiAsync(
+    string pathSync, string folderFile, string typeSync, string syncApi, string ipServer,
+    CancellationToken ct = default)
+(bool Allowed, int Processing) CheckSodQueueLimit(string ipSrvKey, int limit)
+bool SodGlobalMarkerExists()
+string EnqueueSodRequest(string ipSrvKey, string posTerminal)
+void DequeueSodRequest(string fullKey)
+Task UploadFileLogToFtpAsync(string pathFileApi, string pathFtpServer, CancellationToken ct = default)
+Task<List<PathFileAPIModel>> DownloadFileUpgradeToolShareFolderAsync(string ipServer, CancellationToken ct = default)
+Task DeleteFileExistAsync(List<PathFileAPIModel> model, string ipServerHost)
+```
+
+#### `IHealthCheckService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<List<HealthCheckItemDto>> CheckAllAsync(string? storeNo, CancellationToken ct = default)
+```
+
+#### `IKafkaService` (`POS.Application.Interfaces`)
+
+```csharp
+Task<ResultResponse> PushSalesToTopic(List<KafkaMessageDto> kafkaMessageDtos)
+```
+
+### Infrastructure — AppServices
+
+#### `IAkaChainLoyaltyAppService` (`POS.Infrastructure.AppServices.Interfaces`)
+
+```csharp
+Task<ResultResponse> GetMemberProfileAsync(string key, string value)
+Task<ResultResponse> AddTransactionAsync(VinIDSalesRequest model)
+Task<ResultResponse> ReturnTransactionAsync(VinIDRefundRequest model)
+Task<ResultResponse> CheckCouponAsync(CheckVoucherPartnerPOSRequest model)
+```
+
+#### `IGotITAppService` (`POS.Infrastructure.AppServices.Interfaces`)
+
+```csharp
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>>> CheckMultiple(
+    CheckVoucherPartnerPOSRequest request, CancellationToken ct = default)
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>>> MarkUseMultiple(
+    UpdateStatusVoucherPartnerRequest request, CancellationToken ct = default)
+```
+
+#### `IUrboxAppService` (`POS.Infrastructure.AppServices.Interfaces`)
+
+```csharp
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>, List<UrboxProducts>>> CheckSerialUrbox(
+    CheckVoucherPartnerPOSRequest request, CancellationToken ct = default)
+Task<Tuple<bool, string, List<DataVoucherPartnerResponse>, List<UrboxProducts>>> PayCodelUrbox(
+    UpdateStatusVoucherPartnerRequest request, CancellationToken ct = default)
+```
+
+#### `IKafkaAppService` (`POS.Infrastructure.AppServices.Interfaces`)
+
+```csharp
+Task<ResultResponse> PushSalesToTopic(List<KafkaMessageDto> kafkaMessageDtos, CancellationToken ct = default)
+```
+
+### Infrastructure — Redis / Messaging / Logging
+
+#### `IRedisService` (`POS.Infrastructure.Redis`)
+
+```csharp
+// Hash operations
+Task<T?> HashGetAsync<T>(string key, string field)
+T? HashGet<T>(string key, string field)
+Task HashSetAsync<T>(string key, string field, T value, int? ttlSeconds = null)
+void HashSet<T>(string key, string field, T value, int? ttlSeconds = null)
+void HashDelete(string key, string field)
+
+// String operations
+Task<T?> StringGetAsync<T>(string key)
+string? StringGetRaw(string key)
+void StringSet<T>(string key, T value, int? ttlSeconds = null)
+void StringSetRaw(string key, string value, TimeSpan? ttl = null)
+
+// Key operations
+bool KeyExists(string key)
+void Delete(string key)
+List<string> GetKeysByPattern(string pattern)   // SCAN pattern hẹp
+```
+
+#### `IRedisManager` (`POS.Infrastructure.Cache`)
+
+```csharp
+// String
+Task<string?> GetStringAsync(string key)
+Task<bool> SetStringAsync(string key, string value, TimeSpan? expiry = null)
+Task<bool> DeleteAsync(string key)
+
+// Hash
+Task<T?> HashGetAsync<T>(string hashKey, string hashField)
+Task<bool> HashSetAsync<T>(string hashKey, string hashField, T value, int ttlSeconds = 0)
+Task<bool> HashDeleteAsync(string hashKey, string hashField)
+Task<IDictionary<string, T>> HashGetAllAsync<T>(string hashKey)
+
+// List
+Task<long> ListRightPushAsync(string key, string value)
+
+// Utility
+Task<bool> KeyExistsAsync(string key)
+Task<bool> KeyExpireAsync(string key, TimeSpan expiry)
+Task<List<string>> GetKeysByPatternAsync(string pattern)
+```
+
+#### `IKibanaService` (`POS.Infrastructure.Logging`)
+
+```csharp
+void LogRequest(string endpoint, string posNo, string requestBody)
+void LogResponse(string endpoint, string posNo, long responseTimeMs, string note, string responseBody)
+void LogException(string endpoint, string posNo, int errorCode, string note, string errorDetail)
+void LogInfo(string endpoint, string posNo, string message)
+```
+
+#### `IFileLogHelper` (`POS.Infrastructure.Logging`)
+
+```csharp
+void WriteLogs(string message)
+void WriteExpLogs(string function, Exception ex)
+```
+
+#### `IFtpFileTransfer` (`POS.Infrastructure.Files`)
+
+```csharp
+void UploadZipFiles(string sourcePathFolder, string destPathFolderFtp,
+    string ftpServer, string ftpUsername, string ftpPassword)
+```
+
+#### `IDbConnectionFactory` (`POS.Infrastructure.Database`)
+
+```csharp
+Task<IDbConnection> CreateOpenConnectionAsync(CancellationToken ct = default)
+IDbConnection CreateOpenConnection()
+```
+
+---
+
+## MỤC F — DTOs & Models có sẵn
+
+### POS.Common root
+
+| Class | Namespace | Các field chính |
+|-------|-----------|----------------|
+| `ResultResponse` | `POS.Common` | `Status` (HttpStatusCode), `Message` (string), `Data` (object?), `MessageTechnical` (string) |
+
+### POS.Common.Dtos (root)
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `AuthDto` | AuthDto.cs | `AppCode`, `StoreNo`, `PosNo` |
+| `HttpResponseBlueDto` | HttpResponseBlueDto.cs | Response wrapper HTTP cũ |
+| `KafkaMessage` | KafkaMessage.cs | Kafka message wrapper |
+| `NotifyConfigDto` | NotifyConfigDto.cs | Notify config |
+| `RabbitMessageDto` | RabbitMessageDto.cs | RabbitMQ message |
+| `RedisDto` | RedisDto.cs | Redis data models |
+| `SMSMessage` | SMSMessage.cs | SMS payload |
+| `SysWebApiDto` | SysWebApiDto.cs | `AppCode`, `Host`, `UserName`, `Password`, `Timeout`, ... |
+| `SysWebApiUserDto` | SysWebApiUserDto.cs | SysWebApi user config |
+
+### POS.Common.Dtos.CentralMD
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `StoreDto` | CentralMDDto.cs | `StoreNo`, `No`, `Name`, `Address`, `TaxCode`, `ConnectionString`, ... |
+| `StoreSetup` | CentralMDDto.cs | `StoreNo`, `Code`, `Value`, `Status` |
+| `SysWebApiConfig` | CentralMDDto.cs | `Code`, `Name`, `Prefix`, `ConnectionString`, `Blocked`, ... |
+| `StoreSetConfig` | CentralMDDto.cs | extends SysWebApiConfig + `StoreNo` |
+| `SyncTableList` | CentralMDDto.cs | `FileName`, `TableName`, `Action`, `ProcedureName`, `ProcessID`, `Data` |
+| `LoyaltyRateDto` | CentralMDDto.cs | `FromDate`, `ToDate`, `Code`, `Rate`, `Blocked`, `CardType` |
+| `ItemPointsMemberDto` | CentralMDDto.cs | `PointsCode`, `ItemNo`, `Barcode`, `ItemName`, `Uom`, `ShelfLife`, `Blocked` |
+| `MMLSchemeHeader` | CentralMDDto.cs | `HeaderCode`, `FromDate`, `ToDate`, `MinAmount`, `IsMember`, `IsCallAPI`, `Ref1-5` |
+| `MMLSchemeItem` | CentralMDDto.cs | `HeaderCode`, `Code`, `ItemNo`, `UOM`, `CategoryCode`, `Enabled`, `Ref1-5` |
+| `MMLSchemeResponse` | CentralMDDto.cs | `HeaderCode`, `Code`, `Title`, `Link`, `IsGenQR`, `Enabled`, `Description` |
+| `MMLSchemeRequest` | CentralMDDto.cs | `PosNo`, `OrderNo`, `StoreNo`, `Code`, `MemberCardNo`, `IsMember`, `Items`, `Payments` |
+| `CpnVchBOMHeaderDto` | CentralMDDto.cs | `ItemNo`, `DiscountType`, `DiscountValue`, `MaxAmount`, `StartingDate`, `EndingDate`, `IsMultiUse`, ... |
+| `CpnVchBOMLineDto` | CentralMDDto.cs | `ItemNo`, `LineNo`, `LineItemNo`, `Barcode` |
+| `ItemDto` | CentralMDDto.cs | `ItemNo`, `Uom`, `DivisionCode`, `TaxGroupCode`, `VATPercent`, `IsVAT` |
+
+### POS.Common.Dtos.POS
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `KafkaMessageDto` | KafkaMessageDto.cs | Kafka message cho sale data |
+| `KafkaMessagePOS` | KafkaMessagePOS.cs | POS Kafka message |
+| `POSRequest` | POSRequest.cs | Base POS request |
+| `ValidateTransactionDto` | ValidateTransactionDto.cs | Validate transaction |
+| `GiftBarcodeRequest` | Gift/GiftBarcodeRequest.cs | Gift barcode |
+
+### POS.Common.Dtos.POS.Common (CommonDtos.cs)
+
+File này chứa nhiều model dùng cho CommonController:
+`POSDataSetupModel`, `StoreSetConfig`, `POSMonitorInsertRequest`, `POSMonitorInsertResponse`,
+`PosTerminalModel`, `POSVersionModel`, `BusinessDateResponse`, `BussinessDateOpenModel`,
+`SignalStoreModel`, `ShiftHeaderModel`, `SaleTableModel`, `TransHeader`, `POSDocumentNoModel`,
+`TransHeaderOrderModel`, `POSEOD_APIModel`, `CheckTotalBillResponse`, `KiosInsertSaleRequest`,
+`KiosInsertSalePOSRequest`, `SyncSaleObject`, `LogSaleKiosModel`, `KiosCheckOrderResponse`,
+`UpdateOrderInfoModel`, `ResponseUpdateTransModel`, `InsuranceModel`, `LogAPIModel`,
+`LoggingElastic`, `DeleteFileModel`, `ListFileNameModel`, `StoreMappingModel`
+
+### POS.Common.Dtos.PartnerApi
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `CheckVoucherPartnerPOSRequest` | CheckVoucherPartnerDto.cs | `Partner`, `PosNo`, `StoreNo`, `ListCode`, ... |
+| `UpdateStatusVoucherPartnerRequest` | CheckVoucherPartnerDto.cs | `Partner`, `PosNo`, `ListCode`, ... |
+| `DataVoucherPartnerResponse` | CheckVoucherPartnerDto.cs | Response từ partner |
+| `SetKeyRedis` | SetKeyRedis.cs | Redis key setter |
+| `UrboxDto` | UrboxDto.cs | Urbox request/response |
+| `UrboxProducts` | UrboxDto.cs | Urbox product list |
+
+### POS.Common.Dtos.Loyalty
+
+| Class | Namespace | Các field chính |
+|-------|-----------|----------------|
+| `LoyaltyBaseDto` | Dtos.Loyalty | Base fields cho loyalty |
+| `TransactionLoyaltyDto` + `LoggingLoyaltyDto` | Dtos.Loyalty | Transaction + logging |
+| `InfoMemberDto` | Dtos.Loyalty | `MemberCard`, `Phone`, `Name`, `Points`, ... |
+| `VinIDSalesRequest` | Dtos.Loyalty | AkaChain/FMV add transaction request |
+| `VinIDRefundRequest` | Dtos.Loyalty | AkaChain/FMV refund request |
+| `PaymentEntryLoyalty` | Dtos.Loyalty | Payment entry trong loyalty transaction |
+| `MemberRemnItem` | Dtos.Loyalty | Member item remnant |
+| `WinPayAccumulationData` | Dtos.Loyalty | WinPay accumulation |
+| `GiftCodeDto` | Dtos.Loyalty | Gift code data |
+| `MemoryCacheConfig` | Dtos.Loyalty | Cache block config |
+| `CXDto` | Dtos.Loyalty.CX | CrownX data |
+| `MemberBusinessDto` | Dtos.Loyalty.MemberBusiness | Member business data |
+| `ProgramPointsDto` | Dtos.Loyalty.ProgramPoints | Program points |
+| `WinCodeCustomerDto` | Dtos.Loyalty.WinCode | WinCode customer |
+| `WinLife_UpdatePromotions_POS_Request` | Dtos.Loyalty.WinCode | WinLife promotion |
+| `WinScoreDto` | Dtos.Loyalty.WinScore | WinScore data |
+
+### POS.Common.Dtos.StagingDB
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `DataJsonDto` | DataJsonDto.cs | JSON data payload |
+| `DataRawJsonDto` | DataRawJsonDto.cs | Raw JSON data từ POS |
+| `StagingDBConfigDto` | StagingDBConfigDto.cs | StagingDB config |
+
+### POS.Common.Dtos.Ops
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `HealthCheckItemDto` | HealthCheckItemDto.cs | `Name` (string), `Ok` (bool), `Detail` (string?) |
+| `Ops_Logging` | Ops_Logging.cs | Ops logging record |
+| `Ops_Monitoring` | Ops_Monitoring.cs | Server monitoring record |
+
+### Các domain DTO khác (có file, chưa đọc chi tiết)
+
+| Domain | File | Ghi chú |
+|--------|------|---------|
+| AkaChain | AkaChainDto.cs | FMV/AkaChain specific models |
+| B2B | TransHeaderB2BDto, TransHistoryB2BDto, TransLineB2BDto | B2B trans |
+| Capillary | ~12 files (Customer, Transaction, Point, Voucher, ...) | Capillary loyalty models |
+| Coupon | CouponDto.cs | Coupon domain |
+| CXVoucher | CXVoucherDto.cs | CrownX voucher |
+| DRW | UpdateStatusSfaffDiscountDto.cs | Staff discount |
+| FileModel | FileModelDto.cs | `PathFileAPIModel`, `ListFileNameModel`, ... |
+| Giftee | GifteeDto.cs | Giftee partner |
+| GotIT | GotITDto.cs | GotIT partner |
+| LogService | LogServiceDto.cs | Log service |
+| MSN | MSNDto.cs | MSN / OfferStaff |
+| Reward | RewardDto.cs | `RewardCodeRequest`, `RewardCodeSendModel` |
+| ROP | ROPDto.cs | ROP voucher |
+| Tax | InvoiceCreated.cs, TaxCustInfo.cs | Tax / e-invoice |
+| Telegram | MessageToTellegram.cs, NotifyTelegram.cs | Telegram notify |
+| TopupVoucherVinID | TopupVoucherVinIDDto.cs | VinID top-up |
+| Vouchers | VoucherDto.cs, VoucherStatusResponseDto.cs | Generic voucher |
+| WinCare | WinCareDto.cs | WinCare partner |
+| WinCustomer | WinCustomerDto.cs | WinCustomer service |
+| WinMoney | WinMoneyConversion.cs | WinMoney conversion |
+| Winpay | WinpayDto.cs | Winpay partner |
+| WinX | WinXDto.cs | WinX partner |
+
+### POS.Common Enums (25 files)
+
+| Enum file | Ghi chú |
+|-----------|---------|
+| ADConnectionStatus | AD connection states |
+| ApiEnum | API status codes |
+| AppCodeEnum | Application codes |
+| CapillaryEnum | Capillary loyalty states |
+| CXEnum | CrownX states |
+| DiscountTypeEnum | Discount types |
+| EnumLogin | Login status |
+| EnvironmentEnum | DEV/UAT/PROD |
+| EStatus | General status |
+| EStatusResponse | Response status |
+| GiftStatusEnum | Gift states |
+| KafkaEnum | Kafka message types |
+| LoyaltyEnum | Loyalty program states |
+| MemberBusinessesEnum | Member business types |
+| OpsDashboardEnum | Ops monitoring types |
+| PartnerEnum | Partner codes |
+| PrefixEnum | Card prefix types |
+| SAP_PLH_Enum | SAP/PLH enum |
+| StampEnum | Stamp types |
+| SystemEnum | System codes |
+| TelegramEnum | Telegram message types |
+| VATEnum | VAT types |
+| VoucherROPEnum | ROP voucher types |
+| WinLifeRegisterEnum | WinLife registration states |
+| WinpayEnum | Winpay states |
+
+### POS.Common Redis Constants
+
+| Key | Giá trị | Dùng cho |
+|-----|---------|---------|
+| `Redis_Key_ItemPointsMember` | `"MD:ItemPointsMember"` | Hash lookup per item |
+| `Redis_Key_LoyaltyRate` | `"MD:LoyaltyRate"` | Hash lookup per code |
+| `Redis_Key_MMLSchemeHeader` | `"MD:MMLSchemeHeader"` | Hash |
+| `Redis_Key_MMLSchemeItem` | `"MD:MMLSchemeItem"` | Hash |
+| `Redis_Key_MMLSchemeResponse` | `"MD:MMLSchemeResponse"` | Hash |
+| `Redis_Key_SysWebApi` | `"SysWebApi"` | Hash lookup per appCode |
+| `Redis_Key_POSDataSetup` | `"POSDataSetup"` | String (full list) |
+| `Redis_Key_GetFileFromFTP` | `"GetFileFromFTP"` | String — SOD queue counter |
+| `Redis_Key_MemoryCacheConfig` | `"BLUEPOS:Loyalty_MemoryCacheConfig"` | Hash |
+| `Redis_Key_Loyalty_MemberPoints` | `"BLUEPOS:Loyalty_MemberPoints"` | Sharded hash |
+| `Redis_Key_Loyalty_BalancePoints` | `"BLUEPOS:Loyalty_BalancePoints"` | Sharded hash (3 chars) |
+| `Redis_Key_Loyalty_RedeemPoints` | `"BLUEPOS:Loyalty_RedeemPoints"` | Sharded hash |
+| `Redis_Key_Stores` | `"Stores"` | Full store list |
+| `Redis_Key_StoresMappingVinID` | `"StoresMappingVinID"` | VinID store mapping |
+| `Redis_Key_NotifyTelegram` | `"NotifyTelegram"` | Notify config |
+| `Redis_Key_NotifyConfig` | `"NotifyConfig"` | Notify config |
+
+---
+
+## MỤC G — Configuration keys
+
+_(Nguồn: `src/POS.Api/appsettings.json` — giá trị nhạy cảm đã ẩn)_
+
+| Key path | Kiểu | Ghi chú |
+|----------|------|---------|
+| `AllowedHosts` | string | `"*"` |
+| `Logging:FileLogDirectory` | string | `"D:\\ROOT\\Logs"` |
+| `Logging:LogLevel:Default` | string | `"Information"` |
+| `Serilog:MinimumLevel:Default` | string | `"Information"` |
+| `Serilog:MinimumLevel:Override:Microsoft` | string | `"Warning"` |
+| `Serilog:MinimumLevel:Override:Microsoft.Hosting.Lifetime` | string | `"Information"` |
+| `Serilog:MinimumLevel:Override:System` | string | `"Warning"` |
+| `Elasticsearch:Nodes` | string[] | `["http://10.x.x.x:9200"]` |
+| `Elasticsearch:IndexFormat` | string | `"pos-api-logs-{0:yyyy.MM.dd}"` |
+| `Elasticsearch:Username` | string | _(ẩn)_ |
+| `Elasticsearch:Password` | string | _(ẩn)_ |
+| `Redis:Mode` | string | `"StandAlone"` |
+| `Redis:SentinelHosts` | string[] | `["10.x.x.x:6379"]` |
+| `Redis:MasterName` | string | `"mymaster"` |
+| `Redis:Password` | string | _(ẩn)_ |
+| `Redis:ConnectTimeout` | int | 5500 |
+| `Redis:SyncTimeout` | int | 5500 |
+| `Redis:DefaultDatabase` | int | 2 |
+| `Redis:KeepAlive` | int | 180 |
+| `Redis:ConnectRetry` | int | 2 |
+| `RabbitMQ:Host` | string | `"10.x.x.x"` |
+| `RabbitMQ:Port` | int | 5672 |
+| `RabbitMQ:Username` | string | _(ẩn)_ |
+| `RabbitMQ:Password` | string | _(ẩn)_ |
+| `RabbitMQ:VirtualHost` | string | `"/"` |
+| `RabbitMQ:RequestedHeartbeat` | int | 60 |
+| `ConnectionStrings:CentralMD` | string | SQL Server — RPOSMasterData _(creds ẩn)_ |
+| `ConnectionStrings:Loyalty` | string | SQL Server — Loyalty DB _(creds ẩn)_ |
+| `ConnectionStrings:StagingDB` | string | SQL Server — StagingDB _(creds ẩn)_ |
+| `ConnectionStrings:Partner` | string | SQL Server — Partner_QAS _(creds ẩn)_ |
+| `ConnectionStrings:EInvoice` | string | SQL Server — EInvoice _(creds ẩn)_ |
+| `ConnectionStrings:IFSAP` | string | SQL Server — RPOSMasterData _(creds ẩn)_ |
+| `ConnectionStrings:CentralGeneral` | string | SQL Server — RPOSCentralGeneral _(creds ẩn)_ |
+| `ConnectionStrings:CentralSale` | string | SQL Server — RPOSCentralSales _(creds ẩn)_ |
+| `ConnectionStrings:CentralSaleTemplate` | string | Template `{server}` — routing per-store _(creds ẩn)_ |
+| `ConnectionStrings:BootstrapServers` | string | Kafka brokers `"10.x.x.x:9092,10.x.x.x:9092"` |
+| `SetDb:DB1` | string | `"10.x.x.x\\DRW"` (fallback server) |
+| `SetDb:DB2..DB6` | string | `""` (chưa cấu hình) |
+| `AppSettings:Environment` | string | `"DEV"` |
+| `AppSettings:UploadFileFTP` | string | `"YES"` |
+| `AppSettings:FolderShare` | string | `"\\\\Dev-fitweb01\\pos"` |
+| `AppSettings:FolderShareUpdSource` | string | `"\\\\DEV-FITWEB01\\BluePosUpgrade"` |
+| `AppSettings:FolderShareAPIBluePOS` | string | `"Dev-bposweb01\\ftpbluepos"` |
+| `AppSettings:FtpRootPath` | string | `"D:\\ROOT\\FTPBLUEPOS"` |
+| `AppSettings:RemoteSvrUser` | string | _(ẩn)_ |
+| `AppSettings:RemoteSvrPass` | string | _(ẩn)_ |
+| `AppSettings:WinScpExecutablePath` | string | `""` (chưa cấu hình) |
+
+---
+
+## MỤC H — Những gì CHƯA có / còn thiếu
+
+_(So sánh với `docs/PROJECT_INVENTORY.md` — cấu trúc cũ .NET Framework 4.6)_
+
+### Controllers chưa migrate
+
+| Controller cũ | Status | Phụ thuộc cần tạo | Mức cần thiết |
+|---------------|--------|-------------------|---------------|
+| `CapillaryController` | ❌ Chưa migrate | LoyaltyService (Capillary), CouponCapillaryService, MemberPointsService | **Cao** — loyalty Capillary |
+| `GiftController` | ❌ Chưa migrate | POSGiftService (IPOSGiftService), MMLSchemeService, WinXService | **Cao** — gift barcode |
+| `OfferController` | ❌ Chưa migrate | MemberBusinessService, OfferEmployeeService, ProgramPointsService, WincodeService | **Cao** — staff discount, loyalty offer |
+| `VoucherController` | ❌ Chưa migrate | VinIDBLO, CX config (CXUrl/CXUser/CXPass) | Trung bình — CX voucher |
+| `VoucherTopUpVinIDController` | ❌ Chưa migrate | VinID top-up integration | Trung bình — VinID topup |
+| `WinCareController` | ❌ Chưa migrate | WinCareService, WinCustomerService | Trung bình — WinCare partner |
+| `WinLifeController` | ❌ Chưa migrate | WinLifeService | Trung bình — WinLife program |
+| `WinpayController` | ❌ Chưa migrate | WinpayService | Trung bình — Winpay partner |
+| `PLGController` | ❌ Chưa migrate | PLGBLO, PLGData | Thấp — PLG vouchers |
+| `SAPController` | ❌ Chưa migrate | SAPBLO | Thấp — SAP integration |
+| `QueueController` | ❌ Chưa migrate | RabbitMQService | Thấp — manual queue ops |
+| `SettingController` | ❌ Chưa migrate | MemoryCacheService (reload cache) | Thấp — admin ops |
+| `ValidateController` | ❌ Chưa migrate | CommonBLO (ValidateTransaction, InvoiceCreated) | **Cao** — VAT/tax validation |
+| `HomeController` | ➡ Replaced | — | Replaced bởi `/health` endpoint trong Program.cs |
+
+### Services / AppServices chưa migrate
+
+| Class cũ | Lý do chưa có | Mức cần thiết |
+|----------|--------------|---------------|
+| `LoyaltyService` (Capillary) | Phụ thuộc Capillary API, cần CapillaryService | **Cao** |
+| `CouponCapillaryService` | Phụ thuộc CapillaryService | **Cao** |
+| `LoyaltyOfflineService` | Offline loyalty fallback | Trung bình |
+| `LoyaltyCapillaryService` | Capillary-specific | Trung bình |
+| `CapillaryService` (API_Common) | HTTP client Capillary, cần migrate | **Cao** |
+| `MMLSchemeService` | MML scheme lookup (dùng cho GiftController) | **Cao** |
+| `MemberBusinessService` | Member business rules | **Cao** |
+| `MemberPointsService` | Member points calc | **Cao** |
+| `OfferEmployeeService` | Staff offer service (wrapper WincodeRepository) | **Cao** |
+| `ProgramPointsService` | Loyalty program points | **Cao** |
+| `WincodeService` | WinCode/WinLife (repository đã có, service wrapper chưa có) | **Cao** |
+| `POSGiftService` | Gift barcode validation (IPOSGiftService) | **Cao** |
+| `OneUService` | OneU partner HTTP client | Trung bình |
+| `WinpayService` | Winpay partner HTTP client | Trung bình |
+| `WinXService` | WinX partner HTTP client | Trung bình |
+| `AQuaService` | AQua partner HTTP client | Thấp |
+| `WinsoreService` | Winsore/TCB HTTP client | Thấp |
+| `IssueVoucherService` | Issue voucher DB | Trung bình |
+| `ROPVoucherService` | ROP voucher DB | Trung bình |
+| `WinCareService` | WinCare HTTP client | Trung bình |
+| `WinCustomerService` | WinCustomer HTTP client | Trung bình |
+| `WinLifeService` | WinLife HTTP client | Trung bình |
+
+### Business Logic (BLO) chưa migrate
+
+| Class cũ | Lý do chưa có | Mức cần thiết |
+|----------|--------------|---------------|
+| `CommonBLO` (phần ValidateTransaction, InvoiceCreated) | Cần migrate cho ValidateController | **Cao** |
+| `VinIDBLO` | VinID voucher/reward logic (1 phần đã merge vào CommonController.SendCodeReward) | Trung bình |
+| `LoginBLO` | Auth logic (đã thay bằng BasicAuth scheme) | Thấp |
+| `MenuBLO` | Menu data — không còn endpoint | Thấp |
+| `SalaryBLO` | Salary module — xác định có cần không | Thấp |
+| `PLGBLO` | PLG voucher BLO | Thấp |
+| `SAPBLO` | SAP integration | Thấp |
+
+### Repositories / DB Access chưa migrate
+
+| Class cũ | Lý do chưa có | Mức cần thiết |
+|----------|--------------|---------------|
+| `POSGiftInfoRepository` | Gift info lookup (dùng bởi POSGiftService) | **Cao** |
+| `CentralGeneralContainer` (EF) | Chuyển sang Dapper/ADO.NET (cần implement) | **Cao** |
+| `PLGContextContainer` (EF) | PLG DB access | Thấp |
+| `KIOSContainer` (EF) | KIOS DB access | Trung bình (KIOS endpoints trong CommonController đã có) |
+
+### Helpers chưa có trong Common mới
+
+| Helper cũ | Trạng thái | Mức cần thiết |
+|-----------|-----------|---------------|
+| `NumberHelper.IsPhoneNumber` | Inline trực tiếp trong Controller (TODO comment) | Thấp |
+| `LoyaltyHelper` (static) | Chưa migrate | Trung bình |
+| `UrboxHelper` (static) | Chưa migrate (logic inline trong AppService) | Thấp |
+| `CapillaryHelper` (static) | Chưa migrate | Trung bình |
+| `VINIDHelper` (static) | Chưa migrate | Thấp |
+| `NotifyConfigHelper` | Chưa migrate (cần Redis thay MemoryCacheService) | Thấp |
+| `OpsMonitoringHelper` | Chưa migrate (RabbitMQ ops logging) | Trung bình |
+| `ConvertHelper` (API_Common) | Chưa migrate | Trung bình |
+| `EncryptionHelper` (API_Common) | Chưa migrate | Trung bình |
+| `RateLimitMiddleware` | Chưa migrate (rate limit 100 req/min per IP) | Thấp |
+
+---
+
+## Tóm tắt
+
+- **Tổng số Interface đã có:** 22
+  - Application: 8 (`ICommonService`, `IAkaChainLoyaltyService`, `IGotITService`, `IUrboxService`, `IDataRawService`, `ISyncDataPosService`, `IHealthCheckService`, `IKafkaService`)
+  - Infrastructure Repositories: 6
+  - Infrastructure AppServices: 4
+  - Infrastructure Cache/Redis/Messaging/Logging/Files/DB: 9 (`IRedisManager`, `IRedisService`, `IRabbitMQProducer`, `IKafkaProducer`, `IFileLogHelper`, `IKibanaService`, `IFtpFileTransfer`, `IDbConnectionFactory` + 1 thêm)
+
+- **Tổng số Repository đã có:** 6
+  (`CentralMDRepository`, `CentralSaleRepository`, `DataRawJsonRepository`, `LoyaltyRepository`, `OfferStaffRepository`, `WincodeRepository`)
+
+- **Tổng số Service đã có:** 12
+  - Application Services: 8
+  - Infrastructure AppServices: 4
+
+- **Tổng số Controller đã migrate:** 5
+  (`BaseController`, `CommonController`, `LoyaltyController` [chỉ AkaChain], `PaymentController` [GotIT+Urbox], `SyncDataPosController`, `KafkaController`)
+
+- **Tổng số DTO file đã có:** 79 file trong `POS.Common/Dtos/` (113 file .cs tổng cộng trong POS.Common)
+
+- **Tổng số Enum đã có:** 25
+
+- **Tổng số Controller cũ chưa migrate:** 13 / 19
+
+- **Tổng số Service/BLO cũ chưa migrate:** ~23
+
+- **Tổng số class chưa migrate (ước tính):** ~36 class chính (không kể sub-class và helpers)

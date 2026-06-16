@@ -1,0 +1,12 @@
+@page "/access-denied"
+@attribute [AllowAnonymous]
+<PageTitle>Không có quyền truy cập</PageTitle>
+<div style="text-align:center;padding-top:80px;">
+    <MudIcon Icon="@Icons.Material.Filled.Block"
+             Color="Color.Error" Style="font-size:4rem;"/>
+    <MudText Typo="Typo.h5" Class="mt-2">Không có quyền truy cập</MudText>
+    <MudText Color="Color.Secondary" Class="mb-4">
+        Bạn không có quyền xem trang này.
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Href="/">Về trang chủ</MudButton>
+</div>

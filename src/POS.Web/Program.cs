@@ -1,0 +1,87 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using MudBlazor;
+using MudBlazor.Services;
+using POS.Application;
+using POS.Infrastructure;
+using POS.Web.Auth;
+using POS.Web.Components;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ── MudBlazor ────────────────────────────────────────────────────────
+builder.Services.AddMudServices(config =>
+{
+    config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
+    config.SnackbarConfiguration.ShowCloseIcon = true;
+    config.SnackbarConfiguration.VisibleStateDuration = 4000;
+});
+
+// ── Blazor Server ─────────────────────────────────────────────────────
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// ── Infrastructure: DB, Redis, RabbitMQ, Elasticsearch, HttpClients ──
+// Bao gồm: CentralMDConnectionFactory, LoyaltyConnectionFactory,
+//           IRedisService, IRabbitMQProducer, IKibanaService, IFileLogHelper,
+//           tất cả 6 Repository, 4 AppService
+builder.Services.AddInfrastructure(builder.Configuration);
+
+// ── Application Services: ICommonService, IHealthCheckService, ... ───
+// Bao gồm: ICommonService, IAkaChainLoyaltyService, IGotITService,
+//           IUrboxService, IDataRawService, ISyncDataPosService,
+//           IHealthCheckService, IKafkaService
+builder.Services.AddApplication();
+
+// ── Web-specific services ─────────────────────────────────────────────
+builder.Services.AddScoped<IWebUserService, WebUserService>();
+
+// ── Authentication: Cookie cho browser session ─────────────────────────
+// TÁCH BIỆT với BasicAuth của POS.Api (không ảnh hưởng nhau)
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath        = "/login";
+        options.LogoutPath       = "/logout";
+        options.AccessDeniedPath = "/access-denied";
+        options.ExpireTimeSpan   = TimeSpan.FromHours(
+            builder.Configuration.GetValue<int>("WebApp:SessionTimeoutHours", 8));
+        options.SlidingExpiration = true;
+        options.Cookie.HttpOnly  = true;
+        options.Cookie.SameSite  = SameSiteMode.Strict;
+    });
+
+// ── Authorization: 3 policy tương ứng 3 role ─────────────────────────
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(WebPolicies.StoreAndAbove,
+        p => p.RequireRole(WebRoles.StoreOperator, WebRoles.ITOps, WebRoles.SystemAdmin));
+    options.AddPolicy(WebPolicies.OpsAndAbove,
+        p => p.RequireRole(WebRoles.ITOps, WebRoles.SystemAdmin));
+    options.AddPolicy(WebPolicies.AdminOnly,
+        p => p.RequireRole(WebRoles.SystemAdmin));
+});
+
+// ── Utilities ─────────────────────────────────────────────────────────
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddMemoryCache();
+
+var app = builder.Build();
+
+app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+// Logout handler — xử lý server-side để clear cookie đúng cách
+app.MapGet("/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Redirect("/login");
+}).AllowAnonymous();
+
+app.Run();

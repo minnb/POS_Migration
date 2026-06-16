@@ -1,0 +1,22 @@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var role  = state.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+        Nav.NavigateTo(role switch
+        {
+            WebRoles.SystemAdmin => "/admin/users",
+            WebRoles.ITOps       => "/ops/health",
+            _                    => "/store/revenue"
+        });
+    }
+}

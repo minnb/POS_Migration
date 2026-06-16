@@ -1,0 +1,15 @@
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated != true)
+                { <RedirectToLogin/> }
+                else
+                { <RedirectToAccessDenied/> }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+    </Found>
+    <NotFound>
+        <MudText Typo="Typo.h6" Class="pa-4">Trang không tồn tại.</MudText>
+    </NotFound>
+</Router>

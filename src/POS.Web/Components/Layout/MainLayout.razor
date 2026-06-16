@@ -1,0 +1,86 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary" Dense="false">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                       Edge="Edge.Start" OnClick="@(() => _drawerOpen = !_drawerOpen)"/>
+        <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">POS Dashboard – WinMart</MudText>
+        <MudSpacer/>
+        <AuthorizeView>
+            <Authorized>
+                <MudText Class="mr-2" Typo="Typo.body2">
+                    @context.User.Identity?.Name
+                </MudText>
+                <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Class="mr-3">
+                    @context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                </MudChip>
+                <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                               Color="Color.Inherit" Href="/logout" title="Đăng xuất"/>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.subtitle2" Class="mt-1">
+                WinMart POS System
+            </MudText>
+        </MudDrawerHeader>
+        <MudNavMenu>
+
+            <AuthorizeView Policy="@WebPolicies.StoreAndAbove">
+                <MudNavGroup Title="Cửa hàng" Icon="@Icons.Material.Filled.Store" Expanded="true">
+                    <MudNavLink Href="/store/revenue"
+                                Icon="@Icons.Material.Filled.BarChart">Doanh thu</MudNavLink>
+                    <MudNavLink Href="/store/transactions"
+                                Icon="@Icons.Material.Filled.Receipt">Giao dịch</MudNavLink>
+                    <MudNavLink Href="/store/loyalty"
+                                Icon="@Icons.Material.Filled.CardGiftcard">Loyalty &amp; Voucher</MudNavLink>
+                    <MudNavLink Href="/store/pos-status"
+                                Icon="@Icons.Material.Filled.PointOfSale">Trạng thái POS</MudNavLink>
+                </MudNavGroup>
+            </AuthorizeView>
+
+            <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
+                <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart">
+                    <MudNavLink Href="/ops/health"
+                                Icon="@Icons.Material.Filled.Speed">System health</MudNavLink>
+                    <MudNavLink Href="/ops/pos-map"
+                                Icon="@Icons.Material.Filled.Map">POS map</MudNavLink>
+                    <MudNavLink Href="/ops/logs"
+                                Icon="@Icons.Material.Filled.Article">Log viewer</MudNavLink>
+                    <MudNavLink Href="/ops/alerts"
+                                Icon="@Icons.Material.Filled.NotificationsActive">Alerts</MudNavLink>
+                    <MudNavLink Href="/ops/queues"
+                                Icon="@Icons.Material.Filled.Timeline">Queue monitor</MudNavLink>
+                </MudNavGroup>
+            </AuthorizeView>
+
+            <AuthorizeView Policy="@WebPolicies.AdminOnly">
+                <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Filled.AdminPanelSettings">
+                    <MudNavLink Href="/admin/users"
+                                Icon="@Icons.Material.Filled.People">Người dùng</MudNavLink>
+                    <MudNavLink Href="/admin/roles"
+                                Icon="@Icons.Material.Filled.Security">Phân quyền</MudNavLink>
+                    <MudNavLink Href="/admin/config"
+                                Icon="@Icons.Material.Filled.Settings">Cấu hình</MudNavLink>
+                    <MudNavLink Href="/admin/audit"
+                                Icon="@Icons.Material.Filled.History">Audit log</MudNavLink>
+                </MudNavGroup>
+            </AuthorizeView>
+
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-4 mt-2">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code { private bool _drawerOpen = true; }

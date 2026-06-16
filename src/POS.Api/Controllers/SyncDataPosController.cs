@@ -19,11 +19,11 @@ namespace POS.Api.Controllers;
 ///
 /// LƯU Ý CONTRACT: hầu hết endpoint cũ trả qua ResponseData.HttpResponseData → HTTP status LUÔN 200,
 /// status thật nằm trong body (field Status). Giữ nguyên behavior này — xem helper HttpResponseData bên dưới.
-/// Riêng WriteFileByManual + nhánh queue-limit của GetFileFromFTP dùng Request.CreateResponse cũ → HTTP status thật.
+/// Riêng WriteFileByManual dùng Request.CreateResponse cũ → HTTP status thật.
 ///
-/// 2 chỗ gọi TichHopSAP.dll (net452 — KHÔNG chạy được trên .NET 10 vì System.Web.Services + System.Data.Linq):
-/// WriteFileByManual và nhánh write-SOD của GetFileFromFTP → STUB trả NotImplemented, chờ quyết định
+/// WriteFileByManual gọi TichHopSAP.dll (net452) → STUB trả NotImplemented, chờ quyết định
 /// HTTP-bridge sang app cũ hoặc decompile-port (xem plan).
+/// GetFileFromFTP typeSync==ALL → dùng CreateFileSODFakeAsync trực tiếp, bỏ queue check.
 /// </summary>
 [Route("api/posblue")]
 public sealed class SyncDataPosController(
@@ -73,8 +73,6 @@ public sealed class SyncDataPosController(
         var listResult = new List<PathFileAPIModel>();
         try
         {
-            int limit = 10;
-            var checkRequestConfig = await syncDataPosService.GetPosDataSetupValueAsync("WWW_LIMIT_REQUEST_MD");
             var pathFile = syncDataPosService.MapFtpPath($"{pathSync}/{folderFile}");
             Directory.CreateDirectory(pathFile);
 
@@ -85,48 +83,18 @@ public sealed class SyncDataPosController(
                 if (listResult.Count > 0)
                     return HttpResponseData(HttpStatusCode.OK, $"Response from IPServer {ipServer}", listResult);
 
-                if (checkRequestConfig != null)
-                    limit = int.Parse(checkRequestConfig);
-
-                // Check số lượng request tạo file đầu ngày
-                var ipSrv = StringHelper.ReplaceString(GetIpServer(), ".", "");
-                var (allowed, processing) = syncDataPosService.CheckSodQueueLimit(ipSrv, limit);
-                if (!allowed)
-                {
-                    kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
-                        $"QUEUE: {posTerminal} requetst to srv {ipSrv} đang xử lý {processing} process, vui lòng thử lại sau");
-
-                    if (!syncDataPosService.SodGlobalMarkerExists())
-                    {
-                        var (sodCreated, _) = await dataRawService.CreateFileSODFakeAsync(siteCode, pathFile);
-                        if (sodCreated)
-                        {
-                            await Task.Delay(500);
-                            listResult = await syncDataPosService.GetFileFromServerApiAsync(
-                                pathSync ?? "", folderFile ?? "", typeSync, syncAPI ?? "", ipServer);
-                            if (listResult.Count > 0)
-                            {
-                                kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
-                                    $"SOD fake: {JsonConvert.SerializeObject(listResult)}");
-                                return HttpResponseData(HttpStatusCode.OK, $"Response from IPServer {ipServer}", listResult);
-                            }
-                        }
-                    }
-
-                    // Giữ nguyên contract cũ: nhánh này trả HTTP 400 thật (Request.CreateResponse cũ)
-                    return BadRequest(new ResultResponse
-                    {
-                        Data = null,
-                        Message = "Hệ thống đang xử lý, vui lòng thử lại sau 5 phút",
-                        Status = HttpStatusCode.BadRequest,
-                        MessageTechnical = $"GetFileFromFTP_ALL_QUEUE {ipServer} đang xử lý {processing} tạo file đầu ngày, vui lòng thử lại sau 5 phút"
-                    });
-                }
-
-                // Write file SOD — code cũ gọi SyncDataToPos.writeFileByManual (TichHopSAP.dll): STUB
+                var (sodCreated, sodMsg) = await dataRawService.CreateFileSODFakeAsync(siteCode, pathFile);
                 kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
-                    $"{posTerminal} WriteFileByManual NotImplemented (TichHopSAP.dll), server {ipServer} is processing {processing} request");
-                return HttpResponseData(HttpStatusCode.NotImplemented, StubSodMessage, null);
+                    $"CreateFileSODFake {sodCreated} ({sodMsg}), siteCode {siteCode}");
+
+                if (!sodCreated)
+                    return HttpResponseData(HttpStatusCode.BadGateway,
+                        $"Response from IPServer {ipServer}, CreateFileSODFake failed: {sodMsg}", null);
+
+                await Task.Delay(500);
+                listResult = await syncDataPosService.GetFileFromServerApiAsync(
+                    pathSync ?? "", folderFile ?? "", typeSync, syncAPI ?? "", ipServer);
+                return HttpResponseData(HttpStatusCode.OK, $"Response from IPServer {ipServer}", listResult);
             }
             else // ChangeFirst hoặc Change
             {
