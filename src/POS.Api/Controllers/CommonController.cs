@@ -371,12 +371,9 @@ public sealed class CommonController(
     /// </summary>
     [HttpGet("GetTopOrderNo")]
     public async Task<IActionResult> GetTopOrderNo(
-        [FromQuery] string storeNo,
-        [FromQuery] string posNo)
+        string storeNo,
+        string posNo)
     {
-        if (string.IsNullOrEmpty(storeNo)) return BadRequestResult("storeNo đang bị trống");
-        if (string.IsNullOrEmpty(posNo)) return BadRequestResult("posNo đang bị trống");
-
         try
         {
             var data = await commonService.GetTopOrderNoAsync(storeNo, posNo);

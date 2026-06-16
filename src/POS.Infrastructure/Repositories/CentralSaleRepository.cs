@@ -66,14 +66,21 @@ public sealed class CentralSaleRepository(
 
     public async Task InsertBussinessDateOpenAsync(BussinessDateOpenModel model, CancellationToken ct = default)
     {
-        // Parity cũ: chỉ insert khi store CHƯA có row nào; exception throw lên caller
-        using var conn = await connectionFactory.CreateOpenConnectionAsync(model.StoreNo ?? "", ct: ct);
-        const string sql = @"IF NOT EXISTS (SELECT 1 FROM BussinessDateOpen (NOLOCK) WHERE StoreNo = @StoreNo)
-                             INSERT INTO BussinessDateOpen (Code, StoreNo, BussinessDate, CreatedUser, CreatedDate)
-                             VALUES (@Code, @StoreNo, @BussinessDate, @CreatedUser, @CreatedDate);";
-        await conn.ExecuteAsync(new CommandDefinition(sql,
-            new { model.Code, model.StoreNo, model.BussinessDate, model.CreatedUser, model.CreatedDate },
-            commandTimeout: Timeout, cancellationToken: ct));
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(model.StoreNo ?? "", ct: ct);
+            const string sql = @"IF NOT EXISTS (SELECT 1 FROM BussinessDateOpen (NOLOCK) WHERE StoreNo = @StoreNo)
+                                 INSERT INTO BussinessDateOpen (Code, StoreNo, BussinessDate, CreatedUser, CreatedDate)
+                                 VALUES (@Code, @StoreNo, @BussinessDate, @CreatedUser, @CreatedDate);";
+            await conn.ExecuteAsync(new CommandDefinition(sql,
+                new { model.Code, model.StoreNo, model.BussinessDate, model.CreatedUser, model.CreatedDate },
+                commandTimeout: Timeout, cancellationToken: ct));
+        }
+        catch
+        {
+            // Parity cũ: BussinessDateOpen không tồn tại ở một số shard DB (store chưa mapping)
+            // → swallow như CommonData.InsertBussinessDateOpen() cũ, không break response
+        }
     }
 
     public async Task<ShiftHeaderModel?> GetShiftHeaderAsync(string siteCode, string posTerminal, DateTime businessDate, CancellationToken ct = default)
@@ -197,10 +204,17 @@ public sealed class CentralSaleRepository(
         try
         {
             using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo, ct: ct);
-            const string sql = @"SELECT TOP 10 StoreNo, POSTerminalNo, CAST(OrderDate AS DATE) OrderDate, CreatedDate, OrderNo, MemberCardNo, AmountInclVAT
+            string sql = @"SELECT TOP 10 StoreNo, POSTerminalNo, CAST(OrderDate AS DATE) OrderDate, CreatedDate, OrderNo, MemberCardNo, AmountInclVAT
+                                 FROM TransHeader (NOLOCK)
+                                 ORDER BY CreatedDate DESC;";
+
+            if (!string.IsNullOrEmpty(posNo) && !string.IsNullOrEmpty(storeNo)) 
+            {
+                sql = @"SELECT TOP 10 StoreNo, POSTerminalNo, CAST(OrderDate AS DATE) OrderDate, CreatedDate, OrderNo, MemberCardNo, AmountInclVAT
                                  FROM TransHeader (NOLOCK)
                                  WHERE StoreNo = @storeNo AND POSTerminalNo = @posNo
                                  ORDER BY CreatedDate DESC;";
+            }
             var data = await conn.QueryAsync<TransHeaderOrderModel>(
                 new CommandDefinition(sql, new { storeNo, posNo }, commandTimeout: Timeout, cancellationToken: ct));
             return [.. data];
