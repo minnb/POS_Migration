@@ -4,7 +4,7 @@
 # QUAN TRỌNG — chuyển đổi MỘT LẦN từ container mssql_2019 cũ (GIỮ NGUYÊN DATA):
 #   1. Xóa container cũ (DATA KHÔNG MẤT — data nằm trong volume my-sit-env_sql_data):
 #        sudo docker rm -f mssql_2019
-#   2. mkdir -p logs && sudo chown 1654:1654 logs
+#   2. mkdir -p logs ftpbluepos && sudo chown 1654:1654 logs ftpbluepos
 #   3. sudo docker compose up -d --build
 services:
   sqlserver:
@@ -49,6 +49,8 @@ services:
     volumes:
       # container chạy non-root APP_UID=1654 — không chown thư mục logs sẽ không ghi được file
       - ./logs:/app/logs
+      # Lưu file .zip SOD (CreateFileSODFakeAsync) — persist qua container restart
+      - ./ftpbluepos:/app/ftpbluepos
       # Giữ key DataProtection qua các lần rebuild — tắt cảnh báo "Storing keys in a
       # directory that may not be persisted" lúc khởi động
       - dp-keys:/home/app/.aspnet/DataProtection-Keys
