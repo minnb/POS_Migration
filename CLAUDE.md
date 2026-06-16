@@ -155,9 +155,9 @@ src/POS.Common/
 
 ---
 
-## Thêm DTO mới: dùng lệnh `/add-dto`
+## Thêm DTO mới: dùng lệnh `/add-dto-common`
 
-Xem `.claude/commands/add-dto.md` để biết cách dùng.
+Xem `.claude/commands/add-dto-common.md` để biết cách dùng.
 
 ---
 
@@ -289,3 +289,267 @@ Các helper sau **không tồn tại** trong `src/POS.Common/Helpers/` — inlin
 ### F. Swagger chưa được cấu hình
 
 `Program.cs` chưa có `AddSwaggerGen()` / `UseSwagger()`. Route test dùng curl trực tiếp.
+
+---
+
+## POS.Web — Blazor Server Dashboard
+
+> Webapp quản trị nội bộ: `src/POS.Web/` — .NET 10, Blazor Server, MudBlazor 9.5.0
+
+### 1. Stack & Packages
+
+| Package | Version | Ghi chú |
+|---------|---------|---------|
+| .NET | 10.0 | `net10.0` target framework |
+| MudBlazor | 9.5.0 | UI component library — **v9 có breaking changes** |
+| BCrypt.Net-Next | 4.2.0 | Hash mật khẩu DashboardUsers |
+| Newtonsoft.Json | 13.0.4 | Serialization — giống toàn solution |
+
+### 2. Kiến trúc Auth
+
+```
+DB: RPOSMasterData.dbo.DashboardUsers
+  ↓
+IWebUserService.ValidateLoginAsync(username, password)
+  → BCrypt.Verify(password, hash)
+  → trả DashboardUser (Id, Username, Role, StoreCodes, FullName)
+  ↓
+Login.razor (InteractiveServer — KHÔNG gọi SignInAsync trực tiếp)
+  → tạo one-time token → IMemoryCache (TTL 30s)
+  → Nav.NavigateTo("/account/signin/{token}", forceLoad: true)
+  ↓
+GET /account/signin/{token} (minimal API endpoint — HTTP pipeline thật)
+  → ctx.SignInAsync(CookieAuth, principal, IsPersistent=true)
+  → Redirect "/"
+  ↓
+Cookie session: 8h, SlidingExpiration, HttpOnly, SameSite=Strict
+```
+
+> **Lý do bridge token**: Blazor InteractiveServer chạy trên WebSocket circuit — `HttpContext` đã degraded, gọi `SignInAsync` lúc này throw → circuit crash. Phải thoát ra HTTP pipeline thật để set cookie.
+
+### 3. Roles và Access Rules
+
+| Role | Constant | Policy | Xem được |
+|------|----------|--------|---------|
+| Vận hành cửa hàng | `WebRoles.StoreOperator` | `WebPolicies.StoreAndAbove` | Store/* (filter theo `store_codes` claim) |
+| IT Ops | `WebRoles.ITOps` | `WebPolicies.OpsAndAbove` | Store/* + Ops/* (xem tất cả store) |
+| System Admin | `WebRoles.SystemAdmin` | `WebPolicies.AdminOnly` | Tất cả |
+
+```csharp
+// src/POS.Web/Auth/WebRoles.cs
+WebRoles.StoreOperator = "StoreOperator"
+WebRoles.ITOps         = "ITOps"
+WebRoles.SystemAdmin   = "SystemAdmin"
+
+WebPolicies.StoreAndAbove = "StoreAndAbove"  // cả 3 role
+WebPolicies.OpsAndAbove   = "OpsAndAbove"    // ITOps + SystemAdmin
+WebPolicies.AdminOnly     = "AdminOnly"      // SystemAdmin only
+```
+
+### 4. Services inject được trong POS.Web
+
+POS.Web đăng ký `AddInfrastructure()` + `AddApplication()` → inject trực tiếp qua DI:
+
+**Từ POS.Infrastructure:**
+- `IRedisService` — cache (HashGet/Set, StringGet/Set, KeyExists...)
+- `IKibanaService` — structured logging → Elasticsearch
+- `IFileLogHelper` — file log fallback
+- `IRabbitMQProducer` — message queue
+- `IKafkaProducer` — Kafka producer
+- `ICentralMDRepository` — master data (store config, POS setup...)
+- `ICentralSaleRepository` — sales data (orders, transactions...)
+- `ILoyaltyRepository` — loyalty (members, points, wincode...)
+- `IOfferStaffRepository` — staff discount
+- `IWincodeRepository` — wincode/winlife
+- `CentralMDConnectionFactory` — inject concrete (không qua interface)
+- `LoyaltyConnectionFactory` — inject concrete (không qua interface)
+
+**Từ POS.Application:**
+- `ICommonService` — POS common ops (store setup, shift, EOD...)
+- `IHealthCheckService` — kiểm tra sức khỏe hạ tầng
+- `IAkaChainLoyaltyService` — FMV/AkaChain loyalty
+- `IGotITService` — GotIT voucher partner
+- `IUrboxService` — Urbox voucher partner
+- `IKafkaService` — Kafka publisher
+- `IDataRawService` — file sale processing
+- `ISyncDataPosService` — POS sync
+
+**Chỉ trong POS.Web:**
+- `IWebUserService` — dashboard user auth (login, get user, get store codes)
+
+### 5. Template Page Component chuẩn
+
+```razor
+@page "/store/ten-trang"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+@inject ICentralSaleRepository SaleRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Tên trang – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+}
+else if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error">@_errorMsg</MudAlert>
+}
+else
+{
+    @* nội dung thật *@
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool _loading = true;
+    private string? _errorMsg;
+    private IReadOnlyList<string> _userStoreCodes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu.";
+            KibanaService.LogException("PageName.OnInitialized", "", 0, "", ex.Message);
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task LoadDataAsync() { /* ... */ }
+}
+```
+
+> `_userStoreCodes` rỗng = ITOps/Admin (xem tất cả). Khác rỗng = StoreOperator (filter theo list).
+
+### 6. MudBlazor v9 — Breaking Changes BẮT BUỘC biết
+
+#### Charts (thay đổi lớn nhất)
+
+```razor
+@* ĐÚNG — v9 *@
+@using MudBlazor.Charts
+
+<Line T="double"
+      ChartSeries="@_series"
+      ChartLabels="@_labels"
+      Width="100%" Height="280px"
+      ChartOptions="@_lineOpts"/>
+
+<Bar T="double"
+     ChartSeries="@_series"
+     ChartLabels="@_labels"
+     Width="100%" Height="280px"
+     ChartOptions="@_barOpts"/>
+
+@* SAI — v8 syntax, KHÔNG dùng *@
+@* <MudChart ChartType="ChartType.Line" ChartSeries<double>="..." .../>  *@
+```
+
+```csharp
+// @code — v9
+// ChartSeries<T>.Data là ChartData<T>, KHÔNG phải double[]
+private List<ChartSeries<double>> _series =
+[
+    new ChartSeries<double>
+    {
+        Name = "Label",
+        Data = new ChartData<double>(Array.Empty<double>())  // phải dùng constructor
+    }
+];
+
+// Options: dùng concrete class ở MudBlazor namespace
+private readonly LineChartOptions _lineOpts = new() { LineStrokeWidth = 2, ShowLegend = false };
+private readonly BarChartOptions  _barOpts  = new() { ShowLegend = false };
+
+// Kiểm tra empty: dùng bool flag (KHÔNG dùng .Data.Length)
+private bool _isEmpty;
+// Trong LoadData: _isEmpty = data.Count == 0;
+```
+
+| Thứ | v8 (sai) | v9 (đúng) |
+|-----|----------|-----------|
+| Chart component | `<MudChart ChartType="ChartType.Line">` | `<Line T="double">` hoặc `<Bar T="double">` |
+| Series attribute | `ChartSeries<double>="@..."` | `ChartSeries="@..."` (với `T="double"` trên component) |
+| X-axis labels | `XAxisLabels` | `ChartLabels` |
+| Data type | `double[]` | `ChartData<double>(double[])` |
+| Options (line) | `ChartOptions { LineStrokeWidth, YAxisTicks }` | `LineChartOptions { LineStrokeWidth, ShowLegend }` |
+| Options (bar) | `ChartOptions { YAxisTicks }` | `BarChartOptions { ShowLegend }` |
+| Empty check | `series[0].Data.Length == 0` | bool flag set trong LoadData |
+
+#### Chip component
+
+```razor
+@* ĐÚNG *@
+<MudChip T="string" Color="..." ...>@label</MudChip>
+
+@* SAI (v8) *@
+@* <MudChip Color="..." ...>@label</MudChip> *@
+```
+
+### 7. Logging convention trong POS.Web
+
+```csharp
+// Load data
+KibanaService.LogInfo("PageName.LoadData", _userStoreCodes.FirstOrDefault() ?? "all",
+    $"Loading data: {count} items");
+
+// Exception
+KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
+```
+
+### 8. Quy tắc đặt tên
+
+| Thành phần | Convention | Ví dụ |
+|-----------|-----------|-------|
+| Page component | `{Domain}Page.razor` | `RevenuePage.razor` |
+| Folder | `Components/Pages/{Section}/` | `Components/Pages/Store/` |
+| Route | `/section/kebab-case` | `/store/daily-revenue` |
+
+### 9. Serialization trong POS.Web
+
+Dùng **Newtonsoft.Json** (`JsonConvert.*`) — KHÔNG dùng `System.Text.Json`.
+Nhất quán với POS.Api và POS terminals.
+
+### 10. KHÔNG làm những điều sau (POS.Web)
+
+- ❌ Gọi `SignInAsync` trong Blazor InteractiveServer component — dùng bridge token (xem mục 2)
+- ❌ Dùng `System.Text.Json` — phải dùng `Newtonsoft.Json`
+- ❌ Quên `@rendermode InteractiveServer` trên page có tương tác
+- ❌ Quên `@attribute [Authorize(...)]` trên page mới
+- ❌ Inject `IDbConnectionFactory` — factory đăng ký là concrete, inject `CentralMDConnectionFactory`
+- ❌ Raw SQL trong page/component — phải qua Repository hoặc Service
+- ❌ Gọi HTTP đến POS.Api từ POS.Web — inject service trực tiếp qua DI
+- ❌ Bỏ qua row-level filter với StoreOperator
+- ❌ Dùng `ChartSeries<double>` như attribute HTML trong Razor (v9 syntax sai)
+- ❌ Dùng `MudChart ChartType="..."` và `ChartOptions { YAxisTicks, LineStrokeWidth }` — đã đổi trong v9
+
+### 11. Slash Commands (POS.Web)
+
+| Command | Mục đích |
+|---------|---------|
+| `/web-add-store-page` | Tạo page mới trong Store section |
+| `/web-add-ops-page` | Tạo page mới trong Ops section |
+| `/web-add-admin-page` | Tạo page mới trong Admin section |
+| `/web-add-feature` | Tạo feature đầy đủ (page + service + model) |
+| `/web-check-status` | Build + audit trạng thái POS.Web |
+| `/web-gen-hash` | Tạo BCrypt hash cho user migration SQL |
+| `/add-dto-common` | Thêm DTO mới vào POS.Common (xem `.claude/commands/add-dto-common.md`) |

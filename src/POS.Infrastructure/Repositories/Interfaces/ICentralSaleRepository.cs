@@ -1,3 +1,4 @@
+using POS.Common.Dtos.CentralSale;
 using POS.Common.Dtos.POS.Common;
 
 namespace POS.Infrastructure.Repositories.Interfaces;
@@ -21,4 +22,8 @@ public interface ICentralSaleRepository
     Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default);
     Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default);
 
+    // ── Revenue Dashboard ─────────────────────────────────────────────────────
+    Task<List<RevenueDailyDto>>  GetRevenueDailyAsync(DateTime fromDate, DateTime toDate, CancellationToken ct = default);
+    Task<List<RevenueHourlyDto>> GetRevenueHourlyAsync(DateTime saleDate, CancellationToken ct = default);
+    Task<RevenueSummaryDto>      GetRevenueSummaryAsync(DateTime today, CancellationToken ct = default);
 }

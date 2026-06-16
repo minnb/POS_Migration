@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Dapper;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Newtonsoft.Json;
+using POS.Common.Dtos.CentralSale;
 using POS.Common.Dtos.POS;
 using POS.Common.Dtos.POS.Common;
 using POS.Common.Helpers;
@@ -19,6 +20,7 @@ namespace POS.Infrastructure.Repositories;
 /// </summary>
 public sealed class CentralSaleRepository(
     StoreRoutedConnectionFactory connectionFactory,
+    CentralSaleConnectionFactory directConnectionFactory,
     IFileLogHelper fileLogHelper) : ICentralSaleRepository
 {
     private const int Timeout = 120;
@@ -124,15 +126,26 @@ public sealed class CentralSaleRepository(
         var result = new List<SaleTableModel>();
         try
         {
+            string query = @"SELECT 'TransHeader' TableName, * FROM TransHeader(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransLine' TableName,* FROM TransLine(NOLOCK)a where a.DocumentNo=@OrderNo;
+	                        SELECT 'TransPaymentEntry' TableName,* FROM TransPaymentEntry(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransDiscountEntry' TableName,* FROM TransDiscountEntry(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransInfocodeEntry' TableName,* FROM TransInfocodeEntry(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransBonus' TableName,* FROM TransBonus(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransDiscountCouponEntry' TableName,* FROM TransDiscountCouponEntry(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransCpnVchIssue' TableName,* FROM TransCpnVchIssue(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransBluePoint' TableName,* FROM TransBluePoint(NOLOCK)a where a.OrderNo=@OrderNo;
+	                        SELECT 'TransInputData' TableName,* FROM TransInputData(NOLOCK)a where a.TransNo=@OrderNo;
+	                        SELECT 'TransPaymentInfo' TableName,* FROM TransPaymentInfo (NOLOCK)a where a.OrderNo=@OrderNo;";
             var siteCode = orderNo.Substring(0, 4);
             using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
 
             // SP trả multi-resultset, mỗi resultset = 1 bảng sale (TransHeader, TransLine...).
             // Code cũ dùng DataSet rồi serialize từng DataTable; ở đây dùng Dapper dynamic
             // (mỗi row là IDictionary<string, object>) — JSON output tương đương.
-            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(
-                "API_SALE_INFO_ORDERNO", new { OrderNo = orderNo },
-                commandType: CommandType.StoredProcedure, commandTimeout: Timeout, cancellationToken: ct));
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(query, new { OrderNo = orderNo },
+                //"API_SALE_INFO_ORDERNO", new { OrderNo = orderNo },
+                commandType: CommandType.Text, commandTimeout: Timeout, cancellationToken: ct));
 
             while (!grid.IsConsumed)
             {
@@ -304,9 +317,89 @@ public sealed class CentralSaleRepository(
                 return (true, "OK");
             }
         }
-        catch(Exception ex) 
+        catch(Exception ex)
         {
             return (false, ex.Message);
+        }
+    }
+
+    // ── Revenue Dashboard ─────────────────────────────────────────────────────
+
+    public async Task<List<RevenueDailyDto>> GetRevenueDailyAsync(DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"
+                SELECT CAST(OrderDate AS DATE) AS SaleDate,
+                       SUM(CASE WHEN TransactionType = 1 THEN AmountInclVAT
+                                WHEN TransactionType IN (2,3) THEN -AmountInclVAT
+                                ELSE 0 END) AS NetRevenue,
+                       COUNT(CASE WHEN TransactionType = 1 THEN 1 END) AS SaleCount,
+                       COUNT(CASE WHEN TransactionType IN (2,3) THEN 1 END) AS ReturnCount
+                FROM TransHeader (NOLOCK)
+                WHERE OrderDate >= @FromDate AND OrderDate < @ToDate
+                GROUP BY CAST(OrderDate AS DATE)
+                ORDER BY SaleDate;";
+            var data = await conn.QueryAsync<RevenueDailyDto>(
+                new CommandDefinition(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date }, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetRevenueDaily", ex);
+            return [];
+        }
+    }
+
+    public async Task<List<RevenueHourlyDto>> GetRevenueHourlyAsync(DateTime saleDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"
+                SELECT DATEPART(HOUR, OrderTime) AS Hour,
+                       SUM(CASE WHEN TransactionType = 1 THEN AmountInclVAT
+                                WHEN TransactionType IN (2,3) THEN -AmountInclVAT
+                                ELSE 0 END) AS NetRevenue,
+                       COUNT(*) AS TransactionCount
+                FROM TransHeader (NOLOCK)
+                WHERE CAST(OrderDate AS DATE) = @SaleDate
+                GROUP BY DATEPART(HOUR, OrderTime)
+                ORDER BY Hour;";
+            var data = await conn.QueryAsync<RevenueHourlyDto>(
+                new CommandDefinition(sql, new { SaleDate = saleDate.Date }, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetRevenueHourly", ex);
+            return [];
+        }
+    }
+
+    public async Task<RevenueSummaryDto> GetRevenueSummaryAsync(DateTime today, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"
+                SELECT
+                    ISNULL(SUM(CASE WHEN TransactionType = 1 THEN AmountInclVAT
+                                    WHEN TransactionType IN (2,3) THEN -AmountInclVAT
+                                    ELSE 0 END), 0) AS TodayRevenue,
+                    COUNT(CASE WHEN TransactionType = 1 THEN 1 END) AS TodayOrders,
+                    COUNT(CASE WHEN TransactionType IN (2,3) THEN 1 END) AS TodayReturns
+                FROM TransHeader (NOLOCK)
+                WHERE CAST(OrderDate AS DATE) = @Today;";
+            var result = await conn.QueryFirstOrDefaultAsync<RevenueSummaryDto>(
+                new CommandDefinition(sql, new { Today = today.Date }, commandTimeout: Timeout, cancellationToken: ct));
+            return result ?? new RevenueSummaryDto();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetRevenueSummary", ex);
+            return new RevenueSummaryDto();
         }
     }
 }

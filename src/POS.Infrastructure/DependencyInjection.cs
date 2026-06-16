@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddSingleton<CentralMDConnectionFactory>();
         services.AddSingleton<LoyaltyConnectionFactory>();
         services.AddSingleton<StagingDbConnectionFactory>();
+        services.AddSingleton<CentralSaleConnectionFactory>();
         // Routing per-store cho CentralSales (+ Staging/KIOS pass sau) — cache ServerIP vào Redis.
         services.AddSingleton<StoreRoutedConnectionFactory>();
 

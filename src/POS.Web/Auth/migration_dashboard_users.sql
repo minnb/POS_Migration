@@ -16,10 +16,7 @@ CREATE TABLE DashboardUsers (
     CONSTRAINT UQ_DashboardUsers_Username UNIQUE (Username)
 );
 
--- Seed admin mặc định
--- PasswordHash phải được tạo bằng BCrypt.Net-Next trước khi INSERT
--- Ví dụ: BCrypt.Net.BCrypt.HashPassword("Admin@2024!")
--- Thay HASH_PLACEHOLDER bằng hash thật trước khi chạy
+-- Seed admin mặc định — BCrypt.Net-Next workfactor 11, password: Admin@0987
 IF NOT EXISTS (SELECT 1 FROM DashboardUsers WHERE Username = 'admin')
 INSERT INTO DashboardUsers (Username, PasswordHash, FullName, Role, StoreCodes)
-VALUES ('admin', 'HASH_PLACEHOLDER', N'Quản trị viên hệ thống', 'SystemAdmin', NULL);
+VALUES ('admin', '$2a$11$ZKuiKzkGYaoXbIFpuog1ZOKsGOLTk.w/1L/wrFiRUTitQfQC7t9k.', N'Quản trị viên hệ thống', 'SystemAdmin', NULL);

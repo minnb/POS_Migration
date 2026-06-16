@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Caching.Memory;
 using MudBlazor;
 using MudBlazor.Services;
 using POS.Application;
@@ -76,6 +77,18 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Sign-in handler — bridge từ Blazor InteractiveServer sang HTTP pipeline để set cookie
+// Token 1 lần dùng, TTL 30s, tạo trong Login.razor sau khi validate credentials
+app.MapGet("/account/signin/{token}", async (HttpContext ctx, string token, IMemoryCache cache) =>
+{
+    if (!cache.TryGetValue($"_login_{token}", out System.Security.Claims.ClaimsPrincipal? principal) || principal is null)
+        return Results.Redirect("/login");
+    cache.Remove($"_login_{token}");
+    await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
+        new AuthenticationProperties { IsPersistent = true });
+    return Results.Redirect("/");
+}).AllowAnonymous();
 
 // Logout handler — xử lý server-side để clear cookie đúng cách
 app.MapGet("/logout", async (HttpContext ctx) =>

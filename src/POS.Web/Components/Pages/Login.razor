@@ -3,12 +3,11 @@
 @attribute [AllowAnonymous]
 @rendermode InteractiveServer
 
-@using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Authentication.Cookies
-
+@using Microsoft.Extensions.Caching.Memory
 @inject IWebUserService UserService
 @inject NavigationManager Nav
-@inject IHttpContextAccessor HttpContextAccessor
+@inject IMemoryCache MemoryCache
 
 <PageTitle>Đăng nhập – POS Dashboard</PageTitle>
 
@@ -93,10 +92,8 @@
                             claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new System.Security.Claims.ClaimsPrincipal(identity);
 
-        var ctx = HttpContextAccessor.HttpContext!;
-        await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
-            new AuthenticationProperties { IsPersistent = true });
-
-        Nav.NavigateTo("/", forceLoad: true);
+        var token = Guid.NewGuid().ToString("N");
+        MemoryCache.Set($"_login_{token}", principal, TimeSpan.FromSeconds(30));
+        Nav.NavigateTo($"/account/signin/{token}", forceLoad: true);
     }
 }
