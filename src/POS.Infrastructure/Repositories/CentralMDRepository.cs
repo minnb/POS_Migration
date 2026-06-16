@@ -197,7 +197,7 @@ public sealed class CentralMDRepository(
                                         ISNULL(TerminalConnection, 0) AS TerminalConnection, PrintReceiptLogo,
                                         CustomerDisplayText1, CustomerDisplayText2,
                                         ISNULL(PrintReceiptBCType, 0) AS PrintReceiptBCType, InterfaceProfile
-                                 FROM POSTerminals (NOLOCK) WHERE IPAddress = @ipAddress;";
+                                 FROM POSTerminal (NOLOCK) WHERE IPAddress = @ipAddress;";
             return await QueryFirstOrDefaultAsync<PosTerminalModel>(sql, new { ipAddress }, commandTimeout: 120, ct: ct);
         }
         catch
