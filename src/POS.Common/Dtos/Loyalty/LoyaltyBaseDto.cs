@@ -44,14 +44,6 @@ public class MemoryCacheConfig
     public string? ListStore { get; set; }
 }
 
-public class PaymentEntryLoyalty
-{
-    public int LineNo { get; set; }
-    public string? TenderType { get; set; }
-    public decimal AmountTendered { get; set; }
-    public string? CardType { get; set; }
-}
-
 public class TransLineLoyalty
 {
     public int LineNo { get; set; }

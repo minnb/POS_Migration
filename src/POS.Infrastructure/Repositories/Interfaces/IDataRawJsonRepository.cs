@@ -1,5 +1,4 @@
 using System.Net;
-using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
 using POS.Common.Dtos.StagingDB;
 using POS.Common.Dtos.Tax;

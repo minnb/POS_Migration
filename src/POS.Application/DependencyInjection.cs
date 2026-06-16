@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<ISyncDataPosService, SyncDataPosService>();
         services.AddScoped<IHealthCheckService, HealthCheckService>();
         services.AddScoped<IKafkaService, KafkaService>();
+        services.AddScoped<IGiftService, GiftService>();
         return services;
     }
 }
