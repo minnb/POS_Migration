@@ -201,9 +201,9 @@ public sealed class SyncDataPosController(
         var ipServer = GetIpAddressClient();
         var lstFile = new List<string>();
         var pathFileBackup = syncDataPosService.MapFtpPath("SyncDataPos/Sale/BackupFiles");
-        Directory.CreateDirectory(pathFileBackup);
         try
         {
+            Directory.CreateDirectory(pathFileBackup);
             var form = await Request.ReadFormAsync();
             foreach (var file in form.Files)
             {
