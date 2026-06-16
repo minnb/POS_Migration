@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
         services.AddScoped<IWincodeRepository, WincodeRepository>();
+        services.AddScoped<ISAPVoucherRepository, SAPVoucherRepository>();
 
         // ── Redis ─────────────────────────────────────────────────────────────
         // Singleton: ConnectionMultiplexer thread-safe, thiết kế để share toàn app.
