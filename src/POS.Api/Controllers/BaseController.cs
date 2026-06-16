@@ -89,9 +89,15 @@ public abstract class BaseController : ControllerBase
     /// <summary>Thay GetPosNo() cũ — trả server IP, dùng làm posNo khi POS không gửi.</summary>
     protected string GetPosNo() => GetIpServer();
 
-    /// <summary>Thay GetIpServer() cũ — lấy IPv4 của máy chủ qua DNS.</summary>
+    /// <summary>
+    /// Thay GetIpServer() cũ — trả AppSettings:ApiServerIp nếu có (Docker PROD),
+    /// fallback về IPv4 của máy chủ qua DNS (on-premise / DEV).
+    /// </summary>
     protected string GetIpServer()
     {
+        var configured = HttpContext.RequestServices
+            .GetService<IConfiguration>()?["AppSettings:ApiServerIp"];
+        if (!string.IsNullOrEmpty(configured)) return configured;
         try
         {
             var host = Dns.GetHostEntry(Dns.GetHostName());
