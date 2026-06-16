@@ -23,6 +23,10 @@ RUN apt-get update \
 
 COPY --from=build /app/publish .
 
+# Tạo thư mục ftpbluepos với đúng owner trước khi switch sang non-root user
+# Named volume sẽ kế thừa permission này khi được mount lần đầu
+RUN mkdir -p /app/ftpbluepos && chown app:app /app/ftpbluepos
+
 # Non-root (Docker 20.10+ cho phép non-root bind port 80 trong container)
 USER $APP_UID
 EXPOSE 80
