@@ -34,7 +34,9 @@ public enum MemberCapillaryEnum
     NONE = 2,
     WINCARE = 3,
     WINX = 4,
-    FMV = 5
+    FMV = 5,
+    CAP = 6,
+    WIN
 }
 
 public enum GenderEnum

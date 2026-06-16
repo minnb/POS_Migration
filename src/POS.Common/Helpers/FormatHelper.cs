@@ -37,8 +37,10 @@ public static class FormatHelper
         try
         {
             if (phoneNumber.Length >= 11 && StringHelper.Left(phoneNumber, 2) == "84")
-                return "0" + phoneNumber.Substring(2, phoneNumber.Length - 2);
-            else if (phoneNumber.Length == 9 && phoneNumber.Substring(0, 1) != "0")
+                return string.Concat("0", phoneNumber.AsSpan(2, phoneNumber.Length - 2));
+            else if (phoneNumber.Length >= 11 && StringHelper.Left(phoneNumber, 3) == "+84")
+                return string.Concat("0", phoneNumber.AsSpan(3, phoneNumber.Length - 3));
+            else if (phoneNumber.Length == 9 && phoneNumber[..1] != "0")
                 return "0" + phoneNumber;
             return phoneNumber;
         }

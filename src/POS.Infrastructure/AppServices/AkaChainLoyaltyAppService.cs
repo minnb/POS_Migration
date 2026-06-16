@@ -406,8 +406,8 @@ public sealed class AkaChainLoyaltyAppService(
         IsShowMessage   = false,
         IsRedeem        = true,
         Status          = "Hoạt động",
-        System          = MemberCapillaryEnum.FMV.ToString(),
-        ClubCode        = MemberCapillaryEnum.FMV.ToString(),
+        System          = MemberCapillaryEnum.CAP.ToString(),
+        ClubCode        = MemberCapillaryEnum.WINCARE.ToString(),
         Email           = "",
         Gender          = "",
         Address         = "",
@@ -416,7 +416,7 @@ public sealed class AkaChainLoyaltyAppService(
         MemberBusiness  = null,
         OtherStatus     = null,
         ExtendedFields  = null,
-        MemberType      = MemberCapillaryEnum.FMV.ToString(),
+        MemberType      = MemberCapillaryEnum.WIN.ToString(),
         Source          = null,
         PointsSummaries = null
     };
