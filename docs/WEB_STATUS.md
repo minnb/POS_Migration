@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-17 (deployment fixes — blazor.web.js 404, DataProtection, nginx)
+> Cập nhật: 2026-06-17 (theming — PosTheme.cs + CSS variables + style-guide.html)
 
 ---
 
@@ -14,6 +14,8 @@ src/POS.Web/
 │   ├── migration_dashboard_users.sql
 │   ├── WebRoles.cs
 │   └── WebUserService.cs
+├── Theme/
+│   └── PosTheme.cs                  ← MudBlazor custom theme (navy + teal color system)
 ├── Components/
 │   ├── _Imports.razor
 │   ├── App.razor
@@ -39,7 +41,7 @@ src/POS.Web/
 ├── Properties/
 │   └── launchSettings.json
 ├── wwwroot/
-│   ├── app.css
+│   ├── app.css          ← CSS design tokens --pos-* (28 variables) + scrollbar + delta classes
 │   ├── favicon.png
 │   └── lib/bootstrap/   ← ~30 CSS file template, CHƯA XÓA (không gây lỗi)
 ├── appsettings.json
@@ -97,12 +99,13 @@ src/POS.Web/
 | E6 | Routes.razor – NotAuthorized: kiểm tra IsAuthenticated | Components/Routes.razor | ✅ | `context.User.Identity?.IsAuthenticated != true` |
 | E7 | RedirectToLogin component | Components/RedirectToLogin.razor | ✅ | NavigateTo("/login", forceLoad:true) |
 | E8 | RedirectToAccessDenied component | Components/RedirectToAccessDenied.razor | ✅ | NavigateTo("/access-denied", forceLoad:true) |
-| F1 | MainLayout – MudThemeProvider + MudDialogProvider + MudSnackbarProvider | Layout/MainLayout.razor | ✅ | |
+| F0 | PosTheme.cs – custom MudTheme (navy primary, teal accent, semantic colors) | Theme/PosTheme.cs | ✅ | Primary=#2051A3, Drawer/Appbar=#1B3A5C, BorderRadius=8px, Button.TextTransform=none |
+| F1 | MainLayout – MudThemeProvider **Theme="@PosTheme.Default"** + providers | Layout/MainLayout.razor | ✅ | Đã truyền custom theme |
 | F2 | MainLayout – MudAppBar: toggle drawer + hiển thị tên user + logout | Layout/MainLayout.razor | ✅ | Href="/logout" trên MudIconButton |
 | F3 | MainLayout – Sidebar "Cửa hàng" (Policy=StoreAndAbove) | Layout/MainLayout.razor | ✅ | 4 nav link |
 | F4 | MainLayout – Sidebar "Vận hành" (Policy=OpsAndAbove) | Layout/MainLayout.razor | ✅ | 5 nav link |
 | F5 | MainLayout – Sidebar "Quản trị" (Policy=AdminOnly) | Layout/MainLayout.razor | ✅ | 4 nav link |
-| F6 | EmptyLayout – layout căn giữa cho Login | Layout/EmptyLayout.razor | ✅ | flex + align-items:center + background:#f0f2f5, có MudBlazor providers |
+| F6 | EmptyLayout – layout căn giữa cho Login | Layout/EmptyLayout.razor | ✅ | flex + align-items:center + **background:var(--mud-palette-background)** (không còn hardcode #f0f2f5), có MudBlazor providers + PosTheme |
 | G1 | Login.razor – @page "/login" | Pages/Login.razor | ✅ | |
 | G2 | Login.razor – @layout Layout.EmptyLayout | Pages/Login.razor | ✅ | |
 | G3 | Login.razor – @attribute [AllowAnonymous] | Pages/Login.razor | ✅ | |
@@ -122,9 +125,11 @@ src/POS.Web/
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **56 / 57 hạng mục**
+- ✅ Hoàn thành: **58 / 59 hạng mục**
 - ⚠️ Có vấn đề: **1 hạng mục** (B9 — SQL seed hash placeholder)
 - ❌ Còn thiếu: **0 hạng mục**
+
+> +2 hạng mục mới: F0 (PosTheme.cs) và update F1, F6 cho theme integration.
 
 ---
 
