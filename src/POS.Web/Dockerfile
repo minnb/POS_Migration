@@ -21,6 +21,9 @@ RUN apt-get update \
 
 COPY --from=build /app/publish .
 
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
+    && chown -R app:app /home/app/.aspnet
+
 USER $APP_UID
 EXPOSE 8080
 
