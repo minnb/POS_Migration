@@ -14,9 +14,8 @@
 
         Nav.NavigateTo(role switch
         {
-            WebRoles.SystemAdmin => "/admin/users",
-            WebRoles.ITOps       => "/ops/health",
-            _                    => "/store/revenue"
+            WebRoles.StoreOperator => "/store/revenue",
+            _                      => "/ops/health"   // ITOps + SystemAdmin
         });
     }
 }

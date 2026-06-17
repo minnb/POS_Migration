@@ -1,6 +1,234 @@
 @page "/admin/users"
 @attribute [Authorize(Policy = WebPolicies.AdminOnly)]
 @rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+@using POS.Infrastructure.Logging
+
+@inject IWebUserService UserService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IKibanaService KibanaService
+
 <PageTitle>Quản lý người dùng – POS Dashboard</PageTitle>
-<MudText Typo="Typo.h5" Class="mb-2">Quản lý người dùng</MudText>
-<MudAlert Severity="Severity.Info">Tính năng đang được phát triển.</MudAlert>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+@* ── Header ─────────────────────────────────────────────────────────── *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Class="mr-2" Style="vertical-align:middle"/>
+        Quản lý người dùng
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="@(() => OpenDialogAsync(null))">
+        Thêm người dùng
+    </MudButton>
+</MudStack>
+
+@* ── Error ──────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+@* ── Data Grid ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2">
+    <MudDataGrid T="DashboardUser"
+                 Items="@_users"
+                 Dense="true"
+                 Striped="true"
+                 Hover="true"
+                 SortMode="SortMode.Multiple"
+                 QuickFilter="@QuickFilter"
+                 Loading="@_loading">
+        <ToolBarContent>
+            <MudText Typo="Typo.subtitle1">Tổng: @_users.Count người dùng</MudText>
+            <MudSpacer/>
+            <MudTextField @bind-Value="_searchText"
+                          Placeholder="Tìm kiếm..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          IconSize="Size.Small"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Class="mt-0"
+                          Immediate="true"/>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="u => u.Id"
+                            Title="ID"
+                            Sortable="true"
+                            InitialDirection="SortDirection.Ascending"
+                            CellStyle="width:60px"/>
+
+            <PropertyColumn Property="u => u.Username"
+                            Title="Tên đăng nhập"
+                            Sortable="true"/>
+
+            <PropertyColumn Property="u => u.FullName"
+                            Title="Họ và tên"
+                            Sortable="true"/>
+
+            <TemplateColumn Title="Vai trò" Sortable="true" SortBy="u => u.Role">
+                <CellTemplate>
+                    @{
+                        var (color, label) = RoleDisplay(context.Item.Role);
+                    }
+                    <MudChip T="string" Color="@color" Size="Size.Small" Variant="Variant.Filled">
+                        @label
+                    </MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Trạng thái" Sortable="true" SortBy="u => u.IsActive">
+                <CellTemplate>
+                    @if (context.Item.IsActive)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"
+                                 Icon="@Icons.Material.Filled.CheckCircle">
+                            Hoạt động
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Filled.Block">
+                            Tạm khóa
+                        </MudChip>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="" CellStyle="width:100px;text-align:right">
+                <CellTemplate>
+                    <MudTooltip Text="Sửa">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => OpenDialogAsync(context.Item))"/>
+                    </MudTooltip>
+                    <MudTooltip Text="Khóa tài khoản">
+                        <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       Disabled="@(!context.Item.IsActive)"
+                                       OnClick="@(() => ConfirmDeleteAsync(context.Item))"/>
+                    </MudTooltip>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary" Class="pa-4">Không có dữ liệu.</MudText>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    private bool _loading = true;
+    private string? _errorMsg;
+    private string _searchText = string.Empty;
+    private List<DashboardUser> _users = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _errorMsg = null;
+        try
+        {
+            var result = await UserService.GetAllAsync();
+            _users = [.. result];
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh sách người dùng.";
+            KibanaService.LogException("UsersPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenDialogAsync(DashboardUser? user)
+    {
+        var parameters = new DialogParameters<UserFormDialog>
+        {
+            { x => x.ExistingUser, user }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey    = true,
+            CloseButton         = true,
+            MaxWidth            = MaxWidth.Small,
+            FullWidth           = true,
+            BackdropClick       = false
+        };
+        var dialog = await DialogService.ShowAsync<UserFormDialog>(
+            user is null ? "Thêm người dùng" : "Sửa người dùng",
+            parameters,
+            options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add(user is null ? "Tạo người dùng thành công!" : "Cập nhật thành công!",
+                Severity.Success);
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(DashboardUser user)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Message"]    = $"Bạn có chắc muốn khóa tài khoản \"{user.Username}\" ({user.FullName})?",
+            ["YesText"]    = "Khóa",
+            ["CancelText"] = "Hủy"
+        };
+        var dialog = await DialogService.ShowAsync<MudMessageBox>("Xác nhận khóa tài khoản", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is null or { Canceled: true }) return;
+
+        var ok = await UserService.DeleteAsync(user.Id);
+        if (ok)
+        {
+            Snackbar.Add($"Đã khóa tài khoản {user.Username}.", Severity.Info);
+            await LoadDataAsync();
+        }
+        else
+        {
+            Snackbar.Add("Khóa tài khoản thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+    }
+
+    private Func<DashboardUser, bool> QuickFilter => u =>
+    {
+        if (string.IsNullOrWhiteSpace(_searchText)) return true;
+        var s = _searchText.Trim();
+        return u.Username.Contains(s, StringComparison.OrdinalIgnoreCase)
+            || u.FullName.Contains(s, StringComparison.OrdinalIgnoreCase)
+            || u.Role.Contains(s, StringComparison.OrdinalIgnoreCase);
+    };
+
+    private static (Color Color, string Label) RoleDisplay(string role) => role switch
+    {
+        WebRoles.SystemAdmin   => (Color.Error,   "System Admin"),
+        WebRoles.ITOps         => (Color.Warning,  "IT Ops"),
+        WebRoles.StoreOperator => (Color.Primary,  "Cửa hàng"),
+        _                      => (Color.Default,  role)
+    };
+}

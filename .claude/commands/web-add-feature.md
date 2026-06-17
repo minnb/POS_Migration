@@ -1,7 +1,7 @@
-# /web-add-feature — Tạo feature đầy đủ cho POS.Web
+# /web-add-feature — Tạo page mới hoàn chỉnh cho POS.Web
 
-Dùng lệnh này khi cần tạo một feature có đủ 3 tầng: **Page + local Service + ViewModel**.
-Phù hợp với feature phức tạp hơn một page đơn giản.
+Dùng lệnh này để tạo **bất kỳ page mới nào** trong POS.Web — Store, Ops, hoặc Admin.
+Command hỏi theo flow 3 phase, sau đó tạo đủ 3 file (Page + Service + Model).
 
 ---
 
@@ -11,77 +11,247 @@ Phù hợp với feature phức tạp hơn một page đơn giản.
 /web-add-feature
 ```
 
-Hoặc cung cấp thông tin luôn:
+Hoặc cung cấp thông tin ngay:
 ```
-/web-add-feature RevenueChart Store services=ICentralSaleRepository data="daily revenue + hourly breakdown"
+/web-add-feature RevenueDetail Store route=/store/revenue-detail services=ICentralSaleRepository
 ```
 
 ---
 
 ## Quy trình Claude thực hiện
 
-### Bước 1 — Hỏi thông tin (nếu chưa có)
-1. Tên feature (PascalCase, ví dụ: `RevenueChart`, `ShiftReport`, `LoyaltyStats`)
-2. Section: `Store` / `Ops` / `Admin`
-3. Services backend cần dùng (từ danh sách CLAUDE.md mục 4)
-4. Dữ liệu cần hiển thị (mô tả ngắn — ví dụ: "daily revenue + hourly breakdown")
+### PHASE 1 — Xác định page
 
-### Bước 2 — Tạo 3 files
+Hỏi lần lượt (bỏ qua câu đã có trong lệnh):
 
-#### File 1: ViewModel
-`src/POS.Web/Features/{Section}/{Feature}/{Feature}Model.cs`
-- Chứa ViewModel (dữ liệu để render UI, không phải DB model)
-- Namespace: `POS.Web.Features.{Section}.{Feature}`
-- Ví dụ:
-  ```csharp
-  namespace POS.Web.Features.Store.RevenueChart;
-  public class RevenueSummaryViewModel { public decimal TodayRevenue; public int OrderCount; }
-  public class RevenueDailyViewModel   { public DateTime Date; public decimal Net; }
-  ```
+**1. Tên feature** (PascalCase)
+> Ví dụ: `RevenueDetail`, `PosMonitor`, `UserManagement`
 
-#### File 2: Local Service
+**2. Section** — chọn 1 trong 3:
+
+| Section | Policy | Thư mục page | Ghi chú |
+|---|---|---|---|
+| `Store` | `WebPolicies.StoreAndAbove` | `Pages/Store/` | Cần row-level filter theo store_codes |
+| `Ops` | `WebPolicies.OpsAndAbove` | `Pages/Ops/` | ITOps + Admin, xem tất cả store |
+| `Admin` | `WebPolicies.AdminOnly` | `Pages/Admin/` | Chỉ SystemAdmin |
+
+**3. Route path**
+> Theo convention: `/store/kebab-case`, `/ops/kebab-case`, `/admin/kebab-case`
+
+**4. Services cần inject** — gợi ý từ SKILLS.md:
+
+*Từ POS.Infrastructure:*
+- `IRedisService` — cache
+- `IKibanaService` — logging (**luôn inject**)
+- `IFileLogHelper` — file log fallback
+- `ICentralMDRepository` — master data (store config, POS setup...)
+- `ICentralSaleRepository` — sales (orders, transactions, revenue...)
+- `ILoyaltyRepository` — loyalty, members, points
+- `IOfferStaffRepository` — staff discount
+- `IWincodeRepository` — wincode / winlife
+- `IHealthCheckService` ← qua Application
+- `ICommonService` ← qua Application
+
+*Từ POS.Application:*
+- `ICommonService`, `IHealthCheckService`, `IAkaChainLoyaltyService`
+- `IGotITService`, `IUrboxService`, `IKafkaService`
+
+*Chỉ trong POS.Web:*
+- `IWebUserService` — dashboard user auth (Admin section)
+
+> `IKibanaService` và `ISnackbar` luôn inject, không cần hỏi.
+
+---
+
+### PHASE 2 — Xác định UI sections
+
+Hỏi từng câu Yes/No, nếu Yes hỏi thêm chi tiết:
+
+**5. Có date filter không?**
+- Nếu có: loại filter nào?
+  - Chip nhanh (Hôm nay / 7 ngày / 30 ngày)
+  - Date picker từ/đến
+  - Cả hai
+
+**6. Có KPI row không?**
+- Nếu có: bao nhiêu KPI? (2–4)
+- Mỗi KPI: tên label + property name + format (`currency` | `number` | `percent`)
+
+**7. Có chart không?**
+- Nếu có: loại `Line` / `Bar` / Cả hai
+- Tiêu đề chart, trục X (ngày/giờ/cửa hàng...), trục Y (doanh thu/số lượng...)
+- Có nhiều series không? Tên từng series?
+
+**8. Có data table không?**
+- Nếu có: tên DTO/Model của row, các cột (tên hiển thị + property + kiểu)
+- Có search text không? Có phân trang không?
+
+---
+
+### PHASE 3 — Sinh code
+
+Tạo 3 file theo đúng thứ tự:
+
+#### File A — Page Component
+`src/POS.Web/Components/Pages/{Section}/{Feature}Page.razor`
+
+Cấu trúc layout (theo thứ tự phần đã chọn):
+1. Page header: `MudText Typo.h5` + nút **Làm mới** (nếu phù hợp)
+2. Date filter (nếu chọn) — chip nhanh và/hoặc date picker
+3. KPI row (nếu chọn) — `MudGrid` + `MudPaper` inline (Shared chưa có)
+4. Chart (nếu chọn) — `<Line T="double">` / `<Bar T="double">` theo MudBlazor v9
+5. Data table (nếu chọn) — `MudDataGrid<TModel>`
+
+Bắt buộc có đủ theo checklist SKILLS.md:
+- `@page`, `@attribute [Authorize(Policy = WebPolicies.XXX)]`, `@rendermode InteractiveServer`
+- Inject `{Feature}Service` (local service) + `IKibanaService` + `ISnackbar`
+- `[CascadingParameter] Task<AuthenticationState> AuthState` (nếu Store section)
+- `_loading`, `_errorMsg`, `_isEmpty` + loading/error/empty state trong markup
+- `OnInitializedAsync` với `try/catch/finally`
+- `_userStoreCodes` + row-level filter nếu Store section
+
+```razor
+@page "/store/{feature-route}"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+@using POS.Web.Features.Store.{Feature}
+@using Newtonsoft.Json
+
+@inject {Feature}Service FeatureService
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>{Feature} – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"
+                       Style="border-radius:4px"/>
+}
+else if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+else if (_isEmpty)
+{
+    <MudAlert Severity="Severity.Info">Không có dữ liệu.</MudAlert>
+}
+else
+{
+    @* UI sections theo thứ tự đã chọn *@
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool _loading = true;
+    private bool _isEmpty;
+    private string? _errorMsg;
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private {Feature}ViewModel _data = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu.";
+            KibanaService.LogException("{Feature}Page.OnInitialized", "", 0, "", ex.Message);
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _data = await FeatureService.Load{Feature}Async(
+            _userStoreCodes.Count > 0 ? _userStoreCodes : null);
+        _isEmpty = /* kiểm tra _data rỗng */;
+    }
+}
+```
+
+#### File B — Local Service
 `src/POS.Web/Features/{Section}/{Feature}/{Feature}Service.cs`
-- Inject repository/service từ DI
-- Method async, có `CancellationToken ct = default`
-- Transform DB data → ViewModel
-- Try/catch, log KibanaService khi exception
-- Namespace: `POS.Web.Features.{Section}.{Feature}`
-- Ví dụ:
-  ```csharp
-  namespace POS.Web.Features.Store.RevenueChart;
-  public class RevenueChartService(ICentralSaleRepository repo, IKibanaService kibana)
-  {
-      public async Task<RevenueSummaryViewModel> GetSummaryAsync(CancellationToken ct = default)
-      {
-          try { var data = await repo.GetRevenueSummaryAsync(DateTime.Today, ct); return new() { ... }; }
-          catch (Exception ex) { kibana.LogException("RevenueChartService.GetSummary", "", 0, "", ex.Message); return new(); }
-      }
-  }
-  ```
 
-#### File 3: Page Component
-`src/POS.Web/Features/{Section}/{Feature}/{Feature}Page.razor`
-- Route: `/section/feature-name` (kebab-case)
-- Inject `{Feature}Service` (local service vừa tạo)
-- Inject `IKibanaService`, `ISnackbar`
-- `[CascadingParameter] AuthState` (nếu Store section)
-- Loading/Error state chuẩn
-- Render ViewModel bằng MudBlazor components
+```csharp
+namespace POS.Web.Features.{Section}.{Feature};
 
-### Bước 3 — Đăng ký DI (nếu local service là Scoped)
-Hỏi: "Có cần thêm DI registration cho `{Feature}Service` không?"
-- Nếu service chỉ dùng trong 1 page → có thể inject trực tiếp qua `@inject` (Blazor tự tạo)
-- Nếu dùng nhiều nơi → thêm vào `Program.cs`: `builder.Services.AddScoped<{Feature}Service>()`
+public class {Feature}Service(
+    I{Repo}Repository {repo},       // inject đã chọn ở Phase 1
+    IKibanaService kibana
+)
+{
+    public async Task<{Feature}ViewModel> Load{Feature}Async(
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            // TODO: gọi repository với storeCodes filter
+            // TODO: transform DB data → ViewModel
+            return new {Feature}ViewModel();
+        }
+        catch (Exception ex)
+        {
+            kibana.LogException("{Feature}Service.Load{Feature}", "", 0, "", ex.Message);
+            return new {Feature}ViewModel();
+        }
+    }
+}
+```
 
-### Bước 4 — Xác nhận
-Liệt kê 3 files đã tạo, route để truy cập, và gợi ý test.
+> **Lưu ý:** Service này là concrete class (không có interface), inject qua DI bằng Blazor `@inject`.
+> Nếu dùng ở nhiều page → thêm `builder.Services.AddScoped<{Feature}Service>()` vào `Program.cs`.
+
+#### File C — ViewModel
+`src/POS.Web/Features/{Section}/{Feature}/{Feature}Model.cs`
+
+```csharp
+namespace POS.Web.Features.{Section}.{Feature};
+
+// ViewModel thuần — không phải DB entity
+public class {Feature}ViewModel
+{
+    // TODO: thêm properties theo UI đã thiết kế
+    // Ví dụ KPI: public decimal TodayRevenue { get; init; }
+    // Ví dụ list: public List<{Feature}RowModel> Items { get; init; } = [];
+}
+
+// Model cho từng row trong table (nếu có)
+public class {Feature}RowModel
+{
+    // TODO: thêm properties theo cột đã chọn
+}
+```
+
+---
+
+### Sau khi tạo xong
+
+1. **Thêm nav link** vào `MainLayout.razor` — trong `<MudNavGroup>` đúng section, wrap `<AuthorizeView Policy="...">`
+2. **Implement LoadDataAsync** — thêm method vào Repository nếu cần data mới
+3. **Test**: chạy app, đăng nhập, kiểm tra route mới hiển thị đúng với role
 
 ---
 
 ## Lưu ý quan trọng
 
-- `{Feature}Model.cs` = ViewModel dùng cho UI — KHÔNG phải DTO từ DB (DTO đã có trong POS.Common)
-- `{Feature}Service.cs` = orchestration layer — gọi Repository → transform → trả ViewModel
-- Page component KHÔNG gọi Repository trực tiếp — chỉ gọi qua `{Feature}Service`
-- Nếu cần chart: xem CLAUDE.md "MudBlazor v9 Breaking Changes" — dùng `<Line T="double">` / `<Bar T="double">`
-- Newtonsoft.Json cho serialization, KHÔNG dùng System.Text.Json
+- Page gọi `{Feature}Service` — **KHÔNG** gọi Repository trực tiếp từ page
+- `{Feature}Model.cs` = ViewModel cho UI — **KHÔNG** phải DTO từ `POS.Common` (DTO đã có ở đó)
+- Chart: dùng `<Line T="double">` / `<Bar T="double">` với `new ChartData<double>(arr)` — MudBlazor v9 syntax
+- `_userStoreCodes` rỗng = ITOps/Admin (xem tất cả) — Ops/Admin section không cần parse
+- Newtonsoft.Json (`JsonConvert.*`) — **KHÔNG** dùng `System.Text.Json`
+- File Service + Model đặt trong `Features/` (không phải `Components/`) — tách biệt UI logic

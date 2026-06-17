@@ -18,7 +18,20 @@
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
 }
 
-<MudText Typo="Typo.h5" Class="mb-4">Doanh thu</MudText>
+@* ── Header ────────────────────────────────────────────────────────── *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+    <MudText Typo="Typo.h5">Doanh thu</MudText>
+</MudStack>
+<MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+    @if (_userStoreCodes.Count > 0)
+    {
+        <span>Đang xem: <strong>@string.Join(", ", _userStoreCodes)</strong></span>
+    }
+    else
+    {
+        <span>Đang xem: <strong>Tất cả cửa hàng</strong></span>
+    }
+</MudText>
 
 @* ── KPI Cards ─────────────────────────────────────────────────────── *@
 <MudGrid Class="mb-4">
@@ -78,6 +91,7 @@
             else
             {
                 <Line T="double"
+                      @key="@($"line-{_chartVersion}")"
                       ChartSeries="@_dailySeries"
                       ChartLabels="@_dailyLabels"
                       Width="100%" Height="280px"
@@ -99,6 +113,7 @@
             else
             {
                 <Bar T="double"
+                     @key="@($"bar-{_chartVersion}")"
                      ChartSeries="@_hourlySeries"
                      ChartLabels="@_hourlyLabels"
                      Width="100%" Height="280px"
@@ -109,11 +124,18 @@
 </MudGrid>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
     private bool _loading;
     private bool _dailyEmpty  = true;
     private bool _hourlyEmpty = true;
-    private int _selectedDays = 7;
+    private int  _selectedDays = 7;
+    private int  _chartVersion;
     private DateTime _hourlyDate = DateTime.Today;
+
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private IReadOnlyList<string>? StoreFilter => _userStoreCodes.Count > 0 ? _userStoreCodes : null;
 
     private RevenueSummaryDto _summary = new();
     private List<ChartSeries<double>> _dailySeries  = [new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(Array.Empty<double>()) }];
@@ -128,18 +150,18 @@
         ("30 ngày", 30),
     ];
 
-    private readonly LineChartOptions _lineOptions = new()
-    {
-        LineStrokeWidth = 2,
-        ShowLegend = false,
-    };
+    private LineChartOptions _lineOptions = new() { LineStrokeWidth = 2, ShowLegend = false, YAxisTicks = 5 };
+    private BarChartOptions  _barOptions  = new() { ShowLegend = false, YAxisTicks = 5 };
 
-    private readonly BarChartOptions _barOptions = new()
+    protected override async Task OnInitializedAsync()
     {
-        ShowLegend = false,
-    };
-
-    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+        await LoadDataAsync();
+    }
 
     private async Task SetFilterAsync(int days)
     {
@@ -158,9 +180,9 @@
             var fromDate = today.AddDays(-(_selectedDays - 1));
             _hourlyDate  = today;
 
-            var dailyTask   = SaleRepo.GetRevenueDailyAsync(fromDate, today.AddDays(1));
-            var hourlyTask  = SaleRepo.GetRevenueHourlyAsync(today);
-            var summaryTask = SaleRepo.GetRevenueSummaryAsync(today);
+            var dailyTask   = SaleRepo.GetRevenueDailyAsync(fromDate, today.AddDays(1), StoreFilter);
+            var hourlyTask  = SaleRepo.GetRevenueHourlyAsync(today, StoreFilter);
+            var summaryTask = SaleRepo.GetRevenueSummaryAsync(today, StoreFilter);
             await Task.WhenAll(dailyTask, hourlyTask, summaryTask);
 
             _summary = summaryTask.Result;
@@ -168,7 +190,7 @@
             var daily = dailyTask.Result;
             _dailyEmpty  = daily.Count == 0;
             _dailyLabels = daily.Select(d => d.SaleDate.ToString("dd/MM")).ToArray();
-            var dailyValues = daily.Select(d => Math.Round((double)(d.NetRevenue / 1_000_000m), 1)).ToArray();
+            var dailyValues = daily.Select(d => Math.Round((double)(d.NetRevenue / 1_000_000m), 2)).ToArray();
             _dailySeries =
             [
                 new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(dailyValues) }
@@ -176,19 +198,32 @@
 
             var hourlyMap = hourlyTask.Result.ToDictionary(h => h.Hour, h => h.NetRevenue);
             var hourlyValues = Enumerable.Range(0, 24)
-                .Select(h => Math.Round((double)(hourlyMap.GetValueOrDefault(h, 0) / 1_000_000m), 1))
+                .Select(h => Math.Round((double)(hourlyMap.GetValueOrDefault(h, 0) / 1_000_000m), 2))
                 .ToArray();
-            _hourlyEmpty  = hourlyValues.All(v => v == 0);
+            _hourlyEmpty = hourlyValues.All(v => v == 0);
             _hourlySeries =
             [
                 new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(hourlyValues) }
             ];
+
+            // Recreate options with computed ticks so Y-axis auto-scales from actual max
+            var dailyMax  = dailyValues.Length  > 0 ? dailyValues.Max()  : 1d;
+            var hourlyMax = hourlyValues.Length > 0 ? hourlyValues.Max() : 1d;
+            _lineOptions = new LineChartOptions { LineStrokeWidth = 2, ShowLegend = false, YAxisTicks = ComputeTicks(dailyMax) };
+            _barOptions  = new BarChartOptions  { ShowLegend = false,                      YAxisTicks = ComputeTicks(hourlyMax) };
+
+            // Increment version to force chart component re-mount via @key
+            _chartVersion++;
         }
         finally
         {
             _loading = false;
+            StateHasChanged();
         }
     }
+
+    private static int ComputeTicks(double maxValue) =>
+        maxValue <= 0 ? 5 : maxValue < 1 ? 4 : maxValue <= 10 ? 5 : 6;
 
     private static string FormatVND(decimal amount) => amount switch
     {

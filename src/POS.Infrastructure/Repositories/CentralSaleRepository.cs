@@ -325,12 +325,14 @@ public sealed class CentralSaleRepository(
 
     // ── Revenue Dashboard ─────────────────────────────────────────────────────
 
-    public async Task<List<RevenueDailyDto>> GetRevenueDailyAsync(DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    public async Task<List<RevenueDailyDto>> GetRevenueDailyAsync(DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null, CancellationToken ct = default)
     {
         try
         {
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
-            const string sql = @"
+            var storeFilter = storeCodes?.Count > 0 ? "AND StoreNo IN @StoreCodes" : "";
+            var sql = $@"
                 SELECT CAST(OrderDate AS DATE) AS SaleDate,
                        SUM(CASE WHEN TransactionType = 1 THEN AmountInclVAT
                                 WHEN TransactionType IN (2,3) THEN -AmountInclVAT
@@ -339,10 +341,15 @@ public sealed class CentralSaleRepository(
                        COUNT(CASE WHEN TransactionType IN (2,3) THEN 1 END) AS ReturnCount
                 FROM TransHeader (NOLOCK)
                 WHERE OrderDate >= @FromDate AND OrderDate < @ToDate
+                {storeFilter}
                 GROUP BY CAST(OrderDate AS DATE)
                 ORDER BY SaleDate;";
+            var p = new DynamicParameters();
+            p.Add("FromDate", fromDate.Date);
+            p.Add("ToDate", toDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
             var data = await conn.QueryAsync<RevenueDailyDto>(
-                new CommandDefinition(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date }, commandTimeout: Timeout, cancellationToken: ct));
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
             return [.. data];
         }
         catch (Exception ex)
@@ -352,12 +359,14 @@ public sealed class CentralSaleRepository(
         }
     }
 
-    public async Task<List<RevenueHourlyDto>> GetRevenueHourlyAsync(DateTime saleDate, CancellationToken ct = default)
+    public async Task<List<RevenueHourlyDto>> GetRevenueHourlyAsync(DateTime saleDate,
+        IReadOnlyList<string>? storeCodes = null, CancellationToken ct = default)
     {
         try
         {
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
-            const string sql = @"
+            var storeFilter = storeCodes?.Count > 0 ? "AND StoreNo IN @StoreCodes" : "";
+            var sql = $@"
                 SELECT DATEPART(HOUR, OrderTime) AS Hour,
                        SUM(CASE WHEN TransactionType = 1 THEN AmountInclVAT
                                 WHEN TransactionType IN (2,3) THEN -AmountInclVAT
@@ -365,10 +374,14 @@ public sealed class CentralSaleRepository(
                        COUNT(*) AS TransactionCount
                 FROM TransHeader (NOLOCK)
                 WHERE CAST(OrderDate AS DATE) = @SaleDate
+                {storeFilter}
                 GROUP BY DATEPART(HOUR, OrderTime)
                 ORDER BY Hour;";
+            var p = new DynamicParameters();
+            p.Add("SaleDate", saleDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
             var data = await conn.QueryAsync<RevenueHourlyDto>(
-                new CommandDefinition(sql, new { SaleDate = saleDate.Date }, commandTimeout: Timeout, cancellationToken: ct));
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
             return [.. data];
         }
         catch (Exception ex)
@@ -378,12 +391,14 @@ public sealed class CentralSaleRepository(
         }
     }
 
-    public async Task<RevenueSummaryDto> GetRevenueSummaryAsync(DateTime today, CancellationToken ct = default)
+    public async Task<RevenueSummaryDto> GetRevenueSummaryAsync(DateTime today,
+        IReadOnlyList<string>? storeCodes = null, CancellationToken ct = default)
     {
         try
         {
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
-            const string sql = @"
+            var storeFilter = storeCodes?.Count > 0 ? "AND StoreNo IN @StoreCodes" : "";
+            var sql = $@"
                 SELECT
                     ISNULL(SUM(CASE WHEN TransactionType = 1 THEN AmountInclVAT
                                     WHEN TransactionType IN (2,3) THEN -AmountInclVAT
@@ -391,15 +406,69 @@ public sealed class CentralSaleRepository(
                     COUNT(CASE WHEN TransactionType = 1 THEN 1 END) AS TodayOrders,
                     COUNT(CASE WHEN TransactionType IN (2,3) THEN 1 END) AS TodayReturns
                 FROM TransHeader (NOLOCK)
-                WHERE CAST(OrderDate AS DATE) = @Today;";
+                WHERE CAST(OrderDate AS DATE) = @Today
+                {storeFilter};";
+            var p = new DynamicParameters();
+            p.Add("Today", today.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
             var result = await conn.QueryFirstOrDefaultAsync<RevenueSummaryDto>(
-                new CommandDefinition(sql, new { Today = today.Date }, commandTimeout: Timeout, cancellationToken: ct));
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
             return result ?? new RevenueSummaryDto();
         }
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs("GetRevenueSummary", ex);
             return new RevenueSummaryDto();
+        }
+    }
+
+    // ── Transaction Dashboard ─────────────────────────────────────────────────
+
+    public async Task<List<TransactionListDto>> GetTransactionListAsync(
+        string? storeNo, DateTime fromDate, DateTime toDate,
+        string? orderNo, int maxRows = 500, CancellationToken ct = default)
+    {
+        try
+        {
+            string? normalizedStore = string.IsNullOrWhiteSpace(storeNo) ? null : storeNo.Trim();
+            string? normalizedOrderNo = string.IsNullOrWhiteSpace(orderNo) ? null : orderNo.Trim();
+
+            var sql = $@"
+                SELECT TOP (@MaxRows)
+                    OrderNo, OrderDate, OrderTime, StoreNo, POSTerminalNo,
+                    ISNULL(DiscountAmount, 0) AS DiscountAmount,
+                    AmountInclVAT, TransactionType, CreatedDate, MemberCardNo
+                FROM TransHeader (NOLOCK)
+                WHERE CAST(OrderDate AS DATE) >= @FromDate AND CAST(OrderDate AS DATE) <= @ToDate
+                  AND (@StoreNo IS NULL OR StoreNo = @StoreNo)
+                  AND (@OrderNo IS NULL OR OrderNo LIKE '%' + @OrderNo + '%')
+                ORDER BY CreatedDate DESC;";
+
+            var param = new
+            {
+                MaxRows  = maxRows,
+                FromDate = fromDate.Date,
+                ToDate   = toDate.Date,
+                StoreNo  = normalizedStore,
+                OrderNo  = normalizedOrderNo
+            };
+
+            // Route to store shard when storeNo specified; otherwise use central connection
+            System.Data.IDbConnection conn = normalizedStore is not null
+                ? await connectionFactory.CreateOpenConnectionAsync(normalizedStore, ct: ct)
+                : await directConnectionFactory.CreateOpenConnectionAsync(ct);
+
+            using (conn)
+            {
+                var data = await conn.QueryAsync<TransactionListDto>(
+                    new CommandDefinition(sql, param, commandTimeout: Timeout, cancellationToken: ct));
+                return [.. data];
+            }
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetTransactionList", ex);
+            return [];
         }
     }
 }

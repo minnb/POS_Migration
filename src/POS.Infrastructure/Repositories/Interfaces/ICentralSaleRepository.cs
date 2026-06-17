@@ -23,7 +23,15 @@ public interface ICentralSaleRepository
     Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default);
 
     // ── Revenue Dashboard ─────────────────────────────────────────────────────
-    Task<List<RevenueDailyDto>>  GetRevenueDailyAsync(DateTime fromDate, DateTime toDate, CancellationToken ct = default);
-    Task<List<RevenueHourlyDto>> GetRevenueHourlyAsync(DateTime saleDate, CancellationToken ct = default);
-    Task<RevenueSummaryDto>      GetRevenueSummaryAsync(DateTime today, CancellationToken ct = default);
+    Task<List<RevenueDailyDto>>  GetRevenueDailyAsync(DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null, CancellationToken ct = default);
+    Task<List<RevenueHourlyDto>> GetRevenueHourlyAsync(DateTime saleDate,
+        IReadOnlyList<string>? storeCodes = null, CancellationToken ct = default);
+    Task<RevenueSummaryDto>      GetRevenueSummaryAsync(DateTime today,
+        IReadOnlyList<string>? storeCodes = null, CancellationToken ct = default);
+
+    // ── Transaction Dashboard ─────────────────────────────────────────────────
+    Task<List<TransactionListDto>> GetTransactionListAsync(
+        string? storeNo, DateTime fromDate, DateTime toDate,
+        string? orderNo, int maxRows = 500, CancellationToken ct = default);
 }

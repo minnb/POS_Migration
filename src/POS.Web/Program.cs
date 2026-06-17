@@ -97,4 +97,7 @@ app.MapGet("/logout", async (HttpContext ctx) =>
     return Results.Redirect("/login");
 }).AllowAnonymous();
 
+// Health check endpoint cho Docker HEALTHCHECK và load balancer
+app.MapGet("/health", () => Results.Ok("healthy")).AllowAnonymous();
+
 app.Run();
