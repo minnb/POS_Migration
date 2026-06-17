@@ -148,6 +148,7 @@ public static class PosTheme
                 "0 18px 50px rgba(26,43,69,0.31)",             // 22
                 "0 20px 52px rgba(26,43,69,0.32)",             // 23
                 "0 20px 54px rgba(26,43,69,0.33)",             // 24
+                "0 22px 56px rgba(26,43,69,0.35)",             // 25
             ]
         }
     };

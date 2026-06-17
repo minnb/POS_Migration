@@ -150,8 +150,8 @@
         ("30 ngày", 30),
     ];
 
-    private BarChartOptions _dailyBarOptions = new() { ShowLegend = false, YAxisTicks = 5 };
-    private BarChartOptions  _barOptions  = new() { ShowLegend = false, YAxisTicks = 5 };
+    private BarChartOptions _dailyBarOptions = new() { ShowLegend = false };
+    private BarChartOptions  _barOptions  = new() { ShowLegend = false };
 
     protected override async Task OnInitializedAsync()
     {
@@ -206,11 +206,8 @@
                 new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(hourlyValues) }
             ];
 
-            // Recreate options with computed ticks so Y-axis auto-scales from actual max
-            var dailyMax  = dailyValues.Length  > 0 ? dailyValues.Max()  : 1d;
-            var hourlyMax = hourlyValues.Length > 0 ? hourlyValues.Max() : 1d;
-            _dailyBarOptions = new BarChartOptions { ShowLegend = false, YAxisTicks = ComputeTicks(dailyMax) };
-            _barOptions  = new BarChartOptions  { ShowLegend = false,                      YAxisTicks = ComputeTicks(hourlyMax) };
+            _dailyBarOptions = new BarChartOptions { ShowLegend = false };
+            _barOptions      = new BarChartOptions { ShowLegend = false };
 
             // Increment version to force chart component re-mount via @key
             _chartVersion++;
@@ -221,9 +218,6 @@
             StateHasChanged();
         }
     }
-
-    private static int ComputeTicks(double maxValue) =>
-        maxValue <= 0 ? 5 : maxValue < 1 ? 4 : maxValue <= 10 ? 5 : 6;
 
     private static string FormatVND(decimal amount) => amount switch
     {
