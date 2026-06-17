@@ -93,8 +93,8 @@
         </MudItem>
 
         @* Buttons *@
-        <MudItem xs="12" sm="12" md="2">
-            <MudStack Row="true" Spacing="1">
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
@@ -107,7 +107,8 @@
                            Color="Color.Default"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
-                           Disabled="@_loading">
+                           Disabled="@_loading"
+                           FullWidth="true">
                     Xóa
                 </MudButton>
             </MudStack>

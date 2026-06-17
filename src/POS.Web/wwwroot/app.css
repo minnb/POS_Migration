@@ -64,3 +64,12 @@
 /* Delta values: dùng trong các page hiển thị % so sánh */
 .pos-delta-up   { color: var(--pos-success); font-weight: 600; }
 .pos-delta-down { color: var(--pos-danger);  font-weight: 600; }
+
+/* Flat button — bỏ box-shadow MudBlazor default (Elevation=2 = 0 2px 8px ...)
+   Áp dụng cho mọi trạng thái: normal, hover, focus, active */
+.mud-button-root,
+.mud-button-root:hover,
+.mud-button-root:focus,
+.mud-button-root:active {
+    box-shadow: none !important;
+}
