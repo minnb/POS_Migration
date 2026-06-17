@@ -73,6 +73,15 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
 
+// Blazor framework endpoint selector chỉ match host=localhost (sinh ra lúc build).
+// Rewrite Host cho /_framework/ requests để serve được từ external IP.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/_framework"))
+        ctx.Request.Headers.Host = "localhost";
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
