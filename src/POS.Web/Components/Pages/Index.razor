@@ -3,19 +3,28 @@
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 
+@using MudBlazor
+
+<MudProgressLinear Indeterminate="true" Color="Color.Primary"/>
+
 @code {
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
-    protected override async Task OnInitializedAsync()
+    // OnAfterRenderAsync chỉ chạy trong interactive phase (sau khi Blazor circuit kết nối).
+    // NavigationManager.BaseUri lúc này đến từ window.location của browser nên có đúng port.
+    // OnInitializedAsync chạy cả trong SSR pre-render phase, lúc đó BaseUri thiếu port vì
+    // Kestrel không biết external port nginx đang forward.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender) return;
         var state = await AuthState;
         var role  = state.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
 
         Nav.NavigateTo(role switch
         {
             WebRoles.StoreOperator => "/store/revenue",
-            _                      => "/ops/health"   // ITOps + SystemAdmin
+            _                      => "/ops/health"
         });
     }
 }
