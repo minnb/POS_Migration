@@ -69,7 +69,7 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
 
     public async Task<ResultResponse> RedeemCpnVchAsync(VoucherUpdateModel model, CancellationToken ct = default)
     {
-        var voucherNumbers = model.ListSeriNo!.Select(x => x.voucherNumber).ToList();
+        var voucherNumbers = model.ListSeriNo!.Select(x => x.voucherNumber).Distinct().ToList();
         var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(voucherNumbers, ct);
 
         if (!success)
