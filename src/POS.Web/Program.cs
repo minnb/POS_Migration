@@ -70,6 +70,9 @@ builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+    app.UseDeveloperExceptionPage();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
