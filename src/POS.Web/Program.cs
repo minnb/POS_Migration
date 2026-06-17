@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Caching.Memory;
 using MudBlazor;
 using MudBlazor.Services;
@@ -68,10 +69,23 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddMemoryCache();
 
+// ── Reverse proxy (nginx) — trust forwarded headers ───────────────────
+// Cho phép Kestrel nhận đúng IP / scheme từ nginx X-Forwarded-* headers
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    // Xóa whitelist mặc định để chấp nhận proxy nội bộ bất kỳ
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
+
+// Phải đứng đầu pipeline — đọc X-Forwarded-* từ nginx trước khi middleware khác dùng Host/IP
+app.UseForwardedHeaders();
 
 // Blazor framework endpoint selector chỉ match host=localhost (sinh ra lúc build).
 // Rewrite Host cho /_framework/ requests để serve được từ external IP.
