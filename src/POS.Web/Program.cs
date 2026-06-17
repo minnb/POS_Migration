@@ -70,7 +70,7 @@ builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
-app.UseStaticFiles();
+app.MapStaticAssets();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
