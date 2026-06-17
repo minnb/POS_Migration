@@ -49,7 +49,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             builder.Configuration.GetValue<int>("WebApp:SessionTimeoutHours", 8));
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly  = true;
-        options.Cookie.SameSite  = SameSiteMode.Strict;
+        options.Cookie.SameSite  = SameSiteMode.Lax;
     });
 
 // ── Authorization: 3 policy tương ứng 3 role ─────────────────────────
@@ -70,10 +70,10 @@ builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
-app.MapStaticAssets();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
