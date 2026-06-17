@@ -162,7 +162,7 @@
 
             <TemplateColumn Title="Giờ" Sortable="true" SortBy="t => t.OrderTime">
                 <CellTemplate>
-                    @context.Item.OrderTime.ToString("HH:mm:ss")
+                    @context.Item.OrderTime.ToString("dd/MM/yyyy HH:mm:ss")
                 </CellTemplate>
             </TemplateColumn>
 
@@ -210,7 +210,7 @@
 
             <TemplateColumn Title="Đồng bộ" Sortable="true" SortBy="t => t.CreatedDate">
                 <CellTemplate>
-                    @context.Item.CreatedDate.ToString("dd/MM HH:mm")
+                    @context.Item.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")
                 </CellTemplate>
             </TemplateColumn>
 

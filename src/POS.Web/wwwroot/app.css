@@ -1,0 +1,66 @@
+/* =============================================================
+   POS Dashboard — Design Tokens
+   Bổ sung cho MudBlazor --mud-palette-* variables.
+   Dùng cho: custom HTML, inline styles, non-MudBlazor elements.
+   ============================================================= */
+:root {
+  /* Background & Surface */
+  --pos-bg:             #F2F4F8;
+  --pos-bg-alt:         #EEF1F7;
+  --pos-surface:        #FFFFFF;
+
+  /* Primary brand */
+  --pos-primary:        #2051A3;
+  --pos-primary-dark:   #1B3A5C;
+  --pos-primary-light:  #3A6FCC;
+
+  /* Accent */
+  --pos-teal:           #1EAA90;
+
+  /* Status */
+  --pos-success:        #27AE60;
+  --pos-success-bg:     #E8F6EE;
+  --pos-danger:         #DC3545;
+  --pos-danger-bg:      #FDECEA;
+  --pos-warning:        #F39C12;
+  --pos-warning-bg:     #FEF6E7;
+  --pos-info:           #3A6FCC;
+  --pos-info-bg:        #EBF0FB;
+
+  /* Typography */
+  --pos-text-heading:   #1A2B45;
+  --pos-text-body:      #3D4F65;
+  --pos-text-muted:     #6B7A8D;
+  --pos-text-disabled:  #B0BAC9;
+
+  /* Border */
+  --pos-border:         #DDE3EE;
+  --pos-border-strong:  #B8C4D8;
+
+  /* Chart palette (theo thứ tự series) */
+  --pos-chart-1:        #2051A3;
+  --pos-chart-2:        #1EAA90;
+  --pos-chart-3:        #F39C12;
+  --pos-chart-4:        #DC3545;
+  --pos-chart-5:        #3A6FCC;
+  --pos-chart-budget:   #C8CEDE;
+
+  /* Shadow */
+  --pos-shadow-card:    0 2px 8px rgba(26, 43, 69, 0.08);
+  --pos-shadow-hover:   0 4px 16px rgba(26, 43, 69, 0.14);
+
+  /* Border radius */
+  --pos-radius-sm:      4px;
+  --pos-radius-md:      8px;
+  --pos-radius-lg:      12px;
+}
+
+/* Scrollbar nhẹ nhàng hơn trên Chrome/Edge */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--pos-bg-alt); }
+::-webkit-scrollbar-thumb { background: var(--pos-border-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pos-text-muted); }
+
+/* Delta values: dùng trong các page hiển thị % so sánh */
+.pos-delta-up   { color: var(--pos-success); font-weight: 600; }
+.pos-delta-down { color: var(--pos-danger);  font-weight: 600; }

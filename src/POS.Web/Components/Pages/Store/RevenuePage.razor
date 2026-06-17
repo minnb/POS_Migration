@@ -81,7 +81,7 @@
     <MudItem xs="12" lg="7">
         <MudPaper Elevation="2" Class="pa-4">
             <MudText Typo="Typo.subtitle1" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Small" Class="mr-1"/>
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1"/>
                 Doanh thu theo ngày (triệu đồng)
             </MudText>
             @if (_dailyEmpty)
@@ -90,12 +90,12 @@
             }
             else
             {
-                <Line T="double"
-                      @key="@($"line-{_chartVersion}")"
-                      ChartSeries="@_dailySeries"
-                      ChartLabels="@_dailyLabels"
-                      Width="100%" Height="280px"
-                      ChartOptions="@_lineOptions"/>
+                <Bar T="double"
+                     @key="@($"daily-{_chartVersion}")"
+                     ChartSeries="@_dailySeries"
+                     ChartLabels="@_dailyLabels"
+                     Width="100%" Height="280px"
+                     ChartOptions="@_dailyBarOptions"/>
             }
         </MudPaper>
     </MudItem>
@@ -150,7 +150,7 @@
         ("30 ngày", 30),
     ];
 
-    private LineChartOptions _lineOptions = new() { LineStrokeWidth = 2, ShowLegend = false, YAxisTicks = 5 };
+    private BarChartOptions _dailyBarOptions = new() { ShowLegend = false, YAxisTicks = 5 };
     private BarChartOptions  _barOptions  = new() { ShowLegend = false, YAxisTicks = 5 };
 
     protected override async Task OnInitializedAsync()
@@ -209,7 +209,7 @@
             // Recreate options with computed ticks so Y-axis auto-scales from actual max
             var dailyMax  = dailyValues.Length  > 0 ? dailyValues.Max()  : 1d;
             var hourlyMax = hourlyValues.Length > 0 ? hourlyValues.Max() : 1d;
-            _lineOptions = new LineChartOptions { LineStrokeWidth = 2, ShowLegend = false, YAxisTicks = ComputeTicks(dailyMax) };
+            _dailyBarOptions = new BarChartOptions { ShowLegend = false, YAxisTicks = ComputeTicks(dailyMax) };
             _barOptions  = new BarChartOptions  { ShowLegend = false,                      YAxisTicks = ComputeTicks(hourlyMax) };
 
             // Increment version to force chart component re-mount via @key
