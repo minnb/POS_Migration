@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-15 (so sánh với đặc tả WEB-01)
+> Cập nhật: 2026-06-17 (deployment fixes — blazor.web.js 404, DataProtection, nginx)
 
 ---
 
@@ -82,10 +82,12 @@ src/POS.Web/
 | D3 | Program – AddInfrastructure(builder.Configuration) | Program.cs | ✅ | |
 | D4 | Program – AddApplication() | Program.cs | ✅ | |
 | D5 | Program – AddScoped\<IWebUserService, WebUserService\>() | Program.cs | ✅ | |
-| D6 | Program – Cookie authentication | Program.cs | ✅ | LoginPath=/login, SlidingExpiration, HttpOnly, SameSite=Strict |
+| D6 | Program – Cookie authentication | Program.cs | ✅ | LoginPath=/login, SlidingExpiration, HttpOnly, **SameSite=Lax** (đổi từ Strict để fix Safari iOS) |
 | D7 | Program – 3 policy (StoreAndAbove, OpsAndAbove, AdminOnly) | Program.cs | ✅ | |
 | D8 | Program – AddCascadingAuthenticationState() | Program.cs | ✅ | |
-| D9 | Program – UseAuthentication() TRƯỚC UseAuthorization() | Program.cs | ✅ | Thứ tự: UseStaticFiles → UseAuthentication → UseAuthorization → UseAntiforgery |
+| D9 | Program – Middleware order + explicit UseRouting() | Program.cs | ✅ | Host-rewrite → **UseRouting() tường minh** → UseAuthentication → UseAuthorization → UseAntiforgery → MapStaticAssets → MapRazorComponents |
+| D10 | Dockerfile – DataProtection-Keys ownership | Dockerfile | ✅ | `mkdir -p + chown app:app` TRƯỚC `USER $APP_UID` |
+| D11 | nginx config – WebSocket + Host passthrough | nginx | ✅ | proxy_set_header Upgrade + Connection + proxy_read_timeout 300s |
 | D10 | Program – MapGet("/logout", ...) | Program.cs | ✅ | SignOutAsync + Redirect("/login") + AllowAnonymous |
 | E1 | App.razor – MudBlazor.min.css | Components/App.razor | ✅ | `_content/MudBlazor/MudBlazor.min.css` |
 | E2 | App.razor – MudBlazor.min.js | Components/App.razor | ✅ | `_content/MudBlazor/MudBlazor.min.js` |
@@ -120,8 +122,8 @@ src/POS.Web/
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **54 / 55 hạng mục**
-- ⚠️ Có vấn đề: **1 hạng mục**
+- ✅ Hoàn thành: **56 / 57 hạng mục**
+- ⚠️ Có vấn đề: **1 hạng mục** (B9 — SQL seed hash placeholder)
 - ❌ Còn thiếu: **0 hạng mục**
 
 ---

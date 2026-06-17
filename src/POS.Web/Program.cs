@@ -82,6 +82,8 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+app.UseRouting(); // explicit — đặt routing SAU middleware rewrite Host, disable auto-routing ở đầu pipeline
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
