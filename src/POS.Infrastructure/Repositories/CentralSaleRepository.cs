@@ -5,11 +5,12 @@ using Newtonsoft.Json;
 using POS.Common.Dtos.CentralSale;
 using POS.Common.Dtos.POS;
 using POS.Common.Dtos.POS.Common;
+using POS.Common.Enums;
 using POS.Common.Helpers;
 using POS.Infrastructure.Database;
-using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 using POS.Infrastructure.Repositories.Interfaces;
 using System.Data;
+using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 
 namespace POS.Infrastructure.Repositories;
 
@@ -279,12 +280,18 @@ public sealed class CentralSaleRepository(
             }
 
             string? type = (string?)jObject["Type"];
-            if (type == "HARDWARE")
+            if (type == PushSaleDataTypeEnum.HARDWARE.ToString())
             {
                 return (true, "Continue");
             }
 
             using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo ?? "", ct: ct);
+
+            if (data.Type == PushSaleDataTypeEnum.REGISTER.ToString() && !string.IsNullOrEmpty(posNo))
+            {
+                await RegisterExecuteAsync(conn, posNo);
+                return (true, "OK");
+            }
 
             var parameters = new DynamicParameters();
             parameters.Add("@Type", data.Type);
@@ -309,11 +316,6 @@ public sealed class CentralSaleRepository(
                 {
                     return (false, $"lỗi thực thi tra cứu log trong Interface_Errors");
                 }
-
-                if (data.Type == "REGISTER" && !string.IsNullOrEmpty(posNo))
-                {
-                    //await RegisterExecuteAsync(dbContext, POSTerminal);
-                }
                 return (true, "OK");
             }
         }
@@ -322,7 +324,24 @@ public sealed class CentralSaleRepository(
             return (false, ex.Message);
         }
     }
+    public static async Task RegisterExecuteAsync(IDbConnection dbContext, string POSTerminal)
+    {
+        if (!string.IsNullOrEmpty(POSTerminal))
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("@POSTerminal", POSTerminal);
 
+            await dbContext.ExecuteAsync(
+                "Register_Insert",
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: 30
+            );
+        }
+        else
+        {
+        }
+    }
     // ── Revenue Dashboard ─────────────────────────────────────────────────────
 
     public async Task<List<RevenueDailyDto>> GetRevenueDailyAsync(DateTime fromDate, DateTime toDate,
