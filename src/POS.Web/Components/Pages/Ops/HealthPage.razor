@@ -1,6 +1,6 @@
 @page "/ops/health"
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @implements IDisposable
 
 @using Microsoft.AspNetCore.Authorization

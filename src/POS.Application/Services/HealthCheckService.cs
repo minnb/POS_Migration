@@ -86,7 +86,9 @@ public sealed class HealthCheckService(
         try
         {
             var probe = DateTime.UtcNow.Ticks.ToString();
-            redis.StringSet(RedisProbeKey, probe, ttlSeconds: 60);
+            // StringSet là sync và dùng .GetAwaiter().GetResult() bên trong — chạy trên thread pool
+            // tránh block Blazor circuit thread trong trường hợp Redis chậm.
+            await Task.Run(() => redis.StringSet(RedisProbeKey, probe, ttlSeconds: 60), ct);
             var readBack = await redis.StringGetAsync<string>(RedisProbeKey).WaitAsync(ct);
             sw.Stop();
 
