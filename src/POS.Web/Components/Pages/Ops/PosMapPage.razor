@@ -1,0 +1,357 @@
+@page "/ops/pos-map"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+@implements IDisposable
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.Ops
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+
+<PageTitle>POS Map – POS Dashboard</PageTitle>
+
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
+        POS Map
+    </MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudSelect T="int" Value="_autoRefreshSec" ValueChanged="OnAutoRefreshChanged"
+                   Label="Tự động" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Style="min-width:140px">
+            <MudSelectItem Value="0">Tắt</MudSelectItem>
+            <MudSelectItem Value="60">60 giây</MudSelectItem>
+            <MudSelectItem Value="120">120 giây</MudSelectItem>
+            <MudSelectItem Value="300">5 phút</MudSelectItem>
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="LoadDataAsync" Disabled="_loading">
+            @if (_loading)
+            { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/> }
+            Làm mới
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+@* ── Timestamp ───────────────────────────────────────────────────────── *@
+@if (_lastLoaded.HasValue)
+{
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+        Lần cuối: @_lastLoaded.Value.ToString("HH:mm:ss")
+    </MudText>
+}
+
+@* ── Loading bar ─────────────────────────────────────────────────────── *@
+@if (_loading && !_allItems.Any())
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius:4px"/>
+}
+
+@* ── KPI summary cards ───────────────────────────────────────────────── *@
+@if (_allItems.Any())
+{
+    var total       = _allItems.Count;
+    var online      = _allItems.Count(x => x.IsOnline);
+    var offline     = total - online;
+    var needsUpdate = _allItems.Count(x => x.NeedsUpdate);
+
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-3 text-center">
+                <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng máy POS</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-3 text-center"
+                      Style="border-left:3px solid var(--pos-success)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@online</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">● Online</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-3 text-center"
+                      Style="border-left:3px solid var(--pos-danger)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@offline</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">● Offline</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-3 text-center"
+                      Style="border-left:3px solid var(--pos-warning)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-warning)">@needsUpdate</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">⚠ Cần cập nhật</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@* ── Filter bar ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-3 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="5">
+            <MudTextField Value="_search" Immediate="true"
+                          ValueChanged="@((string v) => { _search = v; ApplyFilter(); })"
+                          Label="Tìm kiếm" Placeholder="Store, Terminal, IP, Tên máy..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          OnClearButtonClick="@(() => { _search = string.Empty; ApplyFilter(); })"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudSelect T="string" Value="_statusFilter" Label="Trạng thái"
+                       ValueChanged="@((string v) => { _statusFilter = v; ApplyFilter(); })"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@("all")">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("online")">Chỉ Online</MudSelectItem>
+                <MudSelectItem Value="@("offline")">Chỉ Offline</MudSelectItem>
+                <MudSelectItem Value="@("update")">Cần cập nhật phần mềm</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Error ───────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Store expansion panels ──────────────────────────────────────────── *@
+@if (_filteredGroups.Any())
+{
+    <MudExpansionPanels MultiExpansion="true">
+        @foreach (var group in _filteredGroups)
+        {
+            var groupOnline = group.Value.Count(x => x.IsOnline);
+            var groupTotal  = group.Value.Count;
+            var allOnline   = groupOnline == groupTotal;
+
+            <MudExpansionPanel>
+                <TitleContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(allOnline ? Color.Success : groupOnline == 0 ? Color.Error : Color.Warning)"
+                                 Variant="Variant.Filled">
+                            @groupOnline / @groupTotal
+                        </MudChip>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600">
+                            @group.Key
+                        </MudText>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    <MudDataGrid T="PosMonitorStatusDto"
+                                 Items="@group.Value"
+                                 Dense="true" Hover="true" Striped="true"
+                                 SortMode="SortMode.Single">
+                        <Columns>
+
+                            <TemplateColumn Title="Trạng thái" Sortable="true"
+                                            SortBy="x => x.IsOnline ? 0 : 1">
+                                <CellTemplate>
+                                    <MudChip T="string" Size="Size.Small"
+                                             Color="@(context.Item.IsOnline ? Color.Success : Color.Error)"
+                                             Variant="Variant.Filled">
+                                        @(context.Item.IsOnline ? "● Online" : "● Offline")
+                                    </MudChip>
+                                </CellTemplate>
+                            </TemplateColumn>
+
+                            <PropertyColumn Property="x => x.PosTerminalID" Title="Terminal" Sortable="true"/>
+                            <PropertyColumn Property="x => x.IpAddress"     Title="IP" Sortable="true"/>
+                            <PropertyColumn Property="x => x.ComputerName"  Title="Máy" Sortable="true"/>
+
+                            <TemplateColumn Title="Phiên bản" Sortable="true"
+                                            SortBy="x => x.NeedsUpdate ? 1 : 0">
+                                <CellTemplate>
+                                    @if (context.Item.NeedsUpdate)
+                                    {
+                                        <MudTooltip Text="@($"Bản mới: {context.Item.BluePosVersionUpdate}")">
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                                     Variant="Variant.Filled">
+                                                ⚠ @context.Item.BluePosVersion
+                                            </MudChip>
+                                        </MudTooltip>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">@context.Item.BluePosVersion</MudText>
+                                    }
+                                </CellTemplate>
+                            </TemplateColumn>
+
+                            <TemplateColumn Title="DB" Sortable="true"
+                                            SortBy="x => x.BluePosDatabaseStatus">
+                                <CellTemplate>
+                                    @{
+                                        var dbOk = string.Equals(context.Item.BluePosDatabaseStatus, "OK",
+                                                       StringComparison.OrdinalIgnoreCase);
+                                    }
+                                    <MudChip T="string" Size="Size.Small"
+                                             Color="@(dbOk ? Color.Success : Color.Error)"
+                                             Variant="Variant.Outlined">
+                                        @context.Item.BluePosDatabaseStatus
+                                    </MudChip>
+                                </CellTemplate>
+                            </TemplateColumn>
+
+                            <TemplateColumn Title="POS" Sortable="true"
+                                            SortBy="x => x.IsOpenBluePos ? 0 : 1">
+                                <CellTemplate>
+                                    <MudText Typo="Typo.body2"
+                                             Color="@(context.Item.IsOpenBluePos ? Color.Success : Color.Default)">
+                                        @(context.Item.IsOpenBluePos ? "Đang mở" : "Đóng")
+                                    </MudText>
+                                </CellTemplate>
+                            </TemplateColumn>
+
+                            <TemplateColumn Title="Last seen" Sortable="true"
+                                            SortBy="x => x.UpdatedAt">
+                                <CellTemplate>
+                                    @{
+                                        var age = DateTime.Now - context.Item.UpdatedAt;
+                                        var ageText = age.TotalMinutes < 1   ? "vừa xong"
+                                                    : age.TotalHours   < 1   ? $"{(int)age.TotalMinutes}p trước"
+                                                    : age.TotalDays    < 1   ? $"{(int)age.TotalHours}h trước"
+                                                                             : context.Item.UpdatedAt.ToString("dd/MM HH:mm");
+                                    }
+                                    <MudText Typo="Typo.caption"
+                                             Color="@(context.Item.IsOnline ? Color.Default : Color.Error)">
+                                        @ageText
+                                    </MudText>
+                                </CellTemplate>
+                            </TemplateColumn>
+
+                            <TemplateColumn Title="Giờ POS" Sortable="true"
+                                            SortBy="x => x.DateTimePos">
+                                <CellTemplate>
+                                    @{
+                                        var drift = Math.Abs((context.Item.DateTimePos - DateTime.Now).TotalMinutes);
+                                    }
+                                    <MudText Typo="Typo.caption"
+                                             Color="@(drift > 5 ? Color.Warning : Color.Default)">
+                                        @context.Item.DateTimePos.ToString("HH:mm:ss")
+                                        @if (drift > 5) { <span> ⚠</span> }
+                                    </MudText>
+                                </CellTemplate>
+                            </TemplateColumn>
+
+                        </Columns>
+                        <NoRecordsContent>
+                            <MudText Color="Color.Secondary" Class="pa-3">Không có terminal.</MudText>
+                        </NoRecordsContent>
+                    </MudDataGrid>
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+}
+else if (!_loading && _allItems.Any())
+{
+    <MudText Color="Color.Secondary" Class="pa-4" Align="Align.Center">
+        Không có kết quả khớp bộ lọc.
+    </MudText>
+}
+
+@code {
+    private List<PosMonitorStatusDto>                      _allItems      = [];
+    private Dictionary<string, List<PosMonitorStatusDto>> _filteredGroups = [];
+    private bool    _loading       = false;
+    private string? _errorMsg;
+    private string  _search        = string.Empty;
+    private string  _statusFilter  = "all";
+    private int     _autoRefreshSec = 120;
+    private DateTime? _lastLoaded;
+    private PeriodicTimer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        StartAutoRefresh();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            _allItems   = await MdRepo.GetPosMonitorStatusAsync();
+            _lastLoaded = DateTime.Now;
+            KibanaService.LogInfo("PosMapPage.Load", "ops",
+                $"POSMonitor: {_allItems.Count} terminals, " +
+                $"{_allItems.Count(x => x.IsOnline)} online");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu POSMonitor.";
+            KibanaService.LogException("PosMapPage.Load", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+            ApplyFilter();
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = _allItems.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            var q = _search.Trim().ToLowerInvariant();
+            filtered = filtered.Where(x =>
+                x.StoreNo.Contains(q, StringComparison.OrdinalIgnoreCase)      ||
+                x.PosTerminalID.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                x.IpAddress.Contains(q, StringComparison.OrdinalIgnoreCase)     ||
+                x.ComputerName.Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filtered = _statusFilter switch
+        {
+            "online"  => filtered.Where(x => x.IsOnline),
+            "offline" => filtered.Where(x => !x.IsOnline),
+            "update"  => filtered.Where(x => x.NeedsUpdate),
+            _         => filtered
+        };
+
+        _filteredGroups = filtered
+            .GroupBy(x => x.StoreNo)
+            .OrderBy(g => g.Key)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        StateHasChanged();
+    }
+
+    private void OnAutoRefreshChanged(int value)
+    {
+        _autoRefreshSec = value;
+        StartAutoRefresh();
+    }
+
+    private void StartAutoRefresh()
+    {
+        _timer?.Dispose();
+        _timer = null;
+        if (_autoRefreshSec <= 0) return;
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(_autoRefreshSec));
+        _ = Task.Run(async () =>
+        {
+            while (await _timer.WaitForNextTickAsync())
+                await InvokeAsync(LoadDataAsync);
+        });
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

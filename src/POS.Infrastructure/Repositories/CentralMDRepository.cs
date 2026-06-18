@@ -1,5 +1,6 @@
 using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
+using POS.Common.Dtos.Ops;
 using POS.Common.Dtos.POS.Common;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Redis;
@@ -263,5 +264,16 @@ public sealed class CentralMDRepository(
         {
             return false;
         }
+    }
+
+    public async Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default)
+    {
+        const string sql = @"SELECT StoreNo, PosTerminalID, IpAddress, ComputerName,
+                                    BluePosVersion, BluePosVersionUpdate, BluePosDatabaseStatus,
+                                    IsOpenBluePos, DateTimePos,
+                                    LastTimeInsertAll, LastTimeInsertChange, UpdatedAt
+                             FROM POSMonitor (NOLOCK)
+                             ORDER BY StoreNo, PosTerminalID;";
+        return (await QueryAsync<PosMonitorStatusDto>(sql, ct: ct)).ToList();
     }
 }

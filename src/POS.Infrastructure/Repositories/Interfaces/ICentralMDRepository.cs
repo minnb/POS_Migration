@@ -1,5 +1,6 @@
 using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
+using POS.Common.Dtos.Ops;
 using POS.Common.Dtos.POS.Common;
 
 namespace POS.Infrastructure.Repositories.Interfaces;
@@ -41,4 +42,7 @@ public interface ICentralMDRepository
 
     /// <summary>INSERT SignalStore. Lỗi → false (parity cũ).</summary>
     Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default);
+
+    /// <summary>SELECT toàn bộ POSMonitor — không cache, cần fresh data cho real-time monitoring.</summary>
+    Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default);
 }

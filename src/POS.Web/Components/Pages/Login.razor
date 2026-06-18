@@ -27,7 +27,7 @@
     <MudTextField @bind-Value="_username" Label="Tên đăng nhập"
                   Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person"
-                  Disabled="_loading" OnKeyDown="OnKeyDown"/>
+                  Immediate="true" Disabled="_loading" OnKeyDown="OnKeyDown"/>
 
     <MudTextField @bind-Value="_password" Label="Mật khẩu"
                   Variant="Variant.Outlined" FullWidth="true" Class="mb-4"
@@ -36,7 +36,7 @@
                                              : Icons.Material.Filled.VisibilityOff)"
                   OnAdornmentClick="@(() => _showPass = !_showPass)"
                   InputType="@(_showPass ? InputType.Text : InputType.Password)"
-                  Disabled="_loading" OnKeyDown="OnKeyDown"/>
+                  Immediate="true" Disabled="_loading" OnKeyDown="OnKeyDown"/>
 
     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
                OnClick="DoLogin" Disabled="_loading">

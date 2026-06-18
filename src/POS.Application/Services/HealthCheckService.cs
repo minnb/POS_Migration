@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using POS.Application.Interfaces;
@@ -11,12 +12,13 @@ namespace POS.Application.Services;
 
 /// <summary>
 /// Check kết nối hạ tầng từ trong container — phục vụ chẩn đoán môi trường
-/// (Redis, RabbitMQ, SQL CentralMD/CentralGeneral/CentralSale/CentralSaleTemplate).
+/// (Redis, RabbitMQ, SQL, POS.Api HTTP health, Worker heartbeat).
 /// </summary>
 public sealed class HealthCheckService(
     IConfiguration configuration,
     IRedisService redis,
     IRabbitMQProducer rabbitMQProducer,
+    IHttpClientFactory httpClientFactory,
     StoreRoutedConnectionFactory storeRoutedFactory) : IHealthCheckService
 {
     private const string RedisProbeKey = "HealthCheck:Ping";
@@ -24,6 +26,7 @@ public sealed class HealthCheckService(
 
     public async Task<List<HealthCheckItemDto>> CheckAllAsync(string? storeNo, CancellationToken ct = default)
     {
+        var workerName = configuration["HealthCheck:WorkerName"] ?? "DataSync";
         var results = new List<HealthCheckItemDto>
         {
             await CheckRedisAsync(),
@@ -32,6 +35,8 @@ public sealed class HealthCheckService(
             await CheckSqlAsync("SQL:CentralGeneral", configuration.GetConnectionString("CentralGeneral"), ct),
             await CheckSqlAsync("SQL:CentralSale", configuration.GetConnectionString("CentralSale"), ct),
             await CheckCentralSaleTemplateAsync(storeNo, ct),
+            await CheckWebApiAsync(ct),
+            await CheckWorkerHeartbeatAsync(workerName, ct),
         };
         return results;
     }
@@ -137,6 +142,56 @@ public sealed class HealthCheckService(
         var result = await CheckSqlAsync(component, template.Replace("{server}", server), ct);
         result.Message = $"[{resolvedBy} → {server}] {result.Message}";
         return result;
+    }
+
+    // ── POS.Api HTTP health endpoint ──────────────────────────────────────
+
+    private async Task<HealthCheckItemDto> CheckWebApiAsync(CancellationToken ct)
+    {
+        var baseUrl = (configuration["HealthCheck:PosApiBaseUrl"] ?? "").TrimEnd('/');
+        if (string.IsNullOrEmpty(baseUrl))
+            return Item("POS.Api", "(không cấu hình)", false, 0,
+                "HealthCheck:PosApiBaseUrl chưa được cấu hình trong appsettings");
+
+        var url = $"{baseUrl}/health";
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            using var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+            var resp = await client.GetAsync(url, ct);
+            sw.Stop();
+            return Item("POS.Api", url, resp.IsSuccessStatusCode, sw.ElapsedMilliseconds,
+                $"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            return Item("POS.Api", url, false, sw.ElapsedMilliseconds, ex.Message);
+        }
+    }
+
+    // ── Worker IHostedService — heartbeat qua Redis ───────────────────────
+
+    private async Task<HealthCheckItemDto> CheckWorkerHeartbeatAsync(string workerName, CancellationToken ct)
+    {
+        var key = $"Worker:{workerName}:Heartbeat";
+        var component = $"Worker:{workerName}";
+        var raw = await redis.StringGetAsync<string>(key);
+
+        if (raw == null)
+            return Item(component, $"Redis key: {key}", false, 0,
+                "Key không tồn tại — worker chưa chạy hoặc TTL đã hết");
+
+        if (!DateTime.TryParse(raw, null, DateTimeStyles.RoundtripKind, out var ts))
+            return Item(component, $"Redis key: {key}", false, 0,
+                $"Không parse được timestamp: {raw}");
+
+        var age = DateTime.UtcNow - ts;
+        var ok = age.TotalSeconds < 120;
+        return Item(component, $"Redis key: {key}", ok, (long)age.TotalSeconds * 1000,
+            ok ? $"Alive — heartbeat {(int)age.TotalSeconds}s trước"
+               : $"Stale — {(int)age.TotalMinutes}m trước (ngưỡng 2 phút)");
     }
 
     private static HealthCheckItemDto Item(

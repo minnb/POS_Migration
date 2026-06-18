@@ -1,6 +1,241 @@
 @page "/ops/health"
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
+@implements IDisposable
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Application.Interfaces
+@using POS.Common.Dtos.Ops
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@inject IHealthCheckService HealthSvc
+@inject IKibanaService KibanaService
+
 <PageTitle>System Health – POS Dashboard</PageTitle>
-<MudText Typo="Typo.h5" Class="mb-2">System Health</MudText>
-<MudAlert Severity="Severity.Info">Tính năng đang được phát triển.</MudAlert>
+
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+    <MudText Typo="Typo.h5">
+        <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Class="mr-2" Style="vertical-align:middle"/>
+        System Health
+    </MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudSelect T="int" Value="_autoRefreshSec" ValueChanged="OnAutoRefreshChanged"
+                   Label="Tự động" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Style="min-width:140px">
+            <MudSelectItem Value="0">Tắt</MudSelectItem>
+            <MudSelectItem Value="60">60 giây</MudSelectItem>
+            <MudSelectItem Value="120">120 giây</MudSelectItem>
+            <MudSelectItem Value="300">5 phút</MudSelectItem>
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="RunCheckAsync"
+                   Disabled="_checking">
+            @if (_checking)
+            { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/> }
+            Làm mới
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+@* ── Summary + filter ────────────────────────────────────────────────── *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    @if (_lastChecked.HasValue)
+    {
+        var ok = _items.Count(x => x.Ok);
+        var total = _items.Count;
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Lần cuối: @_lastChecked.Value.ToString("HH:mm:ss")
+            &nbsp;—&nbsp;
+            <strong style="color:@(ok == total ? "var(--pos-success)" : "var(--pos-danger)")">
+                @ok / @total
+            </strong>
+            dịch vụ hoạt động
+        </MudText>
+    }
+    else
+    {
+        <span/>
+    }
+    <MudStack Row="true" Spacing="1">
+        <MudChip T="string"
+                 Color="@(_filterMode == "all" ? Color.Primary : Color.Default)"
+                 Variant="@(_filterMode == "all" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetFilter("all"))">
+            Tất cả (@_items.Count)
+        </MudChip>
+        <MudChip T="string"
+                 Color="@(_filterMode == "ok" ? Color.Success : Color.Default)"
+                 Variant="@(_filterMode == "ok" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetFilter("ok"))">
+            Online (@_items.Count(x => x.Ok))
+        </MudChip>
+        <MudChip T="string"
+                 Color="@(_filterMode == "fail" ? Color.Error : Color.Default)"
+                 Variant="@(_filterMode == "fail" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetFilter("fail"))">
+            Offline (@_items.Count(x => !x.Ok))
+        </MudChip>
+    </MudStack>
+</MudStack>
+
+@* ── Loading (first load only) ───────────────────────────────────────── *@
+@if (_checking && !_items.Any())
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius:4px"/>
+}
+
+@* ── Service cards ───────────────────────────────────────────────────── *@
+<MudGrid Spacing="3">
+    @foreach (var item in _filtered)
+    {
+        <MudItem xs="12" sm="6" md="4" lg="3">
+            <MudPaper Elevation="2" Class="pa-3" Style="@CardStyle(item.Ok)">
+                <MudStack Spacing="1">
+
+                    @* Title + status chip *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center"
+                              Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;word-break:break-all">
+                            @item.Component
+                        </MudText>
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(item.Ok ? Color.Success : Color.Error)"
+                                 Variant="Variant.Filled">
+                            @(item.Ok ? "ONLINE" : "OFFLINE")
+                        </MudChip>
+                    </MudStack>
+
+                    @* Target endpoint *@
+                    @if (!string.IsNullOrEmpty(item.Target))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                 Style="word-break:break-all">
+                            @item.Target
+                        </MudText>
+                    }
+
+                    @* Latency badge *@
+                    @{
+                        var (latColor, latText) = LatencyDisplay(item.LatencyMs, item.Ok);
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@latColor" Variant="Variant.Text"
+                             Style="margin-left:-4px">
+                        ⚡ @latText
+                    </MudChip>
+
+                    @* Message *@
+                    <MudText Typo="Typo.caption"
+                             Color="@(item.Ok ? Color.Default : Color.Error)"
+                             Style="font-style:italic;word-break:break-word">
+                        @item.Message
+                    </MudText>
+
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    }
+    @if (!_checking && !_filtered.Any() && _items.Any())
+    {
+        <MudItem xs="12">
+            <MudText Color="Color.Secondary" Class="pa-4" Align="Align.Center">
+                Không có dịch vụ nào khớp bộ lọc.
+            </MudText>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private List<HealthCheckItemDto> _items    = [];
+    private List<HealthCheckItemDto> _filtered = [];
+    private bool      _checking       = false;
+    private string    _filterMode     = "all";
+    private int       _autoRefreshSec = 120;
+    private DateTime? _lastChecked;
+    private PeriodicTimer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RunCheckAsync();
+        StartAutoRefresh();
+    }
+
+    private async Task RunCheckAsync()
+    {
+        _checking = true;
+        StateHasChanged();
+        try
+        {
+            _items = await HealthSvc.CheckAllAsync(null);
+            _lastChecked = DateTime.Now;
+            KibanaService.LogInfo("HealthPage.RunCheck", "ops",
+                $"Health check: {_items.Count(x => x.Ok)}/{_items.Count} OK");
+        }
+        catch (Exception ex)
+        {
+            KibanaService.LogException("HealthPage.RunCheck", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _checking = false;
+            ApplyFilter();
+        }
+    }
+
+    private void SetFilter(string mode)
+    {
+        _filterMode = mode;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        _filtered = _filterMode switch
+        {
+            "ok"   => _items.Where(x => x.Ok).ToList(),
+            "fail" => _items.Where(x => !x.Ok).ToList(),
+            _      => [.. _items]
+        };
+        StateHasChanged();
+    }
+
+    private void OnAutoRefreshChanged(int value)
+    {
+        _autoRefreshSec = value;
+        StartAutoRefresh();
+    }
+
+    private void StartAutoRefresh()
+    {
+        _timer?.Dispose();
+        _timer = null;
+        if (_autoRefreshSec <= 0) return;
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(_autoRefreshSec));
+        _ = Task.Run(async () =>
+        {
+            while (await _timer.WaitForNextTickAsync())
+                await InvokeAsync(RunCheckAsync);
+        });
+    }
+
+    private static (Color Color, string Text) LatencyDisplay(long ms, bool ok)
+    {
+        if (!ok) return (Color.Error, "N/A");
+        return ms switch
+        {
+            < 100  => (Color.Success, $"{ms} ms"),
+            < 500  => (Color.Warning, $"{ms} ms"),
+            _      => (Color.Error,   $"{ms} ms"),
+        };
+    }
+
+    private static string CardStyle(bool ok) =>
+        ok ? "height:100%;border-left:3px solid var(--pos-success)"
+           : "height:100%;border-left:3px solid var(--pos-danger)";
+
+    public void Dispose() => _timer?.Dispose();
+}
