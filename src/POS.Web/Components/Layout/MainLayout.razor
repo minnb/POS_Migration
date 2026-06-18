@@ -1,7 +1,8 @@
 @inherits LayoutComponentBase
-@implements IDisposable
+@implements IAsyncDisposable
 
 @inject NavigationManager Nav
+@inject IBrowserViewportService ViewportService
 
 @using Microsoft.AspNetCore.Components.Routing
 
@@ -92,7 +93,7 @@
 </MudLayout>
 
 @code {
-    private bool _drawerOpen  = true;
+    private bool _drawerOpen;          // init = false; OnAfterRenderAsync set theo viewport
     private bool _expandStore;
     private bool _expandOps;
     private bool _expandAdmin;
@@ -101,6 +102,15 @@
     {
         UpdateExpanded(Nav.Uri);
         Nav.LocationChanged += OnLocationChanged;
+    }
+
+    // Mở drawer sẵn trên desktop (≥ md = 960px), đóng trên mobile/tablet
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var bp = await ViewportService.GetCurrentBreakpointAsync();
+        _drawerOpen = bp is Breakpoint.Md or Breakpoint.Lg or Breakpoint.Xl or Breakpoint.Xxl;
+        StateHasChanged();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -116,5 +126,5 @@
         _expandAdmin = uri.Contains("/admin/", StringComparison.OrdinalIgnoreCase);
     }
 
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    public async ValueTask DisposeAsync() => Nav.LocationChanged -= OnLocationChanged;
 }

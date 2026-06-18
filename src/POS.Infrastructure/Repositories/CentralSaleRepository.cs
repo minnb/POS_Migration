@@ -269,13 +269,15 @@ public sealed class CentralSaleRepository(
             var data = StringHelper.StringToObject<KafkaMessagePOS>(message.Replace("'", ""));
             if (data == null)
             {
-               return (false, "Lỗi convert Json");
+                await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", "Lỗi convert Json", ct: ct);
+                return (false, "Lỗi convert Json");
             }
             string jsonData = JsonConvert.SerializeObject(data.Data);
             var jObject = StringHelper.StringToJObject(message);
-            
+
             if (jObject is null)
             {
+                await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", "Invalid message format", ct: ct);
                 return (false, "Invalid message format");
             }
 
@@ -296,7 +298,7 @@ public sealed class CentralSaleRepository(
             var parameters = new DynamicParameters();
             parameters.Add("@Type", data.Type);
             parameters.Add("@Json", jsonData);
-            
+
             // Call stored procedure
             var result = await conn.QueryAsync<QueryResult>(
                 "Sale_InsertDataByOrder_KAFKA",
@@ -321,6 +323,7 @@ public sealed class CentralSaleRepository(
         }
         catch(Exception ex)
         {
+            await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", ex.Message, ct: ct);
             return (false, ex.Message);
         }
     }
@@ -555,6 +558,87 @@ public sealed class CentralSaleRepository(
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs("GetTransactionList", ex);
+            return [];
+        }
+    }
+
+    // ── Interface_Errors Log ──────────────────────────────────────────────────
+
+    public async Task InsertInterfaceErrorAsync(
+        string? userName, string? errorProcedure, string? errorMessage,
+        int? errorNumber = null, int? errorSeverity = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"INSERT INTO Interface_Errors
+                                     (UserName, ErrorNumber, ErrorSeverity, ErrorProcedure, ErrorMessage, ErrorDateTime)
+                                 VALUES (@UserName, @ErrorNumber, @ErrorSeverity, @ErrorProcedure, @ErrorMessage, GETDATE());";
+            await conn.ExecuteAsync(new CommandDefinition(sql,
+                new { UserName = userName, ErrorNumber = errorNumber, ErrorSeverity = errorSeverity,
+                      ErrorProcedure = errorProcedure, ErrorMessage = errorMessage },
+                commandTimeout: Timeout, cancellationToken: ct));
+        }
+        catch
+        {
+            // Swallow — never throw when logging an error
+
+        }
+    }
+
+    public async Task<InterfaceErrorSummaryDto> GetInterfaceErrorSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"
+                SELECT COUNT(*) AS TotalErrors,
+                       COUNT(CASE WHEN CAST(ErrorDateTime AS DATE) = CAST(GETDATE() AS DATE) THEN 1 END) AS TodayErrors,
+                       COUNT(DISTINCT ErrorProcedure) AS UniqueProcedures,
+                       MAX(ErrorDateTime) AS LastErrorAt
+                FROM Interface_Errors (NOLOCK)
+                WHERE ErrorDateTime >= @FromDate AND ErrorDateTime < @ToDate;";
+            var result = await conn.QueryFirstOrDefaultAsync<InterfaceErrorSummaryDto>(
+                new CommandDefinition(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date.AddDays(1) },
+                    commandTimeout: Timeout, cancellationToken: ct));
+            return result ?? new InterfaceErrorSummaryDto();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetInterfaceErrorSummary", ex);
+            return new InterfaceErrorSummaryDto();
+        }
+    }
+
+    public async Task<List<InterfaceErrorDto>> GetInterfaceErrorsAsync(
+        DateTime fromDate, DateTime toDate,
+        string? procedure = null, int maxRows = 200,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            string? normalizedProc = string.IsNullOrWhiteSpace(procedure) ? null : procedure.Trim();
+            const string sql = @"
+                SELECT TOP (@MaxRows)
+                    ErrorID, UserName, ErrorNumber, ErrorState, ErrorSeverity,
+                    ErrorLine, ErrorProcedure, ErrorMessage, ErrorDateTime
+                FROM Interface_Errors (NOLOCK)
+                WHERE ErrorDateTime >= @FromDate AND ErrorDateTime < @ToDate
+                  AND (@Procedure IS NULL OR ErrorProcedure LIKE '%' + @Procedure + '%')
+                ORDER BY ErrorDateTime DESC;";
+            var data = await conn.QueryAsync<InterfaceErrorDto>(
+                new CommandDefinition(sql,
+                    new { MaxRows = maxRows, FromDate = fromDate.Date, ToDate = toDate.Date.AddDays(1),
+                          Procedure = normalizedProc },
+                    commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetInterfaceErrors", ex);
             return [];
         }
     }

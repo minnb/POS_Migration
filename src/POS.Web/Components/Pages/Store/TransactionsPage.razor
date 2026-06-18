@@ -126,15 +126,21 @@
 @* ── Result summary ──────────────────────────────────────────────────── *@
 @if (!_loading && _transactions.Count > 0)
 {
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-        Tìm thấy <strong>@_transactions.Count</strong> giao dịch
-        — Tổng doanh thu: <strong>@FormatSummaryVND(_transactions.Where(t => t.TransactionType == 1).Sum(t => t.AmountInclVAT))</strong>
-        &nbsp;|&nbsp; Tổng trả hàng: <strong>@FormatSummaryVND(_transactions.Where(t => t.TransactionType is 2 or 3).Sum(t => t.AmountInclVAT))</strong>
-    </MudText>
+    <div class="d-flex flex-wrap gap-3 align-center mb-2">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Tìm thấy <strong>@_transactions.Count</strong> giao dịch
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Doanh thu: <strong>@FormatSummaryVND(_transactions.Where(t => t.TransactionType == 1).Sum(t => t.AmountInclVAT))</strong>
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Trả hàng: <strong>@FormatSummaryVND(_transactions.Where(t => t.TransactionType is 2 or 3).Sum(t => t.AmountInclVAT))</strong>
+        </MudText>
+    </div>
 }
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2">
+<MudPaper Elevation="2" Style="overflow-x:auto">
 
     @* Info + pagination trên *@
     <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">

@@ -23,18 +23,19 @@
 }
 
 @* ── Header ─────────────────────────────────────────────────────────── *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h5">
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
         <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Class="mr-2" Style="vertical-align:middle"/>
         Quản lý người dùng
     </MudText>
     <MudButton Variant="Variant.Filled"
                Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.PersonAdd"
-               OnClick="@(() => OpenDialogAsync(null))">
+               OnClick="@(() => OpenDialogAsync(null))"
+               Class="pos-page-header-btn">
         Thêm người dùng
     </MudButton>
-</MudStack>
+</div>
 
 @* ── Error ──────────────────────────────────────────────────────────── *@
 @if (_errorMsg != null)
@@ -43,7 +44,7 @@
 }
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2">
+<MudPaper Elevation="2" Style="overflow-x:auto">
 
     @* Toolbar: count + search *@
     <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
@@ -57,7 +58,7 @@
                 @($"Tổng: {_users.Count} người dùng")
             }
         </MudText>
-        <div class="d-flex align-center gap-2">
+        <div class="d-flex align-center gap-2 flex-wrap">
             <MudTextField @bind-Value="SearchText"
                           Placeholder="Tìm kiếm..."
                           Adornment="Adornment.Start"
@@ -67,7 +68,7 @@
                           Margin="Margin.Dense"
                           Class="mt-0"
                           Immediate="true"
-                          Style="min-width:220px"/>
+                          Style="flex:1; min-width:160px"/>
             @if (PageCount > 1)
             {
                 <MudPagination @bind-Selected="_page"

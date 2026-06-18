@@ -187,21 +187,81 @@ private async Task LoadDataAsync()
 
 ---
 
+## DataTable chuẩn — `PosTableBase<T>` + `pos-table`
+
+> **BẮT BUỘC áp dụng cho mọi DataTable trong POS.Web.**
+> Dùng HTML `<table class="pos-table">` thay vì `MudDataGrid` — giải quyết vấn đề column width tự động.
+
+### Pattern: PosTableBase\<T\> — base class DataTable
+
+> Áp dụng khi: tạo mới bất kỳ page nào có bảng dữ liệu có sort + phân trang.
+
+```csharp
+// 1. Kế thừa base class
+@inherits PosTableBase<MyDto>
+@using POS.Web.Components.Shared
+
+// 2. Implement abstract property
+protected override IEnumerable<MyDto> SortedFiltered => _sortCol switch
+{
+    "FieldA" => _sortAsc ? _items.OrderBy(x => x.FieldA) : _items.OrderByDescending(x => x.FieldA),
+    _        => _sortAsc ? _items.OrderBy(x => x.Id)     : _items.OrderByDescending(x => x.Id),
+};
+
+// 3. Base cung cấp sẵn: _sortCol, _sortAsc, _page, PageSize=10
+//    PagedItems, TotalFiltered, PageCount, SortBy(), SI(), FormatVND()
+```
+
+```razor
+@* 4. Markup chuẩn *@
+<div class="pos-table-wrap">
+  <table class="pos-table">
+    <thead>
+      <tr>
+        <th @onclick='() => SortBy("FieldA")'>
+          Tiêu đề<span class="pos-sort @(_sortCol=="FieldA"?"on":"")">@SI("FieldA")</span>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var item in PagedItems) { <tr>...</tr> }
+    </tbody>
+  </table>
+</div>
+
+@* 5. Pagination — trên và dưới table *@
+<MudPagination @bind-Selected="_page" Count="@PageCount" Color="Color.Primary" Size="Size.Small"
+               BoundaryCount="1" MiddleCount="5" ShowFirstButton="true" ShowLastButton="true"/>
+```
+
+**CSS (đã có sẵn trong `wwwroot/app.css`):**
+`.pos-table-wrap` | `.pos-table` | `.pos-sort` | `.pos-sort.on`
+
+**Base class:** `src/POS.Web/Components/Shared/PosTableBase.cs`
+
+**Ví dụ thực tế:**
+- `src/POS.Web/Components/Pages/Store/EosShiftsPage.razor`
+- `src/POS.Web/Components/Pages/Store/TransactionsPage.razor`
+- `src/POS.Web/Components/Pages/Admin/UsersPage.razor`
+
+**Anti-patterns:**
+- ❌ Dùng `MudDataGrid` cho DataTable mới — column width bị ép 100%, sort phức tạp, style khó đồng nhất
+- ❌ Copy-paste sort/pagination C# vào page — dùng `PosTableBase<T>` thay thế
+- ❌ Copy-paste `<style>` CSS table vào page — CSS đã có global trong `app.css`
+- ❌ `SearchText` dùng field `string` trực tiếp — dùng property để reset `_page = 1`:
+  ```csharp
+  private string SearchText { get => _searchField; set { _searchField = value; _page = 1; } }
+  ```
+
+---
+
 ## Shared components có sẵn
 
-> **Hiện tại (2026-06-17): chưa có thư mục `Components/Shared/`.**
-> Các page hiện dùng MudBlazor components trực tiếp và inline pattern.
-
-**Khi tạo component Shared mới**, đặt tại `src/POS.Web/Components/Shared/` và đặt tên `Pos{Name}.razor`.
-Sau khi tạo, cập nhật bảng này với tag và parameters.
-
-| Component | Trạng thái | Ghi chú |
+| Component / Class | File | Dùng cho |
 |---|---|---|
-| `PosKpiCard` | Chưa tạo | Dùng `MudPaper` + `MudText` inline tạm |
-| `PosStatusChip` | Chưa tạo | Dùng `MudChip T="string"` inline tạm |
-| `PosPageHeader` | Chưa tạo | Dùng `MudText Typo="Typo.h5"` inline tạm |
-| `PosEmptyState` | Chưa tạo | Dùng `MudAlert Severity.Info` inline tạm |
-| `PosDateFilter` | Chưa tạo | Dùng `MudChip` filter inline tạm (xem `RevenuePage.razor`) |
+| `PosTableBase<T>` | `Components/Shared/PosTableBase.cs` | Base class cho DataTable — sort/paginate/format |
+| `PosKpiCard` | Chưa tạo — dùng `MudPaper` + `MudText` inline tạm | KPI card |
+| `PosStatusChip` | Chưa tạo — dùng `MudChip T="string"` inline tạm | Status badge |
 
 > Ví dụ inline KPI card: `src/POS.Web/Components/Pages/Store/RevenuePage.razor` — `MudPaper` + border-left + `MudText`.
 
@@ -274,8 +334,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 | Cần làm | MudBlazor component |
 |---|---|
-| Bảng dữ liệu có sort / filter / page | `MudDataGrid<T>` |
-| Bảng đơn giản | `MudTable<T>` |
+| Bảng dữ liệu có sort / filter / page | `@inherits PosTableBase<T>` + `<table class="pos-table">` + `MudPagination` (xem section DataTable chuẩn) |
+| Bảng đơn giản (không sort/page) | `MudTable<T>` |
 | Biểu đồ đường | `<Line T="double">` (v9 — cần `@using MudBlazor.Charts`) |
 | Biểu đồ cột | `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
 | Số liệu tổng quan | `MudPaper` + `MudText` (xem RevenuePage KPI cards) |

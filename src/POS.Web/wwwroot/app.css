@@ -96,10 +96,36 @@
     background-color: rgba(255, 255, 255, 0.07) !important;
 }
 
+/* ── Responsive: Page header (title + action button) ────────────────────
+   Thay thế MudStack Row="true" Justify.SpaceBetween — tự wrap trên mobile.
+   Dùng: <div class="pos-page-header mb-4"> ... </div>
+         <MudText ... Class="pos-page-header-title"> ... </MudText>
+         <MudButton ... Class="pos-page-header-btn"> ... </MudButton>      */
+.pos-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.pos-page-header-title { flex: 1; min-width: 0; }
+
+@media (max-width: 599.98px) {          /* xs: mobile dọc */
+    .pos-page-header { gap: 12px; }
+    .pos-page-header-title { flex-basis: 100%; }
+    .pos-page-header-btn { width: 100% !important; }
+}
+
 /* ── DataTable standard (pos-table) ─────────────────────────────────────
    Dùng cho mọi DataTable trong POS.Web.
-   Xem PosTableBase<T> để dùng logic sort/paginate đi kèm. */
-.pos-table-wrap { overflow-x: auto; }
+   Xem PosTableBase<T> để dùng logic sort/paginate đi kèm.
+   QUAN TRỌNG: MudPaper chứa table PHẢI có Style="overflow-x:auto"
+   để table scroll được trên mobile — không thêm → bị clip. */
+.pos-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;  /* iOS scroll mượt có momentum */
+    max-width: 100%;
+}
 
 .pos-table {
     border-collapse: collapse;
