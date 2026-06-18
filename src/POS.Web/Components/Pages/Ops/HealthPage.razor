@@ -170,10 +170,15 @@
         StateHasChanged();
         try
         {
-            _items = await HealthSvc.CheckAllAsync(null);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            _items = await HealthSvc.CheckAllAsync(null, cts.Token);
             _lastChecked = DateTime.Now;
             KibanaService.LogInfo("HealthPage.RunCheck", "ops",
                 $"Health check: {_items.Count(x => x.Ok)}/{_items.Count} OK");
+        }
+        catch (OperationCanceledException)
+        {
+            KibanaService.LogException("HealthPage.RunCheck", "", 0, "", "Health check timeout (>15s)");
         }
         catch (Exception ex)
         {

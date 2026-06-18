@@ -27,23 +27,22 @@ public sealed class HealthCheckService(
     public async Task<List<HealthCheckItemDto>> CheckAllAsync(string? storeNo, CancellationToken ct = default)
     {
         var workerName = configuration["HealthCheck:WorkerName"] ?? "DataSync";
-        var results = new List<HealthCheckItemDto>
-        {
-            await CheckRedisAsync(),
-            await CheckRabbitMQAsync(ct),
-            await CheckSqlAsync("SQL:CentralMD", configuration.GetConnectionString("CentralMD"), ct),
-            await CheckSqlAsync("SQL:CentralGeneral", configuration.GetConnectionString("CentralGeneral"), ct),
-            await CheckSqlAsync("SQL:CentralSale", configuration.GetConnectionString("CentralSale"), ct),
-            await CheckCentralSaleTemplateAsync(storeNo, ct),
-            await CheckWebApiAsync(ct),
-            await CheckWorkerHeartbeatAsync(workerName, ct),
-        };
-        return results;
+        var results = await Task.WhenAll(
+            CheckRedisAsync(ct),
+            CheckRabbitMQAsync(ct),
+            CheckSqlAsync("SQL:CentralMD",      configuration.GetConnectionString("CentralMD"),      ct),
+            CheckSqlAsync("SQL:CentralGeneral", configuration.GetConnectionString("CentralGeneral"), ct),
+            CheckSqlAsync("SQL:CentralSale",    configuration.GetConnectionString("CentralSale"),    ct),
+            CheckCentralSaleTemplateAsync(storeNo, ct),
+            CheckWebApiAsync(ct),
+            CheckWorkerHeartbeatAsync(workerName, ct)
+        );
+        return [.. results];
     }
 
     // ── Redis: round-trip write/read ──────────────────────────────────────
 
-    private async Task<HealthCheckItemDto> CheckRedisAsync()
+    private async Task<HealthCheckItemDto> CheckRedisAsync(CancellationToken ct)
     {
         var target = string.Join(",", configuration.GetSection("Redis:SentinelHosts").Get<string[]>() ?? []);
         var sw = Stopwatch.StartNew();
@@ -51,7 +50,7 @@ public sealed class HealthCheckService(
         {
             var probe = DateTime.UtcNow.Ticks.ToString();
             redis.StringSet(RedisProbeKey, probe, ttlSeconds: 60);
-            var readBack = await redis.StringGetAsync<string>(RedisProbeKey);
+            var readBack = await redis.StringGetAsync<string>(RedisProbeKey).WaitAsync(ct);
             sw.Stop();
 
             // RedisService nuốt exception bên trong (trả null) → đối chiếu round-trip
