@@ -1,0 +1,18 @@
+@page "/ops/pos-map"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>POS Map – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
+    POS Map
+</MudText>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+    Tính năng đang được phát triển.
+</MudAlert>
