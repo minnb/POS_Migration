@@ -73,3 +73,68 @@
 .mud-button-root:active {
     box-shadow: none !important;
 }
+
+/* ── Sidebar: active nav item highlight ─────────────────────────────────
+   DrawerBackground = #1B3A5C (dark navy).
+   MudBlazor default active color (#2051A3) không đủ tương phản trên nền
+   này → override để item được chọn nổi bật rõ ràng. */
+.mud-drawer .mud-nav-link.active {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    border-left: 3px solid var(--pos-primary-light);
+    padding-left: calc(16px - 3px) !important;
+}
+
+.mud-drawer .mud-nav-link.active .mud-icon-root {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* Hover nhẹ cho non-active items */
+.mud-drawer .mud-nav-link:not(.active):hover {
+    background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── DataTable standard (pos-table) ─────────────────────────────────────
+   Dùng cho mọi DataTable trong POS.Web.
+   Xem PosTableBase<T> để dùng logic sort/paginate đi kèm. */
+.pos-table-wrap { overflow-x: auto; }
+
+.pos-table {
+    border-collapse: collapse;
+    width: auto;
+    min-width: 100%;
+    font-size: 0.875rem;
+}
+
+.pos-table thead tr {
+    background-color: #EEF1F7;
+    color: #1A2B45;
+    border-bottom: 2px solid #2051A3;
+}
+
+.pos-table th {
+    padding: 10px 16px;
+    white-space: nowrap;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s;
+}
+
+.pos-table th:hover { background-color: #E3E8F4; }
+
+.pos-table td {
+    padding: 8px 16px;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    vertical-align: middle;
+}
+
+.pos-table tbody tr:hover           { background-color: rgba(25, 118, 210, 0.05); }
+.pos-table tbody tr:nth-child(even) { background-color: rgba(0, 0, 0, 0.02); }
+
+/* Sort icon: ⇅ / ↑ / ↓ */
+.pos-sort    { font-size: 0.7rem; color: #6B7A8D; margin-left: 3px; }
+.pos-sort.on { color: #2051A3; font-weight: 700; }
