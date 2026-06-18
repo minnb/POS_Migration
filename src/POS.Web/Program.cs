@@ -51,6 +51,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly  = true;
         options.Cookie.SameSite  = SameSiteMode.Lax;
+        // Relative redirect để browser giữ nguyên port qua nginx (tránh mất :8080)
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = ctx =>
+            {
+                var returnUrl = Uri.EscapeDataString(ctx.Request.Path + ctx.Request.QueryString);
+                ctx.Response.Redirect("/login?ReturnUrl=" + returnUrl);
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = ctx =>
+            {
+                ctx.Response.Redirect("/access-denied");
+                return Task.CompletedTask;
+            }
+        };
     });
 
 // ── Authorization: 3 policy tương ứng 3 role ─────────────────────────
