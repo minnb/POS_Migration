@@ -56,32 +56,9 @@ services:
       - dp-keys:/home/app/.aspnet/DataProtection-Keys
     restart: unless-stopped
 
-  pos-web:
-    build:
-      context: .
-      dockerfile: src/POS.Web/Dockerfile
-    container_name: sit_pos_web
-    ports:
-      - "5001:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      sqlserver:
-        condition: service_healthy
-    mem_limit: 1500m
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production # dùng appsettings.Production.json
-      DOTNET_gcServer: "0"
-    volumes:
-      # mkdir -p logs-web && sudo chown 1654:1654 logs-web
-      - ./logs-web:/app/logs
-      - dp-keys-web:/home/app/.aspnet/DataProtection-Keys
-    restart: unless-stopped
-
 volumes:
   ftpbluepos_data:
   dp-keys:
-  dp-keys-web:
   sql_data:
     # Dùng lại volume DATA CŨ của mssql_2019 (external — compose không tạo volume mới).
     # Mặc định: my-sit-env_sql_data (volume của compose cũ); có thể override qua .env nếu đổi server.

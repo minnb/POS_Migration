@@ -1,0 +1,18 @@
+@page "/admin/roles"
+@attribute [Authorize(Policy = WebPolicies.AdminOnly)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>Phân quyền – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Security" Class="mr-2" Style="vertical-align:middle"/>
+    Phân quyền
+</MudText>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+    Tính năng đang được phát triển.
+</MudAlert>

@@ -29,8 +29,7 @@ public sealed class KafkaAppService(
 
                 if (!flag)
                 {
-                    await rabbitMQProducer.ProducerRabbtMQClusterAsync("pos_sales",
-                        JsonConvert.SerializeObject(message));
+                    await rabbitMQProducer.ProducerRabbtMQClusterAsync("pos_sales", JsonConvert.SerializeObject(message));
                 }
             });
 

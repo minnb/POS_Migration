@@ -18,6 +18,8 @@ public class CreateVoucherModel
     [Required]
     public string POSTerminal { get; set; } = string.Empty;
     public string OrderNo { get; set; } = string.Empty;
+    public string VoucherType { get; set; } = string.Empty;
+
 }
 
 public class VoucherUpdateModel

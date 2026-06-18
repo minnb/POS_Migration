@@ -529,7 +529,137 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 Dùng **Newtonsoft.Json** (`JsonConvert.*`) — KHÔNG dùng `System.Text.Json`.
 Nhất quán với POS.Api và POS terminals.
 
-### 10. KHÔNG làm những điều sau (POS.Web)
+### 10. Responsive UI Standard — BẮT BUỘC với mọi page mới
+
+> Mọi page/component mới trong POS.Web PHẢI tuân theo chuẩn này.
+> Tự áp dụng khi tạo page — không cần nhắc.
+
+#### Breakpoints (MudBlazor built-in)
+
+| Tên | Phạm vi | Target |
+|-----|---------|--------|
+| **xs** | < 600px | Mobile dọc (iPhone, Android) |
+| **sm** | 600–959px | Mobile ngang / Tablet nhỏ |
+| **md** | 960px+ | Desktop chuẩn |
+
+#### A. Page Header — Title + Action Button
+
+**KHÔNG** dùng `MudStack Row="true" Justify.SpaceBetween` → tiêu đề bị squeeze, văn bản xuống 2 dòng trên mobile.
+
+**DÙNG** `div.pos-page-header` (CSS đã có trong `app.css`):
+
+```razor
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.XYZ" Class="mr-2" Style="vertical-align:middle"/>
+        Tên trang
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Class="pos-page-header-btn">
+        Thêm
+    </MudButton>
+</div>
+```
+
+- **Desktop (sm+):** title bên trái, button bên phải — cùng hàng
+- **Mobile (xs):** title full-width hàng trên, button full-width hàng dưới
+
+Page chỉ có title (không có button) → dùng `MudText Typo.h5` trực tiếp, không cần `pos-page-header`.
+
+#### B. DataTable — `MudPaper` PHẢI có `overflow-x:auto`
+
+```razor
+@* BẮT BUỘC: Style="overflow-x:auto" trực tiếp trên MudPaper chứa table *@
+<MudPaper Elevation="2" Style="overflow-x:auto">
+    <div class="pos-table-wrap">
+        <table class="pos-table"> ... </table>
+    </div>
+</MudPaper>
+```
+
+> Không có `Style="overflow-x:auto"` trên MudPaper → table bị clip trên mobile, người dùng không thể xem đủ cột.
+
+#### C. Filter Panel
+
+Chuẩn đúng — giữ nguyên MudGrid + MudItem. Luôn đảm bảo:
+
+```razor
+@* Nhóm nút cuối filter *@
+<MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+    <MudStack Row="true" Spacing="1" Class="w-100">
+        <MudButton ... FullWidth="true">Tìm</MudButton>
+        <MudButton ... FullWidth="true">Xóa</MudButton>
+    </MudStack>
+</MudItem>
+```
+
+#### D. Button Rules
+
+| Tình huống | Rule |
+|-----------|------|
+| CTA trong page header | Class `pos-page-header-btn` → tự full-width trên xs |
+| Nhóm nút Tìm/Xóa trong filter | `MudStack Row Spacing="1" Class="w-100"` + `FullWidth="true"` mỗi nút |
+| Icon button trong table row | Không thay đổi — `MudIconButton Size.Small` đủ vùng chạm |
+| Button standalone ngoài form | Bọc trong `MudItem xs="12" sm="auto"` hoặc `Class="w-100 w-sm-auto"` |
+
+#### E. Chip / Badge Row
+
+Mọi container chip phải có `flex-wrap`:
+
+```razor
+@* ĐÚNG *@
+<div class="d-flex align-center gap-2 flex-wrap mb-4">
+    <MudChip T="string" .../>
+</div>
+
+@* SAI — chips tràn ngang trên mobile *@
+<div class="d-flex align-center gap-2 mb-4">
+    <MudChip T="string" .../>
+</div>
+```
+
+#### F. Sidebar Drawer — Init theo viewport thực
+
+Dùng `IBrowserViewportService` (MudBlazor 9 built-in) để init đúng:
+
+```razor
+@inject IBrowserViewportService ViewportService
+@implements IAsyncDisposable
+```
+
+```csharp
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        var bp = await ViewportService.GetCurrentBreakpointAsync();
+        _drawerOpen = bp >= Breakpoint.Md;   // mở sẵn trên desktop, đóng trên mobile
+        StateHasChanged();
+    }
+}
+
+public async ValueTask DisposeAsync()
+{
+    Nav.LocationChanged -= OnLocationChanged;
+}
+```
+
+#### G. Checklist — kiểm tra trước khi hoàn thành page mới
+
+```
+□ Page header có button  → dùng div.pos-page-header (KHÔNG MudStack Row)
+□ MudPaper chứa DataTable → Style="overflow-x:auto"
+□ Filter panel button group → xs="12" sm="12" md="2" + FullWidth="true"
+□ Chip container → có class "flex-wrap"
+□ Không hardcode width (px) cho layout — dùng %, MudGrid, flex: 1
+□ Summary/info text nhiều phần → d-flex flex-wrap gap-2 (KHÔNG &nbsp;|&nbsp;)
+□ Sidebar drawer (MainLayout) → dùng IBrowserViewportService để init
+```
+
+---
+
+### 11. KHÔNG làm những điều sau (POS.Web)
 
 - ❌ Gọi `SignInAsync` trong Blazor InteractiveServer component — dùng bridge token (xem mục 2)
 - ❌ Dùng `System.Text.Json` — phải dùng `Newtonsoft.Json`
@@ -541,8 +671,11 @@ Nhất quán với POS.Api và POS terminals.
 - ❌ Bỏ qua row-level filter với StoreOperator
 - ❌ Dùng `ChartSeries<double>` như attribute HTML trong Razor (v9 syntax sai)
 - ❌ Dùng `MudChart ChartType="..."` và `ChartOptions { YAxisTicks, LineStrokeWidth }` — đã đổi trong v9
+- ❌ Dùng `MudStack Row="true" Justify.SpaceBetween` cho header title+button — dùng `div.pos-page-header`
+- ❌ DataTable trong MudPaper mà không có `Style="overflow-x:auto"` trên MudPaper — table bị clip mobile
+- ❌ Chip container không có `flex-wrap` — chips tràn ngang trên mobile
 
-### 11. Slash Commands (POS.Web)
+### 12. Slash Commands (POS.Web)
 
 | Command | Mục đích |
 |---------|---------|

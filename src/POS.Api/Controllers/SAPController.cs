@@ -68,6 +68,30 @@ public sealed class SAPController(ISAPService sapService) : BaseController
         }
     }
 
+    //sap_create_return_voucher
+    [HttpPost]
+    [Route("CreateReturnVoucher")]
+    public async Task<IActionResult> CreateReturnVoucher(
+        [FromBody] List<CreateVoucherModel> model,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            model.ForEach(v => v.VoucherType = $"BNMH");
+            var result = await _sapService.CreateNewVoucherAsync(model, ct);
+            return StatusCode((int)result.Status, result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode((int)HttpStatusCode.InternalServerError, new ResultResponse
+            {
+                Data    = null,
+                Message = $"Lỗi hệ thống: {ex.Message}",
+                Status  = HttpStatusCode.InternalServerError
+            });
+        }
+    }
+
     //sap_redeem_cpn_vch
     [HttpPost]
     [Route("winlife/redeemCpnVch")]

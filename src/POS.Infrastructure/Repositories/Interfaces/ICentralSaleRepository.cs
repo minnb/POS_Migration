@@ -34,4 +34,24 @@ public interface ICentralSaleRepository
     Task<List<TransactionListDto>> GetTransactionListAsync(
         string? storeNo, DateTime fromDate, DateTime toDate,
         string? orderNo, int maxRows = 500, CancellationToken ct = default);
+
+    // ── EOS Shift Dashboard ───────────────────────────────────────────────────
+    Task<List<EosShiftDto>> GetEosShiftListAsync(
+        DateTime businessDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default);
+
+    // ── Interface_Errors Log ──────────────────────────────────────────────────
+    Task InsertInterfaceErrorAsync(
+        string? userName, string? errorProcedure, string? errorMessage,
+        int? errorNumber = null, int? errorSeverity = null,
+        CancellationToken ct = default);
+
+    Task<InterfaceErrorSummaryDto> GetInterfaceErrorSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken ct = default);
+
+    Task<List<InterfaceErrorDto>> GetInterfaceErrorsAsync(
+        DateTime fromDate, DateTime toDate,
+        string? procedure = null, int maxRows = 200,
+        CancellationToken ct = default);
 }

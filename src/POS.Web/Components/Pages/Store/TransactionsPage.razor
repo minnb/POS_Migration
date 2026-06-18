@@ -2,11 +2,14 @@
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
 
+@inherits PosTableBase<TransactionListDto>
+
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
 @using POS.Common.Dtos.CentralSale
 @using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using POS.Web.Components.Shared
 @using POS.Infrastructure.Logging
 
 @inject ICentralSaleRepository SaleRepo
@@ -30,7 +33,6 @@
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudGrid Spacing="2">
 
-        @* Cửa hàng *@
         <MudItem xs="12" sm="6" md="3">
             @if (_isStoreOperator)
             {
@@ -59,7 +61,6 @@
             }
         </MudItem>
 
-        @* Từ ngày *@
         <MudItem xs="12" sm="6" md="2">
             <MudDatePicker @bind-Date="_filterFromDateNullable"
                            Label="Từ ngày"
@@ -69,7 +70,6 @@
                            Editable="true"/>
         </MudItem>
 
-        @* Đến ngày *@
         <MudItem xs="12" sm="6" md="2">
             <MudDatePicker @bind-Date="_filterToDateNullable"
                            Label="Đến ngày"
@@ -79,7 +79,6 @@
                            Editable="true"/>
         </MudItem>
 
-        @* Số hóa đơn *@
         <MudItem xs="12" sm="6" md="3">
             <MudTextField @bind-Value="_filterOrderNo"
                           Label="Số hóa đơn"
@@ -92,7 +91,6 @@
                           OnKeyDown="@HandleKeyDownAsync"/>
         </MudItem>
 
-        @* Buttons *@
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
@@ -100,24 +98,20 @@
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
-                           FullWidth="true">
-                    Tìm
-                </MudButton>
+                           FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
-                           FullWidth="true">
-                    Xóa
-                </MudButton>
+                           FullWidth="true">Xóa</MudButton>
             </MudStack>
         </MudItem>
 
     </MudGrid>
 </MudPaper>
 
-@* ── Alert *@
+@* ── Alerts ──────────────────────────────────────────────────────────── *@
 @if (_errorMsg != null)
 {
     <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
@@ -129,99 +123,151 @@
     </MudAlert>
 }
 
-@* ── Result summary *@
+@* ── Result summary ──────────────────────────────────────────────────── *@
 @if (!_loading && _transactions.Count > 0)
 {
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-        Tìm thấy <strong>@_transactions.Count</strong> giao dịch
-        — Tổng doanh thu: <strong>@FormatVND(_transactions.Where(t => t.TransactionType == 1).Sum(t => t.AmountInclVAT))</strong>
-        &nbsp;|&nbsp; Tổng trả hàng: <strong>@FormatVND(_transactions.Where(t => t.TransactionType is 2 or 3).Sum(t => t.AmountInclVAT))</strong>
-    </MudText>
+    <div class="d-flex flex-wrap gap-3 align-center mb-2">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Tìm thấy <strong>@_transactions.Count</strong> giao dịch
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Doanh thu: <strong>@FormatSummaryVND(_transactions.Where(t => t.TransactionType == 1).Sum(t => t.AmountInclVAT))</strong>
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Trả hàng: <strong>@FormatSummaryVND(_transactions.Where(t => t.TransactionType is 2 or 3).Sum(t => t.AmountInclVAT))</strong>
+        </MudText>
+    </div>
 }
 
-@* ── Data Grid ───────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2">
-    <MudDataGrid T="TransactionListDto"
-                 Items="@_transactions"
-                 Dense="true"
-                 Striped="true"
-                 Hover="true"
-                 SortMode="SortMode.Multiple"
-                 RowsPerPage="20"
-                 Loading="@_loading">
-        <Columns>
+@* ── Table ───────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Style="overflow-x:auto">
 
-            <PropertyColumn Property="t => t.OrderNo"
-                            Title="Số hóa đơn"
-                            Sortable="true"/>
+    @* Info + pagination trên *@
+    <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            @{
+                var from = (_page - 1) * PageSize + 1;
+                var to   = Math.Min(_page * PageSize, TotalFiltered);
+            }
+            @if (TotalFiltered > 0)
+            {
+                @($"Hiển thị {from}–{to} trong {TotalFiltered} giao dịch")
+            }
+            else if (!_loading)
+            {
+                @("Không có dữ liệu")
+            }
+        </MudText>
+        @if (PageCount > 1)
+        {
+            <MudPagination @bind-Selected="_page"
+                           Count="@PageCount"
+                           BoundaryCount="1"
+                           MiddleCount="5"
+                           ShowFirstButton="true"
+                           ShowLastButton="true"
+                           Color="Color.Primary"
+                           Size="Size.Small"/>
+        }
+    </div>
 
-            <TemplateColumn Title="Ngày KD" Sortable="true" SortBy="t => t.OrderDate">
-                <CellTemplate>
-                    @context.Item.OrderDate.ToString("dd/MM/yyyy")
-                </CellTemplate>
-            </TemplateColumn>
-
-            <TemplateColumn Title="Giờ" Sortable="true" SortBy="t => t.OrderTime">
-                <CellTemplate>
-                    @context.Item.OrderTime.ToString("dd/MM/yyyy HH:mm:ss")
-                </CellTemplate>
-            </TemplateColumn>
-
-            <PropertyColumn Property="t => t.StoreNo"
-                            Title="Cửa hàng"
-                            Sortable="true"/>
-
-            <PropertyColumn Property="t => t.POSTerminalNo"
-                            Title="Máy POS"
-                            Sortable="true"/>
-
-            <TemplateColumn Title="Giảm giá" Sortable="true" SortBy="t => t.DiscountAmount"
-                            CellStyle="text-align:right">
-                <CellTemplate>
-                    @if (context.Item.DiscountAmount > 0)
+    <div class="pos-table-wrap">
+        <table class="pos-table">
+            <thead>
+                <tr>
+                    <th @onclick='() => SortBy("OrderNo")'>
+                        Số hóa đơn<span class="pos-sort @(_sortCol=="OrderNo"?"on":"")">@SI("OrderNo")</span>
+                    </th>
+                    <th style="text-align:center" @onclick='() => SortBy("OrderDate")'>
+                        Ngày KD<span class="pos-sort @(_sortCol=="OrderDate"?"on":"")">@SI("OrderDate")</span>
+                    </th>
+                    <th style="text-align:center" @onclick='() => SortBy("OrderTime")'>
+                        Giờ<span class="pos-sort @(_sortCol=="OrderTime"?"on":"")">@SI("OrderTime")</span>
+                    </th>
+                    <th style="text-align:center" @onclick='() => SortBy("StoreNo")'>
+                        Cửa hàng<span class="pos-sort @(_sortCol=="StoreNo"?"on":"")">@SI("StoreNo")</span>
+                    </th>
+                    <th style="text-align:center" @onclick='() => SortBy("POSTerminalNo")'>
+                        Máy POS<span class="pos-sort @(_sortCol=="POSTerminalNo"?"on":"")">@SI("POSTerminalNo")</span>
+                    </th>
+                    <th style="text-align:right" @onclick='() => SortBy("DiscountAmount")'>
+                        Giảm giá<span class="pos-sort @(_sortCol=="DiscountAmount"?"on":"")">@SI("DiscountAmount")</span>
+                    </th>
+                    <th style="text-align:right" @onclick='() => SortBy("AmountInclVAT")'>
+                        Tổng tiền<span class="pos-sort @(_sortCol=="AmountInclVAT"?"on":"")">@SI("AmountInclVAT")</span>
+                    </th>
+                    <th style="text-align:center" @onclick='() => SortBy("TransactionType")'>
+                        Loại đơn<span class="pos-sort @(_sortCol=="TransactionType"?"on":"")">@SI("TransactionType")</span>
+                    </th>
+                    <th style="text-align:center" @onclick='() => SortBy("CreatedDate")'>
+                        Đồng bộ<span class="pos-sort @(_sortCol=="CreatedDate"?"on":"")">@SI("CreatedDate")</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_loading)
+                {
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding:28px">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
+                        </td>
+                    </tr>
+                }
+                else if (!PagedItems.Any())
+                {
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding:28px; color:#9e9e9e">
+                            Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var t in PagedItems)
                     {
-                        <MudText Color="Color.Warning">@FormatVND(context.Item.DiscountAmount)</MudText>
+                        <tr>
+                            <td>@t.OrderNo</td>
+                            <td style="text-align:center">@t.OrderDate.ToString("dd/MM/yyyy")</td>
+                            <td style="text-align:center">@t.OrderTime.ToString("HH:mm:ss")</td>
+                            <td style="text-align:center">@t.StoreNo</td>
+                            <td style="text-align:center">@t.POSTerminalNo</td>
+                            <td style="text-align:right; color:@(t.DiscountAmount > 0 ? "#F39C12" : "#9e9e9e")">
+                                @(t.DiscountAmount > 0 ? FormatVND(t.DiscountAmount) : "—")
+                            </td>
+                            <td style="text-align:right; font-weight:500; color:@(t.TransactionType == 1 ? "#27AE60" : "#DC3545")">
+                                @FormatVND(t.AmountInclVAT)
+                            </td>
+                            <td style="text-align:center">
+                                @{
+                                    var (tColor, tLabel) = TransTypeDisplay(t.TransactionType);
+                                }
+                                <MudChip T="string" Color="@tColor" Size="Size.Small" Variant="Variant.Filled">
+                                    @tLabel
+                                </MudChip>
+                            </td>
+                            <td style="text-align:center">@t.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        </tr>
                     }
-                    else
-                    {
-                        <MudText Color="Color.Default">—</MudText>
-                    }
-                </CellTemplate>
-            </TemplateColumn>
+                }
+            </tbody>
+        </table>
+    </div>
 
-            <TemplateColumn Title="Tổng tiền" Sortable="true" SortBy="t => t.AmountInclVAT"
-                            CellStyle="text-align:right">
-                <CellTemplate>
-                    <MudText Color="@(context.Item.TransactionType == 1 ? Color.Success : Color.Error)">
-                        @FormatVND(context.Item.AmountInclVAT)
-                    </MudText>
-                </CellTemplate>
-            </TemplateColumn>
+    @* Pagination dưới *@
+    @if (PageCount > 1)
+    {
+        <div class="d-flex justify-end px-3 py-2">
+            <MudPagination @bind-Selected="_page"
+                           Count="@PageCount"
+                           BoundaryCount="1"
+                           MiddleCount="5"
+                           ShowFirstButton="true"
+                           ShowLastButton="true"
+                           Color="Color.Primary"
+                           Size="Size.Small"/>
+        </div>
+    }
 
-            <TemplateColumn Title="Loại đơn" Sortable="true" SortBy="t => t.TransactionType">
-                <CellTemplate>
-                    @{
-                        var (tColor, tLabel) = TransTypeDisplay(context.Item.TransactionType);
-                    }
-                    <MudChip T="string" Color="@tColor" Size="Size.Small" Variant="Variant.Filled">
-                        @tLabel
-                    </MudChip>
-                </CellTemplate>
-            </TemplateColumn>
-
-            <TemplateColumn Title="Đồng bộ" Sortable="true" SortBy="t => t.CreatedDate">
-                <CellTemplate>
-                    @context.Item.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")
-                </CellTemplate>
-            </TemplateColumn>
-
-        </Columns>
-        <NoRecordsContent>
-            <MudText Color="Color.Secondary" Class="pa-4">
-                Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.
-            </MudText>
-        </NoRecordsContent>
-    </MudDataGrid>
 </MudPaper>
 
 @code {
@@ -230,19 +276,36 @@
 
     private const int MaxRows = 500;
 
-    private bool _loading;
+    private bool    _loading;
     private string? _errorMsg;
-    private bool _hitLimit;
-    private bool _isStoreOperator;
+    private bool    _hitLimit;
+    private bool    _isStoreOperator;
 
-    private string?  _filterStoreNo;
+    private string?   _filterStoreNo;
     private DateTime? _filterFromDateNullable = DateTime.Today;
     private DateTime? _filterToDateNullable   = DateTime.Today;
-    private string   _filterOrderNo = string.Empty;
+    private string    _filterOrderNo          = string.Empty;
 
-    private List<TransactionListDto> _transactions = [];
+    private List<TransactionListDto> _transactions   = [];
     private IReadOnlyList<string>    _userStoreCodes = [];
     private List<string>             _allStoreCodes  = [];
+
+    // ── PosTableBase<T> implementation ──────────────────────────────────────
+
+    protected override IEnumerable<TransactionListDto> SortedFiltered => _sortCol switch
+    {
+        "OrderDate"       => _sortAsc ? _transactions.OrderBy(t => t.OrderDate)       : _transactions.OrderByDescending(t => t.OrderDate),
+        "OrderTime"       => _sortAsc ? _transactions.OrderBy(t => t.OrderTime)       : _transactions.OrderByDescending(t => t.OrderTime),
+        "StoreNo"         => _sortAsc ? _transactions.OrderBy(t => t.StoreNo)         : _transactions.OrderByDescending(t => t.StoreNo),
+        "POSTerminalNo"   => _sortAsc ? _transactions.OrderBy(t => t.POSTerminalNo)   : _transactions.OrderByDescending(t => t.POSTerminalNo),
+        "DiscountAmount"  => _sortAsc ? _transactions.OrderBy(t => t.DiscountAmount)  : _transactions.OrderByDescending(t => t.DiscountAmount),
+        "AmountInclVAT"   => _sortAsc ? _transactions.OrderBy(t => t.AmountInclVAT)   : _transactions.OrderByDescending(t => t.AmountInclVAT),
+        "TransactionType" => _sortAsc ? _transactions.OrderBy(t => t.TransactionType) : _transactions.OrderByDescending(t => t.TransactionType),
+        "CreatedDate"     => _sortAsc ? _transactions.OrderBy(t => t.CreatedDate)     : _transactions.OrderByDescending(t => t.CreatedDate),
+        _                 => _sortAsc ? _transactions.OrderBy(t => t.OrderNo)         : _transactions.OrderByDescending(t => t.OrderNo),
+    };
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,7 +323,6 @@
         }
         else
         {
-            // Load store list for autocomplete (ITOps/Admin)
             try
             {
                 var configs = await MdRepo.GetStoreSetConfigAsync();
@@ -280,11 +342,14 @@
         await LoadDataAsync();
     }
 
+    // ── Data ─────────────────────────────────────────────────────────────────
+
     private async Task LoadDataAsync()
     {
         _loading  = true;
         _errorMsg = null;
         _hitLimit = false;
+        _page     = 1;
         StateHasChanged();
         try
         {
@@ -335,19 +400,21 @@
     {
         if (string.IsNullOrWhiteSpace(value))
             return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
-        var filtered = _allStoreCodes
-            .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase));
-        return Task.FromResult(filtered);
+        return Task.FromResult(_allStoreCodes
+            .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
     }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static (Color Color, string Label) TransTypeDisplay(int type) => type switch
     {
-        1     => (Color.Success, "Bán hàng"),
+        1      => (Color.Success, "Bán hàng"),
         2 or 3 => (Color.Warning, "Trả hàng"),
-        _     => (Color.Default, $"Loại {type}")
+        _      => (Color.Default, $"Loại {type}")
     };
 
-    private static string FormatVND(decimal amount) => amount switch
+    // Dùng cho summary totals (có thể đến hàng tỷ)
+    private static string FormatSummaryVND(decimal amount) => amount switch
     {
         >= 1_000_000_000m => $"{amount / 1_000_000_000m:N1} tỷ",
         >= 1_000_000m     => $"{amount / 1_000_000m:N0} tr",

@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-17 (theming — PosTheme.cs + CSS variables + style-guide.html)
+> Cập nhật: 2026-06-18 (Responsive UI Phase 3 — 5 pages/components theo chuẩn mobile)
 
 ---
 
@@ -28,20 +28,24 @@ src/POS.Web/
 │   │   ├── MainLayout.razor.css
 │   │   ├── ReconnectModal.razor          ← template, dùng bởi App.razor
 │   │   └── ReconnectModal.razor.css
+│   ├── Shared/
+│   │   └── PosTableBase.cs      ← Abstract base class: sort/paginate/format cho mọi DataTable page
 │   └── Pages/
 │       ├── AccessDenied.razor
 │       ├── Index.razor
 │       ├── Login.razor
 │       ├── Admin/
-│       │   └── UsersPage.razor
+│       │   └── UsersPage.razor           ← migrated → PosTableBase + pos-table
 │       ├── Ops/
 │       │   └── HealthPage.razor
 │       └── Store/
-│           └── RevenuePage.razor
+│           ├── RevenuePage.razor
+│           ├── TransactionsPage.razor    ← migrated → PosTableBase + pos-table
+│           └── EosShiftsPage.razor       ← NEW — kết thúc ca bán hàng
 ├── Properties/
 │   └── launchSettings.json
 ├── wwwroot/
-│   ├── app.css          ← CSS design tokens --pos-* (28 variables) + scrollbar + delta classes
+│   ├── app.css          ← CSS design tokens --pos-* (28 vars) + scrollbar + delta + active-nav + .pos-table* DataTable standard
 │   ├── favicon.png
 │   └── lib/bootstrap/   ← ~30 CSS file template, CHƯA XÓA (không gây lỗi)
 ├── appsettings.json
@@ -102,7 +106,7 @@ src/POS.Web/
 | F0 | PosTheme.cs – custom MudTheme (navy primary, teal accent, semantic colors) | Theme/PosTheme.cs | ✅ | Primary=#2051A3, Drawer/Appbar=#1B3A5C, BorderRadius=8px, Button.TextTransform=none |
 | F1 | MainLayout – MudThemeProvider **Theme="@PosTheme.Default"** + providers | Layout/MainLayout.razor | ✅ | Đã truyền custom theme |
 | F2 | MainLayout – MudAppBar: toggle drawer + hiển thị tên user + logout | Layout/MainLayout.razor | ✅ | Href="/logout" trên MudIconButton |
-| F3 | MainLayout – Sidebar "Cửa hàng" (Policy=StoreAndAbove) | Layout/MainLayout.razor | ✅ | 4 nav link |
+| F3 | MainLayout – Sidebar "Cửa hàng" (Policy=StoreAndAbove) | Layout/MainLayout.razor | ✅ | 5 nav link (+ EosShifts) + accordion auto-collapse |
 | F4 | MainLayout – Sidebar "Vận hành" (Policy=OpsAndAbove) | Layout/MainLayout.razor | ✅ | 5 nav link |
 | F5 | MainLayout – Sidebar "Quản trị" (Policy=AdminOnly) | Layout/MainLayout.razor | ✅ | 4 nav link |
 | F6 | EmptyLayout – layout căn giữa cho Login | Layout/EmptyLayout.razor | ✅ | flex + align-items:center + **background:var(--mud-palette-background)** (không còn hardcode #f0f2f5), có MudBlazor providers + PosTheme |
@@ -117,19 +121,30 @@ src/POS.Web/
 | G9 | Index.razor – redirect theo role | Pages/Index.razor | ✅ | SystemAdmin→/admin/users, ITOps→/ops/health, other→/store/revenue |
 | G10 | RevenuePage – /store/revenue + StoreAndAbove + InteractiveServer | Pages/Store/RevenuePage.razor | ✅ | |
 | G11 | HealthPage – /ops/health + OpsAndAbove + InteractiveServer | Pages/Ops/HealthPage.razor | ✅ | |
-| G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | |
+| G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | migrated → PosTableBase + pos-table + LINQ search filter |
 | G13 | AccessDenied – /access-denied + [AllowAnonymous] | Pages/AccessDenied.razor | ✅ | |
+| G14 | TransactionsPage – /store/transactions + StoreAndAbove | Pages/Store/TransactionsPage.razor | ✅ | migrated → PosTableBase + pos-table (từ MudDataGrid) |
+| G15 | EosShiftsPage – /store/eos-shifts + StoreAndAbove | Pages/Store/EosShiftsPage.razor | ✅ | Kết thúc ca — filter + KPI cards + pos-table + GetEosShiftListAsync |
+| I1 | PosTableBase\<T\> – base class sort/paginate/format | Components/Shared/PosTableBase.cs | ✅ | PageSize=10, SortBy(), SI(), FormatVND(), PagedItems, TotalFiltered, PageCount |
+| I2 | DataTable CSS standard – .pos-table* | wwwroot/app.css | ✅ | pos-table-wrap, pos-table, pos-sort, header #EEF1F7/#1A2B45/2px-#2051A3 |
+| I3 | Sidebar accordion – tự mở/đóng theo route | Layout/MainLayout.razor | ✅ | NavigationManager.LocationChanged + @bind-Expanded + IAsyncDisposable |
+| I4 | Sidebar active NavLink highlight | wwwroot/app.css | ✅ | rgba(255,255,255,0.14) bg + white text + 3px border-left #3A6FCC |
+| I5 | Sidebar drawer responsive init — đóng trên mobile, mở trên desktop | Layout/MainLayout.razor | ✅ | IBrowserViewportService.GetCurrentBreakpointAsync() trong OnAfterRenderAsync(firstRender) |
+| I6 | Page header responsive — title+button không vỡ layout mobile | Pages/Admin/UsersPage.razor | ✅ | div.pos-page-header + pos-page-header-title + pos-page-header-btn |
+| I7 | DataTable MudPaper overflow-x — table scroll được trên mobile | UsersPage + TransactionsPage + EosShiftsPage | ✅ | Style="overflow-x:auto" trên MudPaper chứa pos-table-wrap |
+| I8 | Chip filter flex-wrap — chips không tràn ngang mobile | Pages/Store/RevenuePage.razor | ✅ | flex-wrap thêm vào MudPaper filter container |
+| I9 | Summary text flex-wrap — &nbsp;\|&nbsp; đổi sang flex items | Pages/Store/TransactionsPage.razor | ✅ | d-flex flex-wrap gap-3 thay separator |
 | H1 | Build pass (0 error, 0 warning) | — | ✅ | `dotnet build` → Build succeeded. 0 Warning(s). 0 Error(s). |
 
 ---
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **58 / 59 hạng mục**
+- ✅ Hoàn thành: **71 / 72 hạng mục**
 - ⚠️ Có vấn đề: **1 hạng mục** (B9 — SQL seed hash placeholder)
 - ❌ Còn thiếu: **0 hạng mục**
 
-> +2 hạng mục mới: F0 (PosTheme.cs) và update F1, F6 cho theme integration.
+> +8 hạng mục mới: G14 (TransactionsPage), G15 (EosShiftsPage), I1 (PosTableBase), I2 (pos-table CSS), I3 (sidebar accordion), I4 (active NavLink), F3 update, G12 update.
 
 ---
 

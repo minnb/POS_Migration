@@ -1,4 +1,10 @@
 @inherits LayoutComponentBase
+@implements IAsyncDisposable
+
+@inject NavigationManager Nav
+@inject IBrowserViewportService ViewportService
+
+@using Microsoft.AspNetCore.Components.Routing
 
 <MudThemeProvider Theme="@PosTheme.Default"/>
 <MudPopoverProvider/>
@@ -34,11 +40,13 @@
         <MudNavMenu>
 
             <AuthorizeView Policy="@WebPolicies.StoreAndAbove">
-                <MudNavGroup Title="Cửa hàng" Icon="@Icons.Material.Filled.Store" Expanded="true">
+                <MudNavGroup Title="Cửa hàng" Icon="@Icons.Material.Filled.Store" @bind-Expanded="_expandStore">
                     <MudNavLink Href="/store/revenue"
                                 Icon="@Icons.Material.Filled.BarChart">Doanh thu</MudNavLink>
                     <MudNavLink Href="/store/transactions"
                                 Icon="@Icons.Material.Filled.Receipt">Giao dịch</MudNavLink>
+                    <MudNavLink Href="/store/eos-shifts"
+                                Icon="@Icons.Material.Filled.LockClock">Kết thúc ca</MudNavLink>
                     <MudNavLink Href="/store/loyalty"
                                 Icon="@Icons.Material.Filled.CardGiftcard">Loyalty &amp; Voucher</MudNavLink>
                     <MudNavLink Href="/store/pos-status"
@@ -47,7 +55,7 @@
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart">
+                <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart" @bind-Expanded="_expandOps">
                     <MudNavLink Href="/ops/health"
                                 Icon="@Icons.Material.Filled.Speed">System health</MudNavLink>
                     <MudNavLink Href="/ops/pos-map"
@@ -62,7 +70,7 @@
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.AdminOnly">
-                <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Filled.AdminPanelSettings">
+                <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Filled.AdminPanelSettings" @bind-Expanded="_expandAdmin">
                     <MudNavLink Href="/admin/users"
                                 Icon="@Icons.Material.Filled.People">Người dùng</MudNavLink>
                     <MudNavLink Href="/admin/roles"
@@ -84,4 +92,39 @@
     </MudMainContent>
 </MudLayout>
 
-@code { private bool _drawerOpen = true; }
+@code {
+    private bool _drawerOpen;          // init = false; OnAfterRenderAsync set theo viewport
+    private bool _expandStore;
+    private bool _expandOps;
+    private bool _expandAdmin;
+
+    protected override void OnInitialized()
+    {
+        UpdateExpanded(Nav.Uri);
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    // Mở drawer sẵn trên desktop (≥ md = 960px), đóng trên mobile/tablet
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var bp = await ViewportService.GetCurrentBreakpointAsync();
+        _drawerOpen = bp is Breakpoint.Md or Breakpoint.Lg or Breakpoint.Xl or Breakpoint.Xxl;
+        StateHasChanged();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateExpanded(e.Location);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateExpanded(string uri)
+    {
+        _expandStore = uri.Contains("/store/", StringComparison.OrdinalIgnoreCase);
+        _expandOps   = uri.Contains("/ops/",   StringComparison.OrdinalIgnoreCase);
+        _expandAdmin = uri.Contains("/admin/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async ValueTask DisposeAsync() => Nav.LocationChanged -= OnLocationChanged;
+}

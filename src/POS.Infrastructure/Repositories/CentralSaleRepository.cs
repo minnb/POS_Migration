@@ -5,11 +5,12 @@ using Newtonsoft.Json;
 using POS.Common.Dtos.CentralSale;
 using POS.Common.Dtos.POS;
 using POS.Common.Dtos.POS.Common;
+using POS.Common.Enums;
 using POS.Common.Helpers;
 using POS.Infrastructure.Database;
-using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 using POS.Infrastructure.Repositories.Interfaces;
 using System.Data;
+using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 
 namespace POS.Infrastructure.Repositories;
 
@@ -268,28 +269,36 @@ public sealed class CentralSaleRepository(
             var data = StringHelper.StringToObject<KafkaMessagePOS>(message.Replace("'", ""));
             if (data == null)
             {
-               return (false, "Lỗi convert Json");
+                await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", "Lỗi convert Json", ct: ct);
+                return (false, "Lỗi convert Json");
             }
             string jsonData = JsonConvert.SerializeObject(data.Data);
             var jObject = StringHelper.StringToJObject(message);
-            
+
             if (jObject is null)
             {
+                await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", "Invalid message format", ct: ct);
                 return (false, "Invalid message format");
             }
 
             string? type = (string?)jObject["Type"];
-            if (type == "HARDWARE")
+            if (type == PushSaleDataTypeEnum.HARDWARE.ToString())
             {
                 return (true, "Continue");
             }
 
             using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo ?? "", ct: ct);
 
+            if (data.Type == PushSaleDataTypeEnum.REGISTER.ToString() && !string.IsNullOrEmpty(posNo))
+            {
+                await RegisterExecuteAsync(conn, posNo);
+                return (true, "OK");
+            }
+
             var parameters = new DynamicParameters();
             parameters.Add("@Type", data.Type);
             parameters.Add("@Json", jsonData);
-            
+
             // Call stored procedure
             var result = await conn.QueryAsync<QueryResult>(
                 "Sale_InsertDataByOrder_KAFKA",
@@ -309,20 +318,33 @@ public sealed class CentralSaleRepository(
                 {
                     return (false, $"lỗi thực thi tra cứu log trong Interface_Errors");
                 }
-
-                if (data.Type == "REGISTER" && !string.IsNullOrEmpty(posNo))
-                {
-                    //await RegisterExecuteAsync(dbContext, POSTerminal);
-                }
                 return (true, "OK");
             }
         }
         catch(Exception ex)
         {
+            await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", ex.Message, ct: ct);
             return (false, ex.Message);
         }
     }
+    public static async Task RegisterExecuteAsync(IDbConnection dbContext, string POSTerminal)
+    {
+        if (!string.IsNullOrEmpty(POSTerminal))
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("@POSTerminal", POSTerminal);
 
+            await dbContext.ExecuteAsync(
+                "Register_Insert",
+                parameters,
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: 30
+            );
+        }
+        else
+        {
+        }
+    }
     // ── Revenue Dashboard ─────────────────────────────────────────────────────
 
     public async Task<List<RevenueDailyDto>> GetRevenueDailyAsync(DateTime fromDate, DateTime toDate,
@@ -424,6 +446,74 @@ public sealed class CentralSaleRepository(
 
     // ── Transaction Dashboard ─────────────────────────────────────────────────
 
+    // ── EOS Shift Dashboard ───────────────────────────────────────────────────
+
+    public async Task<List<EosShiftDto>> GetEosShiftListAsync(
+        DateTime businessDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var storeFilter = storeCodes?.Count > 0 ? "AND h.StoreNo IN @StoreCodes" : "";
+            // TODO: Xác minh TenderType code cho tiền mặt tại DB (SELECT DISTINCT TenderType FROM TransPaymentEntry)
+            var sql = $@"
+                SELECT
+                    h.StoreNo,
+                    h.PosTerminal,
+                    CAST(h.BussinessDate AS DATE)       AS BussinessDate,
+                    CAST(h.ShiftNumber  AS INT)          AS ShiftNumber,
+                    h.BeginAmount,
+                    ISNULL(sl.TienMat,     0)            AS TienMat,
+                    ISNULL(tp.TienHeThong, 0)            AS TienHeThong,
+                    ISNULL(sl.TienMat, 0)
+                        - h.BeginAmount
+                        - ISNULL(tp.TienHeThong, 0)      AS ChenLech,
+                    h.CloseShiftDate,
+                    h.IsShiftClosed
+                FROM POSShiftHeader h (NOLOCK)
+
+                LEFT JOIN (
+                    SELECT ShiftCode, SUM(CashAmount) AS TienMat
+                    FROM   POSShiftLine (NOLOCK)
+                    GROUP BY ShiftCode
+                ) sl ON sl.ShiftCode = h.ShiftCode
+
+                LEFT JOIN (
+                    SELECT
+                        th.StoreNo,
+                        th.POSTerminalNo,
+                        CAST(th.OrderDate AS DATE) AS SaleDate,
+                        SUM(tp.AmountTendered)     AS TienHeThong
+                    FROM  TransPaymentEntry tp (NOLOCK)
+                    INNER JOIN TransHeader  th (NOLOCK) ON th.OrderNo = tp.OrderNo
+                    WHERE tp.TenderType = '1'
+                      AND CAST(th.OrderDate AS DATE) = @BusinessDate
+                    GROUP BY th.StoreNo, th.POSTerminalNo, CAST(th.OrderDate AS DATE)
+                ) tp ON tp.StoreNo      = h.StoreNo
+                    AND tp.POSTerminalNo = h.PosTerminal
+                    AND tp.SaleDate      = CAST(h.BussinessDate AS DATE)
+
+                WHERE CAST(h.BussinessDate AS DATE) = @BusinessDate
+                  {storeFilter}
+                ORDER BY h.StoreNo, h.PosTerminal;";
+
+            var p = new DynamicParameters();
+            p.Add("BusinessDate", businessDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
+
+            var data = await conn.QueryAsync<EosShiftDto>(
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetEosShiftList", ex);
+            return [];
+        }
+    }
+
     public async Task<List<TransactionListDto>> GetTransactionListAsync(
         string? storeNo, DateTime fromDate, DateTime toDate,
         string? orderNo, int maxRows = 500, CancellationToken ct = default)
@@ -468,6 +558,87 @@ public sealed class CentralSaleRepository(
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs("GetTransactionList", ex);
+            return [];
+        }
+    }
+
+    // ── Interface_Errors Log ──────────────────────────────────────────────────
+
+    public async Task InsertInterfaceErrorAsync(
+        string? userName, string? errorProcedure, string? errorMessage,
+        int? errorNumber = null, int? errorSeverity = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"INSERT INTO Interface_Errors
+                                     (UserName, ErrorNumber, ErrorSeverity, ErrorProcedure, ErrorMessage, ErrorDateTime)
+                                 VALUES (@UserName, @ErrorNumber, @ErrorSeverity, @ErrorProcedure, @ErrorMessage, GETDATE());";
+            await conn.ExecuteAsync(new CommandDefinition(sql,
+                new { UserName = userName, ErrorNumber = errorNumber, ErrorSeverity = errorSeverity,
+                      ErrorProcedure = errorProcedure, ErrorMessage = errorMessage },
+                commandTimeout: Timeout, cancellationToken: ct));
+        }
+        catch
+        {
+            // Swallow — never throw when logging an error
+
+        }
+    }
+
+    public async Task<InterfaceErrorSummaryDto> GetInterfaceErrorSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"
+                SELECT COUNT(*) AS TotalErrors,
+                       COUNT(CASE WHEN CAST(ErrorDateTime AS DATE) = CAST(GETDATE() AS DATE) THEN 1 END) AS TodayErrors,
+                       COUNT(DISTINCT ErrorProcedure) AS UniqueProcedures,
+                       MAX(ErrorDateTime) AS LastErrorAt
+                FROM Interface_Errors (NOLOCK)
+                WHERE ErrorDateTime >= @FromDate AND ErrorDateTime < @ToDate;";
+            var result = await conn.QueryFirstOrDefaultAsync<InterfaceErrorSummaryDto>(
+                new CommandDefinition(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date.AddDays(1) },
+                    commandTimeout: Timeout, cancellationToken: ct));
+            return result ?? new InterfaceErrorSummaryDto();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetInterfaceErrorSummary", ex);
+            return new InterfaceErrorSummaryDto();
+        }
+    }
+
+    public async Task<List<InterfaceErrorDto>> GetInterfaceErrorsAsync(
+        DateTime fromDate, DateTime toDate,
+        string? procedure = null, int maxRows = 200,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            string? normalizedProc = string.IsNullOrWhiteSpace(procedure) ? null : procedure.Trim();
+            const string sql = @"
+                SELECT TOP (@MaxRows)
+                    ErrorID, UserName, ErrorNumber, ErrorState, ErrorSeverity,
+                    ErrorLine, ErrorProcedure, ErrorMessage, ErrorDateTime
+                FROM Interface_Errors (NOLOCK)
+                WHERE ErrorDateTime >= @FromDate AND ErrorDateTime < @ToDate
+                  AND (@Procedure IS NULL OR ErrorProcedure LIKE '%' + @Procedure + '%')
+                ORDER BY ErrorDateTime DESC;";
+            var data = await conn.QueryAsync<InterfaceErrorDto>(
+                new CommandDefinition(sql,
+                    new { MaxRows = maxRows, FromDate = fromDate.Date, ToDate = toDate.Date.AddDays(1),
+                          Procedure = normalizedProc },
+                    commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetInterfaceErrors", ex);
             return [];
         }
     }

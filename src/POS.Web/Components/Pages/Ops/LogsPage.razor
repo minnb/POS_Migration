@@ -1,0 +1,252 @@
+@page "/ops/logs"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+@using POS.Common.Dtos.CentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+
+@inject ICentralSaleRepository SaleRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Log Viewer – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-2" Style="vertical-align:middle"/>
+    Log Viewer — Interface Errors
+</MudText>
+
+@* ── Filter ────────────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="Từ ngày" @bind-Date="_fromDate" DateFormat="dd/MM/yyyy"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="Đến ngày" @bind-Date="_toDate" DateFormat="dd/MM/yyyy"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_procedureFilter" Label="Tìm procedure"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="1">
+            <MudSelect @bind-Value="_maxRows" Label="Số dòng"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="100">100</MudSelectItem>
+                <MudSelectItem Value="200">200</MudSelectItem>
+                <MudSelectItem Value="500">500</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="LoadDataAsync" FullWidth="true"
+                           Disabled="_loading">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="ResetFilter" FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+}
+else if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+else
+{
+    @* ── KPI Row ──────────────────────────────────────────────────────────────── *@
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left: 4px solid var(--pos-danger)">
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary)">Lỗi hôm nay</MudText>
+                <MudText Typo="Typo.h4" Style="color:var(--pos-danger); font-weight:700">
+                    @_summary.TodayErrors.ToString("N0")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left: 4px solid var(--pos-warning)">
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary)">Lỗi trong kỳ</MudText>
+                <MudText Typo="Typo.h4" Style="color:var(--pos-warning); font-weight:700">
+                    @_summary.TotalErrors.ToString("N0")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left: 4px solid var(--pos-info)">
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary)">Procedure lỗi</MudText>
+                <MudText Typo="Typo.h4" Style="color:var(--pos-info); font-weight:700">
+                    @_summary.UniqueProcedures.ToString("N0")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left: 4px solid #9E9E9E">
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary)">Lỗi gần nhất</MudText>
+                <MudText Typo="Typo.h6" Style="font-weight:700; padding-top:6px">
+                    @(_summary.LastErrorAt.HasValue
+                        ? _summary.LastErrorAt.Value.ToString("HH:mm dd/MM")
+                        : "—")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* ── DataTable ────────────────────────────────────────────────────────────── *@
+    <MudPaper Elevation="2" Style="overflow-x:auto">
+        <div class="pos-table-wrap">
+            <table class="pos-table">
+                <thead>
+                    <tr>
+                        <th style="width:70px">ID</th>
+                        <th style="min-width:140px">Thời gian</th>
+                        <th style="min-width:100px">Store/User</th>
+                        <th style="min-width:200px">Procedure</th>
+                        <th style="min-width:300px">Nội dung lỗi</th>
+                        <th style="width:90px; text-align:center">Severity</th>
+                        <th style="width:90px; text-align:center">Mã lỗi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_errors.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" style="text-align:center; padding:24px; color:var(--mud-palette-text-secondary)">
+                                Không có dữ liệu lỗi trong khoảng thời gian đã chọn.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var e in _errors)
+                        {
+                            <tr>
+                                <td>@e.ErrorID</td>
+                                <td style="white-space:nowrap">
+                                    @(e.ErrorDateTime?.ToString("HH:mm:ss dd/MM/yy") ?? "—")
+                                </td>
+                                <td>@(e.UserName ?? "—")</td>
+                                <td style="font-family:monospace; font-size:0.8rem">
+                                    @(e.ErrorProcedure ?? "—")
+                                </td>
+                                <td>
+                                    @{
+                                        var msg = e.ErrorMessage ?? "";
+                                        var truncated = msg.Length > 120 ? msg[..120] + "…" : msg;
+                                    }
+                                    @if (msg.Length > 120)
+                                    {
+                                        <MudTooltip Text="@msg" Placement="Placement.Top">
+                                            <span style="cursor:help">@truncated</span>
+                                        </MudTooltip>
+                                    }
+                                    else
+                                    {
+                                        @truncated
+                                    }
+                                </td>
+                                <td style="text-align:center">
+                                    @if (e.ErrorSeverity.HasValue)
+                                    {
+                                        var color = e.ErrorSeverity >= 16 ? "var(--pos-danger)"
+                                                  : e.ErrorSeverity >= 11 ? "var(--pos-warning)"
+                                                  : "var(--pos-success)";
+                                        <span style="background:@color; color:#fff; border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:600">
+                                            @e.ErrorSeverity
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td style="text-align:center">@(e.ErrorNumber?.ToString() ?? "—")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </MudPaper>
+
+    @if (_errors.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Class="mt-2" Style="color:var(--mud-palette-text-secondary)">
+            Hiển thị @_errors.Count dòng (tối đa @_maxRows)
+        </MudText>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private string? _errorMsg;
+
+    private DateTime? _fromDate = DateTime.Today;
+    private DateTime? _toDate   = DateTime.Today;
+    private string?   _procedureFilter;
+    private int       _maxRows = 200;
+
+    private InterfaceErrorSummaryDto _summary = new();
+    private List<InterfaceErrorDto>  _errors  = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var from = (_fromDate ?? DateTime.Today).Date;
+            var to   = (_toDate   ?? DateTime.Today).Date;
+
+            var summaryTask = SaleRepo.GetInterfaceErrorSummaryAsync(from, to);
+            var listTask    = SaleRepo.GetInterfaceErrorsAsync(from, to, _procedureFilter, _maxRows);
+
+            await Task.WhenAll(summaryTask, listTask);
+
+            _summary = summaryTask.Result;
+            _errors  = listTask.Result;
+
+            KibanaService.LogInfo("LogsPage.LoadData", "all",
+                $"Loaded {_errors.Count} errors from {from:dd/MM} to {to:dd/MM}");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu lỗi.";
+            KibanaService.LogException("LogsPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetFilter()
+    {
+        _fromDate        = DateTime.Today;
+        _toDate          = DateTime.Today;
+        _procedureFilter = null;
+        _maxRows         = 200;
+        await LoadDataAsync();
+    }
+}
