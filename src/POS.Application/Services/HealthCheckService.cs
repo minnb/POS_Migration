@@ -27,17 +27,54 @@ public sealed class HealthCheckService(
     public async Task<List<HealthCheckItemDto>> CheckAllAsync(string? storeNo, CancellationToken ct = default)
     {
         var workerName = configuration["HealthCheck:WorkerName"] ?? "DataSync";
+        var connMd   = configuration.GetConnectionString("CentralMD");
+        var connGen  = configuration.GetConnectionString("CentralGeneral");
+        var connSale = configuration.GetConnectionString("CentralSale");
+
         var results = await Task.WhenAll(
-            CheckRedisAsync(ct),
-            CheckRabbitMQAsync(ct),
-            CheckSqlAsync("SQL:CentralMD",      configuration.GetConnectionString("CentralMD"),      ct),
-            CheckSqlAsync("SQL:CentralGeneral", configuration.GetConnectionString("CentralGeneral"), ct),
-            CheckSqlAsync("SQL:CentralSale",    configuration.GetConnectionString("CentralSale"),    ct),
-            CheckCentralSaleTemplateAsync(storeNo, ct),
-            CheckWebApiAsync(ct),
-            CheckWorkerHeartbeatAsync(workerName, ct)
+            Guarded(CheckRedisAsync(ct),                                "Redis"),
+            Guarded(CheckRabbitMQAsync(ct),                             "RabbitMQ"),
+            Guarded(CheckSqlAsync("SQL:CentralMD",      connMd,   ct), "SQL:CentralMD"),
+            Guarded(CheckSqlAsync("SQL:CentralGeneral", connGen,  ct), "SQL:CentralGeneral"),
+            Guarded(CheckSqlAsync("SQL:CentralSale",    connSale, ct), "SQL:CentralSale"),
+            Guarded(CheckCentralSaleTemplateAsync(storeNo, ct),         "SQL:CentralSaleTemplate"),
+            Guarded(CheckWebApiAsync(ct),                               "POS.Api"),
+            Guarded(CheckWorkerHeartbeatAsync(workerName, ct),          "Worker")
         );
         return [.. results];
+    }
+
+    // Giới hạn cứng mỗi check — Task.WaitAsync ném TimeoutException bất kể task có kiểm tra ct hay không.
+    // Ngăn CheckRabbitMQAsync hoặc bất kỳ check nào treo TCP làm Task.WhenAll đợi vô tận.
+    private static async Task<HealthCheckItemDto> Guarded(
+        Task<HealthCheckItemDto> task, string name, int timeoutSec = 8)
+    {
+        try
+        {
+            return await task.WaitAsync(TimeSpan.FromSeconds(timeoutSec));
+        }
+        catch (TimeoutException)
+        {
+            return new HealthCheckItemDto
+            {
+                Component = name,
+                Target    = "?",
+                Ok        = false,
+                LatencyMs = timeoutSec * 1000L,
+                Message   = $"Timeout (>{timeoutSec}s) — không phản hồi"
+            };
+        }
+        catch (Exception ex)
+        {
+            return new HealthCheckItemDto
+            {
+                Component = name,
+                Target    = "?",
+                Ok        = false,
+                LatencyMs = 0,
+                Message   = ex.Message
+            };
+        }
     }
 
     // ── Redis: round-trip write/read ──────────────────────────────────────
@@ -176,7 +213,7 @@ public sealed class HealthCheckService(
     {
         var key = $"Worker:{workerName}:Heartbeat";
         var component = $"Worker:{workerName}";
-        var raw = await redis.StringGetAsync<string>(key);
+        var raw = await redis.StringGetAsync<string>(key).WaitAsync(ct);
 
         if (raw == null)
             return Item(component, $"Redis key: {key}", false, 0,
