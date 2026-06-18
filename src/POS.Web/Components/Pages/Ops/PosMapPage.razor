@@ -1,7 +1,6 @@
 @page "/ops/pos-map"
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
-<<<<<<< HEAD
 @implements IDisposable
 
 @using Microsoft.AspNetCore.Authorization
@@ -356,20 +355,3 @@ else if (!_loading && _allItems.Any())
 
     public void Dispose() => _timer?.Dispose();
 }
-=======
-
-@using Microsoft.AspNetCore.Authorization
-@using MudBlazor
-@using POS.Web.Auth
-
-<PageTitle>POS Map – POS Dashboard</PageTitle>
-
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
-    POS Map
-</MudText>
-
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
->>>>>>> 001b18bbda47d47ce8acb5b26752facca703a4d4
