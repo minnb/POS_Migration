@@ -31,7 +31,8 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
                 Validity_From_Date = item.From_Date,
                 Expiry_Date      = item.Expiry_Date,
                 CompanyCode      = "WCM",
-                Partner          = "SAP"
+                Partner          = "SAP",
+                VoucherType = item.VoucherType,
             };
 
             var existing = await sapVoucherRepository.GetByVoucherNumberAsync(item.VoucherNumber, ct);

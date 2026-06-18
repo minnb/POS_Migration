@@ -443,6 +443,74 @@ public sealed class CentralSaleRepository(
 
     // ── Transaction Dashboard ─────────────────────────────────────────────────
 
+    // ── EOS Shift Dashboard ───────────────────────────────────────────────────
+
+    public async Task<List<EosShiftDto>> GetEosShiftListAsync(
+        DateTime businessDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var storeFilter = storeCodes?.Count > 0 ? "AND h.StoreNo IN @StoreCodes" : "";
+            // TODO: Xác minh TenderType code cho tiền mặt tại DB (SELECT DISTINCT TenderType FROM TransPaymentEntry)
+            var sql = $@"
+                SELECT
+                    h.StoreNo,
+                    h.PosTerminal,
+                    CAST(h.BussinessDate AS DATE)       AS BussinessDate,
+                    CAST(h.ShiftNumber  AS INT)          AS ShiftNumber,
+                    h.BeginAmount,
+                    ISNULL(sl.TienMat,     0)            AS TienMat,
+                    ISNULL(tp.TienHeThong, 0)            AS TienHeThong,
+                    ISNULL(sl.TienMat, 0)
+                        - h.BeginAmount
+                        - ISNULL(tp.TienHeThong, 0)      AS ChenLech,
+                    h.CloseShiftDate,
+                    h.IsShiftClosed
+                FROM POSShiftHeader h (NOLOCK)
+
+                LEFT JOIN (
+                    SELECT ShiftCode, SUM(CashAmount) AS TienMat
+                    FROM   POSShiftLine (NOLOCK)
+                    GROUP BY ShiftCode
+                ) sl ON sl.ShiftCode = h.ShiftCode
+
+                LEFT JOIN (
+                    SELECT
+                        th.StoreNo,
+                        th.POSTerminalNo,
+                        CAST(th.OrderDate AS DATE) AS SaleDate,
+                        SUM(tp.AmountTendered)     AS TienHeThong
+                    FROM  TransPaymentEntry tp (NOLOCK)
+                    INNER JOIN TransHeader  th (NOLOCK) ON th.OrderNo = tp.OrderNo
+                    WHERE tp.TenderType = '1'
+                      AND CAST(th.OrderDate AS DATE) = @BusinessDate
+                    GROUP BY th.StoreNo, th.POSTerminalNo, CAST(th.OrderDate AS DATE)
+                ) tp ON tp.StoreNo      = h.StoreNo
+                    AND tp.POSTerminalNo = h.PosTerminal
+                    AND tp.SaleDate      = CAST(h.BussinessDate AS DATE)
+
+                WHERE CAST(h.BussinessDate AS DATE) = @BusinessDate
+                  {storeFilter}
+                ORDER BY h.StoreNo, h.PosTerminal;";
+
+            var p = new DynamicParameters();
+            p.Add("BusinessDate", businessDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
+
+            var data = await conn.QueryAsync<EosShiftDto>(
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetEosShiftList", ex);
+            return [];
+        }
+    }
+
     public async Task<List<TransactionListDto>> GetTransactionListAsync(
         string? storeNo, DateTime fromDate, DateTime toDate,
         string? orderNo, int maxRows = 500, CancellationToken ct = default)

@@ -1,0 +1,373 @@
+@page "/store/eos-shifts"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.CentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+@using POS.Infrastructure.Logging
+
+@inject ICentralSaleRepository SaleRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Kết thúc ca – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.LockClock" Class="mr-2" Style="vertical-align:middle"/>
+    Kết thúc ca bán hàng
+</MudText>
+
+@* ── Filter Panel ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        @* Cửa hàng *@
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@_filterStoreNo"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="string"
+                                 @bind-Value="_filterStoreNo"
+                                 Label="Cửa hàng"
+                                 Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 CoerceValue="true"/>
+            }
+        </MudItem>
+
+        @* Ngày kinh doanh *@
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_filterDateNullable"
+                           Label="Ngày kinh doanh"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           Editable="true"/>
+        </MudItem>
+
+        @* Trạng thái *@
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect T="int?"
+                       @bind-Value="_filterStatus"
+                       Label="Trạng thái"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@((int?)0)">Chưa đóng ca</MudSelectItem>
+                <MudSelectItem Value="@((int?)1)">Đã đóng ca</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        @* Buttons *@
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">
+                    Tìm
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">
+                    Xóa
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Alert ────────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── KPI Cards ────────────────────────────────────────────────────────── *@
+@if (!_loading && _shifts.Count > 0)
+{
+    <MudGrid Spacing="3" Class="mb-4">
+
+        <MudItem xs="12" sm="4">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@_shifts.Count</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số ca</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Success">@_closedCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Đã đóng ca</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Error">@_openCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Chưa đóng ca</MudText>
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+}
+
+@* ── Data Grid ────────────────────────────────────────────────────────── *@
+<style>
+    .eos-shifts-grid .mud-table-container table {
+        width: auto !important;
+        min-width: 100%;
+    }
+</style>
+<MudPaper Elevation="2" Style="overflow-x:auto">
+    <MudDataGrid T="EosShiftDto"
+                 Class="eos-shifts-grid"
+                 Items="@_displayShifts"
+                 Dense="true"
+                 Striped="true"
+                 Hover="true"
+                 SortMode="SortMode.Multiple"
+                 RowsPerPage="10"
+                 Loading="@_loading">
+        <Columns>
+
+            <PropertyColumn Property="s => s.StoreNo"
+                            Title="Mã CH/ST"
+                            Sortable="true"
+                            HeaderStyle="white-space:nowrap; text-align:center"
+                            CellStyle="white-space:nowrap; text-align:center"/>
+
+            <PropertyColumn Property="s => s.PosTerminal"
+                            Title="PosID"
+                            Sortable="true"
+                            HeaderStyle="white-space:nowrap; text-align:center"
+                            CellStyle="white-space:nowrap; text-align:center"/>
+
+            <TemplateColumn Title="Ngày kinh doanh" Sortable="true" SortBy="s => s.BussinessDate"
+                            HeaderStyle="white-space:nowrap; text-align:center"
+                            CellStyle="white-space:nowrap; text-align:center">
+                <CellTemplate>
+                    @context.Item.BussinessDate.ToString("dd/MM/yyyy")
+                </CellTemplate>
+            </TemplateColumn>
+
+            <PropertyColumn Property="s => s.ShiftNumber"
+                            Title="Ca"
+                            Sortable="true"
+                            HeaderStyle="white-space:nowrap; text-align:center"
+                            CellStyle="white-space:nowrap; text-align:center"/>
+
+            <TemplateColumn Title="Tiền đầu ca" Sortable="true" SortBy="s => s.BeginAmount"
+                            HeaderStyle="white-space:nowrap; text-align:right"
+                            CellStyle="white-space:nowrap; text-align:right">
+                <CellTemplate>
+                    @FormatVND(context.Item.BeginAmount)
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Tiền mặt" Sortable="true" SortBy="s => s.TienMat"
+                            HeaderStyle="white-space:nowrap; text-align:right"
+                            CellStyle="white-space:nowrap; text-align:right">
+                <CellTemplate>
+                    <MudText Color="@(context.Item.TienMat > 0 ? Color.Default : Color.Secondary)">
+                        @FormatVND(context.Item.TienMat)
+                    </MudText>
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Tiền hệ thống" Sortable="true" SortBy="s => s.TienHeThong"
+                            HeaderStyle="white-space:nowrap; text-align:right"
+                            CellStyle="white-space:nowrap; text-align:right">
+                <CellTemplate>
+                    @FormatVND(context.Item.TienHeThong)
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Chênh lệch" Sortable="true" SortBy="s => s.ChenLech"
+                            HeaderStyle="white-space:nowrap; text-align:right"
+                            CellStyle="white-space:nowrap; text-align:right">
+                <CellTemplate>
+                    <MudText Color="@(context.Item.ChenLech < 0 ? Color.Error : Color.Success)">
+                        @FormatVND(context.Item.ChenLech)
+                    </MudText>
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="T/G đóng ca" Sortable="true" SortBy="s => s.CloseShiftDate"
+                            HeaderStyle="white-space:nowrap; text-align:center"
+                            CellStyle="white-space:nowrap; text-align:center">
+                <CellTemplate>
+                    @(context.Item.CloseShiftDate?.ToString("dd/MM/yyyy HH:mm") ?? "—")
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Trạng thái" Sortable="true" SortBy="s => s.IsShiftClosed"
+                            HeaderStyle="white-space:nowrap; text-align:center"
+                            CellStyle="white-space:nowrap; text-align:center">
+                <CellTemplate>
+                    @if (context.Item.IsShiftClosed)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">
+                            Đã đóng ca
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">
+                            Chưa đóng ca
+                        </MudChip>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+
+        </Columns>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary" Class="pa-4">
+                Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.
+            </MudText>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool _loading;
+    private string? _errorMsg;
+    private bool _isStoreOperator;
+
+    private string?   _filterStoreNo;
+    private DateTime? _filterDateNullable = DateTime.Today;
+    private int?      _filterStatus;
+
+    private List<EosShiftDto>    _shifts      = [];
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private List<string>          _allStoreCodes  = [];
+
+    private IEnumerable<EosShiftDto> _displayShifts => _filterStatus switch
+    {
+        0 => _shifts.Where(s => !s.IsShiftClosed),
+        1 => _shifts.Where(s =>  s.IsShiftClosed),
+        _ => _shifts
+    };
+
+    private int _closedCount => _shifts.Count(s =>  s.IsShiftClosed);
+    private int _openCount   => _shifts.Count(s => !s.IsShiftClosed);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        if (_isStoreOperator)
+        {
+            _filterStoreNo = _userStoreCodes[0];
+        }
+        else
+        {
+            try
+            {
+                var configs = await MdRepo.GetStoreSetConfigAsync();
+                _allStoreCodes = configs?
+                    .Select(c => c.StoreNo)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct()
+                    .OrderBy(s => s)
+                    .ToList() ?? [];
+            }
+            catch (Exception ex)
+            {
+                KibanaService.LogException("EosShiftsPage.LoadStoreCodes", "", 0, "", ex.Message);
+            }
+        }
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var date = (_filterDateNullable ?? DateTime.Today).Date;
+
+            IReadOnlyList<string>? storeCodes = _isStoreOperator
+                ? _userStoreCodes
+                : string.IsNullOrEmpty(_filterStoreNo)
+                    ? null
+                    : [_filterStoreNo];
+
+            _shifts = await SaleRepo.GetEosShiftListAsync(date, storeCodes);
+
+            KibanaService.LogInfo("EosShiftsPage.LoadData",
+                _filterStoreNo ?? "all",
+                $"Loaded {_shifts.Count} shifts [{date:dd/MM/yyyy}] closed={_closedCount} open={_openCount}");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("EosShiftsPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _filterDateNullable = DateTime.Today;
+        _filterStatus       = null;
+        if (!_isStoreOperator) _filterStoreNo = null;
+        await LoadDataAsync();
+    }
+
+    private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
+        var filtered = _allStoreCodes
+            .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(filtered);
+    }
+
+    private static string FormatVND(decimal amount) => $"{amount:N0} ₫";
+}
