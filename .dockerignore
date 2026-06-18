@@ -1,6 +1,6 @@
 POS.Backend/
-bin/
-obj/
+**/bin/
+**/obj/
 docs/
 .claude/
 .gitignore
