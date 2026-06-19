@@ -12,7 +12,6 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
     public async Task<ResultResponse> CreateNewVoucherAsync(List<CreateVoucherModel> model, CancellationToken ct = default)
     {
         var results = new List<VoucherStatusResponse>();
-
         foreach (var item in model)
         {
             var acticleType = item.VoucherNumber.Length >= 7 && item.VoucherNumber[6] == '3'
@@ -63,7 +62,7 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
             if (data.Status == "RDM") 
             {
                 data.Return = "1";
-                return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = "Success", Data = data };
+                return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = $"Mã Voucher/Coupon {voucherNumber} đã được sử dụng", Data = data };
             }
             else
             {
