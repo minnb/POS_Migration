@@ -4,6 +4,33 @@
 
 ---
 
+## [2026-06-19] SAPController — migrate Internal Voucher APIs + business logic fixes
+
+**Layer:** POS.Api, POS.Application, POS.Infrastructure, POS.Common
+**Loại:** Feature + Bug fix + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Api/Controllers/SAPController.cs`: Thêm `CheckReturnVoucher`, `UpdateReturnVoucher`; giữ `CheckVoucher`, `CreateNewVoucher`, `CreateReturnVoucher`, `RedeemCpnVch`
+- `src/POS.Application/Interfaces/ISAPService.cs`: Thêm `UpdateReturnVoucherAsync`
+- `src/POS.Application/Services/SAPService.cs`: Implement `UpdateReturnVoucherAsync`; fix `CheckVoucherAsync` (RDM→Return="1", EXP status + kiểm tra ngày `Expiry_Date < DateTime.Today`); fix `RedeemCpnVchAsync` (named param `ct: ct` sau khi signature thay đổi)
+- `src/POS.Infrastructure/Repositories/Interfaces/ISAPVoucherRepository.cs`: Thêm optional `requiredVoucherType` vào `RedeemVouchersAsync`
+- `src/POS.Infrastructure/Repositories/SAPVoucherRepository.cs`: Thêm check VoucherType trong transaction (UPDLOCK); thêm amount validation (0 ≤ AmountRedeem ≤ faceValue); UPDATE per-row với `AmountUsed` + `OrderUsed`
+- `src/POS.Common/Dtos/Vouchers/VoucherStatusResponseDto.cs`: Thêm `AmountUsed decimal?`, `OrderUsed string?`
+- `src/POS.Common/Dtos/SAP/SAPDto.cs`: Thêm `VoucherUpdateRequest`
+- `src/POS.Common/Validation/StringRangeAttribute.cs`: Tạo mới — custom whitelist validation
+- `docs/migrations/alter_internal_voucher_add_amountused_orderused.sql`: DDL thêm 2 cột vào `Internal_Voucher`
+
+**Pattern mới:**
+- Optional VoucherType filter trong UPDLOCK transaction → `.claude/skills/api/SKILLS.md`
+- Named CancellationToken khi thêm optional param vào giữa signature → `.claude/skills/api/SKILLS.md`
+
+**Lưu ý cho session sau:**
+- `Internal_Voucher` cần chạy DDL migration trước khi deploy: `ALTER TABLE ADD AmountUsed DECIMAL(18,2) NULL, OrderUsed NVARCHAR(50) NULL`
+- `UpdateReturnVoucher` chỉ cho phép voucher `VoucherType = "BNMH"` (do `CreateReturnVoucher` tạo ra) — check diễn ra trong transaction UPDLOCK
+- Khi thêm optional param vào giữa signature → scan callers và thêm `ct: ct` (named) cho CancellationToken
+
+---
+
 ## [2026-06-19] RevenuePage — Y-axis auto-scale theo dữ liệu thực tế
 
 **Layer:** POS.Web

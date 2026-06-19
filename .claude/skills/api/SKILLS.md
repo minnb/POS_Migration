@@ -247,3 +247,46 @@ host.Run();
 - `SerilogConfiguration.cs` cần overload riêng cho `HostApplicationBuilder` (khác `WebApplicationBuilder`)
 
 > Ví dụ thực tế: `src/POS.Worker/`, `Dockerfile.worker`, `docker-compose.yml` service `worker`
+
+---
+
+### Pattern: Optional filter param trong UPDLOCK transaction
+
+> Áp dụng khi: cần enforce thêm điều kiện (VoucherType, loại hàng, v.v.) bên trong transaction
+> có UPDLOCK — check PHẢI nằm trong transaction, không thể làm ngoài (TOCTOU risk).
+
+```csharp
+// Interface — thêm optional param, caller cũ không bị break
+Task<...> RedeemVouchersAsync(
+    List<(string VoucherNumber, double AmountRedeem)> serials,
+    string orderNo,
+    string? requiredVoucherType = null,   // ← optional, default null = bỏ qua check
+    CancellationToken ct = default);
+
+// Repository — check ngay sau SELECT UPDLOCK, trước UPDATE
+if (requiredVoucherType != null)
+{
+    var wrongType = vouchers.FirstOrDefault(v => v.VoucherType != requiredVoucherType);
+    if (wrongType != null) { tx.Rollback(); return (false, $"Voucher ... không phải loại {requiredVoucherType}", []); }
+}
+```
+
+> Anti-pattern: check VoucherType trước rồi mới gọi transaction → race condition giữa check và update.
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/SAPVoucherRepository.cs`
+
+---
+
+### Pattern: Named CancellationToken khi thêm optional param vào giữa signature
+
+> Áp dụng khi: thêm optional param mới vào giữa signature của method đang có caller dùng positional args.
+
+```csharp
+// Lỗi compile — CancellationToken truyền nhầm vào optional string? mới thêm:
+repo.RedeemVouchersAsync(serials, orderNo, ct);     // ct → slot của string? ❌
+
+// Đúng — dùng named param để CancellationToken vào đúng slot:
+repo.RedeemVouchersAsync(serials, orderNo, ct: ct); // ✅
+```
+
+> Quy tắc: Khi thêm optional param vào giữa signature, scan toàn bộ callers và thêm `ct: ct` nếu cần.
+> Ví dụ thực tế: `src/POS.Application/Services/SAPService.cs` — `RedeemCpnVchAsync`

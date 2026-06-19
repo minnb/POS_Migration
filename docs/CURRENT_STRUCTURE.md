@@ -22,6 +22,7 @@ src/
 │   │   ├── KafkaController.cs
 │   │   ├── LoyaltyController.cs
 │   │   ├── PaymentController.cs
+│   │   ├── SAPController.cs
 │   │   └── SyncDataPosController.cs
 │   ├── Filters/
 │   │   └── ValidateModelFilter.cs
@@ -40,6 +41,7 @@ src/
 │   │   ├── IGotITService.cs
 │   │   ├── IHealthCheckService.cs
 │   │   ├── IKafkaService.cs
+│   │   ├── ISAPService.cs
 │   │   ├── ISyncDataPosService.cs
 │   │   └── IUrboxService.cs
 │   └── Services/
@@ -941,7 +943,7 @@ _(So sánh với `docs/PROJECT_INVENTORY.md` — cấu trúc cũ .NET Framework 
 | `WinLifeController` | ❌ Chưa migrate | WinLifeService | Trung bình — WinLife program |
 | `WinpayController` | ❌ Chưa migrate | WinpayService | Trung bình — Winpay partner |
 | `PLGController` | ❌ Chưa migrate | PLGBLO, PLGData | Thấp — PLG vouchers |
-| `SAPController` | ❌ Chưa migrate | SAPBLO | Thấp — SAP integration |
+| `SAPController` | ✅ Đã migrate | ISAPService, ISAPVoucherRepository | SAP Internal Voucher |
 | `QueueController` | ❌ Chưa migrate | RabbitMQService | Thấp — manual queue ops |
 | `SettingController` | ❌ Chưa migrate | MemoryCacheService (reload cache) | Thấp — admin ops |
 | `ValidateController` | ❌ Chưa migrate | CommonBLO (ValidateTransaction, InvoiceCreated) | **Cao** — VAT/tax validation |
