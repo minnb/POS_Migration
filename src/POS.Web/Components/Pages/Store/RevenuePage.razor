@@ -206,8 +206,10 @@
                 new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(hourlyValues) }
             ];
 
-            _dailyBarOptions = new BarChartOptions { ShowLegend = false };
-            _barOptions      = new BarChartOptions { ShowLegend = false };
+            var dailyYMax  = CalcYMax(dailyValues);
+            var hourlyYMax = CalcYMax(hourlyValues);
+            _dailyBarOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = dailyYMax, YAxisTicks = CalcYTick(dailyYMax) };
+            _barOptions      = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = hourlyYMax, YAxisTicks = CalcYTick(hourlyYMax) };
 
             // Increment version to force chart component re-mount via @key
             _chartVersion++;
@@ -217,6 +219,21 @@
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private static double CalcYMax(double[] values)
+    {
+        var max = values.Length > 0 ? values.Max() : 0;
+        if (max <= 0) return 5;
+        return Math.Ceiling(max + 2.5);
+    }
+
+    private static int CalcYTick(double yMax)
+    {
+        if (yMax <= 5)  return 1;
+        if (yMax <= 10) return 2;
+        if (yMax <= 20) return 5;
+        return 10;
     }
 
     private static string FormatVND(decimal amount) => amount switch

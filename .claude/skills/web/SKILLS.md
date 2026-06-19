@@ -382,6 +382,38 @@ private readonly BarChartOptions  _barOpts  = new() { ShowLegend = false };
 private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Length
 ```
 
+### Pattern: Y-axis auto-scale theo dữ liệu thực tế
+> Áp dụng khi: chart Bar/Line hiển thị data nhỏ (vài triệu đồng) mà trục Y luôn max=20.
+
+**Nguyên nhân:** `BarChartOptions.YAxisTicks` default = **20** là *khoảng cách giữa tick*, không phải số lượng tick.
+Khi data max = 8M và spacing = 20 → MudBlazor vẽ tick 0 và 20 → trục Y nhìn cứng max=20.
+
+**Giải pháp:** tính `YAxisSuggestedMax` và `YAxisTicks` sau khi có data:
+
+```csharp
+// Sau khi tính xong mảng values, trước khi set BarChartOptions:
+var yMax = CalcYMax(values);
+_barOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+
+private static double CalcYMax(double[] values)
+{
+    var max = values.Length > 0 ? values.Max() : 0;
+    if (max <= 0) return 5;
+    return Math.Ceiling(max + 2.5);   // buffer ~2.5 đơn vị, làm tròn lên
+}
+
+private static int CalcYTick(double yMax)
+{
+    if (yMax <= 5)  return 1;
+    if (yMax <= 10) return 2;
+    if (yMax <= 20) return 5;
+    return 10;
+}
+```
+
+> `YAxisSuggestedMax` là "gợi ý" — nếu data vượt qua, MudBlazor tự mở rộng (không clip).
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/RevenuePage.razor`
+
 ---
 
 ## Responsive UI — BẮT BUỘC (mobile + tablet + PC)
@@ -445,6 +477,7 @@ private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Lengt
 - ❌ Gọi `SignInAsync` trong Blazor InteractiveServer component → phải dùng bridge token (xem Auth flow)
 - ❌ Dùng `<MudChart ChartType="...">` (v8 syntax) → compile error với MudBlazor 9.5.0
 - ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
+- ❌ `BarChartOptions { ShowLegend = false }` không set `YAxisSuggestedMax` → `YAxisTicks` default=20 (spacing!) làm Y-axis luôn max=20 dù data chỉ 2–8M
 - ❌ Raw SQL trong page/component → phải đi qua Repository hoặc Service
 - ❌ Thêm nav link mới mà quên wrap `<AuthorizeView Policy="...">` trong `MainLayout.razor`
 - ❌ Dùng `MudStack Row Justify.SpaceBetween` cho header title+button → vỡ layout mobile, button stretch cao bất thường

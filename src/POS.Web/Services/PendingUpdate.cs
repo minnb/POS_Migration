@@ -13,6 +13,7 @@ public sealed class PendingUpdate : IAsyncDisposable
     private readonly SqlTransaction _tx;
     private readonly IKibanaService _kibana;
     private readonly IFileLogHelper _fileLog;
+    private readonly Func<string, Task> _auditCallback;
     private readonly string _actor;
     private readonly string _connKey;
     private readonly string _sqlPreview;
@@ -28,7 +29,8 @@ public sealed class PendingUpdate : IAsyncDisposable
         SqlConnection conn, SqlTransaction tx,
         int rowsAffected, bool hasWhere, long elapsedMs,
         string actor, string connKey, string sql,
-        IKibanaService kibana, IFileLogHelper fileLog)
+        IKibanaService kibana, IFileLogHelper fileLog,
+        Func<string, Task> auditCallback)
     {
         _conn = conn;
         _tx = tx;
@@ -40,6 +42,7 @@ public sealed class PendingUpdate : IAsyncDisposable
         _sqlPreview = sql.Length <= 500 ? sql : sql[..500] + "...";
         _kibana = kibana;
         _fileLog = fileLog;
+        _auditCallback = auditCallback;
 
         _autoRollbackCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         _ = ScheduleAutoRollbackAsync(_autoRollbackCts.Token);
@@ -54,6 +57,7 @@ public sealed class PendingUpdate : IAsyncDisposable
             {
                 _kibana.LogInfo("SqlConsole.Update.AutoRollback", _actor,
                     $"{_connKey} | timeout 60s | {_sqlPreview}");
+                try { await _auditCallback("AUTO_ROLLBACK"); } catch { /* best-effort */ }
                 await DisposeAsync();
             }
         }
@@ -68,6 +72,7 @@ public sealed class PendingUpdate : IAsyncDisposable
             $"{_connKey} | rows={RowsAffected} | {_sqlPreview}");
         _fileLog.WriteLogs(
             $"[SqlConsole][COMMIT] actor={_actor} db={_connKey} rows={RowsAffected} sql={_sqlPreview}");
+        try { await _auditCallback("COMMITTED"); } catch { /* audit fail không crash flow */ }
         await CleanupAsync();
     }
 
@@ -78,6 +83,7 @@ public sealed class PendingUpdate : IAsyncDisposable
         try { await _tx.RollbackAsync(); } catch { /* connection already gone */ }
         _kibana.LogInfo("SqlConsole.Update.Rollback", _actor,
             $"{_connKey} | rows={RowsAffected} | {_sqlPreview}");
+        try { await _auditCallback("ROLLED_BACK"); } catch { /* best-effort */ }
         await CleanupAsync();
     }
 

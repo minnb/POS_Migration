@@ -2,12 +2,14 @@ using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using POS.Infrastructure.Database;
 using POS.Infrastructure.Logging;
 
 namespace POS.Web.Services;
 
 public sealed class SqlConsoleService(
     IConfiguration configuration,
+    CentralMDConnectionFactory centralMdFactory,
     IKibanaService kibana,
     IFileLogHelper fileLog) : ISqlConsoleService
 {
@@ -101,25 +103,25 @@ public sealed class SqlConsoleService(
             await using var conn = new SqlConnection(connStr);
             await conn.OpenAsync(ct);
             await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = CommandTimeoutSeconds };
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            await using var dbReader = await cmd.ExecuteReaderAsync(ct);
             sw.Stop();
 
             var columns = new List<string>();
             var rows = new List<object?[]>();
             var truncated = false;
 
-            if (reader.FieldCount > 0)
+            if (dbReader.FieldCount > 0)
             {
-                for (var i = 0; i < reader.FieldCount; i++)
-                    columns.Add(reader.GetName(i));
+                for (var i = 0; i < dbReader.FieldCount; i++)
+                    columns.Add(dbReader.GetName(i));
 
                 var rowCount = 0;
-                while (await reader.ReadAsync(ct))
+                while (await dbReader.ReadAsync(ct))
                 {
                     if (rowCount >= MaxRows) { truncated = true; break; }
-                    var row = new object?[reader.FieldCount];
-                    for (var i = 0; i < reader.FieldCount; i++)
-                        row[i] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    var row = new object?[dbReader.FieldCount];
+                    for (var i = 0; i < dbReader.FieldCount; i++)
+                        row[i] = dbReader.IsDBNull(i) ? null : dbReader.GetValue(i);
                     rows.Add(row);
                     rowCount++;
                 }
@@ -130,9 +132,9 @@ public sealed class SqlConsoleService(
 
             return new SqlQueryResult
             {
-                Success  = true,
-                Columns  = columns,
-                Rows     = rows,
+                Success   = true,
+                Columns   = columns,
+                Rows      = rows,
                 ElapsedMs = sw.ElapsedMilliseconds,
                 Truncated = truncated
             };
@@ -171,8 +173,46 @@ public sealed class SqlConsoleService(
         kibana.LogInfo("SqlConsole.Update.Begin", actor,
             $"{connKey} | rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(sql)}");
 
-        return new PendingUpdate(conn, tx, rowsAffected, validation.UpdateHasWhere,
-            sw.ElapsedMilliseconds, actor, connKey, sql, kibana, fileLog);
+        var executedAt = DateTime.UtcNow;
+        var catalog = _databases.FirstOrDefault(d => d.Key == connKey)?.Catalog ?? connKey;
+        var elapsedMs = sw.ElapsedMilliseconds;
+        var hasWhere = validation.UpdateHasWhere;
+
+        Func<string, Task> auditCallback = status =>
+            WriteAuditAsync(actor, connKey, catalog, sql, rowsAffected, hasWhere, status, elapsedMs, executedAt);
+
+        return new PendingUpdate(conn, tx, rowsAffected, hasWhere,
+            elapsedMs, actor, connKey, sql, kibana, fileLog, auditCallback);
+    }
+
+    private async Task WriteAuditAsync(
+        string actor, string connKey, string catalog, string sql,
+        int rowsAffected, bool hasWhere, string status, long elapsedMs, DateTime executedAt)
+    {
+        const string insertSql = @"
+            INSERT INTO SqlConsoleAuditLog
+                (Actor, DbKey, DbCatalog, SqlText, RowsAffected, HasWhere, Status, ElapsedMs, ExecutedAt)
+            VALUES
+                (@Actor, @DbKey, @DbCatalog, @SqlText, @RowsAffected, @HasWhere, @Status, @ElapsedMs, @ExecutedAt)";
+        try
+        {
+            await using var conn = (SqlConnection)await centralMdFactory.CreateOpenConnectionAsync();
+            await using var cmd = new SqlCommand(insertSql, conn) { CommandTimeout = 10 };
+            cmd.Parameters.AddWithValue("@Actor",        actor);
+            cmd.Parameters.AddWithValue("@DbKey",        connKey);
+            cmd.Parameters.AddWithValue("@DbCatalog",    catalog);
+            cmd.Parameters.AddWithValue("@SqlText",      sql);
+            cmd.Parameters.AddWithValue("@RowsAffected", rowsAffected);
+            cmd.Parameters.AddWithValue("@HasWhere",     hasWhere);
+            cmd.Parameters.AddWithValue("@Status",       status);
+            cmd.Parameters.AddWithValue("@ElapsedMs",    elapsedMs);
+            cmd.Parameters.AddWithValue("@ExecutedAt",   executedAt);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            fileLog.WriteExpLogs("SqlConsoleService.WriteAudit", ex);
+        }
     }
 
     private bool TryGetConnectionString(string connKey, out string connStr)

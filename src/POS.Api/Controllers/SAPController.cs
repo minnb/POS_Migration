@@ -118,6 +118,35 @@ public sealed class SAPController(ISAPService sapService) : BaseController
         }
     }
 
+    //sap_update_return_voucher
+    [HttpPost]
+    [Route("UpdateReturnVoucher")]
+    public async Task<IActionResult> UpdateReturnVoucher(
+        [FromBody] List<VoucherUpdateRequest> model,
+        CancellationToken ct = default)
+    {
+        if (model == null || model.Count == 0)
+            return BadRequest(new ResultResponse
+            {
+                Status  = HttpStatusCode.BadRequest,
+                Message = "Danh sách voucher không được trống"
+            });
+        try
+        {
+            var result = await _sapService.UpdateReturnVoucherAsync(model, ct);
+            return StatusCode((int)result.Status, result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode((int)HttpStatusCode.InternalServerError, new ResultResponse
+            {
+                Data    = null,
+                Message = $"Lỗi hệ thống: {ex.Message}",
+                Status  = HttpStatusCode.InternalServerError
+            });
+        }
+    }
+
     //sap_redeem_cpn_vch
     [HttpPost]
     [Route("winlife/redeemCpnVch")]

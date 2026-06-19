@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using POS.Common.Validation;
 
 namespace POS.Common.Dtos.SAP;
 
@@ -44,4 +45,22 @@ public class VoucherUpdateSerial
     public string articleNo { get; set; } = string.Empty;
     public string articleType { get; set; } = string.Empty;
     public string status { get; set; } = string.Empty;
+}
+
+public class VoucherUpdateRequest
+{
+    public string CompanyCode { get; set; } = string.Empty;
+    [Required]
+    public string VoucherNumber { get; set; } = string.Empty;
+    public string ArticleNo    { get; set; } = string.Empty;
+    public string ArticleType  { get; set; } = string.Empty;
+    [Required]
+    [StringRange("SOLD", "RDM", "EXP", ErrorMessage = "Trạng thái không hợp lệ (SOLD/RDM/EXP)")]
+    public string Status       { get; set; } = "RDM";
+    [Required]
+    [StringLength(6, MinimumLength = 4)]
+    public string SiteCode     { get; set; } = string.Empty;
+    [Required]
+    public string POSTerminal  { get; set; } = string.Empty;
+    public string OrderNo      { get; set; } = string.Empty;
 }

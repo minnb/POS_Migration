@@ -76,6 +76,7 @@ public sealed class SAPVoucherRepository(CentralMDConnectionFactory connectionFa
     public async Task<(bool Success, string Message, List<VoucherStatusResponse> Results)> RedeemVouchersAsync(
         List<(string VoucherNumber, double AmountRedeem)> serials,
         string orderNo,
+        string? requiredVoucherType = null,
         CancellationToken ct = default)
     {
         var voucherNumbers = serials.Select(s => s.VoucherNumber).ToList();
@@ -117,6 +118,18 @@ public sealed class SAPVoucherRepository(CentralMDConnectionFactory connectionFa
             {
                 tx.Rollback();
                 return (false, $"Voucher {invalid.VoucherNumber} không ở trạng thái SOLD (hiện tại: {invalid.Status})", []);
+            }
+
+            if (requiredVoucherType != null)
+            {
+                var wrongType = vouchers.FirstOrDefault(v => v.VoucherType != requiredVoucherType);
+                if (wrongType != null)
+                {
+                    tx.Rollback();
+                    return (false,
+                        $"Voucher {wrongType.VoucherNumber} không phải loại {requiredVoucherType} " +
+                        $"(hiện tại: {wrongType.VoucherType})", []);
+                }
             }
 
             foreach (var serial in serials)

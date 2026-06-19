@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using POS.Application.Interfaces;
@@ -213,23 +212,32 @@ public sealed class HealthCheckService(
 
     private async Task<HealthCheckItemDto> CheckWorkerHeartbeatAsync(string workerName, CancellationToken ct)
     {
-        var key = $"Worker:{workerName}:Heartbeat";
-        var component = $"Worker:{workerName}";
-        var raw = await redis.StringGetAsync<string>(key).WaitAsync(ct);
+        var key       = $"Worker:Heartbeat:{workerName}";
+        var component = $"Worker: {workerName}";
 
-        if (raw == null)
+        var hb = await redis.StringGetAsync<WorkerHeartbeat>(key).WaitAsync(ct);
+
+        if (hb == null)
             return Item(component, $"Redis key: {key}", false, 0,
-                "Key không tồn tại — worker chưa chạy hoặc TTL đã hết");
+                "Key không tồn tại — worker chưa chạy hoặc đã dừng quá 5 phút");
 
-        if (!DateTime.TryParse(raw, null, DateTimeStyles.RoundtripKind, out var ts))
-            return Item(component, $"Redis key: {key}", false, 0,
-                $"Không parse được timestamp: {raw}");
+        var age = DateTime.UtcNow - hb.LastBeatUtc;
+        var target = $"Queue: {hb.QueueName} | {hb.InstanceId} | Processed: {hb.ProcessedCount:N0} msg";
 
-        var age = DateTime.UtcNow - ts;
-        var ok = age.TotalSeconds < 120;
-        return Item(component, $"Redis key: {key}", ok, (long)age.TotalSeconds * 1000,
-            ok ? $"Alive — heartbeat {(int)age.TotalSeconds}s trước"
-               : $"Stale — {(int)age.TotalMinutes}m trước (ngưỡng 2 phút)");
+        if (hb.Status == "Stopped")
+            return Item(component, target, false, (long)age.TotalMilliseconds,
+                "Worker đã dừng có chủ ý");
+
+        if (age.TotalSeconds > 45)
+            return Item(component, target, false, (long)age.TotalMilliseconds,
+                $"Mất tín hiệu — {(int)age.TotalSeconds}s không có nhịp (ngưỡng 45s)");
+
+        if (hb.Status == "Degraded")
+            return Item(component, target, false, (long)age.TotalMilliseconds,
+                $"Suy giảm — mất kết nối RabbitMQ | nhịp cuối {(int)age.TotalSeconds}s trước");
+
+        return Item(component, target, true, (long)age.TotalMilliseconds,
+            $"Đang chạy — nhịp cuối {(int)age.TotalSeconds}s trước");
     }
 
     private static HealthCheckItemDto Item(

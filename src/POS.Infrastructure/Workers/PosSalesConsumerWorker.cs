@@ -16,7 +16,8 @@ namespace POS.Infrastructure.Workers;
 public sealed class PosSalesConsumerWorker(
     IServiceScopeFactory scopeFactory,
     IConfiguration configuration,
-    ILogger<PosSalesConsumerWorker> logger
+    ILogger<PosSalesConsumerWorker> logger,
+    WorkerHealthState healthState
 ) : BackgroundService
 {
     private const string QueueName = "pos_sales";
@@ -65,6 +66,7 @@ public sealed class PosSalesConsumerWorker(
                     cancellationToken: stoppingToken);
 
                 logger.LogInformation("[PosSalesWorker] Consuming queue '{Queue}'", QueueName);
+                healthState.Status = "Running";
 
                 // Giữ worker alive: thoát khi app dừng hoặc connection drop
                 var connDropped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -82,6 +84,7 @@ public sealed class PosSalesConsumerWorker(
             }
             catch (Exception ex)
             {
+                healthState.Status = "Degraded";
                 logger.LogError(ex, "[PosSalesWorker] Connection error — retry in 10s");
             }
             finally
@@ -122,6 +125,7 @@ public sealed class PosSalesConsumerWorker(
             if (result.Item1)
             {
                 await channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
+                healthState.IncrementProcessed();
                 logger.LogInformation("[PosSalesWorker] Re-inserted OK — txId: {TxId}", msg.TransactionId);
             }
             else

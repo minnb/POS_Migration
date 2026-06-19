@@ -99,7 +99,22 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
             .ToList();
 
         var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(
-            serials, model.OrderNo, ct);
+            serials, model.OrderNo, ct: ct);
+
+        if (!success)
+            return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = message };
+
+        return new ResultResponse { Status = HttpStatusCode.OK, Message = "OK", Data = results };
+    }
+
+    public async Task<ResultResponse> UpdateReturnVoucherAsync(
+        List<VoucherUpdateRequest> model, CancellationToken ct = default)
+    {
+        var serials = model.Select(x => (x.VoucherNumber, AmountRedeem: 0d)).ToList();
+        var orderNo = model[0].OrderNo;
+
+        var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(
+            serials, orderNo, requiredVoucherType: "BNMH", ct);
 
         if (!success)
             return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = message };

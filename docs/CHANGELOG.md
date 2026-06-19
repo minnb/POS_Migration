@@ -4,6 +4,22 @@
 
 ---
 
+## [2026-06-19] RevenuePage — Y-axis auto-scale theo dữ liệu thực tế
+
+**Layer:** POS.Web
+**Loại:** Bug fix
+
+**Thay đổi:**
+- `src/POS.Web/Components/Pages/Store/RevenuePage.razor`: Thêm `CalcYMax` + `CalcYTick` helpers; set `YAxisSuggestedMax` + `YAxisTicks` trên cả 2 `BarChartOptions` sau khi load data
+
+**Pattern mới:** Y-axis auto-scale cho MudBlazor v9 Bar/Line chart → đã cập nhật `.claude/skills/web/SKILLS.md`
+
+**Lưu ý cho session sau:**
+- `BarChartOptions.YAxisTicks` mặc định = **20** là *khoảng cách giữa tick* (không phải số lượng) → luôn set kèm `YAxisSuggestedMax` khi data là số nhỏ
+- `YAxisSuggestedMax` (double?) là gợi ý — MudBlazor tự mở rộng nếu data vượt quá, không bao giờ clip data
+
+---
+
 ## [2026-06-19] DataRawJson audit log + tách POS.Worker thành project độc lập
 
 **Layer:** POS.Infrastructure, POS.Api
