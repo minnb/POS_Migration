@@ -74,8 +74,12 @@ public sealed class SAPVoucherRepository(CentralMDConnectionFactory connectionFa
     }
 
     public async Task<(bool Success, string Message, List<VoucherStatusResponse> Results)> RedeemVouchersAsync(
-        List<string> voucherNumbers, CancellationToken ct = default)
+        List<(string VoucherNumber, double AmountRedeem)> serials,
+        string orderNo,
+        CancellationToken ct = default)
     {
+        var voucherNumbers = serials.Select(s => s.VoucherNumber).ToList();
+
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
         try
@@ -115,17 +119,44 @@ public sealed class SAPVoucherRepository(CentralMDConnectionFactory connectionFa
                 return (false, $"Voucher {invalid.VoucherNumber} không ở trạng thái SOLD (hiện tại: {invalid.Status})", []);
             }
 
+            foreach (var serial in serials)
+            {
+                var voucher   = vouchers.First(v => v.VoucherNumber == serial.VoucherNumber);
+                var faceValue = decimal.TryParse(voucher.Value, out var fv) ? fv : 0m;
+
+                if (serial.AmountRedeem < 0 || (decimal)serial.AmountRedeem > faceValue)
+                {
+                    tx.Rollback();
+                    return (false,
+                        $"Voucher {serial.VoucherNumber}: số tiền redeem {serial.AmountRedeem:N0} " +
+                        $"không hợp lệ (mệnh giá: {faceValue:N0})", []);
+                }
+            }
+
             const string updateSql = @"
                 UPDATE [dbo].[Internal_Voucher]
-                SET [Status] = 'RDM'
-                WHERE VoucherNumber IN @voucherNumbers";
+                SET [Status]     = 'RDM',
+                    [AmountUsed] = @AmountUsed,
+                    [OrderUsed]  = @OrderUsed
+                WHERE VoucherNumber = @VoucherNumber";
 
-            await conn.ExecuteAsync(
-                new CommandDefinition(updateSql, new { voucherNumbers }, tx, cancellationToken: ct));
+            foreach (var serial in serials)
+            {
+                await conn.ExecuteAsync(new CommandDefinition(
+                    updateSql,
+                    new { serial.VoucherNumber, AmountUsed = (decimal)serial.AmountRedeem, OrderUsed = orderNo },
+                    tx, cancellationToken: ct));
+            }
 
             tx.Commit();
 
-            foreach (var v in vouchers) v.Status = "RDM";
+            foreach (var v in vouchers)
+            {
+                var serial  = serials.First(s => s.VoucherNumber == v.VoucherNumber);
+                v.Status     = "RDM";
+                v.AmountUsed = (decimal)serial.AmountRedeem;
+                v.OrderUsed  = orderNo;
+            }
             return (true, "OK", vouchers);
         }
         catch

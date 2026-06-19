@@ -59,7 +59,11 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
     {
         var data = await sapVoucherRepository.GetByVoucherNumberAsync(voucherNumber, ct);
         if (data != null)
+        {
+            if (data.Status == "RDM")
+                data.Return = "1";
             return new ResultResponse { Status = HttpStatusCode.OK, Message = "Success", Data = data };
+        }
 
         return new ResultResponse
         {
@@ -70,8 +74,12 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
 
     public async Task<ResultResponse> RedeemCpnVchAsync(VoucherUpdateModel model, CancellationToken ct = default)
     {
-        var voucherNumbers = model.ListSeriNo!.Select(x => x.voucherNumber).Distinct().ToList();
-        var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(voucherNumbers, ct);
+        var serials = model.ListSeriNo!
+            .Select(x => (x.voucherNumber, x.value))
+            .ToList();
+
+        var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(
+            serials, model.OrderNo, ct);
 
         if (!success)
             return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = message };

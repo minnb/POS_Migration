@@ -351,10 +351,15 @@ public sealed class CentralSaleRepository(
         {
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(CancellationToken.None);
             const string sql = @"
-                INSERT INTO DataRawJson
-                    (TransactionId, DataType, Message, Flag, ErrorMessage, CrtDate, Id)
-                VALUES
-                    (@TransactionId, @DataType, @Message, @Flag, @ErrorMessage, GETDATE(), NEWID());";
+                IF EXISTS (SELECT 1 FROM DataRawJson WHERE TransactionId = @TransactionId)
+                    UPDATE DataRawJson
+                    SET Flag = @Flag, ErrorMessage = @ErrorMessage, CrtDate = GETDATE()
+                    WHERE TransactionId = @TransactionId;
+                ELSE
+                    INSERT INTO DataRawJson
+                        (TransactionId, DataType, Message, Flag, ErrorMessage, CrtDate, Id)
+                    VALUES
+                        (@TransactionId, @DataType, @Message, @Flag, @ErrorMessage, GETDATE(), NEWID());";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 TransactionId = StringHelper.Left(transactionId, 30),

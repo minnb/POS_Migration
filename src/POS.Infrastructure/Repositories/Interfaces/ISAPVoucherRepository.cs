@@ -7,5 +7,7 @@ public interface ISAPVoucherRepository
     Task<VoucherStatusResponse?> GetByVoucherNumberAsync(string voucherNumber, CancellationToken ct = default);
     Task<bool> InsertAsync(VoucherStatusResponse data, CancellationToken ct = default);
     Task<(bool Success, string Message, List<VoucherStatusResponse> Results)> RedeemVouchersAsync(
-        List<string> voucherNumbers, CancellationToken ct = default);
+        List<(string VoucherNumber, double AmountRedeem)> serials,
+        string orderNo,
+        CancellationToken ct = default);
 }

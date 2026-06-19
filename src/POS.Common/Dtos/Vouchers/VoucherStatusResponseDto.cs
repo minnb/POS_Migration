@@ -15,5 +15,7 @@ public class VoucherStatusResponse
     public string? Partner { get; set; }
     public bool? IsEmployee { get; set; }
     public string? PhoneNumber { get; set; }
-    public string? VoucherType { get; set; }
+    public string?  VoucherType { get; set; }
+    public decimal? AmountUsed  { get; set; }
+    public string?  OrderUsed   { get; set; }
 }
