@@ -8,6 +8,7 @@ using POS.Application;
 using POS.Infrastructure;
 using POS.Web.Auth;
 using POS.Web.Components;
+using POS.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,7 @@ builder.Services.AddApplication();
 
 // ── Web-specific services ─────────────────────────────────────────────
 builder.Services.AddScoped<IWebUserService, WebUserService>();
+builder.Services.AddScoped<ISqlConsoleService, SqlConsoleService>();
 
 // ── Authentication: Cookie cho browser session ─────────────────────────
 // TÁCH BIỆT với BasicAuth của POS.Api (không ảnh hưởng nhau)

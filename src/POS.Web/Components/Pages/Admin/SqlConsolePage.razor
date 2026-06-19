@@ -1,0 +1,419 @@
+@page "/admin/sql-console"
+@attribute [Authorize(Policy = WebPolicies.AdminOnly)]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+@using POS.Web.Services
+@using POS.Infrastructure.Logging
+
+@inject ISqlConsoleService ConsoleService
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>SQL Console – POS Dashboard</PageTitle>
+
+@* ── Header ────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" Style="vertical-align:middle"/>
+        SQL Console
+    </MudText>
+</div>
+
+<MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
+    Chỉ cho phép <strong>SELECT</strong> và <strong>UPDATE</strong>.
+    UPDATE chạy trong <strong>transaction</strong> — bạn xem số dòng ảnh hưởng rồi quyết định
+    <strong>Commit</strong> hoặc <strong>Rollback</strong>.
+</MudAlert>
+
+@* ── Input form ────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        @* DB selector *@
+        <MudItem xs="12" sm="6" md="4">
+            <MudSelect T="string"
+                       @bind-Value="_connKey"
+                       Label="Database"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Disabled="@(_running || _pending != null)">
+                @foreach (var db in _databases)
+                {
+                    <MudSelectItem Value="@db.Key">@db.Display</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        @* SQL textarea *@
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_sql"
+                          Lines="12"
+                          Variant="Variant.Outlined"
+                          Placeholder="SELECT TOP 10 * FROM TableName (NOLOCK)"
+                          Style="font-family: 'Consolas', 'Courier New', monospace; font-size: 13px"
+                          Disabled="@(_running || _pending != null)"
+                          Immediate="false"/>
+        </MudItem>
+
+        @* Action buttons *@
+        <MudItem xs="12">
+            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.PlayArrow"
+                           OnClick="@RunAsync"
+                           Disabled="@(_running || string.IsNullOrWhiteSpace(_sql) || _pending != null)">
+                    Chạy
+                </MudButton>
+
+                @if (_running)
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Stop"
+                               OnClick="@CancelRun">
+                        Hủy
+                    </MudButton>
+                }
+
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           OnClick="@ClearAll"
+                           Disabled="@(_running || _pending != null)">
+                    Xóa
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Loading ───────────────────────────────────────────────────────── *@
+@if (_running)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+}
+
+@* ── Error / Validation ────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+@* ── Transaction panel (UPDATE đang chờ) ──────────────────────────── *@
+@if (_pending != null)
+{
+    <MudPaper Elevation="3" Class="pa-4 mb-4"
+              Style="border-left: 4px solid var(--mud-palette-error)">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty"
+                     Color="Color.Warning" Class="mr-1" Style="vertical-align:middle"/>
+            Transaction đang mở — chưa áp dụng vào database
+        </MudText>
+
+        @if (!_pending.HasWhere)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                Lệnh UPDATE <strong>không có mệnh đề WHERE</strong> — sẽ ảnh hưởng toàn bộ bảng!
+            </MudAlert>
+        }
+
+        <div class="d-flex align-center gap-2 flex-wrap mb-3">
+            <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                @_pending.RowsAffected dòng sẽ bị thay đổi
+            </MudChip>
+            <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined">
+                @_pending.ElapsedMs ms
+            </MudChip>
+            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined">
+                Auto-rollback sau 60s nếu không hành động
+            </MudChip>
+        </div>
+
+        <MudStack Row="true" Spacing="2" Class="flex-wrap">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Check"
+                       OnClick="@CommitAsync"
+                       Disabled="@_committing">
+                @if (_committing)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                }
+                Commit – Xác nhận thay đổi
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Undo"
+                       OnClick="@RollbackAsync"
+                       Disabled="@_committing">
+                Rollback – Hoàn tác
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Status line ───────────────────────────────────────────────────── *@
+@if (_result != null && _result.Success)
+{
+    <div class="d-flex align-center gap-2 flex-wrap mb-3">
+        <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+            @_result.Rows.Count dòng
+        </MudChip>
+        <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+            @_result.ElapsedMs ms
+        </MudChip>
+        @if (_result.Truncated)
+        {
+            <MudChip T="string" Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small">
+                Kết quả bị cắt tại 500 dòng
+            </MudChip>
+        }
+    </div>
+}
+
+@* ── Result table ──────────────────────────────────────────────────── *@
+@if (_result != null && _result.Success)
+{
+    @if (_result.Columns.Count == 0)
+    {
+        <MudAlert Severity="Severity.Success" Dense="true">
+            Truy vấn thực thi thành công — 0 dòng trả về.
+        </MudAlert>
+    }
+    else
+    {
+        <MudPaper Elevation="2" Style="overflow-x:auto">
+
+            @* Pagination top *@
+            @if (ResultPageCount > 1)
+            {
+                <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Trang @_resultPage / @ResultPageCount
+                        (@(_result.Rows.Count) dòng@(_result.Truncated ? ", bị cắt" : ""))
+                    </MudText>
+                    <MudPagination @bind-Selected="_resultPage"
+                                   Count="@ResultPageCount"
+                                   BoundaryCount="1"
+                                   MiddleCount="3"
+                                   ShowFirstButton="true"
+                                   ShowLastButton="true"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"/>
+                </div>
+            }
+
+            <div class="pos-table-wrap">
+                <table class="pos-table">
+                    <thead>
+                        <tr>
+                            @foreach (var col in _result.Columns)
+                            {
+                                <th>@col</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in PagedResultRows)
+                        {
+                            <tr>
+                                @foreach (var cell in row)
+                                {
+                                    <td>
+                                        @if (cell is null)
+                                        {
+                                            <span style="color:#9e9e9e; font-style:italic">NULL</span>
+                                        }
+                                        else
+                                        {
+                                            var text = cell.ToString() ?? string.Empty;
+                                            @(text.Length > 200 ? text[..200] + "…" : text)
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @* Pagination bottom *@
+            @if (ResultPageCount > 1)
+            {
+                <div class="d-flex justify-end px-3 py-2">
+                    <MudPagination @bind-Selected="_resultPage"
+                                   Count="@ResultPageCount"
+                                   BoundaryCount="1"
+                                   MiddleCount="3"
+                                   ShowFirstButton="true"
+                                   ShowLastButton="true"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"/>
+                </div>
+            }
+
+        </MudPaper>
+    }
+}
+
+@code {
+    private const int ResultPageSize = 50;
+
+    private IReadOnlyList<DbOption> _databases = [];
+    private string _connKey = string.Empty;
+    private string _sql = string.Empty;
+
+    private bool _running;
+    private string? _errorMsg;
+    private CancellationTokenSource? _cts;
+
+    private SqlQueryResult? _result;
+    private int _resultPage = 1;
+
+    private PendingUpdate? _pending;
+    private bool _committing;
+
+    private string _actor = string.Empty;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private int ResultPageCount =>
+        _result is null || _result.Rows.Count == 0
+            ? 0
+            : (int)Math.Ceiling(_result.Rows.Count / (double)ResultPageSize);
+
+    private IEnumerable<object?[]> PagedResultRows =>
+        _result?.Rows.Skip((_resultPage - 1) * ResultPageSize).Take(ResultPageSize)
+        ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _databases = ConsoleService.GetDatabases();
+        _connKey   = _databases.FirstOrDefault(d => d.Key == "CentralSale")?.Key
+                     ?? _databases.FirstOrDefault()?.Key
+                     ?? string.Empty;
+
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+    }
+
+    private async Task RunAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_sql)) return;
+
+        _errorMsg   = null;
+        _result     = null;
+        _resultPage = 1;
+
+        var validation = ConsoleService.Validate(_sql);
+        if (!validation.Ok)
+        {
+            _errorMsg = validation.Error;
+            return;
+        }
+
+        _running = true;
+        _cts     = new CancellationTokenSource();
+
+        try
+        {
+            if (validation.Kind == StatementKind.Select)
+            {
+                _result = await ConsoleService.ExecuteSelectAsync(_connKey, _sql, _actor, _cts.Token);
+                if (!_result.Success) _errorMsg = _result.Error;
+            }
+            else
+            {
+                try
+                {
+                    _pending = await ConsoleService.BeginUpdateAsync(_connKey, _sql, _actor, _cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    _errorMsg = "Câu lệnh đã bị hủy.";
+                }
+                catch (Exception ex)
+                {
+                    _errorMsg = ex.Message;
+                    KibanaService.LogException("SqlConsolePage.Run", _actor, 0, _connKey, ex.Message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = $"Lỗi không mong đợi: {ex.Message}";
+            KibanaService.LogException("SqlConsolePage.Run", _actor, 0, _connKey, ex.Message);
+        }
+        finally
+        {
+            _running = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void CancelRun() => _cts?.Cancel();
+
+    private void ClearAll()
+    {
+        _sql        = string.Empty;
+        _result     = null;
+        _errorMsg   = null;
+        _resultPage = 1;
+    }
+
+    private async Task CommitAsync()
+    {
+        if (_pending is null) return;
+        _committing = true;
+        try
+        {
+            await _pending.CommitAsync();
+            _pending = null;
+            Snackbar.Add("Commit thành công — dữ liệu đã được cập nhật.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = $"Commit thất bại: {ex.Message}";
+            KibanaService.LogException("SqlConsolePage.Commit", _actor, 0, _connKey, ex.Message);
+        }
+        finally
+        {
+            _committing = false;
+        }
+    }
+
+    private async Task RollbackAsync()
+    {
+        if (_pending is null) return;
+        _committing = true;
+        try
+        {
+            await _pending.RollbackAsync();
+            _pending = null;
+            Snackbar.Add("Rollback thành công — không có thay đổi nào được áp dụng.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = $"Rollback thất bại: {ex.Message}";
+            KibanaService.LogException("SqlConsolePage.Rollback", _actor, 0, _connKey, ex.Message);
+        }
+        finally
+        {
+            _committing = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pending != null)
+        {
+            await _pending.DisposeAsync();
+            _pending = null;
+        }
+        _cts?.Dispose();
+    }
+}
