@@ -262,28 +262,35 @@ public sealed class CentralSaleRepository(
         }
     }
 
-    public async Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default)
+    public async Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default)
     {
+        bool   _flag     = false;
+        string _errorMsg = "";
+        string _dataType = "";
+
         try
         {
             var data = StringHelper.StringToObject<KafkaMessagePOS>(message.Replace("'", ""));
             if (data == null)
             {
-                await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", "Lỗi convert Json", ct: ct);
-                return (false, "Lỗi convert Json");
+                _errorMsg = "Lỗi convert Json";
+                return (false, _errorMsg);
             }
+
+            _dataType = data.Type;
             string jsonData = JsonConvert.SerializeObject(data.Data);
             var jObject = StringHelper.StringToJObject(message);
 
             if (jObject is null)
             {
-                await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", "Invalid message format", ct: ct);
-                return (false, "Invalid message format");
+                _errorMsg = "Invalid message format";
+                return (false, _errorMsg);
             }
 
             string? type = (string?)jObject["Type"];
             if (type == PushSaleDataTypeEnum.HARDWARE.ToString())
             {
+                _flag = true;
                 return (true, "Continue");
             }
 
@@ -292,6 +299,7 @@ public sealed class CentralSaleRepository(
             if (data.Type == PushSaleDataTypeEnum.REGISTER.ToString() && !string.IsNullOrEmpty(posNo))
             {
                 await RegisterExecuteAsync(conn, posNo);
+                _flag = true;
                 return (true, "OK");
             }
 
@@ -299,7 +307,6 @@ public sealed class CentralSaleRepository(
             parameters.Add("@Type", data.Type);
             parameters.Add("@Json", jsonData);
 
-            // Call stored procedure
             var result = await conn.QueryAsync<QueryResult>(
                 "Sale_InsertDataByOrder_KAFKA",
                 parameters,
@@ -309,22 +316,58 @@ public sealed class CentralSaleRepository(
 
             if (result == null)
             {
-                return (false, $"lỗi thực thi tra cứu log trong Interface_Errors");
+                _errorMsg = "lỗi thực thi tra cứu log trong Interface_Errors";
+                return (false, _errorMsg);
             }
-            else
+
+            var checkStatus = result.FirstOrDefault();
+            if (checkStatus != null && checkStatus.STATUS == 0)
             {
-                var checkStatus = result.FirstOrDefault() ?? null;
-                if (checkStatus != null && checkStatus.STATUS == 0)
-                {
-                    return (false, $"lỗi thực thi tra cứu log trong Interface_Errors");
-                }
-                return (true, "OK");
+                _errorMsg = "lỗi thực thi tra cứu log trong Interface_Errors";
+                return (false, _errorMsg);
             }
+
+            _flag = true;
+            return (true, "OK");
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-            await InsertInterfaceErrorAsync(storeNo, "InInsertToTableByJson", ex.Message, ct: ct);
-            return (false, ex.Message);
+            _errorMsg = ex.Message;
+            return (false, _errorMsg);
+        }
+        finally
+        {
+            await InsertDataRawJsonAsync(
+                transactionId, _dataType, message, _flag,
+                _flag ? null : _errorMsg);
+        }
+    }
+
+    private async Task InsertDataRawJsonAsync(
+        string transactionId, string dataType, string message,
+        bool flag, string? errorMessage)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(CancellationToken.None);
+            const string sql = @"
+                INSERT INTO DataRawJson
+                    (TransactionId, DataType, Message, Flag, ErrorMessage, CrtDate, Id)
+                VALUES
+                    (@TransactionId, @DataType, @Message, @Flag, @ErrorMessage, GETDATE(), NEWID());";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                TransactionId = StringHelper.Left(transactionId, 30),
+                DataType      = StringHelper.Left(dataType, 20),
+                Message       = message,
+                Flag          = flag,
+                ErrorMessage  = errorMessage
+            }, commandTimeout: Timeout));
+        }
+        catch
+        {
+            // Swallow — nếu log fail mà main processing cũng fail,
+            // PushSalesToTopic() sẽ đẩy sang RabbitMQ retry tự động.
         }
     }
     public static async Task RegisterExecuteAsync(IDbConnection dbContext, string POSTerminal)

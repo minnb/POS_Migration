@@ -384,6 +384,54 @@ private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Lengt
 
 ---
 
+## Responsive UI — BẮT BUỘC (mobile + tablet + PC)
+
+> **Chi tiết đầy đủ: `CLAUDE.md §10`** — đọc trước khi tạo hoặc sửa bất kỳ page nào.
+> Áp dụng cho mọi viewport: xs (<600px), sm (600–959px), md+ (960px+).
+
+### Quy tắc cốt lõi
+
+| Tình huống | Sai | Đúng |
+|---|---|---|
+| Header: title + button | `MudStack Row Justify.SpaceBetween` | `div.pos-page-header` + `pos-page-header-title` + `pos-page-header-btn` |
+| Header: title + (select + button) ghép cặp | `MudStack Row Justify.SpaceBetween` | `div.pos-page-header` + `div.d-flex align-center gap-2` + `Style="align-self:center"` trên button |
+| DataTable trong MudPaper | `<MudPaper Elevation="2">` | `<MudPaper Elevation="2" Style="overflow-x:auto">` |
+| Chip container | `d-flex gap-2` | `d-flex gap-2 flex-wrap` |
+| Summary text nhiều phần | `&nbsp;\|&nbsp;` separator | `d-flex flex-wrap gap-3` + nhiều `MudText` riêng |
+| Sidebar drawer init | `_drawerOpen = true` | `IBrowserViewportService.GetCurrentBreakpointAsync()` trong `OnAfterRenderAsync(firstRender)` |
+
+### pos-page-header — pattern header chuẩn
+
+```razor
+@* Case A: title + 1 button đơn lẻ *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.XYZ" Class="mr-2" Style="vertical-align:middle"/>
+        Tên trang
+    </MudText>
+    <MudButton ... Class="pos-page-header-btn">Thêm</MudButton>
+</div>
+
+@* Case B: title + group controls (select + button ghép cặp) *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">...</MudText>
+    <div class="d-flex align-center gap-2">
+        <MudSelect .../>
+        <MudButton ... Style="align-self:center; white-space:nowrap">...</MudButton>
+    </div>
+</div>
+```
+
+**Desktop (≥600px):** title bên trái, controls bên phải — cùng hàng.
+**Mobile (xs <600px):**
+- Case A: title full-width hàng 1, button full-width hàng 2 (`pos-page-header-btn`)
+- Case B: title full-width hàng 1, cả group (Select + Button) xuống hàng 2 cùng nhau
+
+> CSS `pos-page-header` + `pos-page-header-title` + `pos-page-header-btn` đã có trong `wwwroot/app.css`.
+> Ví dụ: `src/POS.Web/Components/Pages/Admin/UsersPage.razor` (Case A), `src/POS.Web/Components/Pages/Ops/HealthPage.razor` (Case B)
+
+---
+
 ## KHÔNG làm (anti-patterns)
 
 - ❌ Quên `@rendermode InteractiveServer` → component không tương tác được (button/event bị ignore)
@@ -399,6 +447,10 @@ private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Lengt
 - ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
 - ❌ Raw SQL trong page/component → phải đi qua Repository hoặc Service
 - ❌ Thêm nav link mới mà quên wrap `<AuthorizeView Policy="...">` trong `MainLayout.razor`
+- ❌ Dùng `MudStack Row Justify.SpaceBetween` cho header title+button → vỡ layout mobile, button stretch cao bất thường
+- ❌ `MudButton` trong `MudStack Row` cạnh `MudSelect` có Label → button stretch theo chiều cao Select+Label → thêm `Style="align-self:center"` vào button
+- ❌ DataTable trong `MudPaper` thiếu `Style="overflow-x:auto"` → table bị clip trên mobile
+- ❌ Chip container thiếu `flex-wrap` → chips tràn ngang, mất trên mobile
 
 ---
 
@@ -417,6 +469,7 @@ private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Lengt
 - [ ] Empty state: `else if (_isEmpty) { <MudAlert Severity.Info .../> }`
 - [ ] Row-level filter nếu policy là `StoreAndAbove` — pass `_userStoreCodes` vào repo call
 - [ ] Thêm `<MudNavLink>` vào đúng `<MudNavGroup>` trong `MainLayout.razor` (wrap `<AuthorizeView>`)
+- [ ] **Responsive checklist** — xem `CLAUDE.md §10.G`: header dùng `pos-page-header`, DataTable MudPaper có `overflow-x:auto`, chip container có `flex-wrap`, không dùng `MudStack Row Justify.SpaceBetween` cho layout title+controls
 
 ---
 

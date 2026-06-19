@@ -16,15 +16,15 @@
 <PageTitle>System Health – POS Dashboard</PageTitle>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
-    <MudText Typo="Typo.h5">
+<div class="pos-page-header mb-1">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
         <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Class="mr-2" Style="vertical-align:middle"/>
         System Health
     </MudText>
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+    <div class="d-flex align-center gap-2">
         <MudSelect T="int" Value="_autoRefreshSec" ValueChanged="OnAutoRefreshChanged"
                    Label="Tự động" Variant="Variant.Outlined" Margin="Margin.Dense"
-                   Style="min-width:140px">
+                   Style="min-width:130px">
             <MudSelectItem Value="0">Tắt</MudSelectItem>
             <MudSelectItem Value="60">60 giây</MudSelectItem>
             <MudSelectItem Value="120">120 giây</MudSelectItem>
@@ -33,19 +33,20 @@
         <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="RunCheckAsync"
-                   Disabled="_checking">
+                   Disabled="_checking"
+                   Style="align-self:center; white-space:nowrap">
             @if (_checking)
             { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/> }
             Làm mới
         </MudButton>
-    </MudStack>
-</MudStack>
+    </div>
+</div>
 
 @* ── Summary + filter ────────────────────────────────────────────────── *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+<div class="d-flex flex-wrap gap-2 align-center justify-space-between mb-4">
     @if (_lastChecked.HasValue)
     {
-        var ok = _items.Count(x => x.Ok);
+        var ok    = _items.Count(x => x.Ok);
         var total = _items.Count;
         <MudText Typo="Typo.body2" Color="Color.Secondary">
             Lần cuối: @_lastChecked.Value.ToString("HH:mm:ss")
@@ -56,11 +57,8 @@
             dịch vụ hoạt động
         </MudText>
     }
-    else
-    {
-        <span/>
-    }
-    <MudStack Row="true" Spacing="1">
+    else { <span/> }
+    <div class="d-flex gap-1 flex-wrap">
         <MudChip T="string"
                  Color="@(_filterMode == "all" ? Color.Primary : Color.Default)"
                  Variant="@(_filterMode == "all" ? Variant.Filled : Variant.Outlined)"
@@ -79,8 +77,8 @@
                  OnClick="@(() => SetFilter("fail"))">
             Offline (@_items.Count(x => !x.Ok))
         </MudChip>
-    </MudStack>
-</MudStack>
+    </div>
+</div>
 
 @* ── Loading (first load only) ───────────────────────────────────────── *@
 @if (_checking && !_items.Any())

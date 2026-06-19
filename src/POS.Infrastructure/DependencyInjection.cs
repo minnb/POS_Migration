@@ -53,8 +53,8 @@ public static class DependencyInjection
         // Singleton: giữ 1 IConnection, tạo IChannel mới mỗi lần publish.
         // Implements IAsyncDisposable → WebApplication tự gọi khi shutdown.
         services.AddSingleton<IRabbitMQProducer, RabbitMQProducer>();
-        // PosSalesConsumerWorker KHÔNG đăng ký ở đây — đăng ký riêng trong POS.Api/Program.cs.
-        // POS.Web cũng gọi AddInfrastructure() và không cần chạy worker này.
+        // PosSalesConsumerWorker KHÔNG đăng ký ở đây — đăng ký trong POS.Worker/Program.cs.
+        // POS.Api và POS.Web gọi AddInfrastructure() nhưng không chạy worker này.
 
         // ── Kafka ─────────────────────────────────────────────────────────────
         // Singleton: IProducer thread-safe, 1 connection cho toàn app (như static factory cũ).

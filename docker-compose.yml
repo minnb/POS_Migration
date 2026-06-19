@@ -56,6 +56,23 @@ services:
       - dp-keys:/home/app/.aspnet/DataProtection-Keys
     restart: unless-stopped
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: pos_worker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    mem_limit: 512m
+    environment:
+      DOTNET_ENVIRONMENT: Production
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
 volumes:
   ftpbluepos_data:
   dp-keys:

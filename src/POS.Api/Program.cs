@@ -46,10 +46,6 @@ builder.Services.AddApplication();
 // ── Infrastructure (DB, Redis, RabbitMQ, Logging) ─────────────────────────
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// ── Background Workers (POS.Api only) ────────────────────────────────────
-// Worker retry Kafka insert khi queue "pos_sales" có message — chỉ chạy trong POS.Api.
-builder.Services.AddHostedService<POS.Infrastructure.Workers.PosSalesConsumerWorker>();
-
 // ── Authentication: Basic Auth ────────────────────────────────────────────
 builder.Services
     .AddAuthentication("BasicAuth")

@@ -5,6 +5,8 @@ using Elastic.Serilog.Sinks;
 using Elastic.Transport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
 
@@ -13,8 +15,7 @@ namespace POS.Infrastructure.Logging;
 public static class SerilogConfiguration
 {
     /// <summary>
-    /// Đăng ký Serilog với Elasticsearch sink vào WebApplicationBuilder.
-    /// Gọi trong Program.cs trước builder.Build().
+    /// Đăng ký Serilog với Elasticsearch sink vào WebApplicationBuilder (POS.Api, POS.Web).
     /// </summary>
     public static WebApplicationBuilder AddSerilogWithElastic(
         this WebApplicationBuilder builder)
@@ -24,57 +25,72 @@ public static class SerilogConfiguration
             .Get<ElasticsearchOptions>() ?? new ElasticsearchOptions();
 
         builder.Host.UseSerilog((context, services, loggerConfig) =>
-        {
-            loggerConfig
-                .ReadFrom.Configuration(context.Configuration)
-                .ReadFrom.Services(services)
-                .MinimumLevel.Information()
-                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-                .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-                .MinimumLevel.Override("System", LogEventLevel.Warning)
-                .Enrich.FromLogContext()
-                .Enrich.WithMachineName()
-                .Enrich.WithThreadId()
-                .WriteTo.Console(
-                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
-
-            // Bỏ entry rỗng — cho phép appsettings.{Env}.json blank index thừa của
-            // array Nodes để tắt ES sink (config layering merge array theo index)
-            var nodes = esOptions.Nodes
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Select(n => new Uri(n))
-                .ToArray();
-
-            if (nodes.Length > 0)
-            {
-
-                // Tên dataset lấy từ IndexFormat (e.g. "posblue-logs-{0:yyyy.MM.dd}" → "posblue-logs")
-                // Với Elastic.Serilog.Sinks (ECS), index được quản lý bởi data stream thay vì
-                // daily index rotation. Data stream name: logs-{dataset}-default
-                var dataset = ParseDataset(esOptions.IndexFormat);
-
-                loggerConfig.WriteTo.Elasticsearch(nodes, opts =>
-                {
-                    opts.DataStream = new DataStreamName("logs", dataset);
-                    // Silent: không crash startup khi ES chưa available (dev/prod cold-start).
-                    // Failure chỉ dùng khi cần đảm bảo ES template tồn tại trước khi app nhận traffic.
-                    opts.BootstrapMethod = BootstrapMethod.Silent;
-                    opts.ConfigureChannel = channelOpts =>
-                    {
-                        channelOpts.BufferOptions = new BufferOptions
-                        {
-                            ExportMaxConcurrency = 10
-                        };
-                    };
-                }, transport =>
-                {
-                    if (!string.IsNullOrEmpty(esOptions.Username))
-                        transport.Authentication(new BasicAuthentication(esOptions.Username, esOptions.Password));
-                });
-            }
-        });
+            ConfigureSerilogCore(loggerConfig, services, context.Configuration, esOptions));
 
         return builder;
+    }
+
+    /// <summary>
+    /// Đăng ký Serilog với Elasticsearch sink vào HostApplicationBuilder (POS.Worker).
+    /// </summary>
+    public static HostApplicationBuilder AddSerilogWithElastic(
+        this HostApplicationBuilder builder)
+    {
+        var esOptions = builder.Configuration
+            .GetSection(ElasticsearchOptions.SectionName)
+            .Get<ElasticsearchOptions>() ?? new ElasticsearchOptions();
+
+        builder.Services.AddSerilog((services, loggerConfig) =>
+            ConfigureSerilogCore(loggerConfig, services, builder.Configuration, esOptions));
+
+        return builder;
+    }
+
+    private static void ConfigureSerilogCore(
+        LoggerConfiguration loggerConfig,
+        IServiceProvider services,
+        IConfiguration configuration,
+        ElasticsearchOptions esOptions)
+    {
+        loggerConfig
+            .ReadFrom.Configuration(configuration)
+            .ReadFrom.Services(services)
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+            .MinimumLevel.Override("System", LogEventLevel.Warning)
+            .Enrich.FromLogContext()
+            .Enrich.WithMachineName()
+            .Enrich.WithThreadId()
+            .WriteTo.Console(
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+
+        var nodes = esOptions.Nodes
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => new Uri(n))
+            .ToArray();
+
+        if (nodes.Length > 0)
+        {
+            var dataset = ParseDataset(esOptions.IndexFormat);
+
+            loggerConfig.WriteTo.Elasticsearch(nodes, opts =>
+            {
+                opts.DataStream = new DataStreamName("logs", dataset);
+                opts.BootstrapMethod = BootstrapMethod.Silent;
+                opts.ConfigureChannel = channelOpts =>
+                {
+                    channelOpts.BufferOptions = new BufferOptions
+                    {
+                        ExportMaxConcurrency = 10
+                    };
+                };
+            }, transport =>
+            {
+                if (!string.IsNullOrEmpty(esOptions.Username))
+                    transport.Authentication(new BasicAuthentication(esOptions.Username, esOptions.Password));
+            });
+        }
     }
 
     // "posblue-logs-{0:yyyy.MM.dd}" → "posblue-logs"

@@ -5,6 +5,7 @@
     <Project Path="src/POS.Common/POS.Common.csproj" />
     <Project Path="src/POS.Infrastructure/POS.Infrastructure.csproj" />
     <Project Path="src/POS.Web/POS.Web.csproj" />
+    <Project Path="src/POS.Worker/POS.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/POS.ContractTests/POS.ContractTests.csproj" />

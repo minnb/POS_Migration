@@ -23,6 +23,7 @@ public sealed class KafkaAppService(
                 var result = await centralSaleRepository.InInsertToTableByJson(
                     StringHelper.Left(message.TransactionId, 4),
                     StringHelper.Left(message.TransactionId, 6),
+                    message.TransactionId,
                     message.Message ?? "", ct);
 
                 bool flag = result.Item1;

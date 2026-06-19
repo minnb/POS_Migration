@@ -179,3 +179,71 @@ private async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
 | AkaChain/FMV | `"FMV"` | `src/POS.Infrastructure/AppServices/AkaChainLoyaltyAppService.cs` |
 | GotIT | `PartnerEnum.GOTIT` | `src/POS.Infrastructure/AppServices/GotITService.cs` |
 | Urbox | `PartnerEnum.URBOX` | `src/POS.Infrastructure/AppServices/UrboxService.cs` |
+
+---
+
+## Pattern: Audit log table với try/finally trong Repository
+
+> Áp dụng khi: cần ghi audit log sau mỗi lần insert/process data, bất kể thành công hay thất bại, kể cả khi có nhiều return path.
+
+```csharp
+// Khai báo tracking variables TRƯỚC try
+bool   _flag     = false;
+string _errorMsg = "";
+string _dataType = "";
+try
+{
+    // ... logic chính, cập nhật _flag/_errorMsg/_dataType ở mỗi nhánh ...
+    _flag = true;
+    return (true, "OK");
+}
+catch (Exception ex) { _errorMsg = ex.Message; return (false, _errorMsg); }
+finally
+{
+    // finally LUÔN chạy — đảm bảo log dù return ở nhánh nào
+    await InsertDataRawJsonAsync(transactionId, _dataType, message, _flag,
+        _flag ? null : _errorMsg);
+}
+
+private async Task InsertDataRawJsonAsync(string transactionId, string dataType,
+    string message, bool flag, string? errorMessage)
+{
+    try
+    {
+        using var conn = await directConnectionFactory.CreateOpenConnectionAsync(
+            CancellationToken.None);  // CancellationToken.None — log phải chạy kể cả request bị cancel
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { ... }, commandTimeout: Timeout));
+    }
+    catch { /* Swallow — nếu log fail, main processing đã fail → RabbitMQ retry tự động */ }
+}
+```
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/CentralSaleRepository.cs` — `InInsertToTableByJson` + `InsertDataRawJsonAsync`
+
+**Anti-pattern:** Gọi log function ở từng return path riêng lẻ → dễ bỏ sót khi thêm nhánh mới.
+
+---
+
+## Pattern: POS.Worker — Background worker project độc lập
+
+> Áp dụng khi: cần tách BackgroundService ra khỏi POS.Api để tránh ảnh hưởng health check hoặc restart API.
+
+```csharp
+// POS.Worker/Program.cs — Worker Service SDK (Microsoft.NET.Sdk.Worker)
+var builder = Host.CreateApplicationBuilder(args);  // HostApplicationBuilder, KHÔNG phải WebApplicationBuilder
+builder.AddSerilogWithElastic();                     // overload HostApplicationBuilder trong SerilogConfiguration.cs
+builder.Services.AddInfrastructure(builder.Configuration);  // DB, Redis, RabbitMQ, Repos
+builder.Services.AddHostedService<PosSalesConsumerWorker>();
+// Thêm worker mới sau này: chỉ cần thêm dòng AddHostedService<T>() — không cần project mới
+var host = builder.Build();
+host.Run();
+```
+
+**Điểm quan trọng:**
+- SDK: `Microsoft.NET.Sdk.Worker` — không phải `Microsoft.NET.Sdk`
+- Docker image: `dotnet/runtime:10.0` (không phải `aspnet`) — nhẹ hơn ~60MB vì không có HTTP
+- Env var: `DOTNET_ENVIRONMENT` (không phải `ASPNETCORE_ENVIRONMENT`)
+- **KHÔNG gọi `AddApplication()`** — worker chỉ cần `AddInfrastructure()`, gọi thêm sẽ đăng ký HTTP client không cần thiết
+- `SerilogConfiguration.cs` cần overload riêng cho `HostApplicationBuilder` (khác `WebApplicationBuilder`)
+
+> Ví dụ thực tế: `src/POS.Worker/`, `Dockerfile.worker`, `docker-compose.yml` service `worker`

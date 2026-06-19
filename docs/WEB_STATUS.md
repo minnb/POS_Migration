@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-18 (Responsive UI Phase 3 — 5 pages/components theo chuẩn mobile)
+> Cập nhật: 2026-06-19 (HealthPage responsive fix + Responsive UI standard vào SKILLS.md)
 
 ---
 
@@ -134,13 +134,15 @@ src/POS.Web/
 | I7 | DataTable MudPaper overflow-x — table scroll được trên mobile | UsersPage + TransactionsPage + EosShiftsPage | ✅ | Style="overflow-x:auto" trên MudPaper chứa pos-table-wrap |
 | I8 | Chip filter flex-wrap — chips không tràn ngang mobile | Pages/Store/RevenuePage.razor | ✅ | flex-wrap thêm vào MudPaper filter container |
 | I9 | Summary text flex-wrap — &nbsp;\|&nbsp; đổi sang flex items | Pages/Store/TransactionsPage.razor | ✅ | d-flex flex-wrap gap-3 thay separator |
+| I10 | HealthPage responsive — header + chip section | Pages/Ops/HealthPage.razor | ✅ | pos-page-header Case B (title + group controls); chip div.d-flex flex-wrap; button align-self:center chống stretch |
+| I11 | Responsive UI standard — qui tắc chung mọi page | .claude/skills/web/SKILLS.md | ✅ | Section mới: bảng so sánh sai/đúng, 2 case pos-page-header, anti-patterns, checklist item |
 | H1 | Build pass (0 error, 0 warning) | — | ✅ | `dotnet build` → Build succeeded. 0 Warning(s). 0 Error(s). |
 
 ---
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **71 / 72 hạng mục**
+- ✅ Hoàn thành: **73 / 74 hạng mục**
 - ⚠️ Có vấn đề: **1 hạng mục** (B9 — SQL seed hash placeholder)
 - ❌ Còn thiếu: **0 hạng mục**
 

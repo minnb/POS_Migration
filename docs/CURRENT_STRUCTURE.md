@@ -192,6 +192,12 @@ src/
 │       ├── ResponseHelper.cs
 │       └── StringHelper.cs
 │
+├── POS.Worker/
+│   ├── POS.Worker.csproj           (SDK: Microsoft.NET.Sdk.Worker)
+│   ├── Program.cs
+│   ├── appsettings.json
+│   └── appsettings.Production.json
+│
 └── POS.Infrastructure/
     ├── DependencyInjection.cs
     ├── AppServices/
@@ -235,6 +241,8 @@ src/
     ├── Redis/
     │   ├── IRedisService.cs
     │   └── RedisService.cs
+    ├── Workers/
+    │   └── PosSalesConsumerWorker.cs  (BackgroundService — đăng ký trong POS.Worker/Program.cs)
     └── Repositories/
         ├── CentralMDRepository.cs
         ├── CentralSaleRepository.cs
@@ -346,7 +354,7 @@ src/
 | `IUrboxAppService` → `UrboxService` | Scoped | Urbox HTTP client (tạo HttpClient riêng per-call) |
 | `IKafkaAppService` → `KafkaAppService` | Scoped | Kafka producer wrapper |
 
-### `Program.cs`
+### `POS.Api/Program.cs`
 
 | Registration | Lifetime | Ghi chú |
 |-------------|----------|---------|
@@ -358,6 +366,14 @@ src/
 | `HttpClient` (generic factory) | — | `IHttpClientFactory` |
 | Swagger | — | Chỉ đăng ký khi `IsDevelopment()` |
 | `app.MapGet("/health", ...)` | — | Health endpoint public (Docker HEALTHCHECK) |
+
+### `POS.Worker/Program.cs`
+
+| Registration | Ghi chú |
+|-------------|---------|
+| `AddInfrastructure()` | DB, Redis, RabbitMQ, Repos — **KHÔNG** gọi `AddApplication()` (worker không cần HTTP AppServices) |
+| `AddHostedService<PosSalesConsumerWorker>()` | Consumer queue `pos_sales` — retry insert CentralSale |
+| `AddSerilogWithElastic()` (overload `HostApplicationBuilder`) | Cùng ES sink với POS.Api, index riêng `pos-worker-logs-*` |
 
 ---
 
@@ -395,7 +411,7 @@ Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo, CancellationToken c
 Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal, CancellationToken ct = default)
 Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default)
 Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
-Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string message, CancellationToken ct = default)
+Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default)
 ```
 
 ### `IDataRawJsonRepository` (`POS.Infrastructure.Repositories.Interfaces`)

@@ -116,6 +116,7 @@ public sealed class PosSalesConsumerWorker(
             var result = await repo.InInsertToTableByJson(
                 StringHelper.Left(msg.TransactionId, 4),
                 StringHelper.Left(msg.TransactionId, 6),
+                msg.TransactionId,
                 msg.Message ?? "");
 
             if (result.Item1)

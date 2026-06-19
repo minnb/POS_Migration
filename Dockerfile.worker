@@ -1,0 +1,22 @@
+# Stage 1: build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY src/POS.Common/POS.Common.csproj           src/POS.Common/
+COPY src/POS.Infrastructure/POS.Infrastructure.csproj src/POS.Infrastructure/
+COPY src/POS.Application/POS.Application.csproj src/POS.Application/
+COPY src/POS.Worker/POS.Worker.csproj           src/POS.Worker/
+RUN dotnet restore src/POS.Worker/POS.Worker.csproj
+COPY src/ src/
+RUN dotnet publish src/POS.Worker/POS.Worker.csproj -c Release -o /app/publish --no-restore
+
+# Stage 2: runtime (dotnet/runtime — không cần aspnet vì không có HTTP)
+FROM mcr.microsoft.com/dotnet/runtime:10.0
+WORKDIR /app
+ENV TZ=Asia/Ho_Chi_Minh
+
+RUN mkdir -p /app/logs \
+    && chown app:app /app/logs
+
+USER $APP_UID
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "POS.Worker.dll"]
