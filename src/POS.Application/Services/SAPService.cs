@@ -59,15 +59,30 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
         var data = await sapVoucherRepository.GetByVoucherNumberAsync(voucherNumber, ct);
         if (data != null)
         {
-            if (data.Status == "RDM") 
+            if (data.Status == "RDM")
             {
                 data.Return = "1";
                 return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = $"Mã Voucher/Coupon {voucherNumber} đã được sử dụng", Data = data };
             }
-            else
+
+            var isExpired = data.Status == "EXP"
+                || (DateTime.TryParseExact(data.Expiry_Date, "dd/MM/yyyy",
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var expiryDate)
+                    && expiryDate.Date < DateTime.Today);
+
+            if (isExpired)
             {
-                return new ResultResponse { Status = HttpStatusCode.OK, Message = "Success", Data = data };
+                data.Return = "1";
+                return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = $"Mã Voucher/Coupon {voucherNumber} đã hết hạn", Data = data };
             }
+
+            if (data.Status == "AVL")
+            {
+                return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = $"Mã Voucher/Coupon {voucherNumber} chưa được kích hoạt", Data = data };
+            }
+
+            return new ResultResponse { Status = HttpStatusCode.OK, Message = "Success", Data = data };
         }
 
         return new ResultResponse
