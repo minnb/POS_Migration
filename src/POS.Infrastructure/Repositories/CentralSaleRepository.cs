@@ -296,13 +296,6 @@ public sealed class CentralSaleRepository(
 
             using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo ?? "", ct: ct);
 
-            if (data.Type == PushSaleDataTypeEnum.REGISTER.ToString() && !string.IsNullOrEmpty(posNo))
-            {
-                await RegisterExecuteAsync(conn, posNo);
-                _flag = true;
-                return (true, "OK");
-            }
-
             var parameters = new DynamicParameters();
             parameters.Add("@Type", data.Type);
             parameters.Add("@Json", jsonData);
@@ -328,6 +321,13 @@ public sealed class CentralSaleRepository(
             }
 
             _flag = true;
+            if (data.Type == PushSaleDataTypeEnum.REGISTER.ToString() && !string.IsNullOrEmpty(posNo))
+            {
+                await RegisterExecuteAsync(conn, posNo);
+                _flag = true;
+                return (true, "OK");
+            }
+
             return (true, "OK");
         }
         catch (Exception ex)
@@ -687,6 +687,65 @@ public sealed class CentralSaleRepository(
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs("GetInterfaceErrors", ex);
+            return [];
+        }
+    }
+
+    public async Task<DataRawJsonSummaryDto> GetDataRawJsonSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            const string sql = @"
+                SELECT
+                    COUNT(*) AS TotalInPeriod,
+                    SUM(CASE WHEN CAST(CrtDate AS date) = CAST(GETDATE() AS date) THEN 1 ELSE 0 END) AS TotalToday,
+                    SUM(CASE WHEN Flag = 1 THEN 1 ELSE 0 END) AS TotalSuccess,
+                    SUM(CASE WHEN Flag = 0 THEN 1 ELSE 0 END) AS TotalFailed,
+                    MAX(CrtDate) AS LastCrtDate
+                FROM DataRawJson (NOLOCK)
+                WHERE CrtDate >= @FromDate AND CrtDate < @ToDate;";
+            return await conn.QueryFirstOrDefaultAsync<DataRawJsonSummaryDto>(
+                new CommandDefinition(sql,
+                    new { FromDate = fromDate.Date, ToDate = toDate.Date.AddDays(1) },
+                    commandTimeout: Timeout, cancellationToken: ct))
+                ?? new DataRawJsonSummaryDto();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetDataRawJsonSummary", ex);
+            return new DataRawJsonSummaryDto();
+        }
+    }
+
+    public async Task<List<DataRawJsonLogDto>> GetDataRawJsonListAsync(
+        DateTime fromDate, DateTime toDate,
+        string? dataType = null, bool? flag = null, int maxRows = 100,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            string? normalizedType = string.IsNullOrWhiteSpace(dataType) ? null : dataType.Trim();
+            const string sql = @"
+                SELECT TOP (@MaxRows)
+                    Id, TransactionId, DataType, Message, Flag, ErrorMessage, CrtDate
+                FROM DataRawJson (NOLOCK)
+                WHERE CrtDate >= @FromDate AND CrtDate < @ToDate
+                  AND (@DataType IS NULL OR DataType LIKE '%' + @DataType + '%')
+                  AND (@Flag IS NULL OR Flag = @Flag)
+                ORDER BY CrtDate DESC;";
+            var data = await conn.QueryAsync<DataRawJsonLogDto>(
+                new CommandDefinition(sql,
+                    new { MaxRows = maxRows, FromDate = fromDate.Date, ToDate = toDate.Date.AddDays(1),
+                          DataType = normalizedType, Flag = flag },
+                    commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetDataRawJsonList", ex);
             return [];
         }
     }

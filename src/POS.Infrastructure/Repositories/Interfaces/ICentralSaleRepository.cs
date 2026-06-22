@@ -41,6 +41,15 @@ public interface ICentralSaleRepository
         IReadOnlyList<string>? storeCodes = null,
         CancellationToken ct = default);
 
+    // ── DataRawJson Log ───────────────────────────────────────────────────────
+    Task<DataRawJsonSummaryDto> GetDataRawJsonSummaryAsync(
+        DateTime fromDate, DateTime toDate, CancellationToken ct = default);
+
+    Task<List<DataRawJsonLogDto>> GetDataRawJsonListAsync(
+        DateTime fromDate, DateTime toDate,
+        string? dataType = null, bool? flag = null, int maxRows = 100,
+        CancellationToken ct = default);
+
     // ── Interface_Errors Log ──────────────────────────────────────────────────
     Task InsertInterfaceErrorAsync(
         string? userName, string? errorProcedure, string? errorMessage,
