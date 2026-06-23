@@ -16,4 +16,8 @@ public interface IRptCentralSaleRepository
         string userId, string partner,
         int pageSize, int pageNumber,
         CancellationToken ct = default);
+    // ── Doanh thu theo ngành hàng ─────────────────────────────────────────────
+    Task<List<SalesByCategoryDto>> GetSalesByCategoryAsync(
+        string storeNo, DateTime fromDate, DateTime toDate,
+        CancellationToken ct = default);
 }

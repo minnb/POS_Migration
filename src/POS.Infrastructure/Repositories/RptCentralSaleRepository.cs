@@ -81,4 +81,40 @@ public sealed class RptCentralSaleRepository(
             return [];
         }
     }
+    public async Task<List<SalesByCategoryDto>> GetSalesByCategoryAsync(
+        string storeNo, DateTime fromDate, DateTime toDate,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var normalizedStoreNo = string.IsNullOrWhiteSpace(storeNo) ? "" : storeNo.Trim();
+
+            Console.WriteLine($"[RptCentralSaleRepository] GetSalesByCategory called:");
+            Console.WriteLine($"  FromDate={fromDate:O}, ToDate={toDate:O}, StoreNo='{normalizedStoreNo}'");
+
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var data = await conn.QueryAsync<SalesByCategoryDto>(
+                new CommandDefinition(
+                    "[dbo].[Rpt_SalesByCategory]",
+                    new
+                    {
+                        StoreNo  = normalizedStoreNo,
+                        FromDate = fromDate.Date,
+                        ToDate   = toDate.Date
+                    },
+                    commandType: CommandType.StoredProcedure,
+                    commandTimeout: Timeout,
+                    cancellationToken: ct));
+
+            var resultList = data.ToList();
+            Console.WriteLine($"[RptCentralSaleRepository] Query returned {resultList.Count} rows");
+            return resultList;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[RptCentralSaleRepository] Exception in GetSalesByCategory: {ex.GetType().Name} - {ex.Message}");
+            fileLogHelper.WriteExpLogs("GetSalesByCategory", ex);
+            return [];
+        }
+    }
 }

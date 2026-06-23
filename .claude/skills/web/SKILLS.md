@@ -255,6 +255,348 @@ protected override IEnumerable<MyDto> SortedFiltered => _sortCol switch
 
 ---
 
+## Store Selector — Dual Mode (StoreOperator vs Manager/Admin)
+
+> Áp dụng khi: page `StoreAndAbove` cần filter theo cửa hàng — StoreOperator chỉ thấy store của mình, ITOps/Admin chọn tự do.
+
+```razor
+@* StoreOperator → ReadOnly TextField (không thể đổi) *@
+@* ITOps/Admin → MudAutocomplete để chọn bất kỳ store *@
+
+<MudItem xs="12" sm="6" md="3">
+    @if (_isStoreOperator)
+    {
+        <MudTextField Value="@_filterStoreNo"
+                      Label="Mã CH/ST (*)"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      ReadOnly="true"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Store"/>
+    }
+    else
+    {
+        <MudAutocomplete T="string"
+                         @bind-Value="_filterStoreNo"
+                         Label="Mã CH/ST (*)"
+                         Placeholder="Tất cả"
+                         Variant="Variant.Outlined"
+                         Margin="Margin.Dense"
+                         SearchFunc="@SearchStoreAsync"
+                         Clearable="true"
+                         AdornmentIcon="@Icons.Material.Filled.Store"
+                         Adornment="Adornment.Start"
+                         MinCharacters="0"
+                         CoerceValue="true"/>
+    }
+</MudItem>
+```
+
+```csharp
+// @code — khởi tạo dual mode
+private bool _isStoreOperator;
+private string _filterStoreNo = string.Empty;
+private IReadOnlyList<string> _userStoreCodes = [];
+private List<string> _allStoreCodes = [];
+
+protected override async Task OnInitializedAsync()
+{
+    var state = await AuthState;
+    var json = state.User.FindFirst("store_codes")?.Value;
+    _userStoreCodes = string.IsNullOrEmpty(json)
+        ? [] : JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+    _isStoreOperator = _userStoreCodes.Count > 0;
+
+    if (_isStoreOperator)
+    {
+        _filterStoreNo = _userStoreCodes[0];  // lock vào store đầu tiên
+    }
+    else
+    {
+        // ITOps/Admin: nạp toàn bộ danh sách store cho autocomplete
+        var configs = await MdRepo.GetStoreSetConfigAsync();
+        _allStoreCodes = configs?
+            .Select(c => c.StoreNo).Where(s => !string.IsNullOrEmpty(s))
+            .Distinct().OrderBy(s => s).ToList() ?? [];
+    }
+}
+
+// SearchFunc cho MudAutocomplete — hỗ trợ MinCharacters="0" (hiện toàn bộ khi click vào)
+private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+{
+    if (string.IsNullOrWhiteSpace(value))
+        return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
+    return Task.FromResult(_allStoreCodes
+        .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+}
+```
+
+**Key points:**
+- `_isStoreOperator = _userStoreCodes.Count > 0` — flag kiểm soát mode
+- `MinCharacters="0"` → dropdown hiện ngay khi focus, không cần gõ ký tự
+- `CoerceValue="true"` → giữ giá trị đã gõ dù không chọn từ dropdown
+- `Clearable="true"` → cho phép xóa filter (= xem tất cả store)
+- Trong `ResetFilterAsync`: `if (!_isStoreOperator) _filterStoreNo = string.Empty;`
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
+
+---
+
+## Pivot Report Table — Pattern báo cáo dạng ma trận
+
+> Áp dụng khi: cần hiển thị báo cáo dạng pivot — hàng = category/entity, cột = ngày/tháng, ô = (số lượng, doanh thu).
+
+### Data model
+
+```csharp
+// Record pivot row — Dictionary key = ngày, value = tuple (Qty, Amt)
+private record PivotRow(
+    string MCHCode,
+    string MCHName,
+    int    TotalQty,
+    double TotalAmt,
+    Dictionary<DateTime, (int Qty, double Amt)> ByDate);
+
+private List<DateTime>  _dates     = [];   // danh sách ngày = cột
+private List<PivotRow>  _pivotRows = [];   // danh sách hàng
+private int             _totalQty;
+private double          _totalAmt;
+```
+
+### BuildPivot logic
+
+```csharp
+private void BuildPivot(DateTime fromDate, DateTime toDate)
+{
+    // Collect distinct dates có trong data (không nhất thiết liên tiếp)
+    _dates = _items
+        .Select(x => x.BussinessDate.Date)
+        .Distinct().OrderBy(d => d).ToList();
+
+    // Group by entity (MCHCode + MCHName)
+    var groups = _items
+        .GroupBy(x => new { x.MCHCode, x.MCHName })
+        .OrderBy(g => g.Key.MCHCode).ToList();
+
+    _pivotRows = groups.Select(g =>
+    {
+        var byDate = g
+            .GroupBy(x => x.BussinessDate.Date)
+            .ToDictionary(
+                d => d.Key,
+                d => (Qty: d.Sum(x => x.OrderTotal), Amt: d.Sum(x => x.AmountTotal)));
+
+        return new PivotRow(
+            MCHCode:  g.Key.MCHCode,
+            MCHName:  g.Key.MCHName,
+            TotalQty: g.Sum(x => x.OrderTotal),
+            TotalAmt: g.Sum(x => x.AmountTotal),
+            ByDate:   byDate);
+    }).ToList();
+
+    _totalQty = _pivotRows.Sum(r => r.TotalQty);
+    _totalAmt = _pivotRows.Sum(r => r.TotalAmt);
+}
+```
+
+### Pivot table markup
+
+```razor
+<div style="overflow-x:auto;">
+    <table class="pos-table rpt-pivot-table">
+        <thead>
+            <tr>
+                <th style="width:48px; text-align:center;">STT</th>
+                <th style="min-width:200px;">Tên gian hàng</th>
+                <th style="min-width:110px; text-align:right;">
+                    Số lượng/<br/>Số tiền
+                </th>
+                @foreach (var date in _dates)
+                {
+                    <th style="min-width:90px; text-align:right;">
+                        @date.ToString("dd/MM")<br/>
+                        <span style="font-weight:400; font-size:0.78rem;">(@GetDow(date))</span>
+                    </th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @{ int stt = 1; }
+            @foreach (var row in _pivotRows)
+            {
+                <tr>
+                    <td style="text-align:center; vertical-align:top;">@(stt++)</td>
+                    <td style="vertical-align:top;">
+                        <div style="font-weight:600; font-size:0.88rem;">@row.MCHCode</div>
+                        <div style="color:#1976D2; font-size:0.82rem;">@row.MCHName</div>
+                    </td>
+                    <td style="text-align:right; vertical-align:top; white-space:nowrap;">
+                        <div>@row.TotalQty.ToString("N0")</div>
+                        <div style="color:#1976D2; font-weight:500;">@row.TotalAmt.ToString("N0")</div>
+                    </td>
+                    @foreach (var date in _dates)
+                    {
+                        var cellQty = row.ByDate.TryGetValue(date, out var cv) ? cv.Item1 : 0;
+                        var cellAmt = row.ByDate.TryGetValue(date, out var ca) ? ca.Item2 : 0.0;
+                        <td style="text-align:right; vertical-align:top; white-space:nowrap;">
+                            <div>@(cellQty > 0 ? cellQty.ToString("N0") : "")</div>
+                            <div style="color:#1976D2;">@(cellAmt > 0 ? cellAmt.ToString("N0") : "")</div>
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr class="rpt-pivot-total">
+                <td colspan="2" style="text-align:center; font-weight:700;">Total</td>
+                <td style="text-align:right; white-space:nowrap;">
+                    <div>@_totalQty.ToString("N0")</div>
+                    <div>@_totalAmt.ToString("N0")</div>
+                </td>
+                @foreach (var date in _dates)
+                {
+                    var qty = _pivotRows.Sum(r => r.ByDate.TryGetValue(date, out var v) ? v.Item1 : 0);
+                    var amt = _pivotRows.Sum(r => r.ByDate.TryGetValue(date, out var va) ? va.Item2 : 0.0);
+                    <td style="text-align:right; white-space:nowrap;">
+                        <div>@(qty > 0 ? qty.ToString("N0") : "")</div>
+                        <div>@(amt > 0 ? amt.ToString("N0") : "")</div>
+                    </td>
+                }
+            </tr>
+        </tfoot>
+    </table>
+</div>
+```
+
+### Helper: Day of week
+
+```csharp
+private static string GetDow(DateTime d) => d.DayOfWeek switch
+{
+    DayOfWeek.Monday    => "Mon",
+    DayOfWeek.Tuesday   => "Tue",
+    DayOfWeek.Wednesday => "Wed",
+    DayOfWeek.Thursday  => "Thu",
+    DayOfWeek.Friday    => "Fri",
+    DayOfWeek.Saturday  => "Sat",
+    DayOfWeek.Sunday    => "Sun",
+    _ => ""
+};
+```
+
+**CSS classes cần có (đã khai báo trong `app.css`):**
+- `pos-table` — base table style
+- `rpt-pivot-table` — thêm border/style riêng cho pivot report
+- `rpt-pivot-total` — style hàng Total ở footer
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
+
+---
+
+## Report Page Layout — Header chuẩn cho trang báo cáo
+
+> Áp dụng khi: page xuất báo cáo dạng bảng (có thể in / xuất PDF).
+
+### Cấu trúc markup chuẩn
+
+```razor
+<MudPaper Elevation="2" Class="mb-4 pa-4">
+
+    @* 1. Action bar (PDF button bên phải) *@
+    <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   OnClick="@OnExportPdfClick"
+                   Size="Size.Small">Xuất PDF</MudButton>
+    </div>
+
+    @* 2. User info + timestamp *@
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; font-size:0.82rem; color:#555;">
+        <div>
+            <div>ID của người dùng: <strong>@_userId</strong></div>
+            <div>Tên người dùng: <strong>@_userFullName</strong></div>
+        </div>
+        <div style="text-align:right;">
+            Ngày giờ: <strong>@_printedAt</strong>
+        </div>
+    </div>
+
+    @* 3. Report title *@
+    <div style="text-align:center; margin-bottom:16px;">
+        <div style="font-size:1.1rem; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
+            Tên báo cáo
+        </div>
+    </div>
+
+    @* 4. Filter summary (store + date range) *@
+    <div style="font-size:0.84rem; margin-bottom:12px;">
+        <div>
+            Cửa hàng:
+            <strong>
+                @if (!string.IsNullOrEmpty(_reportStoreNo))
+                { @($"{_reportStoreNo} – {_reportStoreName}") }
+                else
+                { @("Tất cả") }
+            </strong>
+        </div>
+        <div>
+            Ngày giao dịch:
+            <strong>
+                @((_filterFromDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
+                –
+                @((_filterToDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
+            </strong>
+        </div>
+    </div>
+
+    @* 5. Nội dung bảng *@
+    @* ... *@
+
+</MudPaper>
+```
+
+### State fields cần thêm cho report header
+
+```csharp
+// Report header info — lấy sau khi có AuthState
+private string _userId       = string.Empty;
+private string _userFullName = string.Empty;
+private string _printedAt    = string.Empty;  // set sau khi load data xong
+
+// Resolved store info cho header (sau khi load data)
+private string _reportStoreNo   = string.Empty;
+private string _reportStoreName = string.Empty;
+```
+
+```csharp
+// Trong OnInitializedAsync — lấy user info từ claims
+_userId       = state.User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+_userFullName = state.User.FindFirst("full_name")?.Value ?? string.Empty;
+
+// Trong LoadDataAsync — sau khi có data
+_printedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+_reportStoreNo   = storeNo;
+_reportStoreName = _items.FirstOrDefault(x => x.StoreNo == storeNo)?.StoreName ?? string.Empty;
+if (string.IsNullOrEmpty(_reportStoreNo)) _reportStoreName = string.Empty;
+```
+
+### PDF export placeholder
+
+Khi chức năng xuất PDF chưa implement:
+
+```csharp
+private void OnExportPdfClick()
+{
+    Snackbar.Add("Chức năng Xuất PDF đang được phát triển.", Severity.Info);
+}
+```
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
+
+---
+
 ## Shared components có sẵn
 
 | Component / Class | File | Dùng cho |
@@ -280,6 +622,7 @@ protected override IEnumerable<MyDto> SortedFiltered => _sortCol switch
 | `IKafkaProducer` | Singleton | Kafka producer |
 | `ICentralMDRepository` | Scoped | Master data (store config, POS setup, SysWebApi...) |
 | `ICentralSaleRepository` | Scoped | Sales data (orders, transactions, revenue...) |
+| `IRptCentralSaleRepository` | Scoped | Report queries (SalesByCategory, pivot-style reports...) |
 | `ILoyaltyRepository` | Scoped | Loyalty (members, points, wincode...) |
 | `IOfferStaffRepository` | Scoped | Staff discount |
 | `IWincodeRepository` | Scoped | Wincode / winlife |

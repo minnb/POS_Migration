@@ -1,0 +1,434 @@
+@page "/store/revenue-category"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+@using POS.Web.Components.Shared
+@using POS.Infrastructure.Logging
+@using System.Security.Claims
+
+@inject IRptCentralSaleRepository RptSaleRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Doanh thu theo ngành hàng – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+@* ── Filter Panel ────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@_filterStoreNo"
+                              Label="Mã CH/ST (*)"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="string"
+                                 @bind-Value="_filterStoreNo"
+                                 Label="Mã CH/ST (*)"
+                                 Placeholder="Tất cả"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 CoerceValue="true"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker @bind-Date="_filterFromDateNullable"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           Editable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker @bind-Date="_filterToDateNullable"
+                           Label="Đến ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           Editable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true"
+                           Style="align-self:center; white-space:nowrap">Tìm kiếm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync"
+                           Disabled="@_loading"
+                           FullWidth="true"
+                           Style="align-self:center; white-space:nowrap">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Alerts ──────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+else if (_isEmpty)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-3">Không có dữ liệu trong khoảng thời gian này.</MudAlert>
+}
+
+@* ── Report Content ───────────────────────────────────────────────────── *@
+@if (!_isEmpty && _pivotRows.Any())
+{
+    <MudPaper Elevation="2" Class="mb-4 pa-4">
+
+        @* ─ Header: PDF button + user info ─ *@
+        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                       OnClick="@OnExportPdfClick"
+                       Size="Size.Small">Xuất PDF</MudButton>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; font-size:0.82rem; color:#555;">
+            <div>
+                <div>ID của người dùng: <strong>@_userId</strong></div>
+                <div>Tên người dùng: <strong>@_userFullName</strong></div>
+            </div>
+            <div style="text-align:right;">
+                Ngày giờ: <strong>@_printedAt</strong>
+            </div>
+        </div>
+
+        <div style="text-align:center; margin-bottom:16px;">
+            <div style="font-size:1.1rem; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
+                Tổng hợp doanh thu theo ngành hàng
+            </div>
+        </div>
+
+        <div style="font-size:0.84rem; margin-bottom:12px;">
+            <div>
+                Cửa hàng:
+                <strong>
+                    @if (!string.IsNullOrEmpty(_reportStoreNo))
+                    { @($"{_reportStoreNo} – {_reportStoreName}") }
+                    else
+                    { @("Tất cả") }
+                </strong>
+            </div>
+            <div>
+                Ngày giao dịch:
+                <strong>
+                    @((_filterFromDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
+                    –
+                    @((_filterToDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
+                </strong>
+            </div>
+        </div>
+
+        @* ─ Pivot Table ─ *@
+        <div style="overflow-x:auto;">
+            <table class="pos-table rpt-pivot-table">
+                <thead>
+                    <tr>
+                        <th style="width:48px; text-align:center;">STT</th>
+                        <th style="min-width:200px;">Tên gian hàng</th>
+                        <th style="min-width:110px; text-align:right;">
+                            Số lượng/<br/>Số tiền
+                        </th>
+                        @foreach (var date in _dates)
+                        {
+                            <th style="min-width:90px; text-align:right;">
+                                @date.ToString("dd/MM")<br/>
+                                <span style="font-weight:400; font-size:0.78rem;">(@GetDow(date))</span>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int stt = 1; }
+                    @foreach (var row in _pivotRows)
+                    {
+                        <tr>
+                            <td style="text-align:center; vertical-align:top;">@(stt++)</td>
+                            <td style="vertical-align:top;">
+                                <div style="font-weight:600; font-size:0.88rem;">@row.MCHCode</div>
+                                <div style="color:#1976D2; font-size:0.82rem;">@row.MCHName</div>
+                            </td>
+                            <td style="text-align:right; vertical-align:top; white-space:nowrap;">
+                                <div>@row.TotalQty.ToString("N0")</div>
+                                <div style="color:#1976D2; font-weight:500;">@row.TotalAmt.ToString("N0")</div>
+                            </td>
+                            @foreach (var date in _dates)
+                            {
+                                var cellQty = row.ByDate.TryGetValue(date, out var cv) ? cv.Item1 : 0;
+                                var cellAmt = row.ByDate.TryGetValue(date, out var ca) ? ca.Item2 : 0.0;
+                                <td style="text-align:right; vertical-align:top; white-space:nowrap;">
+                                    <div>@(cellQty > 0 ? cellQty.ToString("N0") : "")</div>
+                                    <div style="color:#1976D2;">@(cellAmt > 0 ? cellAmt.ToString("N0") : "")</div>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="rpt-pivot-total">
+                        <td colspan="2" style="text-align:center; font-weight:700;">Total</td>
+                        <td style="text-align:right; white-space:nowrap;">
+                            <div>@_totalQty.ToString("N0")</div>
+                            <div>@_totalAmt.ToString("N0")</div>
+                        </td>
+                        @foreach (var date in _dates)
+                        {
+                            var qty = _pivotRows.Sum(r => r.ByDate.TryGetValue(date, out var v) ? v.Item1 : 0);
+                            var amt = _pivotRows.Sum(r => r.ByDate.TryGetValue(date, out var va) ? va.Item2 : 0.0);
+                            <td style="text-align:right; white-space:nowrap;">
+                                <div>@(qty > 0 ? qty.ToString("N0") : "")</div>
+                                <div>@(amt > 0 ? amt.ToString("N0") : "")</div>
+                            </td>
+                        }
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </MudPaper>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    // ── State ─────────────────────────────────────────────────────────────
+    private bool    _loading = true;
+    private string? _errorMsg;
+    private bool    _isEmpty;
+    private bool    _isStoreOperator;
+
+    // ── Filter values ──────────────────────────────────────────────────────
+    private DateTime? _filterFromDateNullable = DateTime.Today.AddDays(-6);
+    private DateTime? _filterToDateNullable   = DateTime.Today;
+    private string    _filterStoreNo          = string.Empty;
+
+    // ── Store autocomplete ─────────────────────────────────────────────────
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private List<string>          _allStoreCodes  = [];
+
+    // ── Raw data ───────────────────────────────────────────────────────────
+    private List<SalesByCategoryDto> _items = [];
+
+    // ── Pivot model ────────────────────────────────────────────────────────
+    private record PivotRow(
+        string MCHCode,
+        string MCHName,
+        int    TotalQty,
+        double TotalAmt,
+        Dictionary<DateTime, (int Qty, double Amt)> ByDate);
+
+    private List<DateTime>  _dates     = [];
+    private List<PivotRow>  _pivotRows = [];
+    private int             _totalQty;
+    private double          _totalAmt;
+
+    // ── Report header info ─────────────────────────────────────────────────
+    private string _userId       = string.Empty;
+    private string _userFullName = string.Empty;
+    private string _printedAt    = string.Empty;
+
+    // ── Resolved store for report header ──────────────────────────────────
+    private string _reportStoreNo   = string.Empty;
+    private string _reportStoreName = string.Empty;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        // Read claims
+        var state = await AuthState;
+        _userId       = state.User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+        _userFullName = state.User.FindFirst("full_name")?.Value ?? string.Empty;
+
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        if (_isStoreOperator)
+        {
+            _filterStoreNo = _userStoreCodes[0];
+        }
+        else
+        {
+            try
+            {
+                var configs = await MdRepo.GetStoreSetConfigAsync();
+                _allStoreCodes = configs?
+                    .Select(c => c.StoreNo)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct()
+                    .OrderBy(s => s)
+                    .ToList() ?? [];
+            }
+            catch (Exception ex)
+            {
+                KibanaService.LogException("SalesByCategoryPage.LoadStoreCodes", "", 0, "", ex.Message);
+            }
+        }
+
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu.";
+            KibanaService.LogException("SalesByCategoryPage.OnInitialized", "", 0, "", ex.Message);
+            _loading = false;
+        }
+    }
+
+    // ── Load & Pivot ───────────────────────────────────────────────────────
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        _isEmpty  = false;
+        StateHasChanged();
+
+        try
+        {
+            var fromDate = (_filterFromDateNullable ?? DateTime.Today).Date;
+            var toDate   = (_filterToDateNullable   ?? DateTime.Today).Date;
+            if (fromDate > toDate) toDate = fromDate;
+
+            var storeNo = string.IsNullOrEmpty(_filterStoreNo) ? "" : _filterStoreNo;
+
+            var result = await RptSaleRepo.GetSalesByCategoryAsync(storeNo, fromDate, toDate);
+
+            _items   = result ?? [];
+            _isEmpty = _items.Count == 0;
+
+            if (!_isEmpty)
+            {
+                BuildPivot(fromDate, toDate);
+                // Resolve store name for report header
+                _reportStoreNo   = storeNo;
+                _reportStoreName = _items.FirstOrDefault(x => x.StoreNo == storeNo)?.StoreName ?? string.Empty;
+                if (string.IsNullOrEmpty(_reportStoreNo))
+                    _reportStoreName = string.Empty;
+            }
+
+            _printedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+
+            KibanaService.LogInfo("SalesByCategoryPage.LoadData",
+                _filterStoreNo ?? "all",
+                $"Loaded {_items.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}]");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("SalesByCategoryPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildPivot(DateTime fromDate, DateTime toDate)
+    {
+        // Collect all distinct dates in range
+        _dates = _items
+            .Select(x => x.BussinessDate.Date)
+            .Distinct()
+            .OrderBy(d => d)
+            .ToList();
+
+        // Group by MCHCode
+        var groups = _items
+            .GroupBy(x => new { x.MCHCode, x.MCHName })
+            .OrderBy(g => g.Key.MCHCode)
+            .ToList();
+
+        _pivotRows = groups.Select(g =>
+        {
+            var byDate = g
+                .GroupBy(x => x.BussinessDate.Date)
+                .ToDictionary(
+                    d => d.Key,
+                    d => (Qty: d.Sum(x => x.OrderTotal), Amt: d.Sum(x => x.AmountTotal)));
+
+            return new PivotRow(
+                MCHCode:  g.Key.MCHCode,
+                MCHName:  g.Key.MCHName,
+                TotalQty: g.Sum(x => x.OrderTotal),
+                TotalAmt: g.Sum(x => x.AmountTotal),
+                ByDate:   byDate);
+        }).ToList();
+
+        _totalQty = _pivotRows.Sum(r => r.TotalQty);
+        _totalAmt = _pivotRows.Sum(r => r.TotalAmt);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    private static string GetDow(DateTime d) => d.DayOfWeek switch
+    {
+        DayOfWeek.Monday    => "Mon",
+        DayOfWeek.Tuesday   => "Tue",
+        DayOfWeek.Wednesday => "Wed",
+        DayOfWeek.Thursday  => "Thu",
+        DayOfWeek.Friday    => "Fri",
+        DayOfWeek.Saturday  => "Sat",
+        DayOfWeek.Sunday    => "Sun",
+        _ => ""
+    };
+
+    private void OnExportPdfClick()
+    {
+        Snackbar.Add("Chức năng Xuất PDF đang được phát triển.", Severity.Info);
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _filterFromDateNullable = DateTime.Today.AddDays(-6);
+        _filterToDateNullable   = DateTime.Today;
+        if (!_isStoreOperator) _filterStoreNo = string.Empty;
+        await LoadDataAsync();
+    }
+
+    private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
+        return Task.FromResult(_allStoreCodes
+            .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+}

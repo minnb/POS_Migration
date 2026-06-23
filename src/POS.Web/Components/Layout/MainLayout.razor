@@ -65,6 +65,8 @@
                                     Icon="@Icons.Material.Filled.BarChart">Doanh thu</MudNavLink>
                         <MudNavLink Href="/store/revenue-detail"
                                     Icon="@Icons.Material.Filled.TableChart">Doanh thu chi tiết</MudNavLink>
+                        <MudNavLink Href="/store/revenue-category"
+                                    Icon="@Icons.Material.Filled.Category">Doanh thu theo ngành hàng</MudNavLink>
                         <MudNavLink Href="/store/revenue-hourly"
                                     Icon="@Icons.Material.Filled.AccessTime">Theo giờ</MudNavLink>
                         <MudNavLink Href="/store/payment-breakdown"
@@ -153,7 +155,7 @@
         var u = uri.ToLowerInvariant();
         _expandStoreOps    = u.Contains("/store/business-day") || u.Contains("/store/eos-shifts") || u.Contains("/store/shift-summary");
         _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids");
-        _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail");
+        _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category");
         _expandStore       = _expandStoreOps || _expandStoreTx || _expandStoreReport;
         _expandOps         = u.Contains("/ops/");
         _expandAdmin       = u.Contains("/admin/");
