@@ -638,7 +638,7 @@ public sealed class CentralSaleRepository(
         {
             var siteCode = orderNo.Substring(0, 4);
             using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
-            const string sql = @"SELECT TenderType, ReferenceNo AS Description, AmountTendered, CardNo, ApprovalCode AS AppCode,
+            const string sql = @"SELECT TenderType, TenderTypeName AS Description, AmountTendered, CardNo, ApprovalCode AS AppCode,
                                         BankPOSCode AS POSBankTerminalNo, BankCardType AS CardType, PaymentType AS BankPayment
                                  FROM TransPaymentEntry (NOLOCK)
                                  WHERE OrderNo = @OrderNo
