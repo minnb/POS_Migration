@@ -1,0 +1,18 @@
+@page "/store/payment-breakdown"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>Phân tích thanh toán – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Payments" Class="mr-2" Style="vertical-align:middle"/>
+    Phân tích thanh toán
+</MudText>
+
+<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Construction">
+    Tính năng đang được phát triển.
+</MudAlert>

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<DiscoveryClientResultsFile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <Results>
-    <DiscoveryClientResult referenceType="System.Web.Services.Discovery.ContractReference" url="http://pl-devqas-po.asia-southeast1-b.c.pl-dev-saperp.internal:50000/dir/wsdl?p=ic/86d188ba1a573b9baa6a0951c537185f" filename="SI_VC_OUT.wsdl" />
-  </Results>
-</DiscoveryClientResultsFile>

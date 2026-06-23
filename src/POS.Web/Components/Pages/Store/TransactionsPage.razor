@@ -16,6 +16,7 @@
 @inject ICentralMDRepository MdRepo
 @inject IKibanaService KibanaService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Giao dịch – POS Dashboard</PageTitle>
 
@@ -202,13 +203,14 @@
                     <th style="text-align:center" @onclick='() => SortBy("CreatedDate")'>
                         Đồng bộ<span class="pos-sort @(_sortCol=="CreatedDate"?"on":"")">@SI("CreatedDate")</span>
                     </th>
+                    <th style="text-align:center">Thao tác</th>
                 </tr>
             </thead>
             <tbody>
                 @if (_loading)
                 {
                     <tr>
-                        <td colspan="9" style="text-align:center; padding:28px">
+                        <td colspan="10" style="text-align:center; padding:28px">
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
                         </td>
                     </tr>
@@ -216,7 +218,7 @@
                 else if (!PagedItems.Any())
                 {
                     <tr>
-                        <td colspan="9" style="text-align:center; padding:28px; color:#9e9e9e">
+                        <td colspan="10" style="text-align:center; padding:28px; color:#9e9e9e">
                             Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.
                         </td>
                     </tr>
@@ -246,6 +248,16 @@
                                 </MudChip>
                             </td>
                             <td style="text-align:center">@t.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td style="text-align:center">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                               Size="Size.Small" Color="Color.Primary"
+                                               Title="Xem chi tiết"
+                                               OnClick="@(() => OpenDetailAsync(t))"/>
+                                <MudIconButton Icon="@Icons.Material.Filled.Print"
+                                               Size="Size.Small" Color="Color.Default"
+                                               Title="Print view (sắp ra mắt)"
+                                               Disabled="true"/>
+                            </td>
                         </tr>
                     }
                 }
@@ -402,6 +414,15 @@
             return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
         return Task.FromResult(_allStoreCodes
             .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private async Task OpenDetailAsync(TransactionListDto t)
+    {
+        await DialogService.ShowAsync<TransactionDetailDialog>(
+            $"Chi tiết giao dịch: {t.OrderNo}",
+            new DialogParameters<TransactionDetailDialog> { { x => x.Transaction, t } },
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true,
+                                CloseButton = true, CloseOnEscapeKey = true });
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

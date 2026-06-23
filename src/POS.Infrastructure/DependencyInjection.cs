@@ -38,6 +38,7 @@ public static class DependencyInjection
         // Scoped: mỗi HTTP request dùng 1 connection riêng (Dapper open/close per call).
         services.AddScoped<ICentralMDRepository, CentralMDRepository>();
         services.AddScoped<ICentralSaleRepository, CentralSaleRepository>();
+        services.AddScoped<IRptCentralSaleRepository, RptCentralSaleRepository>();
         services.AddScoped<IDataRawJsonRepository, DataRawJsonRepository>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();

@@ -1,0 +1,18 @@
+@page "/store/shift-summary"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>Tổng kết ca – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Summarize" Class="mr-2" Style="vertical-align:middle"/>
+    Tổng kết ca
+</MudText>
+
+<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Construction">
+    Tính năng đang được phát triển.
+</MudAlert>

@@ -610,6 +610,50 @@ public sealed class CentralSaleRepository(
         }
     }
 
+    public async Task<List<ValidateTransactionLine>> GetTransLinesAsync(string orderNo, CancellationToken ct = default)
+    {
+        try
+        {
+            var siteCode = orderNo.Substring(0, 4);
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            const string sql = @"SELECT DISTINCT [LineNo], ItemNo, [Description] ItemName, UnitOfMeasure, Quantity, UnitPrice,
+                                        DiscountAmount, VATPercent, VATAmount, LineAmountIncVAT, DivisionCode, Barcode
+                                 FROM TransLine (NOLOCK)
+                                 WHERE LineType = 0 AND DocumentNo = @OrderNo
+                                 ORDER BY [LineNo]";
+            var data = await conn.QueryAsync<ValidateTransactionLine>(
+                new CommandDefinition(sql, new { OrderNo = orderNo }, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetTransLines", ex);
+            return [];
+        }
+    }
+
+    public async Task<List<TransPaymentEntryDto>> GetTransPaymentEntriesAsync(string orderNo, CancellationToken ct = default)
+    {
+        try
+        {
+            var siteCode = orderNo.Substring(0, 4);
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            const string sql = @"SELECT TenderType, ReferenceNo AS Description, AmountTendered, CardNo, ApprovalCode AS AppCode,
+                                        BankPOSCode AS POSBankTerminalNo, BankCardType AS CardType, PaymentType AS BankPayment
+                                 FROM TransPaymentEntry (NOLOCK)
+                                 WHERE OrderNo = @OrderNo
+                                 ORDER BY [LineNo]";
+            var data = await conn.QueryAsync<TransPaymentEntryDto>(
+                new CommandDefinition(sql, new { OrderNo = orderNo }, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetTransPaymentEntries", ex);
+            return [];
+        }
+    }
+
     // ── Interface_Errors Log ──────────────────────────────────────────────────
 
     public async Task InsertInterfaceErrorAsync(

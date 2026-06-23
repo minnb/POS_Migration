@@ -1,0 +1,482 @@
+@page "/store/revenue-detail"
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+@using POS.Infrastructure.Logging
+
+@inject IRptCentralSaleRepository RptSaleRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Doanh thu chi tiết – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-2" Style="vertical-align:middle"/>
+    Doanh thu chi tiết
+</MudText>
+
+@* ── Filter Panel ────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_filterFromDateNullable"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           Editable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_filterToDateNullable"
+                           Label="Đến ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           Editable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@_filterStoreNo"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="string"
+                                 @bind-Value="_filterStoreNo"
+                                 Label="Cửa hàng"
+                                 Placeholder="Tất cả"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 CoerceValue="true"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="4">
+            <MudTextField @bind-Value="_filterTextSearch"
+                          Label="Tìm kiếm"
+                          Placeholder="Số đơn, Barcode, Mã SP..."
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnKeyDown="@HandleKeyDownAsync"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filterOrderType"
+                       Label="Loại đơn"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@(string.Empty)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("0")">Đơn bán</MudSelectItem>
+                <MudSelectItem Value="@("1")">Đơn trả</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filterSalesType"
+                       Label="Hình thức bán"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@("-1")">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("10")">Tại chỗ</MudSelectItem>
+                <MudSelectItem Value="@("30")">ShopeeFood</MudSelectItem>
+                <MudSelectItem Value="@("21")">BeFood</MudSelectItem>
+                <MudSelectItem Value="@("40")">Beamin</MudSelectItem>
+                <MudSelectItem Value="@("50")">Gojek</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filterPartner"
+                       Label="Đối tác"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@("-1")">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("APY")">AirPay</MudSelectItem>
+                <MudSelectItem Value="@("WPH")">Dr.Win</MudSelectItem>
+                <MudSelectItem Value="@("PNP")">Phano</MudSelectItem>
+                <MudSelectItem Value="@("MBC")">MBC</MudSelectItem>
+                <MudSelectItem Value="@("PLG")">Phúc Long</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filterVatCode"
+                       Label="Thuế VAT"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@(string.Empty)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("4")">10%</MudSelectItem>
+                <MudSelectItem Value="@("6")">8%</MudSelectItem>
+                <MudSelectItem Value="@("5")">5%</MudSelectItem>
+                <MudSelectItem Value="@("2")">0%</MudSelectItem>
+                <MudSelectItem Value="@("1")">Non Tax</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filterReturnOrder"
+                          Label="Đơn hàng gốc"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filterUserId"
+                          Label="Thu ngân / Nguồn"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Alerts ──────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+@if (_hitLimit)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3" Dense="true">
+        Kết quả chỉ hiển thị tối đa @(_pageSize * 20) dòng. Hãy thu hẹp bộ lọc để xem đầy đủ.
+    </MudAlert>
+}
+
+@* ── Table ───────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Style="overflow-x:auto">
+
+    @* Info + pagination trên *@
+    <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            @{
+                var from = (_page - 1) * _pageSize + 1;
+                var to   = Math.Min(_page * _pageSize, _totalCount);
+            }
+            @if (_totalCount > 0)
+            {
+                @($"Hiển thị {from}–{to} trong {_totalCount} dòng")
+            }
+            else if (!_loading)
+            {
+                @("Không có dữ liệu")
+            }
+        </MudText>
+        @if (_pageCount > 1)
+        {
+            <MudPagination Selected="@_page"
+                           SelectedChanged="@ReloadPageAsync"
+                           Count="@_pageCount"
+                           BoundaryCount="1"
+                           MiddleCount="5"
+                           ShowFirstButton="true"
+                           ShowLastButton="true"
+                           Color="Color.Primary"
+                           Size="Size.Small"/>
+        }
+    </div>
+
+    <div class="pos-table-wrap">
+        <table class="pos-table">
+            <thead>
+                <tr>
+                    <th style="width:100px">Ngày</th>
+                    <th style="width:80px">Giờ</th>
+                    <th style="width:120px">Số đơn</th>
+                    <th style="width:60px">CH</th>
+                    <th style="width:60px">POS</th>
+                    <th style="width:80px">Thu ngân</th>
+                    <th style="width:80px">Loại đơn</th>
+                    <th style="width:80px">Barcode</th>
+                    <th style="width:80px">Mã SP</th>
+                    <th style="width:150px">Tên SP</th>
+                    <th style="width:60px">ĐVT</th>
+                    <th style="text-align:right; width:70px">SL</th>
+                    <th style="text-align:right; width:80px">Đơn giá</th>
+                    <th style="text-align:right; width:80px">Giảm giá</th>
+                    <th style="width:50px">Thuế%</th>
+                    <th style="text-align:right; width:80px">Thuế VND</th>
+                    <th style="text-align:right; width:100px">Thành tiền</th>
+                    <th style="width:100px">Hình thức bán</th>
+                    <th style="width:80px">Đối tác</th>
+                    <th style="width:80px">Khuyến mãi</th>
+                    <th style="width:80px">Coupon</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_loading)
+                {
+                    <tr>
+                        <td colspan="21" style="text-align:center; padding:28px">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
+                        </td>
+                    </tr>
+                }
+                else if (!_items.Any())
+                {
+                    <tr>
+                        <td colspan="21" style="text-align:center; padding:28px; color:#9e9e9e">
+                            Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td>@item.OrderDateStr</td>
+                            <td style="text-align:center">@item.OrderTimeStr</td>
+                            <td>@item.OrderNo</td>
+                            <td style="text-align:center">@item.StoreNo</td>
+                            <td style="text-align:center">@item.POSTerminalNo</td>
+                            <td>@item.CashierID</td>
+                            <td style="text-align:center">
+                                @{
+                                    var orderTypeColor = item.OrderType?.Contains("trả") ?? false ? Color.Error : Color.Success;
+                                }
+                                <MudChip T="string" Color="@orderTypeColor" Size="Size.Small" Variant="Variant.Filled">
+                                    @(item.OrderType?.Substring(0, Math.Min(6, item.OrderType.Length)) ?? "-")
+                                </MudChip>
+                            </td>
+                            <td>@item.Barcode</td>
+                            <td>@item.ItemNo</td>
+                            <td>@item.Description</td>
+                            <td style="text-align:center">@item.UnitOfMeasure</td>
+                            <td style="text-align:right">@item.Quantity.ToString("N2")</td>
+                            <td style="text-align:right">@item.UnitPrice.ToString("N0")</td>
+                            <td style="text-align:right; color:#F39C12">@item.DiscountAmount.ToString("N0")</td>
+                            <td style="text-align:center">@item.VATCode</td>
+                            <td style="text-align:right">@item.VATAmount.ToString("N0")</td>
+                            <td style="text-align:right; font-weight:500">@item.LineAmountIncVAT.ToString("N0")</td>
+                            <td>@item.SalesType</td>
+                            <td>@item.PartnerStr</td>
+                            <td>@item.PromotionID</td>
+                            <td>@item.CouponCode</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @* Pagination dưới *@
+    @if (_pageCount > 1)
+    {
+        <div class="d-flex justify-end px-3 py-2">
+            <MudPagination Selected="@_page"
+                           SelectedChanged="@ReloadPageAsync"
+                           Count="@_pageCount"
+                           BoundaryCount="1"
+                           MiddleCount="5"
+                           ShowFirstButton="true"
+                           ShowLastButton="true"
+                           Color="Color.Primary"
+                           Size="Size.Small"/>
+        </div>
+    }
+
+</MudPaper>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private const int PageSize = 50;
+
+    private bool _loading;
+    private string? _errorMsg;
+    private bool _hitLimit;
+    private bool _isStoreOperator;
+
+    private DateTime? _filterFromDateNullable = DateTime.Today;
+    private DateTime? _filterToDateNullable = DateTime.Today;
+    private string _filterStoreNo = string.Empty;
+    private string _filterTextSearch = string.Empty;
+    private string _filterOrderType = string.Empty;
+    private string _filterSalesType = "-1";
+    private string _filterPartner = "-1";
+    private string _filterVatCode = string.Empty;
+    private string _filterReturnOrder = string.Empty;
+    private string _filterUserId = string.Empty;
+
+    private List<DetailRevenueSalesDto> _items = [];
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private List<string> _allStoreCodes = [];
+
+    private int _page = 1;
+    private int _pageSize = PageSize;
+    private int _totalCount = 0;
+    private int _pageCount => _totalCount > 0 ? (int)Math.Ceiling(_totalCount / (double)_pageSize) : 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        if (_isStoreOperator)
+        {
+            _filterStoreNo = _userStoreCodes[0];
+        }
+        else
+        {
+            try
+            {
+                var configs = await MdRepo.GetStoreSetConfigAsync();
+                _allStoreCodes = configs?
+                    .Select(c => c.StoreNo)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct()
+                    .OrderBy(s => s)
+                    .ToList() ?? [];
+            }
+            catch (Exception ex)
+            {
+                KibanaService.LogException("DetailRevenuePage.LoadStoreCodes", "", 0, "", ex.Message);
+            }
+        }
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _errorMsg = null;
+        _hitLimit = false;
+        _page = 1;
+        StateHasChanged();
+
+        try
+        {
+            var fromDate = (_filterFromDateNullable ?? DateTime.Today).Date;
+            var toDate = (_filterToDateNullable ?? DateTime.Today).Date;
+            if (fromDate > toDate) toDate = fromDate;
+
+            var storeNo   = string.IsNullOrEmpty(_filterStoreNo) ? "" : _filterStoreNo;
+            var orderType = string.IsNullOrEmpty(_filterOrderType) ? "" : _filterOrderType;
+            var salesType = string.IsNullOrEmpty(_filterSalesType) ? "-1" : _filterSalesType;
+            var partner   = string.IsNullOrEmpty(_filterPartner) ? "-1" : _filterPartner;
+            var pageNum   = _page - 1;
+
+            Console.WriteLine($"[DetailRevenuePage] SP Params: FromDate={fromDate:O}, ToDate={toDate:O}, StoreNo='{storeNo}', OrderType='{orderType}', SalesType='{salesType}', Partner='{partner}', PageSize={_pageSize}, PageNumber={pageNum}");
+
+            var result = await RptSaleRepo.GetDetailRevenueSalesAsync(
+                fromDate, toDate, storeNo, orderType, salesType,
+                string.IsNullOrEmpty(_filterReturnOrder) ? "" : _filterReturnOrder,
+                string.IsNullOrEmpty(_filterVatCode) ? "" : _filterVatCode,
+                string.IsNullOrEmpty(_filterTextSearch) ? "" : _filterTextSearch,
+                string.IsNullOrEmpty(_filterUserId) ? "" : _filterUserId,
+                partner, _pageSize, pageNum);
+
+            Console.WriteLine($"[DetailRevenuePage] Result: {result.Count} rows, Total={result.FirstOrDefault()?.Total ?? 0}");
+
+            _items = result;
+            _totalCount = result.FirstOrDefault()?.Total ?? 0;
+            _hitLimit = _items.Count >= _pageSize * 20;
+
+            KibanaService.LogInfo("DetailRevenuePage.LoadData",
+                _filterStoreNo ?? "all",
+                $"Loaded {_items.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}] page {_page}");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("DetailRevenuePage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _filterFromDateNullable = DateTime.Today;
+        _filterToDateNullable = DateTime.Today;
+        _filterTextSearch = string.Empty;
+        _filterOrderType = string.Empty;
+        _filterSalesType = "-1";
+        _filterPartner = "-1";
+        _filterVatCode = string.Empty;
+        _filterReturnOrder = string.Empty;
+        _filterUserId = string.Empty;
+        if (!_isStoreOperator) _filterStoreNo = string.Empty;
+        await LoadDataAsync();
+    }
+
+    private async Task ReloadPageAsync(int newPage)
+    {
+        if (newPage == _page) return;
+        _page = newPage;
+        await LoadDataAsync();
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadDataAsync();
+    }
+
+    private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
+        return Task.FromResult(_allStoreCodes
+            .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+}

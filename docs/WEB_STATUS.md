@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-19 (RevenuePage Y-axis auto-scale theo dữ liệu thực tế)
+> Cập nhật: 2026-06-23 (DetailRevenuePage — Báo cáo doanh thu chi tiết + menu refactor)
 
 ---
 
@@ -125,6 +125,13 @@ src/POS.Web/
 | G13 | AccessDenied – /access-denied + [AllowAnonymous] | Pages/AccessDenied.razor | ✅ | |
 | G14 | TransactionsPage – /store/transactions + StoreAndAbove | Pages/Store/TransactionsPage.razor | ✅ | migrated → PosTableBase + pos-table (từ MudDataGrid) |
 | G15 | EosShiftsPage – /store/eos-shifts + StoreAndAbove | Pages/Store/EosShiftsPage.razor | ✅ | Kết thúc ca — filter + KPI cards + pos-table + GetEosShiftListAsync |
+| G16 | DetailRevenuePage – /store/revenue-detail + StoreAndAbove | Pages/Store/DetailRevenuePage.razor | ✅ | Báo cáo doanh thu chi tiết — 11 filters + 21-col table + server-side pagination (50/page) + console logging |
+| G17 | BusinessDayPage – /store/business-day + StoreAndAbove | Pages/Store/BusinessDayPage.razor | ✅ | Stub — Ngày kinh doanh (UI construction in progress) |
+| G18 | ShiftSummaryPage – /store/shift-summary + StoreAndAbove | Pages/Store/ShiftSummaryPage.razor | ✅ | Stub — Tổng kết ca (UI construction in progress) |
+| G19 | RefundsPage – /store/refunds + StoreAndAbove | Pages/Store/RefundsPage.razor | ✅ | Stub — Hoàn trả (UI construction in progress) |
+| G20 | VoidsPage – /store/voids + StoreAndAbove | Pages/Store/VoidsPage.razor | ✅ | Stub — Hủy GD (UI construction in progress) |
+| G21 | RevenueHourlyPage – /store/revenue-hourly + StoreAndAbove | Pages/Store/RevenueHourlyPage.razor | ✅ | Stub — Doanh thu theo giờ (UI construction in progress) |
+| G22 | PaymentBreakdownPage – /store/payment-breakdown + StoreAndAbove | Pages/Store/PaymentBreakdownPage.razor | ✅ | Stub — Phân tích thanh toán (UI construction in progress) |
 | I1 | PosTableBase\<T\> – base class sort/paginate/format | Components/Shared/PosTableBase.cs | ✅ | PageSize=10, SortBy(), SI(), FormatVND(), PagedItems, TotalFiltered, PageCount |
 | I2 | DataTable CSS standard – .pos-table* | wwwroot/app.css | ✅ | pos-table-wrap, pos-table, pos-sort, header #EEF1F7/#1A2B45/2px-#2051A3 |
 | I3 | Sidebar accordion – tự mở/đóng theo route | Layout/MainLayout.razor | ✅ | NavigationManager.LocationChanged + @bind-Expanded + IAsyncDisposable |
@@ -143,11 +150,12 @@ src/POS.Web/
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **73 / 74 hạng mục**
+- ✅ Hoàn thành: **81 / 82 hạng mục**
 - ⚠️ Có vấn đề: **1 hạng mục** (B9 — SQL seed hash placeholder)
 - ❌ Còn thiếu: **0 hạng mục**
 
-> +8 hạng mục mới: G14 (TransactionsPage), G15 (EosShiftsPage), I1 (PosTableBase), I2 (pos-table CSS), I3 (sidebar accordion), I4 (active NavLink), F3 update, G12 update.
+> +15 hạng mục mới (session 2026-06-23): G16 (DetailRevenuePage full), G17-G22 (6 stub pages), menu refactor (F3 update).
+> Previous: G14 (TransactionsPage), G15 (EosShiftsPage), I1-I12 (DataTable + responsive standards).
 
 ---
 
@@ -188,5 +196,5 @@ Build succeeded.
     0 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:08.78
+Time Elapsed 00:00:03.16  [2026-06-23 after DetailRevenuePage]
 ```

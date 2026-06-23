@@ -1,5 +1,6 @@
 using POS.Common.Dtos.CentralSale;
 using POS.Common.Dtos.POS.Common;
+using POS.Common.Dtos.POS;
 
 namespace POS.Infrastructure.Repositories.Interfaces;
 
@@ -34,6 +35,9 @@ public interface ICentralSaleRepository
     Task<List<TransactionListDto>> GetTransactionListAsync(
         string? storeNo, DateTime fromDate, DateTime toDate,
         string? orderNo, int maxRows = 500, CancellationToken ct = default);
+
+    Task<List<ValidateTransactionLine>> GetTransLinesAsync(string orderNo, CancellationToken ct = default);
+    Task<List<TransPaymentEntryDto>> GetTransPaymentEntriesAsync(string orderNo, CancellationToken ct = default);
 
     // ── EOS Shift Dashboard ───────────────────────────────────────────────────
     Task<List<EosShiftDto>> GetEosShiftListAsync(
