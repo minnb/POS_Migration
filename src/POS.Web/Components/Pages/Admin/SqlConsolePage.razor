@@ -21,8 +21,9 @@
 </div>
 
 <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
-    Chỉ cho phép <strong>SELECT</strong> và <strong>UPDATE</strong>.
-    UPDATE chạy trong <strong>transaction</strong> — bạn xem số dòng ảnh hưởng rồi quyết định
+    Cho phép <strong>SELECT</strong>, <strong>INSERT</strong>, <strong>UPDATE</strong> và
+    <strong>CREATE/ALTER PROCEDURE</strong>.
+    Lệnh ghi chạy trong <strong>transaction</strong> — bạn xem kết quả rồi quyết định
     <strong>Commit</strong> hoặc <strong>Rollback</strong>.
 </MudAlert>
 
@@ -112,7 +113,7 @@
             Transaction đang mở — chưa áp dụng vào database
         </MudText>
 
-        @if (!_pending.HasWhere)
+        @if (_pending.Kind == StatementKind.Update && !_pending.HasWhere)
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
                 Lệnh UPDATE <strong>không có mệnh đề WHERE</strong> — sẽ ảnh hưởng toàn bộ bảng!
@@ -120,9 +121,18 @@
         }
 
         <div class="d-flex align-center gap-2 flex-wrap mb-3">
-            <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
-                @_pending.RowsAffected dòng sẽ bị thay đổi
-            </MudChip>
+            @if (_pending.Kind == StatementKind.CreateProcedure)
+            {
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                    Sẽ tạo/sửa stored procedure @(_pending.ObjectName ?? "(không xác định)")
+                </MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                    @_pending.RowsAffected dòng sẽ bị @(_pending.Kind == StatementKind.Insert ? "thêm" : "thay đổi")
+                </MudChip>
+            }
             <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined">
                 @_pending.ElapsedMs ms
             </MudChip>
@@ -278,7 +288,7 @@
             {
                 try
                 {
-                    _pending = await ConsoleService.BeginUpdateAsync(_connKey, _sql, _actor, _cts.Token);
+                    _pending = await ConsoleService.BeginMutationAsync(_connKey, _sql, _actor, _cts.Token);
                 }
                 catch (OperationCanceledException)
                 {

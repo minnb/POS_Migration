@@ -89,9 +89,49 @@ private static int CalcYTick(double yMax)
 
 ---
 
+## Pattern: CSS bar list (horizontal) — thay horizontal bar / treemap
+
+> Áp dụng khi: cần "Top N" dạng thanh ngang, hoặc dual-metric (DT + SL) — MudBlazor v9 **chỉ có Bar dọc + Line**,
+> KHÔNG có horizontal bar 2 trục hay treemap. Tự dựng bằng CSS, không thêm thư viện.
+
+```razor
+@using System.Globalization
+@foreach (var p in _items)
+{
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+        <div style="width:30px; text-align:center; font-weight:700;">@p.Rank</div>
+        <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@p.Name</span>
+                <span>@FormatVND(p.Revenue) · @p.Qty.ToString("N0")</span>
+            </div>
+            <div style="background:var(--mud-palette-action-disabled-background); height:14px; border-radius:4px; overflow:hidden;">
+                <div style="height:100%; @BarWidthStyle(p) background:@BarColor(p); border-radius:4px;"></div>
+            </div>
+        </div>
+    </div>
+}
+```
+
+```csharp
+// BẮT BUỘC InvariantCulture cho width:% — culture VN dùng dấu phẩy thập phân → "18,5%" phá CSS.
+private string BarWidthStyle(T p)
+{
+    var pct = _max > 0 ? (double)(Value(p) / _max) * 100d : 0d;
+    return $"width:{pct.ToString("0.##", CultureInfo.InvariantCulture)}%;";
+}
+```
+
+**Anti-pattern:** format `width:@pct%` trực tiếp trong culture VN → `18,5%` (sai CSS, thanh không vẽ).
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/TopProductPage.razor`
+
+---
+
 ## Ví dụ thực tế
 
 | Loại | File |
 |---|---|
 | Line + Bar + KPI + Y-axis auto-scale | `src/POS.Web/Components/Pages/Store/RevenuePage.razor` |
 | Nhiều chart (line/bar theo giờ/thứ) | `src/POS.Web/Components/Pages/Store/RevenueHourlyPage.razor` |
+| CSS bar list (Top N) + drill-through | `src/POS.Web/Components/Pages/Store/TopProductPage.razor` |

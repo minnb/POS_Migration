@@ -24,11 +24,14 @@ public sealed class PendingUpdate : IAsyncDisposable
     public int RowsAffected { get; }
     public bool HasWhere { get; }
     public long ElapsedMs { get; }
+    public StatementKind Kind { get; }
+    public string? ObjectName { get; }
 
     internal PendingUpdate(
         SqlConnection conn, SqlTransaction tx,
         int rowsAffected, bool hasWhere, long elapsedMs,
         string actor, string connKey, string sql,
+        StatementKind kind, string? objectName,
         IKibanaService kibana, IFileLogHelper fileLog,
         Func<string, Task> auditCallback)
     {
@@ -37,6 +40,8 @@ public sealed class PendingUpdate : IAsyncDisposable
         RowsAffected = rowsAffected;
         HasWhere = hasWhere;
         ElapsedMs = elapsedMs;
+        Kind = kind;
+        ObjectName = objectName;
         _actor = actor;
         _connKey = connKey;
         _sqlPreview = sql.Length <= 500 ? sql : sql[..500] + "...";
@@ -55,8 +60,8 @@ public sealed class PendingUpdate : IAsyncDisposable
         {
             if (!_finalised)
             {
-                _kibana.LogInfo("SqlConsole.Update.AutoRollback", _actor,
-                    $"{_connKey} | timeout 60s | {_sqlPreview}");
+                _kibana.LogInfo("SqlConsole.Mutation.AutoRollback", _actor,
+                    $"{_connKey} | {Kind} | timeout 60s | {_sqlPreview}");
                 try { await _auditCallback("AUTO_ROLLBACK"); } catch { /* best-effort */ }
                 await DisposeAsync();
             }
@@ -68,8 +73,8 @@ public sealed class PendingUpdate : IAsyncDisposable
         if (_finalised) return;
         _finalised = true;
         await _tx.CommitAsync();
-        _kibana.LogInfo("SqlConsole.Update.Commit", _actor,
-            $"{_connKey} | rows={RowsAffected} | {_sqlPreview}");
+        _kibana.LogInfo("SqlConsole.Mutation.Commit", _actor,
+            $"{_connKey} | {Kind} | rows={RowsAffected} | {_sqlPreview}");
         _fileLog.WriteLogs(
             $"[SqlConsole][COMMIT] actor={_actor} db={_connKey} rows={RowsAffected} sql={_sqlPreview}");
         try { await _auditCallback("COMMITTED"); } catch { /* audit fail không crash flow */ }
@@ -81,8 +86,8 @@ public sealed class PendingUpdate : IAsyncDisposable
         if (_finalised) return;
         _finalised = true;
         try { await _tx.RollbackAsync(); } catch { /* connection already gone */ }
-        _kibana.LogInfo("SqlConsole.Update.Rollback", _actor,
-            $"{_connKey} | rows={RowsAffected} | {_sqlPreview}");
+        _kibana.LogInfo("SqlConsole.Mutation.Rollback", _actor,
+            $"{_connKey} | {Kind} | rows={RowsAffected} | {_sqlPreview}");
         try { await _auditCallback("ROLLED_BACK"); } catch { /* best-effort */ }
         await CleanupAsync();
     }

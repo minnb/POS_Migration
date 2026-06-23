@@ -2,9 +2,10 @@ namespace POS.Web.Services;
 
 public sealed record DbOption(string Key, string Catalog, string Display);
 
-public sealed record SqlValidation(bool Ok, string? Error, StatementKind Kind, bool UpdateHasWhere);
+public sealed record SqlValidation(
+    bool Ok, string? Error, StatementKind Kind, bool UpdateHasWhere, string? ObjectName = null);
 
-public enum StatementKind { Select, Update, Invalid }
+public enum StatementKind { Select, Insert, Update, CreateProcedure, Invalid }
 
 public sealed class SqlQueryResult
 {
@@ -21,5 +22,5 @@ public interface ISqlConsoleService
     IReadOnlyList<DbOption> GetDatabases();
     SqlValidation Validate(string sql);
     Task<SqlQueryResult> ExecuteSelectAsync(string connKey, string sql, string actor, CancellationToken ct);
-    Task<PendingUpdate> BeginUpdateAsync(string connKey, string sql, string actor, CancellationToken ct);
+    Task<PendingUpdate> BeginMutationAsync(string connKey, string sql, string actor, CancellationToken ct);
 }

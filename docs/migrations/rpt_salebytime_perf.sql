@@ -22,25 +22,35 @@
 -- FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
 -- WHERE c.object_id = OBJECT_ID('dbo.ReportSaleDetail') ORDER BY c.column_id;
 
-/* BƯỚC 2 — Tạo index phủ (THAY tên cột cho khớp schema thật):
-     - Cột lọc của SP:  @StoreNo, khoảng ngày (@FromDate/@ToDate)
-     - INCLUDE các cột đo mà SP SUM/aggregate (gross, net, discount, vat, orders, qty...)
-   Bỏ comment và chỉnh tên cột trước khi chạy: */
+/* BƯỚC 2 — Tạo index phủ.
+   Cột ngày thực tế đã xác nhận = [OrderDate] (cả sp_ReportSaleByTime lẫn sp_ReportTopProduct
+   đều WHERE OrderDate BETWEEN ...). INCLUDE các cột đo mà SP SUM/aggregate.
+   Chỉnh danh sách INCLUDE cho khớp cột đo thật rồi bỏ comment: */
 
+-- (a) Phục vụ sp_ReportSaleByTime + sp_ReportTopProduct (lọc theo store + khoảng ngày)
 -- IF NOT EXISTS (SELECT 1 FROM sys.indexes
 --                WHERE object_id = OBJECT_ID('dbo.ReportSaleDetail')
---                  AND name = 'IX_ReportSaleDetail_Store_Date')
--- CREATE NONCLUSTERED INDEX IX_ReportSaleDetail_Store_Date
---     ON dbo.ReportSaleDetail ( StoreNo, SaleDate )       -- <== sửa tên cột ngày/store thật
---     INCLUDE ( GrossRevenue, NetRevenue, TotalDiscount,  -- <== sửa danh sách cột đo thật
---               TotalVAT, TotalOrders, TotalReturnOrders, TotalQty )
+--                  AND name = 'IX_ReportSaleDetail_Store_OrderDate')
+-- CREATE NONCLUSTERED INDEX IX_ReportSaleDetail_Store_OrderDate
+--     ON dbo.ReportSaleDetail ( StoreNo, OrderDate )
+--     INCLUDE ( ItemNo, SalesIsReturn, Quantity, LineAmountIncVAT, DiscountAmount )  -- <== bổ sung cột đo thật
+--     WITH (ONLINE = ON, DATA_COMPRESSION = PAGE);
+
+-- (b) Phục vụ DRILL-THROUGH Top sản phẩm (GetProductOrderLinesAsync): lọc theo ItemNo + khoảng ngày
+-- IF NOT EXISTS (SELECT 1 FROM sys.indexes
+--                WHERE object_id = OBJECT_ID('dbo.ReportSaleDetail')
+--                  AND name = 'IX_ReportSaleDetail_Item_OrderDate')
+-- CREATE NONCLUSTERED INDEX IX_ReportSaleDetail_Item_OrderDate
+--     ON dbo.ReportSaleDetail ( ItemNo, OrderDate )
+--     INCLUDE ( StoreNo, OrderNo, OrderTime, POSTerminalNo, CashierID,
+--               Quantity, UnitPrice, DiscountAmount, LineAmountIncVAT, SalesIsReturn )
 --     WITH (ONLINE = ON, DATA_COMPRESSION = PAGE);
 
 /* BƯỚC 3 — Xác minh execution plan dùng index (Seek, không Scan):
      SET STATISTICS IO ON;
-     EXEC dbo.sp_ReportSaleByTime @FromDate='2026-01-01', @ToDate='2026-12-31',
-                                  @StoreNo=NULL, @GroupBy='DAY';
-   Kỳ vọng: Index Seek trên IX_ReportSaleDetail_Store_Date, logical reads giảm mạnh. */
+     EXEC dbo.sp_ReportSaleByTime  @FromDate='2026-01-01', @ToDate='2026-12-31', @StoreNo=NULL, @GroupBy='DAY';
+     EXEC dbo.sp_ReportTopProduct  @FromDate='2026-01-01', @ToDate='2026-12-31', @StoreNo=NULL, @TopN=50, @SortBy='REVENUE';
+   Kỳ vọng: Index Seek, logical reads giảm mạnh. */
 
 
 /* -------------------------------------------------------------------------------------

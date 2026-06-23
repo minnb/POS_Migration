@@ -20,6 +20,22 @@ public interface IRptCentralSaleRepository
     Task<List<SalesByCategoryDto>> GetSalesByCategoryAsync(
         string storeNo, DateTime fromDate, DateTime toDate,
         CancellationToken ct = default);
+
+    // ── Top sản phẩm bán chạy (KPI + chi tiết SP + ngành hàng) ────────────────
+    // sortBy: 'REVENUE' | 'QUANTITY'. includeKpi=false: bỏ KPI (call kỳ trước cho trend).
+    // Kết quả cache Redis (key MD:RptTopProduct:*), TTL ngắn nếu khoảng chứa hôm nay.
+    Task<(TopProductKpiDto Kpi, List<TopProductDto> Products, List<TopProductCategoryDto> Categories)>
+        GetTopProductAsync(
+            DateTime fromDate, DateTime toDate,
+            string? storeNo,
+            int topN, string sortBy,
+            bool includeKpi = true,
+            CancellationToken ct = default);
+
+    // Drill-through: danh sách dòng hóa đơn của 1 SP (TOP 500, ReportSaleDetail trực tiếp).
+    Task<List<ProductOrderLineDto>> GetProductOrderLinesAsync(
+        string itemNo, DateTime fromDate, DateTime toDate, string? storeNo,
+        CancellationToken ct = default);
     // ── Doanh thu theo thời gian (KPI + series) ───────────────────────────────
     // groupBy: 'HOUR' | 'DAY' | 'WEEKDAY' | 'MONTH'
     // includeKpi=false: chỉ lấy series (HOUR/WEEKDAY/compare) — KPI lấy 1 lần ở call DAY.

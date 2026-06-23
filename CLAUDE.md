@@ -227,6 +227,23 @@ return data;
 
 ---
 
+## Quy tắc Background Worker — POS.Worker (BẮT BUỘC)
+
+> **Chi tiết đầy đủ: `.claude/skills/worker/SKILLS.md`** — đọc file này trước khi migrate bất kỳ
+> scheduled job, message consumer, hay tác vụ chạy nền nào sang `POS.Worker`.
+
+### Nguyên tắc cốt lõi
+
+- `POS.Worker` chỉ là **host mỏng** (`Program.cs` đăng ký hosted service).
+- **Implementation worker đặt trong `src/POS.Infrastructure/Workers/`** — namespace `POS.Infrastructure.Workers`.
+- Worker là **singleton** → resolve repository scoped qua `IServiceScopeFactory.CreateAsyncScope()`, KHÔNG inject thẳng.
+- Vòng lặp `ExecuteAsync` KHÔNG được chết: try/catch nuốt exception, set `healthState.Status = "Degraded"`, log, lặp tiếp.
+- Hai khuôn mẫu: **timer polling** (`PeriodicTimer`) và **message consumer** (RabbitMQ push, `prefetchCount: 1`, `autoAck: false`).
+- Serialize bằng **Newtonsoft.Json**; cập nhật `WorkerHealthState`; heartbeat → Redis key `Worker:Heartbeat:{Name}`.
+- Đăng ký mỗi worker mới: `builder.Services.AddHostedService<{Name}Worker>();` trong `Program.cs`.
+
+---
+
 ## Quy tắc migrate Controller — Rút ra từ thực tế
 
 ### A. DI Registration — BẮT BUỘC sau mỗi interface mới

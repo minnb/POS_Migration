@@ -310,3 +310,42 @@ public void Dispose() { _cts?.Cancel(); _cts?.Dispose(); }
 - KHÔNG đặt `_loading = true` làm giá trị mặc định field → guard `if (_loading) return;` sẽ chặn luôn lần auto-load đầu.
 
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/RevenueHourlyPage.razor`
+
+---
+
+## Pattern: MudTable row → drill-through dialog
+
+> Áp dụng khi: click 1 dòng báo cáo → mở dialog chi tiết (vd Top SP → hóa đơn chứa SP đó).
+
+```razor
+<MudTable Items="@_rows" T="MyDto" Hover="true" OnRowClick="@OnRowClicked" RowStyle="cursor:pointer"> ... </MudTable>
+```
+```csharp
+private async Task OnRowClicked(TableRowClickEventArgs<MyDto> args)
+{
+    var r = args.Item;
+    if (r == null) return;
+    var parameters = new DialogParameters<MyDialog> { { x => x.Id, r.Id }, { x => x.From, _from } };
+    await DialogService.ShowAsync<MyDialog>($"Chi tiết — {r.Id}", parameters,
+        new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true });
+}
+```
+> Dialog: `[CascadingParameter] IMudDialogInstance MudDialog`, `[Parameter]` cho input, load trong `OnInitializedAsync`,
+> `MudDialog.Close()`. Mẫu: `ProductOrdersDialog.razor`, `TransactionDetailDialog.razor`.
+
+---
+
+## Pattern: Tận dụng dữ liệu SP đã tính + so sánh cấp dòng (BA/BI)
+
+> Áp dụng khi: report đọc SP nặng. Trước khi thêm cột/SP mới, kiểm tra SP **đã trả** cột nào mà page đang vứt.
+
+- **Surface discarded columns**: SP report thường trả nhiều cột (return qty, avg price, order count, discount...)
+  mà page chỉ hiện vài cột. Tính % inline trong `RowTemplate` (vd `ReturnQty/SoldQty`, `Discount/Gross`) —
+  **free win, không sửa SP/DTO**. Tô màu ngưỡng (trả > 5% đỏ, giảm > 20% cam) để thành insight.
+- **So sánh cấp dòng (không sửa SP)**: khi có toggle "so sánh kỳ trước", page đã gọi SP kỳ trước cho KPI —
+  **giữ luôn list prev**, `ToDictionary(x => x.Key)`, rồi join theo khóa để hiện Δ hạng (▲/▼/NEW) + Δ% mỗi dòng.
+  Đừng chỉ dùng prev cho KPI tổng rồi vứt list.
+
+**Anti-pattern:** thêm SP/cột mới cho chỉ số mà SP hiện tại đã tính sẵn nhưng page bỏ qua.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/TopProductPage.razor`

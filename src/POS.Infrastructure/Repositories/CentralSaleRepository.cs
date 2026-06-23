@@ -654,6 +654,86 @@ public sealed class CentralSaleRepository(
         }
     }
 
+    // ── Void Transaction Dashboard ────────────────────────────────────────────
+
+    public async Task<List<VoidTransactionListDto>> GetVoidTransactionListAsync(
+        string? storeNo, DateTime fromDate, DateTime toDate,
+        string? orderNo, string? userVoid = null, string? posNo = null,
+        int maxRows = 500, CancellationToken ct = default)
+    {
+        try
+        {
+            string? normalizedStore = string.IsNullOrWhiteSpace(storeNo) ? null : storeNo.Trim();
+            string? normalizedOrderNo = string.IsNullOrWhiteSpace(orderNo) ? null : orderNo.Trim();
+            string? normalizedUserVoid = string.IsNullOrWhiteSpace(userVoid) ? null : userVoid.Trim();
+            string? normalizedPosNo = string.IsNullOrWhiteSpace(posNo) ? null : posNo.Trim();
+
+            var sql = $@"
+                SELECT TOP (@MaxRows)
+                    OrderNo, OrderDate, OrderTime, StoreNo, POSTerminalNo,
+                    ISNULL(DiscountAmount, 0) AS DiscountAmount,
+                    AmountInclVAT, TransactionType, CreatedDate, MemberCardNo,
+                    UserVoid, Note, CashierID, ShiftNo
+                FROM TransVoidHeader (NOLOCK)
+                WHERE CAST(OrderDate AS DATE) >= @FromDate AND CAST(OrderDate AS DATE) <= @ToDate
+                  AND (@StoreNo IS NULL OR StoreNo = @StoreNo)
+                  AND (@OrderNo IS NULL OR OrderNo LIKE '%' + @OrderNo + '%')
+                  AND (@UserVoid IS NULL OR UserVoid LIKE '%' + @UserVoid + '%')
+                  AND (@PosNo IS NULL OR POSTerminalNo = @PosNo)
+                ORDER BY CreatedDate DESC;";
+
+            var param = new
+            {
+                MaxRows  = maxRows,
+                FromDate = fromDate.Date,
+                ToDate   = toDate.Date,
+                StoreNo  = normalizedStore,
+                OrderNo  = normalizedOrderNo,
+                UserVoid = normalizedUserVoid,
+                PosNo    = normalizedPosNo
+            };
+
+            // Route to store shard when storeNo specified; otherwise use central connection
+            System.Data.IDbConnection conn = normalizedStore is not null
+                ? await connectionFactory.CreateOpenConnectionAsync(normalizedStore, ct: ct)
+                : await directConnectionFactory.CreateOpenConnectionAsync(ct);
+
+            using (conn)
+            {
+                var data = await conn.QueryAsync<VoidTransactionListDto>(
+                    new CommandDefinition(sql, param, commandTimeout: Timeout, cancellationToken: ct));
+                return [.. data];
+            }
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetVoidTransactionList", ex);
+            return [];
+        }
+    }
+
+    public async Task<List<ValidateTransactionLine>> GetVoidTransLinesAsync(string orderNo, CancellationToken ct = default)
+    {
+        try
+        {
+            var siteCode = orderNo.Substring(0, 4);
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
+            const string sql = @"SELECT DISTINCT [LineNo], ItemNo, [Description] ItemName, UnitOfMeasure, Quantity, UnitPrice,
+                                        DiscountAmount, VATPercent, VATAmount, LineAmountIncVAT, DivisionCode, Barcode
+                                 FROM TransVoidLine (NOLOCK)
+                                 WHERE DocumentNo = @OrderNo
+                                 ORDER BY [LineNo]";
+            var data = await conn.QueryAsync<ValidateTransactionLine>(
+                new CommandDefinition(sql, new { OrderNo = orderNo }, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetVoidTransLines", ex);
+            return [];
+        }
+    }
+
     // ── Interface_Errors Log ──────────────────────────────────────────────────
 
     public async Task InsertInterfaceErrorAsync(

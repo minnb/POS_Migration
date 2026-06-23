@@ -27,6 +27,8 @@ public sealed class RptCentralSaleRepository(
     private const int TtlSaleByTimeToday = 180;    // khoảng có "hôm nay" — worker rebuild mỗi 60s
     private const int TtlSaleByTimePast  = 43200;  // khoảng quá khứ bất biến — 12h
 
+    private const string KeyTopProductPrefix = "MD:RptTopProduct";
+
     public async Task<List<DetailRevenueSalesDto>> GetDetailRevenueSalesAsync(
         DateTime fromDate, DateTime toDate,
         string storeNo, string orderType, string salesType,
@@ -161,6 +163,133 @@ public sealed class RptCentralSaleRepository(
             return (new SaleByTimeKpiDto(), []);
         }
     }
+
+    public async Task<(TopProductKpiDto Kpi, List<TopProductDto> Products, List<TopProductCategoryDto> Categories)>
+        GetTopProductAsync(
+            DateTime fromDate, DateTime toDate,
+            string? storeNo,
+            int topN, string sortBy,
+            bool includeKpi = true,
+            CancellationToken ct = default)
+    {
+        var store     = string.IsNullOrWhiteSpace(storeNo) ? "ALL" : storeNo.Trim();
+        var range     = $"{fromDate:yyyyMMdd}:{toDate:yyyyMMdd}";
+        var dataKey   = $"{KeyTopProductPrefix}:{store}:{range}:{topN}:{sortBy}";
+        var kpiKey    = $"{KeyTopProductPrefix}:KPI:{store}:{range}:{topN}:{sortBy}";
+
+        // ── Cache lookup (Redis lỗi → bỏ qua, rơi xuống DB) ───────────────────
+        try
+        {
+            var cachedData = await redis.StringGetAsync<TopProductCachePayload>(dataKey);
+            if (cachedData != null)
+            {
+                if (!includeKpi) return (new TopProductKpiDto(), cachedData.Products, cachedData.Categories);
+                var cachedKpi = await redis.StringGetAsync<TopProductKpiDto>(kpiKey);
+                if (cachedKpi != null) return (cachedKpi, cachedData.Products, cachedData.Categories);
+            }
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetTopProduct.CacheGet", ex);
+        }
+
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            using var multi = await conn.QueryMultipleAsync(
+                new CommandDefinition(
+                    "[dbo].[sp_ReportTopProduct]",
+                    new
+                    {
+                        FromDate   = fromDate.Date,
+                        ToDate     = toDate.Date,
+                        StoreNo    = string.IsNullOrWhiteSpace(storeNo) ? (string?)null : storeNo.Trim(),
+                        CategoryNo = (string?)null,   // chiều ngành hàng chưa kích hoạt (SP chưa JOIN Item master)
+                        TopN       = topN,
+                        SortBy     = sortBy
+                    },
+                    commandType: CommandType.StoredProcedure,
+                    commandTimeout: SaleByTimeTimeout,
+                    cancellationToken: ct));
+
+            var kpi        = await multi.ReadFirstOrDefaultAsync<TopProductKpiDto>() ?? new();
+            var products   = (await multi.ReadAsync<TopProductDto>()).ToList();
+            var categories = (await multi.ReadAsync<TopProductCategoryDto>()).ToList();
+
+            try
+            {
+                var ttl = toDate.Date >= DateTime.Today ? TtlSaleByTimeToday : TtlSaleByTimePast;
+                redis.StringSet(dataKey, new TopProductCachePayload(products, categories), ttl);
+                redis.StringSet(kpiKey, kpi, ttl);
+            }
+            catch (Exception ex)
+            {
+                fileLogHelper.WriteExpLogs("GetTopProduct.CacheSet", ex);
+            }
+
+            return (includeKpi ? kpi : new TopProductKpiDto(), products, categories);
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetTopProduct", ex);
+            return (new TopProductKpiDto(), [], []);
+        }
+    }
+
+    // Drill-through: hóa đơn (order line) của 1 SP — query trực tiếp ReportSaleDetail (NOLOCK).
+    // Repo được phép raw SQL tham số hóa; page/Service thì không. Không cache (ít lặp).
+    public async Task<List<ProductOrderLineDto>> GetProductOrderLinesAsync(
+        string itemNo, DateTime fromDate, DateTime toDate, string? storeNo,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            const string sql = @"
+                SELECT TOP 500
+                    OrderNo,
+                    OrderDate,
+                    OrderTime,
+                    StoreNo,
+                    POSTerminalNo,
+                    CashierID,
+                    ISNULL(Quantity, 0)         AS Quantity,
+                    ISNULL(UnitPrice, 0)        AS UnitPrice,
+                    ISNULL(DiscountAmount, 0)   AS DiscountAmount,
+                    ISNULL(LineAmountIncVAT, 0) AS LineAmountIncVAT,
+                    ISNULL(SalesIsReturn, 0)    AS SalesIsReturn
+                FROM [dbo].[ReportSaleDetail] (NOLOCK)
+                WHERE ItemNo = @ItemNo
+                  AND OrderDate BETWEEN @FromDate AND @ToDate
+                  AND (@StoreNo IS NULL OR StoreNo = @StoreNo)
+                ORDER BY OrderDate DESC, OrderNo DESC;";
+
+            var toInclusive = toDate.Date.AddDays(1).AddSeconds(-1);   // tới 23:59:59 ngày @ToDate
+
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var data = await conn.QueryAsync<ProductOrderLineDto>(
+                new CommandDefinition(sql,
+                    new
+                    {
+                        ItemNo   = itemNo.Trim(),
+                        FromDate = fromDate.Date,
+                        ToDate   = toInclusive,
+                        StoreNo  = string.IsNullOrWhiteSpace(storeNo) ? (string?)null : storeNo.Trim()
+                    },
+                    commandTimeout: SaleByTimeTimeout,
+                    cancellationToken: ct));
+            return data.ToList();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetProductOrderLines", ex);
+            return [];
+        }
+    }
+
+    // Payload gộp RS2 + RS3 để cache 1 key (giữ products & categories nhất quán theo cùng filter).
+    private sealed record TopProductCachePayload(
+        List<TopProductDto> Products,
+        List<TopProductCategoryDto> Categories);
 
     public async Task<List<SalesByCategoryDto>> GetSalesByCategoryAsync(
         string storeNo, DateTime fromDate, DateTime toDate,

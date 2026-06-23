@@ -59,8 +59,11 @@ public sealed class SqlConsoleService(
         if (statements.Count == 0)
             return new SqlValidation(false, "Không có câu lệnh SQL nào.", StatementKind.Invalid, false);
 
+        var hasInsert = false;
         var hasUpdate = false;
+        var hasProc = false;
         var hasWhere = true;
+        string? procName = null;
 
         foreach (var stmt in statements)
         {
@@ -68,23 +71,47 @@ public sealed class SqlConsoleService(
             {
                 case SelectStatement:
                     break;
+                case InsertStatement:
+                    hasInsert = true;
+                    break;
                 case UpdateStatement upd:
                     hasUpdate = true;
                     if (upd.UpdateSpecification.WhereClause is null)
                         hasWhere = false;
+                    break;
+                case CreateProcedureStatement cp:
+                    hasProc = true;
+                    procName = cp.ProcedureReference?.Name?.BaseIdentifier?.Value;
+                    break;
+                case AlterProcedureStatement ap:
+                    hasProc = true;
+                    procName = ap.ProcedureReference?.Name?.BaseIdentifier?.Value;
+                    break;
+                case CreateOrAlterProcedureStatement coa:
+                    hasProc = true;
+                    procName = coa.ProcedureReference?.Name?.BaseIdentifier?.Value;
                     break;
                 default:
                     var stmtName = stmt.GetType().Name
                         .Replace("Statement", "", StringComparison.Ordinal)
                         .ToUpperInvariant();
                     return new SqlValidation(false,
-                        $"Chỉ cho phép SELECT và UPDATE. Phát hiện lệnh không được phép: {stmtName}.",
+                        $"Chỉ cho phép SELECT, INSERT, UPDATE và CREATE/ALTER PROCEDURE. Phát hiện lệnh không được phép: {stmtName}.",
                         StatementKind.Invalid, false);
             }
         }
 
-        var kind = hasUpdate ? StatementKind.Update : StatementKind.Select;
-        return new SqlValidation(true, null, kind, hasWhere);
+        // Proc DDL phải đứng riêng — không trộn với DML/SELECT trong cùng lần chạy.
+        if (hasProc && (hasInsert || hasUpdate || statements.Count > 1))
+            return new SqlValidation(false,
+                "CREATE/ALTER PROCEDURE phải chạy riêng, không trộn với câu lệnh khác.",
+                StatementKind.Invalid, false);
+
+        var kind = hasProc ? StatementKind.CreateProcedure
+                 : hasUpdate ? StatementKind.Update
+                 : hasInsert ? StatementKind.Insert
+                 : StatementKind.Select;
+        return new SqlValidation(true, null, kind, hasWhere, procName);
     }
 
     public async Task<SqlQueryResult> ExecuteSelectAsync(
@@ -151,7 +178,7 @@ public sealed class SqlConsoleService(
         }
     }
 
-    public async Task<PendingUpdate> BeginUpdateAsync(
+    public async Task<PendingUpdate> BeginMutationAsync(
         string connKey, string sql, string actor, CancellationToken ct)
     {
         var validation = Validate(sql);
@@ -161,17 +188,36 @@ public sealed class SqlConsoleService(
         if (!TryGetConnectionString(connKey, out var connStr))
             throw new InvalidOperationException($"Database '{connKey}' không hợp lệ.");
 
+        // Tách script thành các batch theo GO (ScriptDom đã loại bỏ GO).
+        var batches = SplitBatches(sql);
+
         var conn = new SqlConnection(connStr);
         await conn.OpenAsync(ct);
         var tx = (SqlTransaction)await conn.BeginTransactionAsync(ct);
 
         var sw = Stopwatch.StartNew();
-        await using var cmd = new SqlCommand(sql, conn, tx) { CommandTimeout = CommandTimeoutSeconds };
-        var rowsAffected = await cmd.ExecuteNonQueryAsync(ct);
+        var rowsAffected = 0;
+        try
+        {
+            foreach (var batchSql in batches)
+            {
+                await using var cmd = new SqlCommand(batchSql, conn, tx) { CommandTimeout = CommandTimeoutSeconds };
+                var affected = await cmd.ExecuteNonQueryAsync(ct);
+                if (affected > 0) rowsAffected += affected;   // DDL trả -1 → bỏ qua
+            }
+        }
+        catch
+        {
+            // Lỗi khi chạy → rollback ngay, không để transaction treo.
+            try { await tx.RollbackAsync(CancellationToken.None); } catch { /* best-effort */ }
+            tx.Dispose();
+            await conn.DisposeAsync();
+            throw;
+        }
         sw.Stop();
 
-        kibana.LogInfo("SqlConsole.Update.Begin", actor,
-            $"{connKey} | rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(sql)}");
+        kibana.LogInfo("SqlConsole.Mutation.Begin", actor,
+            $"{connKey} | kind={validation.Kind} rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(sql)}");
 
         var executedAt = DateTime.UtcNow;
         var catalog = _databases.FirstOrDefault(d => d.Key == connKey)?.Catalog ?? connKey;
@@ -182,7 +228,31 @@ public sealed class SqlConsoleService(
             WriteAuditAsync(actor, connKey, catalog, sql, rowsAffected, hasWhere, status, elapsedMs, executedAt);
 
         return new PendingUpdate(conn, tx, rowsAffected, hasWhere,
-            elapsedMs, actor, connKey, sql, kibana, fileLog, auditCallback);
+            elapsedMs, actor, connKey, sql, validation.Kind, validation.ObjectName,
+            kibana, fileLog, auditCallback);
+    }
+
+    /// <summary>
+    /// Tách SQL gốc thành từng batch theo separator GO bằng offset của ScriptDom.
+    /// GO không phải T-SQL nên SqlCommand không chạy được nguyên script nhiều batch.
+    /// </summary>
+    private static IReadOnlyList<string> SplitBatches(string sql)
+    {
+        var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+        using var reader = new StringReader(sql);
+        var fragment = parser.Parse(reader, out IList<ParseError> errors);
+        if (errors.Count > 0 || fragment is not TSqlScript script)
+            return [sql];
+
+        var result = new List<string>();
+        foreach (var batch in script.Batches)
+        {
+            if (batch.FragmentLength <= 0) continue;
+            var text = sql.Substring(batch.StartOffset, batch.FragmentLength);
+            if (!string.IsNullOrWhiteSpace(text))
+                result.Add(text);
+        }
+        return result.Count > 0 ? result : [sql];
     }
 
     private async Task WriteAuditAsync(
