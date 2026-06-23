@@ -20,6 +20,9 @@ public interface ICentralMDRepository
     /// <summary>Thay MemoryCacheService.GetStoreSetConfig cũ — mapping store → Kafka topic, cache Redis 12h.</summary>
     Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default);
 
+    /// <summary>Danh sách cửa hàng (StoreNo + Name) từ bảng Store, cache Redis 12h. Dùng cho UI store picker.</summary>
+    Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default);
+
     // ── CommonService (migrated từ CommonData — phần CentralMD) ──────────────
 
     /// <summary>SP [dbo].[POSMonitorInsert] — POS heartbeat/monitor. Lỗi → trả model rỗng (parity cũ).</summary>

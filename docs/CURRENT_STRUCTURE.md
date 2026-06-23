@@ -393,6 +393,7 @@ Task<ItemPointsMemberDto?> GetItemPointsMemberAsync(string pointsCode, string it
 Task<SysWebApiDto?> GetSysWebApiAsync(string appCode, CancellationToken ct = default)
 Task<List<POSDataSetupModel>?> GetPOSDataSetupAsync(CancellationToken ct = default)          // cache Redis 12h
 Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default)            // cache Redis 12h
+Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default)                         // StoreNo+Name, cache MD:StoreList 12h — store picker UI
 Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model, CancellationToken ct = default)
 Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress, CancellationToken ct = default)
 Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = default)          // không cache

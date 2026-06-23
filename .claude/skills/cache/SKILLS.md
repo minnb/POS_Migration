@@ -202,3 +202,35 @@ Khi thấy `_memoryCacheService.GetCache<T>("MemoryXxx")` trong code cũ:
 - [ ] AppService/Service inject Repository (KHÔNG inject IRedisService trực tiếp cho config data)
 - [ ] Đối với OAuth token → dùng Pattern 3 trong AppService, inject IRedisService
 - [ ] Build pass + kiểm tra Redis key được set sau lần gọi đầu
+
+---
+
+## Pattern 4: Cache report query (SP) — TTL theo độ mới + bỏ result-set dư
+
+> Áp dụng khi: report repository gọi SP nặng (aggregate bảng lớn ~10M dòng) theo
+> tham số `(store, from, to, groupBy)`, bị gọi nhiều lần / nhiều user. KHÔNG cache vô thời hạn.
+
+```csharp
+var range     = $"{from:yyyyMMdd}:{to:yyyyMMdd}";
+var seriesKey = $"MD:RptSaleByTime:{groupBy}:{store}:{range}";
+var kpiKey    = $"MD:RptSaleByTime:KPI:{store}:{range}";    // KPI tách riêng → tái dùng cross-groupBy
+
+// đọc cache (Redis lỗi → bỏ qua, rơi xuống DB; KHÔNG để cache hỏng làm trả rỗng)
+var cached = await redis.StringGetAsync<List<TSeries>>(seriesKey);
+if (cached != null && (!includeKpi || (kpi = await redis.StringGetAsync<TKpi>(kpiKey)) != null))
+    return (kpi ?? new(), cached);
+
+// miss → exec SP, rồi:
+var ttl = to.Date >= DateTime.Today ? 180 : 43200;   // có hôm nay → ngắn; quá khứ bất biến → 12h
+redis.StringSet(seriesKey, series, ttl);
+redis.StringSet(kpiKey, kpi, ttl);                   // luôn cache KPI từ RS1 (miễn phí)
+```
+
+**Nguyên tắc:**
+- **TTL theo độ mới**: range chứa hôm nay → TTL ngắn (khớp nhịp worker rebuild); range quá khứ → TTL dài.
+- **Tách KPI khỏi series**: cùng (store,range) nhưng khác groupBy vẫn dùng chung 1 KPI → tránh tính lặp.
+- **`includeKpi` flag**: caller chỉ cần series (vd chart HOUR/WEEKDAY) → bỏ qua đọc KPI.
+- **Fail-fast timeout** (vd 45s) riêng cho report, KHÔNG dùng chung 120s — quá ngưỡng = thiếu index, fail nhanh.
+- Cache get/set bọc try riêng → Redis down vẫn fallback DB.
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/RptCentralSaleRepository.cs` → `GetSaleByTimeAsync`

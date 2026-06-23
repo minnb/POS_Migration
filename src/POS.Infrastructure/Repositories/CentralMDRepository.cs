@@ -21,6 +21,7 @@ public sealed class CentralMDRepository(
     private const string KeySysWebApi         = "MD:SysWebApi";
     private const string KeyPOSDataSetup      = "MD:POSDataSetup";
     private const string KeyStoreSetConfig    = "MD:StoreSetConfig";
+    private const string KeyStoreList         = "MD:StoreList";
 
     public async Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
     {
@@ -153,6 +154,21 @@ public sealed class CentralMDRepository(
         var data = (await QueryAsync<StoreSetConfig>(sql, ct: ct)).ToList();
         if (data.Count > 0)
             redis.StringSet(KeyStoreSetConfig, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    public async Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<StoreDto>>(KeyStoreList);
+        if (cached?.Count > 0) return cached;
+
+        const string sql = @"SELECT No AS StoreNo, Name
+                             FROM dbo.Store (NOLOCK)
+                             WHERE Blocked = 0
+                             ORDER BY No";
+        var data = (await QueryAsync<StoreDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyStoreList, data, ttlSeconds: 43200);
         return data;
     }
 

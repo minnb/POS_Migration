@@ -2,12 +2,9 @@
 @attribute [Authorize(Policy = WebPolicies.AdminOnly)]
 @rendermode InteractiveServer
 
-@inherits PosTableBase<DashboardUser>
-
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
 @using POS.Web.Auth
-@using POS.Web.Components.Shared
 @using POS.Infrastructure.Logging
 
 @inject IWebUserService UserService
@@ -44,154 +41,85 @@
 }
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2" Style="overflow-x:auto">
-
-    @* Toolbar: count + search *@
-    <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
+<MudTable Items="@FilteredUsers"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <ToolBarContent>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
-            @if (TotalFiltered != _users.Count)
+            @if (FilteredUsers.Count() != _users.Count)
             {
-                @($"Hiển thị {TotalFiltered} / {_users.Count} người dùng")
+                @($"Hiển thị {FilteredUsers.Count()} / {_users.Count} người dùng")
             }
             else
             {
                 @($"Tổng: {_users.Count} người dùng")
             }
         </MudText>
-        <div class="d-flex align-center gap-2 flex-wrap">
-            <MudTextField @bind-Value="SearchText"
-                          Placeholder="Tìm kiếm..."
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          IconSize="Size.Small"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          Class="mt-0"
-                          Immediate="true"
-                          Style="flex:1; min-width:160px"/>
-            @if (PageCount > 1)
-            {
-                <MudPagination @bind-Selected="_page"
-                               Count="@PageCount"
-                               BoundaryCount="1"
-                               MiddleCount="3"
-                               ShowFirstButton="true"
-                               ShowLastButton="true"
-                               Color="Color.Primary"
-                               Size="Size.Small"/>
+        <MudSpacer/>
+        <MudTextField @bind-Value="_searchField"
+                      Placeholder="Tìm kiếm..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Small"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Class="mt-0"
+                      Immediate="true"
+                      Style="flex:0 1 240px; min-width:160px"/>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh Style="text-align:center; width:60px"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Username)">Tên đăng nhập</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.FullName)">Họ và tên</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Role)">Vai trò</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.IsActive)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right; width:100px"></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="ID" Style="text-align:center">@context.Id</MudTd>
+        <MudTd DataLabel="Tên đăng nhập">@context.Username</MudTd>
+        <MudTd DataLabel="Họ và tên">@context.FullName</MudTd>
+        <MudTd DataLabel="Vai trò" Style="text-align:center">
+            @{
+                var (rColor, rLabel) = RoleDisplay(context.Role);
             }
-        </div>
-    </div>
-
-    <div class="pos-table-wrap">
-        <table class="pos-table">
-            <thead>
-                <tr>
-                    <th style="text-align:center; width:60px" @onclick='() => SortBy("Id")'>
-                        ID<span class="pos-sort @(_sortCol=="Id"?"on":"")">@SI("Id")</span>
-                    </th>
-                    <th @onclick='() => SortBy("Username")'>
-                        Tên đăng nhập<span class="pos-sort @(_sortCol=="Username"?"on":"")">@SI("Username")</span>
-                    </th>
-                    <th @onclick='() => SortBy("FullName")'>
-                        Họ và tên<span class="pos-sort @(_sortCol=="FullName"?"on":"")">@SI("FullName")</span>
-                    </th>
-                    <th style="text-align:center" @onclick='() => SortBy("Role")'>
-                        Vai trò<span class="pos-sort @(_sortCol=="Role"?"on":"")">@SI("Role")</span>
-                    </th>
-                    <th style="text-align:center" @onclick='() => SortBy("IsActive")'>
-                        Trạng thái<span class="pos-sort @(_sortCol=="IsActive"?"on":"")">@SI("IsActive")</span>
-                    </th>
-                    <th style="text-align:right; width:100px"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (_loading)
-                {
-                    <tr>
-                        <td colspan="6" style="text-align:center; padding:28px">
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
-                        </td>
-                    </tr>
-                }
-                else if (!PagedItems.Any())
-                {
-                    <tr>
-                        <td colspan="6" style="text-align:center; padding:28px; color:#9e9e9e">
-                            Không có dữ liệu.
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    @foreach (var u in PagedItems)
-                    {
-                        <tr>
-                            <td style="text-align:center">@u.Id</td>
-                            <td>@u.Username</td>
-                            <td>@u.FullName</td>
-                            <td style="text-align:center">
-                                @{
-                                    var (rColor, rLabel) = RoleDisplay(u.Role);
-                                }
-                                <MudChip T="string" Color="@rColor" Size="Size.Small" Variant="Variant.Filled">
-                                    @rLabel
-                                </MudChip>
-                            </td>
-                            <td style="text-align:center">
-                                @if (u.IsActive)
-                                {
-                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"
-                                             Icon="@Icons.Material.Filled.CheckCircle">
-                                        Hoạt động
-                                    </MudChip>
-                                }
-                                else
-                                {
-                                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined"
-                                             Icon="@Icons.Material.Filled.Block">
-                                        Tạm khóa
-                                    </MudChip>
-                                }
-                            </td>
-                            <td style="text-align:right">
-                                <MudTooltip Text="Sửa">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                                   Size="Size.Small"
-                                                   Color="Color.Primary"
-                                                   OnClick="@(() => OpenDialogAsync(u))"/>
-                                </MudTooltip>
-                                <MudTooltip Text="Khóa tài khoản">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Block"
-                                                   Size="Size.Small"
-                                                   Color="Color.Error"
-                                                   Disabled="@(!u.IsActive)"
-                                                   OnClick="@(() => ConfirmDeleteAsync(u))"/>
-                                </MudTooltip>
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-
-    @* Pagination dưới *@
-    @if (PageCount > 1)
-    {
-        <div class="d-flex justify-end px-3 py-2">
-            <MudPagination @bind-Selected="_page"
-                           Count="@PageCount"
-                           BoundaryCount="1"
-                           MiddleCount="3"
-                           ShowFirstButton="true"
-                           ShowLastButton="true"
-                           Color="Color.Primary"
-                           Size="Size.Small"/>
-        </div>
-    }
-
-</MudPaper>
+            <MudChip T="string" Color="@rColor" Size="Size.Small" Variant="Variant.Filled">@rLabel</MudChip>
+        </MudTd>
+        <MudTd DataLabel="Trạng thái" Style="text-align:center">
+            @if (context.IsActive)
+            {
+                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"
+                         Icon="@Icons.Material.Filled.CheckCircle">Hoạt động</MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined"
+                         Icon="@Icons.Material.Filled.Block">Tạm khóa</MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="" Style="text-align:right">
+            <MudTooltip Text="Sửa">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => OpenDialogAsync(context))"/>
+            </MudTooltip>
+            <MudTooltip Text="Khóa tài khoản">
+                <MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
+                               Disabled="@(!context.IsActive)"
+                               OnClick="@(() => ConfirmDeleteAsync(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} người dùng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
 
 @code {
     private bool    _loading = true;
@@ -199,35 +127,14 @@
     private string  _searchField = string.Empty;
     private List<DashboardUser> _users = [];
 
-    private string SearchText
-    {
-        get => _searchField;
-        set { _searchField = value; _page = 1; }
-    }
-
-    // ── PosTableBase<T> implementation ──────────────────────────────────────
-
-    protected override IEnumerable<DashboardUser> SortedFiltered
-    {
-        get
-        {
-            var filtered = string.IsNullOrWhiteSpace(_searchField)
-                ? (IEnumerable<DashboardUser>)_users
-                : _users.Where(u =>
-                    u.Username.Contains(_searchField, StringComparison.OrdinalIgnoreCase)
-                    || u.FullName.Contains(_searchField, StringComparison.OrdinalIgnoreCase)
-                    || u.Role.Contains(_searchField, StringComparison.OrdinalIgnoreCase));
-
-            return _sortCol switch
-            {
-                "Username" => _sortAsc ? filtered.OrderBy(u => u.Username) : filtered.OrderByDescending(u => u.Username),
-                "FullName" => _sortAsc ? filtered.OrderBy(u => u.FullName) : filtered.OrderByDescending(u => u.FullName),
-                "Role"     => _sortAsc ? filtered.OrderBy(u => u.Role)     : filtered.OrderByDescending(u => u.Role),
-                "IsActive" => _sortAsc ? filtered.OrderBy(u => u.IsActive) : filtered.OrderByDescending(u => u.IsActive),
-                _          => _sortAsc ? filtered.OrderBy(u => u.Id)       : filtered.OrderByDescending(u => u.Id),
-            };
-        }
-    }
+    // Search filter applied to MudTable source; sort handled by MudTableSortLabel.
+    private IEnumerable<DashboardUser> FilteredUsers =>
+        string.IsNullOrWhiteSpace(_searchField)
+            ? _users
+            : _users.Where(u =>
+                u.Username.Contains(_searchField, StringComparison.OrdinalIgnoreCase)
+                || u.FullName.Contains(_searchField, StringComparison.OrdinalIgnoreCase)
+                || u.Role.Contains(_searchField, StringComparison.OrdinalIgnoreCase));
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 

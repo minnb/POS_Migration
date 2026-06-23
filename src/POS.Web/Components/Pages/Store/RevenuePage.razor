@@ -19,9 +19,10 @@
 }
 
 @* ── Header ────────────────────────────────────────────────────────── *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
-    <MudText Typo="Typo.h5">Doanh thu</MudText>
-</MudStack>
+<MudText Typo="Typo.h5" Class="mb-1">
+    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Class="mr-2" Style="vertical-align:middle"/>
+    Doanh thu
+</MudText>
 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
     @if (_userStoreCodes.Count > 0)
     {

@@ -567,18 +567,26 @@ Nhất quán với POS.Api và POS terminals.
 
 Page chỉ có title (không có button) → dùng `MudText Typo.h5` trực tiếp, không cần `pos-page-header`.
 
-#### B. DataTable — `MudPaper` PHẢI có `overflow-x:auto`
+#### B. DataTable — dùng `MudTable` với `HorizontalScrollbar="true"`
 
 ```razor
-@* BẮT BUỘC: Style="overflow-x:auto" trực tiếp trên MudPaper chứa table *@
-<MudPaper Elevation="2" Style="overflow-x:auto">
-    <div class="pos-table-wrap">
-        <table class="pos-table"> ... </table>
-    </div>
-</MudPaper>
+@* BẮT BUỘC: DataTable dùng MudTable (không tự viết <table class="pos-table">) *@
+<MudTable Items="@_items" Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Loading="@_loading"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<MyDto, object>(x => x.FieldA)">Cột A</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Cột A">@context.FieldA</MudTd>
+    </RowTemplate>
+    <PagerContent><MudTablePager/></PagerContent>
+</MudTable>
 ```
 
-> Không có `Style="overflow-x:auto"` trên MudPaper → table bị clip trên mobile, người dùng không thể xem đủ cột.
+> Chi tiết đầy đủ (client-side / server-side / dynamic columns / footer tổng): `.claude/skills/web/SKILLS.md` §DataTable chuẩn.
+> Không có `HorizontalScrollbar="true"` → table bị clip trên mobile.
+> **Ngoại lệ:** pivot report (cột-ngày động) vẫn dùng `<table class="pos-table rpt-pivot-table">` trong wrapper `overflow-x:auto`.
 
 #### C. Filter Panel
 
@@ -649,7 +657,7 @@ public async ValueTask DisposeAsync()
 
 ```
 □ Page header có button  → dùng div.pos-page-header (KHÔNG MudStack Row)
-□ MudPaper chứa DataTable → Style="overflow-x:auto"
+□ DataTable → MudTable có HorizontalScrollbar="true" (pivot table thì wrapper overflow-x:auto)
 □ Filter panel button group → xs="12" sm="12" md="2" + FullWidth="true"
 □ Chip container → có class "flex-wrap"
 □ Không hardcode width (px) cho layout — dùng %, MudGrid, flex: 1
@@ -672,7 +680,8 @@ public async ValueTask DisposeAsync()
 - ❌ Dùng `ChartSeries<double>` như attribute HTML trong Razor (v9 syntax sai)
 - ❌ Dùng `MudChart ChartType="..."` và `ChartOptions { YAxisTicks, LineStrokeWidth }` — đã đổi trong v9
 - ❌ Dùng `MudStack Row="true" Justify.SpaceBetween` cho header title+button — dùng `div.pos-page-header`
-- ❌ DataTable trong MudPaper mà không có `Style="overflow-x:auto"` trên MudPaper — table bị clip mobile
+- ❌ Tự viết `<table class="pos-table">` cho DataTable mới — dùng `MudTable` (xem SKILLS.md §DataTable chuẩn)
+- ❌ MudTable thiếu `HorizontalScrollbar="true"` — table bị clip mobile
 - ❌ Chip container không có `flex-wrap` — chips tràn ngang trên mobile
 
 ### 12. Slash Commands (POS.Web)

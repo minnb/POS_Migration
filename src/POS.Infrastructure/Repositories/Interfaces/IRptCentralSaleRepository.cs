@@ -20,4 +20,14 @@ public interface IRptCentralSaleRepository
     Task<List<SalesByCategoryDto>> GetSalesByCategoryAsync(
         string storeNo, DateTime fromDate, DateTime toDate,
         CancellationToken ct = default);
+    // ── Doanh thu theo thời gian (KPI + series) ───────────────────────────────
+    // groupBy: 'HOUR' | 'DAY' | 'WEEKDAY' | 'MONTH'
+    // includeKpi=false: chỉ lấy series (HOUR/WEEKDAY/compare) — KPI lấy 1 lần ở call DAY.
+    // Kết quả được cache Redis (key MD:RptSaleByTime:*); TTL ngắn nếu khoảng chứa hôm nay.
+    Task<(SaleByTimeKpiDto Kpi, List<SaleByTimeSeriesDto> Series)> GetSaleByTimeAsync(
+        DateTime fromDate, DateTime toDate,
+        string? storeNo,
+        string groupBy,
+        bool includeKpi = true,
+        CancellationToken ct = default);
 }

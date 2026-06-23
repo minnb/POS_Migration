@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-23 (Sidebar Ops tách 2 sub-group Giám sát/Nhật ký + bỏ icon cấp 3)
+> Cập nhật: 2026-06-23 (Chuẩn hóa toàn bộ DataTable sang MudTable, xóa PosTableBase; tách SKILLS.md web thành các file con; store combobox StoreNo+Name)
 
 ---
 
@@ -28,24 +28,23 @@ src/POS.Web/
 │   │   ├── MainLayout.razor.css
 │   │   ├── ReconnectModal.razor          ← template, dùng bởi App.razor
 │   │   └── ReconnectModal.razor.css
-│   ├── Shared/
-│   │   └── PosTableBase.cs      ← Abstract base class: sort/paginate/format cho mọi DataTable page
+│   ├── Shared/   ← (PosTableBase.cs ĐÃ XÓA — DataTable nay dùng MudTable built-in)
 │   └── Pages/
 │       ├── AccessDenied.razor
 │       ├── Index.razor
 │       ├── Login.razor
 │       ├── Admin/
-│       │   └── UsersPage.razor           ← migrated → PosTableBase + pos-table
+│       │   └── UsersPage.razor           ← MudTable (search trong ToolBarContent)
 │       ├── Ops/
 │       │   └── HealthPage.razor
 │       └── Store/
 │           ├── RevenuePage.razor
-│           ├── TransactionsPage.razor    ← migrated → PosTableBase + pos-table
-│           └── EosShiftsPage.razor       ← NEW — kết thúc ca bán hàng
+│           ├── TransactionsPage.razor    ← MudTable (client-side sort/paginate)
+│           └── EosShiftsPage.razor       ← kết thúc ca bán hàng (MudTable)
 ├── Properties/
 │   └── launchSettings.json
 ├── wwwroot/
-│   ├── app.css          ← CSS design tokens --pos-* (28 vars) + scrollbar + delta + active-nav + .pos-table* DataTable standard
+│   ├── app.css          ← CSS design tokens --pos-* (28 vars) + scrollbar + delta + active-nav + .pos-table* (nay chỉ dùng cho pivot report table)
 │   ├── favicon.png
 │   └── lib/bootstrap/   ← ~30 CSS file template, CHƯA XÓA (không gây lỗi)
 ├── appsettings.json
@@ -121,24 +120,24 @@ src/POS.Web/
 | G9 | Index.razor – redirect theo role | Pages/Index.razor | ✅ | SystemAdmin→/admin/users, ITOps→/ops/health, other→/store/revenue |
 | G10 | RevenuePage – /store/revenue + StoreAndAbove + InteractiveServer | Pages/Store/RevenuePage.razor | ✅ | |
 | G11 | HealthPage – /ops/health + OpsAndAbove + InteractiveServer | Pages/Ops/HealthPage.razor | ✅ | |
-| G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | migrated → PosTableBase + pos-table + LINQ search filter |
+| G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | MudTable + search trong ToolBarContent + LINQ filter |
 | G13 | AccessDenied – /access-denied + [AllowAnonymous] | Pages/AccessDenied.razor | ✅ | |
-| G14 | TransactionsPage – /store/transactions + StoreAndAbove | Pages/Store/TransactionsPage.razor | ✅ | migrated → PosTableBase + pos-table (từ MudDataGrid) |
-| G15 | EosShiftsPage – /store/eos-shifts + StoreAndAbove | Pages/Store/EosShiftsPage.razor | ✅ | Kết thúc ca — filter + KPI cards + pos-table + GetEosShiftListAsync |
-| G16 | DetailRevenuePage – /store/revenue-detail + StoreAndAbove | Pages/Store/DetailRevenuePage.razor | ✅ | Báo cáo doanh thu chi tiết — 11 filters + 21-col table + server-side pagination (50/page) + console logging |
+| G14 | TransactionsPage – /store/transactions + StoreAndAbove | Pages/Store/TransactionsPage.razor | ✅ | MudTable client-side sort/paginate + store combobox (StoreNo+Name) |
+| G15 | EosShiftsPage – /store/eos-shifts + StoreAndAbove | Pages/Store/EosShiftsPage.razor | ✅ | Kết thúc ca — filter + KPI cards + MudTable + GetEosShiftListAsync |
+| G16 | DetailRevenuePage – /store/revenue-detail + StoreAndAbove | Pages/Store/DetailRevenuePage.razor | ✅ | Báo cáo doanh thu chi tiết — 11 filters + 21-col MudTable ServerData (server-side paging) |
 | G17 | BusinessDayPage – /store/business-day + StoreAndAbove | Pages/Store/BusinessDayPage.razor | ✅ | Stub — Ngày kinh doanh (UI construction in progress) |
 | G18 | ShiftSummaryPage – /store/shift-summary + StoreAndAbove | Pages/Store/ShiftSummaryPage.razor | ✅ | Stub — Tổng kết ca (UI construction in progress) |
 | G19 | RefundsPage – /store/refunds + StoreAndAbove | Pages/Store/RefundsPage.razor | ✅ | Stub — Hoàn trả (UI construction in progress) |
 | G20 | VoidsPage – /store/voids + StoreAndAbove | Pages/Store/VoidsPage.razor | ✅ | Stub — Hủy GD (UI construction in progress) |
-| G21 | RevenueHourlyPage – /store/revenue-hourly + StoreAndAbove | Pages/Store/RevenueHourlyPage.razor | ✅ | Stub — Doanh thu theo giờ (UI construction in progress) |
+| G21 | RevenueHourlyPage – /store/revenue-hourly + StoreAndAbove | Pages/Store/RevenueHourlyPage.razor | ✅ | Doanh thu theo giờ — KPI + Line/Bar charts + MudTable (FooterContent dòng Tổng) + store combobox. **Tối ưu 10M dòng:** Redis cache repo (TTL theo độ mới) + includeKpi + CancellationToken + guard re-entrancy + hoãn load khỏi prerender + clamp 92 ngày khi all-stores |
 | G22 | PaymentBreakdownPage – /store/payment-breakdown + StoreAndAbove | Pages/Store/PaymentBreakdownPage.razor | ✅ | Stub — Phân tích thanh toán (UI construction in progress) |
-| I1 | PosTableBase\<T\> – base class sort/paginate/format | Components/Shared/PosTableBase.cs | ✅ | PageSize=10, SortBy(), SI(), FormatVND(), PagedItems, TotalFiltered, PageCount |
-| I2 | DataTable CSS standard – .pos-table* | wwwroot/app.css | ✅ | pos-table-wrap, pos-table, pos-sort, header #EEF1F7/#1A2B45/2px-#2051A3 |
+| I1 | DataTable standard – `MudTable<T>` built-in | (mọi page có bảng) | ✅ | MudTableSortLabel + MudTablePager + ServerData; PosTableBase ĐÃ XÓA. Chi tiết: `.claude/skills/web/datatable.md` |
+| I2 | `.pos-table*` CSS – nay chỉ cho pivot report | wwwroot/app.css | ✅ | pos-table/pos-table-wrap còn dùng cho `rpt-pivot-table` (SalesByCategoryPage) |
 | I3 | Sidebar accordion – tự mở/đóng theo route | Layout/MainLayout.razor | ✅ | NavigationManager.LocationChanged + @bind-Expanded + IAsyncDisposable |
 | I4 | Sidebar active NavLink highlight | wwwroot/app.css | ✅ | rgba(255,255,255,0.14) bg + white text + 3px border-left #3A6FCC |
 | I5 | Sidebar drawer responsive init — đóng trên mobile, mở trên desktop | Layout/MainLayout.razor | ✅ | IBrowserViewportService.GetCurrentBreakpointAsync() trong OnAfterRenderAsync(firstRender) |
 | I6 | Page header responsive — title+button không vỡ layout mobile | Pages/Admin/UsersPage.razor | ✅ | div.pos-page-header + pos-page-header-title + pos-page-header-btn |
-| I7 | DataTable MudPaper overflow-x — table scroll được trên mobile | UsersPage + TransactionsPage + EosShiftsPage | ✅ | Style="overflow-x:auto" trên MudPaper chứa pos-table-wrap |
+| I7 | DataTable scroll ngang trên mobile | mọi page có MudTable | ✅ | `HorizontalScrollbar="true"` trên MudTable (thay wrapper overflow-x:auto cũ) |
 | I8 | Chip filter flex-wrap — chips không tràn ngang mobile | Pages/Store/RevenuePage.razor | ✅ | flex-wrap thêm vào MudPaper filter container |
 | I9 | Summary text flex-wrap — &nbsp;\|&nbsp; đổi sang flex items | Pages/Store/TransactionsPage.razor | ✅ | d-flex flex-wrap gap-3 thay separator |
 | I10 | HealthPage responsive — header + chip section | Pages/Ops/HealthPage.razor | ✅ | pos-page-header Case B (title + group controls); chip div.d-flex flex-wrap; button align-self:center chống stretch |

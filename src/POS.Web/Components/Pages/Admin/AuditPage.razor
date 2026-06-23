@@ -81,128 +81,76 @@
 }
 
 @* ── Table ─────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2" Style="overflow-x:auto">
-
-    @* Toolbar *@
-    <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
+<MudTable Items="@_records"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <ToolBarContent>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
             @if (!_loading)
             {
                 @($"Tổng: {_records.Count} bản ghi")
             }
         </MudText>
-        @if (PageCount > 1)
-        {
-            <MudPagination @bind-Selected="_page"
-                           Count="@PageCount"
-                           BoundaryCount="1"
-                           MiddleCount="3"
-                           ShowFirstButton="true"
-                           ShowLastButton="true"
-                           Color="Color.Primary"
-                           Size="Size.Small"/>
-        }
-    </div>
-
-    <div class="pos-table-wrap">
-        <table class="pos-table">
-            <thead>
-                <tr>
-                    <th style="width:60px; text-align:center">ID</th>
-                    <th style="width:120px">Actor</th>
-                    <th style="width:160px">Database</th>
-                    <th style="width:130px; text-align:center">Trạng thái</th>
-                    <th style="width:70px; text-align:right">Rows</th>
-                    <th style="width:80px; text-align:center">WHERE</th>
-                    <th>SQL</th>
-                    <th style="width:80px; text-align:right">ms</th>
-                    <th style="width:160px">Thời gian chạy</th>
-                    <th style="width:160px">Quyết định lúc</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (_loading)
-                {
-                    <tr>
-                        <td colspan="10" style="text-align:center; padding:28px">
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
-                        </td>
-                    </tr>
-                }
-                else if (!PagedItems.Any())
-                {
-                    <tr>
-                        <td colspan="10" style="text-align:center; padding:28px; color:#9e9e9e">
-                            Không có dữ liệu.
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    @foreach (var r in PagedItems)
-                    {
-                        <tr>
-                            <td style="text-align:center">@r.Id</td>
-                            <td>@r.Actor</td>
-                            <td style="font-size:12px">@r.DbCatalog<br/><span style="color:#9e9e9e">@r.DbKey</span></td>
-                            <td style="text-align:center">
-                                @{
-                                    var (sc, sl) = StatusDisplay(r.Status);
-                                }
-                                <MudChip T="string" Color="@sc" Size="Size.Small" Variant="Variant.Filled">
-                                    @sl
-                                </MudChip>
-                            </td>
-                            <td style="text-align:right">@r.RowsAffected</td>
-                            <td style="text-align:center">
-                                @if (r.HasWhere)
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small"/>
-                                }
-                                else
-                                {
-                                    <MudTooltip Text="Không có WHERE — đã ảnh hưởng toàn bộ bảng!">
-                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Size="Size.Small"/>
-                                    </MudTooltip>
-                                }
-                            </td>
-                            <td>
-                                <MudTooltip Text="@r.SqlText" Placement="Placement.Bottom">
-                                    <span style="font-family:monospace; font-size:12px; cursor:help">
-                                        @(r.SqlText.Length > 160 ? r.SqlText[..160] + "…" : r.SqlText)
-                                    </span>
-                                </MudTooltip>
-                            </td>
-                            <td style="text-align:right">@r.ElapsedMs</td>
-                            <td style="font-size:12px">@r.ExecutedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
-                            <td style="font-size:12px">@r.DecidedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-
-    @* Pagination bottom *@
-    @if (PageCount > 1)
-    {
-        <div class="d-flex justify-end px-3 py-2">
-            <MudPagination @bind-Selected="_page"
-                           Count="@PageCount"
-                           BoundaryCount="1"
-                           MiddleCount="3"
-                           ShowFirstButton="true"
-                           ShowLastButton="true"
-                           Color="Color.Primary"
-                           Size="Size.Small"/>
-        </div>
-    }
-
-</MudPaper>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh Style="width:60px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+        <MudTh Style="width:120px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Actor)">Actor</MudTableSortLabel></MudTh>
+        <MudTh Style="width:160px">Database</MudTh>
+        <MudTh Style="width:130px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Status)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh Style="width:70px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.RowsAffected)">Rows</MudTableSortLabel></MudTh>
+        <MudTh Style="width:80px; text-align:center">WHERE</MudTh>
+        <MudTh>SQL</MudTh>
+        <MudTh Style="width:80px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ElapsedMs)">ms</MudTableSortLabel></MudTh>
+        <MudTh Style="width:160px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ExecutedAt)" InitialDirection="SortDirection.Descending">Thời gian chạy</MudTableSortLabel></MudTh>
+        <MudTh Style="width:160px">Quyết định lúc</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="ID" Style="text-align:center">@context.Id</MudTd>
+        <MudTd DataLabel="Actor">@context.Actor</MudTd>
+        <MudTd DataLabel="Database" Style="font-size:12px">@context.DbCatalog<br/><span style="color:#9e9e9e">@context.DbKey</span></MudTd>
+        <MudTd DataLabel="Trạng thái" Style="text-align:center">
+            @{
+                var (sc, sl) = StatusDisplay(context.Status);
+            }
+            <MudChip T="string" Color="@sc" Size="Size.Small" Variant="Variant.Filled">@sl</MudChip>
+        </MudTd>
+        <MudTd DataLabel="Rows" Style="text-align:right">@context.RowsAffected</MudTd>
+        <MudTd DataLabel="WHERE" Style="text-align:center">
+            @if (context.HasWhere)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small"/>
+            }
+            else
+            {
+                <MudTooltip Text="Không có WHERE — đã ảnh hưởng toàn bộ bảng!">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Size="Size.Small"/>
+                </MudTooltip>
+            }
+        </MudTd>
+        <MudTd DataLabel="SQL">
+            <MudTooltip Text="@context.SqlText" Placement="Placement.Bottom">
+                <span style="font-family:monospace; font-size:12px; cursor:help">
+                    @(context.SqlText.Length > 160 ? context.SqlText[..160] + "…" : context.SqlText)
+                </span>
+            </MudTooltip>
+        </MudTd>
+        <MudTd DataLabel="ms" Style="text-align:right">@context.ElapsedMs</MudTd>
+        <MudTd DataLabel="Thời gian chạy" Style="font-size:12px">@context.ExecutedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+        <MudTd DataLabel="Quyết định lúc" Style="font-size:12px">@context.DecidedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new int[] { 25, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} bản ghi"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
 
 @code {
-    private const int PageSize = 50;
-
     private sealed class AuditRecord
     {
         public long Id { get; init; }
@@ -221,16 +169,11 @@
     private bool _loading;
     private string? _errorMsg;
     private List<AuditRecord> _records = [];
-    private int _page = 1;
 
     private DateTime? _fromDate = DateTime.Today.AddDays(-7);
     private DateTime? _toDate   = DateTime.Today;
     private string _filterActor  = string.Empty;
     private string _filterStatus = string.Empty;
-
-    private int PageCount => (int)Math.Ceiling(_records.Count / (double)PageSize);
-    private IEnumerable<AuditRecord> PagedItems =>
-        _records.Skip((_page - 1) * PageSize).Take(PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -241,7 +184,6 @@
     {
         _loading  = true;
         _errorMsg = null;
-        _page     = 1;
         try
         {
             var from = (_fromDate ?? DateTime.Today.AddDays(-7)).Date;

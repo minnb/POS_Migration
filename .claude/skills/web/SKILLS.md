@@ -6,6 +6,21 @@
 
 ---
 
+## Skill con — đọc khi cần (tránh đọc hết file này)
+
+> File này chỉ giữ quy tắc nền tảng. Pattern chi tiết tách ra file riêng — chỉ đọc đúng file khi gặp tình huống.
+
+| File | Đọc khi |
+|---|---|
+| `.claude/skills/web/filter-store.md` | Thêm combobox lọc cửa hàng vào page |
+| `.claude/skills/web/datatable.md` | Tạo bảng dữ liệu (MudTable) — client/server/dynamic |
+| `.claude/skills/web/charts.md` | Thêm biểu đồ Line/Bar (MudBlazor v9) |
+| `.claude/skills/web/reports.md` | Trang báo cáo pivot / xuất PDF |
+| `.claude/skills/web/theming.md` | Sửa màu/theme toàn app |
+| `.claude/skills/web/deployment.md` | Deploy production (Docker / nginx) |
+
+---
+
 ## Quy tắc cốt lõi
 
 **3 nguyên tắc không được vi phạm:**
@@ -187,413 +202,130 @@ private async Task LoadDataAsync()
 
 ---
 
-## DataTable chuẩn — `PosTableBase<T>` + `pos-table`
+## DataTable chuẩn — `MudTable<T>`
 
-> **BẮT BUỘC áp dụng cho mọi DataTable trong POS.Web.**
-> Dùng HTML `<table class="pos-table">` thay vì `MudDataGrid` — giải quyết vấn đề column width tự động.
+> **Chi tiết đầy đủ: `.claude/skills/web/datatable.md`** — đọc trước khi thêm bảng dữ liệu.
+> **BẮT BUỘC** dùng MudBlazor `<MudTable>` — sort + phân trang built-in, KHÔNG tự viết HTML `<table>` hay base class.
 
-### Pattern: PosTableBase\<T\> — base class DataTable
+### Tóm tắt nhanh
 
-> Áp dụng khi: tạo mới bất kỳ page nào có bảng dữ liệu có sort + phân trang.
-
-```csharp
-// 1. Kế thừa base class
-@inherits PosTableBase<MyDto>
-@using POS.Web.Components.Shared
-
-// 2. Implement abstract property
-protected override IEnumerable<MyDto> SortedFiltered => _sortCol switch
-{
-    "FieldA" => _sortAsc ? _items.OrderBy(x => x.FieldA) : _items.OrderByDescending(x => x.FieldA),
-    _        => _sortAsc ? _items.OrderBy(x => x.Id)     : _items.OrderByDescending(x => x.Id),
-};
-
-// 3. Base cung cấp sẵn: _sortCol, _sortAsc, _page, PageSize=10
-//    PagedItems, TotalFiltered, PageCount, SortBy(), SI(), FormatVND()
-```
+| Tình huống | Cách làm |
+|---|---|
+| Client-side (load 1 lần, đa số) | `<MudTable Items>` + `MudTableSortLabel` + `MudTablePager` |
+| Server-side (data lớn, SP theo trang) | `<MudTable @ref ServerData>` + `_table.ReloadServerData()` |
+| Cột động (SQL kết quả) | `Items` = `List<object?[]>`, loop index trong RowTemplate |
+| Search / Footer tổng | Search → `<ToolBarContent>`; tổng → `<FooterContent>` |
 
 ```razor
-@* 4. Markup chuẩn *@
-<div class="pos-table-wrap">
-  <table class="pos-table">
-    <thead>
-      <tr>
-        <th @onclick='() => SortBy("FieldA")'>
-          Tiêu đề<span class="pos-sort @(_sortCol=="FieldA"?"on":"")">@SI("FieldA")</span>
-        </th>
-      </tr>
-    </thead>
-    <tbody>
-      @foreach (var item in PagedItems) { <tr>...</tr> }
-    </tbody>
-  </table>
-</div>
-
-@* 5. Pagination — trên và dưới table *@
-<MudPagination @bind-Selected="_page" Count="@PageCount" Color="Color.Primary" Size="Size.Small"
-               BoundaryCount="1" MiddleCount="5" ShowFirstButton="true" ShowLastButton="true"/>
+<MudTable Items="@_items" Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Loading="@_loading" HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<MyDto, object>(x => x.FieldA)">Cột A</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate><MudTd DataLabel="Cột A">@context.FieldA</MudTd></RowTemplate>
+    <PagerContent><MudTablePager/></PagerContent>
+</MudTable>
 ```
 
-**CSS (đã có sẵn trong `wwwroot/app.css`):**
-`.pos-table-wrap` | `.pos-table` | `.pos-sort` | `.pos-sort.on`
+**2 anti-pattern quan trọng nhất:**
+- ❌ Tự viết `<table class="pos-table">` / `@inherits PosTableBase<T>` — base class đã xóa, dùng `MudTable`.
+- ❌ `MudPagination` thủ công — dùng `<MudTablePager>` trong `<PagerContent>`.
 
-**Base class:** `src/POS.Web/Components/Shared/PosTableBase.cs`
-
-**Ví dụ thực tế:**
-- `src/POS.Web/Components/Pages/Store/EosShiftsPage.razor`
-- `src/POS.Web/Components/Pages/Store/TransactionsPage.razor`
-- `src/POS.Web/Components/Pages/Admin/UsersPage.razor`
-
-**Anti-patterns:**
-- ❌ Dùng `MudDataGrid` cho DataTable mới — column width bị ép 100%, sort phức tạp, style khó đồng nhất
-- ❌ Copy-paste sort/pagination C# vào page — dùng `PosTableBase<T>` thay thế
-- ❌ Copy-paste `<style>` CSS table vào page — CSS đã có global trong `app.css`
-- ❌ `SearchText` dùng field `string` trực tiếp — dùng property để reset `_page = 1`:
-  ```csharp
-  private string SearchText { get => _searchField; set { _searchField = value; _page = 1; } }
-  ```
+> **Ngoại lệ:** Pivot report (cột-ngày động) vẫn dùng `<table class="pos-table rpt-pivot-table">` — xem `reports.md`.
 
 ---
 
 ## Store Selector — Dual Mode (StoreOperator vs Manager/Admin)
 
-> Áp dụng khi: page `StoreAndAbove` cần filter theo cửa hàng — StoreOperator chỉ thấy store của mình, ITOps/Admin chọn tự do.
+> **Chi tiết đầy đủ: `.claude/skills/web/filter-store.md`** — đọc file này trước khi thêm bộ lọc cửa hàng vào page mới.
+> Áp dụng bắt buộc cho mọi page `StoreAndAbove` có filter theo cửa hàng.
+
+### Tóm tắt nhanh
+
+| | StoreOperator | ITOps / Admin |
+|---|---|---|
+| UI | `MudTextField ReadOnly` hiển thị `"2018 – Cửa hàng demo"` | `MudAutocomplete T="StoreDto"` tìm theo mã + tên |
+| Binding | `_filterStoreNo` (locked) | `_selectedStore: StoreDto?` |
+| Nguồn data | `MdRepo.GetStoreListAsync()` (cache 12h) | Như trái |
 
 ```razor
-@* StoreOperator → ReadOnly TextField (không thể đổi) *@
-@* ITOps/Admin → MudAutocomplete để chọn bất kỳ store *@
-
+@* Thêm @using POS.Common.Dtos.CentralMD *@
 <MudItem xs="12" sm="6" md="3">
     @if (_isStoreOperator)
     {
-        <MudTextField Value="@_filterStoreNo"
-                      Label="Mã CH/ST (*)"
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      ReadOnly="true"
-                      Adornment="Adornment.Start"
+        <MudTextField Value="@StoreDisplayText"
+                      Label="Cửa hàng" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      ReadOnly="true" Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Store"/>
     }
     else
     {
-        <MudAutocomplete T="string"
-                         @bind-Value="_filterStoreNo"
-                         Label="Mã CH/ST (*)"
-                         Placeholder="Tất cả"
-                         Variant="Variant.Outlined"
-                         Margin="Margin.Dense"
+        <MudAutocomplete T="StoreDto"
+                         @bind-Value="_selectedStore"
+                         Label="Cửa hàng" Placeholder="Tất cả cửa hàng"
+                         Variant="Variant.Outlined" Margin="Margin.Dense"
                          SearchFunc="@SearchStoreAsync"
-                         Clearable="true"
-                         AdornmentIcon="@Icons.Material.Filled.Store"
-                         Adornment="Adornment.Start"
-                         MinCharacters="0"
-                         CoerceValue="true"/>
+                         ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                         Clearable="true" MinCharacters="0" ResetValueOnEmptyText="true"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Store"/>
     }
 </MudItem>
 ```
 
 ```csharp
-// @code — khởi tạo dual mode
-private bool _isStoreOperator;
-private string _filterStoreNo = string.Empty;
+// Fields
+private bool                  _isStoreOperator;
+private string?               _filterStoreNo;      // StoreOperator (locked) + query param
 private IReadOnlyList<string> _userStoreCodes = [];
-private List<string> _allStoreCodes = [];
+private List<StoreDto>        _allStores      = [];
+private StoreDto?             _selectedStore;      // ITOps/Admin autocomplete binding
 
-protected override async Task OnInitializedAsync()
-{
-    var state = await AuthState;
-    var json = state.User.FindFirst("store_codes")?.Value;
-    _userStoreCodes = string.IsNullOrEmpty(json)
-        ? [] : JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+// OnInitializedAsync
+_isStoreOperator = _userStoreCodes.Count > 0;
+if (_isStoreOperator) _filterStoreNo = _userStoreCodes[0];
+_allStores = await MdRepo.GetStoreListAsync();     // cache Redis 12h
 
-    _isStoreOperator = _userStoreCodes.Count > 0;
+// LoadDataAsync
+var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
 
-    if (_isStoreOperator)
-    {
-        _filterStoreNo = _userStoreCodes[0];  // lock vào store đầu tiên
-    }
-    else
-    {
-        // ITOps/Admin: nạp toàn bộ danh sách store cho autocomplete
-        var configs = await MdRepo.GetStoreSetConfigAsync();
-        _allStoreCodes = configs?
-            .Select(c => c.StoreNo).Where(s => !string.IsNullOrEmpty(s))
-            .Distinct().OrderBy(s => s).ToList() ?? [];
-    }
-}
+// ResetFilterAsync
+if (!_isStoreOperator) _selectedStore = null;
 
-// SearchFunc cho MudAutocomplete — hỗ trợ MinCharacters="0" (hiện toàn bộ khi click vào)
-private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+// SearchStoreAsync
+private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
 {
     if (string.IsNullOrWhiteSpace(value))
-        return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
-    return Task.FromResult(_allStoreCodes
-        .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+        return Task.FromResult<IEnumerable<StoreDto>>(_allStores);
+    return Task.FromResult(_allStores.Where(s =>
+        (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)));
 }
+
+// StoreDisplayText (readonly field cho StoreOperator)
+private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+    ? $"{st.StoreNo} – {st.Name}"
+    : (_filterStoreNo ?? "");
 ```
 
-**Key points:**
-- `_isStoreOperator = _userStoreCodes.Count > 0` — flag kiểm soát mode
-- `MinCharacters="0"` → dropdown hiện ngay khi focus, không cần gõ ký tự
-- `CoerceValue="true"` → giữ giá trị đã gõ dù không chọn từ dropdown
-- `Clearable="true"` → cho phép xóa filter (= xem tất cả store)
-- Trong `ResetFilterAsync`: `if (!_isStoreOperator) _filterStoreNo = string.Empty;`
+**Anti-patterns:**
+- ❌ `GetStoreSetConfigAsync()` cho store picker — không có `Name`, chỉ có `StoreNo`
+- ❌ `MudAutocomplete T="string"` với `CoerceValue="true"` — không validate, mất tên
+- ❌ Chỉ load `_allStores` cho ITOps — StoreOperator cũng cần để hiển thị tên đầy đủ
+- ❌ `_filterStoreNo = null` trong Reset cho ITOps — phải dùng `_selectedStore = null`
 
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/TransactionsPage.razor`
+> Chi tiết: `.claude/skills/web/filter-store.md`
 
 ---
 
-## Pivot Report Table — Pattern báo cáo dạng ma trận
+## Báo cáo — Pivot table & Report page layout
 
-> Áp dụng khi: cần hiển thị báo cáo dạng pivot — hàng = category/entity, cột = ngày/tháng, ô = (số lượng, doanh thu).
+> **Chi tiết đầy đủ: `.claude/skills/web/reports.md`** — đọc khi tạo trang báo cáo pivot hoặc trang xuất PDF.
 
-### Data model
+- **Pivot report** (hàng × cột-ngày động): dùng `<table class="pos-table rpt-pivot-table">` — ngoại lệ có chủ đích so với MudTable.
+- **Report page layout**: header chuẩn (action bar PDF + user info + title + filter summary) cho trang xuất báo cáo.
 
-```csharp
-// Record pivot row — Dictionary key = ngày, value = tuple (Qty, Amt)
-private record PivotRow(
-    string MCHCode,
-    string MCHName,
-    int    TotalQty,
-    double TotalAmt,
-    Dictionary<DateTime, (int Qty, double Amt)> ByDate);
-
-private List<DateTime>  _dates     = [];   // danh sách ngày = cột
-private List<PivotRow>  _pivotRows = [];   // danh sách hàng
-private int             _totalQty;
-private double          _totalAmt;
-```
-
-### BuildPivot logic
-
-```csharp
-private void BuildPivot(DateTime fromDate, DateTime toDate)
-{
-    // Collect distinct dates có trong data (không nhất thiết liên tiếp)
-    _dates = _items
-        .Select(x => x.BussinessDate.Date)
-        .Distinct().OrderBy(d => d).ToList();
-
-    // Group by entity (MCHCode + MCHName)
-    var groups = _items
-        .GroupBy(x => new { x.MCHCode, x.MCHName })
-        .OrderBy(g => g.Key.MCHCode).ToList();
-
-    _pivotRows = groups.Select(g =>
-    {
-        var byDate = g
-            .GroupBy(x => x.BussinessDate.Date)
-            .ToDictionary(
-                d => d.Key,
-                d => (Qty: d.Sum(x => x.OrderTotal), Amt: d.Sum(x => x.AmountTotal)));
-
-        return new PivotRow(
-            MCHCode:  g.Key.MCHCode,
-            MCHName:  g.Key.MCHName,
-            TotalQty: g.Sum(x => x.OrderTotal),
-            TotalAmt: g.Sum(x => x.AmountTotal),
-            ByDate:   byDate);
-    }).ToList();
-
-    _totalQty = _pivotRows.Sum(r => r.TotalQty);
-    _totalAmt = _pivotRows.Sum(r => r.TotalAmt);
-}
-```
-
-### Pivot table markup
-
-```razor
-<div style="overflow-x:auto;">
-    <table class="pos-table rpt-pivot-table">
-        <thead>
-            <tr>
-                <th style="width:48px; text-align:center;">STT</th>
-                <th style="min-width:200px;">Tên gian hàng</th>
-                <th style="min-width:110px; text-align:right;">
-                    Số lượng/<br/>Số tiền
-                </th>
-                @foreach (var date in _dates)
-                {
-                    <th style="min-width:90px; text-align:right;">
-                        @date.ToString("dd/MM")<br/>
-                        <span style="font-weight:400; font-size:0.78rem;">(@GetDow(date))</span>
-                    </th>
-                }
-            </tr>
-        </thead>
-        <tbody>
-            @{ int stt = 1; }
-            @foreach (var row in _pivotRows)
-            {
-                <tr>
-                    <td style="text-align:center; vertical-align:top;">@(stt++)</td>
-                    <td style="vertical-align:top;">
-                        <div style="font-weight:600; font-size:0.88rem;">@row.MCHCode</div>
-                        <div style="color:#1976D2; font-size:0.82rem;">@row.MCHName</div>
-                    </td>
-                    <td style="text-align:right; vertical-align:top; white-space:nowrap;">
-                        <div>@row.TotalQty.ToString("N0")</div>
-                        <div style="color:#1976D2; font-weight:500;">@row.TotalAmt.ToString("N0")</div>
-                    </td>
-                    @foreach (var date in _dates)
-                    {
-                        var cellQty = row.ByDate.TryGetValue(date, out var cv) ? cv.Item1 : 0;
-                        var cellAmt = row.ByDate.TryGetValue(date, out var ca) ? ca.Item2 : 0.0;
-                        <td style="text-align:right; vertical-align:top; white-space:nowrap;">
-                            <div>@(cellQty > 0 ? cellQty.ToString("N0") : "")</div>
-                            <div style="color:#1976D2;">@(cellAmt > 0 ? cellAmt.ToString("N0") : "")</div>
-                        </td>
-                    }
-                </tr>
-            }
-        </tbody>
-        <tfoot>
-            <tr class="rpt-pivot-total">
-                <td colspan="2" style="text-align:center; font-weight:700;">Total</td>
-                <td style="text-align:right; white-space:nowrap;">
-                    <div>@_totalQty.ToString("N0")</div>
-                    <div>@_totalAmt.ToString("N0")</div>
-                </td>
-                @foreach (var date in _dates)
-                {
-                    var qty = _pivotRows.Sum(r => r.ByDate.TryGetValue(date, out var v) ? v.Item1 : 0);
-                    var amt = _pivotRows.Sum(r => r.ByDate.TryGetValue(date, out var va) ? va.Item2 : 0.0);
-                    <td style="text-align:right; white-space:nowrap;">
-                        <div>@(qty > 0 ? qty.ToString("N0") : "")</div>
-                        <div>@(amt > 0 ? amt.ToString("N0") : "")</div>
-                    </td>
-                }
-            </tr>
-        </tfoot>
-    </table>
-</div>
-```
-
-### Helper: Day of week
-
-```csharp
-private static string GetDow(DateTime d) => d.DayOfWeek switch
-{
-    DayOfWeek.Monday    => "Mon",
-    DayOfWeek.Tuesday   => "Tue",
-    DayOfWeek.Wednesday => "Wed",
-    DayOfWeek.Thursday  => "Thu",
-    DayOfWeek.Friday    => "Fri",
-    DayOfWeek.Saturday  => "Sat",
-    DayOfWeek.Sunday    => "Sun",
-    _ => ""
-};
-```
-
-**CSS classes cần có (đã khai báo trong `app.css`):**
-- `pos-table` — base table style
-- `rpt-pivot-table` — thêm border/style riêng cho pivot report
-- `rpt-pivot-total` — style hàng Total ở footer
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
-
----
-
-## Report Page Layout — Header chuẩn cho trang báo cáo
-
-> Áp dụng khi: page xuất báo cáo dạng bảng (có thể in / xuất PDF).
-
-### Cấu trúc markup chuẩn
-
-```razor
-<MudPaper Elevation="2" Class="mb-4 pa-4">
-
-    @* 1. Action bar (PDF button bên phải) *@
-    <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Success"
-                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                   OnClick="@OnExportPdfClick"
-                   Size="Size.Small">Xuất PDF</MudButton>
-    </div>
-
-    @* 2. User info + timestamp *@
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; font-size:0.82rem; color:#555;">
-        <div>
-            <div>ID của người dùng: <strong>@_userId</strong></div>
-            <div>Tên người dùng: <strong>@_userFullName</strong></div>
-        </div>
-        <div style="text-align:right;">
-            Ngày giờ: <strong>@_printedAt</strong>
-        </div>
-    </div>
-
-    @* 3. Report title *@
-    <div style="text-align:center; margin-bottom:16px;">
-        <div style="font-size:1.1rem; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">
-            Tên báo cáo
-        </div>
-    </div>
-
-    @* 4. Filter summary (store + date range) *@
-    <div style="font-size:0.84rem; margin-bottom:12px;">
-        <div>
-            Cửa hàng:
-            <strong>
-                @if (!string.IsNullOrEmpty(_reportStoreNo))
-                { @($"{_reportStoreNo} – {_reportStoreName}") }
-                else
-                { @("Tất cả") }
-            </strong>
-        </div>
-        <div>
-            Ngày giao dịch:
-            <strong>
-                @((_filterFromDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
-                –
-                @((_filterToDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
-            </strong>
-        </div>
-    </div>
-
-    @* 5. Nội dung bảng *@
-    @* ... *@
-
-</MudPaper>
-```
-
-### State fields cần thêm cho report header
-
-```csharp
-// Report header info — lấy sau khi có AuthState
-private string _userId       = string.Empty;
-private string _userFullName = string.Empty;
-private string _printedAt    = string.Empty;  // set sau khi load data xong
-
-// Resolved store info cho header (sau khi load data)
-private string _reportStoreNo   = string.Empty;
-private string _reportStoreName = string.Empty;
-```
-
-```csharp
-// Trong OnInitializedAsync — lấy user info từ claims
-_userId       = state.User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
-_userFullName = state.User.FindFirst("full_name")?.Value ?? string.Empty;
-
-// Trong LoadDataAsync — sau khi có data
-_printedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
-_reportStoreNo   = storeNo;
-_reportStoreName = _items.FirstOrDefault(x => x.StoreNo == storeNo)?.StoreName ?? string.Empty;
-if (string.IsNullOrEmpty(_reportStoreNo)) _reportStoreName = string.Empty;
-```
-
-### PDF export placeholder
-
-Khi chức năng xuất PDF chưa implement:
-
-```csharp
-private void OnExportPdfClick()
-{
-    Snackbar.Add("Chức năng Xuất PDF đang được phát triển.", Severity.Info);
-}
-```
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
+> Ví dụ: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
 
 ---
 
@@ -601,7 +333,7 @@ private void OnExportPdfClick()
 
 | Component / Class | File | Dùng cho |
 |---|---|---|
-| `PosTableBase<T>` | `Components/Shared/PosTableBase.cs` | Base class cho DataTable — sort/paginate/format |
+| DataTable | — dùng `MudTable<T>` built-in (xem `datatable.md`) | Bảng dữ liệu sort/paginate (KHÔNG còn base class) |
 | `PosKpiCard` | Chưa tạo — dùng `MudPaper` + `MudText` inline tạm | KPI card |
 | `PosStatusChip` | Chưa tạo — dùng `MudChip T="string"` inline tạm | Status badge |
 
@@ -677,8 +409,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 | Cần làm | MudBlazor component |
 |---|---|
-| Bảng dữ liệu có sort / filter / page | `@inherits PosTableBase<T>` + `<table class="pos-table">` + `MudPagination` (xem section DataTable chuẩn) |
-| Bảng đơn giản (không sort/page) | `MudTable<T>` |
+| Bảng dữ liệu có sort / filter / page | `MudTable<T>` + `MudTableSortLabel` + `MudTablePager` (xem section DataTable chuẩn) |
+| Bảng server-side paging | `MudTable<T>` với `ServerData` + `@ref` + `ReloadServerData()` |
 | Biểu đồ đường | `<Line T="double">` (v9 — cần `@using MudBlazor.Charts`) |
 | Biểu đồ cột | `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
 | Số liệu tổng quan | `MudPaper` + `MudText` (xem RevenuePage KPI cards) |
@@ -696,66 +428,10 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | Paper nền | `MudPaper Elevation="2" Class="pa-4"` |
 | Grid layout | `MudGrid` + `MudItem xs="12" sm="6"` |
 
-### MudBlazor v9 — breaking changes bắt buộc biết
+### Charts (Line / Bar) — MudBlazor v9
 
-| Thứ | v8 (sai — không dùng) | v9 (đúng) |
-|---|---|---|
-| Chart component | `<MudChart ChartType="ChartType.Line">` | `<Line T="double">` hoặc `<Bar T="double">` |
-| Series attribute | `ChartSeries<double>="@..."` như HTML attr | `ChartSeries="@..."` với `T="double"` trên tag |
-| X-axis labels | `XAxisLabels` | `ChartLabels` |
-| Data type | `double[]` | `new ChartData<double>(double[])` |
-| Options (line) | `ChartOptions { LineStrokeWidth, YAxisTicks }` | `LineChartOptions { LineStrokeWidth, ShowLegend }` |
-| Options (bar) | `ChartOptions { YAxisTicks }` | `BarChartOptions { ShowLegend }` |
-| Empty check | `series[0].Data.Length == 0` | bool flag set trong LoadData |
-| Chip | `<MudChip Color="...">` | `<MudChip T="string" Color="...">` |
-
-```csharp
-// ChartSeries<T> — khai báo đúng v9
-private List<ChartSeries<double>> _series =
-[
-    new ChartSeries<double>
-    {
-        Name = "Label",
-        Data = new ChartData<double>(Array.Empty<double>())  // constructor bắt buộc
-    }
-];
-
-private readonly LineChartOptions _lineOpts = new() { LineStrokeWidth = 2, ShowLegend = false };
-private readonly BarChartOptions  _barOpts  = new() { ShowLegend = false };
-private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Length
-```
-
-### Pattern: Y-axis auto-scale theo dữ liệu thực tế
-> Áp dụng khi: chart Bar/Line hiển thị data nhỏ (vài triệu đồng) mà trục Y luôn max=20.
-
-**Nguyên nhân:** `BarChartOptions.YAxisTicks` default = **20** là *khoảng cách giữa tick*, không phải số lượng tick.
-Khi data max = 8M và spacing = 20 → MudBlazor vẽ tick 0 và 20 → trục Y nhìn cứng max=20.
-
-**Giải pháp:** tính `YAxisSuggestedMax` và `YAxisTicks` sau khi có data:
-
-```csharp
-// Sau khi tính xong mảng values, trước khi set BarChartOptions:
-var yMax = CalcYMax(values);
-_barOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
-
-private static double CalcYMax(double[] values)
-{
-    var max = values.Length > 0 ? values.Max() : 0;
-    if (max <= 0) return 5;
-    return Math.Ceiling(max + 2.5);   // buffer ~2.5 đơn vị, làm tròn lên
-}
-
-private static int CalcYTick(double yMax)
-{
-    if (yMax <= 5)  return 1;
-    if (yMax <= 10) return 2;
-    if (yMax <= 20) return 5;
-    return 10;
-}
-```
-
-> `YAxisSuggestedMax` là "gợi ý" — nếu data vượt qua, MudBlazor tự mở rộng (không clip).
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/RevenuePage.razor`
+> **Chi tiết đầy đủ: `.claude/skills/web/charts.md`** — đọc trước khi thêm biểu đồ.
+> MudBlazor 9.5.0 đổi hoàn toàn cú pháp chart: dùng `<Line T="double">` / `<Bar T="double">` (KHÔNG `<MudChart>`), data `ChartData<double>`, options `LineChartOptions`/`BarChartOptions`. Bao gồm pattern Y-axis auto-scale.
 
 ---
 
@@ -770,7 +446,7 @@ private static int CalcYTick(double yMax)
 |---|---|---|
 | Header: title + button | `MudStack Row Justify.SpaceBetween` | `div.pos-page-header` + `pos-page-header-title` + `pos-page-header-btn` |
 | Header: title + (select + button) ghép cặp | `MudStack Row Justify.SpaceBetween` | `div.pos-page-header` + `div.d-flex align-center gap-2` + `Style="align-self:center"` trên button |
-| DataTable trong MudPaper | `<MudPaper Elevation="2">` | `<MudPaper Elevation="2" Style="overflow-x:auto">` |
+| DataTable scroll ngang trên mobile | `MudTable` không cho scroll | `<MudTable HorizontalScrollbar="true">` (pivot/raw table thì wrapper `overflow-x:auto`) |
 | Chip container | `d-flex gap-2` | `d-flex gap-2 flex-wrap` |
 | Summary text nhiều phần | `&nbsp;\|&nbsp;` separator | `d-flex flex-wrap gap-3` + nhiều `MudText` riêng |
 | Sidebar drawer init | `_drawerOpen = true` | `IBrowserViewportService.GetCurrentBreakpointAsync()` trong `OnAfterRenderAsync(firstRender)` |
@@ -825,7 +501,8 @@ private static int CalcYTick(double yMax)
 - ❌ Thêm nav link mới mà quên wrap `<AuthorizeView Policy="...">` trong `MainLayout.razor`
 - ❌ Dùng `MudStack Row Justify.SpaceBetween` cho header title+button → vỡ layout mobile, button stretch cao bất thường
 - ❌ `MudButton` trong `MudStack Row` cạnh `MudSelect` có Label → button stretch theo chiều cao Select+Label → thêm `Style="align-self:center"` vào button
-- ❌ DataTable trong `MudPaper` thiếu `Style="overflow-x:auto"` → table bị clip trên mobile
+- ❌ Tự viết `<table class="pos-table">` + `PosTableBase<T>` cho DataTable mới → dùng `MudTable` (xem section DataTable chuẩn)
+- ❌ `MudTable` thiếu `HorizontalScrollbar="true"` → table bị clip trên mobile (pivot/raw table thì wrapper `overflow-x:auto`)
 - ❌ Chip container thiếu `flex-wrap` → chips tràn ngang, mất trên mobile
 
 ---
@@ -845,7 +522,7 @@ private static int CalcYTick(double yMax)
 - [ ] Empty state: `else if (_isEmpty) { <MudAlert Severity.Info .../> }`
 - [ ] Row-level filter nếu policy là `StoreAndAbove` — pass `_userStoreCodes` vào repo call
 - [ ] Thêm `<MudNavLink>` vào đúng `<MudNavGroup>` trong `MainLayout.razor` (wrap `<AuthorizeView>`)
-- [ ] **Responsive checklist** — xem `CLAUDE.md §10.G`: header dùng `pos-page-header`, DataTable MudPaper có `overflow-x:auto`, chip container có `flex-wrap`, không dùng `MudStack Row Justify.SpaceBetween` cho layout title+controls
+- [ ] **Responsive checklist** — xem `CLAUDE.md §10.G`: header dùng `pos-page-header`, DataTable dùng `MudTable HorizontalScrollbar="true"`, chip container có `flex-wrap`, không dùng `MudStack Row Justify.SpaceBetween` cho layout title+controls
 
 ---
 
@@ -875,217 +552,49 @@ Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (def
 
 ## Theming — Custom MudBlazor Theme
 
-### Pattern: PosTheme.cs — định nghĩa màu tập trung cho toàn app
-
-> Áp dụng khi: cần đổi màu toàn bộ MudBlazor components (primary, sidebar, appbar, success/error...) mà không sửa từng file Razor.
-
-```csharp
-// src/POS.Web/Theme/PosTheme.cs
-using MudBlazor;
-namespace POS.Web.Theme;
-
-public static class PosTheme
-{
-    public static MudTheme Default { get; } = new()
-    {
-        PaletteLight = new PaletteLight
-        {
-            Primary          = "#2051A3",
-            DrawerBackground = "#1B3A5C",   // sidebar
-            AppbarBackground = "#1B3A5C",   // appbar
-            Background       = "#F2F4F8",   // nền trang
-            Success          = "#27AE60",
-            Error            = "#DC3545",
-            Warning          = "#F39C12",
-            WarningContrastText = "#1A2B45",  // QUAN TRỌNG: warning bg sáng, cần text tối
-        },
-        Typography = new Typography
-        {
-            // MudBlazor v9: FontWeight và LineHeight là STRING, không phải int/double
-            Button = new ButtonTypography { FontWeight = "600", TextTransform = "none" },
-            Default = new DefaultTypography { LineHeight = "1.6" },
-        },
-        Shadows = new Shadow { Elevation = [ "none", /* ... 24 entries */ ] },
-        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "8px" }
-    };
-}
-```
-
-```razor
-@* Trong MainLayout.razor và EmptyLayout.razor *@
-<MudThemeProvider Theme="@PosTheme.Default"/>
-```
-
-**Checklist khi tạo/sửa theme:**
-- `FontWeight` và `LineHeight` trong Typography là `string` ("600", "1.6") — không phải `int`/`double`
-- `Shadows.Elevation` phải có đúng **25 phần tử** (index 0–24)
-- `WarningContrastText` phải là màu tối (#1A2B45) vì Warning (#F39C12) có contrast thấp với trắng
-- Sau khi thêm `Theme=` vào `MudThemeProvider`, mọi `Color.Primary`, `Color.Success`... tự đổi màu
-
-**Anti-pattern:**
-- ❌ `FontWeight = 700` → compile error (phải là `"700"`)
-- ❌ `<MudThemeProvider/>` không có `Theme=` → dùng màu mặc định MudBlazor (tím/xanh MUI)
-- ❌ Hardcode màu trong CSS isolation thay vì theme → màu không đồng bộ
-
-> Ví dụ thực tế: `src/POS.Web/Theme/PosTheme.cs`
-> Style guide reference: `docs/style-guide.html`
+> **Chi tiết đầy đủ: `.claude/skills/web/theming.md`** — đọc khi cần đổi màu/typography toàn app.
+> Tập trung tại `src/POS.Web/Theme/PosTheme.cs` + `<MudThemeProvider Theme="@PosTheme.Default"/>`. Lưu ý v9: `FontWeight`/`LineHeight` là string, `Shadows.Elevation` đúng 25 phần tử.
 
 ---
 
-## Production deployment — Pattern bắt buộc
+## Production deployment
 
-### Pattern: Explicit UseRouting() để middleware chạy TRƯỚC routing
-
-> Áp dụng khi: cần middleware tùy chỉnh chạy TRƯỚC endpoint routing (vd: rewrite Host header,
-> request transformation). Trong .NET 9/10 `WebApplication`, `UseRouting()` tự động chèn vào
-> ĐẦU pipeline trước mọi middleware → mọi rewrite header/path sau đó là quá muộn.
-
-```csharp
-// Program.cs — đặt middleware TRƯỚC app.UseRouting() tường minh
-app.Use(async (ctx, next) =>
-{
-    if (ctx.Request.Path.StartsWithSegments("/_framework"))
-        ctx.Request.Headers.Host = "localhost"; // rewrite trước routing
-    await next();
-});
-
-app.UseRouting(); // ← TƯỜNG MINH — vô hiệu hóa auto-UseRouting ở đầu pipeline
-
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseAntiforgery();
-app.MapStaticAssets();
-app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
-```
-
-> **Anti-pattern:** Không gọi `app.UseRouting()` tường minh → routing tự động chạy trước mọi thứ.
-> Ví dụ thực tế: `src/POS.Web/Program.cs`
+> **Chi tiết đầy đủ: `.claude/skills/web/deployment.md`** — đọc khi deploy production (Docker / nginx / self-contained).
+> Bao gồm: explicit `UseRouting()`, fix `_framework/blazor.web.js` 404 từ external IP, nginx config WebSocket, DataProtection keys trong Docker.
 
 ---
 
-### Pattern: Fix `_framework/blazor.web.js` 404 từ external IP
-
-> Áp dụng khi: deploy Blazor Server trong Docker/nginx với port mapping (external port ≠ internal
-> port), `blazor.web.js` trả 404 từ browser nhưng 200 từ `curl localhost`.
-
-**Root cause:** Trong .NET 10, `_framework/` endpoint được build với host selector = `localhost`.
-Request từ browser có `Host: <public-ip>:<port>` → không match → 404.
-
-**Kiểm tra nhanh:**
-```bash
-# Nếu kết quả khác nhau → đây đúng là lỗi này
-curl -s http://localhost:5001/_framework/blazor.web.js                          # → 200
-curl -s -H "Host: <ip>:5001" http://localhost:5001/_framework/blazor.web.js    # → 404
-```
-
-**Fix trong `Program.cs`** (kết hợp với explicit UseRouting ở trên):
-```csharp
-app.Use(async (ctx, next) =>
-{
-    if (ctx.Request.Path.StartsWithSegments("/_framework"))
-        ctx.Request.Headers.Host = "localhost";
-    await next();
-});
-app.UseRouting(); // BẮT BUỘC đi kèm — xem pattern explicit UseRouting ở trên
-```
-
-> Ví dụ thực tế: `src/POS.Web/Program.cs`
-
----
-
-### Pattern: nginx config cho Blazor Server
-
-> Áp dụng khi: deploy POS.Web với nginx làm reverse proxy (không có hoặc thay thế Docker).
-
-```nginx
-server {
-    listen 5001;
-    server_name _;
-
-    # WebSocket — BẮT BUỘC cho Blazor SignalR circuit
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-
-    proxy_set_header Host $http_host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-    proxy_read_timeout 300s;   # Blazor long-polling fallback cần timeout dài
-    proxy_send_timeout 300s;
-
-    location / {
-        proxy_pass http://localhost:8080;
-    }
-}
-```
-
-**Build self-contained cho linux (chạy không cần .NET runtime):**
-```bash
-dotnet publish src/POS.Web/POS.Web.csproj -c Release -r linux-x64 --self-contained true -o publish/POS.Web
-```
-
-> Anti-pattern: Quên `proxy_set_header Upgrade` → SignalR WebSocket không upgrade được →
-> Blazor circuit không kết nối → button/event không phản hồi.
-
----
-
-### Pattern: DataProtection keys trong Docker
-
-> Áp dụng khi: app chạy trong Docker container với non-root user (`USER $APP_UID`).
-> ASP.NET Core DataProtection cần ghi key vào `/home/app/.aspnet/DataProtection-Keys`.
-> Volume Docker do root tạo → user `app` không ghi được → `CryptographicException` khi encrypt cookie.
-
-```dockerfile
-# Dockerfile — TRƯỚC USER $APP_UID
-RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
-    && chown -R app:app /home/app/.aspnet
-
-USER $APP_UID
-```
-
-> Ví dụ thực tế: `src/POS.Web/Dockerfile`
-
----
-
-### Pattern: Sidebar 3-cấp — icon chỉ ở cấp 1 và cấp 2, không có ở cấp 3
+## Sidebar nav (MainLayout) — 3 cấp
 
 > Áp dụng khi: thêm sub-group mới vào sidebar hoặc thêm leaf MudNavLink vào sub-group.
+> Icon chỉ ở cấp 1 và cấp 2 — cấp 3 (leaf) KHÔNG có icon (chỉ tam giác mặc định).
 
 ```razor
 @* Cấp 1 — section (có icon) *@
 <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart" @bind-Expanded="_expandOps">
-
     @* Cấp 2 — sub-group (có icon) *@
     <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Filled.Monitor" @bind-Expanded="_expandOpsMonitor">
-        @* Cấp 3 — leaf link (KHÔNG có icon — chỉ tam giác MudNavLink mặc định) *@
+        @* Cấp 3 — leaf link (KHÔNG icon) *@
         <MudNavLink Href="/ops/health">System health</MudNavLink>
         <MudNavLink Href="/ops/alerts">Alerts</MudNavLink>
     </MudNavGroup>
-
-    <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Filled.Article" @bind-Expanded="_expandOpsLog">
-        <MudNavLink Href="/ops/logs">Log viewer</MudNavLink>
-    </MudNavGroup>
-
 </MudNavGroup>
 ```
 
 ```csharp
-// @code — khai báo và UpdateExpanded cho từng sub-group
-private bool _expandOps;
-private bool _expandOpsMonitor;
-private bool _expandOpsLog;
+// @code — UpdateExpanded để parent tự mở khi child match route
+private bool _expandOps, _expandOpsMonitor, _expandOpsLog;
 
 private void UpdateExpanded(string uri)
 {
     var u = uri.ToLowerInvariant();
-    _expandOpsMonitor = u.Contains("/ops/health") || u.Contains("/ops/alerts") || ...;
+    _expandOpsMonitor = u.Contains("/ops/health") || u.Contains("/ops/alerts");
     _expandOpsLog     = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log");
-    _expandOps        = _expandOpsMonitor || _expandOpsLog;  // parent tự mở khi có child match
+    _expandOps        = _expandOpsMonitor || _expandOpsLog;
 }
 ```
 
-> Anti-pattern: ❌ Thêm `Icon="..."` vào MudNavLink cấp 3 — cấp 3 chỉ dùng tam giác mặc định.
+> Anti-pattern: ❌ Thêm `Icon="..."` vào MudNavLink cấp 3.
 > Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`
 
 ---

@@ -119,88 +119,75 @@ else
     </MudGrid>
 
     @* ── DataTable ────────────────────────────────────────────────────────────── *@
-    <MudPaper Elevation="2" Style="overflow-x:auto">
-        <div class="pos-table-wrap">
-            <table class="pos-table">
-                <thead>
-                    <tr>
-                        <th style="min-width:140px">Thời gian</th>
-                        <th style="min-width:160px">TransactionId</th>
-                        <th style="min-width:100px">Loại</th>
-                        <th style="width:110px; text-align:center">Trạng thái</th>
-                        <th style="min-width:260px">Nội dung lỗi</th>
-                        <th style="width:60px; text-align:center">JSON</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var r in _records)
+    <MudTable Items="@_records"
+              Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" Elevation="2"
+              HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh Style="min-width:140px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.CrtDate)" InitialDirection="SortDirection.Descending">Thời gian</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:160px">TransactionId</MudTh>
+            <MudTh Style="min-width:100px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.DataType ?? string.Empty)">Loại</MudTableSortLabel></MudTh>
+            <MudTh Style="width:110px; text-align:center"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.Flag)">Trạng thái</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:260px">Nội dung lỗi</MudTh>
+            <MudTh Style="width:60px; text-align:center">JSON</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@context.CrtDate.ToString("HH:mm:ss dd/MM/yy")</MudTd>
+            <MudTd DataLabel="TransactionId" Style="font-family:monospace; font-size:0.8rem">@(context.TransactionId ?? "—")</MudTd>
+            <MudTd DataLabel="Loại">
+                @if (!string.IsNullOrEmpty(context.DataType))
+                {
+                    <span style="background:var(--pos-info); color:#fff; border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:600">@context.DataType</span>
+                }
+                else
+                {
+                    <span>—</span>
+                }
+            </MudTd>
+            <MudTd DataLabel="Trạng thái" Style="text-align:center">
+                @if (context.Flag)
+                {
+                    <span style="background:var(--pos-success); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">✓ OK</span>
+                }
+                else
+                {
+                    <span style="background:var(--pos-danger); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">✗ Lỗi</span>
+                }
+            </MudTd>
+            <MudTd DataLabel="Nội dung lỗi">
+                @if (!context.Flag && !string.IsNullOrEmpty(context.ErrorMessage))
+                {
+                    var msg = context.ErrorMessage;
+                    var truncated = msg.Length > 100 ? msg[..100] + "…" : msg;
+                    @if (msg.Length > 100)
                     {
-                        <tr>
-                            <td style="white-space:nowrap">
-                                @r.CrtDate.ToString("HH:mm:ss dd/MM/yy")
-                            </td>
-                            <td style="font-family:monospace; font-size:0.8rem">
-                                @(r.TransactionId ?? "—")
-                            </td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(r.DataType))
-                                {
-                                    <span style="background:var(--pos-info); color:#fff; border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:600">
-                                        @r.DataType
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span>—</span>
-                                }
-                            </td>
-                            <td style="text-align:center">
-                                @if (r.Flag)
-                                {
-                                    <span style="background:var(--pos-success); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">
-                                        ✓ OK
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span style="background:var(--pos-danger); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">
-                                        ✗ Lỗi
-                                    </span>
-                                }
-                            </td>
-                            <td>
-                                @if (!r.Flag && !string.IsNullOrEmpty(r.ErrorMessage))
-                                {
-                                    var msg = r.ErrorMessage;
-                                    var truncated = msg.Length > 100 ? msg[..100] + "…" : msg;
-                                    @if (msg.Length > 100)
-                                    {
-                                        <MudTooltip Text="@msg" Placement="Placement.Top">
-                                            <span style="cursor:help; color:var(--pos-danger)">@truncated</span>
-                                        </MudTooltip>
-                                    }
-                                    else
-                                    {
-                                        <span style="color:var(--pos-danger)">@truncated</span>
-                                    }
-                                }
-                                else
-                                {
-                                    <span style="color:var(--mud-palette-text-secondary)">—</span>
-                                }
-                            </td>
-                            <td style="text-align:center">
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                               Size="Size.Small" Color="Color.Primary"
-                                               title="Xem Message JSON"
-                                               OnClick="@(() => OpenMessageDialog(r))"/>
-                            </td>
-                        </tr>
+                        <MudTooltip Text="@msg" Placement="Placement.Top">
+                            <span style="cursor:help; color:var(--pos-danger)">@truncated</span>
+                        </MudTooltip>
                     }
-                </tbody>
-            </table>
-        </div>
-    </MudPaper>
+                    else
+                    {
+                        <span style="color:var(--pos-danger)">@truncated</span>
+                    }
+                }
+                else
+                {
+                    <span style="color:var(--mud-palette-text-secondary)">—</span>
+                }
+            </MudTd>
+            <MudTd DataLabel="JSON" Style="text-align:center">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                               Size="Size.Small" Color="Color.Primary"
+                               title="Xem Message JSON"
+                               OnClick="@(() => OpenMessageDialog(context))"/>
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 25, 50, 100, 200 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
 
     <MudText Typo="Typo.caption" Class="mt-2" Style="color:var(--mud-palette-text-secondary)">
         Hiển thị @_records.Count dòng (tối đa @_maxRows)

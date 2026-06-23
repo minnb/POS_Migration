@@ -4,10 +4,10 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
+@using POS.Common.Dtos.CentralMD
 @using POS.Common.Dtos.RptCentralSale
 @using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
-@using POS.Web.Components.Shared
 @using POS.Infrastructure.Logging
 @using System.Security.Claims
 
@@ -29,7 +29,7 @@
         <MudItem xs="12" sm="6" md="3">
             @if (_isStoreOperator)
             {
-                <MudTextField Value="@_filterStoreNo"
+                <MudTextField Value="@StoreDisplayText"
                               Label="Mã CH/ST (*)"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense"
@@ -39,18 +39,19 @@
             }
             else
             {
-                <MudAutocomplete T="string"
-                                 @bind-Value="_filterStoreNo"
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
                                  Label="Mã CH/ST (*)"
                                  Placeholder="Tất cả"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
                                  Clearable="true"
                                  AdornmentIcon="@Icons.Material.Filled.Store"
                                  Adornment="Adornment.Start"
                                  MinCharacters="0"
-                                 CoerceValue="true"/>
+                                 ResetValueOnEmptyText="true"/>
             }
         </MudItem>
 
@@ -239,7 +240,8 @@ else if (_isEmpty)
 
     // ── Store autocomplete ─────────────────────────────────────────────────
     private IReadOnlyList<string> _userStoreCodes = [];
-    private List<string>          _allStoreCodes  = [];
+    private List<StoreDto>        _allStores      = [];
+    private StoreDto?             _selectedStore;
 
     // ── Raw data ───────────────────────────────────────────────────────────
     private List<SalesByCategoryDto> _items = [];
@@ -282,25 +284,15 @@ else if (_isEmpty)
         _isStoreOperator = _userStoreCodes.Count > 0;
 
         if (_isStoreOperator)
-        {
             _filterStoreNo = _userStoreCodes[0];
-        }
-        else
+
+        try
         {
-            try
-            {
-                var configs = await MdRepo.GetStoreSetConfigAsync();
-                _allStoreCodes = configs?
-                    .Select(c => c.StoreNo)
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .Distinct()
-                    .OrderBy(s => s)
-                    .ToList() ?? [];
-            }
-            catch (Exception ex)
-            {
-                KibanaService.LogException("SalesByCategoryPage.LoadStoreCodes", "", 0, "", ex.Message);
-            }
+            _allStores = await MdRepo.GetStoreListAsync();
+        }
+        catch (Exception ex)
+        {
+            KibanaService.LogException("SalesByCategoryPage.LoadStoreCodes", "", 0, "", ex.Message);
         }
 
         try
@@ -329,7 +321,7 @@ else if (_isEmpty)
             var toDate   = (_filterToDateNullable   ?? DateTime.Today).Date;
             if (fromDate > toDate) toDate = fromDate;
 
-            var storeNo = string.IsNullOrEmpty(_filterStoreNo) ? "" : _filterStoreNo;
+            var storeNo = _isStoreOperator ? _filterStoreNo : (_selectedStore?.StoreNo ?? "");
 
             var result = await RptSaleRepo.GetSalesByCategoryAsync(storeNo, fromDate, toDate);
 
@@ -339,9 +331,8 @@ else if (_isEmpty)
             if (!_isEmpty)
             {
                 BuildPivot(fromDate, toDate);
-                // Resolve store name for report header
                 _reportStoreNo   = storeNo;
-                _reportStoreName = _items.FirstOrDefault(x => x.StoreNo == storeNo)?.StoreName ?? string.Empty;
+                _reportStoreName = _allStores.FirstOrDefault(s => s.StoreNo == storeNo)?.Name ?? string.Empty;
                 if (string.IsNullOrEmpty(_reportStoreNo))
                     _reportStoreName = string.Empty;
             }
@@ -349,7 +340,7 @@ else if (_isEmpty)
             _printedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
 
             KibanaService.LogInfo("SalesByCategoryPage.LoadData",
-                _filterStoreNo ?? "all",
+                storeNo.Length > 0 ? storeNo : "all",
                 $"Loaded {_items.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}]");
         }
         catch (Exception ex)
@@ -420,15 +411,20 @@ else if (_isEmpty)
     {
         _filterFromDateNullable = DateTime.Today.AddDays(-6);
         _filterToDateNullable   = DateTime.Today;
-        if (!_isStoreOperator) _filterStoreNo = string.Empty;
+        if (!_isStoreOperator) _selectedStore = null;
         await LoadDataAsync();
     }
 
-    private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return Task.FromResult<IEnumerable<string>>(_allStoreCodes);
-        return Task.FromResult(_allStoreCodes
-            .Where(s => s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores);
+        return Task.FromResult(_allStores.Where(s =>
+            (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)));
     }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_filterStoreNo ?? "");
 }

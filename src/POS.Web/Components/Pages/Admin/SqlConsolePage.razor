@@ -184,83 +184,43 @@
     }
     else
     {
-        <MudPaper Elevation="2" Style="overflow-x:auto">
-
-            @* Pagination top *@
-            @if (ResultPageCount > 1)
-            {
-                <div class="d-flex justify-space-between align-center px-3 py-2 flex-wrap gap-2">
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Trang @_resultPage / @ResultPageCount
-                        (@(_result.Rows.Count) dòng@(_result.Truncated ? ", bị cắt" : ""))
-                    </MudText>
-                    <MudPagination @bind-Selected="_resultPage"
-                                   Count="@ResultPageCount"
-                                   BoundaryCount="1"
-                                   MiddleCount="3"
-                                   ShowFirstButton="true"
-                                   ShowLastButton="true"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"/>
-                </div>
-            }
-
-            <div class="pos-table-wrap">
-                <table class="pos-table">
-                    <thead>
-                        <tr>
-                            @foreach (var col in _result.Columns)
-                            {
-                                <th>@col</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var row in PagedResultRows)
+        <MudTable Items="@_result.Rows"
+                  Hover="true" Striped="true" Dense="true"
+                  Breakpoint="Breakpoint.None" Elevation="2"
+                  HorizontalScrollbar="true">
+            <HeaderContent>
+                @foreach (var col in _result.Columns)
+                {
+                    <MudTh>@col</MudTh>
+                }
+            </HeaderContent>
+            <RowTemplate>
+                @for (var i = 0; i < context.Length; i++)
+                {
+                    var cell = context[i];
+                    <MudTd DataLabel="@(i < _result!.Columns.Count ? _result.Columns[i] : string.Empty)">
+                        @if (cell is null)
                         {
-                            <tr>
-                                @foreach (var cell in row)
-                                {
-                                    <td>
-                                        @if (cell is null)
-                                        {
-                                            <span style="color:#9e9e9e; font-style:italic">NULL</span>
-                                        }
-                                        else
-                                        {
-                                            var text = cell.ToString() ?? string.Empty;
-                                            @(text.Length > 200 ? text[..200] + "…" : text)
-                                        }
-                                    </td>
-                                }
-                            </tr>
+                            <span style="color:#9e9e9e; font-style:italic">NULL</span>
                         }
-                    </tbody>
-                </table>
-            </div>
-
-            @* Pagination bottom *@
-            @if (ResultPageCount > 1)
-            {
-                <div class="d-flex justify-end px-3 py-2">
-                    <MudPagination @bind-Selected="_resultPage"
-                                   Count="@ResultPageCount"
-                                   BoundaryCount="1"
-                                   MiddleCount="3"
-                                   ShowFirstButton="true"
-                                   ShowLastButton="true"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"/>
-                </div>
-            }
-
-        </MudPaper>
+                        else
+                        {
+                            var text = cell.ToString() ?? string.Empty;
+                            @(text.Length > 200 ? text[..200] + "…" : text)
+                        }
+                    </MudTd>
+                }
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 25, 50, 100 }"
+                               InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                               RowsPerPageString="Số dòng mỗi trang:"/>
+            </PagerContent>
+        </MudTable>
     }
 }
 
 @code {
-    private const int ResultPageSize = 50;
-
     private IReadOnlyList<DbOption> _databases = [];
     private string _connKey = string.Empty;
     private string _sql = string.Empty;
@@ -270,7 +230,6 @@
     private CancellationTokenSource? _cts;
 
     private SqlQueryResult? _result;
-    private int _resultPage = 1;
 
     private PendingUpdate? _pending;
     private bool _committing;
@@ -279,15 +238,6 @@
 
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
-
-    private int ResultPageCount =>
-        _result is null || _result.Rows.Count == 0
-            ? 0
-            : (int)Math.Ceiling(_result.Rows.Count / (double)ResultPageSize);
-
-    private IEnumerable<object?[]> PagedResultRows =>
-        _result?.Rows.Skip((_resultPage - 1) * ResultPageSize).Take(ResultPageSize)
-        ?? [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -306,7 +256,6 @@
 
         _errorMsg   = null;
         _result     = null;
-        _resultPage = 1;
 
         var validation = ConsoleService.Validate(_sql);
         if (!validation.Ok)
@@ -362,7 +311,6 @@
         _sql        = string.Empty;
         _result     = null;
         _errorMsg   = null;
-        _resultPage = 1;
     }
 
     private async Task CommitAsync()

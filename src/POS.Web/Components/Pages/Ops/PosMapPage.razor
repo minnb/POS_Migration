@@ -16,12 +16,12 @@
 <PageTitle>POS Map – POS Dashboard</PageTitle>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
-    <MudText Typo="Typo.h5">
+<div class="pos-page-header mb-1">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
         <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
         POS Map
     </MudText>
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+    <div class="d-flex align-center gap-2">
         <MudSelect T="int" Value="_autoRefreshSec" ValueChanged="OnAutoRefreshChanged"
                    Label="Tự động" Variant="Variant.Outlined" Margin="Margin.Dense"
                    Style="min-width:140px">
@@ -32,13 +32,14 @@
         </MudSelect>
         <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Refresh"
-                   OnClick="LoadDataAsync" Disabled="_loading">
+                   OnClick="LoadDataAsync" Disabled="_loading"
+                   Style="align-self:center; white-space:nowrap">
             @if (_loading)
             { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/> }
             Làm mới
         </MudButton>
-    </MudStack>
-</MudStack>
+    </div>
+</div>
 
 @* ── Timestamp ───────────────────────────────────────────────────────── *@
 @if (_lastLoaded.HasValue)
@@ -149,107 +150,90 @@
                     </MudStack>
                 </TitleContent>
                 <ChildContent>
-                    <MudDataGrid T="PosMonitorStatusDto"
-                                 Items="@group.Value"
-                                 Dense="true" Hover="true" Striped="true"
-                                 SortMode="SortMode.Single">
-                        <Columns>
-
-                            <TemplateColumn Title="Trạng thái" Sortable="true"
-                                            SortBy="x => x.IsOnline ? 0 : 1">
-                                <CellTemplate>
-                                    <MudChip T="string" Size="Size.Small"
-                                             Color="@(context.Item.IsOnline ? Color.Success : Color.Error)"
-                                             Variant="Variant.Filled">
-                                        @(context.Item.IsOnline ? "● Online" : "● Offline")
-                                    </MudChip>
-                                </CellTemplate>
-                            </TemplateColumn>
-
-                            <PropertyColumn Property="x => x.PosTerminalID" Title="Terminal" Sortable="true"/>
-                            <PropertyColumn Property="x => x.IpAddress"     Title="IP" Sortable="true"/>
-                            <PropertyColumn Property="x => x.ComputerName"  Title="Máy" Sortable="true"/>
-
-                            <TemplateColumn Title="Phiên bản" Sortable="true"
-                                            SortBy="x => x.NeedsUpdate ? 1 : 0">
-                                <CellTemplate>
-                                    @if (context.Item.NeedsUpdate)
-                                    {
-                                        <MudTooltip Text="@($"Bản mới: {context.Item.BluePosVersionUpdate}")">
-                                            <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                                     Variant="Variant.Filled">
-                                                ⚠ @context.Item.BluePosVersion
-                                            </MudChip>
-                                        </MudTooltip>
-                                    }
-                                    else
-                                    {
-                                        <MudText Typo="Typo.body2">@context.Item.BluePosVersion</MudText>
-                                    }
-                                </CellTemplate>
-                            </TemplateColumn>
-
-                            <TemplateColumn Title="DB" Sortable="true"
-                                            SortBy="x => x.BluePosDatabaseStatus">
-                                <CellTemplate>
-                                    @{
-                                        var dbOk = string.Equals(context.Item.BluePosDatabaseStatus, "OK",
-                                                       StringComparison.OrdinalIgnoreCase);
-                                    }
-                                    <MudChip T="string" Size="Size.Small"
-                                             Color="@(dbOk ? Color.Success : Color.Error)"
-                                             Variant="Variant.Outlined">
-                                        @context.Item.BluePosDatabaseStatus
-                                    </MudChip>
-                                </CellTemplate>
-                            </TemplateColumn>
-
-                            <TemplateColumn Title="POS" Sortable="true"
-                                            SortBy="x => x.IsOpenBluePos ? 0 : 1">
-                                <CellTemplate>
-                                    <MudText Typo="Typo.body2"
-                                             Color="@(context.Item.IsOpenBluePos ? Color.Success : Color.Default)">
-                                        @(context.Item.IsOpenBluePos ? "Đang mở" : "Đóng")
-                                    </MudText>
-                                </CellTemplate>
-                            </TemplateColumn>
-
-                            <TemplateColumn Title="Last seen" Sortable="true"
-                                            SortBy="x => x.UpdatedAt">
-                                <CellTemplate>
-                                    @{
-                                        var age = DateTime.Now - context.Item.UpdatedAt;
-                                        var ageText = age.TotalMinutes < 1   ? "vừa xong"
-                                                    : age.TotalHours   < 1   ? $"{(int)age.TotalMinutes}p trước"
-                                                    : age.TotalDays    < 1   ? $"{(int)age.TotalHours}h trước"
-                                                                             : context.Item.UpdatedAt.ToString("dd/MM HH:mm");
-                                    }
-                                    <MudText Typo="Typo.caption"
-                                             Color="@(context.Item.IsOnline ? Color.Default : Color.Error)">
-                                        @ageText
-                                    </MudText>
-                                </CellTemplate>
-                            </TemplateColumn>
-
-                            <TemplateColumn Title="Giờ POS" Sortable="true"
-                                            SortBy="x => x.DateTimePos">
-                                <CellTemplate>
-                                    @{
-                                        var drift = Math.Abs((context.Item.DateTimePos - DateTime.Now).TotalMinutes);
-                                    }
-                                    <MudText Typo="Typo.caption"
-                                             Color="@(drift > 5 ? Color.Warning : Color.Default)">
-                                        @context.Item.DateTimePos.ToString("HH:mm:ss")
-                                        @if (drift > 5) { <span> ⚠</span> }
-                                    </MudText>
-                                </CellTemplate>
-                            </TemplateColumn>
-
-                        </Columns>
+                    <MudTable Items="@group.Value"
+                              Dense="true" Hover="true" Striped="true"
+                              Breakpoint="Breakpoint.Sm" Elevation="0"
+                              HorizontalScrollbar="true">
+                        <HeaderContent>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.IsOnline ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.PosTerminalID)">Terminal</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.IpAddress)">IP</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.ComputerName)">Máy</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.NeedsUpdate ? 1 : 0)">Phiên bản</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.BluePosDatabaseStatus)">DB</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.IsOpenBluePos ? 0 : 1)">POS</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.UpdatedAt)">Last seen</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.DateTimePos)">Giờ POS</MudTableSortLabel></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Trạng thái">
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(context.IsOnline ? Color.Success : Color.Error)"
+                                         Variant="Variant.Filled">
+                                    @(context.IsOnline ? "● Online" : "● Offline")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Terminal">@context.PosTerminalID</MudTd>
+                            <MudTd DataLabel="IP">@context.IpAddress</MudTd>
+                            <MudTd DataLabel="Máy">@context.ComputerName</MudTd>
+                            <MudTd DataLabel="Phiên bản">
+                                @if (context.NeedsUpdate)
+                                {
+                                    <MudTooltip Text="@($"Bản mới: {context.BluePosVersionUpdate}")">
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
+                                            ⚠ @context.BluePosVersion
+                                        </MudChip>
+                                    </MudTooltip>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2">@context.BluePosVersion</MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="DB">
+                                @{
+                                    var dbOk = string.Equals(context.BluePosDatabaseStatus, "OK", StringComparison.OrdinalIgnoreCase);
+                                }
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(dbOk ? Color.Success : Color.Error)"
+                                         Variant="Variant.Outlined">
+                                    @context.BluePosDatabaseStatus
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="POS">
+                                <MudText Typo="Typo.body2"
+                                         Color="@(context.IsOpenBluePos ? Color.Success : Color.Default)">
+                                    @(context.IsOpenBluePos ? "Đang mở" : "Đóng")
+                                </MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Last seen">
+                                @{
+                                    var age = DateTime.Now - context.UpdatedAt;
+                                    var ageText = age.TotalMinutes < 1   ? "vừa xong"
+                                                : age.TotalHours   < 1   ? $"{(int)age.TotalMinutes}p trước"
+                                                : age.TotalDays    < 1   ? $"{(int)age.TotalHours}h trước"
+                                                                         : context.UpdatedAt.ToString("dd/MM HH:mm");
+                                }
+                                <MudText Typo="Typo.caption"
+                                         Color="@(context.IsOnline ? Color.Default : Color.Error)">
+                                    @ageText
+                                </MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Giờ POS">
+                                @{
+                                    var drift = Math.Abs((context.DateTimePos - DateTime.Now).TotalMinutes);
+                                }
+                                <MudText Typo="Typo.caption"
+                                         Color="@(drift > 5 ? Color.Warning : Color.Default)">
+                                    @context.DateTimePos.ToString("HH:mm:ss")
+                                    @if (drift > 5) { <span> ⚠</span> }
+                                </MudText>
+                            </MudTd>
+                        </RowTemplate>
                         <NoRecordsContent>
                             <MudText Color="Color.Secondary" Class="pa-3">Không có terminal.</MudText>
                         </NoRecordsContent>
-                    </MudDataGrid>
+                    </MudTable>
                 </ChildContent>
             </MudExpansionPanel>
         }
