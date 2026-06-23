@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<ICentralMDRepository, CentralMDRepository>();
         services.AddScoped<ICentralSaleRepository, CentralSaleRepository>();
         services.AddScoped<IRptCentralSaleRepository, RptCentralSaleRepository>();
+        services.AddScoped<IRptReportSaleDetailRepository, RptReportSaleDetailRepository>();
         services.AddScoped<IDataRawJsonRepository, DataRawJsonRepository>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
