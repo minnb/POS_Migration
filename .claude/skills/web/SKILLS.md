@@ -1048,6 +1048,48 @@ USER $APP_UID
 
 ---
 
+### Pattern: Sidebar 3-cấp — icon chỉ ở cấp 1 và cấp 2, không có ở cấp 3
+
+> Áp dụng khi: thêm sub-group mới vào sidebar hoặc thêm leaf MudNavLink vào sub-group.
+
+```razor
+@* Cấp 1 — section (có icon) *@
+<MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart" @bind-Expanded="_expandOps">
+
+    @* Cấp 2 — sub-group (có icon) *@
+    <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Filled.Monitor" @bind-Expanded="_expandOpsMonitor">
+        @* Cấp 3 — leaf link (KHÔNG có icon — chỉ tam giác MudNavLink mặc định) *@
+        <MudNavLink Href="/ops/health">System health</MudNavLink>
+        <MudNavLink Href="/ops/alerts">Alerts</MudNavLink>
+    </MudNavGroup>
+
+    <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Filled.Article" @bind-Expanded="_expandOpsLog">
+        <MudNavLink Href="/ops/logs">Log viewer</MudNavLink>
+    </MudNavGroup>
+
+</MudNavGroup>
+```
+
+```csharp
+// @code — khai báo và UpdateExpanded cho từng sub-group
+private bool _expandOps;
+private bool _expandOpsMonitor;
+private bool _expandOpsLog;
+
+private void UpdateExpanded(string uri)
+{
+    var u = uri.ToLowerInvariant();
+    _expandOpsMonitor = u.Contains("/ops/health") || u.Contains("/ops/alerts") || ...;
+    _expandOpsLog     = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log");
+    _expandOps        = _expandOpsMonitor || _expandOpsLog;  // parent tự mở khi có child match
+}
+```
+
+> Anti-pattern: ❌ Thêm `Icon="..."` vào MudNavLink cấp 3 — cấp 3 chỉ dùng tam giác mặc định.
+> Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`
+
+---
+
 ## Ví dụ tham chiếu
 
 | Loại | File |

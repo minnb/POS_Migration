@@ -96,6 +96,39 @@
     background-color: rgba(255, 255, 255, 0.07) !important;
 }
 
+/* ── Sidebar visual hierarchy (3 cấp) ───────────────────────────────────
+   Nền drawer tối #1B3A5C → dùng opacity trắng để phân tầng bậc:
+   L1 (section)   → bold 700, trắng 95%  — landmark chính
+   L2 (sub-group) → medium 500, trắng 65% — nhãn nhóm phụ
+   L3 (leaf link) → normal 400, trắng 50% — destination, mờ nhất khi inactive  */
+
+/* L1 — Cửa hàng / Vận hành / Quản trị */
+.mud-drawer .mud-nav-menu > .mud-nav-group > .mud-nav-group-title {
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-size: 0.875rem;
+}
+
+/* L2 — Giám sát / Giao dịch / Báo cáo / Nhật ký ... */
+.mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group > .mud-nav-group-title {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.65) !important;
+    font-size: 0.8125rem;
+}
+
+/* L3 — leaf link (inactive) */
+.mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group .mud-nav-link:not(.mud-nav-group-title) {
+    color: rgba(255, 255, 255, 0.50) !important;
+    font-size: 0.8125rem;
+    font-weight: 400;
+}
+
+/* L3 active — đảm bảo specificity cao hơn rule L3 inactive ở trên */
+.mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group .mud-nav-link.active {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
 /* ── Responsive: Page header (title + action button) ────────────────────
    Thay thế MudStack Row="true" Justify.SpaceBetween — tự wrap trên mobile.
    Dùng: <div class="pos-page-header mb-4"> ... </div>
