@@ -471,7 +471,7 @@
             _kpi     = kpi;
             _kpiPrev = tPrevDay?.Result.Kpi;
 
-            BuildLineChart(daySeries, tPrevDay?.Result.Series);
+            BuildLineChart(daySeries, tPrevDay?.Result.Series, from, to);
             BuildHourChart(hourSeries);
             BuildWeekdayChart(weekdaySeries);
 
@@ -550,44 +550,92 @@
 
     // ── Chart builders ───────────────────────────────────────────────────────
 
-    private void BuildLineChart(List<SaleByTimeSeriesDto> current, List<SaleByTimeSeriesDto>? prev)
+    // Line chart vẽ theo NGÀY: phải zero-fill toàn dải from..to (như bar dùng bucket cố định),
+    // nếu không, dải chỉ 1 ngày có data → Line 1 điểm → MudBlazor không vẽ được đoạn nào → trống.
+    private void BuildLineChart(List<SaleByTimeSeriesDto> current, List<SaleByTimeSeriesDto>? prev,
+                                DateTime from, DateTime to)
     {
-        var ordered = current
-            .GroupBy(r => new { r.TimeLabel, r.SortOrder })
-            .Select(g => (Label: g.Key.TimeLabel, Sort: g.Key.SortOrder,
-                          Gross: g.Sum(r => r.GrossRevenue), Net: g.Sum(r => r.NetRevenue)))
-            .OrderBy(x => x.Sort)
-            .ToList();
+        // SP trả TimeLabel cho DAY dạng "dd/MM/yyyy" — parse về ngày để map vào spine.
+        static DateTime? ParseDay(string s) =>
+            DateTime.TryParseExact(s, "dd/MM/yyyy",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var d) ? d : (DateTime?)null;
 
-        _lineLabels = ordered.Select(x => x.Label.Length > 5 ? x.Label[..5] : x.Label).ToArray();
-        var grossVals = ordered.Select(x => Round(x.Gross)).ToArray();
-        var netVals   = ordered.Select(x => Round(x.Net)).ToArray();
+        static Dictionary<DateTime, (decimal Gross, decimal Net)> ByDate(List<SaleByTimeSeriesDto> rows) => rows
+            .Select(r => (Date: ParseDay(r.TimeLabel), r.GrossRevenue, r.NetRevenue))
+            .Where(x => x.Date.HasValue)
+            .GroupBy(x => x.Date!.Value.Date)
+            .ToDictionary(g => g.Key, g => (Gross: g.Sum(v => v.GrossRevenue), Net: g.Sum(v => v.NetRevenue)));
 
-        var series = new List<ChartSeries<double>>
+        var byDate = ByDate(current);
+        var series = new List<ChartSeries<double>>();
+        double[] grossVals, netVals;
+
+        if (byDate.Count > 0)
         {
-            new() { Name = "DT Gộp",   Data = new ChartData<double>(grossVals) },
-            new() { Name = "DT Thuần", Data = new ChartData<double>(netVals)   },
-        };
+            var days = Enumerable.Range(0, (to.Date - from.Date).Days + 1)
+                                 .Select(i => from.Date.AddDays(i)).ToList();
+            _lineLabels = days.Select(d => d.ToString("dd/MM")).ToArray();
+            grossVals   = days.Select(d => byDate.TryGetValue(d, out var v) ? Round(v.Gross) : 0d).ToArray();
+            netVals     = days.Select(d => byDate.TryGetValue(d, out var v) ? Round(v.Net)   : 0d).ToArray();
 
-        if (prev != null && _compareEnabled)
+            series.Add(new() { Name = "DT Gộp",   Data = new ChartData<double>(grossVals) });
+            series.Add(new() { Name = "DT Thuần", Data = new ChartData<double>(netVals)   });
+
+            if (prev != null && _compareEnabled)
+            {
+                var prevByDate = ByDate(prev);
+                // Kỳ trước = spine hiện tại dịch lùi đúng số ngày → align 1:1 theo vị trí.
+                var span      = days.Count;
+                var prevDays  = days.Select(d => d.AddDays(-span)).ToList();
+                var prevGross = prevDays.Select(d => prevByDate.TryGetValue(d, out var v) ? Round(v.Gross) : 0d).ToArray();
+                var prevNet   = prevDays.Select(d => prevByDate.TryGetValue(d, out var v) ? Round(v.Net)   : 0d).ToArray();
+
+                series.Add(new() { Name = "DT Gộp (kỳ trước)",   Data = new ChartData<double>(prevGross) });
+                series.Add(new() { Name = "DT Thuần (kỳ trước)", Data = new ChartData<double>(prevNet)   });
+            }
+        }
+        else
         {
-            var prevOrdered = prev
+            // Fallback: TimeLabel không parse được dd/MM/yyyy → giữ logic cũ theo SortOrder.
+            var ordered = current
                 .GroupBy(r => new { r.TimeLabel, r.SortOrder })
-                .Select(g => (Sort: g.Key.SortOrder, Gross: g.Sum(r => r.GrossRevenue), Net: g.Sum(r => r.NetRevenue)))
+                .Select(g => (Label: g.Key.TimeLabel, Sort: g.Key.SortOrder,
+                              Gross: g.Sum(r => r.GrossRevenue), Net: g.Sum(r => r.NetRevenue)))
                 .OrderBy(x => x.Sort)
                 .ToList();
 
-            var n         = ordered.Count;
-            var prevGross = Enumerable.Range(0, n).Select(i => i < prevOrdered.Count ? Round(prevOrdered[i].Gross) : 0d).ToArray();
-            var prevNet   = Enumerable.Range(0, n).Select(i => i < prevOrdered.Count ? Round(prevOrdered[i].Net)   : 0d).ToArray();
+            _lineLabels = ordered.Select(x => x.Label.Length > 5 ? x.Label[..5] : x.Label).ToArray();
+            grossVals   = ordered.Select(x => Round(x.Gross)).ToArray();
+            netVals     = ordered.Select(x => Round(x.Net)).ToArray();
 
-            series.Add(new() { Name = "DT Gộp (kỳ trước)",   Data = new ChartData<double>(prevGross) });
-            series.Add(new() { Name = "DT Thuần (kỳ trước)", Data = new ChartData<double>(prevNet)   });
+            series.Add(new() { Name = "DT Gộp",   Data = new ChartData<double>(grossVals) });
+            series.Add(new() { Name = "DT Thuần", Data = new ChartData<double>(netVals)   });
+
+            if (prev != null && _compareEnabled)
+            {
+                var prevOrdered = prev
+                    .GroupBy(r => new { r.TimeLabel, r.SortOrder })
+                    .Select(g => (Sort: g.Key.SortOrder, Gross: g.Sum(r => r.GrossRevenue), Net: g.Sum(r => r.NetRevenue)))
+                    .OrderBy(x => x.Sort)
+                    .ToList();
+
+                var n         = grossVals.Length;
+                var prevGross = Enumerable.Range(0, n).Select(i => i < prevOrdered.Count ? Round(prevOrdered[i].Gross) : 0d).ToArray();
+                var prevNet   = Enumerable.Range(0, n).Select(i => i < prevOrdered.Count ? Round(prevOrdered[i].Net)   : 0d).ToArray();
+
+                series.Add(new() { Name = "DT Gộp (kỳ trước)",   Data = new ChartData<double>(prevGross) });
+                series.Add(new() { Name = "DT Thuần (kỳ trước)", Data = new ChartData<double>(prevNet)   });
+            }
         }
 
         _lineSeries = series;
         _lineEmpty  = grossVals.All(v => v == 0) && netVals.All(v => v == 0);
-        _lineOpts   = new LineChartOptions { LineStrokeWidth = 2, ShowLegend = true };
+
+        // Y-axis auto-scale như 2 bar chart (tránh trục cứng max=20 với giá trị nhỏ).
+        var yMax  = CalcYMax(grossVals.Concat(netVals).ToArray());
+        _lineOpts = new LineChartOptions { LineStrokeWidth = 2, ShowLegend = true,
+                                           YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
     }
 
     private void BuildHourChart(List<SaleByTimeSeriesDto> hourSeries)

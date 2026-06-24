@@ -12,6 +12,7 @@
 
 @inject ICentralMDRepository MdRepo
 @inject IKibanaService KibanaService
+@inject IDialogService DialogService
 
 <PageTitle>POS Map – POS Dashboard</PageTitle>
 
@@ -63,29 +64,30 @@
     var online      = _allItems.Count(x => x.IsOnline);
     var offline     = total - online;
     var needsUpdate = _allItems.Count(x => x.NeedsUpdate);
+    var disabled    = _allItems.Count(x => !x.IsEnabled);
 
     <MudGrid Spacing="3" Class="mb-4">
-        <MudItem xs="6" sm="3">
+        <MudItem xs="6" md="3">
             <MudPaper Elevation="2" Class="pa-3 text-center">
                 <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng máy POS</MudText>
             </MudPaper>
         </MudItem>
-        <MudItem xs="6" sm="3">
+        <MudItem xs="6" md="3">
             <MudPaper Elevation="2" Class="pa-3 text-center"
                       Style="border-left:3px solid var(--pos-success)">
                 <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@online</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">● Online</MudText>
             </MudPaper>
         </MudItem>
-        <MudItem xs="6" sm="3">
+        <MudItem xs="6" md="3">
             <MudPaper Elevation="2" Class="pa-3 text-center"
                       Style="border-left:3px solid var(--pos-danger)">
                 <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@offline</MudText>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">● Offline</MudText>
             </MudPaper>
         </MudItem>
-        <MudItem xs="6" sm="3">
+        <MudItem xs="6" md="3">
             <MudPaper Elevation="2" Class="pa-3 text-center"
                       Style="border-left:3px solid var(--pos-warning)">
                 <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-warning)">@needsUpdate</MudText>
@@ -101,7 +103,7 @@
         <MudItem xs="12" sm="6" md="5">
             <MudTextField Value="_search" Immediate="true"
                           ValueChanged="@((string v) => { _search = v; ApplyFilter(); })"
-                          Label="Tìm kiếm" Placeholder="Store, Terminal, IP, Tên máy..."
+                          Label="Tìm kiếm" Placeholder="PosNo, Store, IP, Chuỗi, Tên máy, Mã CQT..."
                           Variant="Variant.Outlined" Margin="Margin.Dense"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                           Clearable="true"
@@ -117,6 +119,15 @@
                 <MudSelectItem Value="@("update")">Cần cập nhật phần mềm</MudSelectItem>
             </MudSelect>
         </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="string" Value="_enabledFilter" Label="Sử dụng"
+                       ValueChanged="@((string v) => { _enabledFilter = v; ApplyFilter(); })"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@("all")">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("enabled")">Đang bật</MudSelectItem>
+                <MudSelectItem Value="@("disabled")">Đang tắt</MudSelectItem>
+            </MudSelect>
+        </MudItem>
     </MudGrid>
 </MudPaper>
 
@@ -126,133 +137,90 @@
     <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
 }
 
-@* ── Store expansion panels ──────────────────────────────────────────── *@
-@if (_filteredGroups.Any())
-{
-    <MudExpansionPanels MultiExpansion="true">
-        @foreach (var group in _filteredGroups)
-        {
-            var groupOnline = group.Value.Count(x => x.IsOnline);
-            var groupTotal  = group.Value.Count;
-            var allOnline   = groupOnline == groupTotal;
-
-            <MudExpansionPanel>
-                <TitleContent>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudChip T="string" Size="Size.Small"
-                                 Color="@(allOnline ? Color.Success : groupOnline == 0 ? Color.Error : Color.Warning)"
-                                 Variant="Variant.Filled">
-                            @groupOnline / @groupTotal
-                        </MudChip>
-                        <MudText Typo="Typo.subtitle1" Style="font-weight:600">
-                            @group.Key
-                        </MudText>
-                    </MudStack>
-                </TitleContent>
-                <ChildContent>
-                    <MudTable Items="@group.Value"
-                              Dense="true" Hover="true" Striped="true"
-                              Breakpoint="Breakpoint.Sm" Elevation="0"
-                              HorizontalScrollbar="true">
-                        <HeaderContent>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.IsOnline ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.PosTerminalID)">Terminal</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.IpAddress)">IP</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.ComputerName)">Máy</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.NeedsUpdate ? 1 : 0)">Phiên bản</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.BluePosDatabaseStatus)">DB</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.IsOpenBluePos ? 0 : 1)">POS</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.UpdatedAt)">Last seen</MudTableSortLabel></MudTh>
-                            <MudTh><MudTableSortLabel SortBy="new Func<PosMonitorStatusDto, object>(x => x.DateTimePos)">Giờ POS</MudTableSortLabel></MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Trạng thái">
-                                <MudChip T="string" Size="Size.Small"
-                                         Color="@(context.IsOnline ? Color.Success : Color.Error)"
-                                         Variant="Variant.Filled">
-                                    @(context.IsOnline ? "● Online" : "● Offline")
-                                </MudChip>
-                            </MudTd>
-                            <MudTd DataLabel="Terminal">@context.PosTerminalID</MudTd>
-                            <MudTd DataLabel="IP">@context.IpAddress</MudTd>
-                            <MudTd DataLabel="Máy">@context.ComputerName</MudTd>
-                            <MudTd DataLabel="Phiên bản">
-                                @if (context.NeedsUpdate)
-                                {
-                                    <MudTooltip Text="@($"Bản mới: {context.BluePosVersionUpdate}")">
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
-                                            ⚠ @context.BluePosVersion
-                                        </MudChip>
-                                    </MudTooltip>
-                                }
-                                else
-                                {
-                                    <MudText Typo="Typo.body2">@context.BluePosVersion</MudText>
-                                }
-                            </MudTd>
-                            <MudTd DataLabel="DB">
-                                @{
-                                    var dbOk = string.Equals(context.BluePosDatabaseStatus, "OK", StringComparison.OrdinalIgnoreCase);
-                                }
-                                <MudChip T="string" Size="Size.Small"
-                                         Color="@(dbOk ? Color.Success : Color.Error)"
-                                         Variant="Variant.Outlined">
-                                    @context.BluePosDatabaseStatus
-                                </MudChip>
-                            </MudTd>
-                            <MudTd DataLabel="POS">
-                                <MudText Typo="Typo.body2"
-                                         Color="@(context.IsOpenBluePos ? Color.Success : Color.Default)">
-                                    @(context.IsOpenBluePos ? "Đang mở" : "Đóng")
-                                </MudText>
-                            </MudTd>
-                            <MudTd DataLabel="Last seen">
-                                @{
-                                    var age = DateTime.Now - context.UpdatedAt;
-                                    var ageText = age.TotalMinutes < 1   ? "vừa xong"
-                                                : age.TotalHours   < 1   ? $"{(int)age.TotalMinutes}p trước"
-                                                : age.TotalDays    < 1   ? $"{(int)age.TotalHours}h trước"
-                                                                         : context.UpdatedAt.ToString("dd/MM HH:mm");
-                                }
-                                <MudText Typo="Typo.caption"
-                                         Color="@(context.IsOnline ? Color.Default : Color.Error)">
-                                    @ageText
-                                </MudText>
-                            </MudTd>
-                            <MudTd DataLabel="Giờ POS">
-                                @{
-                                    var drift = Math.Abs((context.DateTimePos - DateTime.Now).TotalMinutes);
-                                }
-                                <MudText Typo="Typo.caption"
-                                         Color="@(drift > 5 ? Color.Warning : Color.Default)">
-                                    @context.DateTimePos.ToString("HH:mm:ss")
-                                    @if (drift > 5) { <span> ⚠</span> }
-                                </MudText>
-                            </MudTd>
-                        </RowTemplate>
-                        <NoRecordsContent>
-                            <MudText Color="Color.Secondary" Class="pa-3">Không có terminal.</MudText>
-                        </NoRecordsContent>
-                    </MudTable>
-                </ChildContent>
-            </MudExpansionPanel>
-        }
-    </MudExpansionPanels>
-}
-else if (!_loading && _allItems.Any())
-{
-    <MudText Color="Color.Secondary" Class="pa-4" Align="Align.Center">
-        Không có kết quả khớp bộ lọc.
-    </MudText>
-}
+@* ── POS list ────────────────────────────────────────────────────────── *@
+<MudTable Items="@_filtered" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Loading="@(_loading && !_allItems.Any())"
+          HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="PosTerminalListDto"
+          RowStyle="cursor:pointer">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsOnline ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.No)">PosNo</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StoreNo)">Cửa hàng</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IPAddress ?? string.Empty)">IP</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StyleProfile ?? string.Empty)">Chuỗi</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.NeedsUpdate ? 1 : 0)">Phiên bản</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsEnabled ? 0 : 1)">Sử dụng</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.DateTimePos ?? DateTime.MinValue)">Last seen</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Trạng thái">
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(context.IsOnline ? Color.Success : Color.Error)"
+                     Variant="Variant.Filled">
+                @(context.IsOnline ? "● Online" : "● Offline")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="PosNo">@context.No</MudTd>
+        <MudTd DataLabel="Cửa hàng">@context.StoreNo</MudTd>
+        <MudTd DataLabel="IP">@context.IPAddress</MudTd>
+        <MudTd DataLabel="Chuỗi">@context.StyleProfile</MudTd>
+        <MudTd DataLabel="Phiên bản">
+            @if (context.NeedsUpdate)
+            {
+                <MudTooltip Text="@($"Bản mới: {context.BluePosVersionUpdate}")">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
+                        ⚠ @context.BluePosVersion
+                    </MudChip>
+                </MudTooltip>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2">@context.BluePosVersion</MudText>
+            }
+        </MudTd>
+        <MudTd DataLabel="Sử dụng">
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(context.IsEnabled ? Color.Success : Color.Default)"
+                     Variant="Variant.Outlined">
+                @(context.IsEnabled ? "Bật" : "Tắt")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Last seen">
+            @{
+                var ageText = "Chưa có";
+                if (context.DateTimePos.HasValue)
+                {
+                    var age = DateTime.Now - context.DateTimePos.Value;
+                    ageText = age.TotalMinutes < 1   ? "vừa xong"
+                            : age.TotalHours   < 1   ? $"{(int)age.TotalMinutes}p trước"
+                            : age.TotalDays    < 1   ? $"{(int)age.TotalHours}h trước"
+                                                     : context.DateTimePos.Value.ToString("dd/MM HH:mm");
+                }
+            }
+            <MudText Typo="Typo.caption"
+                     Color="@(context.IsOnline ? Color.Default : Color.Error)">
+                @ageText
+            </MudText>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Color="Color.Secondary" Class="pa-4" Align="Align.Center">
+            @(_allItems.Any() ? "Không có kết quả khớp bộ lọc." : "Không có dữ liệu POSTerminal.")
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new int[] { 25, 50, 100, 200 }"/>
+    </PagerContent>
+</MudTable>
 
 @code {
-    private List<PosMonitorStatusDto>                      _allItems      = [];
-    private Dictionary<string, List<PosMonitorStatusDto>> _filteredGroups = [];
-    private bool    _loading       = false;
+    private List<PosTerminalListDto> _allItems = [];
+    private List<PosTerminalListDto> _filtered = [];
+    private bool    _loading        = false;
     private string? _errorMsg;
-    private string  _search        = string.Empty;
-    private string  _statusFilter  = "all";
+    private string  _search         = string.Empty;
+    private string  _statusFilter   = "all";
+    private string  _enabledFilter  = "all";
     private int     _autoRefreshSec = 120;
     private DateTime? _lastLoaded;
     private PeriodicTimer? _timer;
@@ -270,15 +238,15 @@ else if (!_loading && _allItems.Any())
         StateHasChanged();
         try
         {
-            _allItems   = await MdRepo.GetPosMonitorStatusAsync();
+            _allItems   = await MdRepo.GetPosTerminalListAsync();
             _lastLoaded = DateTime.Now;
             KibanaService.LogInfo("PosMapPage.Load", "ops",
-                $"POSMonitor: {_allItems.Count} terminals, " +
+                $"POSTerminal: {_allItems.Count} terminals, " +
                 $"{_allItems.Count(x => x.IsOnline)} online");
         }
         catch (Exception ex)
         {
-            _errorMsg = "Không thể tải dữ liệu POSMonitor.";
+            _errorMsg = "Không thể tải danh sách POS.";
             KibanaService.LogException("PosMapPage.Load", "", 0, "", ex.Message);
         }
         finally
@@ -294,12 +262,14 @@ else if (!_loading && _allItems.Any())
 
         if (!string.IsNullOrWhiteSpace(_search))
         {
-            var q = _search.Trim().ToLowerInvariant();
+            var q = _search.Trim();
             filtered = filtered.Where(x =>
-                x.StoreNo.Contains(q, StringComparison.OrdinalIgnoreCase)      ||
-                x.PosTerminalID.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                x.IpAddress.Contains(q, StringComparison.OrdinalIgnoreCase)     ||
-                x.ComputerName.Contains(q, StringComparison.OrdinalIgnoreCase));
+                x.No.Contains(q, StringComparison.OrdinalIgnoreCase)                          ||
+                x.StoreNo.Contains(q, StringComparison.OrdinalIgnoreCase)                     ||
+                (x.IPAddress?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)       ||
+                (x.StyleProfile?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)    ||
+                (x.ComputerName?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)    ||
+                (x.BillNoseri?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
         filtered = _statusFilter switch
@@ -310,12 +280,25 @@ else if (!_loading && _allItems.Any())
             _         => filtered
         };
 
-        _filteredGroups = filtered
-            .GroupBy(x => x.StoreNo)
-            .OrderBy(g => g.Key)
-            .ToDictionary(g => g.Key, g => g.ToList());
+        filtered = _enabledFilter switch
+        {
+            "enabled"  => filtered.Where(x => x.IsEnabled),
+            "disabled" => filtered.Where(x => !x.IsEnabled),
+            _          => filtered
+        };
 
+        _filtered = filtered.ToList();
         StateHasChanged();
+    }
+
+    private async Task OnRowClick(TableRowClickEventArgs<PosTerminalListDto> args)
+    {
+        if (args.Item is null) return;
+        await DialogService.ShowAsync<PosTerminalDetailDialog>(
+            $"Chi tiết POS: {args.Item.No} – {args.Item.StoreNo}",
+            new DialogParameters<PosTerminalDetailDialog> { { x => x.Item, args.Item } },
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true,
+                                CloseButton = true, CloseOnEscapeKey = true });
     }
 
     private void OnAutoRefreshChanged(int value)

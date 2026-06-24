@@ -48,4 +48,10 @@ public interface ICentralMDRepository
 
     /// <summary>SELECT toàn bộ POSMonitor — không cache, cần fresh data cho real-time monitoring.</summary>
     Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Danh sách POS từ POSTerminal (master config) LEFT JOIN POSMonitor (live heartbeat) —
+    /// dùng cho page ops/pos-map. Không cache (real-time).
+    /// </summary>
+    Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default);
 }

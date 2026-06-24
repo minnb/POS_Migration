@@ -287,9 +287,30 @@ public sealed class CentralMDRepository(
         const string sql = @"SELECT StoreNo, PosTerminalID, IpAddress, ComputerName,
                                     BluePosVersion, BluePosVersionUpdate, BluePosDatabaseStatus,
                                     IsOpenBluePos, DateTimePos,
-                                    LastTimeInsertAll, LastTimeInsertChange, UpdatedAt
+                                    LastTimeInsertAll, LastTimeInsertChange, DateTimePos AS UpdatedAt
                              FROM POSMonitor (NOLOCK)
                              ORDER BY StoreNo, PosTerminalID;";
         return (await QueryAsync<PosMonitorStatusDto>(sql, ct: ct)).ToList();
+    }
+
+    public async Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default)
+    {
+        const string sql = @"SELECT pt.[No], pt.StoreNo, pt.IPAddress, pt.MACAddress, pt.Description,
+                                    pt.Placement, pt.PrintReceiptLogo, pt.CustomerDisplayText1, pt.CustomerDisplayText2,
+                                    pt.StyleProfile, pt.BillNoseri, pt.DefaultPriceGroup, pt.TerminalNetworkID,
+                                    pt.AutoLogoffAfter_Min, pt.[Status], pt.LastDateModified,
+                                    pt.CreatedDate, pt.CreatedBy, pt.UpdatedDate, pt.UpdatedBy,
+                                    pm.ComputerName, pm.BluePosVersion, pm.BluePosVersionUpdate,
+                                    pm.BluePosDatabaseStatus, pm.IsOpenBluePos, pm.DateTimePos
+                             FROM POSTerminal pt WITH (NOLOCK)
+                             OUTER APPLY (
+                                 SELECT TOP 1 m.ComputerName, m.BluePosVersion, m.BluePosVersionUpdate,
+                                        m.BluePosDatabaseStatus, m.IsOpenBluePos, m.DateTimePos
+                                 FROM POSMonitor m WITH (NOLOCK)
+                                 WHERE m.StoreNo = pt.StoreNo AND m.PosTerminalID = pt.[No]
+                                 ORDER BY m.DateTimePos DESC
+                             ) pm
+                             ORDER BY pt.StoreNo, pt.[No];";
+        return (await QueryAsync<PosTerminalListDto>(sql, commandTimeout: 120, ct: ct)).ToList();
     }
 }
