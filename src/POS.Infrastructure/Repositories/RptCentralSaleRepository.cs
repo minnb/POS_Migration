@@ -147,8 +147,8 @@ public sealed class RptCentralSaleRepository(
             try
             {
                 var ttl = toDate.Date >= DateTime.Today ? TtlSaleByTimeToday : TtlSaleByTimePast;
-                redis.StringSet(seriesKey, series, ttl);
-                redis.StringSet(kpiKey, kpi, ttl);
+                await redis.StringSetAsync(seriesKey, series, ttl);
+                await redis.StringSetAsync(kpiKey, kpi, ttl);
             }
             catch (Exception ex)
             {
@@ -219,8 +219,8 @@ public sealed class RptCentralSaleRepository(
             try
             {
                 var ttl = toDate.Date >= DateTime.Today ? TtlSaleByTimeToday : TtlSaleByTimePast;
-                redis.StringSet(dataKey, new TopProductCachePayload(products, categories), ttl);
-                redis.StringSet(kpiKey, kpi, ttl);
+                await redis.StringSetAsync(dataKey, new TopProductCachePayload(products, categories), ttl);
+                await redis.StringSetAsync(kpiKey, kpi, ttl);
             }
             catch (Exception ex)
             {

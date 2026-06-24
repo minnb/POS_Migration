@@ -13,6 +13,7 @@ public interface IRedisService
     Task<T?> StringGetAsync<T>(string key);
     string? StringGetRaw(string key);
     void StringSet<T>(string key, T value, int? ttlSeconds = null);
+    Task StringSetAsync<T>(string key, T value, int? ttlSeconds = null);
     void StringSetRaw(string key, string value, TimeSpan? ttl = null);
 
     // Key operations

@@ -44,6 +44,12 @@ public sealed class RedisService(IRedisManager manager) : IRedisService
         manager.SetStringAsync(key, JsonConvert.SerializeObject(value), expiry).GetAwaiter().GetResult();
     }
 
+    public Task StringSetAsync<T>(string key, T value, int? ttlSeconds = null)
+    {
+        var expiry = ttlSeconds.HasValue ? TimeSpan.FromSeconds(ttlSeconds.Value) : (TimeSpan?)null;
+        return manager.SetStringAsync(key, JsonConvert.SerializeObject(value), expiry);
+    }
+
     public void StringSetRaw(string key, string value, TimeSpan? ttl = null)
         => manager.SetStringAsync(key, value, ttl).GetAwaiter().GetResult();
 
