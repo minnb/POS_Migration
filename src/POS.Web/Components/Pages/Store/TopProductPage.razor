@@ -260,7 +260,11 @@
             </MudTd>
         }
     </RowTemplate>
-    <PagerContent><MudTablePager PageSizeOptions="new[] { 10, 20, 50 }"/></PagerContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
     <NoRecordsContent>
         <MudText Class="pa-4" Style="color:var(--mud-palette-text-secondary)">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
     </NoRecordsContent>

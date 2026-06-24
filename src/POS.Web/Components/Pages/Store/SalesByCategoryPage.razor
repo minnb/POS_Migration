@@ -8,6 +8,8 @@
 @using POS.Common.Dtos.RptCentralSale
 @using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using POS.Web.Services
+@using POS.Web.Services.Pdf
 @using POS.Infrastructure.Logging
 @using System.Security.Claims
 
@@ -15,8 +17,23 @@
 @inject ICentralMDRepository MdRepo
 @inject IKibanaService KibanaService
 @inject ISnackbar Snackbar
+@inject IPdfExportService PdfExport
+@inject IJSRuntime JS
 
 <PageTitle>Doanh thu theo ngành hàng – POS Dashboard</PageTitle>
+
+@* ── Page header ─────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Category" Class="mr-2" Style="vertical-align:middle"/>
+        Doanh thu theo ngành hàng
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Success"
+               StartIcon="@Icons.Material.Filled.PictureAsPdf"
+               OnClick="@OnExportPdfClick"
+               Disabled="@(_loading || _isEmpty || _exporting)"
+               Class="pos-page-header-btn">Xuất PDF</MudButton>
+</div>
 
 @if (_loading)
 {
@@ -73,7 +90,7 @@
                            Editable="true"/>
         </MudItem>
 
-        <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
@@ -109,16 +126,8 @@ else if (_isEmpty)
 {
     <MudPaper Elevation="2" Class="mb-4 pa-4">
 
-        @* ─ Header: PDF button + user info ─ *@
-        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Success"
-                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                       OnClick="@OnExportPdfClick"
-                       Size="Size.Small">Xuất PDF</MudButton>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; font-size:0.82rem; color:#555;">
+        @* ─ Report header: user info + timestamp ─ *@
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:12px; font-size:0.82rem; color:#555;">
             <div>
                 <div>ID của người dùng: <strong>@_userId</strong></div>
                 <div>Tên người dùng: <strong>@_userFullName</strong></div>
@@ -147,9 +156,9 @@ else if (_isEmpty)
             <div>
                 Ngày giao dịch:
                 <strong>
-                    @((_filterFromDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
+                    @_reportFromDate.ToString("dd/MM/yyyy")
                     –
-                    @((_filterToDateNullable ?? DateTime.Today).ToString("dd/MM/yyyy"))
+                    @_reportToDate.ToString("dd/MM/yyyy")
                 </strong>
             </div>
         </div>
@@ -232,6 +241,7 @@ else if (_isEmpty)
     private string? _errorMsg;
     private bool    _isEmpty;
     private bool    _isStoreOperator;
+    private bool    _exporting;
 
     // ── Filter values ──────────────────────────────────────────────────────
     private DateTime? _filterFromDateNullable = DateTime.Today.AddDays(-6);
@@ -267,6 +277,11 @@ else if (_isEmpty)
     // ── Resolved store for report header ──────────────────────────────────
     private string _reportStoreNo   = string.Empty;
     private string _reportStoreName = string.Empty;
+
+    // ── Resolved range/timestamp chốt lúc load — nguồn sự thật cho header màn hình + PDF ──
+    private DateTime _reportFromDate;
+    private DateTime _reportToDate;
+    private DateTime _reportPrintedAt;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
@@ -328,6 +343,10 @@ else if (_isEmpty)
             _items   = result ?? [];
             _isEmpty = _items.Count == 0;
 
+            // Chốt range của lần load này — header màn hình + PDF dùng chung, không theo date-picker hiện tại
+            _reportFromDate = fromDate;
+            _reportToDate   = toDate;
+
             if (!_isEmpty)
             {
                 BuildPivot(fromDate, toDate);
@@ -337,7 +356,8 @@ else if (_isEmpty)
                     _reportStoreName = string.Empty;
             }
 
-            _printedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+            _reportPrintedAt = DateTime.Now;
+            _printedAt = _reportPrintedAt.ToString("dd/MM/yyyy HH:mm:ss");
 
             KibanaService.LogInfo("SalesByCategoryPage.LoadData",
                 storeNo.Length > 0 ? storeNo : "all",
@@ -402,9 +422,74 @@ else if (_isEmpty)
         _ => ""
     };
 
-    private void OnExportPdfClick()
+    private const int MaxPdfDateColumns = 31;
+
+    private async Task OnExportPdfClick()
     {
-        Snackbar.Add("Chức năng Xuất PDF đang được phát triển.", Severity.Info);
+        if (_exporting) return;
+        if (_isEmpty || _pivotRows.Count == 0) return;
+
+        // PDF không đủ chỗ cho quá nhiều cột-ngày trên 1 khổ giấy → chặn sớm với thông báo rõ ràng
+        if (_dates.Count > MaxPdfDateColumns)
+        {
+            Snackbar.Add($"Khoảng thời gian quá rộng (>{MaxPdfDateColumns} ngày) để xuất PDF. Vui lòng thu hẹp.", Severity.Warning);
+            return;
+        }
+
+        _exporting = true;
+        StateHasChanged();
+        try
+        {
+            // Dùng đúng dữ liệu đang hiển thị (không query lại) → PDF khớp 100% form trên màn hình
+            var header = new ReportHeaderModel
+            {
+                Title        = "Tổng hợp doanh thu theo ngành hàng",
+                UserId       = _userId,
+                UserFullName = _userFullName,
+                PrintedAt    = _reportPrintedAt,
+                StoreLabel   = string.IsNullOrEmpty(_reportStoreNo)
+                    ? "Tất cả"
+                    : $"{_reportStoreNo} – {_reportStoreName}",
+                FromDate = _reportFromDate,
+                ToDate   = _reportToDate
+            };
+
+            var data = new PivotReportData
+            {
+                Dates     = _dates,
+                TotalQty  = _totalQty,
+                TotalAmt  = _totalAmt,
+                Rows      = _pivotRows.Select(r => new PivotReportRow(
+                    r.MCHCode,
+                    r.MCHName,
+                    r.TotalQty,
+                    r.TotalAmt,
+                    r.ByDate.ToDictionary(
+                        kv => kv.Key,
+                        kv => ((long)kv.Value.Qty, kv.Value.Amt)))).ToList()
+            };
+
+            // Offload render native (SkiaSharp) khỏi Blazor circuit để không đứng UI
+            var bytes    = await Task.Run(() => PdfExport.BuildPivotReport(header, data));
+            var storePart = string.IsNullOrEmpty(_reportStoreNo) ? "All" : _reportStoreNo;
+            var fileName  = $"DoanhThuNganhHang_{storePart}_{header.FromDate:yyyyMMdd}-{header.ToDate:yyyyMMdd}.pdf";
+
+            await JS.SaveAsFileAsync(fileName, bytes, "application/pdf");
+
+            KibanaService.LogInfo("SalesByCategoryPage.ExportPdf",
+                _reportStoreNo.Length > 0 ? _reportStoreNo : "all",
+                $"Exported {_pivotRows.Count} rows, {_dates.Count} dates");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Không thể xuất PDF. Vui lòng thử lại.", Severity.Error);
+            KibanaService.LogException("SalesByCategoryPage.ExportPdf", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _exporting = false;
+            StateHasChanged();
+        }
     }
 
     private async Task ResetFilterAsync()

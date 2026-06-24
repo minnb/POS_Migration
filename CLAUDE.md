@@ -597,13 +597,19 @@ Page chỉ có title (không có button) → dùng `MudText Typo.h5` trực ti�
     <RowTemplate>
         <MudTd DataLabel="Cột A">@context.FieldA</MudTd>
     </RowTemplate>
-    <PagerContent><MudTablePager/></PagerContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
 </MudTable>
 ```
 
 > Chi tiết đầy đủ (client-side / server-side / dynamic columns / footer tổng): `.claude/skills/web/SKILLS.md` §DataTable chuẩn.
 > Không có `HorizontalScrollbar="true"` → table bị clip trên mobile.
 > **Ngoại lệ:** pivot report (cột-ngày động) vẫn dùng `<table class="pos-table rpt-pivot-table">` trong wrapper `overflow-x:auto`.
+
+**Pagination — chuẩn BẮT BUỘC:** `MudTablePager` luôn dùng `PageSizeOptions="new[] { 10, 20, 50, 100 }"`. **Phải bắt đầu bằng `10`** vì `MudTable.RowsPerPage` mặc định = `10`; nếu list không chứa `10`, ô chọn "Số dòng mỗi trang" hiển thị trống / chọn không có tác dụng. KHÔNG hard-set `RowsPerPage="..."` một chiều trên `MudTable` (re-render sẽ reset lựa chọn) — để mặc định `10` đã khớp option đầu.
 
 #### C. Filter Panel
 
@@ -700,6 +706,7 @@ public async ValueTask DisposeAsync()
 - ❌ Tự viết `<table class="pos-table">` cho DataTable mới — dùng `MudTable` (xem SKILLS.md §DataTable chuẩn)
 - ❌ MudTable thiếu `HorizontalScrollbar="true"` — table bị clip mobile
 - ❌ Chip container không có `flex-wrap` — chips tràn ngang trên mobile
+- ❌ `MudTablePager` có `PageSizeOptions` không chứa `10` — ô chọn số dòng/trang hỏng (vì default `RowsPerPage=10`); luôn dùng `{ 10, 20, 50, 100 }`
 
 ### 12. Slash Commands (POS.Web)
 

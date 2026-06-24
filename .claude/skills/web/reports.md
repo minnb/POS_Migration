@@ -245,17 +245,60 @@ _reportStoreName = _items.FirstOrDefault(x => x.StoreNo == storeNo)?.StoreName ?
 if (string.IsNullOrEmpty(_reportStoreNo)) _reportStoreName = string.Empty;
 ```
 
-### PDF export placeholder
+### Xuất PDF — helper dùng chung (`IPdfExportService` + QuestPDF)
 
-Khi chức năng xuất PDF chưa implement:
+> Dùng `IPdfExportService` (`src/POS.Web/Services/Pdf/`) — render PDF bằng QuestPDF, khung header
+> (title/user/timestamp/store/date range) + cơ chế download **dùng chung mọi page**.
+> License QuestPDF set 1 lần trong `Program.cs` (`QuestPDF.Settings.License = LicenseType.Community;`).
+
+**Nguyên tắc:** truyền **dữ liệu đã load sẵn trên màn hình** vào helper (KHÔNG query lại DB) → PDF khớp 100% form người dùng đang xem.
+
+```razor
+@using POS.Web.Services
+@using POS.Web.Services.Pdf
+@inject IPdfExportService PdfExport
+@inject IJSRuntime JS
+```
 
 ```csharp
-private void OnExportPdfClick()
+private bool _exporting;   // disable nút khi đang xuất
+
+private async Task OnExportPdfClick()
 {
-    Snackbar.Add("Chức năng Xuất PDF đang được phát triển.", Severity.Info);
+    if (_isEmpty || _pivotRows.Count == 0) return;
+    _exporting = true; StateHasChanged();
+    try
+    {
+        var header = new ReportHeaderModel
+        {
+            Title = "Tổng hợp doanh thu theo ngành hàng",   // helper tự .ToUpper()
+            UserId = _userId, UserFullName = _userFullName, PrintedAt = DateTime.Now,
+            StoreLabel = string.IsNullOrEmpty(_reportStoreNo) ? "Tất cả" : $"{_reportStoreNo} – {_reportStoreName}",
+            FromDate = _from, ToDate = _to
+        };
+        var data = new PivotReportData
+        {
+            Dates = _dates, TotalQty = _totalQty, TotalAmt = _totalAmt,
+            Rows = _pivotRows.Select(r => new PivotReportRow(
+                r.MCHCode, r.MCHName, r.TotalQty, r.TotalAmt,
+                r.ByDate.ToDictionary(kv => kv.Key, kv => ((long)kv.Value.Qty, kv.Value.Amt)))).ToList()
+        };
+        var bytes = PdfExport.BuildPivotReport(header, data);
+        await JS.SaveAsFileAsync($"Report_{header.FromDate:yyyyMMdd}-{header.ToDate:yyyyMMdd}.pdf", bytes, "application/pdf");
+    }
+    catch (Exception ex)
+    {
+        Snackbar.Add("Không thể xuất PDF. Vui lòng thử lại.", Severity.Error);
+        KibanaService.LogException("PageName.ExportPdf", "", 0, "", ex.Message);
+    }
+    finally { _exporting = false; StateHasChanged(); }
 }
 ```
 
+> Download: `IJSRuntime.SaveAsFileAsync(fileName, bytes, contentType)` (`JsDownloadExtensions`) → JS `posDownloadFileFromStream` (`wwwroot/js/download.js`, đã include trong `App.razor`). Stream byte, không base64.
+>
+> **Báo cáo dạng cột thường** (không pivot): thêm method `BuildTableReport(...)` vào `IPdfExportService` theo cùng khung `ComposeReportHeader` — chỉ viết phần body bảng.
+>
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
 
 ---

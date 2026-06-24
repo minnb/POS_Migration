@@ -127,7 +127,7 @@ else
             <MudTh Style="min-width:140px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.CrtDate)" InitialDirection="SortDirection.Descending">Thời gian</MudTableSortLabel></MudTh>
             <MudTh Style="min-width:160px">TransactionId</MudTh>
             <MudTh Style="min-width:100px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.DataType ?? string.Empty)">Loại</MudTableSortLabel></MudTh>
-            <MudTh Style="width:110px; text-align:center"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.Flag)">Trạng thái</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:190px; text-align:center"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.Flag)">Trạng thái</MudTableSortLabel></MudTh>
             <MudTh Style="min-width:260px">Nội dung lỗi</MudTh>
             <MudTh Style="width:60px; text-align:center">JSON</MudTh>
         </HeaderContent>
@@ -151,7 +151,15 @@ else
                 }
                 else
                 {
-                    <span style="background:var(--pos-danger); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">✗ Lỗi</span>
+                    <div class="d-flex align-center justify-center gap-2 flex-wrap">
+                        <span style="background:var(--pos-danger); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">✗ Lỗi</span>
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   Disabled="@_retrying.Contains(context.Id)"
+                                   OnClick="@(() => RetryAsync(context))">
+                            @(_retrying.Contains(context.Id) ? "Đang xử lý…" : "RETRY")
+                        </MudButton>
+                    </div>
                 }
             </MudTd>
             <MudTd DataLabel="Nội dung lỗi">
@@ -183,7 +191,7 @@ else
             </MudTd>
         </RowTemplate>
         <PagerContent>
-            <MudTablePager PageSizeOptions="new int[] { 25, 50, 100, 200 }"
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
                            InfoFormat="{first_item}–{last_item} / {all_items} dòng"
                            RowsPerPageString="Số dòng mỗi trang:"/>
         </PagerContent>
@@ -231,6 +239,9 @@ else
 
     private DataRawJsonSummaryDto    _summary = new();
     private List<DataRawJsonLogDto>  _records = [];
+
+    // Theo dõi các dòng đang retry để disable nút + hiện spinner, tránh double-click.
+    private readonly HashSet<Guid> _retrying = [];
 
     private bool                _dialogOpen;
     private DataRawJsonLogDto?  _selectedRecord;
@@ -315,6 +326,91 @@ else
     {
         Snackbar.Add("Đã sao chép nội dung Message.", Severity.Success);
         await Task.CompletedTask;
+    }
+
+    // Suy ra (StoreNo, PosNo) từ TransactionId theo loại DataType.
+    // SALE        : StoreNo = 4 ký tự đầu, PosNo = 6 ký tự đầu của TransactionId.
+    // Khác SALE   : tách theo '_', lấy đoạn toàn chữ số dài nhất làm PosNo (6 chữ số),
+    //               StoreNo = 4 ký tự đầu của PosNo (PosNo luôn bắt đầu bằng StoreNo).
+    private static (string StoreNo, string PosNo) ResolveStoreAndPos(string? transactionId, string? dataType)
+    {
+        var id = (transactionId ?? string.Empty).Trim();
+        if (id.Length == 0) return (string.Empty, string.Empty);
+
+        var isSale = string.Equals(dataType?.Trim(), "SALE", StringComparison.OrdinalIgnoreCase);
+
+        // SALE (hoặc id không có '_' = chuỗi liền) → cắt theo vị trí
+        if (isSale || !id.Contains('_'))
+        {
+            var store = id.Length >= 4 ? id[..4] : id;
+            var pos   = id.Length >= 6 ? id[..6] : id;
+            return (store, pos);
+        }
+
+        // Khác SALE: Register_1535_153599 | DOCNO_153599 | EOD_1535_153599_18-06-2026
+        var posNo = id.Split('_', StringSplitOptions.RemoveEmptyEntries)
+                      .Where(s => s.Length > 0 && s.All(char.IsDigit))
+                      .OrderByDescending(s => s.Length)
+                      .FirstOrDefault() ?? string.Empty;
+        var storeNo = posNo.Length >= 4 ? posNo[..4] : posNo;
+        return (storeNo, posNo);
+    }
+
+    private async Task RetryAsync(DataRawJsonLogDto row)
+    {
+        // Chốt chống double-submit phải set TRƯỚC khi mở dialog: HashSet.Add trả false
+        // nếu dòng đang retry → chặn click thứ 2 cùng dòng kể cả lúc dialog đang mở.
+        if (!_retrying.Add(row.Id)) return;
+        StateHasChanged();
+        try
+        {
+            var (storeNo, posNo) = ResolveStoreAndPos(row.TransactionId, row.DataType);
+            if (string.IsNullOrEmpty(storeNo) || string.IsNullOrEmpty(posNo))
+            {
+                Snackbar.Add($"Không xác định được StoreNo/PosNo từ TransactionId '{row.TransactionId}'.", Severity.Warning);
+                return;
+            }
+
+            var parameters = new DialogParameters
+            {
+                // Một dòng — MudMessageBox render Message dạng text nên '\n' chỉ thành dấu cách.
+                ["Message"]    = $"Thực thi lại transaction '{row.TransactionId}'? (Store {storeNo} / POS {posNo})",
+                ["YesText"]    = "Retry",
+                ["CancelText"] = "Hủy"
+            };
+            var dialog = await DialogService.ShowAsync<MudMessageBox>("Xác nhận Retry", parameters,
+                new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+            var confirm = await dialog.Result;
+            if (confirm is null or { Canceled: true }) return;
+
+            var state    = await AuthState;
+            var userName = state.User.Identity?.Name ?? "unknown";
+
+            var (ok, msg) = await SaleRepo.InInsertToTableByJson(storeNo, posNo, row.TransactionId ?? "", row.Message ?? "");
+            if (ok)
+            {
+                Snackbar.Add($"Retry thành công: {row.TransactionId}", Severity.Success);
+                KibanaService.LogInfo("DataRawLogPage.Retry", userName,
+                    $"Retry OK {row.TransactionId} (store {storeNo}/pos {posNo})");
+                await LoadDataAsync();   // reload: KPI + thời gian + filter khớp DB tuyệt đối
+            }
+            else
+            {
+                row.ErrorMessage = msg;  // cập nhật tooltip lỗi tại chỗ, không reload
+                Snackbar.Add($"Retry thất bại: {msg}", Severity.Error);
+                KibanaService.LogException("DataRawLogPage.Retry", userName, 0, "", $"{row.TransactionId}: {msg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi retry: {ex.Message}", Severity.Error);
+            KibanaService.LogException("DataRawLogPage.Retry", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _retrying.Remove(row.Id);
+            StateHasChanged();
+        }
     }
 
     private static string TryFormatJson(string? raw)

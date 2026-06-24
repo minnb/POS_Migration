@@ -191,7 +191,7 @@
         <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
     </NoRecordsContent>
     <PagerContent>
-        <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }"
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
                        InfoFormat="{first_item}–{last_item} / {all_items} giao dịch"
                        RowsPerPageString="Số dòng mỗi trang:"/>
     </PagerContent>
@@ -236,10 +236,16 @@
         try
         {
             _allStores = await MdRepo.GetStoreListAsync();
+            if (_allStores.Count == 0 && !_isStoreOperator)
+                Snackbar.Add("Danh sách cửa hàng đang trống — không thể lọc theo cửa hàng.",
+                    Severity.Warning);
         }
         catch (Exception ex)
         {
             KibanaService.LogException("TransactionsPage.LoadStoreCodes", "", 0, "", ex.Message);
+            if (!_isStoreOperator)
+                Snackbar.Add("Không tải được danh sách cửa hàng. Vui lòng thử lại sau.",
+                    Severity.Error);
         }
 
         await LoadDataAsync();

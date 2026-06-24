@@ -9,6 +9,23 @@ using POS.Infrastructure;
 using POS.Web.Auth;
 using POS.Web.Components;
 using POS.Web.Services;
+using POS.Web.Services.Pdf;
+using QuestPDF.Infrastructure;
+using System.Globalization;
+
+// ── Culture mặc định: vi-VN ──────────────────────────────────────────
+// Nhất quán định dạng số/ngày (dấu '.' ngăn nghìn) giữa màn hình, PDF và mọi page,
+// kể cả khi chạy Docker/Linux (mặc định Invariant → dấu ','). Các chỗ cần Invariant
+// (CSS width) đã truyền culture tường minh nên không bị ảnh hưởng.
+var viVN = CultureInfo.GetCultureInfo("vi-VN");
+CultureInfo.DefaultThreadCurrentCulture   = viVN;
+CultureInfo.DefaultThreadCurrentUICulture = viVN;
+
+// ── QuestPDF license ─────────────────────────────────────────────────
+// BẮT BUỘC set trước khi GeneratePdf, nếu không QuestPDF ném exception.
+// LƯU Ý: Community chỉ miễn phí cho tổ chức doanh thu < 1 triệu USD/năm.
+// Nếu dự án mua license trả phí → đổi sang LicenseType.Professional / Enterprise.
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +56,7 @@ builder.Services.AddApplication();
 // ── Web-specific services ─────────────────────────────────────────────
 builder.Services.AddScoped<IWebUserService, WebUserService>();
 builder.Services.AddScoped<ISqlConsoleService, SqlConsoleService>();
+builder.Services.AddSingleton<IPdfExportService, PdfExportService>();
 
 // ── Authentication: Cookie cho browser session ─────────────────────────
 // TÁCH BIỆT với BasicAuth của POS.Api (không ảnh hưởng nhau)

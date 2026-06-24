@@ -107,12 +107,14 @@ Hoặc cung cấp thông tin ngay:
         </NoRecordsContent>
 
         <PagerContent>
-            <MudDataGridPager T="TransactionRowModel"/>
+            <MudDataGridPager T="TransactionRowModel" PageSizeOptions="new[] { 10, 20, 50, 100 }"/>
         </PagerContent>
 
     </MudDataGrid>
 </MudPaper>
 ```
+
+> **Pagination chuẩn:** `PageSizeOptions` luôn = `new[] { 10, 20, 50, 100 }` (cho cả `MudTablePager` lẫn `MudDataGridPager`). Phải bắt đầu bằng `10` vì default `RowsPerPage = 10`; thiếu `10` → ô chọn số dòng/trang hỏng.
 
 #### Phần @code (thêm vào code block)
 

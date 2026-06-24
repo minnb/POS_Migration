@@ -28,7 +28,7 @@
         <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
     </NoRecordsContent>
     <PagerContent>
-        <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }"
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
                        InfoFormat="{first_item}–{last_item} / {all_items} dòng"
                        RowsPerPageString="Số dòng mỗi trang:"/>
     </PagerContent>
@@ -36,6 +36,7 @@
 ```
 
 **Key points:**
+- Pagination: `PageSizeOptions` chuẩn = `new[] { 10, 20, 50, 100 }`. **Phải bắt đầu bằng `10`** (= default `MudTable.RowsPerPage`); thiếu `10` → ô chọn số dòng/trang hỏng (trống, chọn không có tác dụng). Không hard-set `RowsPerPage="..."` một chiều trên `MudTable`.
 - Sort: `<MudTableSortLabel SortBy="new Func<T, object>(x => x.Field)">` — MudTable tự sort, KHÔNG cần `_sortCol`/`SortBy()`.
 - Filter/search phụ: dùng computed property (vd `FilteredItems`) làm `Items`, KHÔNG cần reset `_page`.
 - `Loading="@_loading"` → MudTable tự hiện progress overlay (bỏ `MudProgressCircular` trong tbody cũ).
@@ -54,7 +55,7 @@
           Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true">
     <HeaderContent>...</HeaderContent>
     <RowTemplate>...</RowTemplate>
-    <PagerContent><MudTablePager PageSizeOptions="new int[] { 25, 50, 100 }"/></PagerContent>
+    <PagerContent><MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"/></PagerContent>
 </MudTable>
 ```
 
