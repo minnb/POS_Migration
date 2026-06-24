@@ -120,7 +120,7 @@ public sealed class PosSalesConsumerWorker(
                 StringHelper.Left(msg.TransactionId, 4),
                 StringHelper.Left(msg.TransactionId, 6),
                 msg.TransactionId,
-                msg.Message ?? "");
+                msg.Message ?? "", "WORKER");
 
             if (result.Item1)
             {

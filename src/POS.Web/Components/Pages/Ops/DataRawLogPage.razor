@@ -163,6 +163,16 @@ else
                 }
             </MudTd>
             <MudTd DataLabel="Nội dung lỗi">
+                @if (!string.IsNullOrEmpty(context.Source))
+                {
+                    var (srcBg, srcLabel) = context.Source.ToUpperInvariant() switch
+                    {
+                        "WORKER" => ("#7E57C2", "WORKER"),
+                        "WEB"    => ("var(--pos-info)", "WEB"),
+                        _        => ("#9E9E9E", context.Source)
+                    };
+                    <span style="background:@srcBg; color:#fff; border-radius:4px; padding:2px 8px; font-size:0.7rem; font-weight:600; margin-right:6px">@srcLabel</span>
+                }
                 @if (!context.Flag && !string.IsNullOrEmpty(context.ErrorMessage))
                 {
                     var msg = context.ErrorMessage;
@@ -178,7 +188,7 @@ else
                         <span style="color:var(--pos-danger)">@truncated</span>
                     }
                 }
-                else
+                else if (string.IsNullOrEmpty(context.Source))
                 {
                     <span style="color:var(--mud-palette-text-secondary)">—</span>
                 }
@@ -386,7 +396,7 @@ else
             var state    = await AuthState;
             var userName = state.User.Identity?.Name ?? "unknown";
 
-            var (ok, msg) = await SaleRepo.InInsertToTableByJson(storeNo, posNo, row.TransactionId ?? "", row.Message ?? "");
+            var (ok, msg) = await SaleRepo.InInsertToTableByJson(storeNo, posNo, row.TransactionId ?? "", row.Message ?? "", "WEB");
             if (ok)
             {
                 Snackbar.Add($"Retry thành công: {row.TransactionId}", Severity.Success);

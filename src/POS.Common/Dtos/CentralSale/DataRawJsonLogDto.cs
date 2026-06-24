@@ -8,5 +8,6 @@ public class DataRawJsonLogDto
     public string? Message       { get; set; }
     public bool    Flag          { get; set; }
     public string? ErrorMessage  { get; set; }
+    public string? Source        { get; set; }
     public DateTime CrtDate      { get; set; }
 }

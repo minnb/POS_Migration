@@ -262,7 +262,7 @@ public sealed class CentralSaleRepository(
         }
     }
 
-    public async Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default)
+    public async Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, string source, CancellationToken ct = default)
     {
         bool   _flag     = false;
         string _errorMsg = "";
@@ -339,13 +339,13 @@ public sealed class CentralSaleRepository(
         {
             await InsertDataRawJsonAsync(
                 transactionId, _dataType, message, _flag,
-                _flag ? null : _errorMsg);
+                _flag ? null : _errorMsg, source);
         }
     }
 
     private async Task InsertDataRawJsonAsync(
         string transactionId, string dataType, string message,
-        bool flag, string? errorMessage)
+        bool flag, string? errorMessage, string source)
     {
         try
         {
@@ -353,20 +353,21 @@ public sealed class CentralSaleRepository(
             const string sql = @"
                 IF EXISTS (SELECT 1 FROM DataRawJson WHERE TransactionId = @TransactionId)
                     UPDATE DataRawJson
-                    SET Flag = @Flag, ErrorMessage = @ErrorMessage, CrtDate = GETDATE()
+                    SET Flag = @Flag, ErrorMessage = @ErrorMessage, [Source] = @Source, CrtDate = GETDATE()
                     WHERE TransactionId = @TransactionId;
                 ELSE
                     INSERT INTO DataRawJson
-                        (TransactionId, DataType, Message, Flag, ErrorMessage, CrtDate, Id)
+                        (TransactionId, DataType, Message, Flag, ErrorMessage, [Source], CrtDate, Id)
                     VALUES
-                        (@TransactionId, @DataType, @Message, @Flag, @ErrorMessage, GETDATE(), NEWID());";
+                        (@TransactionId, @DataType, @Message, @Flag, @ErrorMessage, @Source, GETDATE(), NEWID());";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 TransactionId = StringHelper.Left(transactionId, 30),
                 DataType      = StringHelper.Left(dataType, 20),
                 Message       = message,
                 Flag          = flag,
-                ErrorMessage  = errorMessage
+                ErrorMessage  = errorMessage,
+                Source        = StringHelper.Left(source, 20)
             }, commandTimeout: Timeout));
         }
         catch
@@ -854,7 +855,7 @@ public sealed class CentralSaleRepository(
             string? normalizedType = string.IsNullOrWhiteSpace(dataType) ? null : dataType.Trim();
             const string sql = @"
                 SELECT TOP (@MaxRows)
-                    Id, TransactionId, DataType, Message, Flag, ErrorMessage, CrtDate
+                    Id, TransactionId, DataType, Message, Flag, ErrorMessage, [Source], CrtDate
                 FROM DataRawJson (NOLOCK)
                 WHERE CrtDate >= @FromDate AND CrtDate < @ToDate
                   AND (@DataType IS NULL OR DataType LIKE '%' + @DataType + '%')

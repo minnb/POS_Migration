@@ -21,7 +21,7 @@ public interface ICentralSaleRepository
     Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal, CancellationToken ct = default);
     Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default);
     Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default);
-    Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default);
+    Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, string source, CancellationToken ct = default);
 
     // ── Revenue Dashboard ─────────────────────────────────────────────────────
     Task<List<RevenueDailyDto>>  GetRevenueDailyAsync(DateTime fromDate, DateTime toDate,

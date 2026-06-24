@@ -24,7 +24,7 @@ public sealed class KafkaAppService(
                     StringHelper.Left(message.TransactionId, 4),
                     StringHelper.Left(message.TransactionId, 6),
                     message.TransactionId,
-                    message.Message ?? "", ct);
+                    message.Message ?? "", "WEB", ct);
 
                 bool flag = result.Item1;
 
