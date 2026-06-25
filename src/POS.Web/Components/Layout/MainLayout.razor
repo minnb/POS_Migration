@@ -72,14 +72,18 @@
 
                     <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Filled.Monitor" @bind-Expanded="_expandOpsMonitor">
                         <MudNavLink Href="/ops/health">System health</MudNavLink>
-                        <MudNavLink Href="/ops/pos-map">POS map</MudNavLink>
                         <MudNavLink Href="/ops/alerts">Alerts</MudNavLink>
                         <MudNavLink Href="/ops/queues">Queue monitor</MudNavLink>
                     </MudNavGroup>
 
                     <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Filled.Article" @bind-Expanded="_expandOpsLog">
-                        <MudNavLink Href="/ops/logs">Log viewer</MudNavLink>
-                        <MudNavLink Href="/ops/data-raw-log">DataRaw Log</MudNavLink>
+                        <MudNavLink Href="/ops/logs">Interface Error</MudNavLink>
+                        <MudNavLink Href="/ops/data-raw-log">DataRawJson Log</MudNavLink>
+                    </MudNavGroup>
+
+                    <MudNavGroup Title="Cấu hình" Icon="@Icons.Material.Filled.Tune" @bind-Expanded="_expandOpsConfig">
+                        <MudNavLink Href="/ops/pos-map">POSTerminal</MudNavLink>
+                        <MudNavLink Href="/ops/stores">Store</MudNavLink>
                     </MudNavGroup>
 
                 </MudNavGroup>
@@ -88,11 +92,11 @@
             <AuthorizeView Policy="@WebPolicies.AdminOnly">
                 <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Filled.AdminPanelSettings" @bind-Expanded="_expandAdmin">
                     <MudNavLink Href="/admin/users"
-                                Icon="@Icons.Material.Filled.People">Người dùng</MudNavLink>
+                                Icon="@Icons.Material.Filled.People">Users</MudNavLink>
                     <MudNavLink Href="/admin/roles"
-                                Icon="@Icons.Material.Filled.Security">Phân quyền</MudNavLink>
+                                Icon="@Icons.Material.Filled.Security">Roles</MudNavLink>
                     <MudNavLink Href="/admin/config"
-                                Icon="@Icons.Material.Filled.Settings">Cấu hình</MudNavLink>
+                                Icon="@Icons.Material.Filled.Settings">Configs</MudNavLink>
                     <MudNavLink Href="/admin/audit"
                                 Icon="@Icons.Material.Filled.History">Audit log</MudNavLink>
                     <MudNavLink Href="/admin/sql-console"
@@ -119,6 +123,7 @@
     private bool _expandOps;
     private bool _expandOpsMonitor;
     private bool _expandOpsLog;
+    private bool _expandOpsConfig;
     private bool _expandAdmin;
 
     protected override void OnInitialized()
@@ -149,9 +154,10 @@
         _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids");
         _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
         _expandStore       = _expandStoreOps || _expandStoreTx || _expandStoreReport;
-        _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/pos-map") || u.Contains("/ops/alerts") || u.Contains("/ops/queues");
+        _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues");
         _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log");
-        _expandOps         = _expandOpsMonitor || _expandOpsLog;
+        _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores");
+        _expandOps         = _expandOpsMonitor || _expandOpsLog || _expandOpsConfig;
         _expandAdmin       = u.Contains("/admin/");
     }
 

@@ -13,6 +13,7 @@
 @inject ICentralMDRepository MdRepo
 @inject IKibanaService KibanaService
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>POS Map – POS Dashboard</PageTitle>
 
@@ -186,20 +187,9 @@
             </MudChip>
         </MudTd>
         <MudTd DataLabel="Last seen">
-            @{
-                var ageText = "Chưa có";
-                if (context.DateTimePos.HasValue)
-                {
-                    var age = DateTime.Now - context.DateTimePos.Value;
-                    ageText = age.TotalMinutes < 1   ? "vừa xong"
-                            : age.TotalHours   < 1   ? $"{(int)age.TotalMinutes}p trước"
-                            : age.TotalDays    < 1   ? $"{(int)age.TotalHours}h trước"
-                                                     : context.DateTimePos.Value.ToString("dd/MM HH:mm");
-                }
-            }
             <MudText Typo="Typo.caption"
                      Color="@(context.IsOnline ? Color.Default : Color.Error)">
-                @ageText
+                @(context.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Chưa có")
             </MudText>
         </MudTd>
     </RowTemplate>
@@ -222,7 +212,7 @@
     private string? _errorMsg;
     private string  _search         = string.Empty;
     private string  _statusFilter   = "all";
-    private string  _enabledFilter  = "all";
+    private string  _enabledFilter  = "enabled";
     private int     _autoRefreshSec = 120;
     private DateTime? _lastLoaded;
     private PeriodicTimer? _timer;
@@ -296,11 +286,17 @@
     private async Task OnRowClick(TableRowClickEventArgs<PosTerminalListDto> args)
     {
         if (args.Item is null) return;
-        await DialogService.ShowAsync<PosTerminalDetailDialog>(
+        var dialog = await DialogService.ShowAsync<PosTerminalDetailDialog>(
             $"Chi tiết POS: {args.Item.No} – {args.Item.StoreNo}",
             new DialogParameters<PosTerminalDetailDialog> { { x => x.Item, args.Item } },
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true,
                                 CloseButton = true, CloseOnEscapeKey = true });
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            Snackbar.Add($"POS {args.Item.No} đã được cập nhật.", Severity.Success);
+            await LoadDataAsync();
+        }
     }
 
     private void OnAutoRefreshChanged(int value)

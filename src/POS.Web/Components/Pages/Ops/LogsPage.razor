@@ -123,7 +123,7 @@ else
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="ID">@context.ErrorID</MudTd>
-            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@(context.ErrorDateTime?.ToString("HH:mm:ss dd/MM/yy") ?? "—")</MudTd>
+            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@(context.ErrorDateTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
             <MudTd DataLabel="Store/User">@(context.UserName ?? "—")</MudTd>
             <MudTd DataLabel="Procedure" Style="font-family:monospace; font-size:0.8rem">@(context.ErrorProcedure ?? "—")</MudTd>
             <MudTd DataLabel="Nội dung lỗi">

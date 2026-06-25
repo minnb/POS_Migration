@@ -164,7 +164,7 @@ public sealed class CentralMDRepository(
 
         const string sql = @"SELECT No AS StoreNo, Name
                              FROM dbo.Store (NOLOCK)
-                             WHERE Blocked = 0
+                             WHERE ClosingMethod = 0
                              ORDER BY No";
         var data = (await QueryAsync<StoreDto>(sql, ct: ct)).ToList();
         if (data.Count > 0)
@@ -312,5 +312,41 @@ public sealed class CentralMDRepository(
                              ) pm
                              ORDER BY pt.StoreNo, pt.[No];";
         return (await QueryAsync<PosTerminalListDto>(sql, commandTimeout: 120, ct: ct)).ToList();
+    }
+
+    public async Task<bool> UpdatePosTerminalAsync(
+        string posNo, string ipAddress, bool? status, string? billNoseri,
+        string updatedBy, CancellationToken ct = default)
+    {
+        const string sql = @"UPDATE POSTerminal
+                             SET IPAddress   = @ipAddress,
+                                 [Status]    = @status,
+                                 BillNoseri  = @billNoseri,
+                                 UpdatedDate = GETDATE(),
+                                 UpdatedBy   = @updatedBy
+                             WHERE [No] = @posNo;";
+        try
+        {
+            var rows = await ExecuteAsync(sql,
+                new { posNo, ipAddress, status, billNoseri, updatedBy }, ct: ct);
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    public async Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default)
+    {
+        const string sql = @"SELECT No              AS StoreNo,
+                                    Name,
+                                    Address,
+                                    PhoneNo,
+                                    StyleProfile,
+                                    PrintReceiptLogo,
+                                    BranchNo,
+                                    LastDateModified,
+                                    ClosingMethod
+                             FROM   dbo.Store (NOLOCK)
+                             ORDER  BY No";
+        return (await QueryAsync<StoreListDto>(sql, ct: ct)).ToList();
     }
 }

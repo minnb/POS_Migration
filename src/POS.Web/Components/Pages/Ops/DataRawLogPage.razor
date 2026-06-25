@@ -132,7 +132,7 @@ else
             <MudTh Style="width:60px; text-align:center">JSON</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@context.CrtDate.ToString("HH:mm:ss dd/MM/yy")</MudTd>
+            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
             <MudTd DataLabel="TransactionId" Style="font-family:monospace; font-size:0.8rem">@(context.TransactionId ?? "—")</MudTd>
             <MudTd DataLabel="Loại">
                 @if (!string.IsNullOrEmpty(context.DataType))

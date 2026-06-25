@@ -483,6 +483,42 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 ---
 
+## Chuẩn format hiển thị DateTime — BẮT BUỘC áp dụng toàn dự án
+
+### Quy tắc
+
+| Loại trường | Format | Ví dụ |
+|---|---|---|
+| Cột datetime trong datatable (Created, Updated, timestamp...) | `"yyyy-MM-dd HH:mm:ss"` | `2025-06-25 14:30:00` |
+| Ngày thuần (business date, date picker label) | `"dd/MM/yyyy"` | `25/06/2025` |
+| Label chart / trục X | `"dd/MM"` | `25/06` |
+| Timestamp UI phụ (KPI card "Lần cuối", header in/out) | `"HH:mm:ss"` | `14:30:00` |
+
+### Áp dụng
+
+```razor
+@* Cột datatable — datetime đầy đủ *@
+<MudTd DataLabel="Tạo lúc">@context.CreatedDate?.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+<MudTd DataLabel="Cập nhật lúc">@context.UpdatedDate?.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+<MudTd DataLabel="Thời gian">@(context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss"))</MudTd>
+
+@* Nullable — dùng null-coalescing *@
+<MudTd DataLabel="Last seen">@(context.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+
+@* Ngày thuần — giữ dd/MM/yyyy *@
+<MudTd DataLabel="Ngày KD">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
+```
+
+### Đã áp dụng tại
+- `PosMapPage.razor` — cột Last seen
+- `DataRawLogPage.razor` — cột CrtDate
+- `LogsPage.razor` — cột ErrorDateTime
+- `EosShiftsPage.razor` — cột CloseShiftDate
+- `PosTerminalDetailDialog.razor` — CreatedDate, UpdatedDate, LastDateModified, DateTimePos
+- `AuditPage.razor` — ExecutedAt, DecidedAt (đã đúng từ đầu)
+
+---
+
 ## KHÔNG làm (anti-patterns)
 
 - ❌ Quên `@rendermode InteractiveServer` → component không tương tác được (button/event bị ignore)

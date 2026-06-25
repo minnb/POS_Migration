@@ -708,6 +708,27 @@ public async ValueTask DisposeAsync()
 - ❌ Chip container không có `flex-wrap` — chips tràn ngang trên mobile
 - ❌ `MudTablePager` có `PageSizeOptions` không chứa `10` — ô chọn số dòng/trang hỏng (vì default `RowsPerPage=10`); luôn dùng `{ 10, 20, 50, 100 }`
 
+### 13. MudAutocomplete — BẮT BUỘC tránh circuit crash
+
+> Rút ra từ sự cố thực tế: click ô store picker làm **chết Blazor circuit** ("Failed to rejoin / Failed to resume").
+
+- ❌ **KHÔNG** dùng `ResetValueOnEmptyText="true"` cùng `MinCharacters="0"` — text rỗng khi focus → reset value lặp vô hạn → re-render loop → circuit bị tear-down. Dùng `Clearable="true"` cho nút xóa là đủ.
+- ✅ **LUÔN `.Take(N)`** (vd 50) trong `SearchFunc` để bound kết quả. `MaxItems` chỉ giới hạn **hiển thị**, KHÔNG giới hạn dữ liệu component xử lý — list nghìn store vẫn được materialize đầy đủ nếu không `.Take()`.
+- ✅ Đặt `MaxItems` hợp lý (vd 50) khớp với `.Take()`.
+- 📌 Pattern chuẩn `SearchFunc`:
+  ```csharp
+  private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+  {
+      IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+          ? _allStores
+          : _allStores.Where(s =>
+              (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+              (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+      return Task.FromResult(matches.Take(50));
+  }
+  ```
+- 📌 `Program.cs` đã bật `DetailedErrors` (Dev) + nới `HubOptions.MaximumReceiveMessageSize=512KB`. Khi circuit crash, **đọc server log** để lấy exception thật (client chỉ thấy "Failed to rejoin").
+
 ### 12. Slash Commands (POS.Web)
 
 | Command | Mục đích |
@@ -719,3 +740,27 @@ public async ValueTask DisposeAsync()
 | `/web-check-status` | Build + audit trạng thái POS.Web |
 | `/web-gen-hash` | Tạo BCrypt hash cho user migration SQL |
 | `/add-dto-common` | Thêm DTO mới vào POS.Common (xem `.claude/commands/add-dto-common.md`) |
+
+---
+
+## Quy tắc DB Schema — BẮT BUỘC biết
+
+### bảng `dbo.Store` (RPOSMasterData)
+
+| Column | Ý nghĩa | Giá trị |
+|--------|---------|---------|
+| `No` | Mã cửa hàng (primary key) | `"VIN001"`, `"VIN002"`... |
+| `Name` | Tên cửa hàng | |
+| `ClosingMethod` | Trạng thái hoạt động | `0` = đang mở cửa, `1` = đã đóng cửa |
+
+> **KHÔNG dùng `Blocked`** — column `Blocked` không tồn tại hoặc không phản ánh trạng thái hoạt động của cửa hàng trong dự án này.
+
+**Query chuẩn khi lấy danh sách cửa hàng đang hoạt động:**
+```sql
+SELECT No AS StoreNo, Name
+FROM dbo.Store (NOLOCK)
+WHERE ClosingMethod = 0
+ORDER BY No
+```
+
+**Dùng ở đâu:** `CentralMDRepository.GetStoreListAsync`, mọi query liên quan đến danh sách store picker trong POS.Web.

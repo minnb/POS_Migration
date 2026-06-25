@@ -38,8 +38,20 @@ builder.Services.AddMudServices(config =>
 });
 
 // ── Blazor Server ─────────────────────────────────────────────────────
+// DetailedErrors (chỉ Dev): khi circuit ném exception → client thấy chi tiết,
+// đồng thời ghi đầy đủ vào server log để chẩn đoán (mặc định client chỉ thấy "Failed to rejoin").
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DetailedErrors = builder.Environment.IsDevelopment();
+    });
+
+// Nới giới hạn message SignalR cho Blazor circuit (mặc định 32KB) — defense-in-depth
+// tránh circuit bị tear-down khi render batch / interop lớn.
+builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(o =>
+{
+    o.MaximumReceiveMessageSize = 512 * 1024; // 512 KB
+});
 
 // ── Infrastructure: DB, Redis, RabbitMQ, Elasticsearch, HttpClients ──
 // Bao gồm: CentralMDConnectionFactory, LoyaltyConnectionFactory,

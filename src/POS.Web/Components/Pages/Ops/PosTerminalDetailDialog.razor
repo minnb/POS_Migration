@@ -1,5 +1,9 @@
 @using MudBlazor
 @using POS.Common.Dtos.Ops
+@using Microsoft.AspNetCore.Components.Authorization
+@using POS.Web.Auth
+
+@inject IDialogService DialogService
 
 <MudDialog>
     <DialogContent>
@@ -52,7 +56,7 @@
             {
                 <MudGrid Spacing="2">
                     @Field("Tên máy", Item.ComputerName)
-                    @Field("Giờ POS (last seen)", Item.DateTimePos?.ToString("dd/MM/yyyy HH:mm:ss") + (age.HasValue ? $"  ({lastSeen})" : ""))
+                    @Field("Giờ POS (last seen)", Item.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") + (age.HasValue ? $"  ({lastSeen})" : ""))
                     @Field("Trạng thái DB", Item.BluePosDatabaseStatus)
                     @Field("BluePOS", Item.IsOpenBluePos == true ? "Đang mở" : "Đóng")
                     @Field("Phiên bản hiện tại", Item.BluePosVersion)
@@ -85,23 +89,54 @@
         <MudPaper Elevation="1" Class="pa-4">
             <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Audit</MudText>
             <MudGrid Spacing="2">
-                @Field("Tạo lúc", Item.CreatedDate?.ToString("dd/MM/yyyy HH:mm"))
+                @Field("Tạo lúc", Item.CreatedDate?.ToString("yyyy-MM-dd HH:mm:ss"))
                 @Field("Tạo bởi", Item.CreatedBy)
-                @Field("Cập nhật lúc", Item.UpdatedDate?.ToString("dd/MM/yyyy HH:mm"))
+                @Field("Cập nhật lúc", Item.UpdatedDate?.ToString("yyyy-MM-dd HH:mm:ss"))
                 @Field("Cập nhật bởi", Item.UpdatedBy)
-                @Field("LastDateModified", Item.LastDateModified?.ToString("dd/MM/yyyy HH:mm"))
+                @Field("LastDateModified", Item.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss"))
             </MudGrid>
         </MudPaper>
     </DialogContent>
     <DialogActions>
+        @if (_isAdmin)
+        {
+            <MudButton OnClick="OpenEditAsync"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Edit">Chỉnh sửa</MudButton>
+        }
         <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Color="Color.Secondary">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter] Task<AuthenticationState>? AuthState { get; set; }
 
     [Parameter] public PosTerminalListDto Item { get; set; } = null!;
+
+    private bool _isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            _isAdmin = state.User.IsInRole(WebRoles.SystemAdmin);
+        }
+    }
+
+    private async Task OpenEditAsync()
+    {
+        var dialog = await DialogService.ShowAsync<PosTerminalEditDialog>(
+            $"Chỉnh sửa POS: {Item.No} – {Item.StoreNo}",
+            new DialogParameters<PosTerminalEditDialog> { { x => x.Item, Item } },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true,
+                                CloseButton = true, CloseOnEscapeKey = true });
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            MudDialog.Close(DialogResult.Ok(true));
+    }
 
     private void CloseDialog() => MudDialog.Close();
 

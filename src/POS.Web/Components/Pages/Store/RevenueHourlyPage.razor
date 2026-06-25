@@ -59,7 +59,7 @@
                                  AdornmentIcon="@Icons.Material.Filled.Store"
                                  Adornment="Adornment.Start"
                                  MinCharacters="0"
-                                 ResetValueOnEmptyText="true"/>
+                                 MaxItems="50"/>
             }
         </MudItem>
 
@@ -683,11 +683,22 @@
 
     private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
     {
+        // Bound kết quả ≤ 50: tránh đẩy cả nghìn store vào component.
+        // (MaxItems chỉ giới hạn HIỂN THỊ, không giới hạn dữ liệu SearchFunc xử lý.)
         if (string.IsNullOrWhiteSpace(value))
-            return Task.FromResult<IEnumerable<StoreDto>>(_allStores);
-        return Task.FromResult(_allStores.Where(s =>
-            (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)));
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            // Ưu tiên store có MÃ bắt đầu bằng từ khóa → gõ mã luôn nổi đầu, không bị Take(50) cắt
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
     }
 
     private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st

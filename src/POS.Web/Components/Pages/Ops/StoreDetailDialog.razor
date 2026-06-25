@@ -1,0 +1,67 @@
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+
+<MudDialog>
+    <DialogContent>
+        @* ── Trạng thái tổng quan ───────────────────────────────────────── *@
+        <div class="d-flex align-center gap-2 flex-wrap mb-4">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                     Color="@(Item.IsActive ? Color.Success : Color.Error)">
+                @(Item.IsActive ? "● Hoạt động" : "● Đã đóng")
+            </MudChip>
+            @if (!string.IsNullOrWhiteSpace(Item.StyleProfile))
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">
+                    @Item.StyleProfile
+                </MudChip>
+            }
+        </div>
+
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Thông tin cơ bản</MudText>
+            <MudGrid Spacing="2">
+                @Field("Mã cửa hàng", Item.StoreNo)
+                @Field("Tên cửa hàng", Item.Name)
+                @Field("Địa chỉ", Item.Address)
+                @Field("ĐT liên hệ", Item.PhoneNo)
+                @Field("Chi nhánh / Tỉnh thành", Item.BranchNo)
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Cấu hình POS</MudText>
+            <MudGrid Spacing="2">
+                @Field("Channel (StyleProfile)", Item.StyleProfile)
+                @Field("SĐT in trên bill (PrintReceiptLogo)", Item.PrintReceiptLogo)
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Audit</MudText>
+            <MudGrid Spacing="2">
+                @Field("Cập nhật lần cuối", Item.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss"))
+            </MudGrid>
+        </MudPaper>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Color="Color.Secondary">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public StoreListDto Item { get; set; } = null!;
+
+    private void CloseDialog() => MudDialog.Close();
+
+    private RenderFragment Field(string label, string? value) => __builder =>
+    {
+        <MudItem xs="12" sm="6">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
+            <MudText Typo="Typo.body2" Style="font-weight:500">
+                @(string.IsNullOrWhiteSpace(value) ? "—" : value)
+            </MudText>
+        </MudItem>
+    };
+}

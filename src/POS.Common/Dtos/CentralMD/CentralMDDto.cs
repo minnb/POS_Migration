@@ -16,6 +16,20 @@ public class StoreDto
     public string? ConnectionString { get; set; }
 }
 
+public class StoreListDto
+{
+    public string  StoreNo           { get; set; } = string.Empty;
+    public string? Name              { get; set; }
+    public string? Address           { get; set; }
+    public string? PhoneNo           { get; set; }
+    public string? StyleProfile      { get; set; }
+    public string? PrintReceiptLogo  { get; set; }
+    public string? BranchNo          { get; set; }
+    public DateTime? LastDateModified { get; set; }
+    public int     ClosingMethod     { get; set; }
+    public bool    IsActive          => ClosingMethod == 0;
+}
+
 public class StoreSetup
 {
     public string? StoreNo { get; set; }

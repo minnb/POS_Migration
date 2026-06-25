@@ -1,0 +1,207 @@
+@page "/ops/stores"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject IDialogService DialogService
+
+<PageTitle>Cửa hàng – POS Dashboard</PageTitle>
+
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Store" Class="mr-2" Style="vertical-align:middle"/>
+    Danh sách Cửa hàng
+</MudText>
+
+@* ── Loading bar ─────────────────────────────────────────────────────── *@
+@if (_loading && !_allItems.Any())
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius:4px"/>
+}
+
+@* ── KPI summary cards ───────────────────────────────────────────────── *@
+@if (_allItems.Any())
+{
+    var total    = _allItems.Count;
+    var active   = _allItems.Count(x => x.IsActive);
+    var closed   = total - active;
+
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="6" md="4">
+            <MudPaper Elevation="2" Class="pa-3 text-center">
+                <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng cửa hàng</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" md="4">
+            <MudPaper Elevation="2" Class="pa-3 text-center"
+                      Style="border-left:3px solid var(--pos-success)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@active</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Đang hoạt động</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" md="4">
+            <MudPaper Elevation="2" Class="pa-3 text-center"
+                      Style="border-left:3px solid var(--pos-danger)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@closed</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Đã đóng</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@* ── Filter bar ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-3 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="7">
+            <MudTextField Value="_search" Immediate="true"
+                          ValueChanged="@((string v) => { _search = v; ApplyFilter(); })"
+                          Label="Tìm kiếm" Placeholder="Mã CH, Tên, Địa chỉ, Chi nhánh..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          OnClearButtonClick="@(() => { _search = string.Empty; ApplyFilter(); })"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="5">
+            <MudSelect T="string" Value="_statusFilter" Label="Trạng thái"
+                       ValueChanged="@((string v) => { _statusFilter = v; ApplyFilter(); })"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@("all")">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("active")">Đang hoạt động</MudSelectItem>
+                <MudSelectItem Value="@("closed")">Đã đóng</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Error ───────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Store list ──────────────────────────────────────────────────────── *@
+<MudTable Items="@_filtered" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Loading="@(_loading && !_allItems.Any())"
+          HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="StoreListDto"
+          RowStyle="cursor:pointer">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.StoreNo)">Mã CH</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.Name ?? string.Empty)">Tên cửa hàng</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.Address ?? string.Empty)">Địa chỉ</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.BranchNo ?? string.Empty)">Chi nhánh</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.IsActive ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.LastDateModified ?? DateTime.MinValue)">Cập nhật lần cuối</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Mã CH">@context.StoreNo</MudTd>
+        <MudTd DataLabel="Tên cửa hàng">@context.Name</MudTd>
+        <MudTd DataLabel="Địa chỉ">@context.Address</MudTd>
+        <MudTd DataLabel="Chi nhánh">@(context.BranchNo ?? "—")</MudTd>
+        <MudTd DataLabel="Trạng thái">
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(context.IsActive ? Color.Success : Color.Error)"
+                     Variant="Variant.Filled">
+                @(context.IsActive ? "● Hoạt động" : "● Đã đóng")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Cập nhật lần cuối">
+            <MudText Typo="Typo.caption">
+                @(context.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")
+            </MudText>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Color="Color.Secondary" Class="pa-4" Align="Align.Center">
+            @(_allItems.Any() ? "Không có kết quả khớp bộ lọc." : "Không có dữ liệu cửa hàng.")
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    private List<StoreListDto> _allItems = [];
+    private List<StoreListDto> _filtered = [];
+    private bool    _loading;
+    private string? _errorMsg;
+    private string  _search       = string.Empty;
+    private string  _statusFilter = "active";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            _allItems = await MdRepo.GetStoreAdminListAsync();
+            KibanaService.LogInfo("StorePage.Load", "ops",
+                $"Stores: {_allItems.Count} total, " +
+                $"{_allItems.Count(x => x.IsActive)} active");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh sách cửa hàng.";
+            KibanaService.LogException("StorePage.Load", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+            ApplyFilter();
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = _allItems.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            var q = _search.Trim();
+            filtered = filtered.Where(x =>
+                x.StoreNo.Contains(q, StringComparison.OrdinalIgnoreCase)                    ||
+                (x.Name?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)           ||
+                (x.Address?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)        ||
+                (x.BranchNo?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)       ||
+                (x.StyleProfile?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        filtered = _statusFilter switch
+        {
+            "active" => filtered.Where(x => x.IsActive),
+            "closed" => filtered.Where(x => !x.IsActive),
+            _        => filtered
+        };
+
+        _filtered = filtered.ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnRowClick(TableRowClickEventArgs<StoreListDto> args)
+    {
+        if (args.Item is null) return;
+        await DialogService.ShowAsync<StoreDetailDialog>(
+            $"Chi tiết: {args.Item.StoreNo} – {args.Item.Name}",
+            new DialogParameters<StoreDetailDialog> { { x => x.Item, args.Item } },
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true,
+                                CloseButton = true, CloseOnEscapeKey = true });
+    }
+}

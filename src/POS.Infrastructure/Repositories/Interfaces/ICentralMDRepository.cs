@@ -54,4 +54,12 @@ public interface ICentralMDRepository
     /// dùng cho page ops/pos-map. Không cache (real-time).
     /// </summary>
     Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default);
+
+    /// <summary>Cập nhật 3 field cho phép Admin sửa: IPAddress, Status, BillNoseri.</summary>
+    Task<bool> UpdatePosTerminalAsync(
+        string posNo, string ipAddress, bool? status, string? billNoseri,
+        string updatedBy, CancellationToken ct = default);
+
+    /// <summary>Toàn bộ danh sách cửa hàng (kể cả đã đóng) dùng cho trang quản trị Store.</summary>
+    Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default);
 }

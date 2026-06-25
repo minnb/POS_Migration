@@ -19,4 +19,20 @@ public static class JsDownloadExtensions
         using var streamRef = new DotNetStreamReference(stream);
         await js.InvokeVoidAsync("posDownloadFileFromStream", fileName, contentType, streamRef);
     }
+
+    public static async Task<string> CreatePdfBlobUrlAsync(this IJSRuntime js, byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+        return await js.InvokeAsync<string>("posCreatePdfBlobUrl", streamRef);
+    }
+
+    public static async Task RevokeBlobUrlAsync(this IJSRuntime js, string? url)
+    {
+        if (!string.IsNullOrEmpty(url))
+            await js.InvokeVoidAsync("posRevokeBlobUrl", url);
+    }
+
+    public static async Task DownloadFromBlobUrlAsync(this IJSRuntime js, string url, string fileName)
+        => await js.InvokeVoidAsync("posDownloadFromBlobUrl", url, fileName);
 }
