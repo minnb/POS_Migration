@@ -2,6 +2,27 @@
 > Ghi lại các task đã hoàn thành và pattern mới được thiết lập.
 > Đọc file này khi bắt đầu session mới để nắm context.
 
+## [2026-06-25] Store Filter UX — DatePicker click-to-open + đồng nhất font size
+
+**Layer:** POS.Web
+**Loại:** Bug fix + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Web/Theme/PosTheme.cs`: thêm `Body1 = new Body1Typography { FontSize = "0.875rem" }` — fix font dropdown/autocomplete/picker popup từ 16px → 14px, đồng nhất với DataTable và filter labels
+- `src/POS.Web/Components/Pages/Store/` (7 file, 13 MudDatePicker): bỏ `Editable="true"`, thêm `AutoClose="true"` → click ô text mở calendar ngay; chọn xong tự đóng
+- `.claude/skills/web/theming.md`: thêm rule bắt buộc Body1 override + giải thích Default không cascade
+- `.claude/skills/web/SKILLS.md`: thêm 2 anti-pattern (Body1 missing, MudDatePicker Editable); fix `ResetValueOnEmptyText="true"` bug trong Store Selector snippet
+
+**Pattern mới:**
+- `MudDatePicker click-to-open: AutoClose="true" (bỏ Editable)` → `.claude/skills/web/SKILLS.md`
+- `PosTheme Body1 typography bắt buộc` → `.claude/skills/web/theming.md`
+
+**Lưu ý cho session sau:**
+- `Default.FontSize` trong MudBlazor theme KHÔNG cascade xuống `Body1` — mỗi khi tạo theme mới BẮT BUỘC thêm `Body1 = new Body1Typography { FontSize = "..." }` riêng.
+- Mọi `MudDatePicker` trong filter panel dùng `AutoClose="true"` (không `Editable`) — click text = mở calendar, không cần click icon. Store Selector (MudAutocomplete) KHÔNG dùng `ResetValueOnEmptyText="true"` (circuit crash).
+
+---
+
 ## [2026-06-24] TopProductPage — Top sản phẩm bán chạy + tối ưu BA/BI
 
 **Layer:** POS.Common, POS.Infrastructure, POS.Web

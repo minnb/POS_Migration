@@ -95,29 +95,29 @@
         </MudText>
     </ToolBarContent>
     <HeaderContent>
-        <MudTh Style="width:60px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+        <MudTh Style="width:60px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Id)">Id</MudTableSortLabel></MudTh>
         <MudTh Style="width:120px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Actor)">Actor</MudTableSortLabel></MudTh>
         <MudTh Style="width:160px">Database</MudTh>
-        <MudTh Style="width:130px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Status)">Trạng thái</MudTableSortLabel></MudTh>
-        <MudTh Style="width:70px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.RowsAffected)">Rows</MudTableSortLabel></MudTh>
-        <MudTh Style="width:80px; text-align:center">WHERE</MudTh>
-        <MudTh>SQL</MudTh>
-        <MudTh Style="width:80px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ElapsedMs)">ms</MudTableSortLabel></MudTh>
-        <MudTh Style="width:160px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ExecutedAt)" InitialDirection="SortDirection.Descending">Thời gian chạy</MudTableSortLabel></MudTh>
-        <MudTh Style="width:160px">Quyết định lúc</MudTh>
+        <MudTh Style="width:130px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
+        <MudTh Style="width:70px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.RowsAffected)">RowsAffected</MudTableSortLabel></MudTh>
+        <MudTh Style="width:80px; text-align:center">HasWhere</MudTh>
+        <MudTh>SqlText</MudTh>
+        <MudTh Style="width:80px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ElapsedMs)">ElapsedMs</MudTableSortLabel></MudTh>
+        <MudTh Style="width:160px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ExecutedAt)" InitialDirection="SortDirection.Descending">ExecutedAt</MudTableSortLabel></MudTh>
+        <MudTh Style="width:160px">DecidedAt</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="ID" Style="text-align:center">@context.Id</MudTd>
+        <MudTd DataLabel="Id" Style="text-align:center">@context.Id</MudTd>
         <MudTd DataLabel="Actor">@context.Actor</MudTd>
         <MudTd DataLabel="Database" Style="font-size:12px">@context.DbCatalog<br/><span style="color:#9e9e9e">@context.DbKey</span></MudTd>
-        <MudTd DataLabel="Trạng thái" Style="text-align:center">
+        <MudTd DataLabel="Status" Style="text-align:center">
             @{
                 var (sc, sl) = StatusDisplay(context.Status);
             }
             <MudChip T="string" Color="@sc" Size="Size.Small" Variant="Variant.Filled">@sl</MudChip>
         </MudTd>
-        <MudTd DataLabel="Rows" Style="text-align:right">@context.RowsAffected</MudTd>
-        <MudTd DataLabel="WHERE" Style="text-align:center">
+        <MudTd DataLabel="RowsAffected" Style="text-align:right">@context.RowsAffected</MudTd>
+        <MudTd DataLabel="HasWhere" Style="text-align:center">
             @if (context.HasWhere)
             {
                 <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small"/>
@@ -129,16 +129,16 @@
                 </MudTooltip>
             }
         </MudTd>
-        <MudTd DataLabel="SQL">
+        <MudTd DataLabel="SqlText">
             <MudTooltip Text="@context.SqlText" Placement="Placement.Bottom">
                 <span style="font-family:monospace; font-size:12px; cursor:help">
                     @(context.SqlText.Length > 160 ? context.SqlText[..160] + "…" : context.SqlText)
                 </span>
             </MudTooltip>
         </MudTd>
-        <MudTd DataLabel="ms" Style="text-align:right">@context.ElapsedMs</MudTd>
-        <MudTd DataLabel="Thời gian chạy" Style="font-size:12px">@context.ExecutedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-        <MudTd DataLabel="Quyết định lúc" Style="font-size:12px">@context.DecidedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+        <MudTd DataLabel="ElapsedMs" Style="text-align:right">@context.ElapsedMs</MudTd>
+        <MudTd DataLabel="ExecutedAt" Style="font-size:12px">@context.ExecutedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+        <MudTd DataLabel="DecidedAt" Style="font-size:12px">@context.DecidedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
     </RowTemplate>
     <NoRecordsContent>
         <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>

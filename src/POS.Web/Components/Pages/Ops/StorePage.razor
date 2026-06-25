@@ -95,26 +95,26 @@
           HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="StoreListDto"
           RowStyle="cursor:pointer">
     <HeaderContent>
-        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.StoreNo)">Mã CH</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.Name ?? string.Empty)">Tên cửa hàng</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.Address ?? string.Empty)">Địa chỉ</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.BranchNo ?? string.Empty)">Chi nhánh</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.IsActive ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.LastDateModified ?? DateTime.MinValue)">Cập nhật lần cuối</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.StoreNo)">StoreNo</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.Name ?? string.Empty)">Name</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.Address ?? string.Empty)">Address</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.BranchNo ?? string.Empty)">BranchNo</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.IsActive ? 0 : 1)">Status</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<StoreListDto, object>(x => x.LastDateModified ?? DateTime.MinValue)">LastDateModified</MudTableSortLabel></MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Mã CH">@context.StoreNo</MudTd>
-        <MudTd DataLabel="Tên cửa hàng">@context.Name</MudTd>
-        <MudTd DataLabel="Địa chỉ">@context.Address</MudTd>
-        <MudTd DataLabel="Chi nhánh">@(context.BranchNo ?? "—")</MudTd>
-        <MudTd DataLabel="Trạng thái">
+        <MudTd DataLabel="StoreNo">@context.StoreNo</MudTd>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Address">@context.Address</MudTd>
+        <MudTd DataLabel="BranchNo">@(context.BranchNo ?? "—")</MudTd>
+        <MudTd DataLabel="Status">
             <MudChip T="string" Size="Size.Small"
                      Color="@(context.IsActive ? Color.Success : Color.Error)"
                      Variant="Variant.Filled">
                 @(context.IsActive ? "● Hoạt động" : "● Đã đóng")
             </MudChip>
         </MudTd>
-        <MudTd DataLabel="Cập nhật lần cuối">
+        <MudTd DataLabel="LastDateModified">
             <MudText Typo="Typo.caption">
                 @(context.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")
             </MudText>

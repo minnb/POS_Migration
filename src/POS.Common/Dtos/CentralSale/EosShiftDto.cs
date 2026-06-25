@@ -10,6 +10,10 @@ public sealed class EosShiftDto
     public decimal TienMat { get; set; }
     public decimal TienHeThong { get; set; }
     public decimal ChenLech { get; set; }
+    public string? StaffCode { get; set; }
+    public DateTime? OpenShiftDate { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public int TransactionCount { get; set; }
     public DateTime? CloseShiftDate { get; set; }
     public bool IsShiftClosed { get; set; }
 }

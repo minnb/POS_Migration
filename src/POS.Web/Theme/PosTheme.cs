@@ -101,6 +101,10 @@ public static class PosTheme
             {
                 FontWeight = "600",
             },
+            Body1 = new Body1Typography
+            {
+                FontSize = "0.875rem",   // 14px — khớp DataTable và filter labels
+            },
             Body2 = new Body2Typography
             {
                 FontSize = "0.8125rem",

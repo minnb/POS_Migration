@@ -14,6 +14,8 @@
 @inject ICentralMDRepository MdRepo
 @inject IKibanaService KibanaService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
 
 <PageTitle>Kết thúc ca – POS Dashboard</PageTitle>
 
@@ -66,7 +68,7 @@
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense"
                            DateFormat="dd/MM/yyyy"
-                           Editable="true"/>
+                           AutoClose="true"/>
         </MudItem>
 
         <MudItem xs="12" sm="6" md="2">
@@ -108,29 +110,41 @@
     <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
 }
 
-@* ── KPI Cards ────────────────────────────────────────────────────────── *@
+@* ── KPI Cards — flex: mỗi card flex:1, tự chia đều 1 dòng ────────────── *@
 @if (!_loading && _shifts.Count > 0)
 {
-    <MudGrid Spacing="3" Class="mb-4">
-        <MudItem xs="12" sm="4">
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
                 <MudText Typo="Typo.h4" Color="Color.Primary">@_shifts.Count</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số ca</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="12" sm="4">
+        </div>
+        <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
                 <MudText Typo="Typo.h4" Color="Color.Success">@_closedCount</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">Đã đóng ca</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="12" sm="4">
+        </div>
+        <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
                 <MudText Typo="Typo.h4" Color="Color.Error">@_openCount</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">Chưa đóng ca</MudText>
             </MudPaper>
-        </MudItem>
-    </MudGrid>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Color="Color.Primary">@FormatVND(_shifts.Sum(s => s.TotalRevenue))</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng doanh thu</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@_shifts.Sum(s => s.TransactionCount)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số GD</MudText>
+            </MudPaper>
+        </div>
+    </div>
 }
 
 @* ── Table ────────────────────────────────────────────────────────────── *@
@@ -140,27 +154,24 @@
           Loading="@_loading" LoadingProgressColor="Color.Primary"
           HorizontalScrollbar="true">
     <HeaderContent>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.StoreNo)">Mã CH/ST</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.PosTerminal)">PosID</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.BussinessDate)">Ngày kinh doanh</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.ShiftNumber)">Ca</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.BeginAmount)">Tiền đầu ca</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.TienMat)">Tiền mặt</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.OpenShiftDate ?? DateTime.MinValue)">Mở ca</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.TransactionCount)">Số GD</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.TienHeThong)">Tiền hệ thống</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.ChenLech)">Chênh lệch</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.CloseShiftDate!)">T/G đóng ca</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.IsShiftClosed)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center">Thao tác</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Mã CH/ST" Style="text-align:center">@context.StoreNo</MudTd>
         <MudTd DataLabel="PosID" Style="text-align:center">@context.PosTerminal</MudTd>
         <MudTd DataLabel="Ngày kinh doanh" Style="text-align:center">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
         <MudTd DataLabel="Ca" Style="text-align:center">@context.ShiftNumber</MudTd>
-        <MudTd DataLabel="Tiền đầu ca" Style="text-align:right">@FormatVND(context.BeginAmount)</MudTd>
-        <MudTd DataLabel="Tiền mặt" Style="@($"text-align:right; color:{(context.TienMat > 0 ? "inherit" : "#9e9e9e")}")">@FormatVND(context.TienMat)</MudTd>
+        <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
+        <MudTd DataLabel="Số GD" Style="text-align:center">@context.TransactionCount</MudTd>
         <MudTd DataLabel="Tiền hệ thống" Style="text-align:right">@FormatVND(context.TienHeThong)</MudTd>
-        <MudTd DataLabel="Chênh lệch" Style="@($"text-align:right; font-weight:500; color:{(context.ChenLech < 0 ? "#f44336" : "#4caf50")}")">@FormatVND(context.ChenLech)</MudTd>
-        <MudTd DataLabel="T/G đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+        <MudTd DataLabel="T/G đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("HH:mm dd/MM") ?? "—")</MudTd>
         <MudTd DataLabel="Trạng thái" Style="text-align:center">
             @if (context.IsShiftClosed)
             {
@@ -170,6 +181,18 @@
             {
                 <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Chưa đóng ca</MudChip>
             }
+        </MudTd>
+        <MudTd DataLabel="Thao tác" Style="text-align:center; white-space:nowrap">
+            <MudTooltip Text="Xem chi tiết">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                               Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => OpenDetailAsync(context))"/>
+            </MudTooltip>
+            <MudTooltip Text="In ca">
+                <MudIconButton Icon="@Icons.Material.Filled.Print"
+                               Size="Size.Small" Color="Color.Default"
+                               OnClick="@(() => PrintShiftAsync(context))"/>
+            </MudTooltip>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>
@@ -306,4 +329,39 @@
     private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
         ? $"{st.StoreNo} – {st.Name}"
         : (_filterStoreNo ?? "");
+
+    // ── Dialog ──────────────────────────────────────────────────────────────
+
+    private async Task OpenDetailAsync(EosShiftDto shift)
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            CloseButton = true
+        };
+        var parameters = new DialogParameters<EosShiftDetailDialog>
+        {
+            { x => x.Shift, shift }
+        };
+        await DialogService.ShowAsync<EosShiftDetailDialog>("", parameters, options);
+    }
+
+    private async Task PrintShiftAsync(EosShiftDto shift)
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            CloseButton = true
+        };
+        var parameters = new DialogParameters<EosShiftDetailDialog>
+        {
+            { x => x.Shift, shift },
+            { x => x.AutoPrint, true }
+        };
+        await DialogService.ShowAsync<EosShiftDetailDialog>("", parameters, options);
+    }
 }

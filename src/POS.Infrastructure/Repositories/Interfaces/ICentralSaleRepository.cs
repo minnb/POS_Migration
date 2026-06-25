@@ -53,6 +53,23 @@ public interface ICentralSaleRepository
         IReadOnlyList<string>? storeCodes = null,
         CancellationToken ct = default);
 
+    // ── EOS Day Dashboard ─────────────────────────────────────────────────────
+    Task<List<EosDayDto>> GetEosDayListAsync(
+        DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default);
+
+    // ── Shift Summary Dashboard ───────────────────────────────────────────────
+    Task<List<ShiftNumberSummaryDto>> GetShiftNumberSummaryAsync(
+        DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default);
+
+    Task<List<EosShiftDto>> GetEosShiftRangeAsync(
+        DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default);
+
     // ── DataRawJson Log ───────────────────────────────────────────────────────
     Task<DataRawJsonSummaryDto> GetDataRawJsonSummaryAsync(
         DateTime fromDate, DateTime toDate, CancellationToken ct = default);

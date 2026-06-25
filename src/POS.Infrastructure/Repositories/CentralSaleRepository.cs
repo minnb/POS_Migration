@@ -513,12 +513,16 @@ public sealed class CentralSaleRepository(
                     h.PosTerminal,
                     CAST(h.BussinessDate AS DATE)       AS BussinessDate,
                     CAST(h.ShiftNumber  AS INT)          AS ShiftNumber,
+                    h.StaffCode,
+                    h.OpenShiftDate,
                     h.BeginAmount,
-                    ISNULL(sl.TienMat,     0)            AS TienMat,
-                    ISNULL(tp.TienHeThong, 0)            AS TienHeThong,
+                    ISNULL(sl.TienMat,      0)           AS TienMat,
+                    ISNULL(rv.TienHeThong,  0)           AS TienHeThong,
                     ISNULL(sl.TienMat, 0)
                         - h.BeginAmount
-                        - ISNULL(tp.TienHeThong, 0)      AS ChenLech,
+                        - ISNULL(rv.TienHeThong, 0)      AS ChenLech,
+                    ISNULL(rv.TotalRevenue,    0)        AS TotalRevenue,
+                    ISNULL(rv.TransactionCount,0)        AS TransactionCount,
                     h.CloseShiftDate,
                     h.IsShiftClosed
                 FROM POSShiftHeader h (NOLOCK)
@@ -531,18 +535,20 @@ public sealed class CentralSaleRepository(
 
                 LEFT JOIN (
                     SELECT
-                        th.StoreNo,
                         th.POSTerminalNo,
-                        CAST(th.OrderDate AS DATE) AS SaleDate,
-                        SUM(tp.AmountTendered)     AS TienHeThong
-                    FROM  TransPaymentEntry tp (NOLOCK)
-                    INNER JOIN TransHeader  th (NOLOCK) ON th.OrderNo = tp.OrderNo
-                    WHERE tp.TenderType = '1'
-                      AND CAST(th.OrderDate AS DATE) = @BusinessDate
-                    GROUP BY th.StoreNo, th.POSTerminalNo, CAST(th.OrderDate AS DATE)
-                ) tp ON tp.StoreNo      = h.StoreNo
-                    AND tp.POSTerminalNo = h.PosTerminal
-                    AND tp.SaleDate      = CAST(h.BussinessDate AS DATE)
+                        CAST(th.ShiftNo AS INT)                                                          AS ShiftNo,
+                        SUM(IIF(th.TransactionType = 1, th.AmountInclVAT, th.AmountInclVAT * (-1)))     AS TienHeThong,
+                        SUM(CASE
+                            WHEN th.TransactionType = 1       THEN  th.AmountInclVAT
+                            WHEN th.TransactionType IN (2, 3) THEN -th.AmountInclVAT
+                            ELSE 0
+                        END)                                                                             AS TotalRevenue,
+                        COUNT(CASE WHEN th.TransactionType = 1 THEN 1 END)                              AS TransactionCount
+                    FROM TransHeader th (NOLOCK)
+                    WHERE CAST(th.OrderDate AS DATE) = @BusinessDate
+                    GROUP BY th.POSTerminalNo, CAST(th.ShiftNo AS INT)
+                ) rv ON rv.POSTerminalNo = h.PosTerminal
+                    AND rv.ShiftNo       = CAST(h.ShiftNumber AS INT)
 
                 WHERE CAST(h.BussinessDate AS DATE) = @BusinessDate
                   {storeFilter}
@@ -559,6 +565,211 @@ public sealed class CentralSaleRepository(
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs("GetEosShiftList", ex);
+            return [];
+        }
+    }
+
+    public async Task<List<EosDayDto>> GetEosDayListAsync(
+        DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var storeFilter = storeCodes?.Count > 0 ? "AND h.StoreNo IN @StoreCodes" : "";
+            var sql = $@"
+                SELECT
+                    h.StoreNo,
+                    CAST(h.BussinessDate AS DATE)                                             AS BussinessDate,
+                    COUNT(*)                                                                   AS TotalShifts,
+                    SUM(CASE WHEN h.IsShiftClosed = 1 THEN 1 ELSE 0 END)                     AS ClosedShifts,
+                    SUM(CASE WHEN h.IsShiftClosed = 0 THEN 1 ELSE 0 END)                     AS OpenShifts,
+                    SUM(ISNULL(rv.TotalRevenue,     0))                                       AS TotalRevenue,
+                    SUM(ISNULL(rv.TransactionCount, 0))                                       AS TotalTransactions,
+                    SUM(ISNULL(rv.TienHeThong,      0))                                       AS TotalTienHeThong,
+                    SUM(ISNULL(sl.TienMat,          0))                                       AS TotalTienMat,
+                    SUM(ISNULL(sl.TienMat, 0) - h.BeginAmount - ISNULL(rv.TienHeThong, 0))   AS TotalChenLech
+                FROM POSShiftHeader h (NOLOCK)
+
+                LEFT JOIN (
+                    SELECT ShiftCode, SUM(CashAmount) AS TienMat
+                    FROM   POSShiftLine (NOLOCK)
+                    GROUP BY ShiftCode
+                ) sl ON sl.ShiftCode = h.ShiftCode
+
+                LEFT JOIN (
+                    SELECT
+                        th.POSTerminalNo,
+                        CAST(th.ShiftNo AS INT)                                                          AS ShiftNo,
+                        SUM(IIF(th.TransactionType = 1, th.AmountInclVAT, th.AmountInclVAT * (-1)))     AS TienHeThong,
+                        SUM(CASE
+                            WHEN th.TransactionType = 1       THEN  th.AmountInclVAT
+                            WHEN th.TransactionType IN (2, 3) THEN -th.AmountInclVAT
+                            ELSE 0
+                        END)                                                                             AS TotalRevenue,
+                        COUNT(CASE WHEN th.TransactionType = 1 THEN 1 END)                              AS TransactionCount
+                    FROM TransHeader th (NOLOCK)
+                    WHERE CAST(th.OrderDate AS DATE) BETWEEN @FromDate AND @ToDate
+                    GROUP BY th.POSTerminalNo, CAST(th.ShiftNo AS INT)
+                ) rv ON rv.POSTerminalNo = h.PosTerminal
+                    AND rv.ShiftNo       = CAST(h.ShiftNumber AS INT)
+
+                WHERE CAST(h.BussinessDate AS DATE) BETWEEN @FromDate AND @ToDate
+                  {storeFilter}
+                GROUP BY h.StoreNo, CAST(h.BussinessDate AS DATE)
+                ORDER BY BussinessDate DESC, h.StoreNo;";
+
+            var p = new DynamicParameters();
+            p.Add("FromDate", fromDate.Date);
+            p.Add("ToDate",   toDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
+
+            var data = await conn.QueryAsync<EosDayDto>(
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetEosDayList", ex);
+            return [];
+        }
+    }
+
+    public async Task<List<ShiftNumberSummaryDto>> GetShiftNumberSummaryAsync(
+        DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var storeFilter = storeCodes?.Count > 0 ? "AND h.StoreNo IN @StoreCodes" : "";
+            var sql = $@"
+                SELECT
+                    CAST(h.ShiftNumber AS INT)                                                AS ShiftNumber,
+                    COUNT(*)                                                                  AS TotalOccurrences,
+                    SUM(CASE WHEN h.IsShiftClosed = 1 THEN 1 ELSE 0 END)                    AS ClosedCount,
+                    SUM(CASE WHEN h.IsShiftClosed = 0 THEN 1 ELSE 0 END)                    AS OpenCount,
+                    SUM(ISNULL(rv.TotalRevenue,     0))                                      AS TotalRevenue,
+                    SUM(ISNULL(rv.TransactionCount, 0))                                      AS TotalTransactions,
+                    SUM(CASE WHEN (ISNULL(sl.TienMat, 0) - h.BeginAmount
+                                   - ISNULL(rv.TienHeThong, 0)) <> 0 THEN 1 ELSE 0 END)    AS DiscrepancyCount,
+                    SUM(ISNULL(sl.TienMat, 0) - h.BeginAmount - ISNULL(rv.TienHeThong, 0)) AS TotalChenLech
+                FROM POSShiftHeader h (NOLOCK)
+
+                LEFT JOIN (
+                    SELECT ShiftCode, SUM(CashAmount) AS TienMat
+                    FROM   POSShiftLine (NOLOCK)
+                    GROUP BY ShiftCode
+                ) sl ON sl.ShiftCode = h.ShiftCode
+
+                LEFT JOIN (
+                    SELECT
+                        th.POSTerminalNo,
+                        CAST(th.ShiftNo AS INT)                                                          AS ShiftNo,
+                        SUM(IIF(th.TransactionType = 1, th.AmountInclVAT, th.AmountInclVAT * (-1)))     AS TienHeThong,
+                        SUM(CASE
+                            WHEN th.TransactionType = 1       THEN  th.AmountInclVAT
+                            WHEN th.TransactionType IN (2, 3) THEN -th.AmountInclVAT
+                            ELSE 0
+                        END)                                                                             AS TotalRevenue,
+                        COUNT(CASE WHEN th.TransactionType = 1 THEN 1 END)                              AS TransactionCount
+                    FROM TransHeader th (NOLOCK)
+                    WHERE CAST(th.OrderDate AS DATE) BETWEEN @FromDate AND @ToDate
+                    GROUP BY th.POSTerminalNo, CAST(th.ShiftNo AS INT)
+                ) rv ON rv.POSTerminalNo = h.PosTerminal
+                    AND rv.ShiftNo       = CAST(h.ShiftNumber AS INT)
+
+                WHERE CAST(h.BussinessDate AS DATE) BETWEEN @FromDate AND @ToDate
+                  {storeFilter}
+                GROUP BY CAST(h.ShiftNumber AS INT)
+                ORDER BY ShiftNumber;";
+
+            var p = new DynamicParameters();
+            p.Add("FromDate", fromDate.Date);
+            p.Add("ToDate",   toDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
+
+            var data = await conn.QueryAsync<ShiftNumberSummaryDto>(
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetShiftNumberSummary", ex);
+            return [];
+        }
+    }
+
+    public async Task<List<EosShiftDto>> GetEosShiftRangeAsync(
+        DateTime fromDate, DateTime toDate,
+        IReadOnlyList<string>? storeCodes = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var storeFilter = storeCodes?.Count > 0 ? "AND h.StoreNo IN @StoreCodes" : "";
+            var sql = $@"
+                SELECT
+                    h.StoreNo,
+                    h.PosTerminal,
+                    CAST(h.BussinessDate AS DATE)       AS BussinessDate,
+                    CAST(h.ShiftNumber  AS INT)          AS ShiftNumber,
+                    h.StaffCode,
+                    h.OpenShiftDate,
+                    h.BeginAmount,
+                    ISNULL(sl.TienMat,     0)            AS TienMat,
+                    ISNULL(rv.TienHeThong, 0)            AS TienHeThong,
+                    ISNULL(sl.TienMat, 0)
+                        - h.BeginAmount
+                        - ISNULL(rv.TienHeThong, 0)      AS ChenLech,
+                    ISNULL(rv.TotalRevenue,    0)        AS TotalRevenue,
+                    ISNULL(rv.TransactionCount,0)        AS TransactionCount,
+                    h.CloseShiftDate,
+                    h.IsShiftClosed
+                FROM POSShiftHeader h (NOLOCK)
+
+                LEFT JOIN (
+                    SELECT ShiftCode, SUM(CashAmount) AS TienMat
+                    FROM   POSShiftLine (NOLOCK)
+                    GROUP BY ShiftCode
+                ) sl ON sl.ShiftCode = h.ShiftCode
+
+                LEFT JOIN (
+                    SELECT
+                        th.POSTerminalNo,
+                        CAST(th.ShiftNo AS INT)                                                          AS ShiftNo,
+                        SUM(IIF(th.TransactionType = 1, th.AmountInclVAT, th.AmountInclVAT * (-1)))     AS TienHeThong,
+                        SUM(CASE
+                            WHEN th.TransactionType = 1       THEN  th.AmountInclVAT
+                            WHEN th.TransactionType IN (2, 3) THEN -th.AmountInclVAT
+                            ELSE 0
+                        END)                                                                             AS TotalRevenue,
+                        COUNT(CASE WHEN th.TransactionType = 1 THEN 1 END)                              AS TransactionCount
+                    FROM TransHeader th (NOLOCK)
+                    WHERE CAST(th.OrderDate AS DATE) BETWEEN @FromDate AND @ToDate
+                    GROUP BY th.POSTerminalNo, CAST(th.ShiftNo AS INT)
+                ) rv ON rv.POSTerminalNo = h.PosTerminal
+                    AND rv.ShiftNo       = CAST(h.ShiftNumber AS INT)
+
+                WHERE CAST(h.BussinessDate AS DATE) BETWEEN @FromDate AND @ToDate
+                  {storeFilter}
+                ORDER BY h.StoreNo, h.PosTerminal, CAST(h.BussinessDate AS DATE) DESC, CAST(h.ShiftNumber AS INT);";
+
+            var p = new DynamicParameters();
+            p.Add("FromDate", fromDate.Date);
+            p.Add("ToDate",   toDate.Date);
+            if (storeCodes?.Count > 0) p.Add("StoreCodes", storeCodes);
+
+            var data = await conn.QueryAsync<EosShiftDto>(
+                new CommandDefinition(sql, p, commandTimeout: Timeout, cancellationToken: ct));
+            return [.. data];
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetEosShiftRange", ex);
             return [];
         }
     }

@@ -70,24 +70,24 @@
                       Style="flex:0 1 240px; min-width:160px"/>
     </ToolBarContent>
     <HeaderContent>
-        <MudTh Style="text-align:center; width:60px"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Username)">Tên đăng nhập</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.FullName)">Họ và tên</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Role)">Vai trò</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.IsActive)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center; width:60px"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Id)">Id</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Username)">Username</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.FullName)">FullName</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Role)">Role</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.IsActive)">IsActive</MudTableSortLabel></MudTh>
         <MudTh Style="text-align:right; width:100px"></MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="ID" Style="text-align:center">@context.Id</MudTd>
-        <MudTd DataLabel="Tên đăng nhập">@context.Username</MudTd>
-        <MudTd DataLabel="Họ và tên">@context.FullName</MudTd>
-        <MudTd DataLabel="Vai trò" Style="text-align:center">
+        <MudTd DataLabel="Id" Style="text-align:center">@context.Id</MudTd>
+        <MudTd DataLabel="Username">@context.Username</MudTd>
+        <MudTd DataLabel="FullName">@context.FullName</MudTd>
+        <MudTd DataLabel="Role" Style="text-align:center">
             @{
                 var (rColor, rLabel) = RoleDisplay(context.Role);
             }
             <MudChip T="string" Color="@rColor" Size="Size.Small" Variant="Variant.Filled">@rLabel</MudChip>
         </MudTd>
-        <MudTd DataLabel="Trạng thái" Style="text-align:center">
+        <MudTd DataLabel="IsActive" Style="text-align:center">
             @if (context.IsActive)
             {
                 <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"

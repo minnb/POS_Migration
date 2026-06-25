@@ -144,17 +144,17 @@
           HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="PosTerminalListDto"
           RowStyle="cursor:pointer">
     <HeaderContent>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsOnline ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsOnline ? 0 : 1)">IsOnline</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.No)">PosNo</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StoreNo)">Cửa hàng</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IPAddress ?? string.Empty)">IP</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StyleProfile ?? string.Empty)">Chuỗi</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.NeedsUpdate ? 1 : 0)">Phiên bản</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsEnabled ? 0 : 1)">Sử dụng</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.DateTimePos ?? DateTime.MinValue)">Last seen</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StoreNo)">StoreNo</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IPAddress ?? string.Empty)">IPAddress</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StyleProfile ?? string.Empty)">StyleProfile</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.NeedsUpdate ? 1 : 0)">BluePosVersion</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsEnabled ? 0 : 1)">Status</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.DateTimePos ?? DateTime.MinValue)">DateTimePos</MudTableSortLabel></MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Trạng thái">
+        <MudTd DataLabel="IsOnline">
             <MudChip T="string" Size="Size.Small"
                      Color="@(context.IsOnline ? Color.Success : Color.Error)"
                      Variant="Variant.Filled">
@@ -162,10 +162,10 @@
             </MudChip>
         </MudTd>
         <MudTd DataLabel="PosNo">@context.No</MudTd>
-        <MudTd DataLabel="Cửa hàng">@context.StoreNo</MudTd>
-        <MudTd DataLabel="IP">@context.IPAddress</MudTd>
-        <MudTd DataLabel="Chuỗi">@context.StyleProfile</MudTd>
-        <MudTd DataLabel="Phiên bản">
+        <MudTd DataLabel="StoreNo">@context.StoreNo</MudTd>
+        <MudTd DataLabel="IPAddress">@context.IPAddress</MudTd>
+        <MudTd DataLabel="StyleProfile">@context.StyleProfile</MudTd>
+        <MudTd DataLabel="BluePosVersion">
             @if (context.NeedsUpdate)
             {
                 <MudTooltip Text="@($"Bản mới: {context.BluePosVersionUpdate}")">
@@ -179,14 +179,14 @@
                 <MudText Typo="Typo.body2">@context.BluePosVersion</MudText>
             }
         </MudTd>
-        <MudTd DataLabel="Sử dụng">
+        <MudTd DataLabel="Status">
             <MudChip T="string" Size="Size.Small"
                      Color="@(context.IsEnabled ? Color.Success : Color.Default)"
                      Variant="Variant.Outlined">
                 @(context.IsEnabled ? "Bật" : "Tắt")
             </MudChip>
         </MudTd>
-        <MudTd DataLabel="Last seen">
+        <MudTd DataLabel="DateTimePos">
             <MudText Typo="Typo.caption"
                      Color="@(context.IsOnline ? Color.Default : Color.Error)">
                 @(context.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Chưa có")

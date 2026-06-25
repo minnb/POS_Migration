@@ -113,20 +113,20 @@ else
               Breakpoint="Breakpoint.Sm" Elevation="2"
               HorizontalScrollbar="true">
         <HeaderContent>
-            <MudTh Style="width:70px"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorID)">ID</MudTableSortLabel></MudTh>
-            <MudTh Style="min-width:140px"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorDateTime!)" InitialDirection="SortDirection.Descending">Thời gian</MudTableSortLabel></MudTh>
-            <MudTh Style="min-width:100px">Store/User</MudTh>
-            <MudTh Style="min-width:200px"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorProcedure ?? string.Empty)">Procedure</MudTableSortLabel></MudTh>
-            <MudTh Style="min-width:300px">Nội dung lỗi</MudTh>
-            <MudTh Style="width:90px; text-align:center"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorSeverity ?? 0)">Severity</MudTableSortLabel></MudTh>
-            <MudTh Style="width:90px; text-align:center">Mã lỗi</MudTh>
+            <MudTh Style="width:70px"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorID)">ErrorID</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:140px"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorDateTime!)" InitialDirection="SortDirection.Descending">ErrorDateTime</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:100px">UserName</MudTh>
+            <MudTh Style="min-width:200px"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorProcedure ?? string.Empty)">ErrorProcedure</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:300px">ErrorMessage</MudTh>
+            <MudTh Style="width:90px; text-align:center"><MudTableSortLabel SortBy="new Func<InterfaceErrorDto, object>(x => x.ErrorSeverity ?? 0)">ErrorSeverity</MudTableSortLabel></MudTh>
+            <MudTh Style="width:90px; text-align:center">ErrorNumber</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="ID">@context.ErrorID</MudTd>
-            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@(context.ErrorDateTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
-            <MudTd DataLabel="Store/User">@(context.UserName ?? "—")</MudTd>
-            <MudTd DataLabel="Procedure" Style="font-family:monospace; font-size:0.8rem">@(context.ErrorProcedure ?? "—")</MudTd>
-            <MudTd DataLabel="Nội dung lỗi">
+            <MudTd DataLabel="ErrorID">@context.ErrorID</MudTd>
+            <MudTd DataLabel="ErrorDateTime" Style="white-space:nowrap">@(context.ErrorDateTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+            <MudTd DataLabel="UserName">@(context.UserName ?? "—")</MudTd>
+            <MudTd DataLabel="ErrorProcedure" Style="font-family:monospace; font-size:0.8rem">@(context.ErrorProcedure ?? "—")</MudTd>
+            <MudTd DataLabel="ErrorMessage">
                 @{
                     var msg = context.ErrorMessage ?? "";
                     var truncated = msg.Length > 120 ? msg[..120] + "…" : msg;
@@ -142,7 +142,7 @@ else
                     @truncated
                 }
             </MudTd>
-            <MudTd DataLabel="Severity" Style="text-align:center">
+            <MudTd DataLabel="ErrorSeverity" Style="text-align:center">
                 @if (context.ErrorSeverity.HasValue)
                 {
                     var color = context.ErrorSeverity >= 16 ? "var(--pos-danger)"
@@ -155,7 +155,7 @@ else
                     <span>—</span>
                 }
             </MudTd>
-            <MudTd DataLabel="Mã lỗi" Style="text-align:center">@(context.ErrorNumber?.ToString() ?? "—")</MudTd>
+            <MudTd DataLabel="ErrorNumber" Style="text-align:center">@(context.ErrorNumber?.ToString() ?? "—")</MudTd>
         </RowTemplate>
         <NoRecordsContent>
             <MudText Class="pa-4" Style="color:var(--mud-palette-text-secondary)">Không có dữ liệu lỗi trong khoảng thời gian đã chọn.</MudText>

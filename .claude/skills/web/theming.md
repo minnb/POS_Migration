@@ -29,8 +29,13 @@ public static class PosTheme
         Typography = new Typography
         {
             // MudBlazor v9: FontWeight và LineHeight là STRING, không phải int/double
+            Default   = new DefaultTypography { FontSize = "0.875rem", LineHeight = "1.6" },
+            // BẮT BUỘC override Body1: Default.FontSize KHÔNG cascade xuống Body1
+            // Thiếu dòng này → dropdown/picker/list items render 16px (MudBlazor built-in)
+            //                   thay vì 14px như DataTable và filter labels
+            Body1  = new Body1Typography  { FontSize = "0.875rem" },
+            Body2  = new Body2Typography  { FontSize = "0.8125rem" },
             Button = new ButtonTypography { FontWeight = "600", TextTransform = "none" },
-            Default = new DefaultTypography { LineHeight = "1.6" },
         },
         Shadows = new Shadow { Elevation = [ "none", /* ... 24 entries */ ] },
         LayoutProperties = new LayoutProperties { DefaultBorderRadius = "8px" }

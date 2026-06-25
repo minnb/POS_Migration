@@ -266,7 +266,7 @@ private async Task LoadDataAsync()
                          Variant="Variant.Outlined" Margin="Margin.Dense"
                          SearchFunc="@SearchStoreAsync"
                          ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
-                         Clearable="true" MinCharacters="0" ResetValueOnEmptyText="true"
+                         Clearable="true" MinCharacters="0" MaxItems="50"
                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Store"/>
     }
 </MudItem>
@@ -483,6 +483,57 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 ---
 
+## Chuẩn đặt tên cột DataTable — BẮT BUỘC áp dụng toàn dự án
+
+### Quy tắc
+
+> Tiêu đề cột trong `<MudTh>` **BẮT BUỘC** dùng tên field tiếng Anh tương ứng với tên cột trong database / DTO.
+> Áp dụng cho tất cả page trong menu **Vận hành** và **Quản trị**.
+> `DataLabel` trong `<MudTd>` phải **khớp** với tiêu đề `<MudTh>` tương ứng.
+
+### Ngoại lệ tên cột (mapping đặc biệt)
+
+| Bảng DB | DB Column | Header cột |
+|---|---|---|
+| `Store` | `[No]` | `StoreNo` |
+| `Store` | `[ClosingMethod]` | `Status` |
+| `POSTerminal` | `[No]` | `PosNo` |
+
+### Ví dụ đúng
+
+```razor
+@* Header — tên field DB *@
+<HeaderContent>
+    <MudTh><MudTableSortLabel SortBy="...">StoreNo</MudTableSortLabel></MudTh>
+    <MudTh>Name</MudTh>
+    <MudTh>IPAddress</MudTh>
+    <MudTh>LastDateModified</MudTh>
+    <MudTh>Status</MudTh>
+</HeaderContent>
+
+@* RowTemplate — DataLabel phải khớp Header *@
+<RowTemplate>
+    <MudTd DataLabel="StoreNo">@context.StoreNo</MudTd>
+    <MudTd DataLabel="Name">@context.Name</MudTd>
+    <MudTd DataLabel="IPAddress">@context.IPAddress</MudTd>
+    <MudTd DataLabel="LastDateModified">@(context.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+    <MudTd DataLabel="Status">...</MudTd>
+</RowTemplate>
+```
+
+### Mapping đã áp dụng (tham khảo)
+
+| Page | DTO | Cột đã chuyển sang English |
+|---|---|---|
+| `LogsPage.razor` | `InterfaceErrorDto` | ErrorID, ErrorDateTime, UserName, ErrorProcedure, ErrorMessage, ErrorSeverity, ErrorNumber |
+| `DataRawLogPage.razor` | `DataRawJsonLogDto` | CrtDate, DataType, Flag, ErrorMessage |
+| `PosMapPage.razor` | `PosTerminalListDto` | IsOnline, PosNo, StoreNo, IPAddress, StyleProfile, BluePosVersion, Status, DateTimePos |
+| `StorePage.razor` | `StoreListDto` | StoreNo, Name, Address, BranchNo, Status, LastDateModified |
+| `UsersPage.razor` | `DashboardUser` | Id, Username, FullName, Role, IsActive |
+| `AuditPage.razor` | `AuditRecord` | Id, Actor, Database, Status, RowsAffected, HasWhere, SqlText, ElapsedMs, ExecutedAt, DecidedAt |
+
+---
+
 ## Chuẩn format hiển thị DateTime — BẮT BUỘC áp dụng toàn dự án
 
 ### Quy tắc
@@ -533,6 +584,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Dùng `<MudChart ChartType="...">` (v8 syntax) → compile error với MudBlazor 9.5.0
 - ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
 - ❌ `BarChartOptions { ShowLegend = false }` không set `YAxisSuggestedMax` → `YAxisTicks` default=20 (spacing!) làm Y-axis luôn max=20 dù data chỉ 2–8M
+- ❌ `PosTheme.cs` thiếu `Body1 = new Body1Typography { FontSize = "0.875rem" }` → dropdown/autocomplete/picker popup render 16px (MudBlazor built-in cho Body1), to hơn DataTable 14px. `Default.FontSize` KHÔNG tự cascade xuống `Body1`.
+- ❌ `MudDatePicker Editable="true"` → click vào ô text không mở calendar, phải click icon. Dùng `AutoClose="true"` (bỏ `Editable`) để click text = mở calendar + tự đóng sau chọn.
 - ❌ Raw SQL trong page/component → phải đi qua Repository hoặc Service
 - ❌ Thêm nav link mới mà quên wrap `<AuthorizeView Policy="...">` trong `MainLayout.razor`
 - ❌ Dùng `MudStack Row Justify.SpaceBetween` cho header title+button → vỡ layout mobile, button stretch cao bất thường

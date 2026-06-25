@@ -124,17 +124,17 @@ else
               Breakpoint="Breakpoint.Sm" Elevation="2"
               HorizontalScrollbar="true">
         <HeaderContent>
-            <MudTh Style="min-width:140px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.CrtDate)" InitialDirection="SortDirection.Descending">Thời gian</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:140px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.CrtDate)" InitialDirection="SortDirection.Descending">CrtDate</MudTableSortLabel></MudTh>
             <MudTh Style="min-width:160px">TransactionId</MudTh>
-            <MudTh Style="min-width:100px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.DataType ?? string.Empty)">Loại</MudTableSortLabel></MudTh>
-            <MudTh Style="min-width:190px; text-align:center"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.Flag)">Trạng thái</MudTableSortLabel></MudTh>
-            <MudTh Style="min-width:260px">Nội dung lỗi</MudTh>
+            <MudTh Style="min-width:100px"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.DataType ?? string.Empty)">DataType</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:190px; text-align:center"><MudTableSortLabel SortBy="new Func<DataRawJsonLogDto, object>(x => x.Flag)">Flag</MudTableSortLabel></MudTh>
+            <MudTh Style="min-width:260px">ErrorMessage</MudTh>
             <MudTh Style="width:60px; text-align:center">JSON</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Thời gian" Style="white-space:nowrap">@context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+            <MudTd DataLabel="CrtDate" Style="white-space:nowrap">@context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
             <MudTd DataLabel="TransactionId" Style="font-family:monospace; font-size:0.8rem">@(context.TransactionId ?? "—")</MudTd>
-            <MudTd DataLabel="Loại">
+            <MudTd DataLabel="DataType">
                 @if (!string.IsNullOrEmpty(context.DataType))
                 {
                     <span style="background:var(--pos-info); color:#fff; border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:600">@context.DataType</span>
@@ -144,7 +144,7 @@ else
                     <span>—</span>
                 }
             </MudTd>
-            <MudTd DataLabel="Trạng thái" Style="text-align:center">
+            <MudTd DataLabel="Flag" Style="text-align:center">
                 @if (context.Flag)
                 {
                     <span style="background:var(--pos-success); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">✓ OK</span>
@@ -162,7 +162,7 @@ else
                     </div>
                 }
             </MudTd>
-            <MudTd DataLabel="Nội dung lỗi">
+            <MudTd DataLabel="ErrorMessage">
                 @if (!string.IsNullOrEmpty(context.Source))
                 {
                     var (srcBg, srcLabel) = context.Source.ToUpperInvariant() switch

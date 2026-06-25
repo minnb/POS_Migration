@@ -4,15 +4,441 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
+@using MudBlazor.Charts
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.CentralSale
+@using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using POS.Infrastructure.Logging
+
+@inject ICentralSaleRepository SaleRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Tổng kết ca – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
 
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.Summarize" Class="mr-2" Style="vertical-align:middle"/>
     Tổng kết ca
 </MudText>
 
-<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Construction">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter Panel ─────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@StoreDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng"
+                                 Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDateNullable"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDateNullable"
+                           Label="Đến ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Alert ────────────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@if (!_loading && _summaries.Count > 0)
+{
+    @* ── KPI Cards (4 — flex 1 dòng) ──────────────────────────────────────── *@
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Color="Color.Primary">@FormatVND(_summaries.Sum(s => s.TotalRevenue))</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng doanh thu</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số GD</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
+                    @_summaries.Sum(s => s.OpenCount)
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ca chưa đóng</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
+                    @_summaries.Sum(s => s.DiscrepancyCount)
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ca có chênh lệch</MudText>
+            </MudPaper>
+        </div>
+    </div>
+
+    @* ── Bar Chart: Doanh thu theo ca ──────────────────────────────────────── *@
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight:600">
+            <MudIcon Icon="@Icons.Material.Filled.BarChart" Class="mr-1" Style="vertical-align:middle; color:#1976d2"/>
+            Doanh thu theo ca
+        </MudText>
+        @if (!_isEmpty)
+        {
+            <Bar T="double"
+                 ChartSeries="@_barSeries"
+                 ChartLabels="@_barLabels"
+                 Width="100%" Height="220px"
+                 ChartOptions="@_barOptions"/>
+        }
+    </MudPaper>
+
+    @* ── Summary Table: 1 row per shift number ─────────────────────────────── *@
+    <MudPaper Elevation="2" Class="mb-4">
+        <div Class="pa-3 pb-0">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600">
+                <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-1" Style="vertical-align:middle; color:#1976d2"/>
+                Phân tích theo số ca
+            </MudText>
+        </div>
+        <MudTable Items="@_summaries" Hover="true" Striped="true" Dense="true"
+                  Breakpoint="Breakpoint.Sm" Elevation="0"
+                  HorizontalScrollbar="true">
+            <HeaderContent>
+                <MudTh Style="text-align:center">Ca số</MudTh>
+                <MudTh Style="text-align:center">Số lần chạy</MudTh>
+                <MudTh Style="text-align:right">Tổng doanh thu</MudTh>
+                <MudTh Style="text-align:right">DT TB / ca</MudTh>
+                <MudTh Style="text-align:center">Tổng GD</MudTh>
+                <MudTh Style="text-align:center">GD TB / ca</MudTh>
+                <MudTh Style="text-align:center">Ca chưa đóng</MudTh>
+                <MudTh Style="text-align:center">Có chênh lệch</MudTh>
+                <MudTh Style="text-align:right">Tổng CL</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Ca số" Style="text-align:center; font-weight:700; font-size:1.05em">
+                    Ca @context.ShiftNumber
+                </MudTd>
+                <MudTd DataLabel="Số lần chạy" Style="text-align:center">@context.TotalOccurrences</MudTd>
+                <MudTd DataLabel="Tổng DT" Style="text-align:right; font-weight:600">@FormatVND(context.TotalRevenue)</MudTd>
+                <MudTd DataLabel="DT TB/ca" Style="text-align:right">@FormatVND(context.AvgRevenue)</MudTd>
+                <MudTd DataLabel="Tổng GD" Style="text-align:center">@context.TotalTransactions</MudTd>
+                <MudTd DataLabel="GD TB/ca" Style="text-align:center">@context.AvgTransactions.ToString("N1")</MudTd>
+                <MudTd DataLabel="Chưa đóng" Style="text-align:center">
+                    @if (context.OpenCount > 0)
+                    {
+                        <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">@context.OpenCount</MudChip>
+                    }
+                    else { <span style="color:#4caf50">—</span> }
+                </MudTd>
+                <MudTd DataLabel="Có CL" Style="text-align:center">
+                    @if (context.DiscrepancyCount > 0)
+                    {
+                        <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">@context.DiscrepancyCount</MudChip>
+                    }
+                    else { <span style="color:#4caf50">—</span> }
+                </MudTd>
+                <MudTd DataLabel="Tổng CL" Style="@($"text-align:right; font-weight:600; color:{ChenLechColor(context.TotalChenLech)}")">
+                    @FormatVND(context.TotalChenLech)
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+
+    @* ── Detail Table: per shift (visible when store selected) ─────────────── *@
+    @if (_shifts.Count > 0)
+    {
+        <MudPaper Elevation="2">
+            <div Class="pa-3 pb-0">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600">
+                    <MudIcon Icon="@Icons.Material.Filled.List" Class="mr-1" Style="vertical-align:middle; color:#1976d2"/>
+                    Chi tiết từng ca
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-2">(@_shifts.Count ca)</MudText>
+                </MudText>
+            </div>
+            <MudTable Items="@_shifts" Hover="true" Striped="true" Dense="true"
+                      Breakpoint="Breakpoint.Sm" Elevation="0"
+                      HorizontalScrollbar="true">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.BussinessDate)">Ngày KD</MudTableSortLabel></MudTh>
+                    <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.ShiftNumber)">Ca</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.PosTerminal)">Terminal</MudTableSortLabel></MudTh>
+                    <MudTh Style="text-align:center">Thu ngân</MudTh>
+                    <MudTh Style="text-align:center">Mở ca</MudTh>
+                    <MudTh Style="text-align:center">Đóng ca</MudTh>
+                    <MudTh Style="text-align:right">Doanh thu</MudTh>
+                    <MudTh Style="text-align:center">Số GD</MudTh>
+                    <MudTh Style="text-align:right; white-space:nowrap">Chênh lệch</MudTh>
+                    <MudTh Style="text-align:center">T/T</MudTh>
+                    <MudTh Style="text-align:center">Chi tiết</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Ngày KD">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="Ca" Style="text-align:center; font-weight:600">@context.ShiftNumber</MudTd>
+                    <MudTd DataLabel="Terminal">@context.PosTerminal</MudTd>
+                    <MudTd DataLabel="Thu ngân" Style="text-align:center">@(context.StaffCode ?? "—")</MudTd>
+                    <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
+                    <MudTd DataLabel="Đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
+                    <MudTd DataLabel="Doanh thu" Style="text-align:right">@FormatVND(context.TotalRevenue)</MudTd>
+                    <MudTd DataLabel="Số GD" Style="text-align:center">@context.TransactionCount</MudTd>
+                    <MudTd DataLabel="CL" Style="@($"text-align:right; font-weight:600; color:{ChenLechColor(context.ChenLech)}")">
+                        @FormatVND(context.ChenLech)
+                    </MudTd>
+                    <MudTd DataLabel="T/T" Style="text-align:center">
+                        @if (context.IsShiftClosed)
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Đóng</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Mở</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Chi tiết" Style="text-align:center">
+                        <MudTooltip Text="Xem chi tiết ca">
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Size="Size.Small" Color="Color.Primary"
+                                           OnClick="@(() => OpenDetailAsync(context))"/>
+                        </MudTooltip>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                   InfoFormat="{first_item}–{last_item} / {all_items} ca"
+                                   RowsPerPageString="Số dòng mỗi trang:"/>
+                </PagerContent>
+            </MudTable>
+        </MudPaper>
+    }
+}
+else if (!_loading && _summaries.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudAlert>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool    _loading;
+    private string? _errorMsg;
+    private bool    _isStoreOperator;
+
+    private DateTime? _fromDateNullable = DateTime.Today.AddDays(-6);
+    private DateTime? _toDateNullable   = DateTime.Today;
+
+    private List<ShiftNumberSummaryDto> _summaries      = [];
+    private List<EosShiftDto>           _shifts         = [];
+    private IReadOnlyList<string>       _userStoreCodes = [];
+    private List<StoreDto>              _allStores      = [];
+    private StoreDto?                   _selectedStore;
+
+    // Chart state
+    private bool _isEmpty = true;
+    private List<ChartSeries<double>> _barSeries = [];
+    private string[] _barLabels = [];
+    private readonly BarChartOptions _barOptions = new() { ShowLegend = false };
+
+    private static string FormatVND(decimal v) => $"{v:N0} ₫";
+
+    private static string ChenLechColor(decimal v) =>
+        v < 0 ? "#f44336" : v > 0 ? "#4caf50" : "#9e9e9e";
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        try
+        {
+            _allStores = await MdRepo.GetStoreListAsync();
+        }
+        catch (Exception ex)
+        {
+            KibanaService.LogException("ShiftSummaryPage.LoadStores", "", 0, "", ex.Message);
+        }
+
+        await LoadDataAsync();
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var from = (_fromDateNullable ?? DateTime.Today.AddDays(-6)).Date;
+            var to   = (_toDateNullable   ?? DateTime.Today).Date;
+            if (to < from) to = from;
+
+            IReadOnlyList<string>? storeCodes = _isStoreOperator
+                ? _userStoreCodes
+                : _selectedStore == null
+                    ? null
+                    : [_selectedStore.StoreNo!];
+
+            // Detail table only when a specific store is selected
+            var loadDetail = _isStoreOperator || _selectedStore != null;
+
+            var taskSummary = SaleRepo.GetShiftNumberSummaryAsync(from, to, storeCodes);
+            var taskDetail  = loadDetail
+                ? SaleRepo.GetEosShiftRangeAsync(from, to, storeCodes)
+                : Task.FromResult(new List<EosShiftDto>());
+
+            await Task.WhenAll(taskSummary, taskDetail);
+            _summaries = await taskSummary;
+            _shifts    = await taskDetail;
+
+            BuildChart();
+
+            KibanaService.LogInfo("ShiftSummaryPage.LoadData",
+                _isStoreOperator ? (_userStoreCodes.FirstOrDefault() ?? "all") : (_selectedStore?.StoreNo ?? "all"),
+                $"Loaded {_summaries.Count} shift-number summaries, {_shifts.Count} detail rows [{from:dd/MM/yyyy}–{to:dd/MM/yyyy}]");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("ShiftSummaryPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildChart()
+    {
+        _isEmpty = _summaries.Count == 0 || _summaries.All(s => s.TotalRevenue == 0);
+        if (_isEmpty) return;
+
+        _barLabels = _summaries.Select(s => $"Ca {s.ShiftNumber}").ToArray();
+        _barSeries =
+        [
+            new ChartSeries<double>
+            {
+                Name = "Doanh thu",
+                Data = new ChartData<double>(_summaries.Select(s => (double)s.TotalRevenue).ToArray())
+            }
+        ];
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _fromDateNullable = DateTime.Today.AddDays(-6);
+        _toDateNullable   = DateTime.Today;
+        if (!_isStoreOperator) _selectedStore = null;
+        await LoadDataAsync();
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => _userStoreCodes.Contains(s.StoreNo ?? "")) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_userStoreCodes.FirstOrDefault() ?? "");
+
+    // ── Dialog ───────────────────────────────────────────────────────────────
+
+    private async Task OpenDetailAsync(EosShiftDto shift)
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            CloseButton = true
+        };
+        var parameters = new DialogParameters<EosShiftDetailDialog>
+        {
+            { x => x.Shift, shift }
+        };
+        await DialogService.ShowAsync<EosShiftDetailDialog>("", parameters, options);
+    }
+}
