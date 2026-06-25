@@ -43,7 +43,8 @@ builder.Services.AddMudServices(config =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options =>
     {
-        options.DetailedErrors = builder.Environment.IsDevelopment();
+        options.DetailedErrors = builder.Environment.IsDevelopment()
+            || builder.Configuration.GetValue<bool>("WebApp:EnableDetailedErrors");
     });
 
 // Nới giới hạn message SignalR cho Blazor circuit (mặc định 32KB) — defense-in-depth
