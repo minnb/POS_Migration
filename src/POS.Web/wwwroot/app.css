@@ -241,3 +241,108 @@
     border-bottom: none;
     vertical-align: middle;
 }
+
+/* ── Flat UI overrides ───────────────────────────────────────────────────
+   Làm mảnh border của input Outlined (MudTextField, MudSelect, MudAutocomplete...).
+   Mặc định MudBlazor dùng 1px nhưng màu khá nhạt → tăng tương phản nhẹ.
+   KHÔNG thêm border cho MudPaper/MudCard — hairline shadow (E1–E5 = 0 0 0 1px)
+   đã tạo viền rồi; thêm border CSS sẽ gây viền đôi.                       */
+
+/* Border mặc định (không lỗi, không focus): dùng --pos-border-strong (#B8C4D8) */
+.mud-input-outlined:not(.mud-input-error):not(.mud-focused) .mud-input-outlined-border {
+    border-width: 1px;
+    border-color: var(--pos-border-strong);
+}
+
+/* Border khi focus: giữ màu primary MudBlazor (--mud-palette-primary) */
+.mud-input-outlined.mud-focused .mud-input-outlined-border {
+    border-width: 1px;
+}
+
+/* Dropdown list item (MudSelect, MudAutocomplete, MudMenu)
+   Default MudBlazor: padding 8px + .mud-list-item-text margin 4px = 24px spacing/item
+   Target: padding 5px + text-margin 2px → gọn hơn ~10px/item (~34px/row)
+   Mobile: giữ min 34px đủ tap target (WCAG 2.5.5 ≥ 24px) */
+.mud-list-item {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+}
+.mud-list-item-text {
+    margin-top: 2px !important;
+    margin-bottom: 2px !important;
+}
+
+/* Sidebar nav link — padding dọc desktop
+   4px padding + 1px margin = 10px/item (giảm ~30% so với 5px+2px=14px trước)
+   margin override: Margin.Dense mặc định 2px → giảm xuống 1px */
+.mud-drawer .mud-nav-link {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    margin-top: 1px !important;
+    margin-bottom: 1px !important;
+}
+
+/* ── Vấn đề 1: Button thấp hơn input trong filter panel ─────────────────
+   Nguyên nhân: MudItem chứa button dùng align-center, nhưng input có floating
+   label làm tổng chiều cao của hàng lớn hơn button → button trôi giữa, trông nhỏ.
+   Fix: align-self: flex-end trên MudStack (direct child của MudItem) —
+   override align-items:center của parent mà không cần :has().
+   MudStack Row="true" render class "mud-stack mud-stack-row".
+   Chỉ áp sm+ vì mobile button group ở hàng riêng (xs="12"). */
+@media (min-width: 600px) {
+    .mud-grid-item.align-center > .mud-stack.mud-stack-row {
+        align-self: flex-end !important;
+        margin-bottom: 0 !important;
+    }
+}
+
+/* ── Vấn đề 3: KPI cards chiều cao không đồng nhất ─────────────────────
+   Nguyên nhân: wrapper div dùng flex:1, cao bằng nhau theo flex stretch,
+   nhưng MudPaper bên trong chỉ cao theo content → label 2 dòng = card cao hơn.
+   Fix: MudPaper fill 100% chiều cao wrapper.
+   Selector: .d-flex.flex-wrap > div > .mud-paper (pattern KPI row dùng plain div) */
+.d-flex.flex-wrap > div > .mud-paper {
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* ── Mobile safety — tap targets & readability (xs ≤ 599px) ─────────────
+   Nguyên tắc: desktop compact (density cao), mobile nới đủ vùng chạm.
+   Ngưỡng tối thiểu: 40px cho mọi element tương tác (WCAG 2.5.5 target size).
+   LineHeight nới lên 1.5 (từ 1.45) để text dễ đọc hơn trên màn nhỏ.       */
+@media (max-width: 599.98px) {
+
+    /* Line-height: nới từ 1.45 → 1.5 trên mobile */
+    :root { --mud-typography-default-lineheight: 1.5; }
+
+    /* Button tap target: min 40px (MudBlazor default Medium = 36px) */
+    .mud-button-root {
+        min-height: 40px !important;
+    }
+
+    /* Icon button: padding 8px → tổng 8+24+8 = 40px tap area */
+    .mud-icon-button {
+        padding: 8px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+    }
+
+    /* Dropdown list item (MudSelect, MudAutocomplete): nới về 8px */
+    .mud-list-item {
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+    }
+
+    /* Sidebar nav link: nới tap target trên mobile (override desktop 4px) */
+    .mud-drawer .mud-nav-link {
+        padding-top: 9px !important;
+        padding-bottom: 9px !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+    }
+
+    /* MudTablePager select & pagination buttons: đủ vùng chạm */
+    .mud-table-pagination .mud-select .mud-input-root {
+        min-height: 40px !important;
+    }
+}

@@ -76,7 +76,7 @@ public static class PosTheme
 
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "8px",
+            DefaultBorderRadius = "4px",
             DrawerWidthLeft     = "260px",
         },
 
@@ -86,7 +86,7 @@ public static class PosTheme
             {
                 FontFamily = ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "sans-serif"],
                 FontSize   = "0.875rem",
-                LineHeight = "1.6",
+                LineHeight = "1.45",
             },
             H5 = new H5Typography
             {
@@ -128,11 +128,11 @@ public static class PosTheme
             Elevation =
             [
                 "none",                                         // 0
-                "0 2px 4px rgba(26,43,69,0.06)",               // 1
-                "0 2px 8px rgba(26,43,69,0.08)",               // 2 — card mặc định
-                "0 3px 10px rgba(26,43,69,0.10)",              // 3
-                "0 4px 14px rgba(26,43,69,0.12)",              // 4
-                "0 4px 16px rgba(26,43,69,0.14)",              // 5 — card hover
+                "0 0 0 1px rgba(26,43,69,0.12)",               // 1 — flat hairline
+                "0 0 0 1px rgba(26,43,69,0.12)",               // 2 — flat hairline (card)
+                "0 0 0 1px rgba(26,43,69,0.12)",               // 3 — flat hairline
+                "0 0 0 1px rgba(26,43,69,0.12)",               // 4 — flat hairline
+                "0 0 0 1px rgba(26,43,69,0.12)",               // 5 — flat hairline
                 "0 5px 18px rgba(26,43,69,0.15)",              // 6
                 "0 6px 20px rgba(26,43,69,0.16)",              // 7
                 "0 6px 22px rgba(26,43,69,0.17)",              // 8

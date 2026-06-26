@@ -61,3 +61,61 @@ public static class PosTheme
 
 > Ví dụ thực tế: `src/POS.Web/Theme/PosTheme.cs`
 > Style guide reference: `docs/style-guide.html`
+
+---
+
+## Pattern: Flat UI — shadow array + border-radius
+
+> Áp dụng khi: muốn chuyển toàn app sang phong cách Flat (không bóng đổ trên card/panel).
+
+**Quy tắc phân vùng elevation:**
+- E0–E5: flat hairline `"0 0 0 1px rgba(26,43,69,0.12)"` → card/paper/filter panel
+- E6+: GIỮ NGUYÊN shadow gốc → MudPopover (E8), MudDialog (E12) cần nổi lên khỏi nền
+
+```csharp
+// PosTheme.cs — giá trị đã áp dụng
+LayoutProperties = new LayoutProperties { DefaultBorderRadius = "4px" },
+Shadows = new Shadow
+{
+    Elevation =
+    [
+        "none",                                         // 0
+        "0 0 0 1px rgba(26,43,69,0.12)",               // 1 — flat hairline
+        "0 0 0 1px rgba(26,43,69,0.12)",               // 2 — flat hairline (card)
+        "0 0 0 1px rgba(26,43,69,0.12)",               // 3
+        "0 0 0 1px rgba(26,43,69,0.12)",               // 4
+        "0 0 0 1px rgba(26,43,69,0.12)",               // 5
+        "0 5px 18px rgba(26,43,69,0.15)",              // 6 — UNCHANGED (dropdown base)
+        // ... E7-E25 giữ nguyên
+    ]
+}
+```
+
+**Anti-pattern:**
+- ❌ Làm phẳng E8 → MudSelect/MudAutocomplete dropdown dính bẹt vào nền
+- ❌ Làm phẳng E12 → MudDialog không tách khỏi overlay
+
+---
+
+## Pattern: Density Standard — Comfortable-tight
+
+> Áp dụng khi: cần tối ưu density cho app dashboard (không quá rộng, mobile-safe).
+
+| Thành phần | Giá trị |
+|---|---|
+| `LineHeight` (theme) | `"1.45"` desktop / `1.5` mobile (CSS var) |
+| `MudTable` | `Dense="true"` — luôn |
+| `MudGrid Spacing` | `Spacing="2"` (filter), `Spacing="3"` (KPI/chart) |
+| Form Margin | `Margin="Margin.Dense"` trong filter panel |
+| `MudAppBar` | `Dense="true"` (48px) |
+| `MudNavMenu` | `Margin="Margin.Dense"` (2px inter-item) |
+
+**app.css overrides đã có sẵn** (không thêm lại):
+- `.mud-list-item` → `padding: 5px` desktop / `8px` mobile
+- `.mud-drawer .mud-nav-link` → `padding: 4px; margin: 1px` desktop / `9px; 2px` mobile
+- `@media (max-width: 599.98px)` → min-height 40px cho button/icon-button (WCAG 2.5.5)
+- `.d-flex.flex-wrap > div > .mud-paper { height: 100% }` → KPI cards equal height
+
+**Anti-pattern:**
+- ❌ Thêm lại `@media (max-width: 599.98px)` cho từng component riêng — CSS global đã đủ
+- ❌ `MudGrid` không có `Spacing` — tự default về 4 (16px), quá rộng

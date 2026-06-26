@@ -45,14 +45,14 @@ builder.Services.AddRazorComponents()
     {
         options.DetailedErrors = builder.Environment.IsDevelopment()
             || builder.Configuration.GetValue<bool>("WebApp:EnableDetailedErrors");
+    })
+    // Nới giới hạn message cho Blazor circuit hub (mặc định 32KB) — defense-in-depth
+    // tránh circuit bị tear-down khi render batch / interop lớn. Gắn TRỰC TIẾP vào
+    // server components hub (đúng pattern Blazor Server), không dùng global Configure<HubOptions>.
+    .AddHubOptions(options =>
+    {
+        options.MaximumReceiveMessageSize = 512 * 1024; // 512 KB
     });
-
-// Nới giới hạn message SignalR cho Blazor circuit (mặc định 32KB) — defense-in-depth
-// tránh circuit bị tear-down khi render batch / interop lớn.
-builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(o =>
-{
-    o.MaximumReceiveMessageSize = 512 * 1024; // 512 KB
-});
 
 // ── Infrastructure: DB, Redis, RabbitMQ, Elasticsearch, HttpClients ──
 // Bao gồm: CentralMDConnectionFactory, LoyaltyConnectionFactory,

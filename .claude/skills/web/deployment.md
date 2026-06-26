@@ -4,6 +4,33 @@
 
 ---
 
+## Cấu hình 3 môi trường (DEV / UAT / Production)
+
+| Hạng mục | DEV (debug local) | UAT | Production |
+|---|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Development` | `UAT` | `Production` |
+| Chạy qua nginx? | ❌ Kestrel trực tiếp | ✅ nginx | ✅ nginx |
+| appsettings overlay | `appsettings.Development.json` | `appsettings.UAT.json` | `appsettings.Production.json` |
+| nginx conf | — | `nginx/pos-web.uat.conf` | `nginx/pos-web.conf` |
+| DetailedErrors | tự bật (`IsDevelopment()`) | qua `WebApp:EnableDetailedErrors=true` | `EnableDetailedErrors` (tắt khi ổn định) |
+
+**Quy tắc cốt lõi:**
+- DEV debug **KHÔNG đi qua nginx** → mọi circuit crash ở DEV là tầng app/browser, KHÔNG phải nginx. Đừng route DEV qua `pos-web.conf` production (hardcode `proxy_pass 127.0.0.1:5001`).
+- Env name `UAT` khiến `IsDevelopment()` VÀ `IsProduction()` đều **false** → `UseDeveloperExceptionPage()` không chạy; detailed errors **chỉ** bật được qua config flag `WebApp:EnableDetailedErrors` (lý do flag này đọc từ config thay vì hardcode `IsDevelopment()`).
+- `DetailedErrors` + `MaximumReceiveMessageSize` cấu hình tại `AddInteractiveServerComponents().AddHubOptions(...)` (đúng pattern Blazor Server) — KHÔNG dùng global `Configure<HubOptions>`.
+
+### Xử lý circuit crash / WebSocket ở DEV local (localhost, no proxy)
+
+1. **Hard refresh `Ctrl+Shift+R`** — xóa stale circuit sau rebuild (assembly hash đổi → "Failed to rejoin"). Fix phần lớn trường hợp.
+2. `dotnet dev-certs https --trust` — nếu dùng profile https (`wss://localhost:7200/_blazor` handshake fail khi cert chưa trust).
+3. Dùng **1 scheme nhất quán** (đừng trộn `:5170` http và `:7200` https → WebSocket origin mismatch).
+4. F12 → Console (lỗi thật) + Network filter `_blazor` (WebSocket phải `101 Switching Protocols`).
+5. Đọc **server log console** (DEV đã bật DetailedErrors) → lấy exception thật từ page.
+
+> Anti-pattern: ❌ kết luận "nginx sai" khi DEV crash — DEV không có nginx. ❌ tạo `appsettings.UAT.json` mà quên `EnableDetailedErrors=true` → UAT không thấy lỗi (vì `IsDevelopment()=false`).
+
+---
+
 ## Pattern: Explicit UseRouting() để middleware chạy TRƯỚC routing
 
 > Áp dụng khi: cần middleware tùy chỉnh chạy TRƯỚC endpoint routing (vd: rewrite Host header,
@@ -63,40 +90,89 @@ app.UseRouting(); // BẮT BUỘC đi kèm — xem pattern explicit UseRouting �
 
 ---
 
-## Pattern: nginx config cho Blazor Server
+## Pattern: nginx config cho Blazor Server (production-hardened)
 
-> Áp dụng khi: deploy POS.Web với nginx làm reverse proxy (không có hoặc thay thế Docker).
+> Áp dụng khi: deploy POS.Web với nginx làm reverse proxy.
+> Config chuẩn tại: `nginx/pos-web.conf` — copy trực tiếp, không dùng template đơn giản bên dưới.
+
+### Checklist bắt buộc
+
+| # | Hạng mục | Lý do |
+|---|---|---|
+| 1 | `proxy_http_version 1.1` | WebSocket chỉ chạy trên HTTP/1.1 |
+| 2 | `map $http_upgrade $connection_upgrade` + header | Upgrade WS đúng cách |
+| 3 | `proxy_buffering off` + `add_header X-Accel-Buffering "no"` | Tắt nginx buffer cho SSE/WebSocket — thiếu `X-Accel-Buffering` có thể vẫn buffer nội bộ |
+| 4 | `proxy_buffer_size 32k; proxy_buffers 8 32k` | Payload HTML > 64KB (SSR + Blazor state) → buffer nhỏ → nginx temp-file → circuit timeout |
+| 5 | `location /_blazor` riêng với `proxy_read_timeout 86400s` | WebSocket duy trì 24h, không bị ngắt bởi idle timeout chung |
+| 6 | `proxy_set_header Host $http_host` | Giữ đúng host+port browser |
+
+### Config chuẩn (rút gọn từ `nginx/pos-web.conf`)
 
 ```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
 server {
-    listen 5001;
+    listen 8080;
     server_name _;
 
-    # WebSocket — BẮT BUỘC cho Blazor SignalR circuit
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
+    proxy_read_timeout    1800s;   # long-polling fallback
+    proxy_send_timeout    1800s;
+    proxy_connect_timeout   30s;
 
-    proxy_set_header Host $http_host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # BẮT BUỘC: buffer đủ lớn cho Blazor SSR payload
+    proxy_buffer_size         32k;
+    proxy_buffers           8 32k;
+    proxy_busy_buffers_size   64k;
 
-    proxy_read_timeout 300s;   # Blazor long-polling fallback cần timeout dài
-    proxy_send_timeout 300s;
+    # Dedicated block cho /_blazor SignalR WebSocket hub
+    location /_blazor {
+        proxy_pass         http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection $connection_upgrade;
+        proxy_set_header   Host       $http_host;
+        proxy_set_header   X-Real-IP  $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_buffering    off;
+        add_header         X-Accel-Buffering "no";  # tắt nginx internal buffer layer
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout    86400s;  # 24h — WebSocket không bị ngắt giữa session
+        proxy_send_timeout    86400s;
+    }
 
     location / {
-        proxy_pass http://localhost:8080;
+        proxy_pass         http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection $connection_upgrade;
+        proxy_set_header   Host       $http_host;
+        proxy_set_header   X-Real-IP  $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   X-Forwarded-Host  $http_host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_buffering    off;
+        add_header         X-Accel-Buffering "no";
     }
 }
 ```
 
-**Build self-contained cho linux (chạy không cần .NET runtime):**
+### Anti-patterns nginx + Blazor Server
+
+- ❌ `proxy_buffers 4 16k` (64KB) → production HTML > 64KB → nginx temp-file → circuit timeout
+- ❌ `proxy_buffering off` mà không có `X-Accel-Buffering "no"` → nginx vẫn buffer ở internal layer
+- ❌ Không có `location /_blazor` riêng → WebSocket dùng chung `proxy_read_timeout 1800s` → idle ngắt sau 30 phút
+- ❌ `proxy_set_header Connection "upgrade"` hardcode → không xử lý non-WebSocket request (cần dùng `map`)
+- ❌ Load balancer phía trước nginx mà không có **sticky session** → Blazor circuit reconnect vào backend khác → crash
+
+**Build self-contained cho linux:**
 ```bash
 dotnet publish src/POS.Web/POS.Web.csproj -c Release -r linux-x64 --self-contained true -o publish/POS.Web
 ```
-
-> Anti-pattern: Quên `proxy_set_header Upgrade` → SignalR WebSocket không upgrade được →
-> Blazor circuit không kết nối → button/event không phản hồi.
 
 ---
 

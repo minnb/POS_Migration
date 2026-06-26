@@ -743,6 +743,185 @@ public async ValueTask DisposeAsync()
 
 ---
 
+### 14. MudBlazor Flat UI Standard — BẮT BUỘC với mọi component mới
+
+> Áp dụng từ phiên thiết kế 2026-06-26. Theme flat đã được cấu hình sẵn trong `PosTheme.cs`.
+> Tự áp dụng — không cần nhắc.
+
+#### Quy ước Input
+
+- **Variant:** luôn dùng `Variant="Variant.Outlined"`
+- **Margin:** luôn dùng `Margin="Margin.Dense"` (trừ khi layout cần Normal)
+- **KHÔNG** dùng `Variant.Filled` cho input (chỉ dùng Filled cho button CTA)
+
+```razor
+@* ✅ Chuẩn flat — form input *@
+<MudTextField @bind-Value="_filter.StoreNo"
+              Label="Mã cửa hàng"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense"/>
+
+<MudSelect @bind-Value="_filter.Status"
+           Label="Trạng thái"
+           Variant="Variant.Outlined"
+           Margin="Margin.Dense">
+    <MudSelectItem Value="0">Tất cả</MudSelectItem>
+</MudSelect>
+```
+
+#### Quy ước Card / Paper / Panel
+
+- **Card/Paper chứa nội dung:** `Elevation="1"` hoặc `Elevation="2"` — tạo hairline border 1px
+- **Filter panel:** `Elevation="1"`
+- **Section phân tách nhẹ (không cần border):** `Elevation="0"`
+- **KHÔNG** dùng `Elevation="3"` trở lên cho card/paper thông thường
+
+```razor
+@* ✅ Chuẩn flat — card *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    @* nội dung *@
+</MudPaper>
+
+@* ✅ Filter panel *@
+<MudPaper Elevation="1" Class="pa-3 mb-4">
+    <MudGrid Spacing="2">
+        @* filter fields *@
+    </MudGrid>
+</MudPaper>
+```
+
+#### Quy tắc Elevation — QUAN TRỌNG
+
+| Loại component | Elevation dùng | Lý do |
+|---------------|---------------|-------|
+| Card / Paper / Panel | `0`–`2` | Flat hairline (E1–E5 = `0 0 0 1px`) |
+| Button | `DisableElevation` hoặc mặc định | app.css đã bỏ shadow button global |
+| **MudPopover / dropdown** | **KHÔNG hạ** — giữ E8 mặc định | MudSelect, MudAutocomplete, MudDatePicker, MudMenu cần nổi |
+| **MudDialog** | **KHÔNG hạ** — giữ E12 mặc định | Dialog phải nổi trên overlay |
+
+> **Quy tắc cốt lõi:** Chỉ flat `Elevation 0–5` (card/panel). `Elevation 6+` giữ shadow gốc cho overlay/dropdown/dialog — làm phẳng sẽ khiến dropdown dính bẹt vào nền.
+
+#### Border-radius chuẩn dự án
+
+- Theme: `DefaultBorderRadius = "4px"` (cấu hình trong `PosTheme.cs`)
+- CSS token: `--pos-radius-sm: 4px` | `--pos-radius-md: 8px` | `--pos-radius-lg: 12px`
+- Dùng `--pos-radius-sm` cho custom HTML element nhỏ (badge, tag)
+- **KHÔNG** hardcode `border-radius` trên component MudBlazor — theme tự xử lý
+
+#### Cấm tuyệt đối
+
+- ❌ Thêm thư viện component UI khác (Radzen, Blazorise, Ant Design Blazor...) — chỉ dùng MudBlazor
+- ❌ Thêm `box-shadow` inline trên MudPaper/MudCard — dùng `Elevation` attribute
+- ❌ Hạ Elevation của MudPopover, MudDialog, MudDrawer — các overlay này cần shadow để tách khỏi nền
+
+---
+
+### 15. Density Standard — BẮT BUỘC với mọi component/page mới
+
+> Áp dụng từ phiên thiết kế 2026-06-26. Mục tiêu: **gọn vừa phải, nhất quán** —
+> không nén quá tay; mobile giữ vùng chạm tối thiểu 40px.
+> Tự áp dụng — không cần nhắc.
+
+#### Con số chuẩn (Comfortable-tight)
+
+| Thành phần | Desktop | Mobile (xs ≤ 599px) |
+|-----------|---------|---------------------|
+| **LineHeight** | `1.45` (theme) | `1.5` (CSS override) |
+| **MudTable** | `Dense="true"` — luôn | `Dense="true"` — giữ (card view trên mobile) |
+| **MudGrid Spacing** | `Spacing="2"` (form/filter), `Spacing="3"` (KPI/chart) | Giống desktop |
+| **Form field Margin** | `Margin="Margin.Dense"` — luôn | Giống desktop |
+| **MudAppBar** | `Dense="true"` (48px) | `Dense="true"` |
+| **MudNavMenu** | `Margin="Margin.Dense"` | Giống desktop |
+
+#### Thang spacing markup ưu tiên
+
+| Mục đích | Class dùng | Tránh |
+|---------|-----------|-------|
+| Separator giữa sections | `mb-4` (24px) | `mb-5`, `mb-6` |
+| Filter panel / card inner | `pa-4` (24px) | `pa-5`, `pa-6` |
+| Separator phụ / field gap | `mb-3` (16px) | |
+| Icon trước text | `mr-2` (8px) | `mr-3`, `mr-4` |
+| Flex gap trong row | `gap-2` (8px) | `gap-4` trở lên |
+
+> Không có `pa-5`, `pa-6`, `mb-5`, `mb-6` trong dự án này.
+
+#### Filter panel — button alignment chuẩn
+
+MudItem chứa button Tìm/Xóa **phải** dùng `Class="d-flex align-center"` (CSS global tự bottom-align trên sm+). Không đổi thành `align-end` trong markup — CSS đã xử lý.
+
+```razor
+@* ✅ Chuẩn — filter panel đầy đủ *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="3">
+            <MudAutocomplete @bind-Value="_filter.StoreNo"
+                             Label="Cửa hàng"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_filter.FromDate"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+```
+
+#### KPI card row — equal height chuẩn
+
+Dùng `d-flex flex-wrap` với wrapper `div[flex:1]`. CSS global tự stretch `MudPaper` fill chiều cao đồng nhất.
+
+```razor
+@* ✅ Chuẩn — KPI row equal height *@
+<div class="d-flex flex-wrap gap-3 mb-4">
+    <div style="flex:1 1 130px">
+        <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudText Typo="Typo.h5" Color="Color.Primary">@value1</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Label ngắn</MudText>
+        </MudPaper>
+    </div>
+    <div style="flex:1 1 130px">
+        <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudText Typo="Typo.h5" Color="Color.Error">@value2</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Label dài hơn hai dòng</MudText>
+        </MudPaper>
+    </div>
+</div>
+```
+
+#### Mobile — giữ vùng chạm tối thiểu
+
+CSS global (`app.css`) đã tự xử lý trên `@media (max-width: 599.98px)`:
+
+| Element | Desktop | Mobile |
+|---------|---------|--------|
+| `MudButton` | 36px | min 40px |
+| `MudIconButton` | 36px | 40×40px |
+| Dropdown list item | 5px padding | 8px padding |
+| Sidebar nav link | 4px padding | 9px padding |
+| LineHeight | 1.45 | 1.5 |
+
+**Không tự thêm media query riêng cho từng component** — CSS global đã đủ.
+
+#### Cấm
+
+- ❌ `Dense="false"` trên MudTable — mặc định Dense nếu không set, nhưng không đặt ngược lại
+- ❌ `MudGrid` không có `Spacing` — luôn đặt `Spacing="2"` hoặc `Spacing="3"`
+- ❌ Form field không có `Margin="Margin.Dense"` trong filter panel
+- ❌ Hardcode `min-height` hay `height` trên button/input — để CSS global xử lý
+
+---
+
 ## Quy tắc DB Schema — BẮT BUỘC biết
 
 ### bảng `dbo.Store` (RPOSMasterData)

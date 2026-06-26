@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-25 (MudDatePicker click-to-open: bỏ Editable="true", thêm AutoClose="true" trên 13 picker / 7 Store pages; PosTheme.cs thêm Body1 typography 14px — đồng nhất font dropdown/picker với DataTable)
+> Cập nhật: 2026-06-26 (Flat UI + Density Standard: PosTheme border-radius 4px, shadow E1-E5 hairline, LineHeight 1.45, Dense AppBar/NavMenu/Table, MudGrid Spacing chuẩn hóa, mobile safety block 40px tap targets)
 
 ---
 
@@ -102,7 +102,7 @@ src/POS.Web/
 | E6 | Routes.razor – NotAuthorized: kiểm tra IsAuthenticated | Components/Routes.razor | ✅ | `context.User.Identity?.IsAuthenticated != true` |
 | E7 | RedirectToLogin component | Components/RedirectToLogin.razor | ✅ | NavigateTo("/login", forceLoad:true) |
 | E8 | RedirectToAccessDenied component | Components/RedirectToAccessDenied.razor | ✅ | NavigateTo("/access-denied", forceLoad:true) |
-| F0 | PosTheme.cs – custom MudTheme (navy primary, teal accent, semantic colors) | Theme/PosTheme.cs | ✅ | Primary=#2051A3, Drawer/Appbar=#1B3A5C, BorderRadius=8px, Button.TextTransform=none, **Body1=0.875rem** (dropdown/picker đồng nhất 14px với DataTable) |
+| F0 | PosTheme.cs – custom MudTheme (navy primary, teal accent, semantic colors) | Theme/PosTheme.cs | ✅ | Primary=#2051A3, Drawer/Appbar=#1B3A5C, **BorderRadius=4px** (flat), **LineHeight=1.45**, Button.TextTransform=none, Body1=0.875rem, **Shadows E1-E5=hairline 0 0 0 1px** (E6+ giữ nguyên cho dropdown/dialog) |
 | F1 | MainLayout – MudThemeProvider **Theme="@PosTheme.Default"** + providers | Layout/MainLayout.razor | ✅ | Đã truyền custom theme |
 | F2 | MainLayout – MudAppBar: toggle drawer + hiển thị tên user + logout | Layout/MainLayout.razor | ✅ | Href="/logout" trên MudIconButton |
 | F3 | MainLayout – Sidebar "Cửa hàng" (Policy=StoreAndAbove) | Layout/MainLayout.razor | ✅ | 3 sub-group (Vận hành/Giao dịch/Báo cáo) + 12 leaf links không icon (tam giác MudNavLink) |
