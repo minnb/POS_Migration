@@ -28,6 +28,7 @@ public sealed class RptCentralSaleRepository(
     private const int TtlSaleByTimePast  = 43200;  // khoảng quá khứ bất biến — 12h
 
     private const string KeyTopProductPrefix = "MD:RptTopProduct";
+    private const string KeySaleByPaymentPrefix = "MD:RptSaleByPayment";
 
     public async Task<List<DetailRevenueSalesDto>> GetDetailRevenueSalesAsync(
         DateTime fromDate, DateTime toDate,
@@ -126,7 +127,7 @@ public sealed class RptCentralSaleRepository(
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
             using var multi = await conn.QueryMultipleAsync(
                 new CommandDefinition(
-                    "[dbo].[sp_ReportSaleByTime]",
+                    "[dbo].[Rpt_ReportSaleByTime]",
                     new
                     {
                         FromDate = fromDate.Date,
@@ -198,7 +199,7 @@ public sealed class RptCentralSaleRepository(
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
             using var multi = await conn.QueryMultipleAsync(
                 new CommandDefinition(
-                    "[dbo].[sp_ReportTopProduct]",
+                    "[dbo].[Rpt_ReportTopProduct]",
                     new
                     {
                         FromDate   = fromDate.Date,
@@ -327,4 +328,75 @@ public sealed class RptCentralSaleRepository(
             return [];
         }
     }
+
+    // ── Doanh thu theo hình thức thanh toán ───────────────────────────────────
+    // SP Rpt_ReportSaleByPayment trả 3 RS (KPI + theo HTTT + xu hướng ngày).
+    // Số tiền đã Net trong SP. Cache 1 key gộp 3 RS theo cùng filter.
+    public async Task<(PaymentKpiDto Kpi, List<PaymentByMethodDto> ByMethod, List<PaymentTrendDto> Trend)>
+        GetSaleByPaymentAsync(
+            DateTime fromDate, DateTime toDate,
+            string? storeNo,
+            CancellationToken ct = default)
+    {
+        var store   = string.IsNullOrWhiteSpace(storeNo) ? "ALL" : storeNo.Trim();
+        var range   = $"{fromDate:yyyyMMdd}:{toDate:yyyyMMdd}";
+        var dataKey = $"{KeySaleByPaymentPrefix}:{store}:{range}";
+
+        // ── Cache lookup (Redis lỗi → bỏ qua, rơi xuống DB) ───────────────────
+        try
+        {
+            var cached = await redis.StringGetAsync<SaleByPaymentCachePayload>(dataKey);
+            if (cached != null) return (cached.Kpi, cached.ByMethod, cached.Trend);
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetSaleByPayment.CacheGet", ex);
+        }
+
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            using var multi = await conn.QueryMultipleAsync(
+                new CommandDefinition(
+                    "[dbo].[Rpt_ReportSaleByPayment]",
+                    new
+                    {
+                        FromDate = fromDate.Date,
+                        ToDate   = toDate.Date,
+                        StoreNo  = string.IsNullOrWhiteSpace(storeNo) ? (string?)null : storeNo.Trim()
+                    },
+                    commandType: CommandType.StoredProcedure,
+                    commandTimeout: SaleByTimeTimeout,
+                    cancellationToken: ct));
+
+            var kpi      = await multi.ReadFirstOrDefaultAsync<PaymentKpiDto>() ?? new();
+            var byMethod = (await multi.ReadAsync<PaymentByMethodDto>()).ToList();
+            var trend    = (await multi.ReadAsync<PaymentTrendDto>()).ToList();
+
+            try
+            {
+                var ttl = toDate.Date >= DateTime.Today ? TtlSaleByTimeToday : TtlSaleByTimePast;
+                await redis.StringSetAsync(dataKey, new SaleByPaymentCachePayload(kpi, byMethod, trend), ttl);
+            }
+            catch (Exception ex)
+            {
+                fileLogHelper.WriteExpLogs("GetSaleByPayment.CacheSet", ex);
+            }
+
+            return (kpi, byMethod, trend);
+        }
+        catch (Exception ex)
+        {
+            // KHÔNG nuốt lỗi trả rỗng (sẽ thành "trống im lặng" trên UI, không phân biệt
+            // được với "không có dữ liệu"). Log rồi rethrow để page hiện _errorMsg.
+            fileLogHelper.WriteExpLogs("GetSaleByPayment", ex);
+            throw;
+        }
+    }
+
+    // Payload gộp 3 RS để cache 1 key.
+    private sealed record SaleByPaymentCachePayload(
+        PaymentKpiDto Kpi,
+        List<PaymentByMethodDto> ByMethod,
+        List<PaymentTrendDto> Trend);
 }

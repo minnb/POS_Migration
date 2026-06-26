@@ -154,6 +154,23 @@ public sealed class WebUserService(
         }
     }
 
+    public async Task<bool> ActivateAsync(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await dbFactory.CreateOpenConnectionAsync(ct);
+            var rows = await conn.ExecuteAsync(
+                "UPDATE DashboardUsers SET IsActive=1, UpdatedAt=GETDATE() WHERE Id=@Id",
+                new { Id = id });
+            return rows > 0;
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("WebUserService.ActivateAsync", ex);
+            return false;
+        }
+    }
+
     public async Task<bool> UsernameExistsAsync(string username, int excludeId = 0, CancellationToken ct = default)
     {
         try

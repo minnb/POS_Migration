@@ -22,6 +22,7 @@ public sealed class CentralMDRepository(
     private const string KeyPOSDataSetup      = "MD:POSDataSetup";
     private const string KeyStoreSetConfig    = "MD:StoreSetConfig";
     private const string KeyStoreList         = "MD:StoreList";
+    private const string KeyTenderTypeSetup   = "MD:TenderTypeSetup";
 
     public async Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
     {
@@ -169,6 +170,21 @@ public sealed class CentralMDRepository(
         var data = (await QueryAsync<StoreDto>(sql, ct: ct)).ToList();
         if (data.Count > 0)
             redis.StringSet(KeyStoreList, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    public async Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<TenderTypeSetupDto>>(KeyTenderTypeSetup);
+        if (cached?.Count > 0) return cached;
+
+        const string sql = @"SELECT [Code], [Description]
+                             FROM dbo.TenderTypeSetup (NOLOCK)
+                             GROUP BY [Code], [Description]
+                             ORDER BY [Code]";
+        var data = (await QueryAsync<TenderTypeSetupDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyTenderTypeSetup, data, ttlSeconds: 43200);
         return data;
     }
 

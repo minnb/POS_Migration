@@ -12,5 +12,6 @@ public interface IWebUserService
     Task<bool> CreateAsync(DashboardUser user, string password, CancellationToken ct = default);
     Task<bool> UpdateAsync(DashboardUser user, string? newPassword, CancellationToken ct = default);
     Task<bool> DeleteAsync(int id, CancellationToken ct = default);
+    Task<bool> ActivateAsync(int id, CancellationToken ct = default);
     Task<bool> UsernameExistsAsync(string username, int excludeId = 0, CancellationToken ct = default);
 }

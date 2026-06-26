@@ -46,4 +46,13 @@ public interface IRptCentralSaleRepository
         string groupBy,
         bool includeKpi = true,
         CancellationToken ct = default);
+
+    // ── Doanh thu theo hình thức thanh toán (KPI + theo HTTT + xu hướng ngày) ──
+    // Nguồn: TransPaymentEntry ⋈ TransHeader (realtime). Số tiền đã Net (trừ hàng trả).
+    // Kết quả cache Redis (key MD:RptSaleByPayment:*), TTL ngắn nếu khoảng chứa hôm nay.
+    Task<(PaymentKpiDto Kpi, List<PaymentByMethodDto> ByMethod, List<PaymentTrendDto> Trend)>
+        GetSaleByPaymentAsync(
+            DateTime fromDate, DateTime toDate,
+            string? storeNo,
+            CancellationToken ct = default);
 }

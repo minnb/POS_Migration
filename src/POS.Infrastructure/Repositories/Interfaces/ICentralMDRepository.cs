@@ -23,6 +23,10 @@ public interface ICentralMDRepository
     /// <summary>Danh sách cửa hàng (StoreNo + Name) từ bảng Store, cache Redis 12h. Dùng cho UI store picker.</summary>
     Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default);
 
+    /// <summary>Danh mục hình thức thanh toán (Code + Description) từ TenderTypeSetup, cache Redis 12h.
+    /// Dùng để resolve tên HTTT cho báo cáo thanh toán.</summary>
+    Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default);
+
     // ── CommonService (migrated từ CommonData — phần CentralMD) ──────────────
 
     /// <summary>SP [dbo].[POSMonitorInsert] — POS heartbeat/monitor. Lỗi → trả model rỗng (parity cũ).</summary>

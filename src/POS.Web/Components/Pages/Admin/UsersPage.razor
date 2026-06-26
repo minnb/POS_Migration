@@ -48,14 +48,12 @@
           HorizontalScrollbar="true">
     <ToolBarContent>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
-            @if (FilteredUsers.Count() != _users.Count)
-            {
-                @($"Hiển thị {FilteredUsers.Count()} / {_users.Count} người dùng")
+            @{
+                var fc = FilteredUsers.ToList();
             }
-            else
-            {
-                @($"Tổng: {_users.Count} người dùng")
-            }
+            @(fc.Count != _users.Count
+                ? $"Hiển thị {fc.Count} / {_users.Count} người dùng"
+                : $"Tổng: {_users.Count} người dùng")
         </MudText>
         <MudSpacer/>
         <MudTextField @bind-Value="_searchField"
@@ -67,7 +65,7 @@
                       Margin="Margin.Dense"
                       Class="mt-0"
                       Immediate="true"
-                      Style="flex:0 1 240px; min-width:160px"/>
+                      Style="width:240px"/>
     </ToolBarContent>
     <HeaderContent>
         <MudTh Style="text-align:center; width:60px"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Id)">Id</MudTableSortLabel></MudTh>
@@ -104,11 +102,20 @@
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
                                OnClick="@(() => OpenDialogAsync(context))"/>
             </MudTooltip>
-            <MudTooltip Text="Khóa tài khoản">
-                <MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
-                               Disabled="@(!context.IsActive)"
-                               OnClick="@(() => ConfirmDeleteAsync(context))"/>
-            </MudTooltip>
+            @if (context.IsActive)
+            {
+                <MudTooltip Text="Khóa tài khoản">
+                    <MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
+                                   OnClick="@(() => ConfirmToggleAsync(context))"/>
+                </MudTooltip>
+            }
+            else
+            {
+                <MudTooltip Text="Kích hoạt lại">
+                    <MudIconButton Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" Color="Color.Success"
+                                   OnClick="@(() => ConfirmToggleAsync(context))"/>
+                </MudTooltip>
+            }
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>
@@ -195,28 +202,42 @@
         }
     }
 
-    private async Task ConfirmDeleteAsync(DashboardUser user)
+    private async Task ConfirmToggleAsync(DashboardUser user)
     {
+        var isLocking = user.IsActive;
         var parameters = new DialogParameters
         {
-            ["Message"]    = $"Bạn có chắc muốn khóa tài khoản \"{user.Username}\" ({user.FullName})?",
-            ["YesText"]    = "Khóa",
+            ["Message"]    = isLocking
+                ? $"Bạn có chắc muốn khóa tài khoản \"{user.Username}\" ({user.FullName})?"
+                : $"Kích hoạt lại tài khoản \"{user.Username}\" ({user.FullName})?",
+            ["YesText"]    = isLocking ? "Khóa" : "Kích hoạt",
             ["CancelText"] = "Hủy"
         };
-        var dialog = await DialogService.ShowAsync<MudMessageBox>("Xác nhận khóa tài khoản", parameters,
+        var dialog = await DialogService.ShowAsync<MudMessageBox>(
+            isLocking ? "Xác nhận khóa tài khoản" : "Xác nhận kích hoạt",
+            parameters,
             new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
         var result = await dialog.Result;
         if (result is null or { Canceled: true }) return;
 
-        var ok = await UserService.DeleteAsync(user.Id);
+        var ok = isLocking
+            ? await UserService.DeleteAsync(user.Id)
+            : await UserService.ActivateAsync(user.Id);
+
         if (ok)
         {
-            Snackbar.Add($"Đã khóa tài khoản {user.Username}.", Severity.Info);
+            Snackbar.Add(isLocking
+                ? $"Đã khóa tài khoản {user.Username}."
+                : $"Đã kích hoạt tài khoản {user.Username}.",
+                Severity.Info);
             await LoadDataAsync();
         }
         else
         {
-            Snackbar.Add("Khóa tài khoản thất bại. Vui lòng thử lại.", Severity.Error);
+            Snackbar.Add(isLocking
+                ? "Khóa tài khoản thất bại. Vui lòng thử lại."
+                : "Kích hoạt tài khoản thất bại. Vui lòng thử lại.",
+                Severity.Error);
         }
     }
 

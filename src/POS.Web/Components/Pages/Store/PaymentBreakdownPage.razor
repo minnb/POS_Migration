@@ -1,18 +1,656 @@
 @page "/store/payment-breakdown"
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
+@implements IDisposable
 
+@using System.Globalization
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
+@using MudBlazor.Charts
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
 @using POS.Web.Auth
 
-<PageTitle>Phân tích thanh toán – POS Dashboard</PageTitle>
+@inject IRptCentralSaleRepository RptRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Doanh thu theo hình thức thanh toán – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
 
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.Payments" Class="mr-2" Style="vertical-align:middle"/>
-    Phân tích thanh toán
+    Doanh thu theo hình thức thanh toán
 </MudText>
 
-<MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Construction">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter Panel ─────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@StoreDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng" Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0" MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDate" Label="Đến ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+            <MudSwitch @bind-Value="_compareEnabled" Color="Color.Primary" Label="So sánh kỳ trước"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync" Disabled="@_loading" FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync" Disabled="@_loading" FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+
+    @* Preset nhanh *@
+    <div class="d-flex align-center gap-2 flex-wrap mt-2">
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mr-1">Xem nhanh:</MudText>
+        @foreach (var label in _presetLabels)
+        {
+            <MudChip T="string"
+                     Color="@(_activePreset == label ? Color.Primary : Color.Default)"
+                     Variant="@(_activePreset == label ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetPresetAsync(label))" Disabled="@_loading" Size="Size.Small">@label</MudChip>
+        }
+    </div>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+@* ── KPI Cards (equal height) ──────────────────────────────────────────────── *@
+<div class="d-flex flex-wrap gap-3 mb-4">
+    <div style="flex:1 1 150px">
+        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-primary); height:100%;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng tiền thu (thuần)</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-1">@FormatVND(_kpi.TotalPaymentAmount)</MudText>
+            @TrendBadge(_kpi.TotalPaymentAmount, _kpiPrev?.TotalPaymentAmount)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@_kpi.TotalPaymentMethods hình thức thanh toán</MudText>
+        </MudPaper>
+    </div>
+
+    <div style="flex:1 1 150px">
+        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-info); height:100%;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Tỷ lệ KHÔNG tiền mặt</MudText>
+            <MudText Typo="Typo.h4" Color="Color.Info" Class="mt-1">@_kpi.NonCashPct.ToString("0.0")%</MudText>
+            @TrendBadge(_kpi.NonCashPct, _kpiPrev?.NonCashPct, isPercentPoint: true)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatVND(_kpi.NonCashAmount)</MudText>
+        </MudPaper>
+    </div>
+
+    <div style="flex:1 1 150px">
+        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-success); height:100%;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Tiền mặt</MudText>
+            <MudText Typo="Typo.h6" Class="mt-1" Style="color:var(--mud-palette-success)">@FormatVND(_kpi.CashAmount)</MudText>
+            @TrendBadge(_kpi.CashAmount, _kpiPrev?.CashAmount)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@_kpi.CashPct.ToString("0.0")% trên tổng</MudText>
+        </MudPaper>
+    </div>
+
+    <div style="flex:1 1 150px">
+        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-secondary); height:100%;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Số hóa đơn</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-1">@_kpi.TotalOrders.ToString("N0")</MudText>
+            @TrendBadge(_kpi.TotalOrders, _kpiPrev?.TotalOrders)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Hóa đơn có thanh toán</MudText>
+        </MudPaper>
+    </div>
+</div>
+
+<MudGrid Spacing="3" Class="mb-1">
+    @* ── Visual A — Pareto bar list theo HTTT ─────────────────────────────── *@
+    <MudItem xs="12" lg="6">
+        <MudPaper Elevation="2" Class="pa-4" Style="height:100%;">
+            <MudText Typo="Typo.subtitle1" Class="mb-1">
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1"/>
+                Cơ cấu theo hình thức thanh toán
+            </MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                Thanh = tỷ trọng so với HTTT cao nhất · nhãn: số tiền · % tỷ trọng
+            </MudText>
+
+            @if (_byMethod.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Không có dữ liệu trong khoảng thời gian này.</MudAlert>
+            }
+            else
+            {
+                @foreach (var p in _byMethod)
+                {
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                        <div style="width:30px; text-align:center; font-weight:700; color:var(--mud-palette-text-secondary);">@p.Rank</div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; justify-content:space-between; gap:8px; font-size:0.8rem; margin-bottom:2px;">
+                                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="@p.PaymentName">@p.PaymentName</span>
+                                <span style="white-space:nowrap; color:var(--mud-palette-text-secondary);">@FormatVND(p.PaymentAmount) · @p.SharePct.ToString("0.0")%</span>
+                            </div>
+                            <div style="background:var(--mud-palette-action-disabled-background); border-radius:4px; height:14px; overflow:hidden;">
+                                <div style="height:100%; @BarWidthStyle(p) background:@BarColor(p.PaymentCode); border-radius:4px; transition:width .3s;"></div>
+                            </div>
+                        </div>
+                        <div style="width:78px; text-align:right; font-size:0.78rem; color:var(--mud-palette-text-secondary);">
+                            @p.OrderCount.ToString("N0") HĐ
+                        </div>
+                    </div>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+
+    @* ── Visual B — Line chart xu hướng theo ngày ─────────────────────────── *@
+    <MudItem xs="12" lg="6">
+        <MudPaper Elevation="2" Class="pa-4" Style="height:100%;">
+            <div class="d-flex align-center justify-space-between flex-wrap gap-2 mb-3">
+                <MudText Typo="Typo.subtitle1">
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Small" Class="mr-1"/>
+                    Xu hướng theo ngày (triệu đồng)
+                </MudText>
+                <div class="d-flex align-center gap-1 flex-wrap">
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(!_showByMethod ? Color.Primary : Color.Default)"
+                             Variant="@(!_showByMethod ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(() => OnTrendModeChanged(false))">Tiền mặt / Không TM</MudChip>
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(_showByMethod ? Color.Primary : Color.Default)"
+                             Variant="@(_showByMethod ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(() => OnTrendModeChanged(true))">Theo từng HTTT</MudChip>
+                </div>
+            </div>
+
+            @if (_trendEmpty)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Cần ít nhất 2 ngày có dữ liệu để vẽ biểu đồ xu hướng.
+                </MudAlert>
+            }
+            else
+            {
+                <Line T="double"
+                      @key="@($"trend-{_chartVersion}")"
+                      ChartSeries="@_trendSeries"
+                      ChartLabels="@_trendLabels"
+                      Width="100%" Height="280px"
+                      ChartOptions="@_trendOptions"/>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* ── Bảng chi tiết ─────────────────────────────────────────────────────────── *@
+<MudTable Items="@_byMethod" Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true" T="PaymentByMethodDto">
+    <HeaderContent>
+        <MudTh Style="text-align:center">#</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PaymentByMethodDto, object>(x => x.PaymentName)">Hình thức</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<PaymentByMethodDto, object>(x => x.PaymentAmount)">Số tiền</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<PaymentByMethodDto, object>(x => x.OrderCount)">Số HĐ</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right">TB tiền/HĐ</MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<PaymentByMethodDto, object>(x => x.SharePct)">% tỷ trọng</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right; min-width:150px">% tích lũy</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="#" Style="text-align:center; font-weight:700">@context.Rank</MudTd>
+        <MudTd DataLabel="Hình thức">
+            <span style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; background:@BarColor(context.PaymentCode)"></span>
+            @context.PaymentName
+        </MudTd>
+        <MudTd DataLabel="Số tiền" Style="text-align:right; font-weight:500">@($"{context.PaymentAmount:N0} ₫")</MudTd>
+        <MudTd DataLabel="Số HĐ" Style="text-align:right">@context.OrderCount.ToString("N0")</MudTd>
+        <MudTd DataLabel="TB tiền/HĐ" Style="text-align:right">@($"{context.AvgPerOrder:N0} ₫")</MudTd>
+        <MudTd DataLabel="% tỷ trọng" Style="text-align:right">@context.SharePct.ToString("0.00")%</MudTd>
+        <MudTd DataLabel="% tích lũy" Style="text-align:right">
+            <div class="d-flex align-center justify-end gap-2">
+                <MudProgressLinear Color="Color.Primary" Value="@context.CumulativePct" Style="width:80px; height:8px; border-radius:4px;"/>
+                <span style="color:var(--mud-palette-text-secondary); min-width:48px; text-align:right;">@context.CumulativePct.ToString("0.0")%</span>
+            </div>
+        </MudTd>
+    </RowTemplate>
+    <FooterContent>
+        <MudTd Style="text-align:center; font-weight:700">∑</MudTd>
+        <MudTd Style="font-weight:700">Tổng cộng</MudTd>
+        <MudTd Style="text-align:right; font-weight:700">@($"{_byMethod.Sum(x => x.PaymentAmount):N0} ₫")</MudTd>
+        <MudTd Style="text-align:right; font-weight:700">@_kpi.TotalOrders.ToString("N0")</MudTd>
+        <MudTd/>
+        <MudTd Style="text-align:right; font-weight:700">100%</MudTd>
+        <MudTd/>
+    </FooterContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:var(--mud-palette-text-secondary)">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
+    </NoRecordsContent>
+</MudTable>
+<MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">
+    <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Style="vertical-align:middle"/>
+    Số tiền đã trừ hàng trả (thuần). Cột "Số HĐ" đếm theo từng hình thức — 1 hóa đơn có thể dùng nhiều HTTT,
+    nên tổng số HĐ ở dòng cuối lấy theo số hóa đơn thực (@_kpi.TotalOrders.ToString("N0")), không phải tổng các dòng.
+</MudText>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    // ── Auth / Store ─────────────────────────────────────────────────────────
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private bool      _isStoreOperator;
+    private string?   _filterStoreNo;
+    private StoreDto? _selectedStore;
+    private List<StoreDto> _allStores = [];
+    // Code → Description từ CentralMD.TenderTypeSetup (cache Redis 12h). Dùng resolve tên HTTT.
+    private Dictionary<string, string> _tenderNames = new(StringComparer.OrdinalIgnoreCase);
+
+    // ── Filter ───────────────────────────────────────────────────────────────
+    private DateTime? _fromDate = DateTime.Today.AddDays(-6);
+    private DateTime? _toDate   = DateTime.Today;
+    private bool      _compareEnabled;
+    private string    _activePreset = "7 ngày";
+    private readonly string[] _presetLabels = ["Hôm nay", "7 ngày", "30 ngày", "Tháng này"];
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private bool    _loading;
+    private string? _errorMsg;
+    private CancellationTokenSource? _cts;
+    // Tất-cả-store quét TransHeader/TransPaymentEntry nặng hơn ReportSaleDetail → giới hạn chặt hơn.
+    private const int MaxDaysAllStores = 31;
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+    private PaymentKpiDto  _kpi = new();
+    private PaymentKpiDto? _kpiPrev;
+    private List<PaymentByMethodDto> _byMethod = [];
+    private List<PaymentTrendDto>    _trend    = [];
+    private double _maxAmount;
+
+    // ── Chart ────────────────────────────────────────────────────────────────
+    private bool _showByMethod;   // false = Tiền mặt/Không TM (mặc định)
+    private bool _trendEmpty = true;
+    private int  _chartVersion;
+    private List<ChartSeries<double>> _trendSeries =
+        [new ChartSeries<double> { Name = "", Data = new ChartData<double>(Array.Empty<double>()) }];
+    private string[] _trendLabels = [];
+    private LineChartOptions _trendOptions = new() { LineStrokeWidth = 2, ShowLegend = true };
+
+    private const string CashCode = "CASH";   // ⚠️ khớp literal 'CASH' trong SP
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+        if (_isStoreOperator) _filterStoreNo = _userStoreCodes[0];
+
+        try { _allStores = await MdRepo.GetStoreListAsync(); }
+        catch (Exception ex) { KibanaService.LogException("PaymentBreakdownPage.LoadStores", "", 0, "", ex.Message); }
+        // Danh mục TenderType + data nặng hoãn sang OnAfterRenderAsync (tránh query trong prerender).
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            var tenders = await MdRepo.GetTenderTypesAsync();
+            _tenderNames = tenders
+                .Where(t => !string.IsNullOrWhiteSpace(t.Code))
+                .GroupBy(t => t.Code, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Description, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) { KibanaService.LogException("PaymentBreakdownPage.LoadTenderTypes", "", 0, "", ex.Message); }
+
+        await LoadDataAsync();
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+    private async Task LoadDataAsync()
+    {
+        if (_loading) return;
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        _loading = true; _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var from = (_fromDate ?? DateTime.Today).Date;
+            var to   = (_toDate   ?? DateTime.Today).Date;
+            if (from > to) to = from;
+
+            var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
+
+            if (string.IsNullOrEmpty(storeNo) && (to - from).Days + 1 > MaxDaysAllStores)
+            {
+                from = to.AddDays(-(MaxDaysAllStores - 1));
+                _fromDate = from;
+                _activePreset = "";
+                Snackbar.Add(
+                    $"Xem \"tất cả cửa hàng\" giới hạn {MaxDaysAllStores} ngày — đã tự điều chỉnh khoảng ngày.",
+                    Severity.Info);
+            }
+
+            var tMain = RptRepo.GetSaleByPaymentAsync(from, to, storeNo, ct);
+
+            Task<(PaymentKpiDto Kpi, List<PaymentByMethodDto> ByMethod, List<PaymentTrendDto> Trend)>? tPrev = null;
+            if (_compareEnabled)
+            {
+                var span = (to - from).Days + 1;
+                tPrev = RptRepo.GetSaleByPaymentAsync(from.AddDays(-span), to.AddDays(-span), storeNo, ct);
+            }
+
+            var tasks = new List<Task> { tMain };
+            if (tPrev != null) tasks.Add(tPrev);
+            await Task.WhenAll(tasks);
+
+            var (kpi, byMethod, trend) = tMain.Result;
+            _kpi      = kpi;
+            _byMethod = byMethod;
+            _trend    = trend;
+            _kpiPrev  = tPrev?.Result.Kpi;
+
+            // Resolve tên HTTT từ TenderTypeSetup (CentralMD) — fallback tên SP rồi tới Code.
+            foreach (var m in _byMethod) m.PaymentName = ResolveTenderName(m.PaymentCode, m.PaymentName);
+            foreach (var t in _trend)    t.PaymentName = ResolveTenderName(t.PaymentCode, t.PaymentName);
+
+            _maxAmount = _byMethod.Count > 0 ? _byMethod.Max(x => x.PaymentAmount) : 0d;
+            BuildTrendChart();
+
+            KibanaService.LogInfo("PaymentBreakdownPage.LoadData", storeNo ?? "all",
+                $"Total={kpi.TotalPaymentAmount:N0} NonCash%={kpi.NonCashPct:0.0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+        }
+        catch (OperationCanceledException)
+        {
+            // hủy (đổi filter / rời trang) — bỏ qua
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("PaymentBreakdownPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+            if (!ct.IsCancellationRequested) StateHasChanged();
+        }
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _fromDate = DateTime.Today.AddDays(-6);
+        _toDate   = DateTime.Today;
+        _compareEnabled = false;
+        _activePreset   = "7 ngày";
+        _showByMethod   = false;
+        if (!_isStoreOperator) _selectedStore = null;
+        await LoadDataAsync();
+    }
+
+    private async Task SetPresetAsync(string label)
+    {
+        var today = DateTime.Today;
+        (_fromDate, _toDate) = label switch
+        {
+            "Hôm nay"   => ((DateTime?)today, (DateTime?)today),
+            "7 ngày"    => (today.AddDays(-6), today),
+            "30 ngày"   => (today.AddDays(-29), today),
+            "Tháng này" => (new DateTime(today.Year, today.Month, 1),
+                            new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month))),
+            _           => (_fromDate, _toDate)
+        };
+        _activePreset = label;
+        await LoadDataAsync();
+    }
+
+    private void OnTrendModeChanged(bool byMethod)
+    {
+        _showByMethod = byMethod;
+        BuildTrendChart();
+        StateHasChanged();
+    }
+
+    // ── Chart build ────────────────────────────────────────────────────────────
+    private void BuildTrendChart()
+    {
+        // Trục ngày theo thứ tự thời gian.
+        var dateGroups = _trend
+            .GroupBy(t => t.TxDate)
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        // Cần ≥ 2 điểm: MudBlazor Line chia khoảng trục X cho (n-1) → n=1 sẽ /0 (NaN/crash).
+        _trendEmpty = dateGroups.Count < 2;
+        if (_trendEmpty)
+        {
+            _trendSeries = [new ChartSeries<double> { Name = "", Data = new ChartData<double>(Array.Empty<double>()) }];
+            _trendLabels = [];
+            _chartVersion++;
+            return;
+        }
+
+        _trendLabels = dateGroups.Select(g => g.First().DateLabel).ToArray();
+        var dateIndex = dateGroups.Select((g, i) => (g.Key, i)).ToDictionary(x => x.Key, x => x.i);
+        var n = dateGroups.Count;
+
+        const double M = 1_000_000d;   // hiển thị theo triệu đồng
+
+        if (!_showByMethod)
+        {
+            // Tiền mặt vs Không tiền mặt
+            var cash    = new double[n];
+            var nonCash = new double[n];
+            foreach (var t in _trend)
+            {
+                var i = dateIndex[t.TxDate];
+                if (string.Equals(t.PaymentCode, CashCode, StringComparison.OrdinalIgnoreCase))
+                    cash[i] += t.PaymentAmount / M;
+                else
+                    nonCash[i] += t.PaymentAmount / M;
+            }
+            _trendSeries =
+            [
+                new ChartSeries<double> { Name = "Tiền mặt",      Data = new ChartData<double>(cash) },
+                new ChartSeries<double> { Name = "Không tiền mặt", Data = new ChartData<double>(nonCash) }
+            ];
+            _trendOptions = new LineChartOptions
+            {
+                LineStrokeWidth = 2, ShowLegend = true,
+                ChartPalette = ["#4CAF50", "#2196F3"]
+            };
+        }
+        else
+        {
+            // Theo từng HTTT — giới hạn top 8 để tránh rối; gộp phần còn lại vào "Khác".
+            var codes = _byMethod.Select(m => m.PaymentCode).ToList();
+            var top   = codes.Take(8).ToHashSet();
+
+            var byCode = new Dictionary<string, double[]>();
+            var other  = new double[n];
+            foreach (var t in _trend)
+            {
+                var i = dateIndex[t.TxDate];
+                if (top.Contains(t.PaymentCode))
+                {
+                    if (!byCode.TryGetValue(t.PaymentCode, out var arr)) { arr = new double[n]; byCode[t.PaymentCode] = arr; }
+                    arr[i] += t.PaymentAmount / M;
+                }
+                else
+                {
+                    other[i] += t.PaymentAmount / M;
+                }
+            }
+
+            var series = new List<ChartSeries<double>>();
+            var palette = new List<string>();
+            foreach (var code in codes.Where(top.Contains))
+            {
+                if (!byCode.TryGetValue(code, out var arr)) arr = new double[n];
+                var name = _byMethod.FirstOrDefault(m => m.PaymentCode == code)?.PaymentName ?? code;
+                series.Add(new ChartSeries<double> { Name = name, Data = new ChartData<double>(arr) });
+                palette.Add(BarColor(code));
+            }
+            if (other.Any(v => v != 0))
+            {
+                series.Add(new ChartSeries<double> { Name = "Khác", Data = new ChartData<double>(other) });
+                palette.Add("#9E9E9E");
+            }
+            _trendSeries = series.Count > 0
+                ? series
+                : [new ChartSeries<double> { Name = "", Data = new ChartData<double>(new double[n]) }];
+            _trendOptions = new LineChartOptions
+            {
+                LineStrokeWidth = 2, ShowLegend = true,
+                ChartPalette = palette.ToArray()
+            };
+        }
+        _chartVersion++;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_filterStoreNo ?? "");
+
+    // Ưu tiên Description từ TenderTypeSetup → tên SP trả về → Code.
+    private string ResolveTenderName(string code, string? fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(code) && _tenderNames.TryGetValue(code, out var name) && !string.IsNullOrWhiteSpace(name))
+            return name;
+        return !string.IsNullOrWhiteSpace(fallback) ? fallback! : code;
+    }
+
+    private string BarWidthStyle(PaymentByMethodDto p)
+    {
+        var pct = _maxAmount > 0 ? p.PaymentAmount / _maxAmount * 100d : 0d;
+        if (pct < 0) pct = 0;
+        return $"width:{pct.ToString("0.##", CultureInfo.InvariantCulture)}%;";
+    }
+
+    private static string BarColor(string code) => (code ?? "").ToUpperInvariant() switch
+    {
+        "CASH"    => "#4CAF50",
+        "CARD"    => "#2196F3",
+        "MOMO"    => "#FF00AE",
+        "VNPAY"   => "#1976D2",
+        "VOUCHER" => "#FF9800",
+        "POINT"   => "#9C27B0",
+        _         => "#9E9E9E"
+    };
+
+    // Trend badge: prev là số tuyệt đối. isPercentPoint=true → so sánh điểm % (pp), không phải tăng trưởng %.
+    private RenderFragment TrendBadge(double current, double? prev, bool isPercentPoint = false) => builder =>
+    {
+        if (!_compareEnabled || !prev.HasValue) return;
+        string text; string color; string arrow;
+        if (isPercentPoint)
+        {
+            var diff = current - prev.Value;
+            color = diff >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
+            arrow = diff >= 0 ? "▲" : "▼";
+            text  = $"{arrow} {Math.Abs(diff):F1} điểm vs kỳ trước";
+        }
+        else
+        {
+            if (prev.Value == 0) return;
+            var pct = (current - prev.Value) / Math.Abs(prev.Value) * 100d;
+            color = pct >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
+            arrow = pct >= 0 ? "▲" : "▼";
+            text  = $"{arrow} {Math.Abs(pct):F1}% vs kỳ trước";
+        }
+        builder.AddMarkupContent(0, $"<div style=\"font-size:0.73rem;color:{color};margin:2px 0\">{text}</div>");
+    };
+
+    private RenderFragment TrendBadge(int current, int? prev) =>
+        TrendBadge(current, prev.HasValue ? (double?)prev.Value : null);
+
+    private static string FormatVND(double amount)
+    {
+        var abs = Math.Abs(amount);
+        return abs switch
+        {
+            >= 1_000_000_000 => $"{amount / 1_000_000_000d:N1} tỷ",
+            >= 1_000_000     => $"{amount / 1_000_000d:N0} triệu",
+            _                => $"{amount:N0} ₫"
+        };
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}
