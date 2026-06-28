@@ -10,8 +10,10 @@ using POS.Web.Auth;
 using POS.Web.Components;
 using POS.Web.Services;
 using POS.Web.Services.Pdf;
+using POS.Infrastructure.Security;
 using QuestPDF.Infrastructure;
 using System.Globalization;
+using System.Net;
 
 // ── Culture mặc định: vi-VN ──────────────────────────────────────────
 // Nhất quán định dạng số/ngày (dấu '.' ngăn nghìn) giữa màn hình, PDF và mọi page,
@@ -28,6 +30,50 @@ CultureInfo.DefaultThreadCurrentUICulture = viVN;
 QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Giải mã credentials đã mã hóa (enc:...) — PHẢI trước AddInfrastructure ──
+// Quét mọi giá trị config chứa token "enc:" (vd Password trong connection string),
+// giải mã bằng AES-256-GCM với khóa từ env POSWEB_SECRET_KEY, rồi nạp đè in-memory.
+// Mọi consumer (GetConnectionString / GetSection<RabbitMQOptions>) tự nhận plaintext.
+// No-op khi không có token enc: → DEV/base plaintext vẫn chạy, không cần khóa.
+{
+    var encryptedEntries = builder.Configuration.AsEnumerable()
+        .Where(kv => SecretProtector.HasToken(kv.Value))
+        .ToList();
+    if (encryptedEntries.Count > 0)
+    {
+        var secretKey = Environment.GetEnvironmentVariable("POSWEB_SECRET_KEY");
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new InvalidOperationException(
+                "Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu biến môi trường POSWEB_SECRET_KEY. " +
+                "Đặt khóa AES base64 (32 byte) vào POSWEB_SECRET_KEY (tạo khóa tại /admin/encrypt-secret).");
+
+        var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in encryptedEntries)
+            overrides[kv.Key] = SecretProtector.DecryptTokens(kv.Value!, secretKey);
+        builder.Configuration.AddInMemoryCollection(overrides);
+    }
+}
+
+// ── Security mode (config-driven topology) ───────────────────────────
+// Mode điều khiển cách xử lý forwarded headers cho 3 kịch bản triển khai:
+//   BehindProxy : reverse proxy (nginx) terminate TLS, app chạy HTTP nội bộ → tin X-Forwarded-* từ proxy đã khai báo.
+//   DirectHttps : Kestrel tự serve HTTPS, không proxy                       → KHÔNG xử lý forwarded headers.
+//   Internet    : expose công cộng, không proxy (= DirectHttps + SameSite=Strict).
+// RequireHttps TÁCH BIỆT với mode — quyết định CÓ ép HTTPS hay CHO PHÉP HTTP:
+//   false → Cookie SameAsRequest, KHÔNG redirect/HSTS  ⇒ chạy được HTTP (vd đang test Production qua HTTP).
+//   true  → Cookie Secure=Always + HSTS (+ redirect nếu DirectHttps/Internet) ⇒ ép HTTPS.
+// Development luôn nới (HTTP localhost) bất kể cấu hình để không phá dev local.
+var securityMode  = (builder.Configuration.GetValue<string>("Security:Mode") ?? "BehindProxy").Trim();
+var requireHttps  = builder.Configuration.GetValue<bool>("Security:RequireHttps");
+var internetMode  = securityMode.Equals("Internet", StringComparison.OrdinalIgnoreCase);
+var behindProxy   = securityMode.Equals("BehindProxy", StringComparison.OrdinalIgnoreCase);
+var directHttps   = internetMode || securityMode.Equals("DirectHttps", StringComparison.OrdinalIgnoreCase);
+var secureCookies = requireHttps && !builder.Environment.IsDevelopment();
+var enableHsts    = builder.Configuration.GetValue<bool>("Security:EnableHsts");
+var enableSecHdrs = builder.Configuration.GetValue("Security:EnableSecurityHeaders", true);
+var knownProxies  = builder.Configuration.GetSection("Security:KnownProxies").Get<string[]>() ?? Array.Empty<string>();
+var knownNetworks = builder.Configuration.GetSection("Security:KnownNetworks").Get<string[]>() ?? Array.Empty<string>();
 
 // ── MudBlazor ────────────────────────────────────────────────────────
 builder.Services.AddMudServices(config =>
@@ -83,7 +129,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             builder.Configuration.GetValue<int>("WebApp:SessionTimeoutHours", 8));
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly  = true;
-        options.Cookie.SameSite  = SameSiteMode.Lax;
+        options.Cookie.SameSite  = internetMode ? SameSiteMode.Strict : SameSiteMode.Lax;
+        // Secure: chỉ ép Always khi RequireHttps=true (ngoài Dev) → cookie phiên không bao giờ qua HTTP.
+        // Khi RequireHttps=false (vd đang test Production qua HTTP) → SameAsRequest để đăng nhập HTTP vẫn chạy.
+        options.Cookie.SecurePolicy = secureCookies
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         // Relative redirect để browser giữ nguyên port qua nginx (tránh mất :8080)
         options.Events = new CookieAuthenticationEvents
         {
@@ -117,23 +168,80 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddMemoryCache();
 
-// ── Reverse proxy (nginx) — trust forwarded headers ───────────────────
-// Cho phép Kestrel nhận đúng IP / scheme từ nginx X-Forwarded-* headers
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
+// ── Reverse proxy — trust forwarded headers (chỉ mode BehindProxy) ────
+// Cho Kestrel nhận đúng IP/scheme từ X-Forwarded-* CHỈ TỪ proxy đã khai báo.
+// Khai báo Security:KnownProxies (IP) / Security:KnownNetworks (CIDR) ở production
+// để KHÔNG tin X-Forwarded-* giả mạo từ client tùy ý.
+if (behindProxy)
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-    // Xóa whitelist mặc định để chấp nhận proxy nội bộ bất kỳ
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
-});
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        options.KnownProxies.Clear();
+        options.KnownIPNetworks.Clear();
+
+        foreach (var ip in knownProxies)
+            if (IPAddress.TryParse(ip, out var addr)) options.KnownProxies.Add(addr);
+        foreach (var cidr in knownNetworks)
+            if (System.Net.IPNetwork.TryParse(cidr, out var net)) options.KnownIPNetworks.Add(net);
+
+        // Chưa khai báo proxy hợp lệ nào → tạm tin mọi proxy (giữ tương thích triển khai
+        // hiện tại). Có cảnh báo lúc khởi động để nhắc ops khai báo IP proxy thật.
+        // (KnownProxies/KnownIPNetworks đã được clear ở trên = trust-all khi cả hai rỗng.)
+    });
+}
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
 
-// Phải đứng đầu pipeline — đọc X-Forwarded-* từ nginx trước khi middleware khác dùng Host/IP
-app.UseForwardedHeaders();
+// Cảnh báo nếu đang ở BehindProxy mà chưa khai báo IP proxy → đang tin X-Forwarded-* từ mọi nguồn.
+if (behindProxy && knownProxies.Length == 0 && knownNetworks.Length == 0 && !app.Environment.IsDevelopment())
+    app.Logger.LogWarning(
+        "Security: ForwardedHeaders đang tin MỌI proxy (Security:KnownProxies/KnownNetworks trống). " +
+        "Hãy khai báo IP reverse proxy thật ở production để tránh giả mạo X-Forwarded-*.");
+
+// HSTS + HTTPS redirect — chỉ khi RequireHttps=true (ngoài Development).
+if (requireHttps && !app.Environment.IsDevelopment())
+{
+    if (enableHsts) app.UseHsts();
+    // Redirect HTTP→HTTPS chỉ khi app/Kestrel tự serve HTTPS (DirectHttps/Internet).
+    // BehindProxy: proxy đã terminate TLS → KHÔNG redirect (tránh vòng lặp), chỉ phát HSTS.
+    if (directHttps) app.UseHttpsRedirection();
+}
+
+// Đọc X-Forwarded-* từ reverse proxy (chỉ mode BehindProxy) — phải trước middleware dùng Host/IP/scheme.
+if (behindProxy)
+    app.UseForwardedHeaders();
+
+// ── Security headers (M1) — đặt đầu pipeline để phủ mọi response ──────
+// CSP hợp với Blazor Server (WebSocket circuit qua connect-src 'self', script ngoài qua 'self')
+// + MudBlazor (inject <style> nội tuyến → style-src 'unsafe-inline') + Google Fonts.
+// Tắt nhanh bằng Security:EnableSecurityHeaders=false nếu phát hiện vỡ.
+if (enableSecHdrs)
+{
+    app.Use(async (ctx, next) =>
+    {
+        var h = ctx.Response.Headers;
+        h["X-Content-Type-Options"] = "nosniff";
+        h["X-Frame-Options"]        = "DENY";
+        h["Referrer-Policy"]        = "strict-origin-when-cross-origin";
+        h["Content-Security-Policy"] =
+            "default-src 'self'; " +
+            "base-uri 'self'; " +
+            "object-src 'none'; " +
+            "frame-ancestors 'none'; " +
+            "img-src 'self' data:; " +
+            "font-src 'self' data: https://fonts.gstatic.com; " +
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "script-src 'self'; " +
+            "connect-src 'self'; " +
+            "frame-src 'self' blob:; " +   // preview PDF dùng iframe src=blob: (SalesByCategoryPage)
+            "form-action 'self'";
+        await next();
+    });
+}
 
 // Blazor framework endpoint selector chỉ match host=localhost (sinh ra lúc build).
 // Rewrite Host cho /_framework/ requests để serve được từ external IP.

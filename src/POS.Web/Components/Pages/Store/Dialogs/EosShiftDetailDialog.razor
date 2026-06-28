@@ -1,0 +1,167 @@
+@namespace POS.Web.Components.Pages.Store
+@using MudBlazor
+@using POS.Common.Dtos.CentralSale
+
+@inject IJSRuntime JS
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.LockClock" Style="color:#1976d2"/>
+            <MudText Typo="Typo.h6">
+                Ca @Shift.ShiftNumber — @Shift.PosTerminal
+            </MudText>
+            <MudChip T="string" Size="Size.Small" Class="ml-1"
+                     Color="@(Shift.IsShiftClosed ? Color.Success : Color.Warning)"
+                     Variant="Variant.Filled">
+                @(Shift.IsShiftClosed ? "Đã đóng ca" : "Đang mở ca")
+            </MudChip>
+        </div>
+    </TitleContent>
+
+    <DialogContent>
+
+        @* ── Thông tin ca ─────────────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-3 mb-3" Style="background:#f5f5f5; border-radius:8px">
+            <MudText Typo="Typo.overline" Style="color:#757575; letter-spacing:.08em">THÔNG TIN CA</MudText>
+            <MudGrid Spacing="2" Class="mt-1">
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e">Cửa hàng</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:600">@Shift.StoreNo</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e">POS Terminal</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:600">@Shift.PosTerminal</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e">Ngày kinh doanh</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:600">@Shift.BussinessDate.ToString("dd/MM/yyyy")</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e">Thu ngân</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:600">@(Shift.StaffCode ?? "—")</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @* ── Thời gian ─────────────────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-3 mb-3" Style="background:#f5f5f5; border-radius:8px">
+            <MudText Typo="Typo.overline" Style="color:#757575; letter-spacing:.08em">THỜI GIAN</MudText>
+            <div class="d-flex flex-wrap gap-4 mt-2">
+                <div class="text-center" style="flex:1; min-width:90px">
+                    <MudIcon Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" Style="color:#4caf50"/>
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e; display:block">Mở ca</MudText>
+                    <MudText Typo="Typo.h6" Style="font-weight:600">
+                        @(Shift.OpenShiftDate?.ToString("HH:mm") ?? "—")
+                    </MudText>
+                </div>
+                <div class="text-center" style="flex:1; min-width:90px">
+                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Style="color:#f44336"/>
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e; display:block">Đóng ca</MudText>
+                    <MudText Typo="Typo.h6" Style="font-weight:600">
+                        @(Shift.CloseShiftDate?.ToString("HH:mm") ?? "—")
+                    </MudText>
+                </div>
+                <div class="text-center" style="flex:1; min-width:90px">
+                    <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" Style="color:#2196f3"/>
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e; display:block">Thời lượng</MudText>
+                    <MudText Typo="Typo.h6" Style="font-weight:600">@ShiftDuration</MudText>
+                </div>
+            </div>
+        </MudPaper>
+
+        @* ── Doanh thu ca ──────────────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-3 mb-3" Style="background:#e3f2fd; border-radius:8px">
+            <MudText Typo="Typo.overline" Style="color:#757575; letter-spacing:.08em">DOANH THU CA</MudText>
+            <div class="d-flex flex-wrap gap-4 mt-2">
+                <div class="text-center" style="flex:2; min-width:140px">
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e; display:block">Doanh thu thuần</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary" Style="font-weight:700">
+                        @FormatVND(Shift.TotalRevenue)
+                    </MudText>
+                </div>
+                <div class="text-center" style="flex:1; min-width:90px">
+                    <MudText Typo="Typo.caption" Style="color:#9e9e9e; display:block">Số hóa đơn</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary" Style="font-weight:700">
+                        @Shift.TransactionCount
+                    </MudText>
+                </div>
+            </div>
+        </MudPaper>
+
+        @* ── Kiểm quỹ tiền mặt ────────────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-3" Style="background:#f5f5f5; border-radius:8px">
+            <MudText Typo="Typo.overline" Style="color:#757575; letter-spacing:.08em">KIỂM QUỸ TIỀN MẶT</MudText>
+            <div class="mt-2">
+                <div class="d-flex justify-space-between py-1">
+                    <MudText Typo="Typo.body2">Tiền đầu ca</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500">@FormatVND(Shift.BeginAmount)</MudText>
+                </div>
+                <MudDivider/>
+                <div class="d-flex justify-space-between py-1">
+                    <MudText Typo="Typo.body2">Tiền hệ thống (tiền mặt)</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500">@FormatVND(Shift.TienHeThong)</MudText>
+                </div>
+                <MudDivider/>
+                <div class="d-flex justify-space-between py-1">
+                    <MudText Typo="Typo.body2">Tiền mặt thực đếm</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500">@FormatVND(Shift.TienMat)</MudText>
+                </div>
+                <MudDivider Class="my-1" Style="border-top-width:2px; border-color:#bdbdbd"/>
+                <div class="d-flex justify-space-between py-1">
+                    <MudText Typo="Typo.body1" Style="font-weight:700">Chênh lệch</MudText>
+                    <MudText Typo="Typo.body1"
+                             Style="@($"font-weight:700; font-size:1.1em; color:{ChenLechColor}")">
+                        @FormatVND(Shift.ChenLech)
+                    </MudText>
+                </div>
+            </div>
+        </MudPaper>
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton StartIcon="@Icons.Material.Filled.Print"
+                   Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   OnClick="PrintAsync">In</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="Close">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public EosShiftDto Shift { get; set; } = null!;
+    [Parameter] public bool AutoPrint { get; set; }
+
+    private string ShiftDuration
+    {
+        get
+        {
+            if (Shift.OpenShiftDate is { } open && Shift.CloseShiftDate is { } close && close > open)
+            {
+                var dur = close - open;
+                return $"{(int)dur.TotalHours}h {dur.Minutes:D2}p";
+            }
+            return "—";
+        }
+    }
+
+    private string ChenLechColor => Shift.ChenLech < 0 ? "#f44336"
+                                  : Shift.ChenLech > 0 ? "#4caf50"
+                                  : "inherit";
+
+    private static string FormatVND(decimal v) => $"{v:N0} ₫";
+
+    private void Close() => MudDialog.Close();
+
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("window.print");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && AutoPrint)
+            await JS.InvokeVoidAsync("window.print");
+    }
+}

@@ -1,5 +1,6 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-26 (Flat UI + Density Standard: PosTheme border-radius 4px, shadow E1-E5 hairline, LineHeight 1.45, Dense AppBar/NavMenu/Table, MudGrid Spacing chuẩn hóa, mobile safety block 40px tap targets)
+> Cập nhật: 2026-06-28 (Security hardening: config-driven HTTPS/cookie + RequireHttps, security headers/CSP, mã hóa credentials AES-256-GCM `enc:`, SQL Console mask+toggle, DetailedErrors off Prod — xem nhóm S1-S6 + docs/ROLLOUT.md)
+> Trước đó 2026-06-26 (UI Polish: MudTable header CSS override toàn cục, sort label, filter panel Elevation="1", UsersPage KPI+filter+table)
 
 ---
 
@@ -9,48 +10,41 @@ _(bỏ qua bin/ và obj/)_
 ```
 src/POS.Web/
 ├── Auth/
-│   ├── DashboardUser.cs
-│   ├── IWebUserService.cs
+│   ├── DashboardUser.cs / IWebUserService.cs / WebUserService.cs / WebRoles.cs
 │   ├── migration_dashboard_users.sql
-│   ├── WebRoles.cs
-│   └── WebUserService.cs
+│   └── migration_sql_console_audit.sql
 ├── Theme/
-│   └── PosTheme.cs                  ← MudBlazor custom theme (navy + teal color system)
+│   └── PosTheme.cs                  ← MudBlazor custom theme (flat, navy + teal)
 ├── Components/
-│   ├── _Imports.razor
-│   ├── App.razor
-│   ├── RedirectToAccessDenied.razor
-│   ├── RedirectToLogin.razor
-│   ├── Routes.razor
+│   ├── _Imports.razor / App.razor / Routes.razor / RedirectToLogin.razor / RedirectToAccessDenied.razor
 │   ├── Layout/
-│   │   ├── EmptyLayout.razor
-│   │   ├── MainLayout.razor
-│   │   ├── MainLayout.razor.css
-│   │   ├── ReconnectModal.razor          ← template, dùng bởi App.razor
-│   │   └── ReconnectModal.razor.css
-│   ├── Shared/   ← (PosTableBase.cs ĐÃ XÓA — DataTable nay dùng MudTable built-in)
+│   │   ├── EmptyLayout.razor / MainLayout.razor (+ .razor.css) / ReconnectModal.razor (+ .razor.css)
 │   └── Pages/
-│       ├── AccessDenied.razor
-│       ├── Index.razor
-│       ├── Login.razor
+│       ├── AccessDenied.razor / Index.razor / Login.razor
 │       ├── Admin/
-│       │   └── UsersPage.razor           ← MudTable (search trong ToolBarContent)
+│       │   ├── UsersPage.razor / RolesPage.razor / ConfigPage.razor / AuditPage.razor
+│       │   ├── SqlConsolePage.razor / EncryptSecretPage.razor   ← AdminOnly
+│       │   └── Dialogs/UserFormDialog.razor
 │       ├── Ops/
-│       │   └── HealthPage.razor
+│       │   ├── HealthPage.razor / AlertsPage.razor / QueuesPage.razor
+│       │   ├── LogsPage.razor / DataRawLogPage.razor / StorePage.razor / PosMapPage.razor
+│       │   └── Dialogs/ (PosTerminalDetailDialog, PosTerminalEditDialog, StoreDetailDialog)
 │       └── Store/
-│           ├── RevenuePage.razor
-│           ├── TransactionsPage.razor    ← MudTable (client-side sort/paginate)
-│           └── EosShiftsPage.razor       ← kết thúc ca bán hàng (MudTable)
-├── Properties/
-│   └── launchSettings.json
+│           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
+│           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)
+│           ├── Operations/ (BusinessDayPage, EosShiftsPage, ShiftSummaryPage)
+│           └── Dialogs/ (VoidDetailDialog, TransactionDetailDialog, EosDayShiftListDialog, EosShiftDetailDialog, ProductOrdersDialog)
+├── Services/
+│   ├── ISqlConsoleService.cs / SqlConsoleService.cs / PendingUpdate.cs / JsDownloadExtensions.cs
+│   └── Pdf/ (IPdfExportService, PdfExportService, PivotReportData, ReportHeaderModel)
+├── Properties/launchSettings.json
 ├── wwwroot/
-│   ├── app.css          ← CSS design tokens --pos-* (28 vars) + scrollbar + delta + active-nav + .pos-table* (nay chỉ dùng cho pivot report table)
-│   ├── favicon.png
-│   └── lib/bootstrap/   ← ~30 CSS file template, CHƯA XÓA (không gây lỗi)
-├── appsettings.json
-├── appsettings.Development.json
+│   ├── app.css          ← CSS design tokens --pos-* + .pos-table* (pivot report) ; js/download.js (PDF blob)
+│   ├── favicon.png / lib/bootstrap/ (template, chưa xóa)
+├── appsettings.json / .Development.json / .Production.json / .UAT.json(gitignored)
+├── Dockerfile
 ├── POS.Web.csproj
-└── Program.cs
+└── Program.cs          ← security config-driven (Security:Mode/RequireHttps), headers/CSP, decryption hook
 ```
 
 ---
@@ -120,7 +114,7 @@ src/POS.Web/
 | G9 | Index.razor – redirect theo role | Pages/Index.razor | ✅ | SystemAdmin→/admin/users, ITOps→/ops/health, other→/store/revenue |
 | G10 | RevenuePage – /store/revenue + StoreAndAbove + InteractiveServer | Pages/Store/RevenuePage.razor | ✅ | |
 | G11 | HealthPage – /ops/health + OpsAndAbove + InteractiveServer | Pages/Ops/HealthPage.razor | ✅ | |
-| G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | MudTable + search trong ToolBarContent + LINQ filter |
+| G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | KPI row (3 cards: tổng/active/locked) + filter panel (search+role+status) + MudTable LINQ filter |
 | G13 | AccessDenied – /access-denied + [AllowAnonymous] | Pages/AccessDenied.razor | ✅ | |
 | G14 | TransactionsPage – /store/transactions + StoreAndAbove | Pages/Store/TransactionsPage.razor | ✅ | MudTable client-side sort/paginate + store combobox (StoreNo+Name) |
 | G15 | EosShiftsPage – /store/eos-shifts + StoreAndAbove | Pages/Store/EosShiftsPage.razor | ✅ | Kết thúc ca — filter + KPI cards + MudTable + GetEosShiftListAsync |
@@ -137,6 +131,10 @@ src/POS.Web/
 | I3 | Sidebar accordion – tự mở/đóng theo route | Layout/MainLayout.razor | ✅ | NavigationManager.LocationChanged + @bind-Expanded + IAsyncDisposable |
 | I4 | Sidebar active NavLink highlight | wwwroot/app.css | ✅ | rgba(255,255,255,0.14) bg + white text + 3px border-left #3A6FCC |
 | I5 | Sidebar drawer responsive init — đóng trên mobile, mở trên desktop | Layout/MainLayout.razor | ✅ | IBrowserViewportService.GetCurrentBreakpointAsync() trong OnAfterRenderAsync(firstRender) |
+| I6 | MudTable header CSS override toàn cục | wwwroot/app.css | ✅ | Nền `--pos-bg-alt` (#D9E5F7), border-bottom 2px navy, padding 10px 16px, sort button min-height:unset padding:0 — áp dụng tất cả MudTable không cần sửa Razor |
+| I7 | Sort label cột đặc biệt | datatable.md | ✅ | Nullable DateTime → `?? DateTime.MinValue`; string date → dùng `SortOrder` int property |
+| I8 | Filter panel Elevation chuẩn | (mọi page có filter) | ✅ | `MudPaper Elevation="1"` cho filter panel, `Elevation="2"` cho DataTable |
+| I9 | Không có result summary text inline | (mọi page có table) | ✅ | Xóa `@if (!_loading && _items.Count > 0) { <div>Tìm thấy X dòng</div> }` — KPI cards thay thế |
 | I6 | Page header responsive — title+button không vỡ layout mobile | Pages/Admin/UsersPage.razor | ✅ | div.pos-page-header + pos-page-header-title + pos-page-header-btn |
 | I7 | DataTable scroll ngang trên mobile | mọi page có MudTable | ✅ | `HorizontalScrollbar="true"` trên MudTable (thay wrapper overflow-x:auto cũ) |
 | I8 | Chip filter flex-wrap — chips không tràn ngang mobile | Pages/Store/RevenuePage.razor | ✅ | flex-wrap thêm vào MudPaper filter container |
@@ -144,6 +142,13 @@ src/POS.Web/
 | I10 | HealthPage responsive — header + chip section | Pages/Ops/HealthPage.razor | ✅ | pos-page-header Case B (title + group controls); chip div.d-flex flex-wrap; button align-self:center chống stretch |
 | I11 | Responsive UI standard — qui tắc chung mọi page | .claude/skills/web/SKILLS.md | ✅ | Section mới: bảng so sánh sai/đúng, 2 case pos-page-header, anti-patterns, checklist item |
 | I12 | RevenuePage – Y-axis auto-scale (`YAxisSuggestedMax` + `YAxisTicks`) | Pages/Store/RevenuePage.razor | ✅ | CalcYMax (dataMax+2.5 ceil) + CalcYTick (spacing 1/2/5/10) — hết cứng max=20 |
+| S1 | DetailedErrors tắt ngoài Dev (C2) | appsettings.Production/UAT.json | ✅ | `EnableDetailedErrors:false`; Program đọc `IsDev() || config` |
+| S2 | Cookie.Secure + HTTPS/HSTS config-driven (C1) | Program.cs / appsettings | ✅ (cơ chế) ⚠️ (đang tắt) | `Security:RequireHttps` (Prod=false để test HTTP) → cookie SameAsRequest. Bật `true` khi có TLS. SameSite=Strict (Mode=Internet) |
+| S3 | Security headers + CSP (M1) | Program.cs | ✅ | X-Content-Type-Options/X-Frame-Options/Referrer-Policy/CSP; `frame-src 'self' blob:` cho PDF; TẮT ở Dev (`EnableSecurityHeaders=false`) tránh chặn Browser Link |
+| S4 | ForwardedHeaders an toàn (H2) | Program.cs | ✅ | Mode=Internet → KHÔNG xử lý `X-Forwarded-*` (no-proxy). BehindProxy mới nạp `KnownProxies`/`KnownNetworks` |
+| S5 | Mã hóa credentials appsettings (C4) | SecretProtector.cs + Program.cs + EncryptSecretPage.razor | ✅ (cơ chế) ⚠️ (chưa rollout) | AES-256-GCM token `enc:`, khóa `POSWEB_SECRET_KEY`; trang `/admin/encrypt-secret`. Password thật còn plaintext tới khi ops mã hóa — xem docs/ROLLOUT.md |
+| S6 | SQL Console hardening (H1) | SqlConsoleService.cs / SqlConsolePage.razor | ✅ | Mask `password/token/secret/...` trong audit+Kibana; cờ `Security:EnableSqlConsole` gate service+page |
+| S7 | AllowedHosts = domain thật (H2) | appsettings.Production.json | ⚠️ | Còn `"*"` — cần đặt domain dashboard khi go-live (docs/ROLLOUT.md) |
 | H1 | Build pass (0 error, 0 warning) | — | ✅ | `dotnet build` → Build succeeded. 0 Warning(s). 0 Error(s). |
 
 ---

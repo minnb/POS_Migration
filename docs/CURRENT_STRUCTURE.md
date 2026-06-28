@@ -1,8 +1,15 @@
 # CURRENT_STRUCTURE.md — Bản đồ hiện trạng POS Migration (.NET 10)
 
-> Generated: 2026-06-15 | Branch: main | Chỉ ghi những gì ĐÃ TỒN TẠI
-> Projects thực tế: `POS.Api`, `POS.Application`, `POS.Common`, `POS.Infrastructure`
+> Generated: 2026-06-15 | **Synced: 2026-06-28** (reorg theo domain + security hardening) | Branch: main
+> Projects thực tế: `POS.Api`, `POS.Application`, `POS.Common`, `POS.Infrastructure`, `POS.Worker`
 > (Note: task đề cập VCM.POSBLUE.* nhưng project đã được đổi tên sang POS.* khi khởi tạo solution mới)
+>
+> **Reorg 2026-06 (đã phản ánh bên dưới):**
+> - `POS.Application`: bỏ `Interfaces/`+`Services/` phẳng → gom theo `Features/{Domain}/` (Common, Partner, DataSync, Sap, Gift) — namespace `POS.Application.Features.{Domain}`
+> - `POS.Infrastructure`: `Repositories/` gom theo `{Domain}/` (MasterData, Sale, Loyalty, Sap) — **namespace GIỮ NGUYÊN** `POS.Infrastructure.Repositories[.Interfaces]`; `AppServices/` gom theo `{Domain}/` (Partner, DataSync) — namespace `POS.Infrastructure.AppServices.{Domain}`
+> - `POS.Web` (cấu trúc chi tiết ở `docs/WEB_STATUS.md`): Pages gom `Store/{Reports,Transactions,Operations,Dialogs}`, `Ops/`, `Admin/`
+>
+> POS.Web KHÔNG nằm trong file này (xem `docs/WEB_STATUS.md`).
 
 ---
 
@@ -19,40 +26,40 @@ src/
 │   ├── Controllers/
 │   │   ├── BaseController.cs
 │   │   ├── CommonController.cs
+│   │   ├── GiftController.cs
 │   │   ├── KafkaController.cs
 │   │   ├── LoyaltyController.cs
 │   │   ├── PaymentController.cs
 │   │   ├── SAPController.cs
-│   │   └── SyncDataPosController.cs
+│   │   ├── SyncDataPosController.cs
+│   │   └── WinpayController.cs
 │   ├── Filters/
 │   │   └── ValidateModelFilter.cs
 │   ├── Middleware/
-│   │   └── BasicAuthHandler.cs
+│   │   ├── BasicAuthHandler.cs
+│   │   └── ExceptionHandlingMiddleware.cs   ← G3 global exception → ResultResponse (UsePosExceptionHandling)
 │   ├── Program.cs
 │   └── Properties/
 │       └── launchSettings.json
 │
 ├── POS.Application/
 │   ├── DependencyInjection.cs
-│   ├── Interfaces/
-│   │   ├── IAkaChainLoyaltyService.cs
-│   │   ├── ICommonService.cs
-│   │   ├── IDataRawService.cs
-│   │   ├── IGotITService.cs
-│   │   ├── IHealthCheckService.cs
-│   │   ├── IKafkaService.cs
-│   │   ├── ISAPService.cs
-│   │   ├── ISyncDataPosService.cs
-│   │   └── IUrboxService.cs
-│   └── Services/
-│       ├── AkaChainLoyaltyService.cs
-│       ├── CommonService.cs
-│       ├── DataRawService.cs
-│       ├── GotITService.cs
-│       ├── HealthCheckService.cs
-│       ├── KafkaService.cs
-│       ├── SyncDataPosService.cs
-│       └── UrboxService.cs
+│   └── Features/                      ← gom theo domain; namespace POS.Application.Features.{Domain}
+│       ├── Common/
+│       │   ├── ICommonService.cs / CommonService.cs
+│       │   └── IHealthCheckService.cs / HealthCheckService.cs
+│       ├── Partner/
+│       │   ├── IAkaChainLoyaltyService.cs / AkaChainLoyaltyService.cs
+│       │   ├── IGotITService.cs / GotITService.cs
+│       │   └── IUrboxService.cs / UrboxService.cs
+│       ├── DataSync/
+│       │   ├── IDataRawService.cs / DataRawService.cs
+│       │   ├── ISyncDataPosService.cs / SyncDataPosService.cs
+│       │   └── IKafkaService.cs / KafkaService.cs
+│       ├── Sap/
+│       │   └── ISAPService.cs / SAPService.cs
+│       └── Gift/
+│           └── IGiftService.cs / GiftService.cs
 │
 ├── POS.Common/
 │   ├── ResultResponse.cs
@@ -202,16 +209,13 @@ src/
 │
 └── POS.Infrastructure/
     ├── DependencyInjection.cs
-    ├── AppServices/
-    │   ├── AkaChainLoyaltyAppService.cs
-    │   ├── GotITService.cs
-    │   ├── KafkaAppService.cs
-    │   ├── UrboxService.cs
-    │   └── Interfaces/
-    │       ├── IAkaChainLoyaltyAppService.cs
-    │       ├── IGotITAppService.cs
-    │       ├── IKafkaAppService.cs
-    │       └── IUrboxAppService.cs
+    ├── AppServices/                   ← gom theo domain; namespace POS.Infrastructure.AppServices.{Domain}
+    │   ├── Partner/
+    │   │   ├── IAkaChainLoyaltyAppService.cs / AkaChainLoyaltyAppService.cs
+    │   │   ├── IGotITAppService.cs / GotITService.cs
+    │   │   └── IUrboxAppService.cs / UrboxService.cs
+    │   └── DataSync/
+    │       └── IKafkaAppService.cs / KafkaAppService.cs
     ├── Cache/
     │   ├── IRedisManager.cs
     │   ├── RedisManager.cs
@@ -219,6 +223,7 @@ src/
     ├── Database/
     │   ├── BaseRepository.cs
     │   ├── CentralMDConnectionFactory.cs
+    │   ├── CentralSaleConnectionFactory.cs
     │   ├── IDbConnectionFactory.cs
     │   ├── LoyaltyConnectionFactory.cs
     │   ├── StagingDbConnectionFactory.cs
@@ -243,22 +248,27 @@ src/
     ├── Redis/
     │   ├── IRedisService.cs
     │   └── RedisService.cs
+    ├── Security/
+    │   └── SecretProtector.cs          ← AES-256-GCM, token enc: (giải mã credentials trong appsettings)
     ├── Workers/
-    │   └── PosSalesConsumerWorker.cs  (BackgroundService — đăng ký trong POS.Worker/Program.cs)
-    └── Repositories/
-        ├── CentralMDRepository.cs
-        ├── CentralSaleRepository.cs
-        ├── DataRawJsonRepository.cs
-        ├── LoyaltyRepository.cs
-        ├── OfferStaffRepository.cs
-        ├── WincodeRepository.cs
-        └── Interfaces/
-            ├── ICentralMDRepository.cs
-            ├── ICentralSaleRepository.cs
-            ├── IDataRawJsonRepository.cs
-            ├── ILoyaltyRepository.cs
-            ├── IOfferStaffRepository.cs
-            └── IWincodeRepository.cs
+    │   ├── PosSalesConsumerWorker.cs   (BackgroundService — đăng ký trong POS.Worker/Program.cs)
+    │   ├── Rpt_ReportSaleDetail_Insert.cs
+    │   ├── WorkerHealthState.cs
+    │   └── WorkerHeartbeatService.cs
+    └── Repositories/                   ← gom theo {Domain}; namespace GIỮ NGUYÊN POS.Infrastructure.Repositories[.Interfaces]
+        ├── MasterData/
+        │   └── ICentralMDRepository.cs / CentralMDRepository.cs
+        ├── Sale/
+        │   ├── ICentralSaleRepository.cs / CentralSaleRepository.cs
+        │   ├── IRptCentralSaleRepository.cs / RptCentralSaleRepository.cs
+        │   ├── IRptReportSaleDetailRepository.cs / RptReportSaleDetailRepository.cs
+        │   └── IDataRawJsonRepository.cs / DataRawJsonRepository.cs
+        ├── Loyalty/
+        │   ├── ILoyaltyRepository.cs / LoyaltyRepository.cs
+        │   ├── IOfferStaffRepository.cs / OfferStaffRepository.cs
+        │   └── IWincodeRepository.cs / WincodeRepository.cs
+        └── Sap/
+            └── ISAPVoucherRepository.cs / SAPVoucherRepository.cs
 ```
 
 ---
@@ -267,36 +277,44 @@ src/
 
 ### POS.Application
 
-| Interface | Implementation | Namespace | Project |
+| Interface | Implementation | Namespace (interface + impl cùng namespace/folder) | Project |
 |-----------|---------------|-----------|---------|
-| `ICommonService` | `CommonService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `IAkaChainLoyaltyService` | `AkaChainLoyaltyService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `IGotITService` | `GotITService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `IUrboxService` | `UrboxService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `IDataRawService` | `DataRawService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `ISyncDataPosService` | `SyncDataPosService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `IHealthCheckService` | `HealthCheckService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
-| `IKafkaService` | `KafkaService` | `POS.Application.Interfaces` / `POS.Application.Services` | POS.Application |
+| `ICommonService` | `CommonService` | `POS.Application.Features.Common` | POS.Application |
+| `IHealthCheckService` | `HealthCheckService` | `POS.Application.Features.Common` | POS.Application |
+| `IAkaChainLoyaltyService` | `AkaChainLoyaltyService` | `POS.Application.Features.Partner` | POS.Application |
+| `IGotITService` | `GotITService` | `POS.Application.Features.Partner` | POS.Application |
+| `IUrboxService` | `UrboxService` | `POS.Application.Features.Partner` | POS.Application |
+| `IDataRawService` | `DataRawService` | `POS.Application.Features.DataSync` | POS.Application |
+| `ISyncDataPosService` | `SyncDataPosService` | `POS.Application.Features.DataSync` | POS.Application |
+| `IKafkaService` | `KafkaService` | `POS.Application.Features.DataSync` | POS.Application |
+| `ISAPService` | `SAPService` | `POS.Application.Features.Sap` | POS.Application |
+| `IGiftService` | `GiftService` | `POS.Application.Features.Gift` | POS.Application |
 
 ### POS.Infrastructure — Repositories
 
-| Interface | Implementation | Namespace | Project |
-|-----------|---------------|-----------|---------|
-| `ICentralMDRepository` | `CentralMDRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
-| `ICentralSaleRepository` | `CentralSaleRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
-| `IDataRawJsonRepository` | `DataRawJsonRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
-| `ILoyaltyRepository` | `LoyaltyRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
-| `IOfferStaffRepository` | `OfferStaffRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
-| `IWincodeRepository` | `WincodeRepository` | `POS.Infrastructure.Repositories.Interfaces` | POS.Infrastructure |
+> Namespace GIỮ NGUYÊN sau reorg: interface = `POS.Infrastructure.Repositories.Interfaces`, impl = `POS.Infrastructure.Repositories` (chỉ folder gom theo {Domain}).
+
+| Interface | Implementation | Folder | Project |
+|-----------|---------------|--------|---------|
+| `ICentralMDRepository` | `CentralMDRepository` | MasterData/ | POS.Infrastructure |
+| `ICentralSaleRepository` | `CentralSaleRepository` | Sale/ | POS.Infrastructure |
+| `IRptCentralSaleRepository` | `RptCentralSaleRepository` | Sale/ | POS.Infrastructure |
+| `IRptReportSaleDetailRepository` | `RptReportSaleDetailRepository` | Sale/ | POS.Infrastructure |
+| `IDataRawJsonRepository` | `DataRawJsonRepository` | Sale/ | POS.Infrastructure |
+| `ILoyaltyRepository` | `LoyaltyRepository` | Loyalty/ | POS.Infrastructure |
+| `IOfferStaffRepository` | `OfferStaffRepository` | Loyalty/ | POS.Infrastructure |
+| `IWincodeRepository` | `WincodeRepository` | Loyalty/ | POS.Infrastructure |
+| `ISAPVoucherRepository` | `SAPVoucherRepository` | Sap/ | POS.Infrastructure |
+| _(static, no interface)_ | `SecretProtector` | `POS.Infrastructure.Security` | POS.Infrastructure |
 
 ### POS.Infrastructure — AppServices
 
 | Interface | Implementation | Namespace | Project |
 |-----------|---------------|-----------|---------|
-| `IAkaChainLoyaltyAppService` | `AkaChainLoyaltyAppService` | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
-| `IGotITAppService` | `GotITService` (class name) | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
-| `IUrboxAppService` | `UrboxService` (class name) | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
-| `IKafkaAppService` | `KafkaAppService` | `POS.Infrastructure.AppServices.Interfaces` | POS.Infrastructure |
+| `IAkaChainLoyaltyAppService` | `AkaChainLoyaltyAppService` | `POS.Infrastructure.AppServices.Partner` | POS.Infrastructure |
+| `IGotITAppService` | `GotITService` (class name) | `POS.Infrastructure.AppServices.Partner` | POS.Infrastructure |
+| `IUrboxAppService` | `UrboxService` (class name) | `POS.Infrastructure.AppServices.Partner` | POS.Infrastructure |
+| `IKafkaAppService` | `KafkaAppService` | `POS.Infrastructure.AppServices.DataSync` | POS.Infrastructure |
 
 ### POS.Infrastructure — Cache / Redis / Messaging / Logging / Files
 
@@ -327,6 +345,8 @@ src/
 | `ISyncDataPosService` → `SyncDataPosService` | Scoped | Sync file POS ↔ server |
 | `IHealthCheckService` → `HealthCheckService` | Scoped | Chẩn đoán kết nối hạ tầng |
 | `IKafkaService` → `KafkaService` | Scoped | Publish sale messages lên Kafka |
+| `ISAPService` → `SAPService` | Scoped | SAP voucher/coupon |
+| `IGiftService` → `GiftService` | Scoped | Gift barcode |
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 
@@ -335,13 +355,17 @@ src/
 | `CentralMDConnectionFactory` (concrete, no interface) | Singleton | DB Factory — không qua interface |
 | `LoyaltyConnectionFactory` (concrete, no interface) | Singleton | DB Factory — không qua interface |
 | `StagingDbConnectionFactory` (concrete, no interface) | Singleton | DB Factory — không qua interface |
+| `CentralSaleConnectionFactory` (concrete, no interface) | Singleton | DB Factory — CentralSales |
 | `StoreRoutedConnectionFactory` (concrete, no interface) | Singleton | DB Factory — routing per-store, cache ServerIP vào Redis |
 | `ICentralMDRepository` → `CentralMDRepository` | Scoped | Master Data DB |
 | `ICentralSaleRepository` → `CentralSaleRepository` | Scoped | Sales DB (per-store routing) |
+| `IRptCentralSaleRepository` → `RptCentralSaleRepository` | Scoped | Report sales (POS.Web dashboard) |
+| `IRptReportSaleDetailRepository` → `RptReportSaleDetailRepository` | Scoped | Report sale detail |
 | `IDataRawJsonRepository` → `DataRawJsonRepository` | Scoped | StagingDB |
 | `ILoyaltyRepository` → `LoyaltyRepository` | Scoped | Loyalty DB |
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
+| `ISAPVoucherRepository` → `SAPVoucherRepository` | Scoped | SAP voucher DB |
 | `IRedisManager` → `RedisManager` | Singleton | StackExchange.Redis low-level |
 | `IRedisService` → `RedisService` | Singleton | High-level Redis wrapper (sử dụng trong code) |
 | `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
@@ -471,6 +495,12 @@ Task<Tuple<bool, string>> InsertWincodeCustomerAsync(WinLife_UpdatePromotions_PO
 ---
 
 ## MỤC E — Service & AppService: method signatures
+
+> **Namespace sau reorg** (các nhãn `*.Interfaces` ở header bên dưới là CŨ — chữ ký method KHÔNG đổi nên giữ nguyên):
+> Application services = `POS.Application.Features.{Common|Partner|DataSync|Sap|Gift}`;
+> AppServices = `POS.Infrastructure.AppServices.{Partner|DataSync}`.
+> **Service mới chưa liệt kê chữ ký ở đây** (xem code): `ISAPService` (`Features.Sap`), `IGiftService` (`Features.Gift`);
+> Repositories mới (Mục D): `ISAPVoucherRepository`, `IRptCentralSaleRepository`, `IRptReportSaleDetailRepository`.
 
 ### Application Services
 

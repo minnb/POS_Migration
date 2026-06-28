@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -17,6 +18,19 @@ public sealed class SqlConsoleService(
     private const int CommandTimeoutSeconds = 60;
 
     private readonly IReadOnlyList<DbOption> _databases = BuildDatabases(configuration);
+
+    // Cờ tắt SQL Console (Security:EnableSqlConsole). Mặc định true; nên đặt false khi expose internet.
+    private readonly bool _enabled = configuration.GetValue("Security:EnableSqlConsole", true);
+
+    // Che giá trị nhạy cảm trong SQL trước khi ghi log/audit: keyword = '...'  →  keyword = '***'.
+    // Phủ literal có nháy đơn (kể cả N'...' và escape ''), tránh lưu plaintext credential vào audit/Kibana.
+    private static readonly Regex SecretRegex = new(
+        @"(?<k>\b(?:password|pwd|passwd|token|secret|apikey|api_key)\b\s*=\s*)(N?'(?:[^']|'')*')",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    public bool IsEnabled => _enabled;
+
+    private static string MaskSecrets(string sql) => SecretRegex.Replace(sql, m => m.Groups["k"].Value + "'***'");
 
     private static IReadOnlyList<DbOption> BuildDatabases(IConfiguration configuration)
     {
@@ -117,6 +131,9 @@ public sealed class SqlConsoleService(
     public async Task<SqlQueryResult> ExecuteSelectAsync(
         string connKey, string sql, string actor, CancellationToken ct)
     {
+        if (!_enabled)
+            return new SqlQueryResult { Success = false, Error = "SQL Console đã bị tắt (Security:EnableSqlConsole=false)." };
+
         var validation = Validate(sql);
         if (!validation.Ok)
             return new SqlQueryResult { Success = false, Error = validation.Error };
@@ -155,7 +172,7 @@ public sealed class SqlConsoleService(
             }
 
             kibana.LogInfo("SqlConsole.Select", actor,
-                $"{connKey} | {rows.Count} rows | {sw.ElapsedMilliseconds}ms | {Trunc(sql)}");
+                $"{connKey} | {rows.Count} rows | {sw.ElapsedMilliseconds}ms | {Trunc(MaskSecrets(sql))}");
 
             return new SqlQueryResult
             {
@@ -168,7 +185,7 @@ public sealed class SqlConsoleService(
         }
         catch (OperationCanceledException)
         {
-            kibana.LogInfo("SqlConsole.Select.Cancelled", actor, $"{connKey} | {Trunc(sql)}");
+            kibana.LogInfo("SqlConsole.Select.Cancelled", actor, $"{connKey} | {Trunc(MaskSecrets(sql))}");
             return new SqlQueryResult { Success = false, Error = "Câu lệnh đã bị hủy." };
         }
         catch (Exception ex)
@@ -181,6 +198,9 @@ public sealed class SqlConsoleService(
     public async Task<PendingUpdate> BeginMutationAsync(
         string connKey, string sql, string actor, CancellationToken ct)
     {
+        if (!_enabled)
+            throw new InvalidOperationException("SQL Console đã bị tắt (Security:EnableSqlConsole=false).");
+
         var validation = Validate(sql);
         if (!validation.Ok)
             throw new InvalidOperationException(validation.Error);
@@ -217,7 +237,7 @@ public sealed class SqlConsoleService(
         sw.Stop();
 
         kibana.LogInfo("SqlConsole.Mutation.Begin", actor,
-            $"{connKey} | kind={validation.Kind} rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(sql)}");
+            $"{connKey} | kind={validation.Kind} rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(MaskSecrets(sql))}");
 
         var executedAt = DateTime.UtcNow;
         var catalog = _databases.FirstOrDefault(d => d.Key == connKey)?.Catalog ?? connKey;
@@ -271,7 +291,7 @@ public sealed class SqlConsoleService(
             cmd.Parameters.AddWithValue("@Actor",        actor);
             cmd.Parameters.AddWithValue("@DbKey",        connKey);
             cmd.Parameters.AddWithValue("@DbCatalog",    catalog);
-            cmd.Parameters.AddWithValue("@SqlText",      sql);
+            cmd.Parameters.AddWithValue("@SqlText",      MaskSecrets(sql));
             cmd.Parameters.AddWithValue("@RowsAffected", rowsAffected);
             cmd.Parameters.AddWithValue("@HasWhere",     hasWhere);
             cmd.Parameters.AddWithValue("@Status",       status);

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using POS.Application.Interfaces;
+using POS.Application.Features.Gift;
 using POS.Common;
 using POS.Common.Dtos.CentralMD;
 using System.Net;

@@ -89,11 +89,12 @@ private async Task ResetFilterAsync()
 ```csharp
 private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
 {
-    if (string.IsNullOrWhiteSpace(value))
-        return Task.FromResult<IEnumerable<StoreDto>>(_allStores);
-    return Task.FromResult(_allStores.Where(s =>
-        (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
-        (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)));
+    IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+        ? _allStores
+        : _allStores.Where(s =>
+            (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+    return Task.FromResult(matches.Take(50));   // BẮT BUỘC: giới hạn để tránh materialize toàn bộ list
 }
 ```
 
@@ -141,7 +142,7 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
                          AdornmentIcon="@Icons.Material.Filled.Store"
                          Adornment="Adornment.Start"
                          MinCharacters="0"
-                         ResetValueOnEmptyText="true"/>
+                         MaxItems="50"/>
     }
 </MudItem>
 ```
@@ -161,9 +162,10 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 □ OnInitializedAsync: load _allStores cho CẢ 2 role (cache nên chi phí thấp)
 □ LoadDataAsync: tính storeNo từ _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo
 □ ResetFilterAsync: _selectedStore = null (không dùng _filterStoreNo = null/empty)
-□ SearchStoreAsync: return IEnumerable<StoreDto>, filter theo cả StoreNo + Name
+□ SearchStoreAsync: return IEnumerable<StoreDto>, filter theo cả StoreNo + Name, có .Take(50) cuối
 □ Thêm StoreDisplayText property
-□ Markup: MudAutocomplete T="StoreDto" với ToStringFunc + ResetValueOnEmptyText
+□ Markup: MudAutocomplete T="StoreDto" với ToStringFunc + Clearable="true" + MaxItems="50"
+□ Markup: KHÔNG dùng ResetValueOnEmptyText="true" (gây circuit crash khi MinCharacters="0")
 □ Markup: readonly TextField dùng StoreDisplayText (không dùng _filterStoreNo trực tiếp)
 ```
 
@@ -175,7 +177,8 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 - ❌ `MudAutocomplete T="string"` với `CoerceValue="true"` — user gõ tự do, không validate
 - ❌ Chỉ load `_allStores` cho ITOps/Admin — StoreOperator cũng cần để hiển thị tên đầy đủ
 - ❌ `_filterStoreNo = null` trong ResetFilterAsync cho ITOps — dùng `_selectedStore = null`
-- ❌ Bỏ `ResetValueOnEmptyText="true"` — khi user xóa text, `_selectedStore` không reset về `null`
+- ❌ `ResetValueOnEmptyText="true"` + `MinCharacters="0"` — text rỗng khi focus → reset value lặp vô hạn → re-render loop → **Blazor circuit bị tear-down** ("Failed to rejoin"). Dùng `Clearable="true"` thay thế.
+- ❌ Bỏ `.Take(50)` trong SearchStoreAsync — `MaxItems` chỉ giới hạn hiển thị, toàn bộ list vẫn bị materialize → lag với list lớn
 - ❌ `ToStringFunc` trả về chỉ `StoreNo` — mất tên cửa hàng trong dropdown
 
 ---
@@ -184,7 +187,7 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 
 | Page | File |
 |------|------|
-| Giao dịch | `src/POS.Web/Components/Pages/Store/TransactionsPage.razor` |
-| Doanh thu chi tiết | `src/POS.Web/Components/Pages/Store/DetailRevenuePage.razor` |
-| Doanh thu theo ngành hàng | `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor` |
-| Kết thúc ca | `src/POS.Web/Components/Pages/Store/EosShiftsPage.razor` |
+| Giao dịch | `src/POS.Web/Components/Pages/Store/Transactions/TransactionsPage.razor` |
+| Doanh thu chi tiết | `src/POS.Web/Components/Pages/Store/Reports/DetailRevenuePage.razor` |
+| Doanh thu theo ngành hàng | `src/POS.Web/Components/Pages/Store/Reports/SalesByCategoryPage.razor` |
+| Kết thúc ca | `src/POS.Web/Components/Pages/Store/Operations/EosShiftsPage.razor` |

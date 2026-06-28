@@ -1,0 +1,552 @@
+﻿@page "/store/top-product"
+@namespace POS.Web.Components.Pages.Store
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+@implements IDisposable
+
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@inject IRptCentralSaleRepository RptRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Sản phẩm bán chạy – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mr-2" Style="vertical-align:middle"/>
+    Sản phẩm bán chạy
+</MudText>
+
+@* ── Filter Panel ─────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@StoreDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng" Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0" MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDate" Label="Đến ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+            <MudSwitch @bind-Value="_compareEnabled" Color="Color.Primary" Label="So sánh kỳ trước"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync" Disabled="@_loading" FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync" Disabled="@_loading" FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+
+    @* Top-N + Sort + preset *@
+    <div class="d-flex align-center gap-2 flex-wrap mt-3">
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mr-1">Top:</MudText>
+        @foreach (var n in _topNOptions)
+        {
+            <MudChip T="string"
+                     Color="@(_topN == n ? Color.Primary : Color.Default)"
+                     Variant="@(_topN == n ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetTopNAsync(n))" Disabled="@_loading" Size="Size.Small">Top @n</MudChip>
+        }
+        <MudDivider Vertical="true" FlexItem="true" Class="mx-1"/>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mr-1">Xếp theo:</MudText>
+        <MudChip T="string"
+                 Color="@(_sortBy == "REVENUE" ? Color.Primary : Color.Default)"
+                 Variant="@(_sortBy == "REVENUE" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetSortAsync("REVENUE"))" Disabled="@_loading" Size="Size.Small">Doanh thu</MudChip>
+        <MudChip T="string"
+                 Color="@(_sortBy == "QUANTITY" ? Color.Primary : Color.Default)"
+                 Variant="@(_sortBy == "QUANTITY" ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetSortAsync("QUANTITY"))" Disabled="@_loading" Size="Size.Small">Số lượng</MudChip>
+    </div>
+
+    <div class="d-flex align-center gap-2 flex-wrap mt-2">
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mr-1">Xem nhanh:</MudText>
+        @foreach (var label in _presetLabels)
+        {
+            <MudChip T="string"
+                     Color="@(_activePreset == label ? Color.Primary : Color.Default)"
+                     Variant="@(_activePreset == label ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetPresetAsync(label))" Disabled="@_loading" Size="Size.Small">@label</MudChip>
+        }
+    </div>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+@* ── KPI Cards ─────────────────────────────────────────────────────────────── *@
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-primary);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">DT Top @_kpi.FilterTopN SP</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-1">@FormatVND(_kpi.TopN_TotalNetRevenue)</MudText>
+            @TrendBadge(_kpi.TopN_TotalNetRevenue, _kpiPrev?.TopN_TotalNetRevenue)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@_kpi.TopN_RevenueSharePct.ToString("F1")% trên tổng DT</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-info);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">SL Top @_kpi.FilterTopN SP</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Info" Class="mt-1">@_kpi.TopN_TotalQty.ToString("N0")</MudText>
+            @TrendBadge(_kpi.TopN_TotalQty, _kpiPrev?.TopN_TotalQty)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng số lượng bán</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-success);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Số SKU bán được</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Success" Class="mt-1">@_kpi.TopN_SKUCount.ToString("N0")</MudText>
+            @TrendBadge(_kpi.TopN_SKUCount, _kpiPrev?.TopN_SKUCount)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">SKU trong Top N</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* ── Visual A — CSS bar list (Top SP) ─────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-1">
+        <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1"/>
+        Top sản phẩm theo @(_sortBy == "QUANTITY" ? "số lượng" : "doanh thu")
+    </MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">Thanh = tỷ trọng so với SP cao nhất · nhãn: DT · SL</MudText>
+
+    @if (_products.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">Không có dữ liệu trong khoảng thời gian này.</MudAlert>
+    }
+    else
+    {
+        @foreach (var p in _products)
+        {
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                <div style="width:34px; text-align:center;">
+                    <div style="font-weight:700; color:var(--mud-palette-text-secondary);">@p.Rank</div>
+                    @if (_compareEnabled)
+                    {
+                        var mv = RankMove(p);
+                        if (mv.IsNew)
+                        {
+                            <div style="font-size:0.6rem; font-weight:600; color:var(--mud-palette-info)">NEW</div>
+                        }
+                        else if (mv.Delta != 0)
+                        {
+                            <div style="@($"font-size:0.65rem; font-weight:600; color:{(mv.Up ? "var(--mud-palette-success)" : "var(--mud-palette-error)")}")">
+                                @(mv.Up ? "▲" : "▼")@Math.Abs(mv.Delta)
+                            </div>
+                        }
+                    }
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; justify-content:space-between; gap:8px; font-size:0.8rem; margin-bottom:2px;">
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="@p.ProductName">@p.ProductName</span>
+                        <span style="white-space:nowrap; color:var(--mud-palette-text-secondary);">@FormatVND(p.NetRevenue) · @p.NetQty.ToString("N0") SL</span>
+                    </div>
+                    <div style="background:var(--mud-palette-action-disabled-background); border-radius:4px; height:14px; overflow:hidden;">
+                        <div style="height:100%; @BarWidthStyle(p) background:@BarColor(p); border-radius:4px; transition:width .3s;"></div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</MudPaper>
+
+@* ── Bảng chi tiết (drill-through) ─────────────────────────────────────────── *@
+<MudTable Items="@_products" Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true"
+          OnRowClick="@OnRowClicked" T="TopProductDto"
+          RowStyle="cursor:pointer">
+    <HeaderContent>
+        <MudTh Style="text-align:center">#</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<TopProductDto, object>(x => x.ItemNo)">Mã SP</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<TopProductDto, object>(x => x.ProductName)">Tên sản phẩm</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<TopProductDto, object>(x => x.NetQty)">SL bán</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<TopProductDto, object>(x => x.AvgSellingPrice)">Giá TB</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right">Trả %</MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<TopProductDto, object>(x => x.OrderCount)">Độ phủ</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right">Giảm %</MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<TopProductDto, object>(x => x.NetRevenue)">DT Thuần</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right">% Tổng DT</MudTh>
+        <MudTh Style="text-align:right">% Tích lũy</MudTh>
+        @if (_compareEnabled)
+        {
+            <MudTh Style="text-align:center">Biến động</MudTh>
+        }
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="#" Style="text-align:center; font-weight:700">@context.Rank</MudTd>
+        <MudTd DataLabel="Mã SP" Style="font-weight:500">@context.ItemNo</MudTd>
+        <MudTd DataLabel="Tên sản phẩm">@context.ProductName</MudTd>
+        <MudTd DataLabel="SL bán" Style="text-align:right">@context.NetQty.ToString("N0")</MudTd>
+        <MudTd DataLabel="Giá TB" Style="text-align:right">@context.AvgSellingPrice.ToString("N0")</MudTd>
+        <MudTd DataLabel="Trả %" Style="@($"text-align:right; color:{ReturnColor(context)}")">@ReturnPctText(context)</MudTd>
+        <MudTd DataLabel="Độ phủ" Style="text-align:right">@context.OrderCount.ToString("N0")</MudTd>
+        <MudTd DataLabel="Giảm %" Style="@($"text-align:right; color:{DiscountColor(context)}")">@DiscountPctText(context)</MudTd>
+        <MudTd DataLabel="DT Thuần" Style="text-align:right; font-weight:500">@FormatVND(context.NetRevenue)</MudTd>
+        <MudTd DataLabel="% Tổng DT" Style="text-align:right">@context.RevenueSharePct.ToString("F1")%</MudTd>
+        <MudTd DataLabel="% Tích lũy" Style="text-align:right; color:var(--mud-palette-text-secondary)">@context.CumulativeSharePct.ToString("F1")%</MudTd>
+        @if (_compareEnabled)
+        {
+            var mv = RankMove(context);
+            <MudTd DataLabel="Biến động" Style="text-align:center">
+                @if (mv.IsNew)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled">NEW</MudChip>
+                }
+                else
+                {
+                    <span style="@($"color:{(mv.Delta >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)")}; font-weight:600")">
+                        @(mv.Delta == 0 ? "—" : (mv.Up ? $"▲{mv.Delta}" : $"▼{Math.Abs(mv.Delta)}"))
+                    </span>
+                    <span style="color:var(--mud-palette-text-secondary); font-size:0.75rem; margin-left:4px">
+                        @($"{(mv.RevPct >= 0 ? "+" : "")}{mv.RevPct:F0}%")
+                    </span>
+                }
+            </MudTd>
+        }
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:var(--mud-palette-text-secondary)">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
+    </NoRecordsContent>
+</MudTable>
+<MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">
+    <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" Style="vertical-align:middle"/>
+    Bấm vào một dòng để xem chi tiết hóa đơn của sản phẩm.
+    @if (_compareEnabled)
+    {
+        <span> · Cột Biến động: ▲/▼ thay đổi thứ hạng &amp; Δ doanh thu so kỳ trước; <b>NEW</b> = mới lọt Top N kỳ này.</span>
+    }
+</MudText>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    // ── Auth / Store ─────────────────────────────────────────────────────────
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private bool      _isStoreOperator;
+    private string?   _filterStoreNo;
+    private StoreDto? _selectedStore;
+    private List<StoreDto> _allStores = [];
+
+    // ── Filter ───────────────────────────────────────────────────────────────
+    private DateTime? _fromDate = DateTime.Today.AddDays(-6);
+    private DateTime? _toDate   = DateTime.Today;
+    private int       _topN     = 10;
+    private string    _sortBy   = "REVENUE";
+    private bool      _compareEnabled;
+    private string    _activePreset = "7 ngày";
+
+    private readonly int[]    _topNOptions  = [10, 20, 50];
+    private readonly string[] _presetLabels = ["Hôm nay", "7 ngày", "30 ngày", "Tháng này", "Năm nay"];
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private bool    _loading;
+    private string? _errorMsg;
+    private CancellationTokenSource? _cts;
+    private const int MaxDaysAllStores = 92;
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+    private TopProductKpiDto  _kpi = new();
+    private TopProductKpiDto? _kpiPrev;
+    private List<TopProductDto> _products = [];
+    private decimal _maxPrimary;   // giá trị lớn nhất theo tiêu chí sort — scale bar
+    private Dictionary<string, TopProductDto> _prevByItem = new();   // Nhóm 2: lookup kỳ trước theo ItemNo
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+        if (_isStoreOperator) _filterStoreNo = _userStoreCodes[0];
+
+        try { _allStores = await MdRepo.GetStoreListAsync(); }
+        catch (Exception ex) { KibanaService.LogException("TopProductPage.LoadStores", "", 0, "", ex.Message); }
+        // Auto-load hoãn sang OnAfterRenderAsync (tránh chạy nặng trong prerender).
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await LoadDataAsync();
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+    private async Task LoadDataAsync()
+    {
+        if (_loading) return;
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        _loading = true; _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var from = (_fromDate ?? DateTime.Today).Date;
+            var to   = (_toDate   ?? DateTime.Today).Date;
+            if (from > to) to = from;
+
+            var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
+
+            if (string.IsNullOrEmpty(storeNo) && (to - from).Days + 1 > MaxDaysAllStores)
+            {
+                from = to.AddDays(-(MaxDaysAllStores - 1));
+                _fromDate = from;
+                _activePreset = "";
+                Snackbar.Add(
+                    $"Xem \"tất cả cửa hàng\" giới hạn {MaxDaysAllStores} ngày — đã tự điều chỉnh khoảng ngày.",
+                    Severity.Info);
+            }
+
+            var tMain = RptRepo.GetTopProductAsync(from, to, storeNo, _topN, _sortBy, ct: ct);
+
+            Task<(TopProductKpiDto Kpi, List<TopProductDto> Products, List<TopProductCategoryDto> Categories)>? tPrev = null;
+            if (_compareEnabled)
+            {
+                var span = (to - from).Days + 1;
+                tPrev = RptRepo.GetTopProductAsync(from.AddDays(-span), to.AddDays(-span), storeNo, _topN, _sortBy, ct: ct);
+            }
+
+            var tasks = new List<Task> { tMain };
+            if (tPrev != null) tasks.Add(tPrev);
+            await Task.WhenAll(tasks);
+
+            var (kpi, products, _) = tMain.Result;
+            _kpi      = kpi;
+            _products = products;
+            _kpiPrev  = tPrev?.Result.Kpi;
+
+            // Nhóm 2: giữ danh sách kỳ trước để tính biến động hạng/DT từng SP.
+            _prevByItem = tPrev?.Result.Products
+                .GroupBy(p => p.ItemNo)
+                .ToDictionary(g => g.Key, g => g.First()) ?? new();
+
+            _maxPrimary = _products.Count > 0 ? _products.Max(PrimaryValue) : 0m;
+
+            KibanaService.LogInfo("TopProductPage.LoadData", storeNo ?? "all",
+                $"TopN={_topN} Sort={_sortBy} DT={kpi.TopN_TotalNetRevenue:N0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+        }
+        catch (OperationCanceledException)
+        {
+            // hủy (đổi filter / rời trang) — bỏ qua
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("TopProductPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+            if (!ct.IsCancellationRequested) StateHasChanged();
+        }
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _fromDate = DateTime.Today.AddDays(-6);
+        _toDate   = DateTime.Today;
+        _topN     = 10;
+        _sortBy   = "REVENUE";
+        _compareEnabled = false;
+        _activePreset   = "7 ngày";
+        if (!_isStoreOperator) _selectedStore = null;
+        await LoadDataAsync();
+    }
+
+    private async Task SetTopNAsync(int n)   { _topN = n;     await LoadDataAsync(); }
+    private async Task SetSortAsync(string s){ _sortBy = s;   await LoadDataAsync(); }
+
+    private async Task SetPresetAsync(string label)
+    {
+        var today = DateTime.Today;
+        (_fromDate, _toDate) = label switch
+        {
+            "Hôm nay"   => ((DateTime?)today, (DateTime?)today),
+            "7 ngày"    => (today.AddDays(-6), today),
+            "30 ngày"   => (today.AddDays(-29), today),
+            "Tháng này" => (new DateTime(today.Year, today.Month, 1),
+                            new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month))),
+            "Năm nay"   => (new DateTime(today.Year, 1, 1), new DateTime(today.Year, 12, 31)),
+            _           => (_fromDate, _toDate)
+        };
+        _activePreset = label;
+        await LoadDataAsync();
+    }
+
+    // ── Drill-through ────────────────────────────────────────────────────────
+    private async Task OnRowClicked(TableRowClickEventArgs<TopProductDto> args)
+    {
+        var p = args.Item;
+        if (p == null) return;
+
+        var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
+        var parameters = new DialogParameters<ProductOrdersDialog>
+        {
+            { x => x.ItemNo,      p.ItemNo },
+            { x => x.ProductName, p.ProductName },
+            { x => x.FromDate,    (_fromDate ?? DateTime.Today).Date },
+            { x => x.ToDate,      (_toDate   ?? DateTime.Today).Date },
+            { x => x.StoreNo,     storeNo }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<ProductOrdersDialog>($"Hóa đơn — {p.ItemNo}", parameters, options);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        // Bound kết quả ≤ 50: tránh đẩy cả nghìn store vào component.
+        // (MaxItems chỉ giới hạn HIỂN THỊ, không giới hạn dữ liệu SearchFunc xử lý.)
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            // Ưu tiên store có MÃ bắt đầu bằng từ khóa → gõ mã luôn nổi đầu, không bị Take(50) cắt
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_filterStoreNo ?? "");
+
+    private decimal PrimaryValue(TopProductDto p) => _sortBy == "QUANTITY" ? p.NetQty : p.NetRevenue;
+
+    // Nhóm 2: biến động so kỳ trước. IsNew = mới lọt Top N kỳ này.
+    private (bool IsNew, int Delta, bool Up, decimal RevPct) RankMove(TopProductDto p)
+    {
+        if (!_prevByItem.TryGetValue(p.ItemNo, out var prev))
+            return (true, 0, false, 0m);
+        var delta  = prev.Rank - p.Rank;                       // > 0 = lên hạng
+        var revPct = prev.NetRevenue > 0
+            ? (p.NetRevenue - prev.NetRevenue) / prev.NetRevenue * 100m
+            : 0m;
+        return (false, delta, delta > 0, revPct);
+    }
+
+    private string BarWidthStyle(TopProductDto p)
+    {
+        var pct = _maxPrimary > 0 ? (double)(PrimaryValue(p) / _maxPrimary) * 100d : 0d;
+        if (pct < 0) pct = 0;
+        return $"width:{pct.ToString("0.##", CultureInfo.InvariantCulture)}%;";
+    }
+
+    private static string BarColor(TopProductDto p)
+    {
+        var share = (double)p.RevenueSharePct;
+        return share >= 10 ? "var(--mud-palette-success)"
+             : share >= 5  ? "var(--mud-palette-primary)"
+             :               "var(--mud-palette-info)";
+    }
+
+    // Nhóm 1: tỷ lệ trả hàng & phụ thuộc giảm giá (tính từ field SP đã trả).
+    private static decimal ReturnPct(TopProductDto p)   => p.SoldQty > 0 ? p.ReturnQty / p.SoldQty * 100m : 0m;
+    private static string  ReturnPctText(TopProductDto p) => p.SoldQty > 0 ? $"{ReturnPct(p):F1}%" : "—";
+    private static string  ReturnColor(TopProductDto p)   => ReturnPct(p) > 5m ? "var(--mud-palette-error)" : "inherit";
+
+    private static decimal DiscountPct(TopProductDto p)   => p.GrossRevenue > 0 ? p.TotalDiscount / p.GrossRevenue * 100m : 0m;
+    private static string  DiscountPctText(TopProductDto p) => p.GrossRevenue > 0 ? $"{DiscountPct(p):F1}%" : "—";
+    private static string  DiscountColor(TopProductDto p)   => DiscountPct(p) > 20m ? "var(--mud-palette-warning)" : "inherit";
+
+    private RenderFragment TrendBadge(decimal current, decimal? prev) => builder =>
+    {
+        if (!_compareEnabled || !prev.HasValue || prev.Value == 0) return;
+        var pct   = (current - prev.Value) / prev.Value * 100m;
+        var color = pct >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
+        var arrow = pct >= 0 ? "▲" : "▼";
+        builder.AddMarkupContent(0,
+            $"<div style=\"font-size:0.73rem;color:{color};margin:2px 0\">{arrow} {Math.Abs(pct):F1}% vs kỳ trước</div>");
+    };
+
+    private RenderFragment TrendBadge(int current, int? prev) =>
+        TrendBadge((decimal)current, prev.HasValue ? (decimal?)prev.Value : null);
+
+    private static string FormatVND(decimal amount) => amount switch
+    {
+        >= 1_000_000_000m => $"{amount / 1_000_000_000m:N1} tỷ",
+        >= 1_000_000m     => $"{amount / 1_000_000m:N0} triệu",
+        _                 => $"{amount:N0} ₫"
+    };
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

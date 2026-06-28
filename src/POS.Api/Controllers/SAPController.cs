@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using POS.Application.Interfaces;
+using POS.Application.Features.Sap;
 using POS.Common;
 using POS.Common.Dtos.SAP;
 using System.ComponentModel.DataAnnotations;

@@ -1,0 +1,746 @@
+﻿@page "/store/revenue-hourly"
+@namespace POS.Web.Components.Pages.Store
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using MudBlazor.Charts
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@implements IDisposable
+
+@inject IRptCentralSaleRepository RptRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<PageTitle>Doanh thu theo khung giờ – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Class="mr-2" Style="vertical-align:middle"/>
+    Doanh thu theo khung giờ
+</MudText>
+
+@* ── Filter Panel ─────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@StoreDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng"
+                                 Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDate"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDate"
+                           Label="Đến ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+            <MudSwitch @bind-Value="_compareEnabled"
+                       Color="Color.Primary"
+                       Label="So sánh kỳ trước"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+
+    @* Preset chips *@
+    <div class="d-flex align-center gap-2 flex-wrap mt-3">
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mr-1">Xem nhanh:</MudText>
+        @foreach (var label in _presetLabels)
+        {
+            <MudChip T="string"
+                     Color="@(_activePreset == label ? Color.Primary : Color.Default)"
+                     Variant="@(_activePreset == label ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetPresetAsync(label))"
+                     Disabled="@_loading"
+                     Size="Size.Small">@label</MudChip>
+        }
+    </div>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+@* ── KPI Cards ─────────────────────────────────────────────────────────────── *@
+<MudGrid Spacing="3" Class="mb-4">
+
+    <MudItem xs="6" sm="4" md="2">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-primary);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">DT Gộp</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-1">@FormatVND(_kpi.GrossRevenue)</MudText>
+            @TrendBadge(_kpi.GrossRevenue, _kpiPrev?.GrossRevenue)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Trước giảm giá</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="6" sm="4" md="2">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-success);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">DT Thuần</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Success" Class="mt-1">@FormatVND(_kpi.NetRevenue)</MudText>
+            @TrendBadge(_kpi.NetRevenue, _kpiPrev?.NetRevenue)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Sau giảm giá</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="6" sm="4" md="2">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-info);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Số giao dịch</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Info" Class="mt-1">@_kpi.TotalOrders.ToString("N0")</MudText>
+            @TrendBadge(_kpi.TotalOrders, _kpiPrev?.TotalOrders)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Hóa đơn hợp lệ</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="6" sm="4" md="2">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-warning);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">ATV</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Warning" Class="mt-1">@FormatVND(_kpi.ATV)</MudText>
+            @TrendBadge(_kpi.ATV, _kpiPrev?.ATV)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">DT thuần / GD</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="6" sm="4" md="2">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-error);">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Hóa đơn hủy</MudText>
+            <MudText Typo="Typo.h6" Color="Color.Error" Class="mt-1">@_kpi.TotalReturnOrders.ToString("N0")</MudText>
+            @TrendBadge(_kpi.TotalReturnOrders, _kpiPrev?.TotalReturnOrders, lowerIsBetter: true)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@(_kpi.ReturnRate.ToString("F1"))% tổng GD</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="6" sm="4" md="2">
+        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid #FF9800;">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng giảm giá</MudText>
+            <MudText Typo="Typo.h6" Style="color:#FF9800" Class="mt-1">@FormatVND(_kpi.TotalDiscount)</MudText>
+            @TrendBadge(_kpi.TotalDiscount, _kpiPrev?.TotalDiscount, lowerIsBetter: true)
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@DiscountPct% trên DT gộp</MudText>
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@* ── Line chart — xu hướng theo ngày ─────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-3">
+        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" Class="mr-1"/>
+        Xu hướng theo ngày (triệu đồng)
+        @if (_compareEnabled && _kpiPrev != null)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined" Class="ml-2">So sánh kỳ trước</MudChip>
+        }
+    </MudText>
+    @if (_lineEmpty)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">Không có dữ liệu trong khoảng thời gian này.</MudAlert>
+    }
+    else
+    {
+        <Line T="double"
+              @key="@($"line-{_chartVersion}")"
+              ChartSeries="@_lineSeries"
+              ChartLabels="@_lineLabels"
+              Width="100%" Height="280px"
+              ChartOptions="@_lineOpts"/>
+    }
+</MudPaper>
+
+@* ── Bar charts ───────────────────────────────────────────────────────────── *@
+<MudGrid Spacing="3" Class="mb-4">
+
+    <MudItem xs="12" lg="7">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-1">
+                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-1"/>
+                Doanh thu theo khung giờ (triệu đồng)
+            </MudText>
+            @if (_peakHours.Count > 0)
+            {
+                <div class="d-flex align-center gap-1 flex-wrap mb-2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mr-1">Cao điểm:</MudText>
+                    @foreach (var h in _peakHours.OrderByDescending(h => _hourlyValues[h]))
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
+                            @($"{h}:00 – {h + 1}:00")
+                        </MudChip>
+                    }
+                </div>
+            }
+            @if (_hourlyEmpty)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Không có dữ liệu.</MudAlert>
+            }
+            else
+            {
+                <Bar T="double"
+                     @key="@($"hour-{_chartVersion}")"
+                     ChartSeries="@_hourlySeries"
+                     ChartLabels="@_hourlyBarLabels"
+                     Width="100%" Height="260px"
+                     ChartOptions="@_hourlyBarOpts"/>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="5">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" Class="mr-1"/>
+                Doanh thu theo thứ (triệu đồng)
+            </MudText>
+            @if (_weekdayEmpty)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Không có dữ liệu.</MudAlert>
+            }
+            else
+            {
+                <Bar T="double"
+                     @key="@($"week-{_chartVersion}")"
+                     ChartSeries="@_weekdaySeries"
+                     ChartLabels="@_weekdayBarLabels"
+                     Width="100%" Height="260px"
+                     ChartOptions="@_weekdayBarOpts"/>
+            }
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@* ── Bảng chi tiết theo ngày ─────────────────────────────────────────────── *@
+<MudTable Items="@_tableRows"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.SortOrder)">Ngày</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.GrossRevenue)">DT Gộp</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.TotalDiscount)">Giảm giá</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.NetRevenue)">DT Thuần</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.TotalOrders)">Giao dịch</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.TotalReturnOrders)">Hủy</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.ATV)">ATV</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        @{
+            var aboveAvg = AvgNetRevenue > 0 && (double)context.NetRevenue > AvgNetRevenue * 1.1;
+        }
+        <MudTd DataLabel="Ngày" Style="font-weight:500">@context.TimeLabel</MudTd>
+        <MudTd DataLabel="DT Gộp" Style="text-align:right">@FormatVND(context.GrossRevenue)</MudTd>
+        <MudTd DataLabel="Giảm giá" Style="@($"text-align:right; color:{(context.TotalDiscount > 0 ? "#F39C12" : "#9e9e9e")}")">
+            @(context.TotalDiscount > 0 ? FormatVND(context.TotalDiscount) : "—")
+        </MudTd>
+        <MudTd DataLabel="DT Thuần" Style="@($"text-align:right; font-weight:500; color:{(aboveAvg ? "#27AE60" : "inherit")}")">
+            @FormatVND(context.NetRevenue)
+        </MudTd>
+        <MudTd DataLabel="Giao dịch" Style="text-align:center">@context.TotalOrders.ToString("N0")</MudTd>
+        <MudTd DataLabel="Hủy" Style="@($"text-align:center; color:{(context.TotalReturnOrders > 0 ? "#DC3545" : "#9e9e9e")}")">
+            @(context.TotalReturnOrders > 0 ? context.TotalReturnOrders.ToString() : "—")
+        </MudTd>
+        <MudTd DataLabel="ATV" Style="text-align:right">@FormatVND(context.ATV)</MudTd>
+    </RowTemplate>
+    <FooterContent>
+        <MudTh Style="font-weight:700">Tổng</MudTh>
+        <MudTh Style="text-align:right; font-weight:700">@FormatVND(_kpi.GrossRevenue)</MudTh>
+        <MudTh Style="text-align:right; font-weight:700; color:#F39C12">@FormatVND(_kpi.TotalDiscount)</MudTh>
+        <MudTh Style="text-align:right; font-weight:700">@FormatVND(_kpi.NetRevenue)</MudTh>
+        <MudTh Style="text-align:center; font-weight:700">@_kpi.TotalOrders.ToString("N0")</MudTh>
+        <MudTh Style="text-align:center; font-weight:700; color:#DC3545">@_kpi.TotalReturnOrders.ToString("N0")</MudTh>
+        <MudTh Style="text-align:right; font-weight:700">@FormatVND(_kpi.ATV)</MudTh>
+    </FooterContent>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    // ── Auth / Store ─────────────────────────────────────────────────────────
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private bool     _isStoreOperator;
+    private string?  _filterStoreNo;
+    private StoreDto? _selectedStore;
+    private List<StoreDto> _allStores = [];
+
+    // ── Filter ───────────────────────────────────────────────────────────────
+    private DateTime? _fromDate     = DateTime.Today.AddDays(-6);
+    private DateTime? _toDate       = DateTime.Today;
+    private bool      _compareEnabled;
+    private string    _activePreset = "7 ngày";
+
+    private readonly string[] _presetLabels = ["Hôm nay", "7 ngày", "30 ngày", "Tháng này", "Năm nay"];
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private bool    _loading;
+    private string? _errorMsg;
+    private int     _chartVersion;
+    private CancellationTokenSource? _cts;
+
+    // Giới hạn khoảng ngày khi xem "tất cả cửa hàng" (payload = days × stores).
+    private const int MaxDaysAllStores = 92;
+
+    // ── KPI ──────────────────────────────────────────────────────────────────
+    private SaleByTimeKpiDto  _kpi     = new();
+    private SaleByTimeKpiDto? _kpiPrev;
+
+    private string DiscountPct => _kpi.GrossRevenue > 0
+        ? (_kpi.TotalDiscount / _kpi.GrossRevenue * 100m).ToString("F1")
+        : "0.0";
+
+    // ── Line chart ───────────────────────────────────────────────────────────
+    private List<ChartSeries<double>> _lineSeries =
+    [
+        new ChartSeries<double> { Name = "DT Gộp",   Data = new ChartData<double>(Array.Empty<double>()) },
+        new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(Array.Empty<double>()) },
+    ];
+    private string[]        _lineLabels = [];
+    private bool            _lineEmpty  = true;
+    private LineChartOptions _lineOpts  = new() { LineStrokeWidth = 2, ShowLegend = true };
+
+    // ── Hourly bar ───────────────────────────────────────────────────────────
+    private List<ChartSeries<double>> _hourlySeries =
+        [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(Array.Empty<double>()) }];
+    private readonly string[] _hourlyBarLabels = Enumerable.Range(0, 24).Select(h => $"{h}h").ToArray();
+    private bool             _hourlyEmpty     = true;
+    private BarChartOptions  _hourlyBarOpts   = new() { ShowLegend = false };
+    private double[]         _hourlyValues    = new double[24];
+    private HashSet<int>     _peakHours       = [];
+
+    // ── Weekday bar ──────────────────────────────────────────────────────────
+    private List<ChartSeries<double>> _weekdaySeries =
+        [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(Array.Empty<double>()) }];
+    private readonly string[] _weekdayBarLabels = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"];
+    private bool             _weekdayEmpty     = true;
+    private BarChartOptions  _weekdayBarOpts   = new() { ShowLegend = false };
+
+    // ── Detail table ─────────────────────────────────────────────────────────
+    private List<SaleByTimeSeriesDto> _tableRows = [];
+    private double AvgNetRevenue => _tableRows.Count > 0 ? _tableRows.Average(r => (double)r.NetRevenue) : 0d;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+        if (_isStoreOperator)
+            _filterStoreNo = _userStoreCodes[0];
+
+        try { _allStores = await MdRepo.GetStoreListAsync(); }
+        catch (Exception ex)
+        {
+            KibanaService.LogException("RevenueHourlyPage.LoadStores", "", 0, "", ex.Message);
+        }
+        // KHÔNG auto-load ở đây: OnInitializedAsync chạy cả trong prerender → query nặng sẽ
+        // chặn first-byte và chạy lặp. Hoãn sang OnAfterRenderAsync (chỉ khi circuit interactive).
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await LoadDataAsync();
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+
+    private async Task LoadDataAsync()
+    {
+        if (_loading) return;   // chống re-entrancy: bấm preset/nút liên tiếp không dồn query
+
+        // Hủy lượt load trước (nếu user đổi filter giữa chừng) rồi mở token mới theo lượt này.
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        _loading = true; _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var from    = (_fromDate ?? DateTime.Today).Date;
+            var to      = (_toDate   ?? DateTime.Today).Date;
+            if (from > to) to = from;
+
+            var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
+
+            // Xem "tất cả cửa hàng" + khoảng rộng → RS2 = days × stores rất lớn. Clamp lại.
+            if (string.IsNullOrEmpty(storeNo) && (to - from).Days + 1 > MaxDaysAllStores)
+            {
+                from = to.AddDays(-(MaxDaysAllStores - 1));
+                _fromDate = from;
+                _activePreset = "";
+                Snackbar.Add(
+                    $"Xem \"tất cả cửa hàng\" giới hạn {MaxDaysAllStores} ngày — đã tự điều chỉnh khoảng ngày.",
+                    Severity.Info);
+            }
+
+            // Chỉ call DAY xin KPI (RS1); HOUR/WEEKDAY/compare chỉ cần series → includeKpi:false.
+            var tDay     = RptRepo.GetSaleByTimeAsync(from, to, storeNo, "DAY", ct: ct);
+            var tHour    = RptRepo.GetSaleByTimeAsync(from, to, storeNo, "HOUR",    includeKpi: false, ct: ct);
+            var tWeekday = RptRepo.GetSaleByTimeAsync(from, to, storeNo, "WEEKDAY", includeKpi: false, ct: ct);
+
+            Task<(SaleByTimeKpiDto Kpi, List<SaleByTimeSeriesDto> Series)>? tPrevDay = null;
+            if (_compareEnabled)
+            {
+                var span     = (to - from).Days + 1;
+                var prevFrom = from.AddDays(-span);
+                var prevTo   = to.AddDays(-span);
+                tPrevDay = RptRepo.GetSaleByTimeAsync(prevFrom, prevTo, storeNo, "DAY", ct: ct);
+            }
+
+            var tasks = new List<Task> { tDay, tHour, tWeekday };
+            if (tPrevDay != null) tasks.Add(tPrevDay);
+            await Task.WhenAll(tasks);
+
+            var (kpi, daySeries)   = tDay.Result;
+            var (_, hourSeries)    = tHour.Result;
+            var (_, weekdaySeries) = tWeekday.Result;
+
+            _kpi     = kpi;
+            _kpiPrev = tPrevDay?.Result.Kpi;
+
+            BuildLineChart(daySeries, tPrevDay?.Result.Series, from, to);
+            BuildHourChart(hourSeries);
+            BuildWeekdayChart(weekdaySeries);
+
+            _tableRows = daySeries
+                .GroupBy(r => new { r.TimeLabel, r.SortOrder })
+                .Select(g => new SaleByTimeSeriesDto
+                {
+                    TimeLabel         = g.Key.TimeLabel,
+                    SortOrder         = g.Key.SortOrder,
+                    GrossRevenue      = g.Sum(r => r.GrossRevenue),
+                    NetRevenue        = g.Sum(r => r.NetRevenue),
+                    TotalDiscount     = g.Sum(r => r.TotalDiscount),
+                    TotalOrders       = g.Sum(r => r.TotalOrders),
+                    TotalReturnOrders = g.Sum(r => r.TotalReturnOrders),
+                    ATV               = g.Sum(r => r.TotalOrders) > 0
+                        ? g.Sum(r => r.NetRevenue) / g.Sum(r => r.TotalOrders) : 0
+                })
+                .OrderBy(r => r.SortOrder)
+                .ToList();
+
+            _chartVersion++;
+            KibanaService.LogInfo("RevenueHourlyPage.LoadData",
+                storeNo ?? "all",
+                $"GrossRevenue={kpi.GrossRevenue:N0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+        }
+        catch (OperationCanceledException)
+        {
+            // Lượt load bị hủy (đổi filter / rời trang) — bỏ qua, không hiện lỗi đỏ.
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("RevenueHourlyPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+            if (!ct.IsCancellationRequested)
+                StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _fromDate       = DateTime.Today.AddDays(-6);
+        _toDate         = DateTime.Today;
+        _compareEnabled = false;
+        _activePreset   = "7 ngày";
+        if (!_isStoreOperator) _selectedStore = null;
+        await LoadDataAsync();
+    }
+
+    private async Task SetPresetAsync(string label)
+    {
+        var today = DateTime.Today;
+        (_fromDate, _toDate) = label switch
+        {
+            "Hôm nay"   => ((DateTime?)today,                  (DateTime?)today),
+            "7 ngày"    => (today.AddDays(-6),                 today),
+            "30 ngày"   => (today.AddDays(-29),                today),
+            "Tháng này" => (new DateTime(today.Year, today.Month, 1),
+                            new DateTime(today.Year, today.Month,
+                                DateTime.DaysInMonth(today.Year, today.Month))),
+            "Năm nay"   => (new DateTime(today.Year, 1, 1),   new DateTime(today.Year, 12, 31)),
+            _           => (_fromDate, _toDate)
+        };
+        _activePreset = label;
+        await LoadDataAsync();
+    }
+
+    // ── Chart builders ───────────────────────────────────────────────────────
+
+    // Line chart vẽ theo NGÀY: phải zero-fill toàn dải from..to (như bar dùng bucket cố định),
+    // nếu không, dải chỉ 1 ngày có data → Line 1 điểm → MudBlazor không vẽ được đoạn nào → trống.
+    private void BuildLineChart(List<SaleByTimeSeriesDto> current, List<SaleByTimeSeriesDto>? prev,
+                                DateTime from, DateTime to)
+    {
+        // SP trả TimeLabel cho DAY dạng "dd/MM/yyyy" — parse về ngày để map vào spine.
+        static DateTime? ParseDay(string s) =>
+            DateTime.TryParseExact(s, "dd/MM/yyyy",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var d) ? d : (DateTime?)null;
+
+        static Dictionary<DateTime, (decimal Gross, decimal Net)> ByDate(List<SaleByTimeSeriesDto> rows) => rows
+            .Select(r => (Date: ParseDay(r.TimeLabel), r.GrossRevenue, r.NetRevenue))
+            .Where(x => x.Date.HasValue)
+            .GroupBy(x => x.Date!.Value.Date)
+            .ToDictionary(g => g.Key, g => (Gross: g.Sum(v => v.GrossRevenue), Net: g.Sum(v => v.NetRevenue)));
+
+        var byDate = ByDate(current);
+        var series = new List<ChartSeries<double>>();
+        double[] grossVals, netVals;
+
+        if (byDate.Count > 0)
+        {
+            var days = Enumerable.Range(0, (to.Date - from.Date).Days + 1)
+                                 .Select(i => from.Date.AddDays(i)).ToList();
+            _lineLabels = days.Select(d => d.ToString("dd/MM")).ToArray();
+            grossVals   = days.Select(d => byDate.TryGetValue(d, out var v) ? Round(v.Gross) : 0d).ToArray();
+            netVals     = days.Select(d => byDate.TryGetValue(d, out var v) ? Round(v.Net)   : 0d).ToArray();
+
+            series.Add(new() { Name = "DT Gộp",   Data = new ChartData<double>(grossVals) });
+            series.Add(new() { Name = "DT Thuần", Data = new ChartData<double>(netVals)   });
+
+            if (prev != null && _compareEnabled)
+            {
+                var prevByDate = ByDate(prev);
+                // Kỳ trước = spine hiện tại dịch lùi đúng số ngày → align 1:1 theo vị trí.
+                var span      = days.Count;
+                var prevDays  = days.Select(d => d.AddDays(-span)).ToList();
+                var prevGross = prevDays.Select(d => prevByDate.TryGetValue(d, out var v) ? Round(v.Gross) : 0d).ToArray();
+                var prevNet   = prevDays.Select(d => prevByDate.TryGetValue(d, out var v) ? Round(v.Net)   : 0d).ToArray();
+
+                series.Add(new() { Name = "DT Gộp (kỳ trước)",   Data = new ChartData<double>(prevGross) });
+                series.Add(new() { Name = "DT Thuần (kỳ trước)", Data = new ChartData<double>(prevNet)   });
+            }
+        }
+        else
+        {
+            // Fallback: TimeLabel không parse được dd/MM/yyyy → giữ logic cũ theo SortOrder.
+            var ordered = current
+                .GroupBy(r => new { r.TimeLabel, r.SortOrder })
+                .Select(g => (Label: g.Key.TimeLabel, Sort: g.Key.SortOrder,
+                              Gross: g.Sum(r => r.GrossRevenue), Net: g.Sum(r => r.NetRevenue)))
+                .OrderBy(x => x.Sort)
+                .ToList();
+
+            _lineLabels = ordered.Select(x => x.Label.Length > 5 ? x.Label[..5] : x.Label).ToArray();
+            grossVals   = ordered.Select(x => Round(x.Gross)).ToArray();
+            netVals     = ordered.Select(x => Round(x.Net)).ToArray();
+
+            series.Add(new() { Name = "DT Gộp",   Data = new ChartData<double>(grossVals) });
+            series.Add(new() { Name = "DT Thuần", Data = new ChartData<double>(netVals)   });
+
+            if (prev != null && _compareEnabled)
+            {
+                var prevOrdered = prev
+                    .GroupBy(r => new { r.TimeLabel, r.SortOrder })
+                    .Select(g => (Sort: g.Key.SortOrder, Gross: g.Sum(r => r.GrossRevenue), Net: g.Sum(r => r.NetRevenue)))
+                    .OrderBy(x => x.Sort)
+                    .ToList();
+
+                var n         = grossVals.Length;
+                var prevGross = Enumerable.Range(0, n).Select(i => i < prevOrdered.Count ? Round(prevOrdered[i].Gross) : 0d).ToArray();
+                var prevNet   = Enumerable.Range(0, n).Select(i => i < prevOrdered.Count ? Round(prevOrdered[i].Net)   : 0d).ToArray();
+
+                series.Add(new() { Name = "DT Gộp (kỳ trước)",   Data = new ChartData<double>(prevGross) });
+                series.Add(new() { Name = "DT Thuần (kỳ trước)", Data = new ChartData<double>(prevNet)   });
+            }
+        }
+
+        _lineSeries = series;
+        _lineEmpty  = grossVals.All(v => v == 0) && netVals.All(v => v == 0);
+
+        // Y-axis auto-scale như 2 bar chart (tránh trục cứng max=20 với giá trị nhỏ).
+        var yMax  = CalcYMax(grossVals.Concat(netVals).ToArray());
+        _lineOpts = new LineChartOptions { LineStrokeWidth = 2, ShowLegend = true,
+                                           YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+    }
+
+    private void BuildHourChart(List<SaleByTimeSeriesDto> hourSeries)
+    {
+        var hourMap = hourSeries
+            .GroupBy(r => r.SortOrder)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.NetRevenue));
+
+        _hourlyValues = Enumerable.Range(0, 24)
+            .Select(h => Round(hourMap.GetValueOrDefault(h, 0)))
+            .ToArray();
+
+        _peakHours = _hourlyValues
+            .Select((v, i) => (v, i))
+            .Where(x => x.v > 0)
+            .OrderByDescending(x => x.v)
+            .Take(3)
+            .Select(x => x.i)
+            .ToHashSet();
+
+        _hourlyEmpty  = _hourlyValues.All(v => v == 0);
+        _hourlySeries = [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(_hourlyValues) }];
+
+        var yMax = CalcYMax(_hourlyValues);
+        _hourlyBarOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+    }
+
+    private void BuildWeekdayChart(List<SaleByTimeSeriesDto> weekdaySeries)
+    {
+        var weekMap = weekdaySeries
+            .GroupBy(r => r.TimeLabel)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.NetRevenue));
+
+        // Weekday label from SP: "Thứ 2" ... "Thứ 7", "CN" — map to _weekdayBarLabels order
+        var weekVals = _weekdayBarLabels.Select(l => Round(weekMap.GetValueOrDefault(l, 0))).ToArray();
+
+        _weekdayEmpty  = weekVals.All(v => v == 0);
+        _weekdaySeries = [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(weekVals) }];
+
+        var yMax = CalcYMax(weekVals);
+        _weekdayBarOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        // Bound kết quả ≤ 50: tránh đẩy cả nghìn store vào component.
+        // (MaxItems chỉ giới hạn HIỂN THỊ, không giới hạn dữ liệu SearchFunc xử lý.)
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            // Ưu tiên store có MÃ bắt đầu bằng từ khóa → gõ mã luôn nổi đầu, không bị Take(50) cắt
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_filterStoreNo ?? "");
+
+    private RenderFragment TrendBadge(decimal current, decimal? prev, bool lowerIsBetter = false) => builder =>
+    {
+        if (!_compareEnabled || !prev.HasValue || prev.Value == 0) return;
+        var pct    = (current - prev.Value) / prev.Value * 100m;
+        var isGood = lowerIsBetter ? pct <= 0 : pct >= 0;
+        var color  = isGood ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
+        var arrow  = pct >= 0 ? "▲" : "▼";
+        builder.AddMarkupContent(0,
+            $"<div style=\"font-size:0.73rem;color:{color};margin:2px 0\">{arrow} {Math.Abs(pct):F1}% vs kỳ trước</div>");
+    };
+
+    private RenderFragment TrendBadge(int current, int? prev, bool lowerIsBetter = false) =>
+        TrendBadge((decimal)current, prev.HasValue ? (decimal?)prev.Value : null, lowerIsBetter);
+
+    private static string FormatVND(decimal amount) => amount switch
+    {
+        >= 1_000_000_000m => $"{amount / 1_000_000_000m:N1} tỷ",
+        >= 1_000_000m     => $"{amount / 1_000_000m:N0} triệu",
+        _                 => $"{amount:N0} ₫"
+    };
+
+    private static double Round(decimal v) => Math.Round((double)(v / 1_000_000m), 2);
+
+    private static double CalcYMax(double[] values)
+    {
+        var max = values.Length > 0 ? values.Max() : 0;
+        if (max <= 0) return 5;
+        return Math.Ceiling(max * 1.15);
+    }
+
+    private static int CalcYTick(double yMax)
+    {
+        if (yMax <= 5)  return 1;
+        if (yMax <= 10) return 2;
+        if (yMax <= 20) return 5;
+        return 10;
+    }
+}

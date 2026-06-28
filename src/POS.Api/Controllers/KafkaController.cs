@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using POS.Application.Interfaces;
+using POS.Application.Features.DataSync;
 using POS.Common;
 using POS.Common.Dtos.POS;
 using POS.Common.Helpers;

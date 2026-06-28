@@ -97,6 +97,10 @@ if (builder.Environment.IsDevelopment())
 // ─────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// ── Lưới an toàn cuối: bắt mọi exception chưa xử lý, trả đúng ResultResponse ──
+// Đặt ĐẦU pipeline để bao trùm toàn bộ request.
+app.UsePosExceptionHandling();
+
 app.UseSerilogRequestLogging();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,0 +1,153 @@
+@namespace POS.Web.Components.Pages.Ops
+@using MudBlazor
+@using POS.Common.Dtos.Ops
+@using Microsoft.AspNetCore.Components.Authorization
+@using POS.Web.Auth
+
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        @{
+            var age = Item.DateTimePos.HasValue ? DateTime.Now - Item.DateTimePos.Value : (TimeSpan?)null;
+            var lastSeen = !age.HasValue ? "Chưa có dữ liệu"
+                         : age.Value.TotalMinutes < 1 ? "vừa xong"
+                         : age.Value.TotalHours   < 1 ? $"{(int)age.Value.TotalMinutes}p trước"
+                         : age.Value.TotalDays    < 1 ? $"{(int)age.Value.TotalHours}h trước"
+                                                      : Item.DateTimePos!.Value.ToString("dd/MM/yyyy HH:mm");
+        }
+
+        @* ── Trạng thái tổng quan ───────────────────────────────────────── *@
+        <div class="d-flex align-center gap-2 flex-wrap mb-4">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                     Color="@(Item.IsOnline ? Color.Success : Color.Error)">
+                @(Item.IsOnline ? "● Online" : "● Offline")
+            </MudChip>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                     Color="@(Item.IsEnabled ? Color.Success : Color.Default)">
+                @(Item.IsEnabled ? "Đang sử dụng" : "Đã tắt")
+            </MudChip>
+            @if (Item.NeedsUpdate)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning">
+                    ⚠ Cần cập nhật phần mềm
+                </MudChip>
+            }
+        </div>
+
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Thông tin cơ bản</MudText>
+            <MudGrid Spacing="2">
+                @Field("PosNo", Item.No)
+                @Field("Cửa hàng", Item.StoreNo)
+                @Field("IP Address", Item.IPAddress)
+                @Field("MAC Address", Item.MACAddress)
+                @Field("Mô tả", Item.Description)
+                @Field("Vị trí (Placement)", Item.Placement)
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Giám sát (POSMonitor)</MudText>
+            @if (!Item.HasMonitor)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Máy POS này chưa gửi dữ liệu giám sát.</MudText>
+            }
+            else
+            {
+                <MudGrid Spacing="2">
+                    @Field("Tên máy", Item.ComputerName)
+                    @Field("Giờ POS (last seen)", Item.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") + (age.HasValue ? $"  ({lastSeen})" : ""))
+                    @Field("Trạng thái DB", Item.BluePosDatabaseStatus)
+                    @Field("BluePOS", Item.IsOpenBluePos == true ? "Đang mở" : "Đóng")
+                    @Field("Phiên bản hiện tại", Item.BluePosVersion)
+                    @Field("Phiên bản mới", Item.NeedsUpdate ? Item.BluePosVersionUpdate : "(đã mới nhất)")
+                </MudGrid>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Cấu hình in bill & màn hình phụ</MudText>
+            <MudGrid Spacing="2">
+                @Field("Có in bill tại POS", Item.PrintBill ? "Có" : "Không")
+                @Field("PrintReceiptLogo (gốc)", Item.PrintReceiptLogo)
+                @Field("Bật màn hình phụ", Item.ShowCustomerDisplay ? "Có" : "Không")
+                @Field("Nội dung màn hình phụ", Item.CustomerDisplayText1)
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Phân loại & thuế</MudText>
+            <MudGrid Spacing="2">
+                @Field("Chuỗi cửa hàng (StyleProfile)", Item.StyleProfile)
+                @Field("Mã CQT (BillNoseri)", Item.BillNoseri)
+                @Field("Nhóm giá mặc định", Item.DefaultPriceGroup)
+                @Field("Terminal Network ID", Item.TerminalNetworkID)
+                @Field("Tự đăng xuất sau (phút)", Item.AutoLogoffAfter_Min?.ToString())
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="1" Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600">Audit</MudText>
+            <MudGrid Spacing="2">
+                @Field("Tạo lúc", Item.CreatedDate?.ToString("yyyy-MM-dd HH:mm:ss"))
+                @Field("Tạo bởi", Item.CreatedBy)
+                @Field("Cập nhật lúc", Item.UpdatedDate?.ToString("yyyy-MM-dd HH:mm:ss"))
+                @Field("Cập nhật bởi", Item.UpdatedBy)
+                @Field("LastDateModified", Item.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss"))
+            </MudGrid>
+        </MudPaper>
+    </DialogContent>
+    <DialogActions>
+        @if (_isAdmin)
+        {
+            <MudButton OnClick="OpenEditAsync"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Edit">Chỉnh sửa</MudButton>
+        }
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Color="Color.Secondary">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter] Task<AuthenticationState>? AuthState { get; set; }
+
+    [Parameter] public PosTerminalListDto Item { get; set; } = null!;
+
+    private bool _isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            _isAdmin = state.User.IsInRole(WebRoles.SystemAdmin);
+        }
+    }
+
+    private async Task OpenEditAsync()
+    {
+        var dialog = await DialogService.ShowAsync<PosTerminalEditDialog>(
+            $"Chỉnh sửa POS: {Item.No} – {Item.StoreNo}",
+            new DialogParameters<PosTerminalEditDialog> { { x => x.Item, Item } },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true,
+                                CloseButton = true, CloseOnEscapeKey = true });
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void CloseDialog() => MudDialog.Close();
+
+    private RenderFragment Field(string label, string? value) => __builder =>
+    {
+        <MudItem xs="12" sm="6">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
+            <MudText Typo="Typo.body2" Style="font-weight:500">
+                @(string.IsNullOrWhiteSpace(value) ? "—" : value)
+            </MudText>
+        </MudItem>
+    };
+}

@@ -1,0 +1,126 @@
+@namespace POS.Web.Components.Pages.Ops
+@using MudBlazor
+@using POS.Common.Dtos.Ops
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_ipAddress"
+                                  Label="IP Address"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập IP Address"
+                                  MaxLength="20"
+                                  Immediate="true"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_billNoseri"
+                                  Label="Mã CQT (BillNoseri)"
+                                  Variant="Variant.Outlined"
+                                  MaxLength="50"
+                                  Immediate="true"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch @bind-Value="_status"
+                               Label="@(_status ? "Đang sử dụng (Bật)" : "Đã tắt")"
+                               Color="Color.Success"/>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(!_formValid || _saving)">
+            @if (_saving)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter] Task<AuthenticationState>? AuthState { get; set; }
+
+    [Parameter] public PosTerminalListDto Item { get; set; } = null!;
+
+    private MudForm _form = null!;
+    private bool _formValid, _saving;
+    private string? _errorMsg;
+    private string  _ipAddress   = string.Empty;
+    private string? _billNoseri;
+    private bool    _status;
+
+    protected override void OnParametersSet()
+    {
+        _ipAddress  = Item.IPAddress ?? string.Empty;
+        _billNoseri = Item.BillNoseri;
+        _status     = Item.IsEnabled;
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving   = true;
+        _errorMsg = null;
+        try
+        {
+            var username = string.Empty;
+            if (AuthState != null)
+            {
+                var state = await AuthState;
+                username = state.User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+            }
+
+            var ok = await MdRepo.UpdatePosTerminalAsync(
+                Item.No,
+                _ipAddress.Trim(),
+                _status,
+                string.IsNullOrWhiteSpace(_billNoseri) ? null : _billNoseri.Trim(),
+                username);
+
+            if (ok)
+            {
+                KibanaService.LogInfo("PosTerminalEditDialog.Save", Item.StoreNo,
+                    $"Updated POS {Item.No}: IP={_ipAddress}, Status={_status}, BillNoseri={_billNoseri}");
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _errorMsg = "Lưu thất bại. Vui lòng thử lại.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Lỗi hệ thống. Vui lòng thử lại.";
+            KibanaService.LogException("PosTerminalEditDialog.Save", Item.StoreNo, 0, "", ex.Message);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

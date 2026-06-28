@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using POS.Application.Interfaces;
+using POS.Application.Features.DataSync;
 using POS.Common;
 using POS.Common.Dtos.FileModel;
 using POS.Common.Dtos.Request;

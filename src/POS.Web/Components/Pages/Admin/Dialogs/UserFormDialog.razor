@@ -1,0 +1,262 @@
+@namespace POS.Web.Components.Pages.Admin
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@using POS.Web.Auth
+
+@inject IWebUserService UserService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(IsEdit ? Icons.Material.Filled.Edit : Icons.Material.Filled.PersonAdd)"
+                     Class="mr-2" Style="vertical-align:middle"/>
+            @(IsEdit ? "Sửa người dùng" : "Thêm người dùng")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+
+                @* Username *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Username"
+                                  Label="Tên đăng nhập"
+                                  Variant="Variant.Outlined"
+                                  Disabled="@IsEdit"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập tên đăng nhập"
+                                  Validation="@((Func<string?, Task<string?>>)ValidateUsername)"
+                                  Immediate="true"
+                                  MaxLength="50"/>
+                </MudItem>
+
+                @* FullName *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.FullName"
+                                  Label="Họ và tên"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập họ và tên"
+                                  Immediate="true"
+                                  MaxLength="100"/>
+                </MudItem>
+
+                @* Role *@
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_model.Role"
+                               Label="Vai trò"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               RequiredError="Vui lòng chọn vai trò"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem Value="@WebRoles.StoreOperator">Vận hành cửa hàng</MudSelectItem>
+                        <MudSelectItem Value="@WebRoles.ITOps">IT Ops</MudSelectItem>
+                        <MudSelectItem Value="@WebRoles.SystemAdmin">System Admin</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                @* StoreCodes — only for StoreOperator *@
+                @if (_model.Role == WebRoles.StoreOperator)
+                {
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.StoreCodesRaw"
+                                      Label="Mã cửa hàng (phân cách bởi dấu phẩy)"
+                                      Placeholder="POS001,POS002,POS003"
+                                      Variant="Variant.Outlined"
+                                      HelperText="Để trống nếu được xem tất cả cửa hàng"
+                                      Immediate="true"/>
+                    </MudItem>
+                }
+
+                @* Password — required on create; optional toggle on edit *@
+                @if (IsEdit)
+                {
+                    <MudItem xs="12">
+                        <MudSwitch @bind-Value="_changePassword"
+                                   Label="Đổi mật khẩu"
+                                   Color="Color.Warning"
+                                   T="bool"/>
+                    </MudItem>
+                }
+
+                @if (!IsEdit || _changePassword)
+                {
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.Password"
+                                      Label="@(IsEdit ? "Mật khẩu mới" : "Mật khẩu")"
+                                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      RequiredError="Vui lòng nhập mật khẩu"
+                                      Validation="@((Func<string?, string?>)ValidatePassword)"
+                                      Immediate="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                      OnAdornmentClick="@(() => _showPassword = !_showPassword)"/>
+                    </MudItem>
+                }
+
+                @* IsActive *@
+                <MudItem xs="12">
+                    <MudSwitch @bind-Value="_model.IsActive"
+                               Label="@(_model.IsActive ? "Đang hoạt động" : "Tạm khóa")"
+                               Color="Color.Success"
+                               T="bool"/>
+                </MudItem>
+
+            </MudGrid>
+        </MudForm>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@_saving"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public DashboardUser? ExistingUser { get; set; }
+
+    private bool IsEdit => ExistingUser is not null;
+
+    private UserFormModel _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private bool _showPassword;
+    private bool _changePassword;
+    private string? _errorMsg;
+
+    protected override void OnParametersSet()
+    {
+        if (ExistingUser is not null)
+        {
+            _model = new UserFormModel
+            {
+                Username      = ExistingUser.Username,
+                FullName      = ExistingUser.FullName,
+                Role          = ExistingUser.Role,
+                IsActive      = ExistingUser.IsActive,
+                StoreCodesRaw = BuildStoreCodesRaw(ExistingUser.StoreCodes)
+            };
+        }
+    }
+
+    private async Task<string?> ValidateUsername(string? value)
+    {
+        if (IsEdit) return null;
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập tên đăng nhập";
+        if (value.Length < 3) return "Tên đăng nhập phải có ít nhất 3 ký tự";
+        if (await UserService.UsernameExistsAsync(value)) return "Tên đăng nhập đã tồn tại";
+        return null;
+    }
+
+    private static string? ValidatePassword(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mật khẩu";
+        if (value.Length < 6) return "Mật khẩu phải có ít nhất 6 ký tự";
+        return null;
+    }
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+
+        try
+        {
+            var storeCodes = BuildStoreCodes(_model.Role, _model.StoreCodesRaw);
+            bool ok;
+
+            if (!IsEdit)
+            {
+                var user = new DashboardUser
+                {
+                    Username   = _model.Username.Trim(),
+                    FullName   = _model.FullName.Trim(),
+                    Role       = _model.Role,
+                    StoreCodes = storeCodes,
+                    IsActive   = _model.IsActive
+                };
+                ok = await UserService.CreateAsync(user, _model.Password!);
+            }
+            else
+            {
+                var user = new DashboardUser
+                {
+                    Id           = ExistingUser!.Id,
+                    Username     = ExistingUser.Username,
+                    PasswordHash = ExistingUser.PasswordHash,
+                    FullName     = _model.FullName.Trim(),
+                    Role         = _model.Role,
+                    StoreCodes   = storeCodes,
+                    IsActive     = _model.IsActive
+                };
+                var newPw = _changePassword ? _model.Password : null;
+                ok = await UserService.UpdateAsync(user, newPw);
+            }
+
+            if (ok)
+                MudDialog.Close(DialogResult.Ok(true));
+            else
+                _errorMsg = "Lưu thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string? BuildStoreCodes(string role, string? raw)
+    {
+        if (role != WebRoles.StoreOperator || string.IsNullOrWhiteSpace(raw)) return null;
+        var codes = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                       .Where(c => c.Length > 0)
+                       .Distinct(StringComparer.OrdinalIgnoreCase)
+                       .ToList();
+        return codes.Count > 0
+            ? Newtonsoft.Json.JsonConvert.SerializeObject(codes)
+            : null;
+    }
+
+    private static string BuildStoreCodesRaw(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return string.Empty;
+        var list = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
+        return list is { Count: > 0 } ? string.Join(",", list) : string.Empty;
+    }
+
+    private sealed class UserFormModel
+    {
+        public string  Username      { get; set; } = string.Empty;
+        public string  FullName      { get; set; } = string.Empty;
+        public string  Role          { get; set; } = WebRoles.StoreOperator;
+        public string? Password      { get; set; }
+        public string  StoreCodesRaw { get; set; } = string.Empty;
+        public bool    IsActive      { get; set; } = true;
+    }
+}

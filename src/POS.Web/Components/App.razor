@@ -6,11 +6,9 @@
     <base href="/"/>
     <title>POS Dashboard – WinMart</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
-    <link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" as="style"
-          onload="this.rel='stylesheet'"/>
-    <noscript>
-        <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet"/>
-    </noscript>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    @* Stylesheet thường thay cho preload+onload="this.rel='stylesheet'": tránh inline script bị CSP chặn. *@
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet"/>
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet"/>
     <link rel="stylesheet" href="app.css"/>
     <HeadOutlet @rendermode="InteractiveServer"/>

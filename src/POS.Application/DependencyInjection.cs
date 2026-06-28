@@ -1,6 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
-using POS.Application.Interfaces;
-using POS.Application.Services;
+using POS.Application.Features.Common;
+using POS.Application.Features.DataSync;
+using POS.Application.Features.Gift;
+using POS.Application.Features.Partner;
+using POS.Application.Features.Sap;
 
 namespace POS.Application;
 

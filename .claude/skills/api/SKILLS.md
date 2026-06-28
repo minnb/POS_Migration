@@ -176,9 +176,9 @@ private async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
 
 | Partner | AppCode | File |
 |---|---|---|
-| AkaChain/FMV | `"FMV"` | `src/POS.Infrastructure/AppServices/AkaChainLoyaltyAppService.cs` |
-| GotIT | `PartnerEnum.GOTIT` | `src/POS.Infrastructure/AppServices/GotITService.cs` |
-| Urbox | `PartnerEnum.URBOX` | `src/POS.Infrastructure/AppServices/UrboxService.cs` |
+| AkaChain/FMV | `"FMV"` | `src/POS.Infrastructure/AppServices/Partner/AkaChainLoyaltyAppService.cs` |
+| GotIT | `PartnerEnum.GOTIT` | `src/POS.Infrastructure/AppServices/Partner/GotITService.cs` |
+| Urbox | `PartnerEnum.URBOX` | `src/POS.Infrastructure/AppServices/Partner/UrboxService.cs` |
 
 ---
 
@@ -290,3 +290,34 @@ repo.RedeemVouchersAsync(serials, orderNo, ct: ct); // ✅
 
 > Quy tắc: Khi thêm optional param vào giữa signature, scan toàn bộ callers và thêm `ct: ct` nếu cần.
 > Ví dụ thực tế: `src/POS.Application/Services/SAPService.cs` — `RedeemCpnVchAsync`
+
+---
+
+## Pattern: Mã hóa credentials trong appsettings (token `enc:` + config hook)
+> Áp dụng khi: cần giấu password (DB/RabbitMQ) trong appsettings mà KHÔNG chuyển sang env var,
+> vẫn giữ file config commit được. Cross-platform (Docker Linux) → AES-GCM, KHÔNG dùng DPAPI (Windows-only).
+
+```csharp
+// 1) Helper static AES-256-GCM — token "enc:" + base64(nonce(12)|tag(16)|ciphertext)
+//    src/POS.Infrastructure/Security/SecretProtector.cs
+SecretProtector.Encrypt(plain, base64Key);         // → "enc:...."
+SecretProtector.DecryptTokens(value, base64Key);   // thay MỌI "enc:..." trong 1 chuỗi
+// → cho phép mã hóa CHỈ phần password: "...;Password=enc:XXX;..." (regex dừng ở ';')
+
+// 2) Hook giải mã trong Program.cs — NGAY SAU CreateBuilder, TRƯỚC AddInfrastructure:
+var enc = builder.Configuration.AsEnumerable().Where(kv => SecretProtector.HasToken(kv.Value)).ToList();
+if (enc.Count > 0) {
+    var key = Environment.GetEnvironmentVariable("POSWEB_SECRET_KEY")
+              ?? throw new InvalidOperationException("Có enc:... nhưng thiếu POSWEB_SECRET_KEY"); // fail-fast
+    var ov = new Dictionary<string,string?>(StringComparer.OrdinalIgnoreCase);
+    foreach (var kv in enc) ov[kv.Key] = SecretProtector.DecryptTokens(kv.Value!, key);
+    builder.Configuration.AddInMemoryCollection(ov);   // mọi GetConnectionString/GetSection tự nhận plaintext
+}
+```
+
+- **Không sửa từng factory** — giải mã ở tầng config nên `GetConnectionString` / `GetSection<RabbitMQOptions>` nhận plaintext tự động.
+- **No-op khi không có `enc:`** → môi trường chưa mã hóa (Dev) chạy bình thường, không cần khóa. **Fail-fast** nếu có `enc:` mà thiếu khóa.
+- Khóa qua env (`POSWEB_SECRET_KEY`), giá trị thật ở `.env` (gitignore) — KHÔNG commit khóa.
+
+> **Anti-pattern:** ❌ mã hóa `appsettings.json` (base) → MỌI môi trường (kể cả Dev không có khóa) fail-fast. Chỉ mã hóa file môi trường (Production).
+> Ví dụ thực tế: `SecretProtector.cs`, `src/POS.Web/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`

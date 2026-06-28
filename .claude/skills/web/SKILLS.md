@@ -223,13 +223,16 @@ private async Task LoadDataAsync()
         <MudTh><MudTableSortLabel SortBy="new Func<MyDto, object>(x => x.FieldA)">Cột A</MudTableSortLabel></MudTh>
     </HeaderContent>
     <RowTemplate><MudTd DataLabel="Cột A">@context.FieldA</MudTd></RowTemplate>
-    <PagerContent><MudTablePager/></PagerContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }" RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
 </MudTable>
 ```
 
 **2 anti-pattern quan trọng nhất:**
 - ❌ Tự viết `<table class="pos-table">` / `@inherits PosTableBase<T>` — base class đã xóa, dùng `MudTable`.
 - ❌ `MudPagination` thủ công — dùng `<MudTablePager>` trong `<PagerContent>`.
+- ❌ `PageSizeOptions` không bắt đầu bằng `10` → ô chọn số dòng/trang trống (default `RowsPerPage=10` không khớp).
 
 > **Ngoại lệ:** Pivot report (cột-ngày động) vẫn dùng `<table class="pos-table rpt-pivot-table">` — xem `reports.md`.
 
@@ -291,14 +294,15 @@ var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
 // ResetFilterAsync
 if (!_isStoreOperator) _selectedStore = null;
 
-// SearchStoreAsync
+// SearchStoreAsync — BẮT BUỘC có .Take(50) để tránh materialize toàn bộ list
 private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
 {
-    if (string.IsNullOrWhiteSpace(value))
-        return Task.FromResult<IEnumerable<StoreDto>>(_allStores);
-    return Task.FromResult(_allStores.Where(s =>
-        (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
-        (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)));
+    IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+        ? _allStores
+        : _allStores.Where(s =>
+            (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+    return Task.FromResult(matches.Take(50));
 }
 
 // StoreDisplayText (readonly field cho StoreOperator)
@@ -313,7 +317,7 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 - ❌ Chỉ load `_allStores` cho ITOps — StoreOperator cũng cần để hiển thị tên đầy đủ
 - ❌ `_filterStoreNo = null` trong Reset cho ITOps — phải dùng `_selectedStore = null`
 
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/TransactionsPage.razor`
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/TransactionsPage.razor`
 > Chi tiết: `.claude/skills/web/filter-store.md`
 
 ---
@@ -325,7 +329,7 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 - **Pivot report** (hàng × cột-ngày động): dùng `<table class="pos-table rpt-pivot-table">` — ngoại lệ có chủ đích so với MudTable.
 - **Report page layout**: header chuẩn (action bar PDF + user info + title + filter summary) cho trang xuất báo cáo.
 
-> Ví dụ: `src/POS.Web/Components/Pages/Store/SalesByCategoryPage.razor`
+> Ví dụ: `src/POS.Web/Components/Pages/Store/Reports/SalesByCategoryPage.razor`
 
 ---
 
@@ -593,13 +597,52 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Tự viết `<table class="pos-table">` + `PosTableBase<T>` cho DataTable mới → dùng `MudTable` (xem section DataTable chuẩn)
 - ❌ `MudTable` thiếu `HorizontalScrollbar="true"` → table bị clip trên mobile (pivot/raw table thì wrapper `overflow-x:auto`)
 - ❌ Chip container thiếu `flex-wrap` → chips tràn ngang, mất trên mobile
+- ❌ `@namespace` đặt trước `@page` trong routable component → Blazor endpoint routing không nhận dạng được route → page không truy cập được (xem section "Tổ chức thư mục Pages")
+- ❌ Đặt page mới vào root `Store/` thay vì sub-folder đúng nhóm nav (Operations/Transactions/Reports)
+- ❌ Đặt dialog component lẫn với page file trong cùng folder — dialog không có `@page`, đặt vào `{Section}/Dialogs/`
+
+---
+
+## Tổ chức thư mục Pages — BẮT BUỘC
+
+```
+src/POS.Web/Components/Pages/
+├── Store/
+│   ├── Dialogs/        ← dialog/detail components (không có @page)
+│   ├── Operations/     ← Vận hành: BusinessDay, EosShifts, ShiftSummary
+│   ├── Transactions/   ← Giao dịch: Transactions, Refunds, Voids
+│   └── Reports/        ← Báo cáo: Revenue, RevenueHourly, DetailRevenue, ...
+├── Ops/
+│   ├── Dialogs/        ← dialog/detail components (không có @page)
+│   └── *.razor         ← các page Ops trực tiếp
+└── Admin/
+    ├── Dialogs/        ← dialog/detail components (không có @page)
+    └── *.razor         ← các page Admin trực tiếp
+```
+
+**Quy tắc đặt file:**
+- Page điều hướng (có `@page`) trong `Store/` → đặt vào sub-folder đúng nhóm nav (Operations/Transactions/Reports)
+- Dialog, detail panel (KHÔNG có `@page`) → đặt vào `Dialogs/` của section tương ứng
+- `Ops/` và `Admin/` chưa cần sub-folder (số page ít) — thêm khi > ~15 page
+- File page trong sub-folder cần `@namespace POS.Web.Components.Pages.{Section}` để giữ type identity khi dialog open bằng `ShowAsync<T>()`
+
+**Thứ tự directive BẮT BUỘC khi có `@namespace`:**
+```razor
+@page "/store/ten-trang"                     ← PHẢI là dòng đầu tiên
+@namespace POS.Web.Components.Pages.Store    ← PHẢI đứng SAU @page
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+```
+> **Lý do:** Blazor Web App dùng `MapRazorComponents<App>()` — `@page` phải ở đầu file để endpoint routing nhận dạng được component là routable. Đặt `@namespace` trước `@page` khiến route không được đăng ký → page không truy cập được.
 
 ---
 
 ## Checklist khi tạo page mới
 
-- [ ] Đặt file đúng thư mục: `Store/` → StoreAndAbove | `Ops/` → OpsAndAbove | `Admin/` → AdminOnly
-- [ ] `@page "/section/kebab-case"` — route dùng kebab-case
+- [ ] Đặt file đúng **sub-folder**: Store/Operations, Store/Transactions, Store/Reports, Ops/, Admin/ (theo nhóm nav)
+- [ ] Dialog/detail component → đặt vào `{Section}/Dialogs/` (không có `@page`)
+- [ ] `@page "/section/kebab-case"` — **dòng đầu tiên của file** (trước cả `@namespace`)
+- [ ] `@namespace POS.Web.Components.Pages.{Section}` — thêm khi đặt vào sub-folder, đứng SAU `@page`
 - [ ] `@attribute [Authorize(Policy = WebPolicies.XXX)]` — đúng với section
 - [ ] `@rendermode InteractiveServer` — bắt buộc
 - [ ] `@inject IKibanaService KibanaService` — để log
@@ -692,7 +735,10 @@ private void UpdateExpanded(string uri)
 
 | Loại | File |
 |---|---|
-| Page Store mẫu (chart + KPI + filter) | `src/POS.Web/Components/Pages/Store/RevenuePage.razor` |
+| Page Store mẫu (chart + KPI) | `src/POS.Web/Components/Pages/Store/Reports/RevenuePage.razor` |
+| Page Store mẫu (filter + table + dialog) | `src/POS.Web/Components/Pages/Store/Transactions/TransactionsPage.razor` |
+| Page Store mẫu (operations) | `src/POS.Web/Components/Pages/Store/Operations/EosShiftsPage.razor` |
+| Dialog mẫu (Store section) | `src/POS.Web/Components/Pages/Store/Dialogs/VoidDetailDialog.razor` |
 | Page Ops mẫu (health check) | `src/POS.Web/Components/Pages/Ops/HealthPage.razor` |
 | Page Admin mẫu (user management) | `src/POS.Web/Components/Pages/Admin/UsersPage.razor` |
 | Layout chính + sidebar nav | `src/POS.Web/Components/Layout/MainLayout.razor` |
@@ -700,3 +746,37 @@ private void UpdateExpanded(string uri)
 | Auth service (BCrypt + JSON) | `src/POS.Web/Auth/WebUserService.cs` |
 | DI registration | `src/POS.Web/Program.cs` |
 | Roles + Policies constants | `src/POS.Web/Auth/WebRoles.cs` |
+
+---
+
+## Security headers / CSP + HTTPS config-driven (Program.cs)
+> Áp dụng khi: cấu hình bảo mật tầng hạ tầng cho POS.Web. Section `Security` trong appsettings điều khiển,
+> KHÔNG hardcode theo môi trường.
+
+```jsonc
+// appsettings: section "Security"
+"Mode": "Internet",        // BehindProxy | DirectHttps | Internet — chỉ chi phối ForwardedHeaders
+"RequireHttps": false,     // TÁCH RIÊNG: false = cho phép HTTP (cookie SameAsRequest, không HSTS/redirect)
+"EnableHsts": true,        // chỉ tác dụng khi RequireHttps=true
+"EnableSecurityHeaders": true,  // TẮT ở Development (xem anti-pattern bên dưới)
+"KnownProxies": [], "KnownNetworks": []  // chỉ dùng khi Mode=BehindProxy
+```
+
+- **Tách `RequireHttps` khỏi `Mode`**: cho phép chạy/test Production qua HTTP mà không vỡ login (cookie `Secure=Always` chỉ bật khi `RequireHttps && !IsDevelopment`). Khi có TLS → đổi `RequireHttps:true`, không sửa code.
+- **`Mode=Internet`/`DirectHttps`** ⇒ KHÔNG gọi `UseForwardedHeaders` → bịt giả mạo `X-Forwarded-*` khi app expose thẳng (không proxy). `BehindProxy` mới nạp `KnownProxies`/`KnownNetworks` (để trống = tạm tin mọi proxy + log cảnh báo).
+- **CSP cho Blazor Server**: `script-src 'self'` (blazor.web.js + MudBlazor), `style-src 'unsafe-inline'` (MudBlazor inject `<style>`), `connect-src 'self'` (WebSocket `/_blazor` cùng origin), **`frame-src 'self' blob:`** (preview PDF qua iframe blob).
+
+> **Anti-pattern:**
+> - ❌ Để CSP bật ở **Development** → `connect-src 'self'` chặn **VS Browser Link / dotnet-watch** (cổng localhost khác) làm tắc auto-reload. Đặt `EnableSecurityHeaders:false` trong `appsettings.Development.json`.
+> - ❌ Quên `frame-src ... blob:` → vỡ preview PDF (`<iframe src="blob:...">` ở SalesByCategoryPage).
+> - ❌ Ép `Cookie.Secure=Always` không điều kiện → login HTTP (dev/test) gãy vì browser không gửi lại cookie Secure.
+>
+> Ví dụ thực tế: `src/POS.Web/Program.cs` (vars `securityMode/requireHttps/...` + middleware headers); rollout: `docs/ROLLOUT.md`
+
+## SQL Console hardening
+> Áp dụng khi: trang chạy SQL trực tiếp (AdminOnly). Phải mask secret khi log + cho phép tắt.
+
+- Mask `password|pwd|token|secret|apikey` (literal `'...'`) **trước khi** ghi audit DB + Kibana log — tránh lưu plaintext.
+- Cờ `Security:EnableSqlConsole` (mặc định true) gate **cả service lẫn page** (defense-in-depth): service trả lỗi/throw, page hiện alert + disable. Nên đặt `false` ở Production expose internet.
+
+> Ví dụ thực tế: `src/POS.Web/Services/SqlConsoleService.cs` (`MaskSecrets`, `IsEnabled`), `Components/Pages/Admin/SqlConsolePage.razor`

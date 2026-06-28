@@ -1,0 +1,115 @@
+@namespace POS.Web.Components.Pages.Store
+@using MudBlazor
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+
+@inject IRptCentralSaleRepository RptRepo
+@inject IKibanaService KibanaService
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-1">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
+            @ItemNo — @ProductName
+        </MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+            Hóa đơn chứa sản phẩm này (@FromDate.ToString("dd/MM/yyyy") – @ToDate.ToString("dd/MM/yyyy"))
+            @if (!string.IsNullOrEmpty(StoreNo))
+            {
+                <span> · CH @StoreNo</span>
+            }
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
+        }
+        else if (_lines.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">Không tìm thấy dòng hóa đơn nào.</MudAlert>
+        }
+        else
+        {
+            @if (_lines.Count >= 500)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                    Hiển thị 500 dòng gần nhất — hãy thu hẹp khoảng ngày để xem đầy đủ.
+                </MudAlert>
+            }
+            <MudTable Items="@_lines" Hover="true" Striped="true" Dense="true"
+                      Breakpoint="Breakpoint.Sm" Elevation="1"
+                      HorizontalScrollbar="true" FixedHeader="true" Height="55vh">
+                <HeaderContent>
+                    <MudTh>Số HĐ</MudTh>
+                    <MudTh>Ngày</MudTh>
+                    <MudTh>Giờ</MudTh>
+                    <MudTh>CH</MudTh>
+                    <MudTh>POS</MudTh>
+                    <MudTh>Thu ngân</MudTh>
+                    <MudTh Style="text-align:center">Loại</MudTh>
+                    <MudTh Style="text-align:right">SL</MudTh>
+                    <MudTh Style="text-align:right">Đơn giá</MudTh>
+                    <MudTh Style="text-align:right">Giảm giá</MudTh>
+                    <MudTh Style="text-align:right">Thành tiền</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Số HĐ" Style="font-weight:500">@context.OrderNo</MudTd>
+                    <MudTd DataLabel="Ngày">@context.OrderDate.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd DataLabel="Giờ">@context.OrderTime</MudTd>
+                    <MudTd DataLabel="CH">@context.StoreNo</MudTd>
+                    <MudTd DataLabel="POS">@context.POSTerminalNo</MudTd>
+                    <MudTd DataLabel="Thu ngân">@context.CashierID</MudTd>
+                    <MudTd DataLabel="Loại" Style="text-align:center">
+                        @if (context.SalesIsReturn)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">Trả</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Bán</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="SL" Style="text-align:right">@context.Quantity.ToString("N0")</MudTd>
+                    <MudTd DataLabel="Đơn giá" Style="text-align:right">@context.UnitPrice.ToString("N0")</MudTd>
+                    <MudTd DataLabel="Giảm giá" Style="text-align:right">@context.DiscountAmount.ToString("N0")</MudTd>
+                    <MudTd DataLabel="Thành tiền" Style="text-align:right; font-weight:500">@context.LineAmountIncVAT.ToString("N0")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Color="Color.Secondary">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string   ItemNo      { get; set; } = string.Empty;
+    [Parameter] public string   ProductName { get; set; } = string.Empty;
+    [Parameter] public DateTime FromDate    { get; set; }
+    [Parameter] public DateTime ToDate      { get; set; }
+    [Parameter] public string?  StoreNo     { get; set; }
+
+    private bool _loading = true;
+    private List<ProductOrderLineDto> _lines = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _lines = await RptRepo.GetProductOrderLinesAsync(ItemNo, FromDate, ToDate, StoreNo);
+        }
+        catch (Exception ex)
+        {
+            KibanaService.LogException("ProductOrdersDialog.OnInitializedAsync", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void CloseDialog() => MudDialog.Close();
+}

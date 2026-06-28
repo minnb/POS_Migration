@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using POS.Infrastructure.AppServices;
-using POS.Infrastructure.AppServices.Interfaces;
+using POS.Infrastructure.AppServices.DataSync;
+using POS.Infrastructure.AppServices.Partner;
 using POS.Infrastructure.Cache;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Files;

@@ -89,6 +89,25 @@ private Task SearchAsync() => _table.ReloadServerData();
 
 ---
 
+## Sort — cột đặc biệt
+
+**Nullable DateTime:** dùng `?? DateTime.MinValue` để sort đúng mà không nullref
+```csharp
+SortBy="new Func<EosShiftDto, object>(x => x.OpenShiftDate ?? DateTime.MinValue)"
+```
+
+**Pre-formatted string date:** DTO có 2 field — `TimeLabel` (string hiển thị) và `SortOrder` (int thứ tự). Sort theo `SortOrder`, KHÔNG sort theo `TimeLabel`:
+```csharp
+// ❌ Sai — sort string "Thứ 2 01/07" cho kết quả ngẫu nhiên
+SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.TimeLabel)"
+
+// ✅ Đúng — sort theo int thứ tự thời gian
+SortBy="new Func<SaleByTimeSeriesDto, object>(x => x.SortOrder)"
+```
+> Ví dụ: `src/POS.Web/Components/Pages/Store/Reports/RevenueHourlyPage.razor`
+
+---
+
 ## Anti-patterns
 
 - ❌ Tự viết `<table class="pos-table">` + `@onclick SortBy` cho DataTable mới — dùng `MudTable` + `MudTableSortLabel`.
@@ -96,6 +115,8 @@ private Task SearchAsync() => _table.ReloadServerData();
 - ❌ `MudPagination` thủ công cho table — dùng `<MudTablePager>` trong `<PagerContent>`.
 - ❌ Server-side: gọi `LoadDataAsync()` trực tiếp từ nút Tìm — phải `_table.ReloadServerData()`.
 - ❌ Wrapper `<MudPaper Style="overflow-x:auto">` quanh MudTable — dùng `HorizontalScrollbar="true"` trên MudTable.
+- ❌ Inline result summary text giữa filter panel và table (`@if (!_loading && _items.Count > 0) { <div>Tìm thấy X dòng</div> }`) — dùng KPI cards hoặc `InfoFormat` trong `MudTablePager`.
+- ❌ Filter panel `Elevation="2"` — chuẩn là `Elevation="1"` cho MudPaper chứa filter panel.
 
 > **Ngoại lệ:** Pivot report (hàng × cột-ngày động) vẫn dùng `<table class="pos-table rpt-pivot-table">` — xem `reports.md`. MudTable không hợp cho ma trận cột động theo ngày.
 
@@ -105,8 +126,8 @@ private Task SearchAsync() => _table.ReloadServerData();
 
 | Loại | File |
 |---|---|
-| Client-side + sort | `src/POS.Web/Components/Pages/Store/TransactionsPage.razor`, `EosShiftsPage.razor` |
+| Client-side + sort | `src/POS.Web/Components/Pages/Store/Transactions/TransactionsPage.razor`, `Store/Operations/EosShiftsPage.razor` |
 | Client-side + search trong ToolBarContent | `src/POS.Web/Components/Pages/Admin/UsersPage.razor` |
-| Server-side paging | `src/POS.Web/Components/Pages/Store/DetailRevenuePage.razor` |
-| Footer tổng | `src/POS.Web/Components/Pages/Store/RevenueHourlyPage.razor` |
+| Server-side paging | `src/POS.Web/Components/Pages/Store/Reports/DetailRevenuePage.razor` |
+| Footer tổng | `src/POS.Web/Components/Pages/Store/Reports/RevenueHourlyPage.razor` |
 | Dynamic columns | `src/POS.Web/Components/Pages/Admin/SqlConsolePage.razor` |

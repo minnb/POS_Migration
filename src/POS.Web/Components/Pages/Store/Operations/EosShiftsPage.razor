@@ -1,0 +1,368 @@
+﻿@page "/store/eos-shifts"
+@namespace POS.Web.Components.Pages.Store
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.CentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+@using POS.Infrastructure.Logging
+
+@inject ICentralSaleRepository SaleRepo
+@inject ICentralMDRepository MdRepo
+@inject IKibanaService KibanaService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+<PageTitle>Kết thúc ca – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.LockClock" Class="mr-2" Style="vertical-align:middle"/>
+    Kết thúc ca bán hàng
+</MudText>
+
+@* ── Filter Panel ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@StoreDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng"
+                                 Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_filterDateNullable"
+                           Label="Ngày kinh doanh"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect T="int?"
+                       Value="@_filterStatus"
+                       ValueChanged="@OnStatusChanged"
+                       Label="Trạng thái"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@((int?)0)">Chưa đóng ca</MudSelectItem>
+                <MudSelectItem Value="@((int?)1)">Đã đóng ca</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@ResetFilterAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Alert ────────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── KPI Cards — flex: mỗi card flex:1, tự chia đều 1 dòng ────────────── *@
+@if (!_loading && _shifts.Count > 0)
+{
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@_shifts.Count</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số ca</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Success">@_closedCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Đã đóng ca</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Error">@_openCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Chưa đóng ca</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Color="Color.Primary">@FormatVND(_shifts.Sum(s => s.TotalRevenue))</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng doanh thu</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 120px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h4" Color="Color.Primary">@_shifts.Sum(s => s.TransactionCount)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số GD</MudText>
+            </MudPaper>
+        </div>
+    </div>
+}
+
+@* ── Table ────────────────────────────────────────────────────────────── *@
+<MudTable Items="@FilteredShifts"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.PosTerminal)">PosID</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.BussinessDate)">Ngày kinh doanh</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.ShiftNumber)">Ca</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.OpenShiftDate ?? DateTime.MinValue)">Mở ca</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.TransactionCount)">Số GD</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.TienHeThong)">Tiền hệ thống</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.CloseShiftDate!)">T/G đóng ca</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<EosShiftDto, object>(x => x.IsShiftClosed)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center">Thao tác</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="PosID" Style="text-align:center">@context.PosTerminal</MudTd>
+        <MudTd DataLabel="Ngày kinh doanh" Style="text-align:center">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="Ca" Style="text-align:center">@context.ShiftNumber</MudTd>
+        <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
+        <MudTd DataLabel="Số GD" Style="text-align:center">@context.TransactionCount</MudTd>
+        <MudTd DataLabel="Tiền hệ thống" Style="text-align:right">@FormatVND(context.TienHeThong)</MudTd>
+        <MudTd DataLabel="T/G đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("HH:mm dd/MM") ?? "—")</MudTd>
+        <MudTd DataLabel="Trạng thái" Style="text-align:center">
+            @if (context.IsShiftClosed)
+            {
+                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Đã đóng ca</MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Chưa đóng ca</MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="Thao tác" Style="text-align:center; white-space:nowrap">
+            <MudTooltip Text="Xem chi tiết">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                               Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => OpenDetailAsync(context))"/>
+            </MudTooltip>
+            <MudTooltip Text="In ca">
+                <MudIconButton Icon="@Icons.Material.Filled.Print"
+                               Size="Size.Small" Color="Color.Default"
+                               OnClick="@(() => PrintShiftAsync(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} ca"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool    _loading;
+    private string? _errorMsg;
+    private bool    _isStoreOperator;
+
+    private string?   _filterStoreNo;
+    private DateTime? _filterDateNullable = DateTime.Today;
+    private int?      _filterStatus;
+
+    private List<EosShiftDto>     _shifts         = [];
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private List<StoreDto>        _allStores      = [];
+    private StoreDto?             _selectedStore;
+
+    private int _closedCount => _shifts.Count(s =>  s.IsShiftClosed);
+    private int _openCount   => _shifts.Count(s => !s.IsShiftClosed);
+
+    // Status filter applied to MudTable source; sort handled by MudTableSortLabel.
+    private IEnumerable<EosShiftDto> FilteredShifts => _filterStatus switch
+    {
+        0 => _shifts.Where(s => !s.IsShiftClosed),
+        1 => _shifts.Where(s =>  s.IsShiftClosed),
+        _ => _shifts
+    };
+
+    private static string FormatVND(decimal v) => $"{v:N0} ₫";
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        if (_isStoreOperator)
+            _filterStoreNo = _userStoreCodes[0];
+
+        try
+        {
+            _allStores = await MdRepo.GetStoreListAsync();
+        }
+        catch (Exception ex)
+        {
+            KibanaService.LogException("EosShiftsPage.LoadStoreCodes", "", 0, "", ex.Message);
+        }
+
+        await LoadDataAsync();
+    }
+
+    // ── Data ────────────────────────────────────────────────────────────────
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var date = (_filterDateNullable ?? DateTime.Today).Date;
+
+            IReadOnlyList<string>? storeCodes = _isStoreOperator
+                ? _userStoreCodes
+                : _selectedStore == null
+                    ? null
+                    : [_selectedStore.StoreNo!];
+
+            _shifts = await SaleRepo.GetEosShiftListAsync(date, storeCodes);
+
+            KibanaService.LogInfo("EosShiftsPage.LoadData",
+                _isStoreOperator ? (_filterStoreNo ?? "all") : (_selectedStore?.StoreNo ?? "all"),
+                $"Loaded {_shifts.Count} shifts [{date:dd/MM/yyyy}] closed={_closedCount} open={_openCount}");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            KibanaService.LogException("EosShiftsPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetFilterAsync()
+    {
+        _filterDateNullable = DateTime.Today;
+        _filterStatus       = null;
+        if (!_isStoreOperator) _selectedStore = null;
+        await LoadDataAsync();
+    }
+
+    private void OnStatusChanged(int? value) { _filterStatus = value; }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        // Bound kết quả ≤ 50: tránh đẩy cả nghìn store vào component.
+        // (MaxItems chỉ giới hạn HIỂN THỊ, không giới hạn dữ liệu SearchFunc xử lý.)
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            // Ưu tiên store có MÃ bắt đầu bằng từ khóa → gõ mã luôn nổi đầu, không bị Take(50) cắt
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_filterStoreNo ?? "");
+
+    // ── Dialog ──────────────────────────────────────────────────────────────
+
+    private async Task OpenDetailAsync(EosShiftDto shift)
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            CloseButton = true
+        };
+        var parameters = new DialogParameters<EosShiftDetailDialog>
+        {
+            { x => x.Shift, shift }
+        };
+        await DialogService.ShowAsync<EosShiftDetailDialog>("", parameters, options);
+    }
+
+    private async Task PrintShiftAsync(EosShiftDto shift)
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            CloseButton = true
+        };
+        var parameters = new DialogParameters<EosShiftDetailDialog>
+        {
+            { x => x.Shift, shift },
+            { x => x.AutoPrint, true }
+        };
+        await DialogService.ShowAsync<EosShiftDetailDialog>("", parameters, options);
+    }
+}

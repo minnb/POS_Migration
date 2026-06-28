@@ -1,9 +1,12 @@
-# POS Migration — Claude Code Context
+# POS API — Claude Code Context
 
 ## Dự án
-Migrate POS.API từ .NET Framework 4.6 → .NET 10.
-- Source cũ: `POS.Backend/API_Common/` và `POS.Backend/API_BLUEPOS/`
-- Solution mới: `POS.slnx`
+POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
+- Solution: `POS.slnx`
+
+> **Greenfield**: dự án khởi đầu là bản port từ POS.API (.NET Framework 4.6) nhưng **nay
+> phát triển mới**, **KHÔNG còn migrate** từ source cũ (`POS.Backend`). Hợp đồng JSON với
+> 5.000 máy POS vẫn giữ nguyên cho các endpoint hiện hữu.
 
 ## Cấu trúc Solution (Clean Architecture)
 
@@ -23,21 +26,23 @@ POS.Api → POS.Common
 ```
 
 ### POS.Application — quy tắc
-- Namespace: `POS.Application.Interfaces` và `POS.Application.Services`
-- Interface service: `I{Name}Service` trong `Interfaces/`
-- Implementation: `{Name}Service` trong `Services/`
+- Namespace: `POS.Application.Features.{Domain}` — interface và implementation **cùng namespace, cùng folder**
+- Interface service: `I{Name}Service.cs` trong `Features/{Domain}/`
+- Implementation: `{Name}Service.cs` trong `Features/{Domain}/` (cùng folder với interface, không tách `Interfaces/`/`Services/`)
 - Service inject repository interface (từ `POS.Infrastructure.Repositories.Interfaces`)
 - Service inject `IRedisService` (từ `POS.Infrastructure.Redis`)
 - Service inject `IRabbitMQProducer` (từ `POS.Infrastructure.Messaging`)
-- Service inject `I{Name}AppService` (từ `POS.Infrastructure.AppServices.Interfaces`) khi cần gọi external HTTP
+- Service inject `I{Name}AppService` (từ `POS.Infrastructure.AppServices.{Domain}`) khi cần gọi external HTTP
 - **KHÔNG** inject concrete class (chỉ inject interface)
 - **Controller BẮT BUỘC inject Application interface** — KHÔNG inject Infrastructure interface trực tiếp
 
 ### POS.Infrastructure — quy tắc
-- Repositories: `src/POS.Infrastructure/Repositories/`
-- Interfaces repository: `src/POS.Infrastructure/Repositories/Interfaces/`
-- AppServices (HTTP client wrappers): `src/POS.Infrastructure/AppServices/`
-- Interfaces AppService: `src/POS.Infrastructure/AppServices/Interfaces/` — đặt tên `I{Name}AppService`
+- Repositories: `src/POS.Infrastructure/Repositories/{Domain}/` — gom theo domain (MasterData, Sale, Loyalty, Sap…)
+  - **Namespace giữ nguyên** `POS.Infrastructure.Repositories` / `POS.Infrastructure.Repositories.Interfaces` (tránh đụng ~20 razor + consumer)
+  - Interface repository: `I{Name}Repository.cs` đặt trong cùng folder `{Domain}/` với implementation
+- AppServices (HTTP client wrappers): `src/POS.Infrastructure/AppServices/{Domain}/` — gom theo domain (Partner, DataSync…)
+  - Namespace: `POS.Infrastructure.AppServices.{Domain}` — interface và implementation **cùng namespace, cùng folder**
+  - Đặt tên `I{Name}AppService` để phân biệt với Application interface
 - Redis: `src/POS.Infrastructure/Redis/` (IRedisService, RedisService)
 - Redis internals: `src/POS.Infrastructure/Cache/` (IRedisManager, RedisManager, RedisOptions)
 - Messaging: `src/POS.Infrastructure/Messaging/` (IRabbitMQProducer, RabbitMQProducer)
@@ -45,7 +50,7 @@ POS.Api → POS.Common
 
 ---
 
-## Quy tắc AppService — BẮT BUỘC khi migrate external HTTP client
+## Quy tắc AppService — BẮT BUỘC khi tạo external HTTP client
 
 > Mọi service gọi external API (GotIT, Urbox, AkaChain, ...) **BẮT BUỘC** tuân theo pattern 3 lớp sau.
 
@@ -53,10 +58,10 @@ POS.Api → POS.Common
 
 ```
 Controller (POS.Api)
-  → inject I{Name}Service              ← POS.Application.Interfaces
-    → Application/Services/{Name}Service     (thin wrapper — chỉ delegate, không có logic)
-        → inject I{Name}AppService     ← POS.Infrastructure.AppServices.Interfaces
-          → Infrastructure/AppServices/{Name}Service  (HTTP client thực sự)
+  → inject I{Name}Service              ← POS.Application.Features.{Domain}
+    → Application/Features/{Domain}/{Name}Service    (thin wrapper — chỉ delegate, không có logic)
+        → inject I{Name}AppService     ← POS.Infrastructure.AppServices.{Domain}
+          → Infrastructure/AppServices/{Domain}/{Name}Service  (HTTP client thực sự)
 ```
 
 ### Ví dụ đã có (tham chiếu khi tạo service mới)
@@ -69,12 +74,12 @@ Controller (POS.Api)
 
 ### Checklist khi tạo service HTTP client mới
 
-1. **Infrastructure**: Tạo `I{Name}AppService.cs` trong `AppServices/Interfaces/` — namespace `POS.Infrastructure.AppServices.Interfaces`
-2. **Infrastructure**: Tạo `{Name}Service.cs` trong `AppServices/` — implements `I{Name}AppService`
-3. **Infrastructure DI**: Đăng ký `services.AddScoped<I{Name}AppService, {Name}Service>()`
-4. **Application**: Tạo `I{Name}Service.cs` trong `Interfaces/` — namespace `POS.Application.Interfaces`, **cùng signature** với `I{Name}AppService`
-5. **Application**: Tạo `{Name}Service.cs` trong `Services/` — implements `I{Name}Service`, inject `I{Name}AppService`, mỗi method chỉ `=> appService.Method(...)`
-6. **Application DI**: Đăng ký `services.AddScoped<I{Name}Service, {Name}Service>()`
+1. **Infrastructure**: Tạo `I{Name}AppService.cs` trong `AppServices/{Domain}/` — namespace `POS.Infrastructure.AppServices.{Domain}`
+2. **Infrastructure**: Tạo `{Name}Service.cs` trong `AppServices/{Domain}/` — implements `I{Name}AppService`, cùng namespace với interface
+3. **Infrastructure DI**: Đăng ký `services.AddScoped<I{Name}AppService, {Name}Service>()` trong `src/POS.Infrastructure/DependencyInjection.cs`
+4. **Application**: Tạo `I{Name}Service.cs` trong `Features/{Domain}/` — namespace `POS.Application.Features.{Domain}`, **cùng signature** với `I{Name}AppService`
+5. **Application**: Tạo `{Name}Service.cs` trong `Features/{Domain}/` — implements `I{Name}Service`, inject `I{Name}AppService`, mỗi method chỉ `=> appService.Method(...)`
+6. **Application DI**: Đăng ký `services.AddScoped<I{Name}Service, {Name}Service>()` trong `src/POS.Application/DependencyInjection.cs`
 7. **Controller**: Inject `I{Name}Service` (Application) — **KHÔNG** inject `I{Name}AppService` (Infrastructure)
 
 ### Quy tắc đặt tên
@@ -91,8 +96,8 @@ Controller (POS.Api)
 - Package: `Newtonsoft.Json 13.*` (đã có trong `src/POS.Common/POS.Common.csproj`)
 - Dùng `[JsonProperty("tên_gốc")]` nếu tên C# property **khác** với tên JSON field
 - **TUYỆT ĐỐI KHÔNG** dùng `System.Text.Json` dưới bất kỳ hình thức nào
-- Nếu source cũ dùng `[JsonPropertyName]` → convert sang `[JsonProperty]`
-- Nếu source cũ dùng `JsonElement` → thay bằng `object?`
+- Dùng `[JsonProperty]` — KHÔNG dùng `[JsonPropertyName]` (của System.Text.Json)
+- Field kiểu động: dùng `object?` — KHÔNG dùng `JsonElement`
 
 ### 2. Lý do kinh doanh — KHÔNG ĐƯỢC THAY ĐỔI TÊN FIELD JSON
 > 5.000 máy POS đang parse JSON response theo đúng tên field hiện tại.
@@ -106,17 +111,7 @@ Controller (POS.Api)
 
 ---
 
-## Mapping Namespace (cũ → mới)
-
-| Namespace cũ | Namespace mới |
-|---|---|
-| `TCX.API.Common.Dtos.{X}` | `POS.Common.Dtos.{X}` |
-| `VCM.POSBLUE.Model.{X}` | `POS.Common.Dtos.{X}` |
-| `VCM.POSBLUE.Model.Dtos.{X}` | `POS.Common.Dtos.{X}` |
-
----
-
-## Cấu trúc src/POS.Common/ (97 files đã tạo)
+## Cấu trúc src/POS.Common/
 
 ```
 src/POS.Common/
@@ -163,7 +158,7 @@ Xem `.claude/commands/add-dto-common.md` để biết cách dùng.
 
 ## Quy tắc cấu hình External API — BẮT BUỘC
 
-> **Chi tiết đầy đủ: `.claude/skills/api/SKILLS.md`** — đọc file này trước khi tạo hoặc migrate bất kỳ AppService nào gọi external HTTP API.
+> **Chi tiết đầy đủ: `.claude/skills/api/SKILLS.md`** — đọc file này trước khi tạo bất kỳ AppService nào gọi external HTTP API.
 
 Mọi thông tin cấu hình (host, credentials, routes, timeout) đều lấy từ DB qua `ICentralMDRepository.GetSysWebApiAsync(appCode)` — đã cache Redis tự động.
 **KHÔNG** hardcode URL hoặc credentials, **KHÔNG** đọc từ `appsettings.json`.
@@ -172,12 +167,13 @@ Mọi thông tin cấu hình (host, credentials, routes, timeout) đều lấy t
 
 ## Quy tắc Cache — Redis StandAlone (BẮT BUỘC)
 
-> **Chi tiết đầy đủ: `.claude/skills/cache/SKILLS.md`** — đọc file này trước khi migrate bất kỳ function nào dùng cache.
+> **Chi tiết đầy đủ: `.claude/skills/cache/SKILLS.md`** — đọc file này trước khi thêm bất kỳ chỗ nào dùng cache.
 
 ### Nguyên tắc cốt lõi
 
-Dự án cũ dùng IIS `MemoryCacheService` → dự án mới **BẮT BUỘC** dùng `IRedisService` (Redis StandAlone).
-Mọi nơi code cũ gọi `_memoryCacheService.GetCache<T>(...)`, `GetSysWebApi()`, `GetLoyaltyRateData()`... → phải có Redis cache tương ứng trong project mới.
+Cache **BẮT BUỘC** dùng `IRedisService` (Redis StandAlone) — **KHÔNG** dùng in-memory cache
+cho dữ liệu chia sẻ. Mọi master data từ DB (SysWebApi, stores, rates…) cần đọc nhiều lần
+phải có Redis cache tương ứng.
 
 ### Nơi đặt cache logic
 
@@ -218,19 +214,19 @@ if (data.Count > 0) redis.StringSet(KEY, data, ttlSeconds: 43200);
 return data;
 ```
 
-### Checklist khi gặp MemoryCacheService trong code cũ
+### Checklist khi cần cache một loại data
 
-1. Tra bảng mapping MemoryCacheConst → Redis key trong `.claude/skills/cache/SKILLS.md`
-2. Thêm method vào `ICentralMDRepository` nếu chưa có
+1. Đặt tên Redis key theo convention trong `.claude/skills/cache/SKILLS.md`
+2. Thêm method vào `ICentralMDRepository` / `ILoyaltyRepository` nếu chưa có
 3. Implement theo pattern Hash hoặc String với TTL
-4. AppService/Service gọi qua Repository — KHÔNG gọi Redis trực tiếp (trừ token)
+4. AppService/Service gọi qua Repository — KHÔNG gọi Redis trực tiếp (trừ OAuth token)
 
 ---
 
 ## Quy tắc Background Worker — POS.Worker (BẮT BUỘC)
 
-> **Chi tiết đầy đủ: `.claude/skills/worker/SKILLS.md`** — đọc file này trước khi migrate bất kỳ
-> scheduled job, message consumer, hay tác vụ chạy nền nào sang `POS.Worker`.
+> **Chi tiết đầy đủ: `.claude/skills/worker/SKILLS.md`** — đọc file này trước khi thêm bất kỳ
+> scheduled job, message consumer, hay tác vụ chạy nền nào vào `POS.Worker`.
 
 ### Nguyên tắc cốt lõi
 
@@ -244,12 +240,12 @@ return data;
 
 ---
 
-## Quy tắc migrate Controller — Rút ra từ thực tế
+## Quy tắc Controller — BẮT BUỘC
 
 ### A. DI Registration — BẮT BUỘC sau mỗi interface mới
 
-Mỗi khi tạo `I{Name}Service` mới trong `POS.Application/Interfaces/`:
-1. Tạo stub hoặc implementation trong `POS.Application/Services/` (hoặc `POS.Infrastructure/` nếu cần HTTP client / DB)
+Mỗi khi tạo `I{Name}Service` mới trong `POS.Application/Features/{Domain}/`:
+1. Tạo stub hoặc implementation trong `POS.Application/Features/{Domain}/` (hoặc `POS.Infrastructure/` nếu cần HTTP client / DB)
 2. **Đăng ký ngay** trong `src/POS.Application/DependencyInjection.cs`:
    ```csharp
    services.AddScoped<I{Name}Service, {Name}Service>();
@@ -262,7 +258,7 @@ Mỗi khi tạo `I{Name}Service` mới trong `POS.Application/Interfaces/`:
 
 `Program.cs` đã cấu hình `SuppressModelStateInvalidFilter = true` để `ValidateModelFilter` kiểm soát hoàn toàn format response (trả `ResultResponse`, không phải ASP.NET problem-details).
 
-**Hệ quả quan trọng khi migrate controller**:
+**Hệ quả quan trọng**:
 - `ValidateModelFilter` chạy **trước** action method → `if (!ModelState.IsValid) return ExceptionModels()` trong action là **dead code** (không bao giờ được gọi).
 - Vẫn có thể giữ dòng đó cho an toàn, nhưng không cần thiết.
 - **TUYỆT ĐỐI KHÔNG** thêm `services.Configure<ApiBehaviorOptions>(o => o.SuppressModelStateInvalidFilter = false)` — sẽ phá vỡ contract.
@@ -283,29 +279,95 @@ Dùng:
 // Khi HTTP status = service status (dynamic)
 return StatusCode((int)result.Status, result);
 
-// Khi HTTP status luôn 200 (như RefundTransaction cũ)
+// Khi HTTP status luôn 200
 return Ok(result);
 
-// Khi cần tùy chỉnh field (như GetCustomerDetail đặt clubCode vào MessageTechnical)
+// Khi cần tùy chỉnh field (vd đặt giá trị riêng vào MessageTechnical)
 return StatusCode((int)status, new ResultResponse { Data = ..., Message = ..., Status = ..., MessageTechnical = ... });
 ```
 
 `OkResult(data)` chỉ dùng khi `data` là object thuần (không phải `ResultResponse`).
 
-### E. Helpers cũ không có trong POS.Common mới
+### E. Helpers chưa có trong POS.Common — inline tạm
 
-Các helper sau **không tồn tại** trong `src/POS.Common/Helpers/` — inline trực tiếp:
+Một số helper tiện ích chưa tồn tại trong `src/POS.Common/Helpers/`. Khi cần, inline trực
+tiếp và đánh dấu `// TODO: extract to helper`:
 
-| Helper cũ | Logic inline | Ghi chú |
+| Nhu cầu | Logic inline | Ghi chú |
 |---|---|---|
-| `NumberHelper.IsPhoneNumber(phone)` | `phone.Length >= 9 && phone.Length <= 11 && phone.All(char.IsDigit)` | Thêm `// TODO: extract to helper` |
-| `LoyaltyHelper.MessageNotValidPhone(phone)` | `$"Số thẻ {phone} không hợp lệ"` | |
-| `FormatHelper.PhoneNumberVietNam(phone)` | Chưa có trong mới | Cần tạo nếu dùng |
-| `FileHelper.WriteExpLogs(...)` | → `_fileLogHelper.WriteExpLogs(...)` | Đã có `IFileLogHelper` |
+| Kiểm tra số điện thoại | `phone.Length >= 9 && phone.Length <= 11 && phone.All(char.IsDigit)` | TODO: extract to helper |
+| Message số thẻ không hợp lệ | `$"Số thẻ {phone} không hợp lệ"` | |
+| Format SĐT Việt Nam | (chưa có) | Tạo helper nếu dùng nhiều |
+| Ghi exception log | `_fileLogHelper.WriteExpLogs(...)` | Đã có `IFileLogHelper` — dùng luôn |
 
-### F. Swagger chưa được cấu hình
+### F. Swagger — chỉ bật ở Development
 
-`Program.cs` chưa có `AddSwaggerGen()` / `UseSwagger()`. Route test dùng curl trực tiếp.
+`Program.cs` đã cấu hình `AddSwaggerGen()` / `UseSwagger()` **chỉ khi `IsDevelopment()`**;
+UAT/PROD không bật (tránh lộ API docs). Ở DEV truy cập UI tại `/swagger` (có nút Authorize
+cho Basic Auth). Ngoài DEV, test route bằng curl trực tiếp.
+
+---
+
+## Guardrails & Testing — BẮT BUỘC biết
+
+> Dự án có 3 "vành đai bảo vệ" trong `tests/POS.ContractTests/`. **Chạy `dotnet test` trước
+> khi commit.** Lệnh: `dotnet test tests/POS.ContractTests`.
+
+### 1. Contract test — khoá tên field JSON (cực quan trọng)
+
+- File: `tests/POS.ContractTests/JsonFieldContractTests.cs` (+ helper `JsonContract.cs`).
+- Mục đích: khoá **tên field JSON** của các DTO response mà **5.000 máy POS** đang parse.
+  Đổi tên / thêm / xoá field bất kỳ của DTO đã khoá → **test đỏ ngay**.
+- **Khi CỐ Ý đổi contract**: cập nhật danh sách field kỳ vọng trong file test **cùng commit** —
+  đó là dấu vết cho thấy thay đổi là có chủ đích, không phải tai nạn.
+- **Khi tạo DTO response mới**: thêm một `[Fact]` khoá field cho nó (dùng `AssertFields`).
+
+### 2. DI validation test — chặn "quên đăng ký DI"
+
+- File: `tests/POS.ContractTests/DependencyInjectionTests.cs`.
+- Dựng lại đúng cách compose DI của `Program.cs`, kiểm tra **mọi phụ thuộc `POS.*`** trong
+  constructor của tất cả controller + mọi implementation đã đăng ký đều có trong container.
+- Chỉ đọc service descriptor (không build provider) → **không cần Redis/SQL/Rabbit**.
+- Quên `services.AddScoped<...>()` → test đỏ lúc build/test thay vì `InvalidOperationException`
+  lúc gọi API (xem mục "A. DI Registration").
+
+### 3. Exception middleware — lưới an toàn global (G3)
+
+- Impl: `src/POS.Api/Middleware/ExceptionHandlingMiddleware.cs`; đăng ký **đầu pipeline**
+  trong `Program.cs` (`app.UsePosExceptionHandling()`).
+- Bắt mọi exception **chưa xử lý**, trả đúng `ResultResponse` (status 500, PascalCase qua
+  `DefaultContractResolver`, `NullValueHandling.Ignore` → bỏ field `Data`) — khớp contract POS.
+- Controller chỉ giữ try/catch khi cần **message nghiệp vụ riêng**; KHÔNG cần try/catch chỉ để
+  format lỗi chung. **KHÔNG gỡ** middleware này.
+- Hành vi được khoá bằng `tests/POS.ContractTests/ExceptionMiddlewareTests.cs`.
+
+---
+
+## Quy ước phát triển mới (Greenfield) — BẮT BUỘC
+
+> Dự án **không còn migrate** từ `POS.Backend` (.NET 4.6). Từ nay mọi nghiệp vụ là **code mới**.
+> Hợp đồng JSON với 5.000 máy POS **vẫn giữ nguyên** cho các endpoint hiện hữu.
+
+### Tổ chức theo Feature (áp cho code mới)
+
+- Code Application mới đặt theo domain: `POS.Application/Features/{Domain}/`
+  (`I{Name}Service.cs` + `{Name}Service.cs`). Không để phẳng chung khi tạo domain mới.
+- Repository/AppService mới trong Infrastructure gom theo domain tương ứng.
+- **Business logic** đặt ở `POS.Application` (Service); **I/O** (DB/HTTP/cache) ở
+  `POS.Infrastructure`. External HTTP theo **AppService 3 lớp** (xem mục cùng tên ở trên).
+
+### Khuôn thêm 1 nghiệp vụ mới
+
+```
+DTO (POS.Common/Dtos/{Domain}/)
+  → Repository/AppService (POS.Infrastructure/.../{Domain}/)
+    → Service (POS.Application/Features/{Domain}/)
+      → đăng ký DI (DependencyInjection.cs)
+        → Controller (POS.Api/Controllers/)
+          → contract test cho DTO response + đảm bảo DI test vẫn xanh
+```
+
+Mỗi bước có đúng một nơi để đặt file. Sau khi xong: `dotnet test` phải xanh.
 
 ---
 
@@ -738,7 +800,7 @@ public async ValueTask DisposeAsync()
 | `/web-add-admin-page` | Tạo page mới trong Admin section |
 | `/web-add-feature` | Tạo feature đầy đủ (page + service + model) |
 | `/web-check-status` | Build + audit trạng thái POS.Web |
-| `/web-gen-hash` | Tạo BCrypt hash cho user migration SQL |
+| `/web-gen-hash` | Tạo BCrypt hash cho SQL khởi tạo user dashboard |
 | `/add-dto-common` | Thêm DTO mới vào POS.Common (xem `.claude/commands/add-dto-common.md`) |
 
 ---

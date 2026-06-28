@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using POS.Application.Interfaces;
+using POS.Application.Features.Partner;
 using POS.Common;
 using POS.Common.Dtos.Loyalty;
 using POS.Infrastructure.Logging;

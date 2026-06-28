@@ -14,11 +14,6 @@
 
 <PageTitle>Quản lý người dùng – POS Dashboard</PageTitle>
 
-@if (_loading)
-{
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
-}
-
 @* ── Header ─────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
     <MudText Typo="Typo.h5" Class="pos-page-header-title">
@@ -34,114 +29,179 @@
     </MudButton>
 </div>
 
-@* ── Error ──────────────────────────────────────────────────────────── *@
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+}
+
 @if (_errorMsg != null)
 {
     <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
 }
+else
+{
+    @* ── KPI Row ─────────────────────────────────────────────────────── *@
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #2051A3">
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Tổng tài khoản</MudText>
+                        <MudText Style="font-size:1.75rem; font-weight:700; color:#2051A3; line-height:1.2" Class="mt-1">@_users.Count</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Group" Style="font-size:2.5rem; color:#2051A3; opacity:0.18"/>
+                </div>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #27AE60">
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Đang hoạt động</MudText>
+                        <MudText Style="font-size:1.75rem; font-weight:700; color:#27AE60; line-height:1.2" Class="mt-1">@_users.Count(u => u.IsActive)</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size:2.5rem; color:#27AE60; opacity:0.18"/>
+                </div>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #DC3545">
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Tạm khóa</MudText>
+                        <MudText Style="font-size:1.75rem; font-weight:700; color:#DC3545; line-height:1.2" Class="mt-1">@_users.Count(u => !u.IsActive)</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Block" Style="font-size:2.5rem; color:#DC3545; opacity:0.18"/>
+                </div>
+            </MudPaper>
+        </div>
+    </div>
 
-@* ── Table ───────────────────────────────────────────────────────────── *@
-<MudTable Items="@FilteredUsers"
-          Hover="true" Striped="true" Dense="true"
-          Breakpoint="Breakpoint.Sm" Elevation="2"
-          Loading="@_loading" LoadingProgressColor="Color.Primary"
-          HorizontalScrollbar="true">
-    <ToolBarContent>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            @{
-                var fc = FilteredUsers.ToList();
-            }
-            @(fc.Count != _users.Count
-                ? $"Hiển thị {fc.Count} / {_users.Count} người dùng"
-                : $"Tổng: {_users.Count} người dùng")
-        </MudText>
-        <MudSpacer/>
-        <MudTextField @bind-Value="_searchField"
-                      Placeholder="Tìm kiếm..."
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      IconSize="Size.Small"
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      Class="mt-0"
-                      Immediate="true"
-                      Style="width:240px"/>
-    </ToolBarContent>
-    <HeaderContent>
-        <MudTh Style="text-align:center; width:60px"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Id)">Id</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Username)">Username</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.FullName)">FullName</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Role)">Role</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.IsActive)">IsActive</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:right; width:100px"></MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="Id" Style="text-align:center">@context.Id</MudTd>
-        <MudTd DataLabel="Username">@context.Username</MudTd>
-        <MudTd DataLabel="FullName">@context.FullName</MudTd>
-        <MudTd DataLabel="Role" Style="text-align:center">
-            @{
-                var (rColor, rLabel) = RoleDisplay(context.Role);
-            }
-            <MudChip T="string" Color="@rColor" Size="Size.Small" Variant="Variant.Filled">@rLabel</MudChip>
-        </MudTd>
-        <MudTd DataLabel="IsActive" Style="text-align:center">
-            @if (context.IsActive)
-            {
-                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"
-                         Icon="@Icons.Material.Filled.CheckCircle">Hoạt động</MudChip>
-            }
-            else
-            {
-                <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined"
-                         Icon="@Icons.Material.Filled.Block">Tạm khóa</MudChip>
-            }
-        </MudTd>
-        <MudTd DataLabel="" Style="text-align:right">
-            <MudTooltip Text="Sửa">
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
-                               OnClick="@(() => OpenDialogAsync(context))"/>
-            </MudTooltip>
-            @if (context.IsActive)
-            {
-                <MudTooltip Text="Khóa tài khoản">
-                    <MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
-                                   OnClick="@(() => ConfirmToggleAsync(context))"/>
+    @* ── Filter Panel ─────────────────────────────────────────────────── *@
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="_filterSearch"
+                              Label="Tìm theo tên / username"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"/>
+            </MudItem>
+            <MudItem xs="12" sm="3" md="3">
+                <MudSelect @bind-Value="_filterRole"
+                           Label="Vai trò"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="@string.Empty">Tất cả vai trò</MudSelectItem>
+                    <MudSelectItem Value="@WebRoles.StoreOperator">Cửa hàng</MudSelectItem>
+                    <MudSelectItem Value="@WebRoles.ITOps">IT Ops</MudSelectItem>
+                    <MudSelectItem Value="@WebRoles.SystemAdmin">System Admin</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="3" md="3">
+                <MudSelect @bind-Value="_filterStatus"
+                           Label="Trạng thái"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="-1">Tất cả trạng thái</MudSelectItem>
+                    <MudSelectItem Value="1">Đang hoạt động</MudSelectItem>
+                    <MudSelectItem Value="0">Tạm khóa</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+                <MudStack Row="true" Spacing="1" Class="w-100">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Table ───────────────────────────────────────────────────────────── *@
+    <MudTable Items="@_filteredUsers"
+              Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" Elevation="2"
+              Loading="@_loading" LoadingProgressColor="Color.Primary"
+              HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh Style="text-align:center; width:60px">
+                <MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Id)">Id</MudTableSortLabel>
+            </MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Username)">Username</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.FullName)">Họ tên</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align:center">
+                <MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.Role)">Vai trò</MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:center">
+                <MudTableSortLabel SortBy="new Func<DashboardUser, object>(x => x.IsActive)">Trạng thái</MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:right; width:100px"></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Id" Style="text-align:center">@context.Id</MudTd>
+            <MudTd DataLabel="Username">@context.Username</MudTd>
+            <MudTd DataLabel="Họ tên">@context.FullName</MudTd>
+            <MudTd DataLabel="Vai trò" Style="text-align:center">
+                @{
+                    var (rColor, rLabel) = RoleDisplay(context.Role);
+                }
+                <MudChip T="string" Color="@rColor" Size="Size.Small" Variant="Variant.Filled">@rLabel</MudChip>
+            </MudTd>
+            <MudTd DataLabel="Trạng thái" Style="text-align:center">
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"
+                             Icon="@Icons.Material.Filled.CheckCircle">Hoạt động</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined"
+                             Icon="@Icons.Material.Filled.Block">Tạm khóa</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="" Style="text-align:right">
+                <MudTooltip Text="Sửa">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="@(() => OpenDialogAsync(context))"/>
                 </MudTooltip>
-            }
-            else
-            {
-                <MudTooltip Text="Kích hoạt lại">
-                    <MudIconButton Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" Color="Color.Success"
-                                   OnClick="@(() => ConfirmToggleAsync(context))"/>
-                </MudTooltip>
-            }
-        </MudTd>
-    </RowTemplate>
-    <NoRecordsContent>
-        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
-    </NoRecordsContent>
-    <PagerContent>
-        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
-                       InfoFormat="{first_item}–{last_item} / {all_items} người dùng"
-                       RowsPerPageString="Số dòng mỗi trang:"/>
-    </PagerContent>
-</MudTable>
+                @if (context.IsActive)
+                {
+                    <MudTooltip Text="Khóa tài khoản">
+                        <MudIconButton Icon="@Icons.Material.Filled.Block" Size="Size.Small" Color="Color.Error"
+                                       OnClick="@(() => ConfirmToggleAsync(context))"/>
+                    </MudTooltip>
+                }
+                else
+                {
+                    <MudTooltip Text="Kích hoạt lại">
+                        <MudIconButton Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" Color="Color.Success"
+                                       OnClick="@(() => ConfirmToggleAsync(context))"/>
+                    </MudTooltip>
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} người dùng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
 
 @code {
-    private bool    _loading = true;
+    private bool    _loading      = true;
     private string? _errorMsg;
-    private string  _searchField = string.Empty;
-    private List<DashboardUser> _users = [];
-
-    // Search filter applied to MudTable source; sort handled by MudTableSortLabel.
-    private IEnumerable<DashboardUser> FilteredUsers =>
-        string.IsNullOrWhiteSpace(_searchField)
-            ? _users
-            : _users.Where(u =>
-                u.Username.Contains(_searchField, StringComparison.OrdinalIgnoreCase)
-                || u.FullName.Contains(_searchField, StringComparison.OrdinalIgnoreCase)
-                || u.Role.Contains(_searchField, StringComparison.OrdinalIgnoreCase));
+    private string  _filterSearch = string.Empty;
+    private string  _filterRole   = string.Empty;
+    private int     _filterStatus = -1;
+    private List<DashboardUser> _users         = [];
+    private List<DashboardUser> _filteredUsers = [];
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -160,6 +220,7 @@
         {
             var result = await UserService.GetAllAsync();
             _users = [.. result];
+            ApplyFilter();
         }
         catch (Exception ex)
         {
@@ -170,6 +231,27 @@
         {
             _loading = false;
         }
+    }
+
+    // ── Filter ───────────────────────────────────────────────────────────────
+
+    private void ApplyFilter()
+    {
+        _filteredUsers = _users
+            .Where(u => string.IsNullOrWhiteSpace(_filterSearch) ||
+                        u.Username.Contains(_filterSearch, StringComparison.OrdinalIgnoreCase) ||
+                        u.FullName.Contains(_filterSearch, StringComparison.OrdinalIgnoreCase))
+            .Where(u => string.IsNullOrWhiteSpace(_filterRole) || u.Role == _filterRole)
+            .Where(u => _filterStatus < 0 || (u.IsActive ? 1 : 0) == _filterStatus)
+            .ToList();
+    }
+
+    private void ClearFilter()
+    {
+        _filterSearch = string.Empty;
+        _filterRole   = string.Empty;
+        _filterStatus = -1;
+        _filteredUsers = [.. _users];
     }
 
     // ── Dialog handlers ──────────────────────────────────────────────────────

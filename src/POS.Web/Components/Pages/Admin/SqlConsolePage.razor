@@ -1,4 +1,4 @@
-@page "/admin/sql-console"
+﻿@page "/admin/sql-console"
 @attribute [Authorize(Policy = WebPolicies.AdminOnly)]
 @rendermode InteractiveServer
 @implements IAsyncDisposable
@@ -20,6 +20,14 @@
     </MudText>
 </div>
 
+@if (!_enabled)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        SQL Console đang <strong>bị tắt</strong> (<code>Security:EnableSqlConsole=false</code>).
+        Liên hệ quản trị hệ thống nếu cần bật lại.
+    </MudAlert>
+}
+
 <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
     Cho phép <strong>SELECT</strong>, <strong>INSERT</strong>, <strong>UPDATE</strong> và
     <strong>CREATE/ALTER PROCEDURE</strong>.
@@ -28,7 +36,7 @@
 </MudAlert>
 
 @* ── Input form ────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pa-4 mb-4">
     <MudGrid Spacing="2">
 
         @* DB selector *@
@@ -64,7 +72,7 @@
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.PlayArrow"
                            OnClick="@RunAsync"
-                           Disabled="@(_running || string.IsNullOrWhiteSpace(_sql) || _pending != null)">
+                           Disabled="@(!_enabled || _running || string.IsNullOrWhiteSpace(_sql) || _pending != null)">
                     Chạy
                 </MudButton>
 
@@ -235,6 +243,7 @@
     private string _connKey = string.Empty;
     private string _sql = string.Empty;
 
+    private bool _enabled = true;
     private bool _running;
     private string? _errorMsg;
     private CancellationTokenSource? _cts;
@@ -251,6 +260,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _enabled   = ConsoleService.IsEnabled;
         _databases = ConsoleService.GetDatabases();
         _connKey   = _databases.FirstOrDefault(d => d.Key == "CentralSale")?.Key
                      ?? _databases.FirstOrDefault()?.Key
@@ -262,6 +272,7 @@
 
     private async Task RunAsync()
     {
+        if (!_enabled) { _errorMsg = "SQL Console đã bị tắt."; return; }
         if (string.IsNullOrWhiteSpace(_sql)) return;
 
         _errorMsg   = null;

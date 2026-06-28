@@ -1,6 +1,123 @@
 # POS Solution — Changelog
 > Ghi lại các task đã hoàn thành và pattern mới được thiết lập.
 > Đọc file này khi bắt đầu session mới để nắm context.
+>
+> **Lưu ý định hướng (2026-06-26):** dự án **không còn migrate** từ POS.API (.NET 4.6 /
+> `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
+> là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
+
+## [2026-06-28] Đồng bộ tài liệu với reorg theo domain
+
+**Layer:** docs
+**Loại:** Tài liệu
+
+**Thay đổi:**
+- `docs/CURRENT_STRUCTURE.md`: Mục A cây thư mục — Application `Interfaces/`+`Services/` → `Features/{Domain}/`; Infrastructure `Repositories/{MasterData,Sale,Loyalty,Sap}` + `AppServices/{Partner,DataSync}` + `Security/`; thêm `CentralSaleConnectionFactory`, Workers (Heartbeat/HealthState/RptInsert), `ExceptionHandlingMiddleware`, Gift/Winpay controller. Mục B/C: namespace `Features.{Domain}` / `AppServices.{Domain}` (repo giữ nguyên), thêm DI `ISAPService/IGiftService/ISAPVoucherRepository/IRptCentralSaleRepository/IRptReportSaleDetailRepository/CentralSaleConnectionFactory`. Mục E: ghi chú namespace mới
+- `docs/WEB_STATUS.md`: cây POS.Web — Store gom `Reports/Transactions/Operations/Dialogs`, Ops/Admin pages mới, Services/Pdf
+
+**Lưu ý cho session sau:** Repository namespace GIỮ NGUYÊN `POS.Infrastructure.Repositories[.Interfaces]` dù folder gom theo domain (tránh đụng consumer). Mục D (chữ ký repo) không đổi vì chỉ move file. CURRENT_STRUCTURE KHÔNG chứa POS.Web (xem WEB_STATUS).
+
+---
+
+## [2026-06-28] POS.Web Security Hardening — config, headers, credentials, SQL Console
+
+**Layer:** POS.Web, POS.Infrastructure
+**Loại:** Pattern mới + Bug fix (cấu hình bảo mật)
+
+**Bối cảnh:** Vá theo báo cáo đánh giá bảo mật POS.Web. Production publish thẳng internet, KHÔNG proxy, đang test qua HTTP. Làm tuần tự từng mục, dừng-báo-cáo sau mỗi mục.
+
+**Thay đổi:**
+- `Program.cs`: (C2) DetailedErrors tắt ngoài Dev; (C1+H2) section `Security` config-driven 3 mode (`BehindProxy`/`DirectHttps`/`Internet`) + cờ `RequireHttps` tách biệt việc ép HTTPS — cookie `SecurePolicy`/`SameSite`, `UseHsts`/`UseHttpsRedirection`, `UseForwardedHeaders` (chỉ BehindProxy, có KnownProxies/Networks); (M1) middleware security headers + CSP; (C4) hook giải mã `enc:` từ config trước `AddInfrastructure`
+- `Components/App.razor`: bỏ inline `onload` font Roboto (dùng `<link rel=stylesheet>`) để CSP `script-src 'self'` không chặn
+- `src/POS.Infrastructure/Security/SecretProtector.cs` **(mới)**: AES-256-GCM, token `enc:`, `DecryptTokens` thay phần password trong connection string
+- `Components/Pages/Admin/EncryptSecretPage.razor` **(mới)**: `/admin/encrypt-secret` (AdminOnly) — tạo khóa + mã hóa secret
+- `Services/SqlConsoleService.cs` + `ISqlConsoleService.cs`: (H1) mask `password/token/secret/...` trong audit + Kibana log; cờ `IsEnabled` (Security:EnableSqlConsole) gate cả service lẫn page
+- `Components/Pages/Admin/SqlConsolePage.razor`: chặn UI khi console bị tắt
+- `appsettings.{json,Production,Development}.json`: section `Security` (Prod `Mode=Internet`, `RequireHttps=false`, headers on; Dev headers off để không chặn VS Browser Link)
+- `docker-compose.yml` + `.env.example`: `POSWEB_SECRET_KEY` qua `.env` (đã gitignore)
+- `docs/ROLLOUT.md` **(mới)**: tài liệu trung tâm các bước cấu hình go-live (C4/C1/H2/H1)
+
+**Pattern mới:**
+- Security headers + CSP cho Blazor Server + config-driven HTTPS (`RequireHttps`) → `.claude/skills/web/SKILLS.md`
+- Mã hóa credentials trong appsettings (`enc:` + config decryption hook, AES-256-GCM) → `.claude/skills/api/SKILLS.md`
+
+**Lưu ý cho session sau:**
+- Khi thêm cấu hình cần thao tác lúc go-live → **tự cập nhật `docs/ROLLOUT.md`** (đã lưu memory).
+- CSP `connect-src 'self'` chặn VS Browser Link → security headers TẮT ở Dev (`EnableSecurityHeaders=false`), BẬT ở Prod/UAT.
+- C4 mới là **cơ chế**; password thật vẫn plaintext tới khi ops chạy rollout (tạo khóa + mã hóa). Còn `RequireHttps=false` tới khi có TLS.
+
+---
+
+## [2026-06-26] POS.Web UI Polish — DataTable header, sort labels, filter panel chuẩn hóa
+
+**Layer:** POS.Web
+**Loại:** Refactor UI / Pattern mới
+
+**Thay đổi:**
+- `wwwroot/app.css`: MudTable header override toàn cục — nền `#D9E5F7`, border-bottom 2px navy, `padding: 10px 16px` (header height ~33px cân bằng với body row có chip ~32px), sort button `min-height:unset padding:0`; đổi `--pos-bg-alt` từ `#EEF1F7` → `#D9E5F7`
+- `Pages/Admin/UsersPage.razor`: chuẩn hóa cấu trúc page — KPI row 3 cards (tổng/active/locked) + filter panel (search+role+status) + MudTable không có count text
+- `Pages/Admin/AuditPage.razor`: xóa ToolBarContent count text; thêm sort cho cột `DecidedAt`
+- `Pages/Store/Transactions/TransactionsPage.razor`: xóa inline result summary block + `FormatSummaryVND` helper
+- `Pages/Store/Transactions/VoidsPage.razor`: xóa inline result summary block + fields `_distinctVoiders/_selfVoidCount` + `FormatSummaryVND`
+- `Pages/Store/Operations/ShiftSummaryPage.razor`: thêm sort cho toàn bộ 9 cột bảng summary (`ShiftNumberSummaryDto`) và 8 cột bảng detail (`EosShiftDto`) — bao gồm nullable DateTime
+- `Pages/Store/Reports/RevenueHourlyPage.razor`: thêm sort cho 7 cột — cột `Ngày` sort bằng `SortOrder` (int) thay vì `TimeLabel` (string)
+- 9 pages khác: fix filter panel `Elevation="2"` → `Elevation="1"`
+
+**Pattern mới:**
+- MudTable header CSS override toàn cục (1 block CSS, không cần sửa Razor) → `.claude/skills/web/datatable.md`
+- Sort nullable DateTime: `x => x.NullableProp ?? DateTime.MinValue` → `datatable.md`
+- Sort pre-formatted string date: dùng `SortOrder` (int), không sort `TimeLabel` (string) → `datatable.md`
+- Filter panel luôn `Elevation="1"`; DataTable luôn `Elevation="2"` → `datatable.md` anti-patterns
+- Không dùng inline result summary text — KPI cards thay thế → `datatable.md` anti-patterns
+
+**Lưu ý cho session sau:** Khi tạo page mới với MudTable, KHÔNG thêm block `@if (!_loading && _items.Count > 0) { <div>Tìm thấy...</div> }` — đây là anti-pattern đã được xác nhận; dùng KPI cards hoặc `InfoFormat` của `MudTablePager`.
+
+---
+
+## [2026-06-26] Guardrails kiến trúc (Giai đoạn 1) + chuyển hướng Greenfield
+
+**Layer:** tests/POS.ContractTests, POS.Api, CLAUDE.md
+**Loại:** Pattern mới + Tài liệu + Quyết định kiến trúc
+
+**Bối cảnh:** Đánh giá kiến trúc tổng thể (Clean Architecture đã chuẩn). Quyết định **ngừng
+migrate từ dự án cũ (.NET 4.6 / `POS.Backend`)**, chuyển sang **phát triển mới (greenfield)**.
+Bổ sung guardrails **additive** (không đụng logic hiện tại) để mở rộng nhiều module an toàn.
+
+**Thay đổi:**
+- `tests/POS.ContractTests/JsonFieldContractTests.cs` + `JsonContract.cs` *(mới)*: contract test
+  khoá tên field JSON cho DTO response trọng yếu (`ResultResponse`, `InfoMemberModel`,
+  `PaymentEntryLoyalty`, `GiftDataRespone`) — đổi/thêm/xoá field → test đỏ.
+- `tests/POS.ContractTests/DependencyInjectionTests.cs` *(mới)*: DI validation — mọi phụ thuộc
+  `POS.*` của controller + implementation đã đăng ký phải có trong container; chỉ đọc service
+  descriptor, không cần Redis/SQL.
+- `tests/POS.ContractTests/ExceptionMiddlewareTests.cs` *(mới)*: khoá hành vi exception
+  middleware (HTTP 500 + `ResultResponse` PascalCase + bỏ field `Data`).
+- `tests/POS.ContractTests/POS.ContractTests.csproj`: thêm ProjectReference
+  Common/Application/Infrastructure/Api + FrameworkReference `Microsoft.AspNetCore.App` +
+  `Newtonsoft.Json`; xoá `UnitTest1` placeholder.
+- `src/POS.Api/Middleware/ExceptionHandlingMiddleware.cs` *(mới)* + `Program.cs`: global
+  exception middleware đầu pipeline → trả đúng `ResultResponse` (`DefaultContractResolver`
+  PascalCase + `NullValueHandling.Ignore`).
+- `CLAUDE.md`: thêm §Guardrails & Testing + §Quy ước phát triển mới (Greenfield); gỡ nội dung
+  khung "migrate" (bảng Mapping Namespace cũ→mới, tham chiếu source cũ, framing MemoryCacheService
+  code cũ); sửa ghi chú Swagger lỗi thời (đã bật ở Development).
+
+**Pattern mới:**
+- Contract test khoá tên field JSON (reflection `[JsonProperty]`) — bảo vệ hợp đồng 5.000 POS.
+- DI validation test (descriptor-only, infra-free) — chặn "quên `AddScoped`" lúc test.
+- Global exception middleware giữ contract `ResultResponse`.
+- Convention feature greenfield: `Features/{Domain}/` + AppService 3 lớp.
+
+**Lưu ý cho session sau:**
+- Dự án **không còn migrate** từ `POS.Backend` — mọi nghiệp vụ là code mới; contract JSON 5.000
+  POS **vẫn giữ** cho endpoint hiện hữu.
+- Khi cố ý đổi field DTO đã khoá → cập nhật danh sách trong `JsonFieldContractTests.cs` **cùng
+  commit**; DTO response mới → thêm `[Fact]` khoá field.
+- Chạy `dotnet test tests/POS.ContractTests` trước commit (hiện 9 test, build 0 error).
+- Còn để dành (Giai đoạn 2): gom file theo `Features/{Domain}/` khi ~30+ service; mapping
+  helper / API versioning khi cần.
+
+---
 
 ## [2026-06-26] Flat UI + Density Standard — POS.Web design system chuẩn hóa
 

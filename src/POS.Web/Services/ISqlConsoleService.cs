@@ -19,6 +19,7 @@ public sealed class SqlQueryResult
 
 public interface ISqlConsoleService
 {
+    bool IsEnabled { get; }
     IReadOnlyList<DbOption> GetDatabases();
     SqlValidation Validate(string sql);
     Task<SqlQueryResult> ExecuteSelectAsync(string connKey, string sql, string actor, CancellationToken ct);

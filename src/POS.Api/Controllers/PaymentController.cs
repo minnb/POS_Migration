@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Common;
 using POS.Common.Dtos.PartnerApi;
-using POS.Application.Interfaces;
+using POS.Application.Features.Partner;
 using POS.Infrastructure.Logging;
 
 namespace POS.Api.Controllers;

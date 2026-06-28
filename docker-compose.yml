@@ -46,6 +46,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production # dùng appsettings.Production.json
       DOTNET_gcServer: "0" # Workstation GC — hợp máy 2 vCPU / ít RAM
+      # Khóa AES giải mã credentials enc:... trong appsettings (xem .env / .env.example).
+      # Giá trị THẬT đặt trong .env (đã .gitignore) — KHÔNG hardcode ở đây.
+      POSWEB_SECRET_KEY: ${POSWEB_SECRET_KEY}
     volumes:
       # container chạy non-root APP_UID=1654 — không chown thư mục logs sẽ không ghi được file
       - ./logs:/app/logs

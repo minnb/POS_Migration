@@ -18,7 +18,7 @@
 </MudText>
 
 @* ── Filter panel ──────────────────────────────────────────────────── *@
-<MudPaper Elevation="2" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pa-4 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="3">
             <MudDatePicker @bind-Date="_fromDate"
@@ -86,14 +86,6 @@
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"
           HorizontalScrollbar="true">
-    <ToolBarContent>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            @if (!_loading)
-            {
-                @($"Tổng: {_records.Count} bản ghi")
-            }
-        </MudText>
-    </ToolBarContent>
     <HeaderContent>
         <MudTh Style="width:60px; text-align:center"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Id)">Id</MudTableSortLabel></MudTh>
         <MudTh Style="width:120px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Actor)">Actor</MudTableSortLabel></MudTh>
@@ -104,7 +96,7 @@
         <MudTh>SqlText</MudTh>
         <MudTh Style="width:80px; text-align:right"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ElapsedMs)">ElapsedMs</MudTableSortLabel></MudTh>
         <MudTh Style="width:160px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ExecutedAt)" InitialDirection="SortDirection.Descending">ExecutedAt</MudTableSortLabel></MudTh>
-        <MudTh Style="width:160px">DecidedAt</MudTh>
+        <MudTh Style="width:160px"><MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.DecidedAt)">DecidedAt</MudTableSortLabel></MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Id" Style="text-align:center">@context.Id</MudTd>

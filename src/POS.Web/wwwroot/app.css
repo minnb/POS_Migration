@@ -6,7 +6,7 @@
 :root {
   /* Background & Surface */
   --pos-bg:             #F2F4F8;
-  --pos-bg-alt:         #EEF1F7;
+  --pos-bg-alt:         #D9E5F7;
   --pos-surface:        #FFFFFF;
 
   /* Primary brand */
@@ -240,6 +240,37 @@
     padding: 8px 12px;
     border-bottom: none;
     vertical-align: middle;
+}
+
+/* ── MudTable header override ─────────────────────────────────────────────
+   Header nổi bật: nền #EEF1F7, border navy 2px dưới, chữ semi-bold 13px.
+   Áp dụng toàn bộ MudTable trong dự án — không cần sửa từng Razor page.
+   Sort button bị strip padding/height để header row ≈ body row
+   (loại bỏ vấn đề row cao hơn header khi dùng MudTableSortLabel).     */
+.mud-table .mud-table-head .mud-table-cell {
+    background-color: var(--pos-bg-alt);
+    color: var(--pos-text-heading);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    border-bottom: 2px solid var(--pos-primary);
+    white-space: nowrap;
+    padding: 10px 16px;
+}
+
+.mud-table .mud-table-head .mud-table-cell:hover {
+    background-color: #E3E8F4;
+}
+
+/* MudTableSortLabel renders <button> inside <th> — strip padding/min-height
+   so sort label doesn't inflate header row above body row height. */
+.mud-table .mud-table-head .mud-table-cell .mud-button-root {
+    color: var(--pos-text-heading) !important;
+    font-weight: 600 !important;
+    font-size: 0.8125rem !important;
+    min-height: unset !important;
+    padding: 0 !important;
+    line-height: 1.45 !important;
+    background: transparent !important;
 }
 
 /* ── Flat UI overrides ───────────────────────────────────────────────────
