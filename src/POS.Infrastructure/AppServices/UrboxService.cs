@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using POS.Common.Dtos;
 using POS.Common.Dtos.PartnerApi;
@@ -16,7 +17,8 @@ namespace POS.Infrastructure.AppServices;
 public sealed class UrboxService(
     ICentralMDRepository centralMDRepository,
     IKibanaService kibanaService,
-    IFileLogHelper fileLogHelper
+    IFileLogHelper fileLogHelper,
+    IConfiguration configuration
 ) : IUrboxAppService
 {
     private const string NotFoundConfig = "Không tìm thấy thông tin cấu hình";
@@ -350,10 +352,14 @@ public sealed class UrboxService(
         // Urbox requires per-call RSA signature header — cannot pre-configure in IHttpClientFactory
         var handler = new HttpClientHandler
         {
-            UseProxy = !string.IsNullOrEmpty(sysWebApiDto.HttpProxy),
-            // bypass SSL for test env (matches old ServicePointManager.ServerCertificateValidationCallback)
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            UseProxy = !string.IsNullOrEmpty(sysWebApiDto.HttpProxy)
         };
+        // SECURITY: Mặc định validate chứng chỉ TLS để chống MITM.
+        // Chỉ bỏ qua khi cấu hình tường minh Urbox:AcceptAnyServerCert=true
+        // (dành cho môi trường test có cert self-signed). KHÔNG bật ở Production.
+        if (configuration.GetValue<bool>("Urbox:AcceptAnyServerCert"))
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         if (handler.UseProxy)
             handler.Proxy = new WebProxy(sysWebApiDto.HttpProxy);
 
