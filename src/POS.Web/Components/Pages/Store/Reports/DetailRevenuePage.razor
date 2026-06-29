@@ -13,7 +13,7 @@
 
 @inject IRptCentralSaleRepository RptSaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 
 <PageTitle>Doanh thu chi tiết – POS Dashboard</PageTitle>
@@ -303,7 +303,7 @@
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("DetailRevenuePage.LoadStoreCodes", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("DetailRevenuePage.LoadStoreCodes", ex);
         }
         // MudTable tự gọi ServerReloadAsync lần đầu khi render — không cần load thủ công.
     }
@@ -334,16 +334,14 @@
 
             var total = result.FirstOrDefault()?.Total ?? 0;
 
-            KibanaService.LogInfo("DetailRevenuePage.LoadData",
-                _filterStoreNo ?? "all",
-                $"Loaded {result.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}] page {state.Page}");
+            FileLogger.WriteLogs($"[DetailRevenuePage.LoadData] {_filterStoreNo ?? "all"}: Loaded {result.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}] page {state.Page}");
 
             return new TableData<DetailRevenueSalesDto> { Items = result, TotalItems = total };
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("DetailRevenuePage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("DetailRevenuePage.LoadData", ex);
             return new TableData<DetailRevenueSalesDto> { Items = [], TotalItems = 0 };
         }
         finally

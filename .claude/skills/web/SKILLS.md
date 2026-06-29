@@ -18,16 +18,18 @@
 | `.claude/skills/web/reports.md` | Trang báo cáo pivot / xuất PDF |
 | `.claude/skills/web/theming.md` | Sửa màu/theme toàn app |
 | `.claude/skills/web/deployment.md` | Deploy production (Docker / nginx) |
+| **`.claude/skills/web/audit-logging.md`** | **Tạo/sửa page có thao tác Create/Update/Delete** |
 
 ---
 
 ## Quy tắc cốt lõi
 
-**3 nguyên tắc không được vi phạm:**
+**4 nguyên tắc không được vi phạm:**
 
 1. Toàn bộ UI dùng **MudBlazor** — không dùng raw HTML/CSS thuần (inline style nhỏ được chấp nhận)
 2. Serialization dùng **Newtonsoft.Json** (`JsonConvert.*`) — **TUYỆT ĐỐI KHÔNG** dùng `System.Text.Json`
 3. Mọi page phải có `@attribute [Authorize(Policy = ...)]` và `@rendermode InteractiveServer`
+4. Mọi page có thao tác **Create / Update / Delete** — **BẮT BUỘC** đọc và áp dụng `.claude/skills/web/audit-logging.md`
 
 ---
 

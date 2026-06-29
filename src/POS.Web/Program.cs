@@ -116,6 +116,7 @@ builder.Services.AddApplication();
 builder.Services.AddScoped<IWebUserService, WebUserService>();
 builder.Services.AddScoped<ISqlConsoleService, SqlConsoleService>();
 builder.Services.AddSingleton<IPdfExportService, PdfExportService>();
+builder.Services.AddScoped<IAuditLogger, DbAuditLogger>();
 
 // ── Authentication: Cookie cho browser session ─────────────────────────
 // TÁCH BIỆT với BasicAuth của POS.Api (không ảnh hưởng nhau)

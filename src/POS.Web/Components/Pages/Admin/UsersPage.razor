@@ -6,11 +6,13 @@
 @using MudBlazor
 @using POS.Web.Auth
 @using POS.Infrastructure.Logging
+@using Newtonsoft.Json
 
 @inject IWebUserService UserService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
+@inject IAuditLogger AuditLogger
 
 <PageTitle>Quản lý người dùng – POS Dashboard</PageTitle>
 
@@ -195,6 +197,10 @@ else
 }
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private string  _currentActor = "unknown";
     private bool    _loading      = true;
     private string? _errorMsg;
     private string  _filterSearch = string.Empty;
@@ -207,6 +213,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
         await LoadDataAsync();
     }
 
@@ -225,7 +233,7 @@ else
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải danh sách người dùng.";
-            KibanaService.LogException("UsersPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("UsersPage.LoadData", ex);
         }
         finally
         {
@@ -276,8 +284,22 @@ else
             options);
 
         var result = await dialog.Result;
-        if (result is { Canceled: false })
+        if (result is { Canceled: false } && result.Data is DashboardUser savedUser)
         {
+            if (user is null)
+            {
+                await AuditLogger.LogAsync(_currentActor, "CREATE", "DashboardUser",
+                    savedUser.Username,
+                    null,
+                    JsonConvert.SerializeObject(savedUser));
+            }
+            else
+            {
+                await AuditLogger.LogAsync(_currentActor, "UPDATE", "DashboardUser",
+                    user.Username,
+                    JsonConvert.SerializeObject(new { user.Id, user.Username, user.FullName, user.Role, user.StoreCodes, user.IsActive }),
+                    JsonConvert.SerializeObject(savedUser));
+            }
             Snackbar.Add(user is null ? "Tạo người dùng thành công!" : "Cập nhật thành công!",
                 Severity.Success);
             await LoadDataAsync();
@@ -308,6 +330,12 @@ else
 
         if (ok)
         {
+            await AuditLogger.LogAsync(_currentActor,
+                isLocking ? "LOCK" : "UNLOCK",
+                "DashboardUser",
+                user.Username,
+                JsonConvert.SerializeObject(new { user.Id, user.Username, user.FullName, user.IsActive }),
+                JsonConvert.SerializeObject(new { user.Id, user.Username, user.FullName, IsActive = !user.IsActive }));
             Snackbar.Add(isLocking
                 ? $"Đã khóa tài khoản {user.Username}."
                 : $"Đã kích hoạt tài khoản {user.Username}.",

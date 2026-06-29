@@ -16,7 +16,7 @@
 
 @inject IRptCentralSaleRepository RptRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 
 <PageTitle>Doanh thu theo khung giờ – POS Dashboard</PageTitle>
@@ -402,7 +402,7 @@
         try { _allStores = await MdRepo.GetStoreListAsync(); }
         catch (Exception ex)
         {
-            KibanaService.LogException("RevenueHourlyPage.LoadStores", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("RevenueHourlyPage.LoadStores", ex);
         }
         // KHÔNG auto-load ở đây: OnInitializedAsync chạy cả trong prerender → query nặng sẽ
         // chặn first-byte và chạy lặp. Hoãn sang OnAfterRenderAsync (chỉ khi circuit interactive).
@@ -494,9 +494,7 @@
                 .ToList();
 
             _chartVersion++;
-            KibanaService.LogInfo("RevenueHourlyPage.LoadData",
-                storeNo ?? "all",
-                $"GrossRevenue={kpi.GrossRevenue:N0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[RevenueHourlyPage.LoadData] {storeNo ?? "all"}: GrossRevenue={kpi.GrossRevenue:N0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
         }
         catch (OperationCanceledException)
         {
@@ -505,7 +503,7 @@
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("RevenueHourlyPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("RevenueHourlyPage.LoadData", ex);
         }
         finally
         {

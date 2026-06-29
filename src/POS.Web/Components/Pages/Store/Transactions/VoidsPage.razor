@@ -13,7 +13,7 @@
 
 @inject ICentralSaleRepository SaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -275,7 +275,7 @@
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("VoidsPage.LoadStoreCodes", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("VoidsPage.LoadStoreCodes", ex);
         }
 
         await LoadDataAsync();
@@ -308,14 +308,12 @@
             _voids    = result;
             _hitLimit = result.Count == MaxRows;
 
-            KibanaService.LogInfo("VoidsPage.LoadData",
-                storeNo ?? "all",
-                $"Loaded {result.Count} void transactions [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[VoidsPage.LoadData] {storeNo ?? "all"}: Loaded {result.Count} void transactions [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("VoidsPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("VoidsPage.LoadData", ex);
         }
         finally
         {

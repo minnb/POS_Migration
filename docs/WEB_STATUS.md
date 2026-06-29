@@ -1,6 +1,6 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-28 (Security hardening: config-driven HTTPS/cookie + RequireHttps, security headers/CSP, mã hóa credentials AES-256-GCM `enc:`, SQL Console mask+toggle, DetailedErrors off Prod — xem nhóm S1-S6 + docs/ROLLOUT.md)
-> Trước đó 2026-06-26 (UI Polish: MudTable header CSS override toàn cục, sort label, filter panel Elevation="1", UsersPage KPI+filter+table)
+> Cập nhật: 2026-06-28 (Phase 1: IKibanaService → IFileLogHelper toàn POS.Web; Phase 2: audit logging UsersPage+PosMapPage — xem J5, J6)
+> Trước đó 2026-06-28 (Security hardening: config-driven HTTPS/cookie + RequireHttps, security headers/CSP, mã hóa credentials AES-256-GCM `enc:`, SQL Console mask+toggle, DetailedErrors off Prod)
 
 ---
 
@@ -11,8 +11,10 @@ _(bỏ qua bin/ và obj/)_
 src/POS.Web/
 ├── Auth/
 │   ├── DashboardUser.cs / IWebUserService.cs / WebUserService.cs / WebRoles.cs
+│   ├── IAuditLogger.cs               ← interface + DbAuditLogger (ghi DashboardAuditLog)
 │   ├── migration_dashboard_users.sql
-│   └── migration_sql_console_audit.sql
+│   ├── migration_sql_console_audit.sql
+│   └── migration_dashboard_audit_log.sql  ← DashboardAuditLog + 3 index (chạy trước deploy)
 ├── Theme/
 │   └── PosTheme.cs                  ← MudBlazor custom theme (flat, navy + teal)
 ├── Components/
@@ -28,7 +30,10 @@ src/POS.Web/
 │       ├── Ops/
 │       │   ├── HealthPage.razor / AlertsPage.razor / QueuesPage.razor
 │       │   ├── LogsPage.razor / DataRawLogPage.razor / StorePage.razor / PosMapPage.razor
-│       │   └── Dialogs/ (PosTerminalDetailDialog, PosTerminalEditDialog, StoreDetailDialog)
+│       │   ├── PosDataSetupPage.razor         ← /ops/pos-data-setup — CRUD cấu hình POS
+│       │   ├── PosTerminalSavePayload.cs      ← shared record: payload chain PosMapPage→DetailDialog→EditDialog
+│       │   └── Dialogs/ (PosTerminalDetailDialog, PosTerminalEditDialog, StoreDetailDialog,
+│       │                  PosDataSetupFormDialog)
 │       └── Store/
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
 │           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)
@@ -149,18 +154,25 @@ src/POS.Web/
 | S5 | Mã hóa credentials appsettings (C4) | SecretProtector.cs + Program.cs + EncryptSecretPage.razor | ✅ (cơ chế) ⚠️ (chưa rollout) | AES-256-GCM token `enc:`, khóa `POSWEB_SECRET_KEY`; trang `/admin/encrypt-secret`. Password thật còn plaintext tới khi ops mã hóa — xem docs/ROLLOUT.md |
 | S6 | SQL Console hardening (H1) | SqlConsoleService.cs / SqlConsolePage.razor | ✅ | Mask `password/token/secret/...` trong audit+Kibana; cờ `Security:EnableSqlConsole` gate service+page |
 | S7 | AllowedHosts = domain thật (H2) | appsettings.Production.json | ⚠️ | Còn `"*"` — cần đặt domain dashboard khi go-live (docs/ROLLOUT.md) |
-| H1 | Build pass (0 error, 0 warning) | — | ✅ | `dotnet build` → Build succeeded. 0 Warning(s). 0 Error(s). |
+| G24 | PosDataSetupPage – /ops/pos-data-setup + OpsAndAbove | Pages/Ops/PosDataSetupPage.razor | ✅ | CRUD cấu hình POS — KPI 3 cards (pre-computed) + filter panel + MudTable + Add/Edit dialog; Redis invalidate sau mỗi write |
+| J1 | IAuditLogger / DbAuditLogger — audit CRUD vào DashboardAuditLog | Auth/IAuditLogger.cs | ✅ | LogAsync(actor, action, entityType, entityKey, oldValueJson?, newValueJson?); ghi DB + Kibana; try/catch nội bộ; đăng ký Scoped trong Program.cs |
+| J2 | PosDataSetupFormDialog – Add/Edit form, trả DTO đầy đủ | Pages/Ops/Dialogs/PosDataSetupFormDialog.razor | ✅ | Code read-only khi Edit; trả DialogResult.Ok(_model) (không Ok(true)) để page có newValue; duplicate Code → thông báo thân thiện |
+| J3 | migration_dashboard_audit_log.sql – bảng DashboardAuditLog + 3 index | Auth/migration_dashboard_audit_log.sql | ⚠️ | Script idempotent — **PHẢI CHẠY trên RPOSMasterData trước deploy**; chưa chạy → log fail silently |
+| J4 | audit-logging.md – rule audit CRUD chuẩn hóa cho toàn dự án | .claude/skills/web/audit-logging.md | ✅ | Pattern: snapshot oldValue từ item đã có, await LogAsync sau DB success, dialog trả DTO, checklist 12 mục |
+| J5 | IKibanaService → IFileLogHelper — migration toàn POS.Web | 24 .razor + 3 .cs (PendingUpdate, SqlConsoleService, DbAuditLogger) | ✅ | LogInfo → WriteLogs(`[{fn}] {entity}: {msg}`); LogException có ex → WriteExpLogs; LogException không có ex → WriteLogs(`[EXCEPTION][{fn}] msg`) |
+| J6 | Audit log UsersPage (CREATE/UPDATE/LOCK/UNLOCK) + PosMapPage (UPDATE PosTerminal, chained dialog) | UsersPage.razor / UserFormDialog.razor / PosMapPage.razor / PosTerminalEditDialog.razor / PosTerminalDetailDialog.razor / PosTerminalSavePayload.cs (mới) | ✅ | UserFormDialog trả DTO đầy đủ (PasswordHash masked); DetailDialog forward result.Data!; PosMapPage capture oldJson trước dialog |
+| H1 | Build pass (0 error, 3 warning pre-existing MUD0002) | — | ✅ | `dotnet build POS.Web` → Build succeeded. 3 Warning(s) MUD0002 Title pre-existing (VoidsPage + TransactionsPage ×2). 0 Error(s). |
 
 ---
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **81 / 82 hạng mục**
-- ⚠️ Có vấn đề: **1 hạng mục** (B9 — SQL seed hash placeholder)
+- ✅ Hoàn thành: **87 / 89 hạng mục**
+- ⚠️ Có vấn đề: **2 hạng mục** (B9 — SQL seed hash placeholder; J3 — migration chưa chạy trên DB)
 - ❌ Còn thiếu: **0 hạng mục**
 
-> +15 hạng mục mới (session 2026-06-23): G16 (DetailRevenuePage full), G17-G22 (6 stub pages), menu refactor (F3 update).
-> Previous: G14 (TransactionsPage), G15 (EosShiftsPage), I1-I12 (DataTable + responsive standards).
+> +2 hạng mục mới (session 2026-06-28 Phase1+2): J5 (IKibanaService → IFileLogHelper migration), J6 (Audit logging UsersPage + PosMapPage).
+> Previous +5: G24, J1-J4. Previous: S1-S7, G16-G23, I1-I12.
 
 ---
 
@@ -198,8 +210,8 @@ dotnet build src/POS.Web/POS.Web.csproj
   POS.Web           → bin/Debug/net10.0/POS.Web.dll
 
 Build succeeded.
-    0 Warning(s)
+    3 Warning(s) — MUD0002 Title pre-existing (VoidsPage + TransactionsPage ×2)
     0 Error(s)
 
-Time Elapsed 00:00:03.16  [2026-06-23 after DetailRevenuePage]
+Time Elapsed — [2026-06-28 after Phase1+2: IKibanaService→FileLogger migration + audit UsersPage/PosMapPage]
 ```

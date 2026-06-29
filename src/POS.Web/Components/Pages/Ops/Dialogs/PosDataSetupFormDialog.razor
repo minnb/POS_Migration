@@ -1,0 +1,183 @@
+@namespace POS.Web.Components.Pages.Ops
+@using MudBlazor
+@using POS.Common.Dtos.POS.Common
+@using POS.Infrastructure.Repositories.Interfaces
+
+@inject ICentralMDRepository CentralMDRepo
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(IsEdit ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)"
+                     Class="mr-2" Style="vertical-align:middle"/>
+            @(IsEdit ? "Sửa cấu hình" : "Thêm cấu hình")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+
+                @* Code — editable khi Add, read-only khi Edit *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Code"
+                                  Label="Code"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Disabled="@IsEdit"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập Code"
+                                  MaxLength="50"
+                                  Immediate="true"
+                                  HelperText="@(IsEdit ? "Code không thể thay đổi sau khi tạo" : "Định danh duy nhất — tối đa 50 ký tự")"/>
+                </MudItem>
+
+                @* StoreNo *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.StoreNo"
+                                  Label="StoreNo"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập StoreNo"
+                                  MaxLength="10"
+                                  Immediate="true"
+                                  HelperText="Mã cửa hàng (vd: VIN001) hoặc ALL / GLOBAL"/>
+                </MudItem>
+
+                @* Description *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Description"
+                                  Label="Description"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập mô tả"
+                                  MaxLength="100"
+                                  Immediate="true"/>
+                </MudItem>
+
+                @* Value — nvarchar(max), có thể dài *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Value"
+                                  Label="Value"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Lines="4"
+                                  HelperText="Giá trị cấu hình — có thể để trống"/>
+                </MudItem>
+
+                @* Counter — chỉ hiển thị khi Edit, không cho sửa *@
+                @if (IsEdit && ExistingItem?.Counter != null)
+                {
+                    <MudItem xs="12">
+                        <MudTextField Value="@ExistingItem.Counter.ToString()"
+                                      Label="Counter (hệ thống)"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      ReadOnly="true"
+                                      HelperText="Cột đồng bộ — hệ thống tự quản lý, không chỉnh sửa"/>
+                    </MudItem>
+                }
+
+            </MudGrid>
+        </MudForm>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@_saving"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public POSDataSetupAdminDto? ExistingItem { get; set; }
+
+    private bool IsEdit => ExistingItem is not null;
+
+    private POSDataSetupAdminDto _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+
+    protected override void OnParametersSet()
+    {
+        if (ExistingItem is not null)
+        {
+            _model = new POSDataSetupAdminDto
+            {
+                Code        = ExistingItem.Code,
+                Value       = ExistingItem.Value,
+                Description = ExistingItem.Description,
+                StoreNo     = ExistingItem.StoreNo,
+                Counter     = ExistingItem.Counter
+            };
+        }
+    }
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+
+        try
+        {
+            if (!IsEdit)
+            {
+                var (success, duplicateCode) = await CentralMDRepo.InsertPOSDataSetupAsync(_model);
+                if (duplicateCode)
+                {
+                    _errorMsg = $"Code \"{_model.Code}\" đã tồn tại. Vui lòng dùng Code khác.";
+                    return;
+                }
+                if (!success)
+                {
+                    _errorMsg = "Thêm thất bại. Vui lòng thử lại.";
+                    return;
+                }
+            }
+            else
+            {
+                var ok = await CentralMDRepo.UpdatePOSDataSetupAsync(_model);
+                if (!ok)
+                {
+                    _errorMsg = "Cập nhật thất bại. Vui lòng thử lại.";
+                    return;
+                }
+            }
+
+            MudDialog.Close(DialogResult.Ok(_model));
+        }
+        catch
+        {
+            _errorMsg = "Đã xảy ra lỗi. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

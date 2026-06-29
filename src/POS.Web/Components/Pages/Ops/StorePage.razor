@@ -10,7 +10,7 @@
 @using POS.Web.Auth
 
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject IDialogService DialogService
 
 <PageTitle>Cửa hàng – POS Dashboard</PageTitle>
@@ -153,14 +153,12 @@
         try
         {
             _allItems = await MdRepo.GetStoreAdminListAsync();
-            KibanaService.LogInfo("StorePage.Load", "ops",
-                $"Stores: {_allItems.Count} total, " +
-                $"{_allItems.Count(x => x.IsActive)} active");
+            FileLogger.WriteLogs($"[StorePage.Load] ops: Stores: {_allItems.Count} total, {_allItems.Count(x => x.IsActive)} active");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải danh sách cửa hàng.";
-            KibanaService.LogException("StorePage.Load", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("StorePage.Load", ex);
         }
         finally
         {

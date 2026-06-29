@@ -11,7 +11,7 @@
 @using POS.Web.Auth
 
 @inject IHealthCheckService HealthSvc
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 
 <PageTitle>System Health – POS Dashboard</PageTitle>
 
@@ -171,16 +171,15 @@
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             _items = await HealthSvc.CheckAllAsync(null, cts.Token);
             _lastChecked = DateTime.Now;
-            KibanaService.LogInfo("HealthPage.RunCheck", "ops",
-                $"Health check: {_items.Count(x => x.Ok)}/{_items.Count} OK");
+            FileLogger.WriteLogs($"[HealthPage.RunCheck] ops: Health check: {_items.Count(x => x.Ok)}/{_items.Count} OK");
         }
         catch (OperationCanceledException)
         {
-            KibanaService.LogException("HealthPage.RunCheck", "", 0, "", "Health check timeout (>15s)");
+            FileLogger.WriteLogs("[EXCEPTION][HealthPage.RunCheck] Health check timeout (>15s)");
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("HealthPage.RunCheck", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("HealthPage.RunCheck", ex);
         }
         finally
         {

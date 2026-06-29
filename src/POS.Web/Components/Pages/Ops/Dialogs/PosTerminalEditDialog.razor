@@ -7,7 +7,7 @@
 @using System.Security.Claims
 
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -102,9 +102,8 @@
 
             if (ok)
             {
-                KibanaService.LogInfo("PosTerminalEditDialog.Save", Item.StoreNo,
-                    $"Updated POS {Item.No}: IP={_ipAddress}, Status={_status}, BillNoseri={_billNoseri}");
-                MudDialog.Close(DialogResult.Ok(true));
+                FileLogger.WriteLogs($"[PosTerminalEditDialog.Save] {Item.StoreNo}: Updated POS {Item.No}: IP={_ipAddress}, Status={_status}, BillNoseri={_billNoseri}");
+                MudDialog.Close(DialogResult.Ok(new PosTerminalSavePayload(_ipAddress, _status, _billNoseri)));
             }
             else
             {
@@ -114,7 +113,7 @@
         catch (Exception ex)
         {
             _errorMsg = "Lỗi hệ thống. Vui lòng thử lại.";
-            KibanaService.LogException("PosTerminalEditDialog.Save", Item.StoreNo, 0, "", ex.Message);
+            FileLogger.WriteExpLogs("PosTerminalEditDialog.Save", ex);
         }
         finally
         {

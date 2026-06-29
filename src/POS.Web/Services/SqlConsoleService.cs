@@ -11,7 +11,6 @@ namespace POS.Web.Services;
 public sealed class SqlConsoleService(
     IConfiguration configuration,
     CentralMDConnectionFactory centralMdFactory,
-    IKibanaService kibana,
     IFileLogHelper fileLog) : ISqlConsoleService
 {
     private const int MaxRows = 500;
@@ -171,8 +170,7 @@ public sealed class SqlConsoleService(
                 }
             }
 
-            kibana.LogInfo("SqlConsole.Select", actor,
-                $"{connKey} | {rows.Count} rows | {sw.ElapsedMilliseconds}ms | {Trunc(MaskSecrets(sql))}");
+            fileLog.WriteLogs($"[SqlConsole.Select] actor={actor} {connKey} | {rows.Count} rows | {sw.ElapsedMilliseconds}ms | {Trunc(MaskSecrets(sql))}");
 
             return new SqlQueryResult
             {
@@ -185,12 +183,12 @@ public sealed class SqlConsoleService(
         }
         catch (OperationCanceledException)
         {
-            kibana.LogInfo("SqlConsole.Select.Cancelled", actor, $"{connKey} | {Trunc(MaskSecrets(sql))}");
+            fileLog.WriteLogs($"[SqlConsole.Select.Cancelled] actor={actor} {connKey} | {Trunc(MaskSecrets(sql))}");
             return new SqlQueryResult { Success = false, Error = "Câu lệnh đã bị hủy." };
         }
         catch (Exception ex)
         {
-            kibana.LogException("SqlConsole.Select", actor, 0, connKey, ex.Message);
+            fileLog.WriteExpLogs("SqlConsole.Select", ex);
             return new SqlQueryResult { Success = false, Error = ex.Message };
         }
     }
@@ -236,8 +234,7 @@ public sealed class SqlConsoleService(
         }
         sw.Stop();
 
-        kibana.LogInfo("SqlConsole.Mutation.Begin", actor,
-            $"{connKey} | kind={validation.Kind} rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(MaskSecrets(sql))}");
+        fileLog.WriteLogs($"[SqlConsole.Mutation.Begin] actor={actor} {connKey} | kind={validation.Kind} rows={rowsAffected} hasWhere={validation.UpdateHasWhere} | {sw.ElapsedMilliseconds}ms | {Trunc(MaskSecrets(sql))}");
 
         var executedAt = DateTime.UtcNow;
         var catalog = _databases.FirstOrDefault(d => d.Key == connKey)?.Catalog ?? connKey;
@@ -249,7 +246,7 @@ public sealed class SqlConsoleService(
 
         return new PendingUpdate(conn, tx, rowsAffected, hasWhere,
             elapsedMs, actor, connKey, sql, validation.Kind, validation.ObjectName,
-            kibana, fileLog, auditCallback);
+            fileLog, auditCallback);
     }
 
     /// <summary>

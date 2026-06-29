@@ -6,7 +6,7 @@
 
 @inject ICentralSaleRepository SaleRepo
 @inject IDialogService DialogService
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 
 <MudDialog>
     <TitleContent>
@@ -111,7 +111,7 @@
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải danh sách ca.";
-            KibanaService.LogException("EosDayShiftListDialog.OnInitializedAsync", Day.StoreNo, 0, "", ex.Message);
+            FileLogger.WriteExpLogs("EosDayShiftListDialog.OnInitializedAsync", ex);
         }
         finally
         {

@@ -6,7 +6,7 @@
 @using POS.Infrastructure.Logging
 
 @inject ICentralSaleRepository SaleRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 
 <MudDialog>
     <DialogContent>
@@ -104,7 +104,7 @@
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("VoidDetailDialog.OnInitializedAsync", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("VoidDetailDialog.OnInitializedAsync", ex);
         }
         finally
         {

@@ -14,7 +14,7 @@
 
 @inject ICentralSaleRepository SaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -326,7 +326,7 @@ else if (!_loading && _summaries.Count == 0)
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("ShiftSummaryPage.LoadStores", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("ShiftSummaryPage.LoadStores", ex);
         }
 
         await LoadDataAsync();
@@ -365,14 +365,12 @@ else if (!_loading && _summaries.Count == 0)
 
             BuildChart();
 
-            KibanaService.LogInfo("ShiftSummaryPage.LoadData",
-                _isStoreOperator ? (_userStoreCodes.FirstOrDefault() ?? "all") : (_selectedStore?.StoreNo ?? "all"),
-                $"Loaded {_summaries.Count} shift-number summaries, {_shifts.Count} detail rows [{from:dd/MM/yyyy}–{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[ShiftSummaryPage.LoadData] {(_isStoreOperator ? (_userStoreCodes.FirstOrDefault() ?? "all") : (_selectedStore?.StoreNo ?? "all"))}: Loaded {_summaries.Count} shift-number summaries, {_shifts.Count} detail rows [{from:dd/MM/yyyy}–{to:dd/MM/yyyy}]");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("ShiftSummaryPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("ShiftSummaryPage.LoadData", ex);
         }
         finally
         {

@@ -66,4 +66,32 @@ public interface ICentralMDRepository
 
     /// <summary>Toàn bộ danh sách cửa hàng (kể cả đã đóng) dùng cho trang quản trị Store.</summary>
     Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default);
+
+    // ── POSDataSetup CRUD (Web admin UI) ─────────────────────────────────────
+
+    /// <summary>SELECT đủ 5 cột (Code, Value, Description, StoreNo, Counter) — không cache, dùng cho admin UI.</summary>
+    Task<List<POSDataSetupAdminDto>> GetPOSDataSetupAdminListAsync(CancellationToken ct = default);
+
+    /// <summary>SELECT 1 dòng theo Code.</summary>
+    Task<POSDataSetupAdminDto?> GetPOSDataSetupByCodeAsync(string code, CancellationToken ct = default);
+
+    /// <summary>INSERT dòng mới. Trả (success=false, duplicateCode=true) nếu Code đã tồn tại. Invalidate Redis cache sau khi insert.</summary>
+    Task<(bool success, bool duplicateCode)> InsertPOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default);
+
+    /// <summary>UPDATE Value, Description, StoreNo theo Code — KHÔNG đụng Counter/Pkey. Invalidate Redis cache sau khi update.</summary>
+    Task<bool> UpdatePOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default);
+
+    /// <summary>DELETE theo Code. Invalidate Redis cache sau khi xóa.</summary>
+    Task<bool> DeletePOSDataSetupAsync(string code, CancellationToken ct = default);
+
+    // ── Dashboard Audit Log ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ghi 1 dòng vào DashboardAuditLog. try/catch nội bộ — caller không cần bọc thêm;
+    /// audit failure không làm gián đoạn main flow.
+    /// </summary>
+    Task InsertDashboardAuditLogAsync(
+        string actor, string action, string entityType, string entityKey,
+        string? oldValueJson = null, string? newValueJson = null,
+        CancellationToken ct = default);
 }

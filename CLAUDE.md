@@ -984,6 +984,30 @@ CSS global (`app.css`) đã tự xử lý trên `@media (max-width: 599.98px)`:
 
 ---
 
+### 16. Audit Log — CRUD Operations (BẮT BUỘC với mọi page ghi dữ liệu)
+
+> **Chi tiết đầy đủ: `.claude/skills/web/audit-logging.md`** — đọc file này trước khi tạo
+> bất kỳ page nào có thao tác Create / Update / Delete.
+
+**Quy tắc bắt buộc:**
+
+- Mọi page CRUD **BẮT BUỘC** inject `IAuditLogger` và gọi `await AuditLogger.LogAsync(...)` sau
+  mỗi thao tác ghi DB thành công. Không log khi thao tác thất bại.
+- Serialize bằng **Newtonsoft.Json** — KHÔNG System.Text.Json.
+- Form dialog PHẢI trả DTO đầy đủ: `MudDialog.Close(DialogResult.Ok(_model))` — KHÔNG `Ok(true)`.
+- Snapshot `oldValue` cho UPDATE: dùng biến `item` đã có trong page — KHÔNG fetch lại DB.
+- Chạy migration `src/POS.Web/Auth/migration_dashboard_audit_log.sql` trên `RPOSMasterData`
+  TRƯỚC KHI deploy tính năng có audit. Nếu chưa chạy → log fail silently, không crash app.
+
+**Reference implementation:** `src/POS.Web/Components/Pages/Ops/PosDataSetupPage.razor`
+
+**KHÔNG làm:**
+- ❌ Gọi `AuditLogger.LogAsync` mà không `await`
+- ❌ Log trước khi xác nhận DB op thành công
+- ❌ Dialog trả `Ok(true)` — page không có newValue để log UPDATE/CREATE
+
+---
+
 ## Quy tắc DB Schema — BẮT BUỘC biết
 
 ### bảng `dbo.Store` (RPOSMasterData)

@@ -13,7 +13,7 @@
 
 @inject ICentralSaleRepository SaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -277,7 +277,7 @@
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("BusinessDayPage.LoadStores", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("BusinessDayPage.LoadStores", ex);
         }
 
         await LoadDataAsync();
@@ -304,14 +304,12 @@
 
             _days = await SaleRepo.GetEosDayListAsync(from, to, storeCodes);
 
-            KibanaService.LogInfo("BusinessDayPage.LoadData",
-                _isStoreOperator ? (_userStoreCodes.FirstOrDefault() ?? "all") : (_selectedStore?.StoreNo ?? "all"),
-                $"Loaded {_days.Count} day-records [{from:dd/MM/yyyy}–{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[BusinessDayPage.LoadData] {(_isStoreOperator ? (_userStoreCodes.FirstOrDefault() ?? "all") : (_selectedStore?.StoreNo ?? "all"))}: Loaded {_days.Count} day-records [{from:dd/MM/yyyy}–{to:dd/MM/yyyy}]");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("BusinessDayPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("BusinessDayPage.LoadData", ex);
         }
         finally
         {

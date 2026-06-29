@@ -9,11 +9,13 @@
 @using POS.Infrastructure.Logging
 @using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using Newtonsoft.Json
 
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
 
 <PageTitle>POS Map – POS Dashboard</PageTitle>
 
@@ -206,6 +208,10 @@
 </MudTable>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private string _currentActor = "unknown";
     private List<PosTerminalListDto> _allItems = [];
     private List<PosTerminalListDto> _filtered = [];
     private bool    _loading        = false;
@@ -219,6 +225,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
         await LoadDataAsync();
         StartAutoRefresh();
     }
@@ -232,14 +240,12 @@
         {
             _allItems   = await MdRepo.GetPosTerminalListAsync();
             _lastLoaded = DateTime.Now;
-            KibanaService.LogInfo("PosMapPage.Load", "ops",
-                $"POSTerminal: {_allItems.Count} terminals, " +
-                $"{_allItems.Count(x => x.IsOnline)} online");
+            FileLogger.WriteLogs($"[PosMapPage.Load] ops: POSTerminal: {_allItems.Count} terminals, {_allItems.Count(x => x.IsOnline)} online");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải danh sách POS.";
-            KibanaService.LogException("PosMapPage.Load", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("PosMapPage.Load", ex);
         }
         finally
         {
@@ -286,14 +292,17 @@
     private async Task OnRowClick(TableRowClickEventArgs<PosTerminalListDto> args)
     {
         if (args.Item is null) return;
+        var oldJson = JsonConvert.SerializeObject(new { args.Item.No, args.Item.StoreNo, args.Item.IPAddress, args.Item.IsEnabled, args.Item.BillNoseri });
         var dialog = await DialogService.ShowAsync<PosTerminalDetailDialog>(
             $"Chi tiết POS: {args.Item.No} – {args.Item.StoreNo}",
             new DialogParameters<PosTerminalDetailDialog> { { x => x.Item, args.Item } },
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true,
                                 CloseButton = true, CloseOnEscapeKey = true });
         var result = await dialog.Result;
-        if (!result.Canceled)
+        if (result is { Canceled: false } && result.Data is PosTerminalSavePayload saved)
         {
+            var newJson = JsonConvert.SerializeObject(new { args.Item.No, args.Item.StoreNo, IpAddress = saved.IpAddress, IsEnabled = saved.IsEnabled, BillNoseri = saved.BillNoseri });
+            await AuditLogger.LogAsync(_currentActor, "UPDATE", "PosTerminal", args.Item.No, oldJson, newJson);
             Snackbar.Add($"POS {args.Item.No} đã được cập nhật.", Severity.Success);
             await LoadDataAsync();
         }

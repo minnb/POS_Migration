@@ -365,4 +365,88 @@ public sealed class CentralMDRepository(
                              ORDER  BY No";
         return (await QueryAsync<StoreListDto>(sql, ct: ct)).ToList();
     }
+
+    // ── POSDataSetup CRUD (Web admin UI) ─────────────────────────────────────
+
+    public async Task<List<POSDataSetupAdminDto>> GetPOSDataSetupAdminListAsync(CancellationToken ct = default)
+    {
+        const string sql = @"SELECT Code, Value, Description, StoreNo, Counter
+                             FROM   dbo.POSDataSetup (NOLOCK)
+                             ORDER  BY StoreNo, Code";
+        return (await QueryAsync<POSDataSetupAdminDto>(sql, ct: ct)).ToList();
+    }
+
+    public async Task<POSDataSetupAdminDto?> GetPOSDataSetupByCodeAsync(string code, CancellationToken ct = default)
+    {
+        const string sql = @"SELECT Code, Value, Description, StoreNo, Counter
+                             FROM   dbo.POSDataSetup (NOLOCK)
+                             WHERE  Code = @code";
+        return await QueryFirstOrDefaultAsync<POSDataSetupAdminDto>(sql, new { code }, ct: ct);
+    }
+
+    public async Task<(bool success, bool duplicateCode)> InsertPOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)
+    {
+        // PK là Code — kiểm tra trùng trước khi insert
+        const string checkSql = "SELECT COUNT(1) FROM dbo.POSDataSetup WHERE Code = @Code;";
+        var exists = await QueryFirstOrDefaultAsync<int>(checkSql, new { dto.Code }, ct: ct);
+        if (exists > 0) return (false, true);
+
+        const string sql = @"INSERT INTO dbo.POSDataSetup (Code, Value, Description, StoreNo)
+                             VALUES (@Code, @Value, @Description, @StoreNo);";
+        try
+        {
+            await ExecuteAsync(sql, new { dto.Code, dto.Value, dto.Description, dto.StoreNo }, ct: ct);
+            redis.Delete(KeyPOSDataSetup); // invalidate POS machine cache
+            return (true, false);
+        }
+        catch { return (false, false); }
+    }
+
+    public async Task<bool> UpdatePOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)
+    {
+        // KHÔNG cập nhật Counter/Pkey — chỉ 3 field được phép sửa
+        const string sql = @"UPDATE dbo.POSDataSetup
+                             SET    Value       = @Value,
+                                    Description = @Description,
+                                    StoreNo     = @StoreNo
+                             WHERE  Code = @Code;";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new { dto.Value, dto.Description, dto.StoreNo, dto.Code }, ct: ct);
+            if (rows > 0) redis.Delete(KeyPOSDataSetup); // invalidate POS machine cache
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> DeletePOSDataSetupAsync(string code, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM dbo.POSDataSetup WHERE Code = @code;";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new { code }, ct: ct);
+            if (rows > 0) redis.Delete(KeyPOSDataSetup); // invalidate POS machine cache
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    // ── Dashboard Audit Log ──────────────────────────────────────────────────
+
+    public async Task InsertDashboardAuditLogAsync(
+        string actor, string action, string entityType, string entityKey,
+        string? oldValueJson = null, string? newValueJson = null,
+        CancellationToken ct = default)
+    {
+        const string sql = @"INSERT INTO dbo.DashboardAuditLog
+                                 (Actor, Action, EntityType, EntityKey, OldValue, NewValue)
+                             VALUES (@actor, @action, @entityType, @entityKey, @oldValueJson, @newValueJson);";
+        try
+        {
+            await ExecuteAsync(sql,
+                new { actor, action, entityType, entityKey, oldValueJson, newValueJson },
+                ct: ct);
+        }
+        catch { /* audit failure must not interrupt main flow */ }
+    }
 }

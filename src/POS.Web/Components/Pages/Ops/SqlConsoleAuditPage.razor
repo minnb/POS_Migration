@@ -1,0 +1,307 @@
+@page "/ops/activity-log"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Data.SqlClient
+@using MudBlazor
+@using POS.Infrastructure.Database
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@inject CentralMDConnectionFactory DbFactory
+@inject IFileLogHelper FileLogger
+
+<PageTitle>Nhật ký thao tác – POS Dashboard</PageTitle>
+
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Class="mr-2" Style="vertical-align:middle"/>
+    Nhật ký thao tác
+</MudText>
+
+@* ── Filter panel ────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDate"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDate"
+                           Label="Đến ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filterActor"
+                          Label="Actor (username)"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect T="string" @bind-Value="_filterAction"
+                       Label="Thao tác"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense">
+                <MudSelectItem Value='@("")'>Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("CREATE")">CREATE</MudSelectItem>
+                <MudSelectItem Value="@("UPDATE")">UPDATE</MudSelectItem>
+                <MudSelectItem Value="@("DELETE")">DELETE</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filterEntityType"
+                          Label="Entity (loại dữ liệu)"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"
+                          Placeholder="vd: POSDataSetup"/>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@LoadDataAsync"
+                           Disabled="@_loading"
+                           FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           OnClick="@ResetFilter"
+                           Disabled="@_loading"
+                           FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Loading ──────────────────────────────────────────────────────────── *@
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+}
+
+@* ── Alerts ───────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+@if (_hitLimit)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4" Dense="true">
+        Kết quả chỉ hiển thị tối đa @MaxRows bản ghi mới nhất. Hãy thu hẹp bộ lọc để xem đầy đủ.
+    </MudAlert>
+}
+
+@* ── Table ────────────────────────────────────────────────────────────── *@
+<MudTable Items="@_records"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh Style="width:60px; text-align:center">
+            <MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Id)">Id</MudTableSortLabel>
+        </MudTh>
+        <MudTh Style="width:130px">
+            <MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Actor)">Actor</MudTableSortLabel>
+        </MudTh>
+        <MudTh Style="width:110px; text-align:center">
+            <MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.Action)">Thao tác</MudTableSortLabel>
+        </MudTh>
+        <MudTh Style="width:160px">
+            <MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.EntityType)">Entity</MudTableSortLabel>
+        </MudTh>
+        <MudTh Style="width:160px">EntityKey</MudTh>
+        <MudTh>Giá trị cũ (OldValue)</MudTh>
+        <MudTh>Giá trị mới (NewValue)</MudTh>
+        <MudTh Style="width:160px">
+            <MudTableSortLabel SortBy="new Func<AuditRecord, object>(x => x.ActedAt)"
+                               InitialDirection="SortDirection.Descending">Thời gian</MudTableSortLabel>
+        </MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id" Style="text-align:center">@context.Id</MudTd>
+        <MudTd DataLabel="Actor">@context.Actor</MudTd>
+        <MudTd DataLabel="Thao tác" Style="text-align:center">
+            @{
+                var (color, label) = ActionDisplay(context.Action);
+            }
+            <MudChip T="string" Color="@color" Size="Size.Small" Variant="Variant.Filled">@label</MudChip>
+        </MudTd>
+        <MudTd DataLabel="Entity">
+            <MudText Style="font-family:monospace; font-size:0.82rem">@context.EntityType</MudText>
+        </MudTd>
+        <MudTd DataLabel="EntityKey">
+            <MudText Style="font-size:0.85rem">@context.EntityKey</MudText>
+        </MudTd>
+        <MudTd DataLabel="Giá trị cũ">
+            @if (string.IsNullOrEmpty(context.OldValue))
+            {
+                <MudText Style="color:#9e9e9e; font-style:italic">—</MudText>
+            }
+            else
+            {
+                <MudTooltip Text="@context.OldValue" Placement="Placement.Bottom">
+                    <span style="font-family:monospace; font-size:11px; cursor:help; color:#666">
+                        @(context.OldValue.Length > 120 ? context.OldValue[..120] + "…" : context.OldValue)
+                    </span>
+                </MudTooltip>
+            }
+        </MudTd>
+        <MudTd DataLabel="Giá trị mới">
+            @if (string.IsNullOrEmpty(context.NewValue))
+            {
+                <MudText Style="color:#9e9e9e; font-style:italic">—</MudText>
+            }
+            else
+            {
+                <MudTooltip Text="@context.NewValue" Placement="Placement.Bottom">
+                    <span style="font-family:monospace; font-size:11px; cursor:help; color:#27ae60">
+                        @(context.NewValue.Length > 120 ? context.NewValue[..120] + "…" : context.NewValue)
+                    </span>
+                </MudTooltip>
+            }
+        </MudTd>
+        <MudTd DataLabel="Thời gian" Style="font-size:12px">
+            @context.ActedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} bản ghi"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    private const int MaxRows = 500;
+
+    private sealed class AuditRecord
+    {
+        public long     Id         { get; init; }
+        public string   Actor      { get; init; } = string.Empty;
+        public string   Action     { get; init; } = string.Empty;
+        public string   EntityType { get; init; } = string.Empty;
+        public string   EntityKey  { get; init; } = string.Empty;
+        public string?  OldValue   { get; init; }
+        public string?  NewValue   { get; init; }
+        public DateTime ActedAt    { get; init; }
+    }
+
+    private bool    _loading;
+    private string? _errorMsg;
+    private bool    _hitLimit;
+    private List<AuditRecord> _records = [];
+
+    private DateTime? _fromDate         = DateTime.Today.AddDays(-7);
+    private DateTime? _toDate           = DateTime.Today;
+    private string    _filterActor      = string.Empty;
+    private string    _filterAction     = string.Empty;
+    private string    _filterEntityType = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        _hitLimit = false;
+        StateHasChanged();
+        try
+        {
+            var from = (_fromDate ?? DateTime.Today.AddDays(-7)).Date;
+            var to   = (_toDate   ?? DateTime.Today).Date.AddDays(1);
+
+            var where = new List<string>
+            {
+                "ActedAt >= @From",
+                "ActedAt <  @To"
+            };
+            if (!string.IsNullOrWhiteSpace(_filterActor))      where.Add("Actor LIKE @Actor");
+            if (!string.IsNullOrWhiteSpace(_filterAction))     where.Add("Action = @Action");
+            if (!string.IsNullOrWhiteSpace(_filterEntityType)) where.Add("EntityType LIKE @EntityType");
+
+            var sql = $"""
+                SELECT TOP (@MaxRows)
+                       Id, Actor, Action, EntityType, EntityKey,
+                       OldValue, NewValue, ActedAt
+                FROM   DashboardAuditLog (NOLOCK)
+                WHERE  {string.Join(" AND ", where)}
+                ORDER BY ActedAt DESC
+                """;
+
+            await using var conn = (SqlConnection)await DbFactory.CreateOpenConnectionAsync();
+            await using var cmd  = new SqlCommand(sql, conn) { CommandTimeout = 30 };
+            cmd.Parameters.AddWithValue("@MaxRows", MaxRows);
+            cmd.Parameters.AddWithValue("@From",    from);
+            cmd.Parameters.AddWithValue("@To",      to);
+            if (!string.IsNullOrWhiteSpace(_filterActor))
+                cmd.Parameters.AddWithValue("@Actor", $"%{_filterActor.Trim()}%");
+            if (!string.IsNullOrWhiteSpace(_filterAction))
+                cmd.Parameters.AddWithValue("@Action", _filterAction);
+            if (!string.IsNullOrWhiteSpace(_filterEntityType))
+                cmd.Parameters.AddWithValue("@EntityType", $"%{_filterEntityType.Trim()}%");
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            var list = new List<AuditRecord>();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new AuditRecord
+                {
+                    Id         = reader.GetInt64(0),
+                    Actor      = reader.GetString(1),
+                    Action     = reader.GetString(2),
+                    EntityType = reader.GetString(3),
+                    EntityKey  = reader.GetString(4),
+                    OldValue   = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    NewValue   = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    ActedAt    = reader.GetDateTime(7)
+                });
+            }
+            _records  = list;
+            _hitLimit = list.Count == MaxRows;
+
+            FileLogger.WriteLogs($"[ActivityLogPage.Load] ops: {list.Count} records [{from:dd/MM/yyyy}–{(_toDate ?? DateTime.Today):dd/MM/yyyy}]");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = $"Không thể tải dữ liệu nhật ký: {ex.Message}";
+            FileLogger.WriteExpLogs("ActivityLogPage.Load", ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetFilter()
+    {
+        _fromDate         = DateTime.Today.AddDays(-7);
+        _toDate           = DateTime.Today;
+        _filterActor      = string.Empty;
+        _filterAction     = string.Empty;
+        _filterEntityType = string.Empty;
+        await LoadDataAsync();
+    }
+
+    private static (Color Color, string Label) ActionDisplay(string action) => action switch
+    {
+        "CREATE" => (Color.Success, "CREATE"),
+        "UPDATE" => (Color.Info,    "UPDATE"),
+        "DELETE" => (Color.Error,   "DELETE"),
+        _        => (Color.Default, action)
+    };
+}

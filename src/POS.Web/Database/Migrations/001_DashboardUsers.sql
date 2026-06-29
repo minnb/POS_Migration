@@ -1,5 +1,7 @@
--- Chạy trên DB: RPOSMasterData (ConnectionStrings:CentralMD)
--- Tạo bảng DashboardUsers cho Blazor Dashboard app
+-- Migration 001: tạo bảng DashboardUsers và seed admin mặc định
+-- Database  : RPOSMasterData (ConnectionStrings:CentralMD)
+-- Idempotent : có thể chạy lại nhiều lần, không lỗi
+
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='DashboardUsers' AND xtype='U')
 CREATE TABLE DashboardUsers (
     Id           INT IDENTITY(1,1) PRIMARY KEY,

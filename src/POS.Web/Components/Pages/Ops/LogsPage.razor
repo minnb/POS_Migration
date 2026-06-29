@@ -10,7 +10,7 @@
 @using POS.Infrastructure.Logging
 
 @inject ICentralSaleRepository SaleRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 
 <PageTitle>Log Viewer – POS Dashboard</PageTitle>
@@ -203,13 +203,12 @@ else
             _summary = summaryTask.Result;
             _errors  = listTask.Result;
 
-            KibanaService.LogInfo("LogsPage.LoadData", "all",
-                $"Loaded {_errors.Count} errors from {from:dd/MM} to {to:dd/MM}");
+            FileLogger.WriteLogs($"[LogsPage.LoadData] all: Loaded {_errors.Count} errors from {from:dd/MM} to {to:dd/MM}");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu lỗi.";
-            KibanaService.LogException("LogsPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("LogsPage.LoadData", ex);
         }
         finally
         {

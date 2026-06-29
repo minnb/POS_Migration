@@ -7,7 +7,7 @@
 @using Microsoft.Data.SqlClient
 
 @inject CentralMDConnectionFactory DbFactory
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 
 <PageTitle>Audit Log – POS Dashboard</PageTitle>
 
@@ -232,7 +232,7 @@
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu audit log.";
-            KibanaService.LogException("AuditPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("AuditPage.LoadData", ex);
         }
         finally
         {

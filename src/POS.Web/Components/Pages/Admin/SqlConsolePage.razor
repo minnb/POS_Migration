@@ -7,7 +7,7 @@
 @using POS.Infrastructure.Logging
 
 @inject ISqlConsoleService ConsoleService
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 
 <PageTitle>SQL Console – POS Dashboard</PageTitle>
@@ -308,14 +308,14 @@
                 catch (Exception ex)
                 {
                     _errorMsg = ex.Message;
-                    KibanaService.LogException("SqlConsolePage.Run", _actor, 0, _connKey, ex.Message);
+                    FileLogger.WriteExpLogs("SqlConsolePage.Run", ex);
                 }
             }
         }
         catch (Exception ex)
         {
             _errorMsg = $"Lỗi không mong đợi: {ex.Message}";
-            KibanaService.LogException("SqlConsolePage.Run", _actor, 0, _connKey, ex.Message);
+            FileLogger.WriteExpLogs("SqlConsolePage.Run", ex);
         }
         finally
         {
@@ -347,7 +347,7 @@
         catch (Exception ex)
         {
             _errorMsg = $"Commit thất bại: {ex.Message}";
-            KibanaService.LogException("SqlConsolePage.Commit", _actor, 0, _connKey, ex.Message);
+            FileLogger.WriteExpLogs("SqlConsolePage.Commit", ex);
         }
         finally
         {
@@ -368,7 +368,7 @@
         catch (Exception ex)
         {
             _errorMsg = $"Rollback thất bại: {ex.Message}";
-            KibanaService.LogException("SqlConsolePage.Rollback", _actor, 0, _connKey, ex.Message);
+            FileLogger.WriteExpLogs("SqlConsolePage.Rollback", ex);
         }
         finally
         {

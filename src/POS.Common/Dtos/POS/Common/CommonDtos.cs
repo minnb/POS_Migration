@@ -99,6 +99,16 @@ public class POSDataSetupModel
     public string? Value { get; set; }
 }
 
+// Dùng cho Web admin UI — đầy đủ 5 cột, KHÔNG phải contract POS machines
+public class POSDataSetupAdminDto
+{
+    public string  Code        { get; set; } = string.Empty;
+    public string? Value       { get; set; }
+    public string  Description { get; set; } = string.Empty;
+    public string  StoreNo     { get; set; } = string.Empty;
+    public long?   Counter     { get; set; }
+}
+
 // Khớp POSVersionModel cũ — table CentralMD.POSVersion (POS parse đủ các field này)
 public class POSVersionModel
 {

@@ -10,7 +10,7 @@
 @using POS.Infrastructure.Logging
 
 @inject ICentralSaleRepository SaleRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -274,7 +274,7 @@ else
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu DataRaw Log.";
-            KibanaService.LogException("DataRawLogPage.OnInitialized", userName, 0, "", ex.Message);
+            FileLogger.WriteExpLogs("DataRawLogPage.OnInitialized", ex);
         }
         finally { _loading = false; }
     }
@@ -301,13 +301,12 @@ else
 
             var state    = await AuthState;
             var userName = state.User.Identity?.Name ?? "unknown";
-            KibanaService.LogInfo("DataRawLogPage.LoadData", userName,
-                $"Loaded {_records.Count} records from {from:dd/MM} to {to:dd/MM}");
+            FileLogger.WriteLogs($"[DataRawLogPage.LoadData] {userName}: Loaded {_records.Count} records from {from:dd/MM} to {to:dd/MM}");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu DataRaw Log.";
-            KibanaService.LogException("DataRawLogPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("DataRawLogPage.LoadData", ex);
         }
         finally
         {
@@ -400,21 +399,20 @@ else
             if (ok)
             {
                 Snackbar.Add($"Retry thành công: {row.TransactionId}", Severity.Success);
-                KibanaService.LogInfo("DataRawLogPage.Retry", userName,
-                    $"Retry OK {row.TransactionId} (store {storeNo}/pos {posNo})");
+                FileLogger.WriteLogs($"[DataRawLogPage.Retry] {userName}: Retry OK {row.TransactionId} (store {storeNo}/pos {posNo})");
                 await LoadDataAsync();   // reload: KPI + thời gian + filter khớp DB tuyệt đối
             }
             else
             {
                 row.ErrorMessage = msg;  // cập nhật tooltip lỗi tại chỗ, không reload
                 Snackbar.Add($"Retry thất bại: {msg}", Severity.Error);
-                KibanaService.LogException("DataRawLogPage.Retry", userName, 0, "", $"{row.TransactionId}: {msg}");
+                FileLogger.WriteLogs($"[EXCEPTION][DataRawLogPage.Retry] actor={userName}: {row.TransactionId}: {msg}");
             }
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Lỗi khi retry: {ex.Message}", Severity.Error);
-            KibanaService.LogException("DataRawLogPage.Retry", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("DataRawLogPage.Retry", ex);
         }
         finally
         {

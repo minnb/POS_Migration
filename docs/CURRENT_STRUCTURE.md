@@ -424,6 +424,20 @@ Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = defa
 Task<List<POSVersionModel>?> GetPOSVersionAsync(CancellationToken ct = default)
 Task<bool> CheckCouponLineAsync(string itemNo, string barCode, CancellationToken ct = default)
 Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
+// ── Web admin: danh sách POS monitor / terminal ──
+Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default)
+Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default)
+Task<bool> UpdatePosTerminalAsync(string posNo, string ipAddress, bool? status, string? billNoseri, string updatedBy, CancellationToken ct = default)
+Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default)
+Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default)
+// ── POSDataSetup CRUD (Web admin UI) — invalidate Redis MD:POSDataSetup sau mỗi write ──
+Task<List<POSDataSetupAdminDto>> GetPOSDataSetupAdminListAsync(CancellationToken ct = default)
+Task<POSDataSetupAdminDto?> GetPOSDataSetupByCodeAsync(string code, CancellationToken ct = default)
+Task<(bool success, bool duplicateCode)> InsertPOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)
+Task<bool> UpdatePOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)    // KHÔNG đụng Counter/Pkey
+Task<bool> DeletePOSDataSetupAsync(string code, CancellationToken ct = default)
+// ── Dashboard Audit Log — try/catch nội bộ, caller không cần bọc thêm ──
+Task InsertDashboardAuditLogAsync(string actor, string action, string entityType, string entityKey, string? oldValueJson = null, string? newValueJson = null, CancellationToken ct = default)
 ```
 
 ### `ICentralSaleRepository` (`POS.Infrastructure.Repositories.Interfaces`)

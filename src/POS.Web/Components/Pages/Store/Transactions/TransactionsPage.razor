@@ -13,7 +13,7 @@
 
 @inject ICentralSaleRepository SaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -227,7 +227,7 @@
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("TransactionsPage.LoadStoreCodes", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("TransactionsPage.LoadStoreCodes", ex);
             if (!_isStoreOperator)
                 Snackbar.Add("Không tải được danh sách cửa hàng. Vui lòng thử lại sau.",
                     Severity.Error);
@@ -261,14 +261,12 @@
             _transactions = result;
             _hitLimit     = result.Count == MaxRows;
 
-            KibanaService.LogInfo("TransactionsPage.LoadData",
-                storeNo ?? "all",
-                $"Loaded {result.Count} transactions [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[TransactionsPage.LoadData] {storeNo ?? "all"}: Loaded {result.Count} transactions [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("TransactionsPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("TransactionsPage.LoadData", ex);
         }
         finally
         {

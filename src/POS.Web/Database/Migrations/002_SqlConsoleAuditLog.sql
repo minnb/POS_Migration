@@ -1,6 +1,7 @@
--- Migration: tạo bảng audit log cho SQL Console (UPDATE actions)
--- Chạy trên database: RPOSMasterData
--- Ngày tạo: 2026-06-19
+-- Migration 002: tạo bảng SqlConsoleAuditLog
+-- Database  : RPOSMasterData (ConnectionStrings:CentralMD)
+-- Mục đích  : ghi lại lịch sử chạy lệnh SQL từ SQL Console tool
+-- Idempotent : có thể chạy lại nhiều lần, không lỗi
 
 IF NOT EXISTS (
     SELECT 1 FROM INFORMATION_SCHEMA.TABLES
@@ -30,9 +31,9 @@ BEGIN
     CREATE INDEX IX_SqlConsoleAuditLog_Status
         ON SqlConsoleAuditLog (Status);
 
-    PRINT 'SqlConsoleAuditLog created.';
+    PRINT 'SqlConsoleAuditLog: bảng và 3 index đã tạo thành công.';
 END
 ELSE
 BEGIN
-    PRINT 'SqlConsoleAuditLog already exists, skipped.';
+    PRINT 'SqlConsoleAuditLog: đã tồn tại, bỏ qua.';
 END

@@ -16,7 +16,7 @@
 
 @inject IRptCentralSaleRepository RptRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 
 <PageTitle>Doanh thu theo hình thức thanh toán – POS Dashboard</PageTitle>
@@ -337,7 +337,7 @@
         if (_isStoreOperator) _filterStoreNo = _userStoreCodes[0];
 
         try { _allStores = await MdRepo.GetStoreListAsync(); }
-        catch (Exception ex) { KibanaService.LogException("PaymentBreakdownPage.LoadStores", "", 0, "", ex.Message); }
+        catch (Exception ex) { FileLogger.WriteExpLogs("PaymentBreakdownPage.LoadStores", ex); }
         // Danh mục TenderType + data nặng hoãn sang OnAfterRenderAsync (tránh query trong prerender).
     }
 
@@ -353,7 +353,7 @@
                 .GroupBy(t => t.Code, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First().Description, StringComparer.OrdinalIgnoreCase);
         }
-        catch (Exception ex) { KibanaService.LogException("PaymentBreakdownPage.LoadTenderTypes", "", 0, "", ex.Message); }
+        catch (Exception ex) { FileLogger.WriteExpLogs("PaymentBreakdownPage.LoadTenderTypes", ex); }
 
         await LoadDataAsync();
     }
@@ -414,8 +414,7 @@
             _maxAmount = _byMethod.Count > 0 ? _byMethod.Max(x => x.PaymentAmount) : 0d;
             BuildTrendChart();
 
-            KibanaService.LogInfo("PaymentBreakdownPage.LoadData", storeNo ?? "all",
-                $"Total={kpi.TotalPaymentAmount:N0} NonCash%={kpi.NonCashPct:0.0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[PaymentBreakdownPage.LoadData] {storeNo ?? "all"}: Total={kpi.TotalPaymentAmount:N0} NonCash%={kpi.NonCashPct:0.0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
         }
         catch (OperationCanceledException)
         {
@@ -424,7 +423,7 @@
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("PaymentBreakdownPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("PaymentBreakdownPage.LoadData", ex);
         }
         finally
         {

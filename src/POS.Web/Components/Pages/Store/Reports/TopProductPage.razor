@@ -15,7 +15,7 @@
 
 @inject IRptCentralSaleRepository RptRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -327,7 +327,7 @@
         if (_isStoreOperator) _filterStoreNo = _userStoreCodes[0];
 
         try { _allStores = await MdRepo.GetStoreListAsync(); }
-        catch (Exception ex) { KibanaService.LogException("TopProductPage.LoadStores", "", 0, "", ex.Message); }
+        catch (Exception ex) { FileLogger.WriteExpLogs("TopProductPage.LoadStores", ex); }
         // Auto-load hoãn sang OnAfterRenderAsync (tránh chạy nặng trong prerender).
     }
 
@@ -391,8 +391,7 @@
 
             _maxPrimary = _products.Count > 0 ? _products.Max(PrimaryValue) : 0m;
 
-            KibanaService.LogInfo("TopProductPage.LoadData", storeNo ?? "all",
-                $"TopN={_topN} Sort={_sortBy} DT={kpi.TopN_TotalNetRevenue:N0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[TopProductPage.LoadData] {storeNo ?? "all"}: TopN={_topN} Sort={_sortBy} DT={kpi.TopN_TotalNetRevenue:N0} [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
         }
         catch (OperationCanceledException)
         {
@@ -401,7 +400,7 @@
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("TopProductPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("TopProductPage.LoadData", ex);
         }
         finally
         {

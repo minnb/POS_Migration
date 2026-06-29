@@ -123,7 +123,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            var value = await Db.StringGetAsync(key, CommandFlags.PreferReplica);
+            var value = await Db.StringGetAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
             return value.IsNullOrEmpty ? null : value.ToString();
         }
         catch (Exception ex)
@@ -138,7 +138,7 @@ public sealed class RedisManager : IRedisManager
         try
         {
             Expiration exp = expiry.HasValue ? expiry.Value : default;
-            return await Db.StringSetAsync(key, value, exp, flags: CommandFlags.PreferMaster);
+            return await Db.StringSetAsync(key, value, exp, flags: CommandFlags.PreferMaster).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -151,7 +151,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            return await Db.KeyDeleteAsync(key, CommandFlags.PreferMaster);
+            return await Db.KeyDeleteAsync(key, CommandFlags.PreferMaster).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -169,7 +169,7 @@ public sealed class RedisManager : IRedisManager
         try
         {
             if (string.IsNullOrEmpty(hashField)) return default;
-            var data = await Db.HashGetAsync(hashKey, hashField, CommandFlags.PreferReplica);
+            var data = await Db.HashGetAsync(hashKey, hashField, CommandFlags.PreferReplica).ConfigureAwait(false);
             if (data.IsNullOrEmpty) return default;
             return JsonConvert.DeserializeObject<T>(data!);
         }
@@ -186,10 +186,10 @@ public sealed class RedisManager : IRedisManager
         {
             var db = Db;
             await db.HashSetAsync(hashKey, hashField, JsonConvert.SerializeObject(value),
-                flags: CommandFlags.PreferMaster);
+                flags: CommandFlags.PreferMaster).ConfigureAwait(false);
             if (ttlSeconds > 0)
                 await db.KeyExpireAsync(hashKey, TimeSpan.FromSeconds(ttlSeconds),
-                    flags: CommandFlags.PreferMaster);
+                    flags: CommandFlags.PreferMaster).ConfigureAwait(false);
             return true;
         }
         catch (Exception ex)
@@ -203,7 +203,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            return await Db.HashDeleteAsync(hashKey, hashField, CommandFlags.PreferMaster);
+            return await Db.HashDeleteAsync(hashKey, hashField, CommandFlags.PreferMaster).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -216,7 +216,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            var entries = await Db.HashGetAllAsync(hashKey, CommandFlags.PreferReplica);
+            var entries = await Db.HashGetAllAsync(hashKey, CommandFlags.PreferReplica).ConfigureAwait(false);
             return entries.ToDictionary(
                 e => e.Name.ToString(),
                 e => JsonConvert.DeserializeObject<T>(e.Value!)!);
@@ -236,7 +236,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            return await Db.ListRightPushAsync(key, value, flags: CommandFlags.PreferMaster);
+            return await Db.ListRightPushAsync(key, value, flags: CommandFlags.PreferMaster).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -253,7 +253,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            return await Db.KeyExistsAsync(key, CommandFlags.PreferReplica);
+            return await Db.KeyExistsAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -266,7 +266,7 @@ public sealed class RedisManager : IRedisManager
     {
         try
         {
-            return await Db.KeyExpireAsync(key, expiry, flags: CommandFlags.PreferMaster);
+            return await Db.KeyExpireAsync(key, expiry, flags: CommandFlags.PreferMaster).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

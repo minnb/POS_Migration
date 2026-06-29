@@ -1,0 +1,325 @@
+@page "/ops/pos-data-setup"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using Newtonsoft.Json
+@using POS.Web.Auth
+@using POS.Common.Dtos.POS.Common
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+
+@inject ICentralMDRepository CentralMDRepo
+@inject IAuditLogger AuditLogger
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IFileLogHelper FileLogger
+
+<PageTitle>POS Data Setup – POS Dashboard</PageTitle>
+
+@* ── Header ─────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" Style="vertical-align:middle"/>
+        POS Data Setup
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="@(() => OpenDialogAsync(null))"
+               Class="pos-page-header-btn">
+        Thêm cấu hình
+    </MudButton>
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+}
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+else
+{
+    @* ── KPI Row ─────────────────────────────────────────────────────── *@
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #2051A3">
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Tổng cấu hình</MudText>
+                        <MudText Style="font-size:1.75rem; font-weight:700; color:#2051A3; line-height:1.2" Class="mt-1">@_kpiTotal</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Settings" Style="font-size:2.5rem; color:#2051A3; opacity:0.18"/>
+                </div>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #27AE60">
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Số cửa hàng</MudText>
+                        <MudText Style="font-size:1.75rem; font-weight:700; color:#27AE60; line-height:1.2" Class="mt-1">@_kpiStores</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Store" Style="font-size:2.5rem; color:#27AE60; opacity:0.18"/>
+                </div>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #E67E22">
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Thiếu Value</MudText>
+                        <MudText Style="font-size:1.75rem; font-weight:700; color:#E67E22; line-height:1.2" Class="mt-1">@_kpiMissingValue</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Style="font-size:2.5rem; color:#E67E22; opacity:0.18"/>
+                </div>
+            </MudPaper>
+        </div>
+    </div>
+
+    @* ── Filter Panel ─────────────────────────────────────────────────── *@
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="_filterText"
+                              Label="Tìm theo Code / Description"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"/>
+            </MudItem>
+            <MudItem xs="12" sm="4" md="3">
+                <MudTextField @bind-Value="_filterStoreNo"
+                              Label="StoreNo"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Placeholder="vd: VIN001, ALL"/>
+            </MudItem>
+            <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+                <MudStack Row="true" Spacing="1" Class="w-100">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Table ───────────────────────────────────────────────────────────── *@
+    <MudTable Items="@_filteredItems"
+              Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" Elevation="2"
+              Loading="@_loading" LoadingProgressColor="Color.Primary"
+              HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<POSDataSetupAdminDto, object>(x => x.Code)">Code</MudTableSortLabel></MudTh>
+            <MudTh>Value</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<POSDataSetupAdminDto, object>(x => x.Description)">Description</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<POSDataSetupAdminDto, object>(x => x.StoreNo)">StoreNo</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<POSDataSetupAdminDto, object>(x => x.Counter ?? 0)">Counter</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align:right; width:90px"></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Code">
+                <MudText Style="font-family:monospace; font-size:0.85rem">@context.Code</MudText>
+            </MudTd>
+            <MudTd DataLabel="Value">
+                @if (string.IsNullOrEmpty(context.Value))
+                {
+                    <MudText Style="color:#9e9e9e; font-style:italic">—</MudText>
+                }
+                else if (context.Value.Length > 80)
+                {
+                    <MudTooltip Text="@context.Value" Placement="Placement.Bottom" Arrow="true">
+                        <MudText Style="font-size:0.85rem">@(context.Value[..80])…</MudText>
+                    </MudTooltip>
+                }
+                else
+                {
+                    <MudText Style="font-size:0.85rem">@context.Value</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Description">@context.Description</MudTd>
+            <MudTd DataLabel="StoreNo">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@context.StoreNo</MudChip>
+            </MudTd>
+            <MudTd DataLabel="Counter" Style="text-align:right">
+                <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted)">@(context.Counter?.ToString() ?? "—")</MudText>
+            </MudTd>
+            <MudTd DataLabel="" Style="text-align:right">
+                <MudTooltip Text="Sửa">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="@(() => OpenDialogAsync(context))"/>
+                </MudTooltip>
+                <MudTooltip Text="Xóa">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                   OnClick="@(() => ConfirmDeleteAsync(context))"/>
+                </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} cấu hình"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool    _loading       = true;
+    private string? _errorMsg;
+    private string  _filterText    = string.Empty;
+    private string  _filterStoreNo = string.Empty;
+    private string  _currentActor  = "unknown";
+
+    private List<POSDataSetupAdminDto> _allItems      = [];
+    private List<POSDataSetupAdminDto> _filteredItems = [];
+
+    // KPI — pre-computed trong LoadDataAsync (tránh lặp LINQ nhiều lần khi render)
+    private int _kpiTotal;
+    private int _kpiStores;
+    private int _kpiMissingValue;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+        await LoadDataAsync();
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        try
+        {
+            _allItems        = await CentralMDRepo.GetPOSDataSetupAdminListAsync();
+            _kpiTotal        = _allItems.Count;
+            _kpiStores       = _allItems.Select(x => x.StoreNo).Distinct().Count();
+            _kpiMissingValue = _allItems.Count(x => string.IsNullOrEmpty(x.Value));
+            ApplyFilter();
+            FileLogger.WriteLogs($"[PosDataSetupPage.LoadData] {_currentActor}: Loaded {_allItems.Count} records");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu cấu hình.";
+            FileLogger.WriteExpLogs("PosDataSetupPage.LoadData", ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // ── Filter ───────────────────────────────────────────────────────────────
+
+    private void ApplyFilter()
+    {
+        _filteredItems = _allItems
+            .Where(x => string.IsNullOrWhiteSpace(_filterText) ||
+                        x.Code.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ||
+                        x.Description.Contains(_filterText, StringComparison.OrdinalIgnoreCase))
+            .Where(x => string.IsNullOrWhiteSpace(_filterStoreNo) ||
+                        x.StoreNo.Contains(_filterStoreNo, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void ClearFilter()
+    {
+        _filterText    = string.Empty;
+        _filterStoreNo = string.Empty;
+        _filteredItems = [.. _allItems];
+    }
+
+    // ── Dialog handlers ──────────────────────────────────────────────────────
+
+    private async Task OpenDialogAsync(POSDataSetupAdminDto? item)
+    {
+        var parameters = new DialogParameters<PosDataSetupFormDialog>
+        {
+            { x => x.ExistingItem, item }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.Small,
+            FullWidth        = true,
+            BackdropClick    = false
+        };
+        var dialog = await DialogService.ShowAsync<PosDataSetupFormDialog>(
+            item is null ? "Thêm cấu hình" : "Sửa cấu hình",
+            parameters,
+            options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is POSDataSetupAdminDto savedDto)
+        {
+            if (item is null)
+            {
+                await AuditLogger.LogAsync(_currentActor, "CREATE", "POSDataSetup",
+                    savedDto.Code,
+                    oldValueJson: null,
+                    newValueJson: JsonConvert.SerializeObject(savedDto));
+            }
+            else
+            {
+                await AuditLogger.LogAsync(_currentActor, "UPDATE", "POSDataSetup",
+                    item.Code,
+                    oldValueJson: JsonConvert.SerializeObject(item),
+                    newValueJson: JsonConvert.SerializeObject(savedDto));
+            }
+
+            Snackbar.Add(item is null ? "Thêm cấu hình thành công!" : "Cập nhật thành công!",
+                Severity.Success);
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(POSDataSetupAdminDto item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Message"]    = $"Bạn có chắc muốn xóa cấu hình \"{item.Code}\" (StoreNo: {item.StoreNo})?",
+            ["YesText"]    = "Xóa",
+            ["CancelText"] = "Hủy"
+        };
+        var dialog = await DialogService.ShowAsync<MudMessageBox>(
+            "Xác nhận xóa",
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (result is null or { Canceled: true }) return;
+
+        var ok = await CentralMDRepo.DeletePOSDataSetupAsync(item.Code);
+        if (ok)
+        {
+            await AuditLogger.LogAsync(_currentActor, "DELETE", "POSDataSetup",
+                item.Code,
+                oldValueJson: JsonConvert.SerializeObject(item),
+                newValueJson: null);
+            Snackbar.Add($"Đã xóa cấu hình \"{item.Code}\".", Severity.Info);
+            await LoadDataAsync();
+        }
+        else
+        {
+            Snackbar.Add("Xóa thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+    }
+}

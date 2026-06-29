@@ -15,7 +15,7 @@
     <MudAppBar Elevation="1" Color="Color.Primary" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
                        Edge="Edge.Start" OnClick="@(() => _drawerOpen = !_drawerOpen)"/>
-        <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">POS Dashboard – WinMart</MudText>
+        <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">POS Dashboard – POSMaster</MudText>
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>
@@ -34,7 +34,7 @@
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
         <MudDrawerHeader>
             <MudText Typo="Typo.subtitle2" Class="mt-1">
-                WinMart POS System
+                POSMaster POS System
             </MudText>
         </MudDrawerHeader>
         <MudNavMenu Margin="Margin.Dense">
@@ -79,11 +79,13 @@
                     <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Filled.Article" @bind-Expanded="_expandOpsLog">
                         <MudNavLink Href="/ops/logs" Icon="@Icons.Material.Filled.ChevronRight">Interface Error</MudNavLink>
                         <MudNavLink Href="/ops/data-raw-log" Icon="@Icons.Material.Filled.ChevronRight">DataRawJson Log</MudNavLink>
+                        <MudNavLink Href="/ops/activity-log" Icon="@Icons.Material.Filled.ChevronRight">Nhật ký thao tác</MudNavLink>
                     </MudNavGroup>
 
                     <MudNavGroup Title="Cấu hình" Icon="@Icons.Material.Filled.Tune" @bind-Expanded="_expandOpsConfig">
                         <MudNavLink Href="/ops/pos-map" Icon="@Icons.Material.Filled.ChevronRight">POSTerminal</MudNavLink>
                         <MudNavLink Href="/ops/stores" Icon="@Icons.Material.Filled.ChevronRight">Store</MudNavLink>
+                        <MudNavLink Href="/ops/pos-data-setup" Icon="@Icons.Material.Filled.ChevronRight">POS Data Setup</MudNavLink>
                     </MudNavGroup>
 
                 </MudNavGroup>
@@ -157,8 +159,8 @@
         _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
         _expandStore       = _expandStoreOps || _expandStoreTx || _expandStoreReport;
         _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues");
-        _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log");
-        _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores");
+        _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/activity-log");
+        _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores") || u.Contains("/ops/pos-data-setup");
         _expandOps         = _expandOpsMonitor || _expandOpsLog || _expandOpsConfig;
         _expandAdmin       = u.Contains("/admin/");
     }

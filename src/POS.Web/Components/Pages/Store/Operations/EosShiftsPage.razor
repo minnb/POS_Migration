@@ -13,7 +13,7 @@
 
 @inject ICentralSaleRepository SaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime JS
@@ -257,7 +257,7 @@
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("EosShiftsPage.LoadStoreCodes", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("EosShiftsPage.LoadStoreCodes", ex);
         }
 
         await LoadDataAsync();
@@ -282,14 +282,12 @@
 
             _shifts = await SaleRepo.GetEosShiftListAsync(date, storeCodes);
 
-            KibanaService.LogInfo("EosShiftsPage.LoadData",
-                _isStoreOperator ? (_filterStoreNo ?? "all") : (_selectedStore?.StoreNo ?? "all"),
-                $"Loaded {_shifts.Count} shifts [{date:dd/MM/yyyy}] closed={_closedCount} open={_openCount}");
+            FileLogger.WriteLogs($"[EosShiftsPage.LoadData] {(_isStoreOperator ? (_filterStoreNo ?? "all") : (_selectedStore?.StoreNo ?? "all"))}: Loaded {_shifts.Count} shifts [{date:dd/MM/yyyy}] closed={_closedCount} open={_openCount}");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("EosShiftsPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("EosShiftsPage.LoadData", ex);
         }
         finally
         {

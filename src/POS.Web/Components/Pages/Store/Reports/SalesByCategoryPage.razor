@@ -16,7 +16,7 @@
 
 @inject IRptCentralSaleRepository RptSaleRepo
 @inject ICentralMDRepository MdRepo
-@inject IKibanaService KibanaService
+@inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IPdfExportService PdfExport
 @inject IJSRuntime JS
@@ -337,7 +337,7 @@ else if (_isEmpty)
         }
         catch (Exception ex)
         {
-            KibanaService.LogException("SalesByCategoryPage.LoadStoreCodes", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("SalesByCategoryPage.LoadStoreCodes", ex);
         }
 
         try
@@ -347,7 +347,7 @@ else if (_isEmpty)
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu.";
-            KibanaService.LogException("SalesByCategoryPage.OnInitialized", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("SalesByCategoryPage.OnInitialized", ex);
             _loading = false;
         }
     }
@@ -389,14 +389,12 @@ else if (_isEmpty)
             _reportPrintedAt = DateTime.Now;
             _printedAt = _reportPrintedAt.ToString("dd/MM/yyyy HH:mm:ss");
 
-            KibanaService.LogInfo("SalesByCategoryPage.LoadData",
-                storeNo.Length > 0 ? storeNo : "all",
-                $"Loaded {_items.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[SalesByCategoryPage.LoadData] {(storeNo.Length > 0 ? storeNo : "all")}: Loaded {_items.Count} items [{fromDate:dd/MM/yyyy}-{toDate:dd/MM/yyyy}]");
         }
         catch (Exception ex)
         {
             _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
-            KibanaService.LogException("SalesByCategoryPage.LoadData", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("SalesByCategoryPage.LoadData", ex);
         }
         finally
         {
@@ -508,14 +506,12 @@ else if (_isEmpty)
             _pdfFileName    = fileName;
             _showPdfPreview = true;
 
-            KibanaService.LogInfo("SalesByCategoryPage.ExportPdf",
-                _reportStoreNo.Length > 0 ? _reportStoreNo : "all",
-                $"Exported {_pivotRows.Count} rows, {_dates.Count} dates");
+            FileLogger.WriteLogs($"[SalesByCategoryPage.ExportPdf] {(_reportStoreNo.Length > 0 ? _reportStoreNo : "all")}: Exported {_pivotRows.Count} rows, {_dates.Count} dates");
         }
         catch (Exception ex)
         {
             Snackbar.Add("Không thể xuất PDF. Vui lòng thử lại.", Severity.Error);
-            KibanaService.LogException("SalesByCategoryPage.ExportPdf", "", 0, "", ex.Message);
+            FileLogger.WriteExpLogs("SalesByCategoryPage.ExportPdf", ex);
         }
         finally
         {
