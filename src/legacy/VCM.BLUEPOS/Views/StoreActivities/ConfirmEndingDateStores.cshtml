@@ -1,0 +1,529 @@
+﻿@using VCM.BLUEPOS.Model.StoreActivities;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+@using VCM.BLUEPOS.Model.Authen;
+
+@{
+    ViewBag.Title = "Xác nhận kết thúc ngày";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Hoạt động cửa hàng</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Xác nhận kết thúc ngày</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                        @if (listStore != null && listStore.Count > 0)
+                                        {
+                                            if (listStore.Count == 1)
+                                            {
+                                                <option value="@listStore.FirstOrDefault().SiteNo">@listStore.FirstOrDefault().SiteNo - @listStore.FirstOrDefault().SiteName</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="" disabled>Chọn mã ST/CH</option>
+                                                foreach (var item in listStore)
+                                                {
+                                                    <option value="@item.SiteNo">@item.SiteNo - @item.SiteName</option>
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <option value="" selected disabled>Chọn mã ST/CH</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">Ngày kinh doanh <strong id="lbStatus" style="color:#22a808"></strong></label>
+                                <div class="input-group">
+                                    <input type="text" id="txt-business-date" disabled placeholder="" class="form-control" />
+                                </div>
+                            </div>
+
+                            @*<div class="col-lg-4 col-md-4 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                <div style="float:left">
+                                    <button type="button" class="btn btn-primary" id="btn-search" onclick="SearchShift()"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                </div>
+                                <div style="float:left;margin-left:10px;display:none" id="enableBtnXacNhan">
+                                    <button type="button" class="btn btn-bg-warning" style="color: #fff;" onclick="EndDateShift()" id="btn-end-shift"><i class="fa fa-hourglass-end" style="color:#fff;"></i>Xác nhận</button>
+                                </div>
+                            </div>*@
+
+                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                <div style="float:left">
+                                    <button type="button" class="btn btn-primary" id="btn-search" onclick="SearchShift()"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                </div>
+                                <div style="float:left;margin-left:10px;">
+                                    <button type="button" class="btn btn-bg-warning" style="color: #fff;" onclick="EndDateShift()" id="btn-end-shift"><i class="fa fa-hourglass-end" style="color:#fff;"></i>Xác nhận</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body table-responsive">
+                        <table id="tbl-confirm-end-date" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>Máy POS</th>
+                                    <th>Loại POS</th>
+                                    <th>Trạng thái</th>
+                                    <th>Lần bán hàng cuối cùng</th>
+                                    <th>Thời gian kết thúc ngày</th>
+                                    <th>Tiền bán ra</th>
+                                    <th>Tiền mặt</th>
+                                    <th>Số lượt khách hàng</th>
+                                    <th>Số lượng bán</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<input type="hidden" id="hdStatus" value="false" />
+
+<div class="modal fade" id="modalListUserNotFinish" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px;text-transform:uppercase;font-weight:bold" id="titleNotFinish">DANH SÁCH USER CHƯA KẾT THÚC BÁN HÀNG</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-5 col-sm-12 col-xs-12">
+                        <div id="listNotFinish"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal" id="btn-close-modal-create-set-up-loyalty"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalListUserNotShiftHeader" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px;text-transform:uppercase;font-weight:bold" id="titleNotShiftHeader">DANH SÁCH MÁY POS CHƯA ĐÓNG CA</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-5 col-sm-12 col-xs-12">
+                        <div id="listNotShiftHeader"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal" id="btn-close-modal-create-set-up-loyalty"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+        var table = "";
+        $('.select2').select2();
+
+        $(document).ready(function () {
+
+            GetInfoPOSBusinessDate($("#sel-store-no").val(), 0);
+
+            $("#sel-store-no").on("change", function (e) {
+                //debugger
+                var _storeNo = $("#sel-store-no").val()
+                GetInfoPOSBusinessDate(_storeNo, 0);
+            });
+
+            $("#btn-search").on("click", function (e) {
+                table.search(this.value).draw();
+            });
+
+        });
+
+        // Button: Tìm kiếm
+        function SearchShift() {
+            //debugger
+            var siteNo = $("#sel-store-no").val();
+            var dateBusiness = $("#txt-business-date").val();
+            if (siteNo == "" || siteNo.length == 0) {
+                toastr.error("Vui lòng chọn mã ST/CH");
+                return;
+            }
+            LoadDataConfirmDate(siteNo, dateBusiness);
+        }
+
+        // Ham xac nhan ket thuc ngay
+
+        function GetInfoPOSBusinessDate(_storeNo, isConfirm) {
+            //debugger
+            if (_storeNo != "") {
+                var fromData = new FormData();
+                fromData.append('StoreNo', _storeNo);
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("EndDateBusiness", "StoreActivities")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data != null) {
+                            $("#txt-business-date").val(data.FormatBussinessDate);
+                            $("#hdStatus").val(data.StatusConfirm);
+                            if ($("#hdStatus").val() == "true")
+                            {
+                                $("#lbStatus").html(" (Đã kết thúc ngày)");
+                                $("#enableBtnXacNhan").css("display", "none");
+                            }
+                            else
+                            {
+                                $("#lbStatus").html("");
+                                $("#enableBtnXacNhan").css("display", "block");
+                            }
+
+                            if (isConfirm == 1)
+                            {
+                                LoadDataConfirmDate(_storeNo,data.FormatBussinessDate)
+                            }
+                        }
+                        else
+                        {
+                            $("#enableBtnXacNhan").css("display", "none");
+                        }
+
+                    },
+                    error: function () {
+                    }
+                });
+            }
+            else
+            {
+                $("#enableBtnXacNhan").css("display", "none");
+            }
+        }
+
+        // Button: Xác nhận ket thuc ngay
+
+        function EndDateShift() {
+            //debugger
+            var siteNo = $("#sel-store-no").val();
+            var dateBusiness = $("#txt-business-date").val();
+            var statusConfirm = $("#hdStatus").val();
+
+            if (siteNo == "" || siteNo.length == 0) {
+                toastr.error("Vui lòng chọn mã ST/CH");
+                return;
+            }
+
+            if (dateBusiness == "" || dateBusiness.length == 0) {
+                toastr.error("Ngày kinh doanh chưa được khởi tạo ở máy POS");
+                return;
+            }
+
+            var infoNoti = statusConfirm == "true" ? "Ngày <strong style=\"color:#22a808;font-size:18px\">" + dateBusiness + " </strong> đã xác nhận kết thúc rồi.<br>Bạn có muốn xác nhận kết thúc lại hay không?" : "Bạn có chắc chắn xác nhận kết thúc ngày <strong style=\"color:#22a808;font-size:18px\">" + dateBusiness + " </strong> không?";
+
+            $.confirm({
+                backgroundDismiss: false,
+                escapeKey: true,
+                icon: 'fa fa-warning',
+                type: 'red',
+                typeAnimated: true,
+                title: 'Thông báo',
+                content: infoNoti,
+                buttons: {
+                    "CÓ": {
+                        btnClass: 'btn btn-default',
+                        keys: ['ctrl'],
+                        action: function () {
+                            //loading.showloading();
+                            var fromData = new FormData();
+                            fromData.append('SiteNo', siteNo);
+                            fromData.append('BusinessDate', dateBusiness);
+                            fromData.append('RetryConfirm', 0);
+                            $.ajax({
+                                type: "POST",
+                                url: '@Url.Action("CheckFinishDate", "StoreActivities")',
+                                data: fromData,
+                                contentType: "application/json",
+                                dataType: "json",
+                                contentType: false,
+                                processData: false,
+                                success: function (data) {
+                                    $('#listNotFinish').html('');
+                                    if (data != null) {
+                                        if (data.Status == 0)
+                                        {
+                                            toastr.error(data.Message);
+                                        }
+                                        else if (data.Status == 5) // Buoc 1
+                                        { 
+                                            // Máy POS chưa đóng ca tại POS
+                                            toastr.error(data.Message);
+                                        }
+                                        else if (data.Status == 2) // Buoc 2
+                                        {
+                                            // Danh sách User chưa kết thúc bán hàng
+                                            var resultData = data.Data;
+                                            if (resultData != null) {
+                                                $("#titleNotFinish").html(data.Message);
+                                                var html = "";
+                                                html += "<table id=\"\" class=\"table table-bordered table-hover\" style=\"width:100%;\">";
+                                                html += "<thead>";
+                                                html += "<tr>";
+                                                html += "<th style=\"text-align:right\">ST/CH</th>";
+                                                html += "<th style=\"text-align:right\">MÁY POS</th>";
+                                                html += "<th style=\"text-align:right\">USER POS</th>";
+                                                html += "<th style=\"text-align:right\">NGÀY KINH DOANH</th>";
+
+                                                html += "</tr>";
+                                                html += "</thead>";
+                                                html += "</tbody>";
+                                                resultData.forEach((name, i) => {
+
+                                                    html += "<tr id=\"\">";
+                                                    html += "<td style=\"text-align:right\">" + name.StoreNo + "</td>";
+                                                    html += "<td style=\"text-align:right\">" + name.PosTerminal + "</td>";
+                                                    html += "<td style=\"text-align:right\">" + name.StaffCode + "</td>";
+                                                    html += "<td style=\"text-align:right\">" + name.FormatBussinessDate + "</td>";
+
+                                                    html += "</tr>";
+                                                });
+                                                html += "</tbody>";
+                                                html += "</table>";
+                                                $('#listNotFinish').html(html);
+                                            }
+
+                                            $('#modalListUserNotFinish').modal({
+                                                backdrop: 'static',
+                                                keyboard: false
+                                            });
+
+                                        }
+                                        else if (data.Status == 3)
+                                        {   // Máy POS chưa đóng ngày
+                                            toastr.error(data.Message);
+                                        }
+                                        else if (data.Status == 4)
+                                        {
+                                            // Cảnh báo các ngày chưa xác nhận kết thúc
+                                            ConfirmEndDate(siteNo, dateBusiness, data.Message, 1);
+                                        }
+                                        else if (data.Status == 1)
+                                        {
+                                            // Xác nhận kết thúc ngày thành công
+                                            // $('#btn-search').trigger('click');
+                                            GetInfoPOSBusinessDate(siteNo,1);
+                                            toastr.success(data.Message);
+                                        }
+                                    }
+                                    //loading.hideloading();
+                                },
+                                error: function () {
+                                    loading.hideloading();
+                                }
+                            });
+                        }
+                    },
+                    "KHÔNG": {
+                        btnClass: 'btn-default',
+                        action: function () { }
+                    }
+                }
+            });
+        }
+
+        function ConfirmEndDate(siteNo, dateBusiness, infoNoti, RetryConfirm) {
+            //debugger
+            $.confirm({
+                backgroundDismiss: false,
+                escapeKey: true,
+                icon: 'fa fa-warning',
+                type: 'red',
+                typeAnimated: true,
+                title: 'Thông báo',
+                content: infoNoti,
+                buttons: {
+                    "CÓ": {
+                        btnClass: 'btn btn-default',
+                        keys: ['ctrl'],
+                        action: function () {
+                            loading.showloading();
+                            var fromData = new FormData();
+                            fromData.append('SiteNo', siteNo);
+                            fromData.append('BusinessDate', dateBusiness);
+                            fromData.append('RetryConfirm', RetryConfirm);
+                            $.ajax({
+                                type: "POST",
+                                url: '@Url.Action("CheckFinishDate", "StoreActivities")',
+                                data: fromData,
+                                contentType: "application/json",
+                                dataType: "json",
+                                contentType: false,
+                                processData: false,
+                                success: function (data) {
+                                    $('#listNotFinish').html('');
+                                    if (data != null) {
+                                        if (data.Status == 0) {
+                                            toastr.error(data.Message);
+                                        }
+                                        else
+                                        {
+                                            // Xac nhan ket thuc ngay thanh cong
+                                            toastr.success(data.Message);
+                                            GetInfoPOSBusinessDate(siteNo, 1);
+                                        }
+                                    }
+                                    else {
+                                    }
+                                    loading.hideloading();
+                                },
+                                error: function () {
+                                    loading.hideloading();
+                                }
+                            });
+                        }
+                    },
+                    "KHÔNG": {
+                        btnClass: 'btn-default',
+                        action: function () { }
+                    }
+                }
+            });
+
+        }
+
+        // Button Search : load danh sách
+
+        function LoadDataConfirmDate(siteCode, businessDate) {
+            //debugger
+            $('#tbl-confirm-end-date tbody').empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', siteCode);
+            fromData.append('BusinessDate', businessDate);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadConfirmDate", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                     if (data != null) {
+                         var html = "";
+                         var totalTienBR = 0;
+                         var totalTienMat = 0;
+                         var totalSLK = 0;
+                         var totalSLB = 0;
+                         data.forEach((name, i) => {
+                             html += "<tr id=\"\">";
+                             html += "<td style=\"text-align:center\">" + name.TerminalID + "</td>";
+                             html += "<td style=\"text-align:center\">" + name.Placement + "</td>";
+                             if (name.IsClosed == 0) {
+                                 html += "<td style=\"text-align:center\"><span class=\"badge bg-warning\" style=\"color:#fff;font-weight:700;\">" + name.FormatIsClosed + "</span></td>";
+                             }
+                             else if (name.IsClosed == 1) {
+                                 html += "<td style=\"text-align:center\"><span class=\"badge bg-success\" style=\"color:#fff;font-weight:700;\">" + name.FormatIsClosed + "</span></td>";
+                             }
+                             else {
+                                 html += "<td style=\"text-align:center\">" + name.FormatIsClosed + "</td>";
+                             }
+
+                             html += "<td style=\"text-align:center\">" + name.FormatLastOrderTime + "</td>";
+                             html += "<td style=\"text-align:center\">" + name.FormatCloseDate     + "</td>";
+                             html += "<td style=\"text-align:right\">"  + name.FormatAmountTotal   + "</td>";
+                             html += "<td style=\"text-align:right\">"  + name.FormatCashMoney     + "</td>";
+                             html += "<td style=\"text-align:center\">" + name.FormatCountCustomer + "</td>";
+                             html += "<td style=\"text-align:center\">" + name.FormatCountOrderNo + "</td>";
+                             html += "</tr>";
+
+                             totalTienBR += name.AmountTotal;
+                             totalTienMat += name.CashMoney;
+                             totalSLK += name.CountCustomer;
+                             totalSLB += name.CountOrderNo;
+                            
+                         });
+
+                         html += "<tr style=\"font-weight:bold\">";
+                         html += "<td colspan = 5 style=\"text-align:center\">Total</td>";
+                         html += "<td style=\"text-align:right\">" + parseFloat(totalTienBR).toLocaleString('en') + "</td>";
+                         html += "<td style=\"text-align:right\">" + parseFloat(totalTienMat).toLocaleString('en') + "</td>";
+                         html += "<td style=\"text-align:center\">" + parseFloat(totalSLK).toLocaleString('en') + "</td>";
+                         html += "<td style=\"text-align:center\">" + parseFloat(totalSLB).toLocaleString('en') + "</td>";                         
+                         html += "</tr>";
+                         $("#tbl-confirm-end-date tbody").html(html);
+                     }
+                     else
+                     {
+                     }
+
+                     loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+        }
+
+
+    </script>
+}

@@ -1,0 +1,766 @@
+﻿@using VCM.BLUEPOS.Model.Voucher;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+    ViewBag.Title = "Tạo Voucher/Coupon";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listCouponType = (List<OptionModel>)ViewBag.ListCouponType;
+    var listArticleType = (List<OptionModel>)ViewBag.ListArticleType;
+    var listUnits = (List<OptionModel>)ViewBag.ListUnitOfMeasure;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a>Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Quản lý Voucher</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Tạo Voucher / Coupon</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Loại Voucher/Coupon</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="sel-voucher-coupon-type" name="VoucherCouponType">
+                                        <option value="" selected>--- Chọn ---</option>
+                                        @if (listCouponType != null && listCouponType.Count > 0)
+                                        {
+                                            foreach (var item in listCouponType)
+                                            {
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Tên Voucher/Coupon</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txt-voucher-coupon-name" name="VoucherCouponName" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Số serial Voucher/Coupon</label>
+                                <div class="form-group">
+                                    <input type="number" class="form-control pull-right" style="width:100%;" id="txt-serial-voucher-coupon" name="SerialVoucherCoupon" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Đơn vị tính</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="sel-unit-voucher" name="UnitsVoucher">
+                                        <option value="" selected>--- Chọn ---</option>
+                                        @if (listUnits != null && listUnits.Count > 0)
+                                        {
+                                            foreach (var item in listUnits)
+                                            {
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Loại giảm giá</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="sel-discount-type" name="DiscountType">
+                                        <option value="" selected>--- Chọn ---</option>
+                                        <option value="1">Percent (%)</option>
+                                        <option value="2">Amount</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Giá trị giảm</label>
+                                <div class="form-group">
+                                    <input type="number" class="form-control pull-right" style="width:100%;" id="txt-discount-value" name="DiscountValue" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Giá trị Voucher/Coupon</label>
+                                <div class="form-group">
+                                    <input type="number" class="form-control pull-right" style="width:100%;" id="txt-value-voucher" name="ValueVoucher" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Giá trị lớn nhất</label>
+                                <div class="form-group">
+                                    <input type="number" class="form-control pull-right" style="width:100%;" id="txt-max-value" name="MaxValue" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Voucher/Coupon limit</label>
+                                <div class="form-group">
+                                    <input type="number" class="form-control pull-right" style="width:100%;" id="txt-voucher-coupon-limit" name="VoucherCouponLimit" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Ngày bắt đầu hiệu lực</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="far fa-calendar-alt"></i>
+                                        </span>
+                                    </div>
+                                    <input type="text" class="form-control float-right" id="starting-date" name="StartingDate" placeholder="">
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Ngày kết thúc hiệu lực</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="far fa-calendar-alt"></i>
+                                        </span>
+                                    </div>
+                                    <input type="text" class="form-control float-right" id="ending-date" name="EndingDate" placeholder="">
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12" style="display: inline-block; padding-top: 37px;">
+                                <input type="checkbox" id="chk-total-bill" style="height:25px; width:25px; cursor:pointer; padding-top: 5px; margin-left: 1px;">
+                                <label for="chk-total-bill" style="font-size:11px; margin-top: 10px; position: absolute; padding-left: 7px;">Áp dụng tổng bill</label>
+                            </div>
+
+                            @*<div class="col-lg-2 col-md-6 col-sm-6 col-xs-12" style="display: inline-block; padding-top: 13px;">
+                                    <button type="button" id="btn-item-apply" class="btn btn-instagram"><i class="la la-plus-circle"></i>Sản phẩm Áp dụng</button>
+                                </div>*@
+
+                        </div>
+
+                        <!-- Thông tin san pham ap dung -->
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                    <div class="card-body">
+                                        <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                            <button type="button" id="btn-add-row" class="btn btn-hover-transparent-primary"><i class="la la-plus-circle"></i>Thêm dòng</button>
+                                            <button type="button" id="btn-create-voucher-coupon" class="btn btn-hover-transparent-warning"><i class="fa fa-save"></i>Lưu</button>
+                                        </div>
+                                        <div style="padding-top:3px;">
+                                            <table id="tbl-create-item-apply-voucher" class="table table-bordered table-hover">
+                                                <thead>
+                                                    <tr class="text-center" style="text-transform:uppercase;">
+                                                        <th style="text-align:center; padding-right: 10px;">STT</th>
+                                                        <th style="text-align:center; padding-right: 10px;">Mã sản phẩm</th>
+                                                        <th style="text-align:center; padding-right: 10px;">Mã Barcode</th>
+                                                        <th style="text-align:center; padding-right: 10px;">#</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@*<div class="modal fade" id="modal-item-apply-voucher-coupon" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog  modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-title-item-apply">Sản phẩm áp dụng Voucher/Coupon</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i aria-hidden="true" class="ki ki-close"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body" id="modal-item-apply-voucher-coupon-body">
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                        <div class="card-body">
+                                            <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                                <button type="button" id="btn-add-row-modal" class="btn btn-primary"><i class="la la-plus-circle"></i>Thêm dòng</button>
+                                                <button type="button" id="btn-save-item-apply" class="btn btn-google"><i class="fa fa-save"></i>Lưu</button>
+                                            </div>
+                                            <div style="padding-top:3px;">
+                                                <table id="tbl-item-apply-voucher-coupon-modal" class="table table-bordered table-hover">
+                                                    <thead>
+                                                        <tr class="text-center">
+                                                            <th style="text-align:center; padding-right: 10px;">STT</th>
+                                                            <th style="text-align:center; padding-right: 10px;">Mã sản phẩm</th>
+                                                            <th style="text-align:center; padding-right: 10px;">Mã Barcode</th>
+                                                            <th style="text-align:center; padding-right: 10px;">Đơn vị tính</th>
+                                                            <th style="text-align:center; padding-right: 10px;">#</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                </div>
+
+            </div>
+        </div>
+    </div>*@
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var table_voucher_coupon;
+        var table_modal;
+        var globalHtml;
+
+        function LoadComboxUnits() {
+            //debugger
+            $('#tbl-create-item-apply-voucher tbody').find('tr').each(function () {
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetComboxUnitOfMeasure", "Common")',
+                    dataType: "json",
+                    success: function (data)
+                    {
+                        //debugger
+                        if (data != null) {
+                           var html = "<option value=\"\" selected>Chọn đơn vị tính...</option>";
+                           data.forEach((name, i) => {
+                               html += "<option value='" + name.Value + "'>" + name.Text +"</option>";
+                            });
+                            globalHtml = html;
+                            $('.sel-combox-units').empty().html(html).select2();
+                        }
+                    },
+                    error: function ()
+                    {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+
+            });
+
+        };
+
+        @*function LoadComboxUnitsModal() {
+            debugger
+            $('#tbl-item-apply-voucher-coupon-modal tbody').find('tr').each(function () {
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetComboxUnitOfMeasure", "Common")',
+                    dataType: "json",
+                    success: function (data)
+                    {
+                        debugger
+                        if (data != null) {
+                           var html = "<option value=\"\" selected>Chọn đơn vị tính...</option>";
+                           data.forEach((name, i) => {
+                               html += "<option value='" + name.Value + "'>" + name.Text +"</option>";
+                            });
+                            globalHtmlModal = html;
+                            $('.sel-combox-units-modal').empty().html(html).select2();
+                        }
+                    },
+                    error: function ()
+                    {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+
+            });
+
+        };*@
+
+        function ModalRowCount() {
+            var result = 0;
+            $('#tbl-item-apply-voucher-coupon-modal tbody').find('tr').each(function () {
+                //debugger
+                var rowCount = $(this).find('td:nth-child(1)').html();
+                result = rowCount;
+                return result;
+            });
+            return result;
+        };
+
+        function ModalClearRow(row) {
+            var result = true;
+            $('#tbl-item-apply-voucher-coupon-modal tbody').find('tr').each(function () {
+                var id = $(this).find('td:nth-child(1)').html();
+                if (id > 0) {
+                    row.closest('tr').remove();
+                }
+                return result;
+            });
+        };
+
+        function RowCount() {
+            var result = 0;
+            $('#tbl-create-item-apply-voucher tbody').find('tr').each(function () {
+                //debugger
+                var rowCount = $(this).find('td:nth-child(1)').html();
+                result = rowCount;
+                return result;
+            });
+            return result;
+        };
+
+        function ClearRow(row) {
+            var result = true;
+            $('#tbl-create-item-apply-voucher tbody').find('tr').each(function () {
+                var id = $(this).find('td:nth-child(1)').html();
+                if (id > 0) {
+                    row.closest('tr').remove();
+                }
+                return result;
+            });
+        };
+
+        function GetDataRowItemApply() {
+            var data = [];
+            $('#tbl-create-item-apply-voucher tbody').find('tr').each(function () {
+                var item = {};
+                //var _unit = $(this).find('.sel-combox-units').val();
+                var _itemNo = $(this).find('td:nth-child(2) input').val();
+                if (_itemNo != null && _itemNo.trim() != "") {
+                    item['LineItemNo'] = $(this).find('td:nth-child(2) input').val();
+                    //item['UnitOfMeasure'] = $(this).find('.sel-combox-units').val();
+                    item['Barcode'] = $(this).find('td:nth-child(3) input').val();
+                    data.push(item);
+                }
+            });
+            return data;
+        };
+
+        function validateDataRow() {
+            var result = true;
+            var data = GetDataRowItemApply();
+            for (var i = 0; i < data.length; i++) {
+                if (data[i].Barcode == null || data[i].Barcode == "") {
+                    toastr.error('Nhập mã barcode');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].Barcode != null || data[i].Barcode.length > 0) {
+                    var check = data[i].Barcode.trim();
+                    if ((check == check / 1) == false) {
+                        toastr.error("Mã barcode phải là kiểu số");
+                        result = false;
+                        return result;
+                    }
+                }
+
+                if (data[i].LineItemNo == null || data[i].LineItemNo == "") {
+                    toastr.error('Nhập mã sản phẩm');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].LineItemNo != null || data[i].LineItemNo.length > 0) {
+                    var check = data[i].LineItemNo.trim();
+                    if ((check == check / 1) == false) {
+                        toastr.error("Mã sản phẩm phải là kiểu số");
+                        result = false;
+                        return result;
+                    }
+                }
+            }
+            return result;
+        };
+
+        //
+        function CreateVoucherCoupon() {
+            //debugger
+            var _couponType     = $('#sel-voucher-coupon-type').val();
+            var _couponName     = $('#txt-voucher-coupon-name').val();
+            var _serialVoucher  = $('#txt-serial-voucher-coupon').val();
+            var _units          = $('#sel-unit-voucher').val();
+            var _discountType   = $('#sel-discount-type').val();
+            var _discountValue  = $('#txt-discount-value').val();
+            var _valueVoucher   = $('#txt-value-voucher').val();
+            var _maxValue       = $('#txt-max-value').val();
+            var _voucherLimit   = $('#txt-voucher-coupon-limit').val();
+            var _startingDate   = $('#starting-date').val();
+            var _endingDate     = $('#ending-date').val();
+            var _statusVoucher  = 0;
+            var _checkTotalBill = $('#chk-total-bill').prop('checked');
+
+            if (_checkTotalBill == true) {
+
+                if (_couponType == null || _couponType == "") {
+                    toastr.warning("Vui lòng chọn loại voucher/coupon");
+                    return;
+                }
+
+                if (_couponName == null || _couponName == "") {
+                    toastr.warning("Vui lòng nhập tên voucher/coupon");
+                    return;
+                }
+
+                if (_serialVoucher == null || _serialVoucher == "") {
+                    toastr.warning("Vui lòng nhập số serial voucher/coupon");
+                    return;
+                }
+
+                if (_units == null || _units == "") {
+                    toastr.warning("Vui lòng chọn đơn vị tính");
+                    return;
+                }
+                if (_discountType == null || _discountType == "") {
+                    toastr.warning("Vui lòng chọn loại giảm giá");
+                    return;
+                }
+
+                if (_discountValue == null || _discountValue == "") {
+                    toastr.warning("Vui lòng nhập giá trị voucher giảm");
+                    return;
+                }
+
+                if (_valueVoucher == null || _valueVoucher == "") {
+                    toastr.warning("Vui lòng nhập giá trị voucher");
+                    return;
+                }
+
+                if (_maxValue == null || _maxValue == "") {
+                    toastr.warning("Vui lòng nhập giá trị voucher lớn nhất");
+                    return;
+                }
+                else {
+                    if (_maxValue > 99999999) {
+                        toastr.warning("Giá trị voucher lớn nhất không lớn hơn 99.999.999");
+                        return;
+                    }
+                    else if (_maxValue < 1) {
+                        toastr.warning("Giá trị voucher lớn nhất phải là số nguyên dương (>0)");
+                        return;
+                    }
+                }
+
+                if (_voucherLimit > 99999999) {
+                    toastr.warning("Giá trị voucher limit không lớn hơn 99.999.999");
+                    return;
+                }
+                else if (_voucherLimit < 1) {
+                    toastr.warning("Giá trị voucher limit phải là số nguyên dương (>0)");
+                    return;
+                }
+
+                if (_startingDate == null || _startingDate == "") {
+                    toastr.warning("Vui lòng nhập ngày bắt đầu hiệu lực");
+                    return;
+                }
+
+                if (_endingDate == null || _endingDate == "") {
+                    toastr.warning("Vui lòng nhập ngày hết hiệu lực");
+                    return;
+                }
+
+                loading.showloading();
+
+                $.ajax({
+                url: '@Url.Action("CreateVoucherCoupon", "Voucher")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                        ItemName: _couponName,
+                        CouponCode: _serialVoucher,
+                        UnitOfMeasure: _units,
+                        DiscountType: _discountType,
+                        DiscountValue: _discountValue,
+                        ValueOfVoucher: _valueVoucher,
+                        MaxAmount: _maxValue,
+                        LimitQty: _voucherLimit,
+                        ArticleType: _couponType,
+                        BlockedStr: _statusVoucher,
+                        IsCheckItem : _checkTotalBill,
+                        StartingDateStr: _startingDate,
+                        EndingDateStr: _endingDate,
+                        ListItemApplyStr: ""
+                },
+                success: function (data) {
+                        loading.hideloading();
+                        if (data.Status = 1) {
+                            toastr.success(data.Message);
+                            $('#sel-voucher-coupon-type').val('').trigger('change');
+                            $('#txt-voucher-coupon-name').val('');
+                            $('#txt-serial-voucher-coupon').val('');
+                            $('#sel-unit-voucher').val('').trigger('change');
+                            $('#sel-discount-type').val('').trigger('change');
+                            $('#txt-discount-value').val('');
+                            $('#txt-value-voucher').val('');
+                            $('#txt-max-value').val('');
+                            $('#txt-voucher-coupon-limit').val('');
+                            $('#chk-total-bill').prop('checked', false);
+                            $('#btn-add-row').prop('disabled', false);
+                        }
+                        else if (data.Status = 2) {
+                            toastr.warning(data.Message);
+                        }
+                        else if (data.Status = 3) {
+                            toastr.error(data.Message);
+                        }
+                        else if (data.Status = 4) {
+                            toastr.error(data.Message);
+                        }
+                },
+                error: function (data) {
+                        loading.hideloading();
+                        toastr.error('Lỗi hệ thống');
+                }
+            });
+
+            }
+            else  // Không áp dụng total bill
+            {
+                var _listItemApply = GetDataRowItemApply();
+                if (_listItemApply == null || _listItemApply.length == 0) {
+                    toastr.error('Không có dữ liệu. Vui lòng kiểm tra lại');
+                    return;
+                }
+
+                if (_couponType == null || _couponType == "") {
+                    toastr.warning("Vui lòng chọn loại voucher/coupon");
+                    return;
+                }
+
+                if (_couponName == null || _couponName == "") {
+                    toastr.warning("Vui lòng nhập tên voucher/coupon");
+                    return;
+                }
+
+                if (_serialVoucher == null || _serialVoucher == "") {
+                    toastr.warning("Vui lòng nhập số serial voucher/coupon");
+                    return;
+                }
+
+                if (_units == null || _units == "") {
+                    toastr.warning("Vui lòng chọn đơn vị tính");
+                    return;
+                }
+                if (_discountType == null || _discountType == "") {
+                    toastr.warning("Vui lòng chọn loại giảm giá");
+                    return;
+                }
+
+                if (_discountValue == null || _discountValue == "") {
+                    toastr.warning("Vui lòng nhập giá trị voucher giảm");
+                    return;
+                }
+
+                if (_valueVoucher == null || _valueVoucher == "") {
+                    toastr.warning("Vui lòng nhập giá trị voucher");
+                    return;
+                }
+
+                if (_maxValue == null || _maxValue == "") {
+                    toastr.warning("Vui lòng nhập giá trị voucher lớn nhất");
+                    return;
+                }
+                else {
+                    if (_maxValue > 99999999) {
+                        toastr.warning("Giá trị voucher lớn nhất không lớn hơn 99.999.999");
+                        return;
+                    }
+                    else if (_maxValue < 1) {
+                        toastr.warning("Giá trị voucher lớn nhất phải là số nguyên dương (>0)");
+                        return;
+                    }
+                }
+
+                if (_voucherLimit > 99999999) {
+                    toastr.warning("Giá trị voucher limit không lớn hơn 99.999.999");
+                    return;
+                }
+                else if (_voucherLimit < 1) {
+                    toastr.warning("Giá trị voucher limit phải là số nguyên dương (>0)");
+                    return;
+                }
+                    
+                if (_startingDate == null || _startingDate == "") {
+                    toastr.warning("Vui lòng nhập ngày bắt đầu hiệu lực");
+                    return;
+                }
+
+                if (_endingDate == null || _endingDate == "") {
+                    toastr.warning("Vui lòng nhập ngày hết hiệu lực");
+                    return;
+                }
+
+                validateDataRow();
+                loading.showloading();
+
+                $.ajax({
+                url: '@Url.Action("CreateVoucherCoupon", "Voucher")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                        ItemName: _couponName,
+                        CouponCode: _serialVoucher,
+                        UnitOfMeasure: _units,
+                        DiscountType: _discountType,
+                        DiscountValue: _discountValue,
+                        ValueOfVoucher: _valueVoucher,
+                        MaxAmount: _maxValue,
+                        LimitQty: _voucherLimit,
+                        ArticleType: _couponType,
+                        ValueOfVoucher: _voucherLimit,
+                        Blocked: _statusVoucher,
+                        IsCheckItem : _checkTotalBill,
+                        StartingDateStr: _startingDate,
+                        EndingDateStr: _endingDate,
+                        ListItemApplyStr: JSON.stringify(_listItemApply)
+                },
+                success: function (data) {
+                        loading.hideloading();
+                        if (data.Status = 1) {
+                            toastr.success(data.Message);
+                            $('#sel-voucher-coupon-type').val('').trigger('change');
+                            $('#txt-voucher-coupon-name').val('');
+                            $('#txt-serial-voucher-coupon').val('');
+                            $('#sel-unit-voucher').val('').trigger('change');
+                            $('#sel-discount-type').val('').trigger('change');
+                            $('#txt-discount-value').val('');
+                            $('#txt-value-voucher').val('');
+                            $('#txt-max-value').val('');
+                            $('#txt-voucher-coupon-limit').val('');
+                            $('#chk-total-bill').prop('checked', false);
+                            $('#btn-add-row').prop('disabled', false);
+                        }
+                        else if (data.Status = 2) {
+                            toastr.warning(data.Message);
+                        }
+                        else if (data.Status = 3) {
+                            toastr.error(data.Message);
+                        }
+                        else if (data.Status = 4) {
+                            toastr.error(data.Message);
+                        }
+                },
+                error: function (data) {
+                        loading.hideloading();
+                        toastr.error('Lỗi hệ thống');
+                }
+            });
+
+            }
+        }
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            $('#starting-date').val(moment().format('DD/MM/YYYY'));
+            $('#starting-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#ending-date').val(moment().format('DD/MM/YYYY'));
+            $('#ending-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $("#btn-item-apply").on("click", function (e) {
+                $('#modal-item-apply-voucher-coupon').modal({
+                    backdrop: 'static',
+                    keyboard: true
+                });
+            });
+
+            $("#btn-create-voucher-coupon").on("click", function (e) {
+                CreateVoucherCoupon();
+            });
+
+            $("#chk-total-bill").change(function () {
+                if (this.checked)
+                {
+                    $('#btn-add-row').prop('disabled', true);
+                }
+                else
+                {
+                    $('#btn-add-row').prop('disabled', false);
+                }
+            });
+
+            //
+            $("#btn-add-row").click(function () {
+                var rowCount = RowCount();
+                var y = Number(rowCount);
+                if (y > 0) {
+                    var rowCount = RowCount();
+                    var z = Number(rowCount);
+                    var stt = z + 1;
+                    var markup = '<tr>';
+                    markup += '<td style="text-align:center; padding-top: 20px; width: 5%;">' + stt + '</td>';
+                    markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                    markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                    //markup += '<td><select class="select2 sel-combox-units" style="width:50%; height:40px;">' + globalHtml + '</select></td>';
+                    markup += '<td style="text-align:center; width: 5%;"><button type="button" class="btn btn-clear-text-row" onclick="ClearRow($(this))"  data-toggle="tooltip" data-placement="left" title="Xóa dòng"  style="text-align:center;font-size:11px;margin-right:2px;color:#ffffff;"><i class="fa fa-trash" style="color:red"></i></button></td>';
+                    markup += '</tr>';
+                    $("#tbl-create-item-apply-voucher tbody").append(markup);
+                    $('.select2').select2();
+                }
+                else {
+                    var stt = 1;
+                    var markup = '<tr>';
+                    markup += '<td style="text-align:center; padding-top: 20px; width: 5%;">' + stt + '</td>';
+                    markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                    markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                    //markup += '<td><select class="select2 sel-combox-units" style="width:50%; height:40px;">' + globalHtml + '</select></td>';
+                    markup += '<td style="text-align:center; width: 5%;"><button type="button" class="btn btn-clear-text-row" onclick="ClearRow($(this))"  data-toggle="tooltip" data-placement="left" title="Xóa dòng"  style="text-align:center;font-size:11px;margin-right:2px;color:#ffffff;"><i class="fa fa-trash" style="color:red"></i></button></td>';
+                    markup += '</tr>';
+                    $("#tbl-create-item-apply-voucher tbody").append(markup);
+                    LoadComboxUnits();
+                }
+            });
+        });
+
+    </script>
+}
+
+
+
+

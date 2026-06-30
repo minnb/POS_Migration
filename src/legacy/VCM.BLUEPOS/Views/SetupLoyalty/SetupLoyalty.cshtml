@@ -1,0 +1,1416 @@
+﻿@using VCM.BLUEPOS.Model.Loyalty;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+    ViewBag.Title = "Khai báo tỷ lệ đổi quà";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listMemberCardType = ViewBag.ListMemberCardType as List<OptionModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Loyalty</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Khai báo tỷ lệ đổi quà</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-bg-warning" id="btn-import-excel"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Import danh sách</span></button>            
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcelGiftRedeemList", "SetupLoyalty", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-6 col-xl-6">
+                            <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                <div class="card card-custom">
+                                    <div class="card-body">
+                                        <div>
+                                            <div class="panel panel-default">
+                                                <div class="panel-heading" style="border-bottom: 1px solid;border-bottom-color: #00AFD8">
+                                                    <h6 class="panel-title font-weight-bold" style="font-weight:bold !important">Tìm kiếm</h6>
+                                                </div>
+                                                <div class="panel-body" style="margin-top: 10px;">
+                                                    <div class="row">
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Tìm theo<strong style="color:#ff0000"> (*)</strong></label>
+                                                            <div class="input-group">
+                                                                <select class="form-control select2" id="sel-by-search" name="BySearch">
+                                                                    <option value="">Tất cả</option>
+                                                                    <option value="1" selected>Có hiệu lực</option>
+                                                                    <option value="0">Hết hiệu lực</option>
+                                                                    <option value="2">Ngày / Tháng / Năm</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <div class="form-group">
+                                                                <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực từ ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                                                <div class="input-group">
+                                                                    <div class="input-group-prepend">
+                                                                        <label class="input-group-btn" for="search-from-date">
+                                                                            <span class="btn btn-default">
+                                                                                <span class="glyphicon glyphicon-calendar">
+                                                                                    <i class="far fa-calendar-alt"></i>
+                                                                                </span>
+                                                                            </span>
+                                                                        </label>
+                                                                    </div>
+                                                                    <input type="text" class="form-control float-right" id="search-from-date" name="SearchFromDate" disabled>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <div class="form-group">
+                                                                <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực đến ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                                                <div class="input-group">
+                                                                    <div class="input-group-prepend">
+                                                                        <label class="input-group-btn" for="search-to-date">
+                                                                            <span class="btn btn-default">
+                                                                                <span class="glyphicon glyphicon-calendar">
+                                                                                    <i class="far fa-calendar-alt"></i>
+                                                                                </span>
+                                                                            </span>
+                                                                        </label>
+                                                                    </div>
+                                                                    <input type="text" class="form-control float-right" id="search-to-date" name="SearchToDate" disabled>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Mã sản phẩm</label>
+                                                            <div class="form-group">
+                                                                <input type="text" class="form-control" id="txt-item-no" name="ItemNo">
+                                                            </div>
+                                                        </div>
+
+                                                        <input type="hidden" id="hdFromDate" name="FromDate" />
+                                                        <input type="hidden" id="hdToDate" name="ToDate" />
+                                                        <input type="hidden" id="hd-sel-by-search" name="Status" />
+                                                        <input type="hidden" id="hd-item-no" name="ItemNo" />
+                                                        
+                                                        <div class="col-lg-8 col-md-8 col-sm-12 col-xs-12">
+                                                            <div class="form-group" style="padding-top: 27px;">
+                                                                <button type="button" class="btn btn-primary btn-search-setup-loyalty" id="btn-search-setup-loyalty"><i class="la la-search"></i>Tìm kiếm</button>
+                                                                <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 col-md-6 col-sm-6 col-xl-6">
+                            <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                <div class="card card-custom">
+                                    <div class="card-body">
+                                        <div>
+                                            <div class="panel panel-default">
+                                                <div class="panel-heading" style="border-bottom: 1px solid;border-bottom-color: #00AFD8">
+                                                    <h6 class="panel-title font-weight-bold" style="font-weight:bold !important">Khai báo tỷ lệ đổi quà</h6>
+                                                </div>
+                                                <div class="panel-body" style="margin-top: 10px;">
+                                                    <div class="row">
+                                                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                                            <div class="form-group">
+                                                                <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực từ ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                                                <div class="input-group">
+                                                                    <div class="input-group-prepend">
+                                                                        <label class="input-group-btn" for="from-date">
+                                                                            <span class="btn btn-default">
+                                                                                <span class="glyphicon glyphicon-calendar">
+                                                                                    <i class="far fa-calendar-alt"></i>
+                                                                                </span>
+                                                                            </span>
+                                                                        </label>
+                                                                    </div>
+                                                                    <input type="text" class="form-control float-right" id="from-date" name="FromDate">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                                            <div class="form-group">
+                                                                <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực đến ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                                                <div class="input-group">
+                                                                    <div class="input-group-prepend">
+                                                                        <label class="input-group-btn" for="to-date">
+                                                                            <span class="btn btn-default">
+                                                                                <span class="glyphicon glyphicon-calendar">
+                                                                                    <i class="far fa-calendar-alt"></i>
+                                                                                </span>
+                                                                            </span>
+                                                                        </label>
+                                                                    </div>
+                                                                    <input type="text" class="form-control float-right" id="to-date" name="ToDate">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        @*<div class="col-lg-4 col-md-3 col-sm-12 col-xs-12">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Hội viên<strong style="color:#ff0000"> (*)</strong></label>
+                                                            <div class="form-group">
+                                                                <select class="form-control select2" style="width:100%;" id="sel-member-card-type" name="MemberCardType">
+                                                                    @if (listMemberCardType != null && listMemberCardType.Count > 0)
+                                                                    {
+                                                                        foreach (var item in listMemberCardType)
+                                                                        {
+                                                                            if (item.Value == "WIN")
+                                                                            {
+                                                                                <option value="@item.Value" selected>@item.Text</option>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <option value="" selected>--- Chọn ---</option>
+                                                                                <option value="@item.Value">@item.Text</option>
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        </div>*@
+
+                                                        <div class="col-lg-4 col-md-3 col-sm-12 col-xs-12">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Điểm quy đổi<strong style="color:#ff0000"> (*)</strong></label>
+                                                            <div class="form-group">
+                                                                <input type="text" class="form-control money" value="" placeholder="0" id="txt-redeem-point" name="RedeemPoint" />
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-3 col-sm-12 col-xs-12">
+                                                            <div class="form-group" style="padding-top: 27px;">
+                                                                <button type="button" class="btn btn-bg-secondary-custom" id="btn-item-list"><i class="la la-plus" style="color:#fff;"></i>Chọn sản phẩm</button>
+                                                            </div>
+                                                        </div>
+
+                                                        <input type="hidden" id="hdd-txt-item-no" value="" />
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="tbl-set-up-loyalty-list" class="table table-bordered table-hover">
+                                <thead>
+                                    <tr class="text-center" style="text-transform:uppercase">
+                                        <th style="text-align:center;width: 80px;">#</th>
+                                        <th style="text-align:center; padding-right: 10px;">STT</th>
+                                        <th>ID</th>
+                                        <th>Mã sản phẩm</th>
+                                        <th>Tên sản phẩm</th>
+                                        <th>ĐVT</th>
+                                        <th>Điểm quy đổi</th>
+                                        <th>Hiệu lực từ ngày</th>
+                                        <th>Hiệu lực đến ngày</th>
+                                        <th>Người tạo</th>
+                                        <th>Ngày tạo</th>
+                                        <th>Người cập nhật</th>
+                                        <th>Ngày cập nhật</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-product-list" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DANH SÁCH SẢN PHẨM</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div id="div-popup-product-list"></div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-update-setup-loyalty" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-update-setup-loyalty">CẬP NHẬT THÔNG TIN TỶ LỆ ĐỔI QUÀ</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="div-update-setup-loyalty">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <input type="text" hidden  id="hdd-txt-id"   name="ID"/>
+                        <input type="text" hidden  id="hdd-txt-item-no"  name="ItemNo"/>
+                        <input type="text" hidden  id="hdd-txt-pkey"  name="Pkey"/>
+                        <input type="text" hidden  id="hdd-club-code"  name="ClubCode"/>
+
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Mã sản phẩm</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="update-item-no" name="ItemNo" disabled>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Tên sản phẩm</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="update-item-name" name="ItemName" disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12" style="padding-top: 20px;">
+                            <div class="form-group">
+                                <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực từ ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <label class="input-group-btn" for="update-from-date">
+                                            <span class="btn btn-default">
+                                                <span class="glyphicon glyphicon-calendar">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <input type="text" class="form-control float-right" id="update-from-date" name="UpdateFromDate" disabled>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12" style="padding-top: 20px;">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực đến ngày<strong style="color:#ff0000"> (*)</strong></label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <label class="input-group-btn" for="update-to-date">
+                                        <span class="btn btn-default">
+                                            <span class="glyphicon glyphicon-calendar">
+                                                <i class="far fa-calendar-alt"></i>
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <input type="text" class="form-control float-right" id="update-to-date" name="UpdateToDate">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Hiệu lực<strong style="color:#ff0000"> (*)</strong></label>
+                            <div class="input-group">
+                                <select class="form-control select2" id="update-sel-status" name="UpdateStatus" disabled>
+                                    <option value="1">1 - Có hiệu lực</option>
+                                    <option value="0">0 - Hết hiệu lực</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        @*<div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Hội viên<strong style="color:#ff0000"> (*)</strong></label>
+                            <div class="form-group">
+                                <select class="form-control select2" style="width:100%;" id="sel-update-member-card-type" name="UpdateMemberCardType" disabled>
+                                    @if (listMemberCardType != null && listMemberCardType.Count > 0)
+                                    {
+                                        foreach (var item in listMemberCardType)
+                                        {
+                                            if (item.Value == "WIN")
+                                            {
+                                                <option value="@item.Value" selected>@item.Text</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="" selected>--- Chọn ---</option>
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>*@
+
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Điểm quy đổi<strong style="color:#ff0000"> (*)</strong></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control money  update-point-redeem" value="" placeholder="0" id="update-point-redeem" name="UpdatePointRedeem" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="btn-save-update-setup-loyalty" class="btn btn-primary font-weight-bold"><i class="la la-save"></i>Lưu lại</button>
+                <button type="button" id="btn-close-modal-update-setup-loyalty" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="modal-import-excel-file" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">IMPORT FILE EXCEL : DANH SÁCH SẢN PHẨM TỶ LỆ ĐỔI QUÀ</h3>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div id="div-popup-import-file-excel">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card bgi-no-repeat gutter-b card-stretch">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                            <div class="row">
+                                                <div class="col-lg-9 col-md-6 col-sm-12 col-xs-12">
+                                                    <div class="form-group">
+                                                        <label class="font-weight-bold" style="font-weight:bold !important">Chọn file excel</label>
+                                                        <div class="custom-file">
+                                                            <input type="file" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" id="browse-file-excel" class="inputfile inputfile-1" data-multiple-caption="{count} files selected" />
+                                                            <label id="selected-file" class="custom-file-label" for="browse-file-excel">Vui lòng chọn file excel</label>
+                                                        </div>
+                                                        <div style="margin-top:15px;">
+                                                            <span class="form-text" id="click-down-file-example" style="cursor:pointer; color:#3699FF"><i class="fas fa-cloud-download-alt" style="color:#3699FF"></i>&nbsp;&nbsp;Download file excel mẫu (chỉ import đúng định dạng file mẫu)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                                    <button type="button" class="btn btn-bg-success" id="btn-save-import-file-excel" style="color:#fff;cursor:pointer;font-size:13px;margin-top: 30px;"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Thực hiện</span></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var table_setup_loyalty = "";
+        var table_item_import_list = "";
+        $(".mask").inputmask('Regex', { regex: "^[0-9]{1,6}(\\.\\d{1,2})?$" });
+
+        function getFromDate() {
+            var result = "";
+            var fromDate = $('#search-from-date').val();
+            if (fromDate != null && fromDate != "") {
+                result = fromDate.split('/')[2] + "/" + fromDate.split('/')[1] + "/" + fromDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        };
+
+        function getToDate() {
+            var result = "";
+            var toDate = $('#search-to-date').val();
+            if (toDate != null && toDate != "") {
+                result = toDate.split('/')[2] + "/" + toDate.split('/')[1] + "/" + toDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        };
+
+        function parseDate(str) {
+            var mdy = str.split('/');
+            return new Date(mdy[2], mdy[1], mdy[0]);
+        };
+
+        function ImportExcel_MemberEarnItem() {
+            //debugger
+            loading.showloading();
+            var files = $('#browse-file-excel').get(0).files;
+            var fileData = new FormData();
+            fileData.append('ImportFile', files[0]);
+            $.ajax({
+                url: '/SetupLoyalty/ImportExcelGiftRedeem',
+                data: fileData,
+                type: 'POST',
+                datatype: 'json',
+                contentType: false,
+                processData: false,
+                async: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1)
+                    {
+                        toastr.success(data.Message);
+                        $('#selected-file').empty();
+                        $('#sel-status').val('').trigger('change'); // Tat ca
+                        $('#btn-search-setup-loyalty').trigger('click');
+                        $('#modal-import-excel-file').modal('hide');
+                    }
+                    else
+                    {
+                        $('#browse-file-excel').val('');
+                        $('#selected-file').empty();
+                        toastr.error(data.Message);
+                        $('#browse-file-excel').val('');
+                    }
+                }
+            });
+        };
+
+        //function ImportExcelGiftRedeem_V2() {
+        //    //debugger
+        //    loading.showloading();
+        //    var files = $('#browse-file-excel').get(0).files;
+        //    var fileData = new FormData();
+        //    fileData.append('ImportFile', files[0]);
+
+        //    $.ajax({
+        //        url: '/SetupLoyalty/ImportExcelGiftRedeem_V2',
+        //        data: fileData,
+        //        type: 'POST',
+        //        datatype: 'json',
+        //        contentType: false,
+        //        processData: false,
+        //        async: false,
+        //        success: function (data) {
+        //            loading.hideloading();
+        //            if (data.Status == 1) {
+        //                toastr.success(data.Message);
+        //                $('#selected-file').empty();
+        //                $('#sel-status').val('').trigger('change'); // Tat ca
+        //                $('#btn-search-setup-loyalty').trigger('click');
+        //                $('#modal-import-excel-file').modal('hide');
+        //            }
+        //            else {
+        //                $('#browse-file-excel').val('');
+        //                $('#selected-file').empty();
+        //                toastr.error(data.Message);
+        //                $('#browse-file-excel').val('');
+        //            }
+        //        }
+        //    });
+        //};
+
+    function UpdateSetupLoyalty() {
+        //debugger
+        var _id = $('#hdd-txt-id').val();
+        var _itemNo = $('#update-item-no').val();
+        var _itemName = $('#update-item-name').val();
+        var _fromDate = $('#update-from-date').val();
+        var _toDate = $('#update-to-date').val();
+
+        //var _memberCardType = $('#sel-update-member-card-type').val();
+
+        var _pointRedeem = $('#update-point-redeem').val().replace(/\,/g,'');
+        var _status = $('#update-sel-status').val();
+        var _pkey = $('#hdd-txt-pkey').val();
+
+        if (_fromDate == null || _fromDate.length == 0) {
+            toastr.error('Nhập hiệu lực từ ngày');
+            return;
+        }
+
+        if (_toDate == null || _toDate.length == 0) {
+            toastr.error('Nhập hiệu lực đến ngày');
+            return;
+        }
+
+        //if (_memberCardType == null || _memberCardType == "") {
+        //    toastr.error('Vui lòng chọn hội viên');
+        //    return;
+        //}
+
+        var dateNow = new Date();
+        var year = dateNow.getFullYear();
+        var month = dateNow.getMonth() + 1;
+        var day = dateNow.getDate();
+        var paramDate = day + '/' + month + '/' + year;
+        var getTimeNow = parseDate(paramDate).getTime();
+        var dateFrom = parseDate(_fromDate).getTime();
+        var dateTo = parseDate(_toDate).getTime();
+
+        if (dateTo < getTimeNow) {
+            _status = 0; // Het hieu luc
+        }
+
+        if (_pointRedeem == null || _pointRedeem.length == 0) {
+            toastr.error('Nhập điểm quy đổi');
+            return;
+        }
+
+        loading.showloading();
+
+        $.ajax({
+            url: '@Url.Action("UpdateSetupLoyalty", "SetupLoyalty")',
+            type: "POST",
+            dataType: "json",
+            data: {
+                ID: _id,
+                ItemNo: _itemNo,
+                ItemName: _itemName,
+                FromDateStr: _fromDate,
+                ToDateStr: _toDate,
+                //ClubCode: _memberCardType,
+                PointStr: _pointRedeem,
+                Status: _status,
+                Pkey: _pkey
+            },
+            success: function (data) {
+                //debugger
+                loading.hideloading();
+                if (data.Status == 1) {
+                    toastr.success(data.Message);
+                    $('#txt-item-no').val(data.Item4);
+                    $('#sel-by-search').val('');
+                    $('#btn-search-setup-loyalty').trigger('click');
+                    $('#modal-update-setup-loyalty').modal('hide');
+                }
+                else if (data.Status == 2)
+                {
+                    toastr.error(data.Message);
+                    $('#modal-update-setup-loyalty').modal('Show');
+                }
+                else if (data.Status == 3)
+                {
+                    toastr.error(data.Message);
+                    $('#modal-update-setup-loyalty').modal('Show');
+                }
+                else if (data.Status == 4)
+                {
+                    toastr.error(data.Message);
+                    $('#modal-update-setup-loyalty').modal('Show');
+                }
+            },
+            error: function (data) {
+                loading.hideloading();
+                toastr.error('Lỗi hệ thống');
+            }
+        });
+    }
+
+        $(document).ready(function () {
+            $(".select2").select2();
+
+            $('.money').mask('000,000,000', {
+                placeholder: "0",
+                reverse: true,
+                rightAlign: true
+            });
+
+            var date = new Date();
+            $('#from-date').val(moment().format("DD/MM/YYYY"));
+            $('#from-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#to-date').val(moment().format("DD/MM/YYYY"));
+            $('#to-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#update-from-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#update-to-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $("#sel-by-search").change(function () {
+                //debugger
+                var opt = $('#sel-by-search').val();
+
+                if (opt == 0)  // Het hieu luc
+                {
+                    $('#search-from-date').val('');
+                    $('#search-to-date').val('');
+
+                    $('#search-from-date').attr('disabled', true);
+                    $('#search-to-date').attr('disabled', true);
+                }
+                else if (opt == 1)  // Co hieu luc
+                {
+                    $('#search-from-date').val('');
+                    $('#search-to-date').val('');
+
+                    $('#search-from-date').attr('disabled', true);
+                    $('#search-to-date').attr('disabled', true);
+                }
+                else if (opt == 2)  // Theo Ngay/Thang/Nam
+                {
+                    $('#search-from-date').val(moment().subtract(30, "days").format("DD/MM/YYYY"));
+                    $('#search-from-date').datepicker({
+                        format: 'dd/mm/yyyy',
+                        autoUpdateInput: false,
+                        todayHighlight: true,
+                        singleDatePicker: true,
+                        autoclose: true
+                    });
+
+                    // moment().add(7, 'days').add(1, 'months');
+                    // $('#search-to-date').val(moment().format("DD/MM/YYYY"));
+
+                    $('#search-to-date').val(moment().add(11, 'months').format("DD/MM/YYYY"));
+                    $('#search-to-date').datepicker({
+                        format: 'dd/mm/yyyy',
+                        autoUpdateInput: false,
+                        todayHighlight: true,
+                        singleDatePicker: true,
+                        autoclose: true
+                    });
+
+                    $('#search-from-date').attr('disabled', false);
+                    $('#search-to-date').attr('disabled', false);
+
+                }
+                else if (opt == "")  // Tat ca
+                {
+                    $('#search-from-date').val('');
+                    $('#search-to-date').val('');
+
+                    $('#search-from-date').attr('disabled', true);
+                    $('#search-to-date').attr('disabled', true);
+                }
+            });
+
+            $("#btn-import-excel").on("click", function () {
+                $('#browse-file-excel').val('');
+                $('#modal-import-excel-file').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            });
+
+            $("#btn-save-import-file-excel").on("click", function (e) {
+                //debugger
+                ImportExcelGiftRedeem();
+            });
+
+            $("input[type='file']").change(function () {
+                //debugger
+                $('#selected-file').text(this.value.replace(/C:\\fakepath\\/i, ''));
+            });
+
+            $("#click-down-file-example").click(function (e) {
+                loading.showloading();
+                e.preventDefault();
+                var req = new XMLHttpRequest();
+                var url = "/SetupLoyalty/ExcelExampleGiftRedeem";
+                req.open("GET", url, true);
+                req.responseType = "blob";
+                req.onload = function (event) {
+                    //debugger
+                    var blob = req.response;
+                    console.log(blob.size);
+                    if (blob.size > 10) {
+                        var link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+                        var d = new Date();
+                        var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                        link.download = "TemplateGiftRedeem_" + fileName + ".xlsx";
+                        link.click();
+                    }
+                    else {
+                        toastr.error("Excel không có dữ liệu, nên không xuất được");
+                    }
+                    loading.hideloading();
+                };
+                req.send();
+            });
+
+            $("#btn-item-list").on("click", function (e) {
+                debugger
+                var _fromDate = $("#from-date").val();
+                var _toDate = $("#to-date").val();
+
+                //var _memberCardType = $('#sel-member-card-type').val();
+
+                var _pointRedeem = $("#txt-redeem-point").val(); //.replace(/\,/g,'');
+
+                if (_fromDate == null || _fromDate.length == 0) {
+                    toastr.error('Nhập hiệu lực từ ngày');
+                    return;
+                }
+
+                if (_toDate == null || _toDate.length == 0) {
+                    toastr.error('Nhập hiệu lực đến ngày');
+                    return;
+                }
+
+                var dateFrom = parseDate(_fromDate).getTime();
+                var dateTo = parseDate(_toDate).getTime();
+
+                if (dateFrom > dateTo) {
+                    toastr.error('Hiệu lực từ ngày phải nhỏ hơn hoặc bằng hiệu lực đến ngày');
+                    return;
+                }
+
+                //if (_memberCardType == null || _memberCardType == "") {
+                //    toastr.error('Vui lòng chọn hội viên');
+                //    return;
+                //}
+
+                if (_pointRedeem == null || _pointRedeem == "") {
+                    toastr.error('Nhập điểm quy đổi');
+                    return;
+                }
+
+                if (_pointRedeem == null || _pointRedeem == "") {
+                    toastr.error('Nhập điểm quy đổi');
+                    return;
+                }
+
+                if (_pointRedeem == 0) {
+                    toastr.error('Nhập điểm quy đổi là số dương (>0)');
+                    return;
+                }
+
+                if (_pointRedeem < 0) {
+                    toastr.error('Nhập điểm quy đổi là số dương (>0)');
+                    return;
+                }
+
+                loading.showloading();
+
+                $.ajax({
+                    type: "POST",
+                    url: "/SetupLoyalty/_ProductList?fromDate=" + _fromDate + "&toDate=" + _toDate + "&pointRedeem=" + _pointRedeem + " ",
+                    //url: "/SetupLoyalty/_ProductList?fromDate=" + _fromDate + "&toDate=" + _toDate + "&pointRedeem=" + _pointRedeem + "&ClubCode=" + _memberCardType + " ",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        //debugger
+                        loading.hideloading();
+                        $("#div-popup-product-list").html(result);
+                        $('#modal-product-list').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    },
+                    error: function (data) {
+                        loading.hideloading();
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+            });
+
+
+            table_setup_loyalty = $('#tbl-set-up-loyalty-list').DataTable({
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+
+                    $('.btn-update-set-up-loyalty').click(function () {
+                        //debugger
+                        $('#tbl-unlock-product tbody').empty();
+                        var id = $(this).attr("data-id");
+                        $('#hdd-txt-id').val(id);
+
+                        var itemNo = $(this).attr("data-item-no");
+                        $('#hdd-txt-item-no').val(itemNo);
+                        $('#update-item-no').val(itemNo);
+
+                        var itemName = $(this).attr("data-item-name");
+                        $('#update-item-name').val(itemName);
+                     
+                        var pointRedeem = $(this).attr("data-point-redeem"); //.replace(/\,/g,'');
+                        $('#update-point-redeem').val(pointRedeem);
+
+                        var pkey = $(this).attr("data-pkey");
+                        $('#hdd-txt-pkey').val(pkey);
+
+                        //var clubCode = $(this).attr("data-clubCode");
+                        //$('#hdd-club-code').val(clubCode); // hoi vien
+
+                        //var _clubCode = "";
+                        //if (clubCode == "Hội viên Win") {
+                        //    _clubCode = "WIN";
+                        //}
+                        //else if (clubCode == "Thẻ Phúc Long") {
+                        //    _clubCode = "PLH";
+                        //}
+                        //else {
+                        //    _clubCode = "";
+                        //}
+                        //$('#sel-update-member-card-type').val(_clubCode).trigger('change');
+
+                        var _status = $(this).attr("data-status");
+                        var status = "";
+                        if (_status == "Có hiệu lực") {
+                            status = "1";
+                        } else if (_status == "Hết hiệu lực") {
+                            status = "0";
+                        }
+                        $('#update-sel-status').val(status).trigger('change');
+
+                        var fromDate = $(this).attr("data-from-date");
+                        $('#update-from-date').val(fromDate);
+
+                        var toDate = $(this).attr("data-to-date");
+                        $('#update-to-date').val(toDate);
+
+                        var dateNow = new Date();
+                        var year = dateNow.getFullYear();
+                        var month = dateNow.getMonth() + 1;
+                        var day = dateNow.getDate();
+
+                        var paramDate = day + '/' + month + '/' + year;
+                        var getTimeNow = parseDate(paramDate).getTime();
+
+                        var dateFrom = parseDate(fromDate).getTime();
+                        var dateTo = parseDate(toDate).getTime();
+
+                        if (dateTo < getTimeNow) {
+                            $('#update-to-date').attr('disabled', true);
+                            $('#update-point-redeem').attr('disabled', true);
+                            $('#btn-save-update-setup-loyalty').attr('disabled', true);
+                        }
+                        else if (dateTo > getTimeNow) {
+                            $('#update-to-date').attr('disabled', false);
+                            $('#update-point-redeem').attr('disabled', false);
+                            $('#btn-save-update-setup-loyalty').attr('disabled', false);
+                        }
+                        else if (dateTo == getTimeNow) {
+                            $('#update-to-date').attr('disabled', false);
+                            $('#update-point-redeem').attr('disabled', true);
+                            $('#btn-save-update-setup-loyalty').attr('disabled', false);
+                        }
+
+                        if (dateFrom <= getTimeNow) {
+                            $('#update-point-redeem').attr('disabled', true);
+                            $('#btn-save-update-setup-loyalty').attr('disabled', false);
+                        }
+                        else {
+                            $('#update-point-redeem').attr('disabled', false);
+                            $('#btn-save-update-setup-loyalty').attr('disabled', false);
+                        }
+
+                        $('#modal-update-setup-loyalty').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+
+                    });
+
+                     // Xóa
+                     $('.btn-delete-gift-redeem').click(function () {
+                         var _pkey = $(this).attr("data-pkey");
+                         var _fromDate = $(this).attr("data-from-date");
+                         var _toDate = $(this).attr("data-to-date");
+                         var dateNow = new Date();
+                         var year = dateNow.getFullYear();
+                         var month = dateNow.getMonth() + 1;
+                         var day = dateNow.getDate();
+                         var paramDate = day + '/' + month + '/' + year;
+                         var getTimeNow = parseDate(paramDate).getTime();
+                         var dateFrom = parseDate(_fromDate).getTime();
+                         var dateTo = parseDate(_toDate).getTime();
+
+                         if (dateTo <= getTimeNow) {
+                             toastr.error('Không được phép xóa. Vì không thỏa điều kiện về thời gian hiệu lực (hoặc đã hết hiệu lực).');
+                             return;
+                         }
+
+                         $.confirm({
+                            backgroundDismiss: true,
+                            escapeKey: true,
+                            icon: 'fa fa-warning',
+                            type: 'red',
+                            typeAnimated: true,
+                            title: 'Thông báo',
+                            content: 'Bạn có chắc chắn muốn xóa thông tin này không?',
+                            buttons: {
+                                "CÓ": {
+                                    btnClass: 'btn btn-default',
+                                    keys: ['ctrl'],
+                                    action: function () {
+                                        loading.showloading();
+                                        $.ajax({
+                                            url: '@Url.Action("DeleteSetupLoyalty", "SetupLoyalty")',
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: {
+                                                Pkey: _pkey,
+                                                FromDateStr: _fromDate,
+                                                ToDateStr: _toDate
+                                            },
+                                            success: function (data) {
+                                                if (data.Status == 1)
+                                                {
+                                                    toastr.success(data.Message);
+                                                }
+                                                else if (data.Status == 2)
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                else
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                $('#btn-search-setup-loyalty').trigger('click');
+                                                loading.hideloading();
+                                            },
+                                            error: function () {
+                                                loading.hideloading();
+                                                toastr.error("Lỗi hệ thống");
+                                            }
+                                        });
+                                    }
+                                },
+                                "KHÔNG": {
+                                    btnClass: 'btn-default',
+                                    action: function () { }
+                                }
+                            }
+                        });
+                    });
+                },
+
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,
+                serverSide: true,
+                filter: false,
+                searching: true,
+                orderMulti: false,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                lengthChange: true,
+
+                language: {
+                    search: "Tìm kiếm:",
+                    searchPlaceholder: "Nhập mã / tên sản phẩm",
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("LoadSetupLoyaltyList", "SetupLoyalty")',
+                    data: function (d) {
+                        var opt = $("#sel-by-search").val();
+                        if (opt == 2) {
+                            d.SearchFromDate = $('#search-from-date').val();
+                            d.SearchToDate = $('#search-to-date').val();
+                        }
+                        else {
+                            d.SearchFromDate = "01/01/2021";
+                            d.SearchToDate = "31/12/2050";
+                        }
+                        d.ItemNo = $('#txt-item-no').val();
+                        d.Status = $("#sel-by-search").val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "ItemNo",
+                        render: function (data, type, row) {
+                            var html = '<a type="button" class="btn btn-icon btn-light-warning btn-update-set-up-loyalty"';
+                            html += 'data-id ="' + row.ID + '"';
+                            html += 'data-item-no ="' + row.ItemNo + '"';
+                            html += 'data-item-name ="' + row.ItemName + '"';
+                            html += 'data-from-date ="' + row.FromDateStr + '"';
+                            html += 'data-to-date ="' + row.ToDateStr + '"';
+                            html += 'data-point-redeem ="' + row.PointRedeem + '"';
+                            html += 'data-status ="' + row.StatusStr + '"';
+                            html += 'data-pkey ="' + row.Pkey + '"';
+                            //html += 'data-clubCode ="' + row.ClubCode + '"';
+                            html += 'data-toggle="tooltip" data-placement="left" title ="Cập nhật" style="color:#fff;text-align:center;" ><i class="la la-edit"></i> <span class="pulse-ring"></span></a>';
+                            html += '<a type="button" class="btn btn-icon btn-light-danger btn-delete-gift-redeem"  data-pkey ="' + row.Pkey + '"  data-from-date = "' + row.FromDateStr + '" data-to-date = "' + row.ToDateStr + '" data-toggle="tooltip" data-placement="left" title="Xóa" style="margin-left:3px;color:#fff;text-align:center;"><i class="la la-close"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ID", // Khoa chinh
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "ItemNo",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ItemNo == null || row.ItemNo == "") {
+                               html += '<span style="font-weight:600;display:block;text-align:center;color:#058EC2;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:600;display:block;text-align:center;color:#058EC2;">' + row.ItemNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ItemName",
+                        render: function (data, type, row) {
+                            var _isLock = row.IsLock;
+                            var html = "";
+                            if (row.ItemName == null || row.ItemName == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:left;">' + row.ItemName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "SalesUnitOfMeasure",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.SalesUnitOfMeasure == null || row.SalesUnitOfMeasure == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.SalesUnitOfMeasure + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "PointRedeem",  // diem quy doi
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;text-align:center;">' + parseFloat(row.PointRedeem).toLocaleString("en") + '</span>';
+                            return html;
+                        }
+                    },
+
+                    //{
+                    //    data: "ClubCode",  // hoi vien
+                    //    render: function (data, type, row) {
+                    //        var html = "";
+                    //        if (row.ClubCode == null || row.ClubCode == "") {
+                    //            html += '<span style="font-weight:400;display:block;text-align:left;">' + "" + '</span>';
+                    //        }
+                    //        else {
+                    //            html += '<span style="font-weight:400;display:block;text-align:left;">' + row.ClubCode + '</span>';                                
+                    //        }   
+                    //        return html;
+                    //    }
+                    //},
+
+                    //{
+                    //    data: "StatusStr",
+                    //    className: 'text-center',
+                    //    render: function (data, type, row) {
+                    //        var _status = row.StatusStr;
+                    //        if (_status == "Có hiệu lực") {
+                    //            return '<span class=\"badge\" style=\"color:#fff; background-color:#28a745;\">' + _status + '</span>';
+                    //        }
+                    //        else {
+                    //            return '<span class=\"badge\" style=\"color:#fff; background-color:#CD3D12;\">' + _status + '</span>';
+                    //        }
+                    //    }
+                    //},
+
+                    //{
+                    //    className: 'text-center',
+                    //    render: function (data, type, row) {
+                    //        var dateNow = new Date();
+                    //        var year = dateNow.getFullYear();
+                    //        var month = dateNow.getMonth() + 1;
+                    //        var day = dateNow.getDate();
+                    //        var paramDate = day + '/' + month + '/' + year;
+                    //        var getTimeNow = parseDate(paramDate).getTime();
+                    //        var _fromDate = row.FromDateStr;
+                    //        var _toDate = row.ToDateStr;
+                    //        var dateFrom = parseDate(_fromDate).getTime();
+                    //        var dateTo = parseDate(_toDate).getTime();
+                    //        if (dateFrom > getTimeNow) {
+                    //            return '<span class=\"badge\" style=\"color:#fff; background-color:#ffa800;\">Chưa áp dụng</span>';
+                    //        }
+                    //        if (dateTo < getTimeNow) {
+                    //            if (dateFrom < getTimeNow) {
+                    //                return '<span class=\"badge\" style=\"color:#fff; background-color:#CD3D12;\">Hết hiệu lực</span>';
+                    //            }
+                    //        }
+                    //        else if (dateTo > getTimeNow || dateTo == getTimeNow) {
+                    //            if (dateFrom < getTimeNow || dateFrom == getTimeNow) {
+                    //                return '<span class=\"badge\" style=\"color:#fff; background-color:#28a745;\">Có hiệu lực</span>';
+                    //            }
+                    //        }
+                    //    }
+                    //},
+
+                    {
+                        data: "FromDateStr",
+                        render: function (data, type, row) {
+                            var _toDate = row.ToDateStr;
+                            var _fromDate = row.FromDateStr;
+                            var dateNow = new Date();
+                            var year = dateNow.getFullYear();
+                            var month = dateNow.getMonth() + 1;
+                            var day = dateNow.getDate();
+                            var paramDate = day + '/' + month + '/' + year;
+                            var getTimeNow = parseDate(paramDate).getTime();
+                            var dateTo = parseDate(_toDate).getTime();
+                            var dateFrom = parseDate(_fromDate).getTime();
+                            var html = "";
+                            if (dateTo < getTimeNow || dateTo < dateFrom) {
+                                html += '<span style=\"color:#CD3D12;font-weight:400;display:block;text-align:center;\">' + row.FromDateStr + '</span>';
+                            }
+                            else {
+                                html += '<span style=\"color:#058EC2;font-weight:400;display:block;text-align:center;\">' + row.FromDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ToDateStr",
+                        render: function (data, type, row) {
+                            var _toDate = row.ToDateStr;
+                            var _fromDate = row.FromDateStr;
+                            var dateNow = new Date();
+                            var year = dateNow.getFullYear();
+                            var month = dateNow.getMonth() + 1;
+                            var day = dateNow.getDate();
+                            var paramDate = day + '/' + month + '/' + year;
+                            var getTimeNow = parseDate(paramDate).getTime();
+                            var dateTo = parseDate(_toDate).getTime();
+                            var dateFrom = parseDate(_fromDate).getTime();
+                            var html = "";
+                            if (dateTo < getTimeNow || dateTo < dateFrom) {
+                                html += '<span style=\"color:#CD3D12;font-weight:400;display:block;text-align:center;\">' + row.ToDateStr + '</span>';
+                            }
+                            else {
+                                html += '<span style=\"color:#058EC2;font-weight:400;display:block;text-align:center;\">' + row.ToDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreatedUser",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreatedUser == null || row.CreatedUser == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            } else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.CreatedUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreatedDate",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreatedDate == null || row.CreatedDate == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            } else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.CreatedDate + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "UpdatedUser",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.UpdatedUser == null || row.UpdatedUser == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.UpdatedUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "UpdatedDate",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.UpdatedDate == null || row.UpdatedDate == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.UpdatedDate + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            $('#btn-search-setup-loyalty').on('click', function (e) {
+                //debugger
+                var opt = $("#sel-by-search").val();
+                if (opt == 2)  // tim theo ngay/thang/nam
+                {
+                    var _fDate = $('#search-from-date').val();
+                    var _tDate = $('#search-to-date').val();
+
+                    if (_fDate == null || _fDate.length == 0) {
+                        toastr.error('Nhập hiệu lực từ ngày.');
+                        return;
+                    }
+
+                    if (_tDate == null || _tDate.length == 0) {
+                        toastr.error('Nhập hiệu lực đến ngày.');
+                        return;
+                    }
+
+                    var dateFrom = parseDate(_fDate).getTime();
+                    var dateTo = parseDate(_tDate).getTime();
+
+                    if (dateFrom > dateTo) {
+                        toastr.error('Hiệu lực từ ngày phải nhỏ hơn hoặc bằng hiệu lực đến ngày.');
+                        return;
+                    }
+                }
+
+                table_setup_loyalty.draw();
+
+            });
+
+            $('#btn-save-update-setup-loyalty').on('click', function (e) {
+                //debugger
+                UpdateSetupLoyalty();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                //debugger
+                var opt = $("#sel-by-search").val();
+                if (opt == 2) {
+                    var fromDate = getFromDate();
+                    var toDate = getToDate();
+                    if (fromDate > toDate) {
+                        toastr.error('Hiệu lực từ ngày <= hiệu lực đến ngày.');
+                        return;
+                    }
+                    $('#hdFromDate').val(fromDate);
+                    $('#hdToDate').val(toDate);
+                }
+                else {
+                    var fromDate = "2021/01/01";
+                    var toDate = "2050/12/31";
+                    $('#hdFromDate').val(fromDate);
+                    $('#hdToDate').val(toDate);
+                }
+
+                $("#hd-sel-by-search").val(opt);
+                var itemNo = $("#txt-item-no").val();
+                $("#hd-item-no").val(itemNo);
+
+                $('#frm-export-excel').submit();
+
+            });
+
+        });
+
+
+    </script>
+}
+
+<style>
+    .btn.btn-bg-secondary-custom {
+        background-color: #00A09D;
+        border-color: #00A09D;
+        box-shadow: none;
+        color: #ffffff;
+        font-weight: 500;
+    }
+</style>

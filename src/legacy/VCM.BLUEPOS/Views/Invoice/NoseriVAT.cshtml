@@ -1,0 +1,461 @@
+﻿@using VCM.BLUEPOS.Model.Store
+@using VCM.BLUEPOS.Model.Invoice;
+@{
+    ViewBag.Title = "Noseri VAT";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var lstStore = ViewBag.ListStore as List<StoreModel>;
+    var lstBranch = ViewBag.ListBranch as List<BranchModel>;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+
+                    <li class="breadcrumb-item text-muted">
+                        <a>Hóa đơn điện tử</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Cài đặt hóa đơn</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Noseri VAT</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-primary mr-2" data-toggle="modal" id="btnAddNoseri"><i class="la la-plus-circle"></i>Thêm NoseriCode</button>
+
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-6 col-md-6 col-sm-6 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-weight:bold">Mã ST/CH</label>
+                                <div class="form-group">
+                                    <select id="slSearchStore" class="form-control select2 searchOnchange" data-placeholder="">
+                                        @if (lstStore != null && lstStore.Count() > 0)
+                                        {
+                                            <option value="-">Tất cả</option>
+                                            foreach (var item in lstStore)
+                                            {
+                                                var displayName = string.IsNullOrEmpty(item.StoreName) ? item.StoreNo : item.StoreNo + " : " + item.StoreName;
+                                                <option value="@item.StoreNo">@displayName</option>
+                                            }
+                                        }
+                                    </select>
+                                   
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-weight:bold">Hình thức</label>
+                                <div class="form-group">
+                                    <select id="slSearchTypeInvoice" class="form-control select2 searchOnchange" data-placeholder="">
+                                        <option value="-">Tất cả</option>
+                                        <option value="NOR">Normal</option>
+                                        <option value="EOD">EOD</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12">
+                                <label style="font-weight:bold">Trạng thái</label>
+                                <div class="form-group">
+                                    <select id="slSearchEnable" class="form-control select2 searchOnchange">
+                                        <option value="-">Tất cả</option>
+                                        <option value="1">Hiệu lực</option>
+                                        <option value="0">Hết hiệu lực</option>
+
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px">
+                                <button type="button" id="btnSearch" class="btn btn-primary"><i class="fa fa-search"></i> Tìm</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tblData" class="table table-bordered table-hover">
+                            <thead>
+                                <tr class="text-center;" style="text-transform:uppercase;">
+                                    <th>STT</th>
+                                    <th>Mã ST/CH</th>
+                                    <th>Tên ST/CH</th>         
+                                    <th>NOSERI CODE</th>
+                                    <th>Loại hóa đơn</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày cập nhật</th>
+                                    <th>#</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAddNoseriCode" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Thêm mới / Cập nhật Noseri Code</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <label style="font-weight:bold">Mã ST/CH</label>
+                            <select id="slStore" class="form-control select2" data-placeholder="">
+                                @if (lstStore != null && lstStore.Count() > 0)
+                                {
+                                    foreach (var item in lstStore)
+                                    {
+                                        var storeName = $"{item.StoreNo}:{item.StoreName}";
+                                        <option value="@item.StoreNo" data-storename="@item.StoreName">@storeName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+
+                    <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
+                        <label style="font-weight:bold">Loại hóa đơn</label>
+                        <select id="slTypeInvoice" class="form-control select2" data-placeholder="">
+                            <option value="NOR">Normal</option>
+                            <option value="EOD">EOD</option>
+                        </select>
+                    </div>
+
+                    <div class="col-lg-8 col-md-8 col-sm-6 col-xs-12">
+                        <label style="font-weight:bold">Chi nhánh</label>
+                        <div class="form-group">
+                            <select id="slBranch" class="form-control select2" data-placeholder="">
+                                @if (lstBranch != null && lstBranch.Count() > 0)
+                                {
+                                    foreach (var item in lstBranch)
+                                    {
+                                        var displayName = string.IsNullOrEmpty(item.BranchName) ? item.BranchNo : item.BranchNo + " : " + item.BranchName;
+                                        <option value="@item.BranchNo" data-comptaxcode="@item.CompTaxCode">@displayName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
+                        <label style="font-weight:bold">Hiệu lực</label>
+                        <div class="form-group">
+                            <select id="slStatus" class="form-control select2 select2-blue" data-placeholder="">
+                                <option value="1">Có hiệu lực</option>
+                                <option value="0">Hết hiệu lực</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-8 col-md-8 col-sm-6 col-xs-12">
+                        <label style="font-weight:bold">Mã số thuế</label>
+                        <div class="form-group">
+                            <input type="text" id="txtCompTaxCode" class="form-control" value="" disabled />
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="btnSave" class="btn btn-primary font-weight-bold"><i class="la la-save"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var table = "";
+        $('.select2').select2();
+
+        $(document).ready(function () {
+            LoadData();
+
+            var dataMST = $('#slBranch').find(':selected').data('comptaxcode');
+            $("#txtCompTaxCode").val(dataMST);
+
+            $("#btnSearch").on("click", function (e) {
+                table.search(this.value).draw();
+            });
+
+            $(".searchOnchange").on("change", function (e) {
+                table.search(this.value).draw();
+            });
+
+            $('.searchKeyPress').keypress(function (e) {
+                var key = e.which;
+                if (key == 13) {
+                    table.search(this.value).draw();
+                }
+            });
+
+            $("#btnAddNoseri").on("click", function (e) {
+                
+                $("#slStore").attr('disabled', false);
+                $("#slTypeInvoice").attr('disabled', false);
+                $("#slBranch").attr('disabled', false);
+
+                $('#modalAddNoseriCode').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+
+            });
+
+            $("#slBranch").on("change", function (e) {
+                var dataMST = $('#slBranch').find(':selected').data('comptaxcode');
+                $("#txtCompTaxCode").val(dataMST);
+            });
+
+            $("#slStore").on("change", function (e) {
+                var objectID = $('#slStore').find(':selected').data('objectid');
+                $("#txtCompTaxCode").val(objectID);
+            });
+
+            $("#btnSave").on("click", function (e) {
+                SaveNoseri();
+            });
+
+        });
+
+        function SaveNoseri() {
+            //debugger
+            var storeNo = $("#slStore").val();
+            var branch = $("#slBranch").val();
+            var typeInvoice = $("#slTypeInvoice").val();
+            var status = $("#slStatus").val();
+            var mst = $("#txtCompTaxCode").val();
+
+            if (storeNo == "" || storeNo == null) {
+                toastr.error("Chọn mã ST/CH. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (branch == "" || branch == null) {
+                toastr.error("Chọn chi nhánh. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (typeInvoice == "" || typeInvoice == null) {
+                toastr.error("Chọn loại hóa đơn. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            var noseriCode = branch + "-" + typeInvoice;
+            var storeName = $('#slStore').find(':selected').data('storename');
+
+            loading.showloading();
+
+            var fromData = new FormData();
+            fromData.append('BranchNo', branch);
+            fromData.append('StoreNo', storeNo);
+            fromData.append('StoreName', storeName);
+            fromData.append('CompTaxCode', mst);
+            fromData.append('NoseriCode', noseriCode);
+            fromData.append('InvoiceType', typeInvoice);
+            fromData.append('Status', status);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateNoseri", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 200) {
+                        //toastr.success(data.Message);
+                        toastr.success("Thêm mới / cập nhật thành công");
+                        table.draw();
+                        $('#modalAddNoseriCode').modal('hide');
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+
+        }
+
+        function ModalUpdate(storeNo, branchNo, invoiceType, status) {
+            var enable = status == true ? "1" : "0";
+            $("#slStore").select2('val', [storeNo]);
+            $("#slTypeInvoice").select2('val', [invoiceType]);
+            $("#slBranch").select2('val', [branchNo]);
+            $("#slStatus").select2('val', [enable]);
+            $("#slStore").attr('disabled', true);
+            $("#slTypeInvoice").attr('disabled', true);
+            
+            $('#modalAddNoseriCode').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function LoadData() {
+
+            table = $('#tblData').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: true,
+                processing: false,                  // for show progress bar
+                serverSide: true,                   // for process server side
+                filter: true,                       // this is for disable filter (search box)
+                orderMulti: false,                  // for disable multiple column at once
+                autoWidth: true,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                ajax: {
+                    url: '@Url.Action("NoseriVATLoad", "Invoice")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $("#slSearchStore").val();
+                        d.InvoiceType = $("#slSearchTypeInvoice").val();
+                        d.Enabled = $("#slSearchEnable").val();
+                    }
+                },
+               
+                columns: [
+                    {
+                        data: "ID",
+                        className: "text-center",
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "StoreName"  
+                    },
+                    
+                    {
+                        data: "NoseriCode",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "InvoiceType",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "Enabled",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+
+                            var html = "";
+                            if (row.Enabled == true) {
+                                html = "<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">Có hiệu lực</span>";
+                            }
+                            else {
+                                html = "<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">Hết hiệu lực</span>";
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreateDate",
+                        className: 'text-center',
+                        render: function (data, type, full, meta) {
+                            if (full.LastUpdate != null) {
+                                return moment(full.LastUpdate).format("DD/MM/YYYY HH:mm");
+                            }
+                            else {
+                                if (full.CreateDate != null) {
+                                    return moment(full.CreateDate).format("DD/MM/YYYY HH:mm");
+                                }
+                                else
+                                    return "";
+                            }
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, full, meta) {
+                            var html = "";
+                            var branchNo = full.BranchNo;
+                                html += "<a onclick=\"ModalUpdate('" + full.StoreNo + "','" + branchNo + "','" + full.InvoiceType + "'," + full.Enabled + ")\" class=\"btn btn-icon btn-light-warning pulse pulse-warning\">";
+                                html += "<i class=\"la la-edit\"></i>";
+                                html += "<span class=\"pulse-ring\"></span>";
+                                html += "</a>";
+                            return html;
+                        }                      
+                    }
+
+                ]
+            }).on('processing.dt', function (e, settings, processing) {
+
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+            });
+        }
+
+    </script>
+}
+

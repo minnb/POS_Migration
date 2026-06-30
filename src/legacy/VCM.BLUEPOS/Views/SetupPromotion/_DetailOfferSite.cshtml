@@ -1,0 +1,173 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var model = Model as ViewDetailOfferSiteModel;
+    var data = model.GetOfferSite;
+    var offerNo = model.OfferNo;
+
+
+}
+<div class="row align-items-end mb-3">
+    <div class="col-lg-3 col-md-4 col-sm-12 mb-2">
+        <button type="button" class="btn btn-primary font-weight-bold" id="btnSetupCHST"><i class="la la-plus-circle"></i> Chọn nhóm CH/ST</button>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="card-body table-responsive">
+        <table class="table table-bordered text-nowrap" id="tableOfferSite">
+            <thead>
+                <tr class="text-center">
+                    <th>Site group</th>
+                    <th>Site group name</th>
+                    <th>Xem chi tiết</th>
+                    <th>Xóa</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (data != null && data.Count > 0)
+                {
+                    foreach (var item in data)
+                    {
+                        var tagTr = $"trSite_{item.OfferNo}_{item.PriceGroupCode}";
+                        <tr id="@tagTr">
+                            <td style="vertical-align:middle;width:200px;text-align:center;">
+                                <input type="hidden" class="eventChangeGroup" value="@item.PriceGroupCode" />
+                                <span class="font-weight-bold">@item.PriceGroupCode</span>
+                            </td>
+                            <td style="vertical-align:middle">
+                                <span id="groupName_@offerNo">@item.GroupName</span>
+                            </td>
+                            <td style="vertical-align:middle;text-align:center;width:80px;">
+                                <span class="spanGroupView_@offerNo">
+                                    <a onclick="ViewListStoreSetup('@item.PriceGroupCode')" title="Xem CH/ST" class="btn btn-icon btn-light-primary"><i class="flaticon2-gear"></i><span class="pulse-ring"></span></a>
+                                </span>
+                            </td>
+                            <td style="vertical-align:middle;width:80px; text-align:center">
+                                <span>
+                                    <a onclick="DeleteOfferSite('@item.OfferNo','@item.PriceGroupCode')" title="Xóa" class="btn btn-icon btn-light-danger"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                }
+
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalSetupCHST" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupSetupCHST"></div>
+</div>
+
+<div class="modal fade" id="modalSelectGroupSite" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupSelectGroupSite"></div>
+</div>
+
+<script type="text/javascript">
+    var offerNo = '@offerNo';
+    $(document).ready(function () {
+        $("#btnSetupCHST").on("click", function () {
+            ViewSetupCHST();
+        });
+
+
+
+        $(".eventSelectGroup").on("click", function () {
+            SelectGroupSite(offerNo);
+        });
+
+    });
+    function DeleteOfferSite(offerNo, groupSite) {
+        var thongbao = "Bạn có chắc chắn xóa group " + groupSite + " này không?";
+        $.confirm({
+            backgroundDismiss: false,
+            escapeKey: true,
+            icon: 'fa fa-warning',
+            type: 'red',
+            typeAnimated: true,
+            title: 'Thông báo',
+            content: thongbao,
+            buttons: {
+                "CÓ": {
+                    btnClass: 'btn btn-default',
+                    keys: ['ctrl'],
+                    action: function () {
+                        var table = $("#tableOfferSite tbody");
+                        table.empty();
+                    }
+                },
+                "KHÔNG": {
+                    btnClass: 'btn-default',
+                    action: function () { }
+                }
+            }
+        });
+    }
+
+    function ViewSetupCHST() {
+        $.ajax({
+            type: "GET",
+            url: "/SetupPromotion/_ViewSetupCHST?offerNo=" + offerNo + "",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#divPopupSetupCHST").html(result);
+
+                $('#modalSetupCHST').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            },
+            error: function (event) {
+
+            }
+        });
+    }
+
+    function SelectGroupSite(offerNo) {
+        $.ajax({
+            type: "GET",
+            url: "/SetupPromotion/_ViewSelectGroupSite?offerNo=" + offerNo + "",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#divPopupSelectGroupSite").html(result);
+
+                $('#modalSelectGroupSite').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            },
+            error: function (event) {
+
+            }
+        });
+    }
+
+    function ViewListStoreSetup(groupCode) {
+        $.ajax({
+            type: "GET",
+            url: "/SetupPromotion/_ViewListStoreSetup?groupCode=" + groupCode + "",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#divPopupSelectGroupSite").html(result);
+
+                $('#modalSelectGroupSite').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+
+            },
+            error: function (event) {
+
+            }
+        });
+    }
+</script>

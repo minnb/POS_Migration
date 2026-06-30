@@ -1,0 +1,245 @@
+﻿@using VCM.BLUEPOS.Model.MonitorPOS;
+
+@{
+    ViewBag.Title = "Danh sách máy POS bắt đầu ngày";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý POS</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Monitor POS</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh sách máy POS bắt đầu ngày</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("", "MonitorPOS", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-6 col-md-6 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH</label>
+                                    <div class="form-group">
+                                        <input type="text" id="txt-store-no" placeholder="Nhập mã ST/CH" class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Địa chỉ IP</label>
+                                    <div class="form-group">
+                                        <input type="text" id="txt-ip-address" placeholder="Nhập địa chỉ IP" class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Tên máy tính</label>
+                                    <div class="form-group">
+                                        <input type="text" id="txt-computer-name" placeholder="Nhập tên máy tính" class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-status">
+                                            <option value="">Tất cả</option>
+                                            <option value="1">Đã bắt đầu ngày</option>
+                                            <option value="0">Chưa bắt đầu ngày</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" name="btnSearch" class="btn btn-primary"><i class="fa fa-search"></i> Tìm kiếm</button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table class="table table-bordered text-nowrap row-border order-column" id="tbl-signal-store-list">
+                            <thead>
+                                <tr class="text-center" style="text-align:center;text-transform:uppercase;">
+                                    <th>StoreNo</th>
+                                    <th>PosTerminal</th>
+                                    <th>IPAddress</th>
+                                    <th>ComputerName</th>
+                                    <th>Ngày kinh doanh</th>
+                                    <th>Bắt đầu ngày ở POS</th>
+                                    <th>Trạng thái</th>
+                                    <th>JOB</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+        var table = "";
+        $(document).ready(function () {
+            $('.select2').select2();
+            LoadSignalStoreList();
+        });
+
+        $("#btn-search").on("click", function (e) {
+            table.draw();
+        });
+
+        $('#txt-store-no').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#txt-ip-address').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#txt-computer-name').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        function LoadSignalStoreList() {
+            table = $('#tbl-signal-store-list').DataTable({ 
+                destroy: true,
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: true,                   // for show progress bar
+                serverSide: true,                   // for process server side
+                filter: false,                      // this is for disable filter (search box)
+                orderMulti: false,                  // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 20,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("LoadSignalStoreList", "MonitorPOS")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $("#txt-store-no").val();
+                        d.IpAddress = $("#txt-ip-address").val();
+                        d.ComputerName = $("#txt-computer-name").val();
+                        d.StatusBeginDate = $("#sel-status").val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:700;">' + row.StoreNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "POSTerminalID",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:700;">' + row.POSTerminalID + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "IpAddress",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "ComputerName",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "BusinessDateFormat",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "CreatedDateFormat",
+                        className: 'text-center'
+                    },
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StatusBeginDate == true)
+                                html = "<span class=\"badge bg-success\" style='color: #fff;'>Đã bắt đầu ngày</span>";
+                            else
+                                html = "<span class=\"badge bg-danger\" style='color: #fff;'>Chưa bắt đầu ngày</span>";
+                            return html;
+                        }                       
+                    },
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.IsOnline == true)
+                                html = "<span class=\"badge bg-success\" style='color: #fff;'>Online</span>";
+                            else
+                                html = "<span class=\"badge bg-danger\" style='color: #fff;'>Offline</span>";
+                            return html;
+                        }                        
+                    }
+                ]
+            });
+        }
+
+    </script>
+}
+
+

@@ -1,0 +1,761 @@
+﻿@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.Invoice;
+
+@{
+
+    ViewBag.Title = "Xuất hóa đơn điện tử";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var model = Model as ViewIssueInvoiceModel;
+    var listSite = model.ListStore;
+    var infoInvoice = model.InfoInvoice;
+    string mauso = "", kyhieu = "", sohoadondukien = "";
+    if (infoInvoice !=null && !string.IsNullOrEmpty(infoInvoice.InvoicePattern))
+    {
+        mauso = infoInvoice.InvoicePattern;
+        kyhieu = infoInvoice.SerialNo;
+        sohoadondukien = infoInvoice.NumberOrder;
+    }
+
+}
+
+<style>
+    .table > thead > tr > th {
+        color: #000000 !important;
+        font-size: 1rem !important;
+        font-weight: bold !important;
+    }
+</style>
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a>Quản lý hóa đơn</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Xuất hóa đơn</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="card card-default">
+                                <div class="card-header" style="background-color:#d3d4d7">
+                                    @*<h3 class="card-title" style="font-size:14px;font-weight:bold;margin:10px">Tổng hợp hóa đơn</h3>*@
+                                    <a style="color:#134ff7;" class="small-box-footer">
+
+                                        <div class="row" style="text-align:center!important;padding-top:10px;">
+                                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-1" style="vertical-align:middle">
+                                                <label style="font-weight:bold">Mẫu số: <strong id="stMS">@mauso</strong> </label>
+
+                                            </div>
+                                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-1">
+                                                <label style="font-weight:bold">Ký hiệu: <strong id="stKH">@kyhieu</strong></label>
+
+                                            </div>
+                                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-1">
+                                                <label style="font-weight:bold">Số hóa đơn dự kiến: <strong id="stSHD">@sohoadondukien</strong></label>
+                                            </div>
+
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="card-body" style="padding:0px !important">
+
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1" style="margin:auto;padding-top:5px;">
+
+                                        <div class="row">
+                                            <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                                <label style="font-weight:bold">Mã site<strong style="color:#ff0000"> (*)</strong></label>
+                                                <div class="input-group">
+                                                    <select class="form-control select2" style="width:100%;" id="slSiteNo" name="SiteNo">
+                                                        @if (listSite != null && listSite.Count > 0)
+                                                        {
+                                                            if (listSite.Count == 1)
+                                                            {
+                                                                var ht = $"{ listSite.FirstOrDefault().StoreNo} : {listSite.FirstOrDefault().StoreName}";
+                                                                <option value="@listSite.FirstOrDefault().StoreNo">@ht</option>
+                                                            }
+                                                            else
+                                                            {
+                                                                foreach (var item in listSite)
+                                                                {
+                                                                    var ht = $"{ item.StoreNo} : {item.StoreName}";
+                                                                    <option value="@item.StoreNo">@ht</option>
+                                                                }
+                                                            }
+                                                        }
+
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12 mb-1">
+                                                <label style="font-weight:bold">Số Bill hóa đơn<strong style="color:#ff0000"> (*)</strong></label>
+                                                <div class="input-group">
+                                                    <input type="text" id="txtHoaDon" placeholder="Mỗi HĐ cách nhau dấu chấm phẩy (;)..." class="form-control">
+                                                    <span class="input-group-append">
+                                                        <button type="button" id="btnModalAddHD" class="btn btn-primary" style="font-size:12px;">Thêm HĐ</button>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12 mb-1">
+                                                <label style="font-weight:bold">Tên khách hàng</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="txtTen" />
+                                                    <span class="input-group-append">
+                                                        <button type="button" id="btnModalTimKH" class="btn btn-primary" style="font-size:12px;">Tìm KH</button>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12 mb-1">
+                                                <label style="font-weight:bold">Tên công ty</label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" id="txtTenCTy">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row" style="margin-top:-15px;">
+                                            <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                                <label style="font-weight:bold">MST</label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" id="txtMST" />
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                                <label style="font-weight:bold">Điện thoại</label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" id="txtDienThoai" />
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-4 col-md-12 col-sm-12 col-xs-12">
+                                                <label style="font-weight:bold">Thư điện tử <strong style="color:#ff0000"> (*)</strong></label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" id="txtEmail" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row" style="margin-top:-15px;">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                                <label style="font-weight:bold">Địa chỉ</label>
+                                                <div class="form-group">
+                                                    <textarea type="text" rows="2" class="form-control" id="txtDiaChi"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row" style="margin-bottom:-10px;">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                                <div class="form-group text-right">
+                                                    <button type="button" class="btn btn-warning btn-search" onclick="ClearText()" style="" id="btn-search"><i class="fas fa-closed-captioning"></i> Nhập lại</button>
+                                                    <button type="button" class="btn btn-primary btn-search" style="" onclick="Print()" id="btnPrint"><i class="fa fa-print"></i><span id="titleHF"> Xuất hóa đơn</span></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="displayHF" style="width:100%;margin-top:10px;">
+                                <div class="card card-default">
+                                    <div class="card-header">
+                                        <h3 class="card-title" style="font-size:14px;font-weight:bold;margin:10px">Chi tiết hóa đơn</h3>
+                                    </div>
+                                    <div class="card-body" style="padding:0px !important">
+                                        <div class="card-body table-responsive" style="padding: .25rem !important;">
+                                            <table class="table table-bordered table-striped" id="tblDataInvoice">
+                                                <thead>
+                                                    <tr style="text-align:center;background-color:#eaeaf0">
+                                                        <th style="vertical-align:middle">STT</th>
+                                                        <th style="vertical-align:middle">Tên hàng hóa, dịch vụ</th>
+                                                        <th style="vertical-align:middle">Đơn vị <br /> tính</th>
+                                                        <th style="vertical-align:middle">Số lượng</th>
+                                                        <th style="vertical-align:middle">Đơn giá</th>
+                                                        <th style="vertical-align:middle">Thành tiền<br /> trước thuế<br /> GTGT</th>
+                                                        <th style="vertical-align:middle">Thuế suất<br /> GTGT(%)</th>
+                                                        <th style="vertical-align:middle">Tiền thuế<br /> GTGT</th>
+                                                        <th style="vertical-align:middle">Thành tiền<br /> sau thuế<br /> GTGT</th>
+                                                    </tr>
+                                                    <tr style="text-align:center;background-color:#e3e3e1">
+                                                        <th style="vertical-align:middle">(1)</th>
+                                                        <th style="vertical-align:middle">(2)</th>
+                                                        <th style="vertical-align:middle">(3)</th>
+                                                        <th style="vertical-align:middle">(4)</th>
+                                                        <th style="vertical-align:middle">(5)</th>
+                                                        <th style="vertical-align:middle">(6 = 4 x 5)</th>
+                                                        <th style="vertical-align:middle">(7)</th>
+                                                        <th style="vertical-align:middle">(8 = 6 x 7)</th>
+                                                        <th style="vertical-align:middle">(9 = 6 + 8)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card card-default" style="margin-top:10px;">
+                                    <div class="card-header">
+                                        <h3 class="card-title" style="font-size:14px;font-weight:bold;margin:10px">Tổng hợp hóa đơn</h3>
+
+                                    </div>
+                                    <div class="card-body" style="padding:0px !important">
+                                        <div class="card-body table-responsive" style="padding: .25rem !important;">
+                                            <table class="table table-bordered table-striped" id="tblDataInvoiceHeader">
+                                                <thead>
+                                                    <tr style="text-align:center;background-color:#eaeaf0">
+                                                        <th style="vertical-align:middle">Tổng hợp</th>
+                                                        <th style="vertical-align:middle">Thuế suất</th>
+                                                        <th style="vertical-align:middle">Tỉ giá chưa có thuế GTGT</th>
+                                                        <th style="vertical-align:middle">Tiền thuế GTGT</th>
+                                                        <th style="vertical-align:middle">Giá trị thanh toán</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<div class="modal fade" id="modalListCustomer">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DANH SÁCH KHÁCH HÀNG</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListCustomer">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Thoát</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalListOrder">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">CHỌN HÓA ĐƠN</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListOrder">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Thoát</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" id="divPrint">
+</div>
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        $(document).ready(function () {
+
+            $(".select2").select2();
+
+            $("#slSiteNo").on("change", function (e) {
+                GetInfoInvoice($(this).val());
+            });
+
+            $("#txtHoaDon").on("change", function (e) {
+                var order = $("#txtHoaDon").val();
+                if (order != "") {
+                    var str = order + ";";
+                    $("#txtHoaDon").val(str);
+                }
+                ViewOrder();
+            });
+
+            $("#btnModalTimKH").on("click", function (e) {
+                ViewPopupKH();
+            });
+
+            $("#btnModalAddHD").on("click", function (e) {
+                $("#searchtxtHoaDon").val('');                
+                ViewPopupOrder();
+            });
+
+        });
+
+        function ViewPopupKH() {
+            loading.showloading();
+            $.ajax({
+                type: "GET",
+                url: "/Invoice/_ViewListCustomer",
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    $("#divPopupListCustomer").html(result);
+                    $('#modalListCustomer').modal({
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                    loading.hideloading();
+                },
+                error: function (event) {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function GetInfoInvoice(siteCode) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('siteCode', siteCode);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("InfoInvoice", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     if (data != null) {
+                         $("#stMS").html(data.InvoicePattern);
+                         $("#stKH").html(data.SerialNo);
+                         $("#stSHD").html(data.NumberOrder);
+                     }
+                     else {
+                         $("#stMS").html('');
+                         $("#stKH").html('');
+                         $("#stSHD").html('');
+                     }
+                     loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+
+        }
+
+        function ClearText() {
+            $("#txtHoaDon").val('');
+            $("#txtTen").val('');
+            $("#txtTenCTy").val('');
+            $("#txtDienThoai").val('');
+            $("#txtEmail").val('');
+            $("#txtMST").val('');
+            $("#txtDiaChi").val('');
+            $('#tblDataInvoiceHeader tbody').empty();
+            $('#tblDataInvoice tbody').empty();
+        }
+
+        function ViewPopupOrder() {
+            loading.showloading();
+            $.ajax({
+                type: "GET",
+                url: "/Invoice/_ViewListOrder",
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    $("#divPopupListOrder").html(result);
+                    $('#modalListOrder').modal({
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                    loading.hideloading();
+                },
+                error: function (event) {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function ViewOrder() {
+            //debugger
+            loading.showloading();
+            var listOrder = $("#txtHoaDon").val();
+            var storeNo = $("#slSiteNo").val();
+            var fromData = new FormData();
+
+            fromData.append('StoreNo', storeNo);
+            fromData.append('ListOrder', listOrder);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("ViewListOrder", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    $('#tblDataInvoice tbody').empty();
+                    $('#tblDataInvoiceHeader tbody').empty();
+                    if (data != null) {
+                        var detail = data.Detail;
+                        var header = data.Header;
+                        var html = "";
+                        var htmlHeader = "";
+                        var total = 0;
+                        var totalVinpoint = 0;
+
+                        detail.forEach((name, i) => {
+                            if (name.Num > 0) {
+                                html += "<tr id=\"\">";
+                                html += "<td style=\"text-align:center\">" + name.Num + "</td>";
+                                html += "<td style=\"\">" + name.ItemName + "</td>";
+                                html += "<td style=\"text-align:center\">" + name.UOM + "</td>";
+                                html += "<td style=\"text-align:center\">" + parseFloat(name.Quantity).toLocaleString('en') + "</td>";
+                                html += "<td style=\"text-align:right\">" + parseFloat(name.ProdPrice).toLocaleString('en') + "</td>";
+                                html += "<td style=\"text-align:right\">" + parseFloat(name.NetAmount).toLocaleString('en') + "</td>";
+                                html += "<td style=\"text-align:center\">" + name.VATRate + "%</td>";
+                                html += "<td style=\"text-align:right\">" + parseFloat(name.VATAmount).toLocaleString('en') + "</td>";
+                                html += "<td style=\"text-align:right\">" + parseFloat(name.Amount).toLocaleString('en') + "</td>";
+                                html += "</tr>";
+                                total += name.Amount;
+                            }
+                            else if (name.Num == 0) {
+                                html += "<tr id=\"\">";
+                                html += "<td style=\"text-align:center\"></td>";
+                                html += "<td style=\"font-weight:bold\">" + name.ItemName + "</td>";
+                                html += "<td style=\"text-align:center\"></td>";
+                                html += "<td style=\"text-align:center\"></td>";
+                                html += "<td style=\"text-align:right\"></td>";
+                                html += "<td style=\"text-align:right\"></td>";
+                                html += "<td style=\"text-align:center\"></td>";
+                                html += "<td style=\"text-align:right\"></td>";
+                                html += "<td style=\"text-align:right;\">" + parseFloat(name.Amount).toLocaleString('en') + "</td>";
+                                html += "</tr>";
+                                totalVinpoint = name.Amount;
+                            }
+
+                        });
+
+                        var totalSumNon = header.Vat0 + header.Vat5 + header.Vat8 + header.Vat10;
+                        var totalSumVat = header.NetNon + header.Net0 + header.Net5 + header.Net8 + header.Net10;
+                        var totalSumAmount = header.TotalNon + header.Total0 + header.Total5 + header.Total8 + header.Total10;
+                        var totalFinal = total - totalVinpoint != totalSumAmount ? totalSumAmount : total - totalVinpoint;
+
+                        html += "<tr id=\"\" style=\"font-weight:bold\">";
+                        html += "<td colspan=5 style=\"text-align:left\">Tổng cộng</td>";
+                        html += "<td style=\"text-align:center\"></td>";
+                        html += "<td style=\"text-align:center\"></td>";
+                        html += "<td style=\"text-align:center\"></td>";
+                        html += "<td style=\"text-align:right\">" + parseFloat(totalFinal).toLocaleString('en') + "</td>";
+                        html += "</tr>";
+                        $("#tblDataInvoice tbody").html(html);
+
+
+                        //var totalNon = header.vatNon + header.NetNon;
+                        //var totalNet0 = header.Vat0 + header.Net0;
+
+                        //var totalNet5 = header.Vat0 + header.Net0Net5
+                        //var totalNet10 = header.Vat10 + header.Net10;
+
+
+                        htmlHeader += "<tr id=\"\">";
+                        htmlHeader += "<td style=\"text-align:left\">Tổng tiền không chịu thuế GTGT:</td>";
+                        htmlHeader += "<td style=\"\"></td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.NetNon > 0 ? parseFloat(header.NetNon).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">-</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.TotalNon > 0 ? parseFloat(header.TotalNon).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "</tr>";
+
+                        //htmlHeader += "<tr id=\"\">";
+                        //htmlHeader += "<td style=\"text-align:left\">Tổng tiền chịu thuế suất:</td>";
+                        //htmlHeader += "<td style=\"text-align:center\">0</td>";
+                        //htmlHeader += "<td style=\"text-align:right\">" + (header.Net0 > 0 ? parseFloat(header.Net0).toLocaleString('en') : "-") + "</td>";
+                        //htmlHeader += "<td style=\"text-align:right\">" + (header.Vat0 > 0 ? parseFloat(header.Vat0).toLocaleString('en') : "-") + "</td>";
+                        //htmlHeader += "<td style=\"text-align:right\">" + (header.Total0 > 0 ? parseFloat(header.Total0).toLocaleString('en') : "-") + "</td>";
+                        //htmlHeader += "</tr>";
+
+                        htmlHeader += "<tr id=\"\">";
+                        htmlHeader += "<td style=\"text-align:left\">Tổng tiền chịu thuế suất:</td>";
+                        htmlHeader += "<td style=\"text-align:center\">5</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Net5 > 0 ? parseFloat(header.Net5).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Vat5 > 0 ? parseFloat(header.Vat5).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Total5 > 0 ? parseFloat(header.Total5).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "</tr>";
+
+                        htmlHeader += "<tr id=\"\">";
+                        htmlHeader += "<td style=\"text-align:left\">Tổng tiền chịu thuế suất:</td>";
+                        htmlHeader += "<td style=\"text-align:center\">8</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Net8 > 0 ? parseFloat(header.Net8).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Vat8 > 0 ? parseFloat(header.Vat8).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Total8 > 0 ? parseFloat(header.Total8).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "</tr>";
+                        htmlHeader += "<tr id=\"\">";
+                        htmlHeader += "<td style=\"text-align:left\">Tổng tiền chịu thuế suất:</td>";
+                        htmlHeader += "<td style=\"text-align:center\">10</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Net10 > 0 ? parseFloat(header.Net10).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Vat10 > 0 ? parseFloat(header.Vat10).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (header.Total10 > 0 ? parseFloat(header.Total10).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "</tr>";
+
+                        htmlHeader += "<tr id=\"\" style=\"font-weight:bold\">";
+                        htmlHeader += "<td style=\"text-align:left\">Cộng tiền thanh toán:</td>";
+                        htmlHeader += "<td style=\"text-align:center\"></td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (totalSumVat > 0 ? parseFloat(totalSumVat).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (totalSumNon > 0 ? parseFloat(totalSumNon).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "<td style=\"text-align:right\">" + (totalSumAmount > 0 ? parseFloat(totalSumAmount).toLocaleString('en') : "-") + "</td>";
+                        htmlHeader += "</tr>";
+                        htmlHeader += "<tr id=\"\">";
+                        htmlHeader += "<td colspan=5 style=\"text-align:left\"><strong>Tổng số tiền viết bằng chữ:&emsp;&emsp;&emsp;&emsp;" + data.ReadMoney + "</strong></td>";
+                        htmlHeader += "</tr>";
+
+                        $("#tblDataInvoiceHeader tbody").html(htmlHeader);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                   // loading.hideloading();
+                }
+            });
+        }
+
+        function Print() {
+            $('#btnPrint').prop('disabled', true);
+            var storeNo = $("#slSiteNo").val();
+            var notVAT = $("#slSiteNo option:selected").attr("data-notvat");//HF
+            var hoaDon = $("#txtHoaDon").val();
+            //var maKH = $("#txtMaKH").val();
+            var ten = $("#txtTen").val();
+            var tenCty = $("#txtTenCTy").val();
+            var soDT = $("#txtDienThoai").val();
+            var email = $("#txtEmail").val();
+            var mst = $("#txtMST").val();
+            var diachi = $("#txtDiaChi").val();
+            if (storeNo == "" || storeNo.length == 0) {
+                $('#btnPrint').prop('disabled', false);
+                toastr.error("Bạn chưa được phân quyền vào cửa hàng");
+                return;
+            }
+            if (hoaDon == "" || hoaDon.length == 0) {
+                $('#btnPrint').prop('disabled', false);
+                $('#txtHoaDon').focus();
+                toastr.error("Chưa nhập hóa đơn");
+                return;
+            }
+
+            /*
+             Fix: 01/11/2022, theo yeu cau cua ke toan 
+                + Khong bat buoc nhap ten KH mua hang
+                + Ten KH khong vuot qua 80 ky tu
+             */
+
+            //if (ten == "" || ten.length == 0) {
+            //    $('#btnPrint').prop('disabled', false);
+            //    toastr.error("Chưa nhập tên khách hàng");
+            //    return;
+            //}
+
+            if (ten.length > 80) {
+                $('#btnPrint').prop('disabled', false);
+                toastr.error("Tên khách hàng không vượt quá 80 ký tự");
+                return;
+            }
+
+            if (tenCty != "" || tenCty.length != 0) {
+                //if (mst == "" || mst.length == 0) {
+                //    $('#txtMST').focus();
+                //    toastr.error("Chưa nhập mã số thuế");
+                //    return;
+                //}
+
+                if (diachi == "" || diachi.length == 0) {
+                    $('#btnPrint').prop('disabled', false);
+                    $('#txtDiaChi').focus();
+                    toastr.error("Chưa nhập địa chỉ");
+                    return;
+                }
+            }
+
+            if (mst != "" || mst.length != 0) {
+                if (tenCty == "" || tenCty.length == 0) {
+                    $('#btnPrint').prop('disabled', false);
+                    $('#txtTenCTy').focus();
+                    toastr.error("Chưa nhập tên công ty");
+                    return;
+                }
+
+                if (diachi == "" || diachi.length == 0) {
+                    $('#btnPrint').prop('disabled', false);
+                    $('#txtDiaChi').focus();
+                    toastr.error("Chưa nhập địa chỉ");
+                    return;
+                }
+            }
+
+            if (email == "" || email.length == 0) {
+                $('#btnPrint').prop('disabled', false);
+                $('#txtEmail').focus();
+                toastr.error("Chưa nhập địa chỉ email");
+                return;
+            }
+
+            if (email != "" || email.length > 0) {
+
+                //https://www.regextester.com/93886
+
+                //var filter = /^[a-z\A-Z0-9-\.]{1,32}@@[a-z\A-Z0-9-\.]{2,}(\.[a-z0-9\A-Z]{2,4}){1,2}$/;
+
+                var filter = /^(([^<>()\[\]\\.,;:\s@@"]+(\.[^<>()\[\]\\.,;:\s@@"]+)*)|(".+"))@@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+
+                if (!filter.test(email)) {
+                    $('#btnPrint').prop('disabled', false);
+                    toastr.error("Định dạng email không đúng");
+                    return;
+                }
+            }
+            if (soDT != "" || soDT.length > 0) {
+
+                var filter = /^\d+$/;
+                if (!filter.test(soDT)) {
+                    $('#btnPrint').prop('disabled', false);
+                    toastr.error("Định dạng số điện thoại không đúng");
+                    return;
+                }
+            }
+
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', storeNo);
+            fromData.append('ListOrder', hoaDon);
+            fromData.append('TenKH', ten);
+            fromData.append('TenCT', tenCty);
+            fromData.append('DiaChi', diachi);
+            fromData.append('MST', mst);
+            fromData.append('Phone', soDT);
+            fromData.append('Email', email);
+            fromData.append('NotVAT', notVAT);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("IssueVATInvoice", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    $('#btnPrint').prop('disabled', false);
+                    var linkSearch = "http://10.233.13.103/vin_search.html";
+                    //var linkSearch = "https://hoadon.winmart.vn/";
+                    if (data.Status == 200) {
+                        //debugger
+                        //$('#tblDataInvoice tbody').empty();
+                        ClearText();
+                        toastr.success(data.Message);
+                        var resultPrint = data.Data.dataPrint;
+                        var listInfoInvoice = data.Data.InvoiceInfoPrint;
+                        if (resultPrint != null && listInfoInvoice.length>0) {
+
+                            $("#divPrint").html('');
+                            var divToPrint = document.getElementById('divPrint');
+                            var html = "";
+                            linkSearch = resultPrint.LinkSearchInvoice;
+                            var encryptSalt = "Mã bí mật: <input type=\"text\" value='" + resultPrint.SaltEncrypt + "' style=\"border:none; width:80px;\" />";
+                            html += "<div style='width:330px;font-family:Tahoma'>";
+                            html += "<div style='text-align:center'>CÔNG TY CỔ PHẨN DỊCH VỤ</div>";
+                            html += "<div style='text-align:center'>THƯƠNG MẠI TỔNG HỢP VINCOMMERCE</div>";
+                            html += "<div style='text-align:center;font-weight:bold;margin-top:20px;'>THÔNG TIN HÓA ĐƠN GTGT</div>";
+                            html += "<div style='text-align:center;margin-top:14px;'>Quý khách vui lòng tra cứu thông tin tại hệ thống hóa đơn điện tử " + linkSearch + "</div>";
+
+                            html += "<div style='margin-top:5px;'>";
+                            html += "<table style='font-size:15px;width:100%'>";
+                            html += "<tr style='text-align:left;height:20px;'><td colspan=2></td></tr>";
+                            html += "<tr style='text-align:left;margin-top:20px;'><td colspan=2>Tên chi nhánh: " + resultPrint.SiteName + "</td></tr>";
+                                                       
+                            if (listInfoInvoice.length > 1) {
+
+                                listInfoInvoice.forEach((name, i) => {
+                                    {
+                                        html += "<tr><td>Mẫu số: " + name.InvoicePattern + "</td><td style='text-align:right'>Ký hiệu: " + name.SerialNo + "</td></tr>";
+                                        html += "<tr><td>Số HĐ GTGT: " + name.InvoiceNo + "</td><td style='text-align:right'>Mã bí mật: <input type=\"text\" value='" + name.SaltEncrypt + "' style=\"border:none; width:80px;text-align:right\" /></td></tr>";
+                                        html += "<tr><td colspan=4>---------------------------</td></tr>";
+                                    }
+                                });
+                            }
+                            else {
+
+                                html += "<tr><td>Mẫu số: " + resultPrint.InvoicePattern + "</td><td style='text-align:right'>Ký hiệu: " + resultPrint.SerialNo + "</td></tr>";
+                                html += "<tr><td>Số HĐ GTGT: " + resultPrint.InvoiceNo + "</td><td style='text-align:right'>Mã bí mật: <input type=\"text\" value='" + resultPrint.SaltEncrypt + "' style=\"border:none; width:80px;text-align:right\" /></td></tr>";
+                            }
+                            html += "<tr style='text-align:left;height:20px;'><td colspan=2></td></tr>";
+                            html += "<tr><td colspan=2 style='text-align: justify;'>Người mua hàng: " + resultPrint.FullName + "</td></tr>";
+                            html += "<tr><td colspan=2 style='text-align: justify;'>Đơn vị: " + resultPrint.Company + "</td></tr>";
+                            html += "<tr><td colspan=2 style='text-align: justify;'>Địa chỉ: " + resultPrint.Address + "</td></tr>";
+                            html += "<tr><td colspan=2>Mã số thuế: " + resultPrint.MST + "</td></tr>";
+
+                            html += "<tr style='text-align:left;height:20px;'><td colspan=2></td></tr>";
+
+                            html += "<tr><td>Quầy thu ngân: " + resultPrint.TeminalID + "</td><td style='text-align:right'>Nhân viên: " + resultPrint.StaffCode + "</td></tr>";
+                            html += "<tr><td colspan=2>Số HĐ bán lẻ: " + resultPrint.OrderNo + "</td></tr>";
+                            html += "<tr><td colspan=2>Ngày hóa đơn: " + resultPrint.OrderDate + "</td></tr>";
+                            html += "<tr style='text-align:left;height:20px;'><td colspan=2></td></tr>";
+                            html += "</table>";
+                            html += "</div>";
+                            html += "";
+                            html += "";
+                            html += "</div>";
+                            $("#divPrint").html(html);
+                            var newWin = window.open('blank', 'Print-Window');
+                            //newWin.document.open();
+                            newWin.document.write('<html><body class="A5">' + divToPrint.innerHTML + '</body></html>');
+                            $("#divPrint").html('');
+                            newWin.print();
+                            newWin.close();
+                        }
+                        
+                    }                    
+                    else {
+                        toastr.error(data.Message);
+                    }
+
+                    $("#divPrint").html('');
+                    $('#btnPrint').prop('disabled', false);
+                    loading.hideloading();
+
+                },
+                error: function () {
+                    $('#btnPrint').prop('disabled', false);
+                }
+            });
+        }
+    </script>
+}
+

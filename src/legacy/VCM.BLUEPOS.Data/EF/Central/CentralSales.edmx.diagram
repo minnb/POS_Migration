@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="a8d4294788df4a1aa89923e1274cf93d" Name="Diagram1" ZoomLevel="103" >
+        <EntityTypeShape EntityType="CentralSales.TransBluePoint" Width="1.5" PointX="0.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.TransDiscountCouponEntry" Width="1.5" PointX="6.875" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.TransInfocodeEntry" Width="1.5" PointX="8.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.TransLine" Width="1.5" PointX="0.75" PointY="8.75" />
+        <EntityTypeShape EntityType="CentralSales.TransPartnerLine" Width="1.5" PointX="8.75" PointY="5.75" />
+        <EntityTypeShape EntityType="CentralSales.TransPaymentEntry" Width="1.5" PointX="8.75" PointY="9.75" />
+        <EntityTypeShape EntityType="CentralSales.TransVoidHeader" Width="1.5" PointX="10.75" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.ShiftHeader" Width="1.5" PointX="13.375" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.BussinessDate" Width="1.5" PointX="13.375" PointY="6.75" />
+        <EntityTypeShape EntityType="CentralSales.BussinessDateConfirm" Width="1.5" PointX="13.375" PointY="11.75" />
+        <EntityTypeShape EntityType="CentralSales.BussinessDateOpen" Width="1.5" PointX="15.375" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.ShiftOrder" Width="1.5" PointX="15.375" PointY="4.75" />
+        <EntityTypeShape EntityType="CentralSales.POSEOD" Width="1.5" PointX="15.375" PointY="8.75" />
+        <EntityTypeShape EntityType="CentralSales.FinishSale" Width="1.5" PointX="15.375" PointY="12.75" />
+        <EntityTypeShape EntityType="CentralSales.ShiftLine" Width="1.5" PointX="17.375" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.ShiftHeaderDescription" Width="1.5" PointX="17.375" PointY="4.75" />
+        <EntityTypeShape EntityType="CentralSales.TransHeader" Width="1.5" PointX="5.375" PointY="12.75" />
+        <EntityTypeShape EntityType="CentralSales.TransCpnVchIssue" Width="1.5" PointX="3.375" PointY="0.75" />
+        <EntityTypeShape EntityType="CentralSales.TransDiscountEntry" Width="1.5" PointX="5.375" PointY="5.75" />
+        <EntityTypeShape EntityType="CentralSales.TransVoidLine" Width="1.5" PointX="17.375" PointY="8.75" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

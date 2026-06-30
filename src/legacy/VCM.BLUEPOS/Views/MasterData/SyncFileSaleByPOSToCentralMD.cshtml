@@ -1,0 +1,866 @@
+﻿@using VCM.BLUEPOS.Model.Bank;
+@using VCM.BLUEPOS.Model.POS;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+
+@{
+    ViewBag.Title = "Đồng bộ File Sales By POS To CentralMD";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+    var listSetDB = ViewBag.SetDB as List<SQLServerModel>;
+}
+
+@*<style>
+        div.dataTables_wrapper div.dataTables_paginate ul.pagination {
+            /* margin: 2px 0; */
+            white-space: nowrap;
+            -webkit-box-pack: end;
+            -ms-flex-pack: end;
+            justify-content: flex-end;
+            margin-top: -35px;
+        }
+    </style>*@
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Master Data</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ File Sales By POS To CentralMD</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        @*<div class="d-flex align-items-center">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <button type="button" id="btn-import-excel" class="btn btn-bg-warning font-weight-bold"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Import danh sách</span></button>
+                    <button type="button" id="btn-add-new-bank-pos" class="btn btn-bg-success font-weight-bold"><i class="la la-plus-circle" style="color:#fff;"></i><span style="color:#fff;">Thêm mới</span></button>
+                </div>
+            </div>*@
+    </div>
+</div>
+
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("", "MasterData", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-from-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-date" name="TxtDate" placeholder="">
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Vùng Set<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-set-server" name="SetServer">
+                                            @if (listSetDB != null && listSetDB.Count > 0)
+                                            {
+                                                if (listSetDB.Count == 1)
+                                                {
+                                                    <option value="@listSetDB.FirstOrDefault().IPServer" data-serverread="@listSetDB.FirstOrDefault().IPServerRead">@listSetDB.FirstOrDefault().Description</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listSetDB)
+                                                    {
+                                                        <option value="@item.IPServer" data-serverread="@item.IPServerRead">@item.Description</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-store-no" name="StoreNo">
+                                            @if (listStore != null && listStore.Count() > 0)
+                                            {
+                                                if (listStore.Count == 1)
+                                                {
+                                                    <option value="@listStore.FirstOrDefault().SiteNo" data-array="@listStore.FirstOrDefault().ValueJson">@listStore.FirstOrDefault().SiteNo - @listStore.FirstOrDefault().SiteName</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listStore)
+                                                    {
+                                                        var storeName = string.IsNullOrEmpty(item.SiteName) ? item.SiteNo : item.SiteName;
+                                                        <option value="@item.SiteNo" data-array="@item.ValueJson">@item.SiteNo - @storeName</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Máy POS<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-pos-terminal" name="POSTerminal" disabled></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Từ khóa</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="txt-search" name="TextSearch" placeholder="Nhập số đơn hàng, tên file ...">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" class="btn btn-primary btn-search" name="btnSearch"><i class="fa fa-search"></i>Tìm</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table class="table table-bordered table-hover text-nowrap tbl-document-log-list">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th width="90px">#</th>
+                                    <th width="90px">STT</th>
+                                    <th>ID</th>
+                                    <th>StoreNo</th>
+                                    <th>PosTerminal</th>
+                                    <th>OrderNo</th>
+                                    <th>DocumentType</th>
+                                    <th>FileName</th>
+                                    <th>IsCreatedFile</th>
+                                    <th>IsFinish</th>
+                                    <th>BussinessDate</th>
+                                    <th>FinishDate</th>
+                                    <th>CreatedDate</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+<script type="text/javascript">
+        var table = "";
+
+        @*function CreateBankPOSList() {
+            //debugger
+            var _storeNo = $('#modal-create-store-no').val();
+            var _bankCode = $('#modal-create-bank-code').val();
+            var _bankPosCode = $('#modal-create-bank-pos-code').val();
+            var _bankPosName = $('#modal-create-bank-pos-name').val();
+            var _posTerminal = $('#modal-create-pos-terminal').val();
+            var _posNo = $('#modal-create-bank-pos-no').val();
+            var _isOnline = $('#modal-create-is-online').val();
+            var _status = $('#modal-create-status').val();
+            var _accessKey = $('#modal-create-access-key').val();
+            var _partnerID = $('#modal-create-partner-id').val();
+
+            if (_isOnline == "1") {
+                _isOnline = true;
+            }
+            else {
+                _isOnline = false;
+            }
+
+            if (_storeNo == null || _storeNo == "") {
+                toastr.warning("Chọn ST/CH...");
+                return;
+            }
+
+            if (_bankCode == null || _bankCode == "") {
+                toastr.warning("Chọn ngân hàng...");
+                return;
+            }
+
+            if (_posTerminal == null || _posTerminal == "") {
+                toastr.warning("Chọn máy POS bán hàng...");
+                return;
+            }
+
+            if (_posNo == null || _posNo == "") {
+                toastr.warning("Nhập số thứ tự máy POS ngân hàng...");
+                return;
+            }
+
+            if (_accessKey == null || _accessKey == "") {
+                toastr.warning("Nhập thông tin AccessKey...");
+                return;
+            }
+
+            if (_partnerID == null || _partnerID == "") {
+                toastr.warning("Nhập thông tin PartnerID...");
+                return;
+            }
+
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CreateBankPOSList", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    StoreNo: _storeNo,
+                    BankCode: _bankCode,
+                    IsOnline: _isOnline,
+                    BankPOSCode: _bankPosCode,
+                    BankPOSName: _bankPosName,
+                    POSTerminal: _posTerminal,
+                    POSNo: _posNo,
+                    AccessKey: _accessKey,
+                    PartnerID: _partnerID,
+                    Status: _status
+                },
+                success: function (data) {
+                    if (data.Status == 1)
+                    {
+                        toastr.success(data.Message);
+                        $('#modal-create-bank-pos').modal("hide");
+                    }
+                    else if (data.Status == 2)
+                    {
+                        toastr.error(data.Message);
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                        $('#btn-save-create-bank-pos').attr('disabled', true);
+                    }
+
+                    loading.hideloading();
+                    $('#btn-search').trigger('click');
+                    $('#txt-store-no').val('');
+                    $('#txt-bank-code').val('');
+                    $('#txt-status').val('');
+
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+        function UpdateBankPOSList() {
+            //debugger
+            var _bankPosCode = $('#modal-update-bank-pos-code').val();
+            var _storeNo =  $('#modal-update-store-no').val();
+            var _posNo = $('#modal-update-pos-no').val();
+            var _bankCode = $('#modal-update-bank-code').val();
+            var _bankPosName = $('#modal-update-bank-pos-name').val();
+            var _posTerminal = $('#modal-update-pos-terminal').val();
+            var _isOnline = $('#modal-update-is-online').val();
+            var _status = $('#modal-update-status').val();
+            var _accessKey = $('#modal-update-access-key').val();
+            var _partnerID = $('#modal-update-partner-id').val();
+
+            if (_isOnline == "1") {
+                _isOnline = true;
+            }
+            else {
+                _isOnline = false;
+            }
+            loading.showloading();
+
+            $.ajax({
+                url: '@Url.Action("UpdateBankPOSList", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    StoreNo: _storeNo,
+                    BankCode: _bankCode,
+                    IsOnline: _isOnline,
+                    BankPOSCode: _bankPosCode,
+                    BankPOSName: _bankPosName,
+                    POSTerminal: _posTerminal,
+                    POSNo: _posNo,
+                    AccessKey: _accessKey,
+                    PartnerID: _partnerID,
+                    Status: _status
+                },
+                success: function (data) {
+
+                    if (data.Status == 1)   // Thành công
+                    {
+                        toastr.success(data.Message);
+                        $('#modal-update-bank-pos').modal("hide");
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+
+                    loading.hideloading();
+                    $('#btn-search').trigger('click');
+                    $('#txt-store-no').val('');
+                    $('#txt-bank-code').val('');
+                    $('#txt-status').val('');
+
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }*@
+
+        @*function LoadComboxStoreNo() {
+            $('#modal-create-store-no').empty();
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetComboxStoreList", "Common")',
+                dataType: "json",
+                success: function (data) {
+
+                    if (data != null) {
+                        if (data.length > 0) {
+                            var html = "<option value=\"\" selected>----- Chọn -----</option>";
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.Value + "'>" + name.Value + "-" + name.Text + "</option>"
+                            });
+                            $('#modal-create-store-no').html(html);
+                        } else {
+                            var html = "<option value=\"\" selected>----- Chọn -----</option>";
+                            $('#modal-create-store-no').html(html);
+                        }
+                    }
+                },
+                error: function ()
+                {
+                }
+            });
+        }
+
+        function LoadComboxBank() {
+            $('#modal-create-bank-code').empty();
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetComboxBankList", "Common")',
+                dataType: "json",
+                success: function (data) {
+
+                    if (data != null) {
+                        if (data.length > 0) {
+                            var html = "<option value=\"\" selected>----- Chọn -----</option>";
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.Value + "'>" + name.Text + "</option>"
+                            });
+                            $('#modal-create-bank-code').html(html);
+                        } else {
+                            var html = "<option value=\"\" selected>----- Chọn -----</option>";
+                            $('#modal-create-bank-code').html(html);
+                        }
+                    }
+                },
+                error: function ()
+                {
+                }
+            });
+        }
+
+        function ClearText() {
+            $('#modal-create-store-no').val('').trigger('change');
+            $('#modal-create-bank-code').val('').trigger('change');
+            $('#modal-create-pos-terminal').val('').trigger('change');
+            $('#modal-create-bank-pos-code').val('');
+            $('#modal-create-bank-pos-name').val('');
+            $('#modal-create-bank-pos-no').val('');
+            $('#modal-create-access-key').val('');
+            $('#chk-open-partner-id').prop('checked', false);
+            var partnerID = "bf1742f3-d321-4e75-bbd6-da5b3c54b8ae";
+            $('#modal-create-partner-id').val(partnerID);
+            $('#modal-create-partner-id').prop('disabled', true);
+        }*@
+
+
+$(document).ready(function () {
+
+        $('.select2').select2();
+        LoadComboxStoreNo();
+
+        $('#txt-search').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#chk-open-partner-id').change(function () {
+            if (this.checked) {
+                $('#modal-create-partner-id').prop('disabled', false);
+                $('#modal-create-partner-id').val('');
+            }
+            else {
+                var partnerID = "bf1742f3-d321-4e75-bbd6-da5b3c54b8ae";
+                $('#modal-create-partner-id').prop('disabled', true);
+                $('#modal-create-partner-id').val(partnerID);
+            }
+        });
+
+        $("#btn-import-excel").on("click", function () {
+            $('#file-excel').val('');
+            $('#modal-import-excel-pos-bank').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        });
+
+        $("#btn-save-import-pos-bank").on("click", function (e) {
+            ImportBankPOSList();
+        });
+
+        $('#modal-create-bank-code').change(function () {
+                var _bankCode = $('#modal-create-bank-code').val();
+                if (_bankCode == null || _bankCode == "") {
+                    _bankCode = $('#modal-create-bank-code').val();
+                }
+                else
+                {
+                    $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetBankPOSName", "MasterData")',
+                    data: { BankCode: _bankCode},
+                    dataType: "json",
+                    success: function (data) {
+                         if (data.Status != "2" && data != null)
+                         {
+                             $('#modal-create-bank-pos-name').val(data);
+                         }
+                         else
+                         {
+                             $('#modal-create-bank-pos-name').val('');
+                             toastr.warning(data.Message);
+                         }
+                    },
+                    error: function () {
+                         toastr.error('Lỗi hệ thống');
+                    }
+
+                    });
+                }
+        });
+
+        $('#modal-create-bank-pos-no').change(function () {
+                //debugger
+                var _bankCode = $("#modal-create-bank-code").val();
+                var _storeNo = $("#modal-create-store-no").val();
+                var _posNo = $("#modal-create-bank-pos-no").val();
+                 $.ajax({
+                    type: "POST",
+                     url: '@Url.Action("GetBankPOSCode", "MasterData")',
+                     data: { StoreNo: _storeNo, BankCode: _bankCode, POSNo: _posNo },
+                     dataType: "json",
+                     success: function (data) {
+                         if (data.Status != "2" && data != null) {
+                             $('#modal-create-bank-pos-code').val(data);
+                         }
+                         else
+                         {
+                             $('#modal-create-bank-pos-code').val('');
+                             toastr.error(data.Message);
+                         }
+                     },
+                     error: function () {
+                         toastr.error('Lỗi hệ thống');
+                     }
+                 });
+            });
+
+        $('#modal-create-store-no').on('change', function () {
+                loading.showloading();
+                var _storeNo = $('#modal-create-store-no').val();
+                 $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetComboxPOSTerminalByStore", "Common")',
+                    data: { StoreNo: _storeNo},
+                    dataType: "json",
+                     success: function (data) {
+                         var html = "<option value=\"\" disabled selected>----- Chọn -----</option>";
+                         if (data.length > 0)
+                         {
+                             data.forEach((name, i) => {
+                                 html += "<option value='" + name.Value + "'>" + name.Value + "</option>"
+                             });
+                         }
+                         $('#modal-create-pos-terminal').html(html);
+                         loading.hideloading();
+                     },
+                     error: function ()
+                     {
+                         toastr.error('Lỗi hệ thống');
+                     }
+                 });
+            });
+
+        $('#btn-add-new-bank-pos').on('click', function () {
+            ClearText();
+            $('#modal-create-bank-pos').modal({
+                backdrop: "static"
+            });
+        })
+
+        $('#btn-save-create-bank-pos').on("click", function ()
+        {
+             CreateBankPOSList();
+        })
+
+        $('#btn-save-update-bank-pos').on("click", function ()
+        {
+            UpdateBankPOSList();
+        })
+
+        table = $('#tbl-document-log-list').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                drawCallback: function (settings) {
+                    //
+                    @*$(".btn-editor-bank-pos").click(function () {
+                        var _bankPosCode = $(this).parents('tr').find('td:nth-child(3)').find('span:nth-child(1)').html();
+                        $('#modal-update-bank-pos-code').val(_bankPosCode);
+                        var _storeNo = $(this).parents('tr').find('td:nth-child(5)').find('span:nth-child(1)').html();
+                        $('#modal-update-store-no').val(_storeNo).trigger('change');
+                        var _posTerminal = $(this).parents('tr').find('td:nth-child(4)').find('span:nth-child(1)').html();
+                        $.ajax({
+                            type: "POST",
+                            url: '@Url.Action("GetComboxPOSTerminalByStore", "Common")',
+                            data: { StoreNo: _storeNo},
+                            dataType: "json",
+                            success: function (data) {
+                                 var html = "<option value=\"\" disabled selected>----- Chọn -----</option>";
+                                 if (data.length > 0)
+                                 {
+                                     data.forEach((name, i) => {
+                                         html += "<option value='" + name.Value + "'>" + name.Value + "</option>"
+                                     });
+                                 }
+                                 $('#modal-update-pos-terminal').html(html);
+                                 $('#modal-update-pos-terminal').val(_posTerminal).trigger('click');
+                             },
+                             error: function ()
+                             {
+                                 toastr.error('Lỗi hệ thống');
+                             }
+                        });
+
+                        var _posNo = $(this).parents('tr').find('td:nth-child(7)').find('span:nth-child(1)').html();
+                        $('#modal-update-pos-no').val(_posNo).trigger('change');
+
+                        var _bankCode = $(this).parents('tr').find('td:nth-child(8)').find('span:nth-child(1)').html();
+                        $('#modal-update-bank-code').val(_bankCode).trigger('change');
+
+                        var _bankPosName = $(this).parents('tr').find('td:nth-child(9)').find('span:nth-child(1)').html();
+                        $('#modal-update-bank-pos-name').val(_bankPosName);
+
+                        var isOnline = $(this).parents('tr').find('td:nth-child(10)').find('span:nth-child(1)').html();
+                        var _isOnline = "";
+                        if (isOnline == "Có") {
+                            _isOnline = "1"; // true = 1
+                        }
+                        else if (isOnline == "Không") {
+                            _isOnline = "0"; // false = 0
+                        }
+                        $('#modal-update-is-online').val(_isOnline).trigger('change');
+
+                        var status = $(this).parents('tr').find('td:nth-child(11)').find('span:nth-child(1)').html();
+                        var _status = "";
+                        if (status == "Đang được sử dụng") {
+                            _status = "true"; // true = 1
+                        }
+                        else if (status == "Không sử dụng") {
+                            _status = "false"; // false = 0
+                        }
+
+                        $('#modal-update-status').val(_status).trigger('change');
+
+                        var _accessKey = $(this).parents('tr').find('td:nth-child(12)').find('span:nth-child(1)').html();
+                        $('#modal-update-access-key').val(_accessKey);
+
+                        var _partnerId = $(this).parents('tr').find('td:nth-child(13)').find('span:nth-child(1)').html();
+                        $('#modal-update-partner-id').val(_partnerId);
+
+                        $('#modal-update-bank-pos').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+
+                    });*@
+
+                    @*$('.btn-delete-bank-pos').click(function () {
+                        //debugger
+                        var _bankPOSCode = $(this).attr("data-bank-pos-code");
+                        $.confirm({
+                            backgroundDismiss: true,
+                            escapeKey: true,
+                            icon: 'fa fa-warning',
+                            type: 'red',
+                            typeAnimated: true,
+                            title: 'Thông báo',
+                            content: 'Bạn có chắc chắn muốn xóa thông tin này không?',
+                            buttons: {
+                                "CÓ": {
+                                    btnClass: 'btn btn-default',
+                                    keys: ['ctrl'],
+                                    action: function () {
+                                        loading.showloading();
+                                        $.ajax({
+                                            url: '@Url.Action("DeleteBankPOSList", "MasterData")',
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: { BankPOSCode: _bankPOSCode},
+                                            success: function (data) {
+                                                if (data.Status == 1)
+                                                {
+                                                    toastr.success(data.Message);  // case: delete success
+                                                }
+                                                else if (data.Status == 2)
+                                                {
+                                                    toastr.warning(data.Message);
+                                                }
+                                                else
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                $('#btn-search').trigger('click');
+                                                loading.hideloading();
+                                            },
+                                            error: function () {
+                                                toastr.error("Lỗi hệ thống");
+                                                loading.hideloading();
+                                            }
+                                        });
+                                    }
+                                },
+                                "KHÔNG": {
+                                    btnClass: 'btn-default',
+                                    action: function () { }
+                                }
+                            }
+                        });
+                    });*@
+
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: false,                // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("GetDocumentLogList", "MasterData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.BussinessDate = $('#txt-date').val();
+                        d.BussinessDate = $('#txt-date').val();
+                        d.SetServer = $('#set-server').val();
+                        d.ServerRead = $("#set-server").select2().find(":selected").data("serverread");
+                        d.StoreNo = $('#txt-store-no').val();
+                        d.PosTerminal = $('#sel-pos-terminal').val();
+                        d.TextSearch = $('#txt-search').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        render: function (data, type, row) {
+                            var id = row.ID;
+                            var orderNo = row.OrderNo;
+                            var html = '<a type="button" class="btn btn-icon btn-light-warning btn-editor-bank-pos"  data-bank-pos-code ="' + _bankPOS + '"  data-toggle="tooltip" data-placement="left" title="Cập nhật"  style="color:#ffffff;text-align:center;"><i class="la la-edit"></i><span class="pulse-ring"></span></a>';
+                                html += '<a type="button" class="btn btn-icon btn-light-danger btn-delete-bank-pos"  data-bank-pos-code ="' + _bankPOS + '"  data-toggle="tooltip" data-placement="left" title="Xóa"  style="margin-left: 3px; color:#ffffff;text-align:center;"><i class="la la-close"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",  // STT
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.ID + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.StoreNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "POSTerminal",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.POSTerminal + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "OrderNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.OrderNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "DocumentType",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.DocumentType + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "FileName",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.FileName + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "IsCreatedFile",
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.IsCreatedFile + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "IsFinish",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.IsFinish + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "BussinessDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.BussinessDateStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "FinishDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.FinishDateStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "CreatedDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.CreatedDateStr + '</span>';
+                        }
+                    }
+
+                ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('#tbl-bank-pos-list tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            })
+
+            $("#btn-export-excel").on("click", function (e) {
+                $('#frm-export-excel').submit();
+            })
+
+    });
+
+</script>
+}
+
+
+
+
+
+

@@ -1,0 +1,51 @@
+﻿@using VCM.BLUEPOS.Model.SetupItem;
+@{
+    var listItem = Model as List<SetupItemModel>;
+
+}
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="form-group">
+            <label class="font-weight-bold">Nhập danh sách sản phẩm</label>
+            <textarea class="form-control" rows="8" placeholder="Nhập list item cách nhau dấu ; hoặc dấu , hoặc khoảng trắng (10078166;10000012 10000014,10000246....)" id="viewListItemNoCoupon"></textarea>
+
+        </div>
+    </div>
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="form-group">
+            <label style="font-weight:bold">Sản phẩm coupon<strong style="color:#ff0000">(*)</strong></label>
+            <div class="input-group" style="width:100%">
+                <select class="form-control" id="slItemCoupon" multiple="multiple">
+                    @if (listItem != null && listItem.Count > 0)
+                    {
+                        foreach (var item in listItem)
+                        {
+                            var display = $"{item.ItemNo}:{item.ItemName}";
+                            <option value="@item.ItemNo" data-itemno="@item.ItemNo" data-uom="@item.UOM">@display</option>
+                        }
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    $(".select2").select2();
+
+    $(document).ready(function () {
+        $('#slItemCoupon').fSelect({
+            placeholder: 'Chọn sản phẩm coupon',
+            numDisplayed: 1,
+            overflowText: '{n} sản phẩm coupon được chọn',
+            searchText: 'Tìm kiếm....',
+            noResultsText: 'Không tìm thấy...',
+            showSearch: true,
+            optionFormatter: false,
+            isSelectAll: true
+        });
+
+    });
+
+</script>

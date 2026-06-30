@@ -1,0 +1,179 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var comboLineType = ComboboxModel.ComboLineType();
+    var comboScaleType = ComboboxModel.ComboScaleType();
+    var comboDiscountType = ComboboxModel.ComboDiscountType();
+    var modelBuy = Model.GetOfferBuy as OfferBuyModel;
+
+    var model = Model as AppendOfferBuyModel;
+    var offerNo = model.OfferNo;
+    var conditonBuy = model.ConditonBuy;
+    var offerType = model.OfferType;
+    var isTotalBill = model.IsTottalBill;
+    var isSetupGet = model.IsSetupGet;
+
+    var lineNo = modelBuy.LineNo;
+    var lineType = modelBuy.LineType;
+    var lineGroup = modelBuy.LineGroup;
+    var groupCode = modelBuy.BonusBuyNo;
+    var tagTr = $"tr_{offerNo}_{lineNo}";
+
+    var clssItem = $"itemBuy_{offerNo}_{lineNo}";
+    var clssHiddenItem = $"itemHiddenBuy_{offerNo}_{lineNo}";
+    var clssDesc = $"descBuy_{offerNo}_{lineNo}";
+    var clssUOM = $"uomBuy_{offerNo}_{lineNo}";
+    var clssLineType = $"selectLineType_{offerNo}_{lineNo}";
+    var clssDiscountType = $"selectDiscountType_{offerNo}_{lineNo}";
+    var clssDiscountValue = $"txtDiscountValue_{offerNo}_{lineNo}";
+    var clssScaleType = $"selectScaleType_{offerNo}_{lineNo}";
+    var clssQuantity = $"txtQuantity_{offerNo}_{lineNo}";
+    var spanHtml = $"spanAction_{offerNo}_{lineNo}";
+
+    var placeHolder = lineType == 1 ? "groupCode" : "itemNo";
+    var classHiddenLineType = $"hiddenLineType_{offerNo}_{lineNo}";
+}
+<tr class="text-center _row" id="@tagTr" data-lineno="@lineNo">
+    <td style="width:100px;vertical-align:middle">
+        <input type="hidden" class="form-control @classHiddenLineType" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" value="@lineType" />
+        <select class="form-control eventGrid select2 @clssLineType"
+                data-offerno="@offerNo"
+                data-lineno="@lineNo"
+                data-linetype="@lineType"
+                data-groupcode="@groupCode">
+            @foreach (var loai in comboLineType)
+            {
+                var selected = loai.value == "" + lineType ? "selected" : "";
+                <option value="@loai.value" @selected>@loai.Display</option>
+            }
+        </select>
+    </td>
+    <td style="min-width:150px;vertical-align:middle">
+        <input type="hidden" class="form-control @clssHiddenItem" data-offerno="@offerNo" data-lineno="@lineNo" value="" />
+        <div class="input-group">
+            <input type="text" class="form-control @clssItem eventItemKeyPress" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType"
+                   data-groupcode="@groupCode" placeholder="@placeHolder" name="No" value="" />
+            <div class="input-group-append eventPopup" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode"><span class="input-group-text"><i class="flaticon2-search-1 icon-md"></i></span></div>
+        </div>
+    </td>
+    <td style="vertical-align:middle;text-align:left">
+        <span class="@clssDesc"></span>
+    </td>
+    <td style="vertical-align:middle;text-align:center"><span class="@clssUOM"></span></td>
+    <td style="vertical-align:middle">
+        <input type="text" style="width:90px" class="form-control eventGrid @clssQuantity money" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" value="1" />
+    </td>
+
+    <td style="width:100px;vertical-align:middle">
+        <select class="form-control select2 eventGrid @clssScaleType"
+                data-offerno="@offerNo"
+                data-lineno="@lineNo"
+                data-linetype="@lineType" data-groupcode="@groupCode">
+            @foreach (var loai in comboScaleType)
+            {
+                var selected = loai.value == "C" ? "selected" : "";
+                <option value="@loai.value" @selected>@loai.Display</option>
+            }
+        </select>
+    </td>
+
+    <td style="vertical-align:middle;text-align:center">
+        <span class="@spanHtml">
+            <a onclick="DeleteOfferBuy('@offerNo',@lineNo,'',@lineType,'@groupCode')" title="Xóa" class="btn btn-icon btn-light-danger eventDelOfferBuy"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+        </span>
+    </td>
+</tr>
+
+<script type="text/javascript">
+
+    var conditionBuy = '@conditonBuy';
+    var offerType = '@offerType';
+    var isTotalBill = '@isTotalBill';
+    var isSetupGet = '@isSetupGet';
+    var lineType = '@lineType';
+   // var groupCode = '@groupCode';
+
+    $(document).ready(function () {
+        $(".select2").select2();
+        $('.money').mask('000,000,000', {
+            placeholder: "0",
+            reverse: true,
+            rightAlign: true
+        });
+
+        $('.eventItemKeyPress').keydown(function (e) {
+            var code = e.keyCode || e.which;
+            debugger
+            if (code === 9 || code == 13) {//Tab or Enter
+                //e.preventDefault();
+                var offerNo = $(this).attr("data-offerno");
+                var lineNo = $(this).attr("data-lineno");
+                var groupCode = $(this).attr("data-groupcode");
+                var itemNo = $(this).val();
+                GetItem(offerNo, lineNo, itemNo, offerType, conditionBuy, groupCode, isTotalBill, isSetupGet);
+            }
+        });
+
+        $(".eventGrid").on("change", function () {
+            var offerNo = $(this).attr("data-offerno");
+            var lineNo = $(this).attr("data-lineno");
+            var groupCode = $(this).attr("data-groupcode");
+            ParamOfferBuy(offerNo, lineNo, offerType, conditionBuy, groupCode, isTotalBill, isSetupGet);
+
+        });
+
+        $(".eventPopup").on("click", function () {
+            loading.showloading();
+            var offerNo = $(this).attr("data-offerno");
+            var lineNo = $(this).attr("data-lineno");
+            if (lineType == 1) {
+
+                $.ajax({
+                    type: "GET",
+                    //url: "/SetupPromotion/_ViewSetupGroupItemBuy?offerNo=" + offerNo + "",
+                    url: "/SetupPromotion/_ViewSetupGroupItemBuy?offerNo=" + offerNo + "&offerType=" + offerType + "&conditionBuy=" + conditionBuy + "&lineNo=" + lineNo + "&tabOffer=OfferBuy&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupListItem").html(result);
+
+                        $('#modalListItemSetup').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    },
+                    error: function (event) {
+
+                    }
+                });
+
+                loading.hideloading();
+            }
+            else {
+                $.ajax({
+                    type: "GET",
+                    // url: "/SetupPromotion/_ViewListItemSetup?offerNo=" + offerNo + "&lineNo=" + lineNo + "&tabOffer=OfferBuy&isTotalBill=false&isSetupGet=false",
+                    url: "/SetupPromotion/_ViewListItemSetup?offerNo=" + offerNo + "&offerType=" + offerType + "&conditionBuy=" + conditionBuy + "&lineNo=" + lineNo + "&tabOffer=OfferBuy&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupListItem").html(result);
+
+                        $('#modalListItemSetup').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            }
+        });
+
+    });
+</script>
+
+

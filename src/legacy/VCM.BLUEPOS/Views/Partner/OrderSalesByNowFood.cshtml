@@ -1,0 +1,652 @@
+﻿@using VCM.BLUEPOS.Model.Partner;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.Authen;
+
+@{
+    ViewBag.Title = "Danh sách đơn hàng";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listSetDB = ViewBag.SetDB as List<SQLServerModel>;
+    var listRole = ViewBag.PermissionRole as UserRoleModel;
+}
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đối tác</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh sách đơn hàng</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_GetOrderSalesListByNowFood", "Partner", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-partner-code" name="PartnerCode" disabled>
+                                            <option value="NOF" selected>NowFood</option>
+                                            <option value="BEF">BeFood</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important;">Từ ngày</label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-from-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-from-date" name="TxtFromDate" placeholder="Từ ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Đến ngày</label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-to-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-to-date" name="TxtToDate" placeholder="Đến ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Vùng Set<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="set-server" name="SetServer">
+                                            @if (listSetDB != null && listSetDB.Count > 0)
+                                            {
+                                                if (listSetDB.Count == 1)
+                                                {
+                                                    <option value="@listSetDB.FirstOrDefault().IPServer" data-serverread="@listSetDB.FirstOrDefault().IPServerRead">@listSetDB.FirstOrDefault().Description</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listSetDB)
+                                                    {
+                                                        <option value="@item.IPServer" data-serverread="@item.IPServerRead">@item.Description</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo"></select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important;">Chọn bảng</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-shopee-order" name="ShopeeOrder">
+                                            <option value="0" selected>Shopee_order</option>
+                                            <option value="1">Shopee_order (backup)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Trạng thái ĐH NowFood</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-transaction-type" name="TransactionType">
+                                            <option value="" selected>Tất cả</option>
+                                            <option value="1">1 - Picked / Delivered</option> <!-- Không được thanh toán nữa : 1 hoac 2 -->
+                                            <option value="3">3 - Confirmed</option>
+                                            <option value="5">5 - Assigned</option>
+                                            <option value="8">8 - Cancelled</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Trạng thái ĐH POS</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-status-payment" name="StatusPayment">
+                                            <option value="" selected>Tất cả</option>
+                                            <option value="Y">Yes(Y)</option>
+                                            <option value="N">No(N)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Từ khóa</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="text-search-order" name="TextSearchOrder" placeholder="Số đơn hàng NowFood...">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" name="btnSearch" class="btn btn-primary"><i class="fa fa-search"></i> Tìm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+                            </div>
+                            <input type="hidden" id="hdFromDate" name="FromDate" />
+                            <input type="hidden" id="hdToDate" name="ToDate" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-order-sales-list-by-now-food" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr style="text-transform:uppercase;text-align:center;">
+                                    <th>#</th>
+                                    <th>STT</th>
+                                    <th>Ngày tạo đơn hàng</th>
+                                    <th>Thời gian pick hàng</th>
+                                    <th>Số ĐH NowFood</th>
+                                    <th>Cửa hàng (NowFood)</th> <!-- restaurant_id -->
+                                    <th>Cửa hàng (PLH)</th>     <!-- partner_restaurant_id -->
+                                    <th>Trạng thái ĐH NowFood</th>
+                                    <th>Trạng thái ĐH POS</th>
+                                    <th>Ghi chú</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div id="modal-update-status" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-update-title-update-status">Cập nhật Notify ĐH NowFood</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-status-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important;">Số ĐH NowFood</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="update-order-no" name="UpdateOrderNo" value="" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" style="width:100%;" id="update-status" name="UpdateStatus">
+                                                <option value="Y" selected>Yes(Y)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" id="update-order-no-temp" />
+                <input type="hidden" id="update-status-temp" />
+                <div class="modal-footer">
+                    <button type="button" id="btn-save-update-status" class="btn btn-primary font-weight-bold"><i class="la la-save"></i>Lưu lại</button>
+                    <button type="button" id="close-modal-update-status" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var table;
+
+        function LoadComboxStoreByServer(ipServer) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('IPServer', ipServer);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadStoreBySetServerIP", "Common")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data != null) {
+                        if (data.length == 1) {
+                            var html = "<option value='" + data[0].SiteNo + "'>" + data[0].DisplayComboSite + "</option>";
+                            $('#sel-store-no').html(html);
+                        }
+                        else if (data.length > 1) {
+                            var html = "<option value=\"\" selected>Tất cả</option>";
+                            data.forEach((name, i) => {
+                                if (name.SiteNo != "") {
+                                    html += "<option value='" + name.SiteNo + "'>" + name.DisplayComboSite + "</option>";
+                                }
+                            });
+                            $('#sel-store-no').html(html);
+                        }
+                    }
+                    loading.hideloading();
+                },
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        };
+
+        function getFromDate() {
+            var result = "";
+            var fromDate = $('#txt-from-date').val();
+            if (fromDate != null && fromDate != "") {
+                result = fromDate.split('/')[2] + "/" + fromDate.split('/')[1] + "/" + fromDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        };
+
+        function getToDate() {
+            var result = "";
+            var toDate = $('#txt-to-date').val();
+            if (toDate != null && toDate != "") {
+                result = toDate.split('/')[2] + "/" + toDate.split('/')[1] + "/" + toDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        };
+
+        function UpdateStatusByOrder() {
+             var orderNo = $('#update-order-no').val();
+             var status = $('#update-status').val();             
+             if (status == null || status == "") {
+                 toastr.error('Vui lòng chọn trạng thái');
+                 return ;
+             }
+             loading.showloading();
+             $.ajax({
+                url: '@Url.Action("UpdateStatusByOrder", "Partner")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    OrderNo: orderNo,
+                    Status: status
+                },
+                success: function (data) {
+                    if (data.Status == 1)
+                    {
+                        toastr.success(data.Message);
+                        $('#modal-update-status').modal("hide");
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+                    $('#btn-search').trigger('click');
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+    $(document).ready(function () {
+
+        $('.select2').select2();
+
+        $('#btn-save-update-status').on("click", function () {
+            UpdateStatusByOrder();
+        });
+
+        $('#text-search-order').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#txt-from-date').val(moment().format('DD/MM/YYYY'));
+        $('#txt-from-date').datepicker(
+        {
+            format: 'dd/mm/yyyy',
+            autoUpdateInput: false,
+            todayHighlight: true,
+            singleDatePicker: true,
+            autoclose: true
+        });
+
+        $('#txt-to-date').val(moment().format('DD/MM/YYYY'));
+        $('#txt-to-date').datepicker(
+        {
+            format: 'dd/mm/yyyy',
+            autoUpdateInput: false,
+            todayHighlight: true,
+            singleDatePicker: true,
+            autoclose: true
+        });
+
+        LoadComboxStoreByServer($("#set-server").val());
+        $("#set-server").on("change", function (e) {
+            LoadComboxStoreByServer($("#set-server").val());
+        });
+
+        table = $('#tbl-order-sales-list-by-now-food').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                drawCallback: function (settings) {
+                    $('.btn-update-status').click(function () {
+                        //debugger
+                        var orderNo = $(this).attr("data-orderno-nowfood");
+                        $('#update-order-no').val(orderNo);
+                        var status = $(this).attr("data-update-flg");   // Chi lay cac DH co status = No
+                        $('#update-status').val(status);
+                        $('#modal-update-status').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: true,                 // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: true,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("GetOrderSalesListByNowFood", "Partner")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        //debugger
+                        d.FromDate = getFromDate();
+                        d.ToDate = getToDate();
+                        d.setServer = $('#set-server').val();
+                        d.serverRead = $("#set-server").select2().find(":selected").data("serverread");
+                        d.storeNo = $('#sel-store-no').val();
+                        d.transactionType = $('#sel-transaction-type').val();
+                        d.statusPayment = $('#sel-status-payment').val();
+                        d.textSearchOrder = $('#text-search-order').val();
+                        d.shopeeOrder = $('#sel-shopee-order').val();  // Chon table xem danh sach don hang NowFood
+                    }
+                },
+
+            columns: [
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var roleCode = '@listRole.RoleCode';
+                            var html = "";
+                            if ((roleCode == 'R0000' || roleCode == 'R0001') && (row.update_flg == "N" || row.update_flg == "No (N)" || row.update_flg == "No(N)")) {
+                                html += '<a type="button" class="btn btn-icon btn-warning btn-update-status"  data-orderno-nowfood ="' + row.order_code + '"  data-update-flg ="' + row.update_flg + '"  data-toggle="tooltip" data-placement="left" title="Cập nhật Notify ĐH NowFood"  style="margin-left: 3px; color:#fff;text-align:center;"><i class="fa fa-list" style="color:#fff;"></i><span></span></a>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "crt_date_Str",    // Ngày tạo đơn hàng
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.crt_date_Str == null || row.crt_date_Str == "") {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;">' + row.crt_date_Str + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "pick_time_Str",    // Thời gian pick hang
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.pick_time_Str == null || row.pick_time_Str == "") {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;">' + row.pick_time_Str + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "order_code",    // Số đơn hàng nowfood
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.order_code == null || row.order_code == "") {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;">' + row.order_code + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "restaurant_id",   // Cua hang NowFood
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.restaurant_id == null || row.restaurant_id == "") {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;">' + row.restaurant_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "partner_restaurant_id",  // Cua hang PLH
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.partner_restaurant_id == null || row.partner_restaurant_id == "") {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;">' + row.partner_restaurant_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StatusStr",    // Trang thai ĐH NowFood
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StatusStr == null || row.StatusStr == "") {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;text-align:left;">' + row.StatusStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "update_flg",    // Trang thai ĐH POS
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.update_flg == null || row.update_flg == "") {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;">' + "" + '</span>';
+                            }
+                            else if (row.update_flg == "Yes (Y)" || row.update_flg == "Yes(Y)") {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;color:green;">' + row.update_flg + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700;padding-top:8px;display:block;color:red;">' + row.update_flg + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "note_for_shipper",  // Ghi chu cho shiper
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.note_for_shipper == null || row.note_for_shipper == "") {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;text-align:left;">' + row.note_for_shipper + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+            ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+        $('#tbl-order-sales-list-by-now-food tbody').on('click', 'tr', function () {
+              $(this).toggleClass('selected');
+        });
+
+        $("#btn-search").on("click", function (e) {
+            //debugger
+            var fromDate = getFromDate();
+            var toDate = getToDate();
+            if (fromDate > toDate) {
+                toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày');
+                return;
+            }
+            table.draw();
+        });
+
+
+        $("#btn-export-excel").on("click", function (e) {
+            //debugger
+            var fromDate = getFromDate();
+            var toDate = getToDate();
+            if (fromDate > toDate) {
+                toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày');
+                return;
+            }
+            $('#hdFromDate').val(fromDate);
+            $('#hdToDate').val(toDate);
+
+            $('#frm-export-excel').submit();
+
+        });
+
+});
+
+    </script>
+}
+
+
+
+
+
+

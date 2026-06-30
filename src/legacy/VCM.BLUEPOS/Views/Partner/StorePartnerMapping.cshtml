@@ -1,0 +1,2098 @@
+﻿@using Newtonsoft.Json;
+@using System.Web.Configuration;
+@using VCM.BLUEPOS.Models;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.Partner;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.MCH;
+
+@{
+    ViewBag.Title = "Mapping CH Phúc Long";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStorePLH = ViewBag.ListStorePLH as List<Shopee_Restaurant_Model>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đối tác</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Mapping CH Phúc Long</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <!-- Tab -->
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="example-preview" style="background-color:#fff;margin-left:-15px;margin-right:-15px;">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link classTab active" id="tab-create-store-head" data-toggle="tab" href="#create-store-head-now-food" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Mapping CH - NowFood
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link classTab" id="tab-create-store-grab-food" data-toggle="tab" href="#create-store-grab-food" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Mapping CH - GrabFood
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link classTab" id="tab-create-store-befood" data-toggle="tab" href="#create-store-befood" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Mapping CH - BeFood
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link classTab" id="tab-create-store-zalo-food" data-toggle="tab" href="#create-store-zalo-food" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Mapping CH - ZaloFood
+                            </span>
+                        </a>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+
+        <div class="tab-content mt-5" id="myTabContent">
+
+            <!-- Khai báo Cửa hàng NowFood -->
+
+            <div class="tab-pane fade show active" id="create-store-head-now-food" role="tabpanel" aria-labelledby="tab-create-store-head">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("", "Partner", FormMethod.Post, new { @id = "frm-store-head-now-food-create", enctype = "multipart/form-data" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="display:none">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác <strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-create-partner" name="Partner" disabled>
+                                                    <option value="">--- Chọn ---</option>
+                                                    <option value="NOF" selected>NowFood</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng PLH</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo"></select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">IsHeader</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-is-header" name="IsHeader">
+                                                    <option value="" selected>Tất cả</option>
+                                                    <option value="True">True</option> <!-- 1 = True ; 0 = False -->
+                                                    <option value="False">False</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-primary" style="cursor:pointer" id="btn-search" name="btnSearch"><i class="fa fa-search"></i>Tìm</button>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" id="btn-add-new-store-head" class="btn btn-success font-weight-bold" style="float:right;"><i class="la la-plus-circle"></i>Thêm mới</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Khai báo Cửa hàng NowFood -->
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <table id="tbl-store-head-list-now-food" class="table table-bordered table-hover text-nowrap">
+                                        <thead>
+                                            <tr style="text-transform:uppercase;text-align:center;">
+                                                <th>#</th>
+                                                <th>STT</th>
+                                                <th>Mã CH NowFood</th>
+                                                <th>Mã CH Phúc Long</th>
+                                                <th>Tên Cửa hàng</th>
+                                                <th>Địa chỉ</th>
+                                                <th>Is_Header</th>
+                                                <th>Ngày tạo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+
+            <div class="modal fade" id="modal-create-store-head-now-food" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-sticky-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modal-title-update-store-head-now-food">Cửa hàng PLH Mapping ShopeeFood</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-create-store-head-now-food-body">
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                    <div class="card card-custom bgi-no-repeat card-stretch">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                                    <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng PLH <strong style="color:#ff0000"> (*)</strong></label>
+                                                    <div class="form-group">
+                                                        <select class="form-control select2" id="modal-create-store-no" name="CreateStoreNo">
+                                                            @if (listStorePLH.Count() == 1)
+                                                            {
+                                                                foreach (var item in listStorePLH)
+                                                                {
+                                                                    <option value="@item.partner_restaurant_id">@item.partner_restaurant_id - @item.name</option>
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="" selected>--- Tất cả ---</option>
+                                                                foreach (var item in listStorePLH)
+                                                                {
+                                                                    <option value="@item.partner_restaurant_id">@item.partner_restaurant_id - @item.name</option>
+                                                                }
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" id="btn-save-create-store-head-now-food" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close" style="color:#fff;"></i>Đóng</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modal-update-store-head-now-food" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-xl" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modal-title-update-store-head-now-food">Cập nhật Mapping CH PLH - NowFood</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-update-store-head-now-food-body">
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                    <div class="card card-custom bgi-no-repeat card-stretch">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                                    <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng PLH<strong style="color:#ff0000"> (*)</strong></label>
+                                                    <div class="form-group">
+                                                        <select class="form-control select2" id="modal-update-store-no" name="UpdateStoreNo">
+                                                            @if (listStorePLH.Count() == 1)
+                                                            {
+                                                                foreach (var item in listStorePLH)
+                                                                {
+                                                                    <option value="@item.partner_restaurant_id">@item.partner_restaurant_id - @item.name</option>
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="" selected>--- Tất cả ---</option>
+                                                                foreach (var item in listStorePLH)
+                                                                {
+                                                                    <option value="@item.partner_restaurant_id">@item.partner_restaurant_id - @item.name</option>
+                                                                }
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <input type="hidden" id="modal-update-store-no-old" name="UpdateStoreOld" />
+                            <div class="modal-footer">
+                                <button type="button" id="btn-save-update-store-head-now-food" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close" style="color:#fff;"></i>Đóng</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!--- GbabFood --->
+
+            <div class="tab-pane fade" id="create-store-grab-food" role="tabpanel" aria-labelledby="tab-create-store-grab-food">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("", "Partner", FormMethod.Post, new { @id = "frm-store-grab-food-create", enctype = "multipart/form-data" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng PLH</label>
+                                            <div class="form-group" id="div-store-grab-food">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no-grab-food" name="StoreNograbFood"></select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái</label>
+                                            <div class="form-group" id="div-store-grab-food">
+                                                <select class="form-control select2" style="width:100%;" id="sel-status-store-no-grab-food" name="StatusStoreNograbFood">
+                                                    <option value="" selected>Tất cả</option>
+                                                    <option value="1">Active</option>
+                                                    <option value="0">Block</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" name="txt-text-search" id="txt-text-search" placeholder="Nhập mã CH GrabFood" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                            <button type="button" class="btn btn-primary" style="cursor:pointer" id="btn-search-grab" name="btnSearch"><i class="fa fa-search"></i>Tìm</button>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-3 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                            <button type="button" class="btn btn-success" style="cursor:pointer;float:right;" id="btn-import-excel-grab" name="btnImport"><i class="fas fa-file-import" style="color:#fff;"></i>Import danh sách</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Khai báo Cửa hàng GrabFood -->
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <table id="tbl-store-grab-food" class="table table-bordered table-hover text-nowrap">
+                                        <thead>
+                                            <tr style="text-transform:uppercase;text-align:center;">
+                                                <th>#</th>
+                                                <th>STT</th>
+                                                <th>Mã CH GrabFood</th>
+                                                <th>Mã CH Phúc Long</th>
+                                                <th>Tên cửa hàng</th>
+                                                <th>Trạng thái</th>
+                                                <th>Người tạo</th>
+                                                <th>Ngày tạo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modal-update-store-grab" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-sticky-lg" modal-sticky" role="document">
+                    <div class="modal-content">
+
+                        <div class="modal-header">
+                            <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1px !important;" id="modal-title-setup-pos-terminal">GrabFood: Cập nhật mã cửa hàng</h4>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-update-store-grab-body">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat card-stretch">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <label class="font-weight-bold" style="font-weight:bold !important">CH GrabFood</label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" name="StoreNameGrabFood" id="txt-store-no-grab-food" placeholder="Nhập mã cửa GrabFood" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <input type="hidden" id="hdd-grab-merchant-id-temp" />
+                                        <input type="hidden" id="hdd-grab-store-no-temp" />
+
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <button type="button" class="btn btn-success" id="btn-save-update-store-no-grab-food" style="float:right;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal fade" id="modal-import-excel-store-grab" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-lg" modal-sticky" role="document">
+                    <div class="modal-content">
+
+                        <div class="modal-header">
+                            <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;" id="modal-title-setup-pos-terminal">GrabFood: Import danh sách cửa hàng</h4>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-import-excel-store-grab-body">
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                    <div class="card card-custom bgi-no-repeat card-stretch">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-sm-12 text-left">
+                                                    <div class="box">
+                                                        <input type="file" name="fileExcel[]" id="file-excel" class="inputfile inputfile-1" data-multiple-caption="{count} files selected" />
+                                                        @*<label for="file-excel"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="17" viewBox="0 0 20 17"><path d="M10 0l-5.2 4.9h3.3v5.1h3.8v-5.1h3.3l-5.2-4.9zm9.3 11.5l-3.2-2.1h-2l3.4 2.6h-3.5c-.1 0-.2.1-.2.1l-.8 2.3h-6l-.8-2.2c-.1-.1-.1-.2-.2-.2h-3.6l3.4-2.6h-2l-3.2 2.1c-.4.3-.7 1-.6 1.5l.6 3.1c.1.5.7.9 1.2.9h16.3c.6 0 1.1-.4 1.3-.9l.6-3.1c.1-.5-.2-1.2-.7-1.5z" /></svg><span>Chọn file excel</span></label>*@
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="row" style="height:25px;"></div>
+                                            <div class="row">
+                                                <div class="col-sm-6 text-left">
+                                                    <div class="box">
+                                                        <a class="btn btn-success" style="color:#fff;cursor:pointer;font-size:12px;" href='/Files/ImportStoreMappingGrabFood.xlsx' target="_blank"><i class="fa fa fa-file-download"></i>&nbsp;&nbsp;Tải template mẫu</a>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-6 text-right">
+                                                    <button type="button" class="btn btn-warning" id="btn-save-import-store-grab-food" style="color:#fff;cursor:pointer;font-size:12px;"><i class="fa fa fa-save" style="color:#fff;"></i>&nbsp;&nbsp;Thực hiện</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+
+            <!-- Tab : Khai báo CH BeFood -->
+
+            <div class="tab-pane fade" id="create-store-befood" role="tabpanel" aria-labelledby="tab-create-store-befood">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("", "Partner", FormMethod.Post, new { @id = "frm-store-befood-create", enctype = "multipart/form-data" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng PLH</label>
+                                            <div class="form-group" id="div-store-befood">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no-befood" name="StoreNoBeFood"></select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái</label>
+                                            <div class="form-group" id="div-status-befood">
+                                                <select class="form-control select2" style="width:100%;" id="sel-status-store-no-befood" name="StatusStoreBeFood">
+                                                    <option value="" selected>Tất cả</option>
+                                                    <option value="0">Active</option>
+                                                    <option value="1">Block</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" name="txt-text-search" id="txt-text-search" placeholder="Nhập mã CH BeFood" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                            <button type="button" class="btn btn-primary" style="cursor:pointer" id="btn-search-befood" name="btnSearch"><i class="fa fa-search"></i>Tìm</button>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-3 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                            <button type="button" class="btn btn-success" style="cursor:pointer;float:right;" id="btn-import-excel-befood" name="btnImport"><i class="fas fa-file-import" style="color:#fff;"></i>Import danh sách</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Cửa hàng BeFood -->
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <table id="tbl-store-befood" class="table table-bordered table-hover text-nowrap">
+                                        <thead>
+                                            <tr style="text-transform:uppercase;text-align:center;">
+                                                <th>#</th>
+                                                <th>STT</th>
+                                                <th>Mã CH BeFood</th>
+                                                <th>Mã CH Phúc Long</th>
+                                                <th>Tên cửa hàng</th>
+                                                <th>Trạng thái</th>
+                                                <th>Người tạo</th>
+                                                <th>Ngày tạo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="modal fade" id="modal-update-store-befood" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-sticky-lg" modal-sticky" role="document">
+                    <div class="modal-content">
+
+                        <div class="modal-header">
+                            <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1px !important;" id="modal-title-setup-pos-terminal">BeFood: Cập nhật mã cửa hàng</h4>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-update-store-befood-body">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat card-stretch">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <label class="font-weight-bold" style="font-weight:bold !important">CH BeFood</label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" name="StoreNameBeFood" id="txt-store-no-befood" placeholder="Nhập mã cửa hàng BeFood" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <input type="hidden" id="hdd-befood-merchant-id-temp" />
+                                        <input type="hidden" id="hdd-befood-store-no-temp" />
+
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <button type="button" class="btn btn-success" id="btn-save-update-storeno-befood" style="float:right;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+
+
+            <div class="modal fade" id="modal-import-excel-store-befood" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-lg" modal-sticky" role="document">
+                    <div class="modal-content">
+
+                        <div class="modal-header">
+                            <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;" id="modal-title-setup-pos-terminal">BeFood: Import danh sách cửa hàng</h4>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-import-excel-store-befood-body">
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                    <div class="card card-custom bgi-no-repeat card-stretch">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-sm-12 text-left">
+                                                    <div class="box">
+                                                        <input type="file" name="fileExcel[]" id="file-excel-befood" class="inputfile inputfile-1" data-multiple-caption="{count} files selected" />
+                                                        @*<label for="file-excel"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="17" viewBox="0 0 20 17"><path d="M10 0l-5.2 4.9h3.3v5.1h3.8v-5.1h3.3l-5.2-4.9zm9.3 11.5l-3.2-2.1h-2l3.4 2.6h-3.5c-.1 0-.2.1-.2.1l-.8 2.3h-6l-.8-2.2c-.1-.1-.1-.2-.2-.2h-3.6l3.4-2.6h-2l-3.2 2.1c-.4.3-.7 1-.6 1.5l.6 3.1c.1.5.7.9 1.2.9h16.3c.6 0 1.1-.4 1.3-.9l.6-3.1c.1-.5-.2-1.2-.7-1.5z" /></svg><span>Chọn file excel</span></label>*@
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="row" style="height:25px;"></div>
+                                            <div class="row">
+                                                <div class="col-sm-6 text-left">
+                                                    <div class="box">
+                                                        <a class="btn btn-success" style="color:#fff;cursor:pointer;font-size:12px;" href='/Files/ImportStoreMappingBeFood.xlsx' target="_blank"><i class="fa fa fa-file-download"></i>&nbsp;&nbsp;Tải template mẫu</a>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-6 text-right">
+                                                    <button type="button" class="btn btn-warning" id="btn-save-import-store-befood" style="color:#fff;cursor:pointer;font-size:12px;"><i class="fa fa fa-save" style="color:#fff;"></i>&nbsp;&nbsp;Thực hiện</button>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Tab : Khai bao CH - ZaloFood -->
+
+            <div class="tab-pane fade" id="create-store-zalo-food" role="tabpanel" aria-labelledby="tab-create-store-zalo-food">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("", "Partner", FormMethod.Post, new { @id = "frm-store-zalo-food-create", enctype = "multipart/form-data" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng PLH</label>
+                                            <div class="form-group" id="div-store-zalo-food">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no-zalo-food" name="StoreNoZaloFood"></select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái</label>
+                                            <div class="form-group" id="div-status-zalo-food">
+                                                <select class="form-control select2" style="width:100%;" id="sel-status-store-no-zalo-food" name="StatusStoreZaloFood">
+                                                    <option value="" selected>Tất cả</option>
+                                                    <option value="0">Active</option>
+                                                    <option value="1">Block</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" name="txt-text-search" id="txt-text-search-zalo-food" placeholder="Nhập mã CH ZaloFood" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                            <button type="button" class="btn btn-primary" style="cursor:pointer" id="btn-search-zalo-food" name="btnSearchZaloFood"><i class="fa fa-search"></i>Tìm</button>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-3 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                            <button type="button" class="btn btn-success" style="cursor:pointer;float:right;" id="btn-import-excel-zalo-food" name="btnImport"><i class="fas fa-file-import" style="color:#fff;"></i>Import danh sách</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Cửa hàng ZaloFood -->
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <table id="tbl-store-zalo-food" class="table table-bordered table-hover text-nowrap">
+                                        <thead>
+                                            <tr style="text-transform:uppercase;text-align:center;">
+                                                <th>#</th>
+                                                <th>STT</th>
+                                                <th>Mã CH ZaloFood</th>
+                                                <th>Mã CH Phúc Long</th>
+                                                <th>Tên cửa hàng</th>
+                                                <th>Trạng thái</th>
+                                                <th>Người tạo</th>
+                                                <th>Ngày tạo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modal-update-store-zalo-food" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-sticky-lg" modal-sticky" role="document">
+                    <div class="modal-content">
+
+                        <div class="modal-header">
+                            <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1px !important;" id="modal-title-zalofood">ZaloFood: Cập nhật mã cửa hàng</h4>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+
+                        <div class="modal-body" id="modal-update-store-zalo-food-body">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat card-stretch">
+                                    <div class="card-body">
+
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <label class="font-weight-bold" style="font-weight:bold !important">CH ZaloFood</label>
+                                                <div class="form-group">
+                                                    <input type="text" class="form-control" name="StoreNameZaloFood" id="txt-store-zalo-food" placeholder="Nhập mã cửa hàng ZaloFood" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <input type="hidden" id="hdd-zalo-food-store-id-temp" />
+                                        <input type="hidden" id="hdd-zalo-food-merchant-id-temp" />
+
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <button type="button" class="btn btn-success" id="btn-save-update-store-zalo-food" style="float:right;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal fade" id="modal-import-excel-store-zalo-food" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-lg" modal-sticky" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1px !important;" id="modal-title-setup-pos-terminal">ZaloFood: Import danh sách cửa hàng</h4>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i aria-hidden="true" class="ki ki-close"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body" id="modal-import-excel-store-zalo-food-body">
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                    <div class="card card-custom bgi-no-repeat card-stretch">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-sm-12 text-left">
+                                                    <div class="box">
+                                                        <input type="file" name="fileExcel[]" id="file-excel-zalo-food" class="inputfile inputfile-1" data-multiple-caption="{count} files selected" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="row" style="height:25px;"></div>
+                                            <div class="row">
+                                                <div class="col-sm-6 text-left">
+                                                    <div class="box">
+                                                        <a class="btn btn-success" style="color:#fff;cursor:pointer;font-size:12px;" href='/Files/ImportStoreMappingZaloFood.xlsx' target="_blank"><i class="fa fa fa-file-download"></i>&nbsp;&nbsp;Tải template mẫu</a>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-6 text-right">
+                                                    <button type="button" class="btn btn-warning" id="btn-save-import-store-zalo-food" style="color:#fff;cursor:pointer;font-size:12px;"><i class="fa fa fa-save" style="color:#fff;"></i>&nbsp;&nbsp;Thực hiện</button>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        function CreateStoreHeadByNowFood() {
+            //debugger
+            var storeNo = $("#modal-create-store-no").val();
+            if (storeNo == null || storeNo == "") {
+                toastr.error('Chọn Cửa hàng');
+                return;
+            }
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('partner_restaurant_id', storeNo);
+            fromData.append('parent_restaurant', storeNo);
+            $.ajax({
+                url: '@Url.Action("CreateStoreHeadByNowFood", "Partner")',
+                type: "POST",
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 1) {
+                        toastr.success("Mapping cửa hàng thành công");
+                        LoadComboxStorePLHByMappingNowFood();
+                        $("#btn-search").trigger('click');
+                        $('#modal-create-store-head-now-food').modal("hide");
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function UpdateStoreHeadByNowFood() {
+            //debugger
+            var storeNo = $("#modal-update-store-no").val();
+            var storeOld = $("#modal-update-store-no-old").val();
+            if (storeNo == null || storeNo == "") {
+                toastr.error('Chọn Cửa hàng');
+                return;
+            }
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('partner_restaurant_id', storeNo);
+            fromData.append('partner_restaurant_id_old', storeOld);
+            fromData.append('parent_restaurant', storeNo);
+            $.ajax({
+                url: '@Url.Action("UpdateStoreHeadByNowFood", "Partner")',
+                type: "POST",
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        LoadComboxStorePLHByMappingNowFood();
+                        $("#btn-search").trigger('click');
+                        $('#modal-update-store-head-now-food').modal("hide");
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function LoadComboxStorePLHByMappingNowFood() {
+            //debugger
+            var html = '<select class="form-control select2" style="width: 100%;" id="sel-store-no" name="StoreNo">';
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadComboxStorePLHByMappingNowFood", "Partner")',
+                dataType: "json",
+                success: function (data) {
+                    html += "<option value=\"\">Tất cả</option>";
+                    if (data.length > 0) {
+                        data.forEach((item, i) => {
+                            html += "<option value='" + item.partner_restaurant_id + "-" + item.restaurant_id + "'>" + item.partner_restaurant_id + "-" + item.name +"</option>"
+                        });
+                    }
+                    html += '</select>';
+                    $('#sel-store-no').html(html);
+                },
+                error: function () {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function ImportStoreGrabFood() {
+            loading.showloading();
+            var files = $("#file-excel").get(0).files;
+            var formData = new FormData();
+            formData.append('ImportFile', files[0]);
+            $.ajax({
+                url: '/Partner/ImportExcel_StoreByGrabFood',
+                data: formData,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-import-excel-store-grab').modal('hide');
+                        table_Grab.draw();
+                    } else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function (ex) {
+                    toastr.error('Có lỗi xảy ra');
+                }
+            });
+        }
+
+        function UpdateStatusStoreGrab(GrabMerchantID, StoreNo, Status) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('GrabMerchantID', GrabMerchantID);
+            fromData.append('StoreNo', StoreNo);
+            fromData.append('Status', Status);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStatusStoreGrab", "Partner")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success('Cập nhật thành công');
+                        $('#btn-search-grab').trigger('click');
+                        LoadComboxStoreGrabFood();
+                        table_Grab.draw();
+                    }
+                    else {
+                        toastr.error('Có lỗi xảy ra. Vui lòng kiểm tra lại');
+                    }
+                },
+                error: function () {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function UpdateStoreGrab() {
+            //debugger
+            var merchantID = $('#txt-store-no-grab-food').val();
+            var grabMerchantID = $('#hdd-grab-merchant-id-temp').val();
+            var storeNo = $('#hdd-grab-store-no-temp').val();
+            var fromData = new FormData();
+            fromData.append('GrabMerchantIDOld', grabMerchantID);
+            fromData.append('GrabMerchantIDNew', merchantID);
+            fromData.append('StoreNo', storeNo);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStoreGrabFood", "Partner")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-update-store-grab').modal('hide');
+                        $('#btn-search-grab').trigger('click');
+                        LoadComboxStoreGrabFood();
+                        table_Grab.draw();
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function LoadComboxStoreGrabFood() {
+            //debugger
+            var html = '<select class="form-control select2" style="width: 100%;" id="sel-store-no-grab-food" name="StoreNoGrabFood">';
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadComboxStoreByGrabFood", "Partner")',
+                dataType: "json",
+                success: function (data) {
+                    html += "<option value=\"\">Tất cả</option>";
+                    if (data.length > 0) {
+                        data.forEach((item, i) => {
+                            html += "<option value='" + item.StoreNo + "'>" + item.StoreNo + " - " + item.StoreName + "</option>"
+                        });
+                    }
+                    html += '</select>';
+                    $('#sel-store-no-grab-food').html(html);
+                },
+                error: function () {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function LoadComboxStoreBeFood() {
+            //debugger
+            var html = '<select class="form-control select2" style="width: 100%;" id="sel-store-no-befood" name="StoreNoBeFood">';
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadComboxStoreByBeFood", "Partner")',
+                dataType: "json",
+                success: function (data) {
+                    html += "<option value=\"\">Tất cả</option>";
+                    if (data.length > 0) {
+                        data.forEach((item, i) => {
+                            html += "<option value='" + item.partner_restaurant_id + "'>" + item.partner_restaurant_id + " - " + item.address + "</option>"
+                        });
+                    }
+                    html += '</select>';
+                    $('#sel-store-no-befood').html(html);
+                },
+                error: function () {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function UpdateStatusStoreBeFood(BeFoodMerchantID, StoreNo, Status) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('BeFoodMerchantID', BeFoodMerchantID);
+            fromData.append('StoreNo', StoreNo);
+            fromData.append('Status', Status);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStatusStoreBeFood", "Partner")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success('Cập nhật thành công');
+                        $('#btn-search-befood').trigger('click');
+                        LoadComboxStoreBeFood();
+                        table_BeFood.draw();
+                    }
+                    else {
+                        toastr.error('Có lỗi xảy ra. Vui lòng kiểm tra lại');
+                        return;
+                    }
+                },
+                error: function () {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function UpdateStoreBeFood() {
+            //debugger
+            var merchantID = $('#txt-store-no-befood').val();
+            var befoodMerchantID = $('#hdd-befood-merchant-id-temp').val();
+            var storeNo = $('#hdd-befood-store-no-temp').val();
+            var fromData = new FormData();
+            fromData.append('BeFoodMerchantIDOld', befoodMerchantID);
+            fromData.append('BeFoodMerchantIDNew', merchantID);
+            fromData.append('StoreNo', storeNo);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStoreBeFood", "Partner")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-update-store-befood').modal('hide');
+                        $('#btn-search-befood').trigger('click');
+                        LoadComboxStoreBeFood();
+                        table_BeFood.draw();
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                        return;
+                    }
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function ImportStoreBeFood() {
+            loading.showloading();
+            var files = $("#file-excel-befood").get(0).files;
+            var formData = new FormData();
+            formData.append('ImportFile', files[0]);
+            $.ajax({
+                url: '/Partner/ImportExcel_StoreByBeFood',
+                data: formData,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-import-excel-store-befood').modal('hide');
+                        $('#btn-search-befood').trigger('click');
+                        table_BeFood.draw();
+                    } else {
+                        toastr.error(data.Message);
+                        return;
+                    }
+                },
+                error: function (ex) {
+                    loading.hideloading();
+                    toastr.error('Có lỗi xảy ra');
+                }
+            });
+        }
+
+        // CH ZaloFood
+        function LoadComboxStoreZaloFood() {
+            //debugger
+            var html = '<select class="form-control select2" style="width: 100%;" id="sel-store-no-zalo-food" name="StoreNoZaloFood">';
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadComboxStoreByZaloFood", "Partner")',
+                dataType: "json",
+                success: function (data) {
+                    html += "<option value=\"\">Tất cả</option>";
+                    if (data.length > 0) {
+                        data.forEach((item, i) => {
+                            html += "<option value='" + item.merchant_store_id + "'>" + item.merchant_store_id + " - " + item.merchant_name + "</option>"
+                        });
+                    }
+                    html += '</select>';
+                    $('#sel-store-no-zalo-food').html(html);
+                },
+                error: function () {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function UpdateStoreZaloFood() {
+            //debugger
+            var store_id_new = $('#txt-store-zalo-food').val();
+            var store_id_old = $('#hdd-zalo-food-store-id-temp').val();
+            var merchant_store_id = $('#hdd-zalo-food-merchant-id-temp').val();
+            var fromData = new FormData();
+            fromData.append('store_id_old', store_id_old);
+            fromData.append('store_id_new', store_id_new);
+            fromData.append('merchant_store_id', merchant_store_id);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStoreZaloFood", "Partner")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-update-store-zalo-food').modal('hide');
+                        $('#btn-search-zalo-food').trigger('click');
+                        LoadComboxStoreZaloFood();
+                        table_ZaloFood.draw();
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function UpdateStatusStoreZaloFood(store_id, merchant_store_id, status) {
+            //debugger      
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('store_id', store_id);
+            fromData.append('merchant_store_id', merchant_store_id);
+            fromData.append('status', status);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStatusStoreZaloFood", "Partner")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success('Cập nhật thành công');
+                        $('#btn-search-zalo-food').trigger('click');
+                        LoadComboxStoreZaloFood();
+                        table_ZaloFood.draw();
+                    }
+                    else {
+                        toastr.error('Có lỗi xảy ra. Vui lòng kiểm tra lại');
+                        return;
+                    }
+                },
+                error: function () {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function ImportStoreZaloFood() {
+            loading.showloading();
+            var files = $("#file-excel-zalo-food").get(0).files;
+            var formData = new FormData();
+            formData.append('ImportFile', files[0]);
+            $.ajax({
+                url: '/Partner/ImportExcel_MappingStoreZaloFood',
+                data: formData,
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-import-excel-store-zalo-food').modal('hide');
+                        $('#btn-search-zalo-food').trigger('click');
+                        table_ZaloFood.draw();
+                    } else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function (ex) {
+                    toastr.error('Có lỗi xảy ra');
+                }
+            });
+        }
+
+
+    $(document).ready(function () {
+
+        var table = "";
+        var table_Grab = "";
+        var table_BeFood = "";
+        var table_ZaloFood = "";
+
+        $(".select2").select2();
+
+        LoadComboxStorePLHByMappingNowFood();
+        LoadComboxStoreGrabFood();
+        LoadComboxStoreBeFood();
+        LoadComboxStoreZaloFood();
+
+        $('#btn-add-new-store-head').on('click', function () {
+            $('#modal-create-store-head-now-food').modal({
+                backdrop: "static",
+                keyboard: false
+            });
+        });
+
+        $("#btn-save-create-store-head-now-food").on("click", function (e) {
+            CreateStoreHeadByNowFood();
+        });
+
+        $("#btn-save-update-store-head-now-food").on("click", function (e) {
+            UpdateStoreHeadByNowFood();
+        });
+
+        $("#btn-save-update-store-no-grab-food").on("click", function (e) {
+            UpdateStoreGrab();
+        });
+
+        $("#btn-import-excel-grab").on("click", function () {
+            $('#file-excel').val('');
+            $('#modal-import-excel-store-grab').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        });
+
+        $("#btn-save-import-store-grab-food").on("click", function (e) {
+            ImportStoreGrabFood();
+        });
+
+        $("#btn-save-update-storeno-befood").on("click", function (e) {
+            UpdateStoreBeFood();
+        });
+
+        $("#btn-import-excel-befood").on("click", function () {
+            $('#file-excel').val('');
+            $('#modal-import-excel-store-befood').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        });
+
+        $("#btn-save-import-store-befood").on("click", function (e) {
+            ImportStoreBeFood();
+        });
+
+        $("#btn-save-update-store-zalo-food").on("click", function (e) {
+            UpdateStoreZaloFood();
+        });
+
+        $("#btn-import-excel-zalo-food").on("click", function () {
+            $('#file-excel').val('');
+            $('#modal-import-excel-store-zalo-food').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        });
+
+        $("#btn-save-import-store-zalo-food").on("click", function (e) {
+            ImportStoreZaloFood();
+        });
+
+        table = $('#tbl-store-head-list-now-food').DataTable({
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    $(".btn-update-store-head").click(function () {
+                        //debugger
+                        var storeNo = $(this).parents('tr').find('td:nth-child(4)').find('span:nth-child(1)').html();
+                        $('#modal-update-store-no').val(storeNo).trigger('change');
+                        $("#modal-update-store-no-old").val(storeNo);
+                        $('#modal-update-store-head-now-food').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: true,                 // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                ajax: {
+                    url: '@Url.Action("GetStoreHeadNowFoodByCreate", "Partner")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo  = $('#sel-store-no').val();
+                        d.IsHeader = $('#sel-is-header').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.is_header == "0") {
+                                html += '<a type="button" class="btn btn-icon btn-light-warning btn-update-store-head" data-store-no ="' + row.StoreNo + '" data-toggle="tooltip" data-placement="left" title="Cập nhật"><i class="la la-edit"></i><span class="pulse-ring"></span></a>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;">' + "" + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "restaurant_id",    // Ma CH NowFood
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.is_header == "1" || row.is_header == "True") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d;">' + row.restaurant_id + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;">' + row.restaurant_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "partner_restaurant_id",  // Mã CH Phúc Long
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.is_header == "1" || row.is_header == "True") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d;">' + row.partner_restaurant_id + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;">' + row.partner_restaurant_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "name",    // Tên CH
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.is_header == "1" || row.is_header == "True") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d; text-align:left;">' + row.name + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:left;">' + row.name + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "address",   // Địa chỉ
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.is_header == "1" || row.is_header == "True") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d; text-align:left;">' + row.address + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:left;">' + row.address + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "is_header",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.is_header == "1" || row.is_header == "True") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d;">' + row.is_header + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;">' + row.is_header + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "crt_date_str",  // Ngay tao
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.crt_date_str == null || row.crt_date_str == "") {
+                                html += '<span style="font-weight:400;padding-top:8px;display:block;text-align:center;color:#0c713d;">' + "" + '</span>';
+                            }
+                            else
+                            {
+                                if (row.is_header == "1" || row.is_header == "True") {
+                                    html += '<span style="font-weight:700;padding-top:8px;display:block;text-align:center;color:#0c713d;">' + row.crt_date_str + '</span>';
+                                }
+                                else {
+                                    html += '<span style="font-weight:400;padding-top:8px;display:block;text-align:center;">' + row.crt_date_str + '</span>';
+                                }
+                            }
+                            return html;
+                        }
+                    }
+                ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+        $('#tbl-store-head-list-now-food tbody').on('click', 'tr', function () {
+            $(this).toggleClass('selected');
+        });
+
+        $("#btn-search").on("click", function (e) {
+            table.draw();
+        });
+
+        //---------- GrabFood ---------
+
+        table_Grab = $('#tbl-store-grab-food').DataTable({
+                initComplete: function (settings, json) {
+                    $("#tbl-store-grab-food").wrap("<div style='overflow:auto; width:100%; position:relative;'></div>");
+                },
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    // Cap nhat mã CH GrabFood
+                    $(".btn-update-store-grab-food").click(function () {
+                        debugger
+                        var GrabMerchantID = $(this).attr("data-GrabMerchantID");
+                        var StoreNo = $(this).attr("data-StoreNo");
+
+                        $('#hdd-grab-merchant-id-temp').val(GrabMerchantID);
+                        $('#hdd-grab-store-no-temp').val(StoreNo);
+
+                        $('#modal-update-store-grab').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+
+                    });
+
+                    // Cap nhat trang thai
+                    $(".btn-update-status").click(function () {
+                        var GrabMerchantID = $(this).attr("data-GrabMerchantID");
+                        var StoreNo = $(this).attr("data-StoreNo");
+                        var Status = $(this).attr("data-status");
+                        UpdateStatusStoreGrab(GrabMerchantID, StoreNo, Status);
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: true,                 // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+
+                ajax: {
+                    url: '@Url.Action("GetStoreMappingByGrabFood", "Partner")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $('#sel-store-no-grab-food').val();
+                        d.Status = $('#sel-status-store-no-grab-food').val();
+                        d.TextSearch = $('#txt-text-search').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            var GrabMerchantID = row.GrabMerchantID;
+                            var StoreNo = row.StoreNo;
+                            html += '<a type="button" class=\"btn btn-icon btn-light-primary btn-update-store-grab-food\" data-toggle="tooltip" data-placement="left" title="Cập nhật"  data-GrabMerchantID ="' + GrabMerchantID + '" data-StoreNo ="' + StoreNo + '"  style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-list\"></i><span class="pulse-ring"></span></a>';
+                            if (row.IsOpen == 'Active') {
+                                html += '<a type="button" onclick="UpdateStatusStoreGrab(' + GrabMerchantID + ',' + StoreNo + ', 0)" class=\"btn btn-icon btn-light-danger btn-update-status\" data-toggle="tooltip" data-placement="left" title="Block"  data-GrabMerchantID ="' + GrabMerchantID + '" data-StoreNo ="' + StoreNo + '"  data-status ="' + 0 + '" style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock-open\"></i><span class="pulse-ring"></span></a>';
+                            }
+                            else if (row.IsOpen == 'Block') {
+                                html += '<a type="button" onclick="UpdateStatusStoreGrab(' + GrabMerchantID + ',' + StoreNo + ', 1)" class=\"btn btn-icon btn-light-success btn-update-status\" data-toggle="tooltip" data-placement="left" title="Active"  data-GrabMerchantID ="' + GrabMerchantID + '" data-StoreNo ="' + StoreNo + '"  data-status ="' + 1 + '"   style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock\"></i><span class="pulse-ring"></span></a>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "GrabMerchantID",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.GrabMerchantID == null || row.GrabMerchantID == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;text-align:center;">' + row.GrabMerchantID + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StoreNo == null || row.StoreNo == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:center;">' + row.StoreNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreName",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StoreName == null || row.StoreName == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d; text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:left;">' + row.StoreName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "IsOpen",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.IsOpen == "Block") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color: red; text-align:center;">' + row.IsOpen + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color: green; text-align:center;">' + row.IsOpen + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ChgUser",  // = Người tạo
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ChgUser == "" || row.ChgUser == null ) {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + row.ChgUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ChgDate",  // = Ngày tạo
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ChgDate == "" || row.ChgDate == null) {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + row.ChgDate + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+            ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+        $('#tbl-store-grab-food tbody').on('click', 'tr', function () {
+            $(this).toggleClass('selected');
+        });
+
+
+        $("#btn-search-grab").on("click", function (e) {
+            table_Grab.draw();
+        });
+
+
+        //---------- BeFood ---------
+
+        table_BeFood = $('#tbl-store-befood').DataTable({
+                initComplete: function (settings, json) {
+                    $("#tbl-store-befood").wrap("<div style='overflow:auto; width:100%; position:relative;'></div>");
+                },
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    $(".btn-update-store-befood").click(function () {
+                        //debugger
+                        var BeFoodMerchantID = $(this).attr("data-BeFoodMerchantID");
+                        var StoreNo = $(this).attr("data-StoreNo");
+                        $('#hdd-befood-merchant-id-temp').val(BeFoodMerchantID);
+                        $('#hdd-befood-store-no-temp').val(StoreNo);
+                        $('#modal-update-store-befood').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    });
+
+                    // Cap nhat trang thai
+                    $(".btn-update-status").click(function () {
+                        var BeFoodMerchantID = $(this).attr("data-BeFoodMerchantID");
+                        var StoreNo = $(this).attr("data-StoreNo");
+                        var Status = $(this).attr("data-status");
+                        UpdateStatusStoreBeFood(BeFoodMerchantID, StoreNo, Status);
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: true,                 // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                ajax: {
+                    url: '@Url.Action("GetStoreMappingByBeFood", "Partner")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $('#sel-store-no-befood').val();
+                        d.Status = $('#sel-status-store-no-befood').val();
+                        d.TextSearch = $('#txt-text-search').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            var restaurant_id = row.restaurant_id;
+                            var partner_restaurant_id = row.partner_restaurant_id;
+                            html += '<a type="button" class=\"btn btn-icon btn-light-primary btn-update-store-befood\" data-toggle="tooltip" data-placement="left" title="Cập nhật"  data-BeFoodMerchantID ="' + restaurant_id + '" data-StoreNo ="' + partner_restaurant_id + '"  style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-list\"></i><span class="pulse-ring"></span></a>';
+                            if (row.IsOpen == 'Active') {
+                                html += '<a type="button" onclick="UpdateStatusStoreBeFood(' + restaurant_id + ',' + partner_restaurant_id + ', 1)" class=\"btn btn-icon btn-light-danger btn-update-status\" data-toggle="tooltip" data-placement="left" title="Block"  data-BeFoodMerchantID ="' + restaurant_id + '" data-StoreNo ="' + partner_restaurant_id + '"  data-status ="' + 0 + '" style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock-open\"></i><span class="pulse-ring"></span></a>';
+                            }
+                            else if (row.IsOpen == 'Block') {
+                                html += '<a type="button" onclick="UpdateStatusStoreBeFood(' + restaurant_id + ',' + partner_restaurant_id + ', 0)" class=\"btn btn-icon btn-light-success btn-update-status\" data-toggle="tooltip" data-placement="left" title="Active"  data-BeFoodMerchantID ="' + restaurant_id + '" data-StoreNo ="' + partner_restaurant_id + '"  data-status ="' + 1 + '"   style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock\"></i><span class="pulse-ring"></span></a>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "restaurant_id",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.restaurant_id == null || row.restaurant_id == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;text-align:center;">' + row.restaurant_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "partner_restaurant_id",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.partner_restaurant_id == null || row.partner_restaurant_id == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:center;">' + row.partner_restaurant_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "address",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.address == null || row.address == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d; text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:left;">' + row.address + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "IsOpen",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.IsOpen == "Block") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color: red; text-align:center;">' + row.IsOpen + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color: green; text-align:center;">' + row.IsOpen + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ChgUser",  // = Người tạo
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ChgUser == "" || row.ChgUser == null ) {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + row.ChgUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ChgDate",  // = Ngày tạo
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ChgDate == "" || row.ChgDate == null) {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + row.ChgDate + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+            ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+        $('#tbl-store-befood tbody').on('click', 'tr', function () {
+            $(this).toggleClass('selected');
+        });
+
+        $("#btn-search-befood").on("click", function (e) {
+            table_BeFood.draw();
+        });
+
+
+        //---------- ZaloFood ---------
+
+        table_ZaloFood = $('#tbl-store-zalo-food').DataTable({
+                initComplete: function (settings, json) {
+                    $("#tbl-store-zalo-food").wrap("<div style='overflow:auto; width:100%; position:relative;'></div>");
+                },
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    $(".btn-update-store-zalo-food").click(function () {
+                        //debugger
+                        var store_id = $(this).attr("data-zalo-food-store-id");
+                        var merchant_store_id = $(this).attr("data-merchant-store-id");
+
+                        $('#hdd-zalo-food-store-id-temp').val(store_id); // mã CH ZaloFood
+                        $('#hdd-zalo-food-merchant-id-temp').val(merchant_store_id);
+
+                        $('#modal-update-store-zalo-food').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+
+                    });
+
+                    // Cap nhat trang thai
+                    $(".btn-update-status-zalo-food").click(function () {
+                        //debugger
+                        var store_id = $(this).attr("data-store-id");
+                        var merchant_store_id = $(this).attr("data-merchant-id");
+                        var status = $(this).attr("data-status");
+                        UpdateStatusStoreZaloFood(store_id, merchant_store_id, status);
+                    });
+
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: true,                 // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                ajax: {
+                    url: '@Url.Action("GetStoreMappingByZaloFood", "Partner")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $('#sel-store-no-zalo-food').val();
+                        d.Status = $('#sel-status-store-no-zalo-food').val();
+                        d.TextSearch = $('#txt-text-search-zalo-food').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            debugger
+                            var html = '<a type="button" class=\"btn btn-icon btn-light-primary btn-update-store-zalo-food\" data-toggle="tooltip" data-placement="left" title="Cập nhật"  data-zalo-food-store-id ="' + row.store_id + '"   data-merchant-store-id ="' + row.merchant_store_id + '"  style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-list\"></i><span class="pulse-ring"></span></a>';
+                            if (row.blocked == 'Active') {
+                                //html += '<a type="button" onclick=\"UpdateStatusStoreZaloFood("' + row.store_id + '","' + row.merchant_store_id + '", "1")\" class=\"btn btn-icon btn-light-danger btn-update-status\" data-toggle="tooltip" data-placement="left" title="Block"  data-zalo-food-store-id ="' + row.store_id + '"  data-merchant-store-id ="' + row.merchant_store_id + '"  data-status ="' + 0 + '" style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock-open\"></i><span class="pulse-ring"></span></a>';
+                                html += '<a type="button"  class=\"btn btn-icon btn-light-danger btn-update-status-zalo-food\"  data-toggle="tooltip" data-placement="left" title="Block"  data-store-id ="' + row.store_id + '"  data-merchant-id ="' + row.merchant_store_id + '"  data-status ="' + 0 + '" style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock-open\"></i><span class="pulse-ring"></span></a>';
+
+                            }
+                            else if (row.blocked == 'Block') {
+                                //html += '<a type="button" onclick=\"UpdateStatusStoreZaloFood("' + row.store_id + '","' + row.merchant_store_id + '", "0")\" class=\"btn btn-icon btn-light-success btn-update-status\" data-toggle="tooltip" data-placement="left" title="Active"  data-zalo-food-store-id ="' + row.store_id + '"  data-merchant-store-id ="' + row.merchant_store_id + '"  data-status ="' + 1 + '"   style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock\"></i><span class="pulse-ring"></span></a>';
+                                html += '<a type="button" class=\"btn btn-icon btn-light-success btn-update-status-zalo-food\" data-toggle="tooltip" data-placement="left" title="Active"  data-store-id ="' + row.store_id + '"  data-merchant-id ="' + row.merchant_store_id + '"  data-status ="' + 1 + '"   style="color:#fff;text-align:center; margin-right:5px;"><i class=\"la la-lock\"></i><span class="pulse-ring"></span></a>';
+
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "store_id",  // mã CH Zalo Food
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.store_id == null || row.store_id == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block;text-align:center;">' + row.store_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "merchant_store_id",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.merchant_store_id == null || row.merchant_store_id == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:center;">' + row.merchant_store_id + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "merchant_name",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.merchant_name == null || row.merchant_name == "") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color:#0c713d; text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; padding-top: 8px; display: block; text-align:left;">' + row.merchant_name + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "blocked",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.blocked == "Block") {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color: red; text-align:center;">' + row.blocked + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; color: green; text-align:center;">' + row.blocked + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ChgUser",  // = Người tạo
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ChgUser == "" || row.ChgUser == null ) {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + row.ChgUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ChgDate",  // = Ngày tạo
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ChgDate == "" || row.ChgDate == null) {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; padding-top: 8px; display: block; text-align:center;">' + row.ChgDate + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+            ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+        $('#tbl-store-zalo-food tbody').on('click', 'tr', function () {
+            $(this).toggleClass('selected');
+        });
+
+        $("#btn-search-zalo-food").on("click", function (e) {
+            table_ZaloFood.draw();
+        });
+
+
+
+
+    });
+
+    </script>
+}
+
+
+<style>
+    .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+        color: #5E6278;
+        background-color: #ffffff;
+        border-color: #2c48c5 #E4E6EF #ffffff;
+    }
+
+    .nav-tabs {
+        border-bottom: 1px solid #0c713d;
+    }
+</style>
+
+

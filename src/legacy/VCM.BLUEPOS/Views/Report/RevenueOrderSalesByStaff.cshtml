@@ -1,0 +1,405 @@
+﻿@using VCM.BLUEPOS.Model.Order;
+@using VCM.BLUEPOS.Model.POS;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Báo cáo doanh thu theo nhân viên";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listSetDB = ViewBag.SetDB as List<SQLServerModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Báo cáo tổng hợp</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Báo cáo doanh thu theo nhân viên</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_RevenueOrderSalesByStaff", "Report", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Vùng Set<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-set-server" name="SetServer">
+                                            @if (listSetDB != null && listSetDB.Count > 0)
+                                            {
+                                                if (listSetDB.Count == 1)
+                                                {
+                                                    <option value="@listSetDB.FirstOrDefault().IPServer" data-serverread="@listSetDB.FirstOrDefault().IPServerRead">@listSetDB.FirstOrDefault().Description</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listSetDB)
+                                                    {
+                                                        <option value="@item.IPServer" data-serverread="@item.IPServerRead">@item.Description</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Mã nhân viên</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-staff-code" name="StaffCode"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Từ ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-from-date" name="TxtFromDate" placeholder="Từ ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Đến ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">
+                                                <i class="far fa-calendar-alt"></i>
+                                            </span>
+                                        </div>
+                                        <input type="text" class="form-control float-right" id="txt-to-date" name="TxtToDate" placeholder="Đến ngày">
+                                    </div>
+                                </div>
+
+                                <input type="hidden" id="hdFromDate" name="FromDate" />
+                                <input type="hidden" id="hdToDate" name="ToDate" />
+
+                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary"><i class="fa fa-search"></i>Tìm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                    <button type="button" id="btn-export-pdf" class="btn btn-bg-secondary"><i class="la la-file-pdf"></i>Xuất PDF</button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-revenue-order-sales-by-staff" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-align:center;text-transform:uppercase;">
+                                    <th>STT</th>
+                                    <th>Mã nhân viên</th>
+                                    <th>Tên nhân viên</th>
+                                    <th>Doanh số</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        function getFromDate() {
+            var result = "";
+            var fromDate = $('#txt-from-date').val();
+            if (fromDate != null && fromDate != "") {
+                result = fromDate.split('/')[2] + "/" + fromDate.split('/')[1] + "/" + fromDate.split('/')[0];  // yyyy/MM/dd
+            }
+            else {
+                result = "";
+            }
+            return result;
+        }
+
+        function getToDate() {
+            var result = "";
+            var toDate = $('#txt-to-date').val();
+            if (toDate != null && toDate != "") {
+                result = toDate.split('/')[2] + "/" + toDate.split('/')[1] + "/" + toDate.split('/')[0];  // yyyy/MM/dd
+            }
+            else {
+                result = "";
+            }
+            return result;
+        }
+
+        function LoadComboxStaffCode(storeNo) {
+                //debugger 
+                $("#sel-staff-code").empty();
+                if (storeNo == null || storeNo == '') {
+                    var html = "<option value=\"\" selected>--- Chọn ---</option>";
+                    return $('#sel-staff-code').html(html);
+                }
+                loading.showloading();
+                var fromData = new FormData();
+                fromData.append('StoreNo', storeNo);
+           
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxStaffBySales", "Common")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        loading.hideloading();
+                        if (data != null) {
+                            if (data.length == 1) {
+                                var html = "<option value='" + data[0].UserPOS + "'>" + data[0].UserPOS + "</option>";
+                                $('#sel-staff-code').html(html);
+                            }
+                            else if (data.length > 1) {
+                                var html = "<option value=''>Tất cả</option>";
+                                data.forEach((name, i) => {
+                                    html += "<option value='" + name.UserPOS + "'>" + name.UserPOS + "</option>";
+                                });
+                                $('#sel-staff-code').html(html);
+                            }
+                        }                        
+                    },
+                    error: function ()
+                    {
+                        loading.hideloading();
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+           
+        }
+
+        function LoadComboxStoreByServer(ipServer) {
+            $("#sel-store-no").empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('IPServer', ipServer);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadStoreBySetServerIP", "Common")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data != null) {
+                        if (data.length == 1)
+                        {
+                            var html = "<option value='" + data[0].SiteNo + "'>" + data[0].DisplayComboSite + "</option>";
+                            $('#sel-store-no').html(html);
+                            LoadComboxStaffCode(data[0].SiteNo);
+                        }
+                        else if (data.length > 1)
+                        {
+                            var html = "<option value=\"\" selected>--- Chọn ---</option>";
+                            data.forEach((name, i) => {
+                                if (name.SiteNo != "") {
+                                    html += "<option value='" + name.SiteNo + "'>" + name.DisplayComboSite + "</option>";
+                                }
+                            });
+                            $('#sel-store-no').html(html);
+                        }
+                    }                    
+                },
+                error: function () {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function LoadDataReport() {
+
+            var _siteCode = $("#sel-store-no").val();
+            var _staffCode = $("#sel-staff-code").val();
+            var _fromDate = getFromDate();
+            var _toDate = getToDate();
+            var _setDB = $("#sel-set-server").select2().find(":selected").data("serverread");
+
+            if (_siteCode == "") {
+                toastr.error("Vui lòng chọn ST/CH");
+                return;
+            }
+
+            $('#tbl-revenue-order-sales-by-staff tbody').empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', _siteCode);
+            fromData.append('StaffCode', _staffCode);
+            fromData.append('FromDate', _fromDate);
+            fromData.append('ToDate', _toDate);
+            fromData.append('SetServer', _setDB);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetRevenueOrderSalesByStaff", "Report")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    var html = "";
+                    var total = 0;
+                    var stt = 1;
+                    if (data != null) {
+                        data.forEach((name, i) => {
+                            html += "<tr>";
+                            html += "<td style=\"text-align:center\">" + stt + "</td>";
+                            html += "<td style=\"text-align:left\">" + name.StaffCode + "</td>";
+                            html += "<td style=\"text-align:left\">" + name.FullName + "</td>";
+                            html += "<td style=\"text-align:right\">" + parseFloat(name.AmountTotal).toLocaleString('en') + "</td>";
+                            html += "</tr>";
+                            total += name.AmountTotal;
+                            stt++;
+                        });
+                    }
+                    html += "<tr style=\"font-weight:bold\">";
+                    html += "<td colspan=3 style=\"text-align:center\">Total</td>";
+                    html += "<td style=\"text-align:right\">" + parseFloat(total).toLocaleString('en') + "</td>";
+                    html += "</tr>";
+                    $('#tbl-revenue-order-sales-by-staff tbody').html(html);
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            $('#txt-from-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-from-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#txt-to-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-to-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            LoadComboxStaffCode($("#sel-store-no").val());
+            LoadComboxStoreByServer($("#sel-set-server").val());
+
+            $("#sel-set-server").on("change", function (e) {
+                LoadComboxStoreByServer($("#sel-set-server").val());
+            });
+
+            $("#sel-store-no").on("change", function (e) {
+                LoadComboxStaffCode($("#sel-store-no").val());
+            });
+
+            $("#btn-search").on("click", function (e) {
+                var fromDate = getFromDate();
+                var toDate = getToDate();
+                if (fromDate > toDate) {
+                    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                    return;
+                }
+                LoadDataReport();
+            });
+
+            $("#btn-export-pdf").on("click", function (e) {
+
+                var siteFull = $("#sel-store-no option:selected").text();
+                var storeNo = $("#sel-store-no").val();
+                var staffCode = $("#sel-staff-code").val();
+                var setServer = $("#sel-set-server").select2().find(":selected").data("serverread");
+                var fromDate = getFromDate();
+                var toDate = getToDate();
+
+                if (fromDate > toDate) {
+                    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                    return;
+                }
+
+                if (storeNo == "") {
+                    toastr.error("Vui lòng chọn cửa hàng");
+                    return;
+                }
+
+                var url = '/Report/ExportPDFRevenueOrderSalesByStaff?storeNo=' + storeNo + '&storeName=' + siteFull + '&SetServer=' + setServer + '&staffCode=' + staffCode + '&fromDate=' + fromDate + '&toDate=' + toDate;
+                window.open(url);
+
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                var fromDate = getFromDate();
+                var toDate = getToDate();
+                if (fromDate > toDate) {
+                    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                    return;
+                }
+                
+                $('#hdFromDate').val(fromDate);
+                $('#hdToDate').val(toDate);
+                $('#frm-export-excel').submit();
+
+            });
+
+
+        });
+
+    </script>
+}
+

@@ -1,0 +1,61 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var comboLineTypeBuy = ComboboxModel.ComboLineType();
+    var comboScaleTypeBuy = ComboboxModel.ComboScaleType();
+   // var comboDiscountType = ComboboxModel.ComboDiscountType();
+    var modelBuy = Model.GetOfferBuy as OfferBuyModel;
+
+    var lineNo = modelBuy.LineNo;
+    
+}
+<tr class="text-center _rowBuy bgSelectBuy_@lineNo" id="@lineNo" data-lineno="@lineNo">
+    <td style="width:100px;vertical-align:middle">
+
+        <select class="form-control select2 LineTypeBuy sLineTypeBuy_@lineNo " data-stt="@lineNo" id="LineTypeBuy_@lineNo">
+            @foreach (var loai in comboLineTypeBuy)
+            {
+                <option value="@loai.value">@loai.Display</option>
+            }
+        </select>
+    </td>
+    <td class="text-left" style="min-width:100px;vertical-align:middle">
+        <div class="input-group">
+            <input type="text" class="form-control barcodeBuy changebarcodeBuy_@lineNo" id="codeBuy_@lineNo" value="" data-stt="@lineNo" placeholder="Nhập barcode..."/>
+            <div class="input-group-append eventBuyPopup sGroupitemBuy_@lineNo" data-stt="@lineNo" style="display:none;"><span class="input-group-text"><i class="flaticon2-search-1 icon-md"></i></span></div>
+        </div>
+    </td>
+    <td style="min-width:250px;vertical-align:middle">
+        <select class="form-control select2 slItemBuy slchangeItemBuy_@lineNo" data-stt="@lineNo">
+            <option value="">Chọn sản phẩm</option>
+        </select>
+    </td>
+    <td style="vertical-align:middle;text-align:center;">
+        <select class="form-control select2 slUomBuy slchangeUomBuy_@lineNo" data-stt="@lineNo" style="width:100%">
+            <option value="">Chọn UOM</option>
+        </select>
+    </td>
+    <td style="vertical-align: middle; text-align: right;">
+        <input type="text" style="width:100%" class="form-control quantity  money changeQuantity_@lineNo"  data-lineno="@lineNo"  value="1" />
+    </td>
+
+    <td style="width:100px;vertical-align:middle">
+        <select class="form-control select2 ScaleTypeBuy" data-stt="@lineNo">
+            @foreach (var loai in comboScaleTypeBuy)
+            {
+                var selected = loai.value == "C" ? "selected" : "";
+                <option value="@loai.value" @selected>@loai.Display</option>
+            }
+        </select>
+    </td>
+
+    <td style="vertical-align:middle;text-align:center">
+        <span>
+            <a title="Xóa" class="btn btn-icon btn-light-danger removeItemBuy removeItemBuy_@lineNo" data-stt="@lineNo"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+        </span>
+    </td>
+    <td class="text-center" style="vertical-align:middle;color:red; display:none"><span class="error error_@lineNo"></span></td>
+</tr>
+
+
+
+

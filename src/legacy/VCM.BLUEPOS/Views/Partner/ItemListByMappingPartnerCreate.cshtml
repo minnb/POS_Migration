@@ -1,0 +1,895 @@
+﻿@using Newtonsoft.Json;
+@using System.Web.Configuration;
+@using VCM.BLUEPOS.Models;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.Partner;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.MCH;
+
+@{
+    ViewBag.Title = "Khai báo sản phẩm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listStoreHead = ViewBag.ListStoreHead as List<Shopee_Restaurant_Model>;
+    var listNganhHang = (List<VCM.BLUEPOS.Model.Partner.OptionModel>)ViewBag.ListCategory;
+    var listPicture = ViewBag.ListPicture as List<PictureResponseModel>;
+    var model = Model as CreateViewItemListNowFoodModel;
+    var listItem = model.ListItem;
+
+    var totalPage = Model.TotalPageNumber;
+    string pageCurrent_ItemNowFood = HttpContext.Current.Request.RequestContext.RouteData.Values["page"] == null ? "1" : HttpContext.Current.Request.RequestContext.RouteData.Values["page"].ToString();
+    int pageCR = int.Parse(pageCurrent_ItemNowFood);
+
+    var totalRow = Model.TotalRow;
+    var pageSize = Model.PageSize;
+    var displayRow = $"{pageCR}-{pageSize}/{totalRow} sản phẩm";
+
+    if (totalRow <= pageSize)
+    {
+        displayRow = $"{totalRow} sản phẩm";
+    }
+
+    if (pageCR > 1 && totalRow > pageSize)
+    {
+        displayRow = $"{(pageCR * pageSize + 1) - pageSize}-{(pageCR * pageSize > totalRow ? totalRow : pageCR * pageSize)} /{totalRow} sản phẩm";
+    }
+
+    var textsearch = Html.Raw(model.Keyword);
+    string urlImg = WebConfigurationManager.AppSettings["urlImg"];
+    string urlImg_Create = WebConfigurationManager.AppSettings["urlImg"];
+    var imgBase64 = ViewBag.ImagesBase64;
+    var modelListAPI = Model as APIListItemNowFoodResponseModel;
+    var listItemAPI = modelListAPI;
+
+}
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đối tác</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Khai báo sản phẩm</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <!-- Tab -->
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="example-preview" style="background-color:#fff;margin-left:-15px;margin-right:-15px;">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link classTab active" id="tab-create-item-list-now-food" data-toggle="tab" href="#createitemlistnowfood" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Khai báo sản phẩm
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link classTab" id="tab-item-list-now-food" data-toggle="tab" href="#itemlistnowfood">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Danh sách sản phẩm
+                                <!--Danh sách sản phẩm NOWFOOD (API) -->
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+
+        <div class="tab-content mt-5" id="myTabContent">
+
+            <!-- Tạo sản phẩm -->
+
+            <div class="tab-pane fade show active" id="createitemlistnowfood" role="tabpanel" aria-labelledby="tab-create-item-list-now-food">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("ItemListByMappingPartnerCreate", "Partner", FormMethod.Post, new { @id = "frm-item-list-now-food-create", enctype = "multipart/form-data" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-3 col-md-3 col-sm-6 col-xs-6">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-partner-id" name="PartnerID">
+                                                    <option value="NOWFOOD" selected>NowFood</option>
+                                                    <option value="GRABFOOD" disabled>GrabFood</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-5 col-md-5 col-sm-6 col-xs-6">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="txt-text-search" name="textsearch" value="@textsearch" placeholder="Nhập mã sản phẩm/ mã barcode/ tên sản phẩm..." />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-6 col-xs-6" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-primary" style="cursor:pointer" id="btn-header-search" name="btnSearch"><i class="fa fa-search"></i> Tìm</button>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                                <label style="font-weight:400 !important; text-align:left;padding-left: 15px;">(Chọn 01 sản phẩm trong danh sách để thêm mới)</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Khai bao san pham -->
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <div id="loadItem">
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                                <div class="d-flex justify-content-between align-items-center flex-wrap" style="text-align:right; float:right">
+                                                    @if (totalPage > 1)
+                                                    {
+                                                    <div class="d-flex flex-wrap">
+                                                        <a href="@Url.Action("ItemListByMappingPartnerCreate", "Partner", new { page = 1, textsearch = textsearch})" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                            <i class="ki ki-bold-double-arrow-back icon-xs"></i>
+                                                        </a>
+                                                        <a href="@Url.Action("ItemListByMappingPartnerCreate", "Partner", new { page = pageCR > 1 ? pageCR - 1 : pageCR, textsearch = textsearch })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                            <i class="ki ki-bold-arrow-back icon-xs"></i>
+                                                        </a>
+                                                        @for (int page = 1; page <= totalPage; page++)
+                                                        {
+                                                            var activePage = pageCR == page ? "active" : "";
+                                                            <a href="@Url.Action("ItemListByMappingPartnerCreate", "Partner", new { page = page, textsearch = textsearch })" class="btn btn-icon btn-sm border-0 btn-hover-primary mr-2 my-1 @activePage">@page</a>
+                                                        }
+                                                        <a href="@Url.Action("ItemListByMappingPartnerCreate", "Partner", new { page = pageCR < totalPage ? pageCR + 1 : pageCR, textsearch = textsearch })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                            <i class="ki ki-bold-arrow-next icon-xs"></i>
+                                                        </a>
+                                                        <a href="@Url.Action("ItemListByMappingPartnerCreate", "Partner", new { page = totalPage, textsearch = textsearch })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                            <i class="ki ki-bold-double-arrow-next icon-xs"></i>
+                                                        </a>
+                                                    </div>
+                                                    }
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="text-muted">@displayRow</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:5px;"></div>
+
+                                        <div class="row" id="div-infor-item-list">
+                                            @if (listItem != null && listItem.Count > 0)
+                                            {
+                                                foreach (var item in listItem)
+                                                {
+                                                    var fullImgPath = $"{urlImg}/{item.ImageName}";
+                                                    <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12" style="margin-bottom:-20px">
+                                                        <div class="card card-custom gutter-b card-stretch" style="border:1px solid #d5d2d2">
+                                                            <div class="card-body">
+                                                                <div style="cursor:pointer" class="d-flex align-items-center div-infor-item btn-view-detail-item" data-item-no="@item.ItemNo" data-item-name="@item.ItemName" data-unit-price="@item.UnitPrice" data-uom="@item.BaseUnitOfMeasure" data-blocked="@item.Blocked">
+                                                                    <div class="flex-shrink-0 mr-4 mt-lg-0" style="margin-left:5px;">
+                                                                        <div class="symbol symbol-lg-75 div-image">
+                                                                            @if (string.IsNullOrEmpty(item.ImageName))
+                                                                            {
+                                                                                var imageURL ="/Uploads/imgs/placeholder.png";
+                                                                                <img src="@imageURL" />
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <img src="@fullImgPath" />
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="d-flex flex-column" style="font-family:Roboto ,Unicode Support Noto, sans-serif">
+                                                                        <a class="text-dark font-weight-bold text-hover-primary mb-0 div-item-name" data-item-name="@item.ItemName"><span style="color:#0c713d;font-weight:700;">@item.ItemName</span></a>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-item-no" data-itemNo="@item.ItemNo">Sap:&ensp;<span>@item.ItemNo</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-price" data-unit-price="@item.UnitPrice">Giá:&ensp;<span>@item.UnitPrice</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-uom" data-uom="@item.BaseUnitOfMeasure">ĐVT:&ensp;<span>@item.BaseUnitOfMeasure</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-status" data-blocked="@item.Blocked">Trạng thái:&ensp;<span>@item.Blocked</span></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                    <div id="updateItem" style="display:none"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Call API: Danh sách sản phẩm theo Store -->
+
+            <div class="tab-pane fade" id="itemlistnowfood" role="tabpanel" aria-labelledby="tab-item-list-now-food">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            
+                            @using (Html.BeginForm("APIItemListNowFoodByStore", "Partner", FormMethod.Post, new { @id = "frm-item-list-now-food" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Đối tác</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-partner" name="Partner">
+                                                    <option value="NOF" selected>NowFood</option>
+                                                    <option value="GRABFOOD" disabled>GrabFood</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                                    <option value="" selected disabled>--- Chọn ---</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        @*<div class="col-lg-3 col-md-3 col-sm-12 col-xs-12" id="div-category">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Ngành hàng<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-update-category" name="CategoryUpdate"></select>
+                                            </div>
+                                        </div>*@
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:600 !important">Từ khóa</label>
+                                            <input type="text" class="form-control pull-right" id="txt-text-search-v1" name="TextSearch" placeholder="Nhập mã sản phẩm (mã sap); tên sản phẩm" />
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top: 25px;float:right;">
+                                            <button type="button" class="btn btn-primary" style="" id="btn-search-item-list" name="btnSearch-v1"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <div class="row" style="min-height:150px;" id="div-view-item-list-now-food"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>                
+            </div>
+        </div>
+
+        <div class="modal fade" id="modal-create-item-now-food" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-create-title" style="text-transform:uppercase">Khai báo sản phẩm bán kênh đối tác</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <i aria-hidden="true" class="ki ki-close"></i>
+                        </button>
+                    </div>
+
+                    <div class="modal-body" id="modal-create-item-now-food-body">
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat card-stretch">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2">
+                                                <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác</label>
+                                                <div class="form-group">
+                                                    <select class="form-control select2" style="width:100%;" id="sel-create-partner" name="Partner" disabled>
+                                                        <option value="">--- Chọn ---</option>
+                                                        <option value="NOF" selected>NowFood</option>
+                                                        <option value="GRABFOOD" disabled>GrabFood</option>
+                                                        @*<option value="BEF">BeFood</option>*@
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2">
+                                                <div class="form-group">
+                                                    <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Mã sản phẩm</label>
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="modal-create-item-no" name="CreateItemNo" disabled />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4">
+                                                <div class="form-group">
+                                                    <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Tên sản phẩm <strong style="color:#ff0000"> (*)</strong></label>
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="modal-create-item-name" name="CreateItemName" disabled />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                                <div class="form-group">
+                                                    <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Thông tin diễn giải</label>
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="modal-create-description" name="CreateDescription" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                                <div class="form-group">
+                                                    <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng</label>
+                                                    <div class="form-group" id="div-modal-create-store">                                                        
+                                                        <select class="form-control select2" style="width:100%;" id="modal-create-store-no" name="CreateStoreNo">
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                                <div class="form-group" style="padding-left:5px;">
+                                                    <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Ngành hàng</label>
+                                                    <div class="form-group">
+                                                        <select class="form-control select2" style="width:100%;" id="modal-create-item-group-id" name="CreateItemGroupID">
+                                                           
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                                <div class="form-group" style="padding-left:5px;">
+                                                    <label class="font-weight-bold" style="font-weight:700 !important">Giá bán <strong style="color:#ff0000"> (*)</strong></label>
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="modal-create-unit-price" name="CreateUnitPrice" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-lg-6 col-md-6 col-sm-6 col-xl-6">
+                                                <div class="form-group">
+                                                    <label class="font-weight-bold" style="font-weight:700 !important">Chọn hình ảnh <strong style="color:#ff0000"> (*)</strong></label>
+                                                    <div class="form-group">
+                                                        <select class="form-control select2" style="width:100%;" id="modal-create-picture" name="CreatePicture">
+                                                            <option value="" selected disabled>--- Chọn ---</option>
+                                                            @if (listPicture != null || listPicture.Count() > 0)
+                                                            {
+                                                                foreach (var item in listPicture)
+                                                                {
+                                                                    <option value="@item.picture_id-@item.url">@item.picture_id - @item.url</option>
+                                                                }
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <input type="hidden" id="img-create-item-no-temp" name="ImgCreateTemp"/>
+
+                                            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                                                <div style="text-align:left;" id="img-create-item-no-now-food">                                                    
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" id="btn-save-create-item-by-partner" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                        <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var keyword = $("#hdd-txt-key-word").val();
+
+        // Load combox danh sách CH ( tab: Danh sách sản phẩm)
+
+        function LoadComboxStore() { 
+            var partner = "GRF";
+            if (partner == "GRF") { 
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxStoreByGrabFood", "Partner")',
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        //debugger
+                        var html = "";
+                        if (data.length > 0) {
+                            data.forEach((item, i) => {
+                                html += "<option value='" + item.StoreNo + "'>" + item.StoreNo + "-" + item.StoreName + "</option>"
+                            });
+                        }
+                        $('#sel-store-no').html(html);
+                    },
+                    error: function () {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+            }
+        }
+
+        function CreateItemByMappingPartner() {
+            //debugger
+            var partner = $("#sel-create-partner").val();
+            var itemNo = $("#modal-create-item-no").val();
+            var itemName = $("#modal-create-item-name").val();
+            var description = $("#modal-create-description").val();
+            var groupId = $("#modal-create-item-group-id").val();
+            var storeNo = $("#modal-create-store-no").val();
+            var unitPrice = $("#modal-create-unit-price").val();
+            var picture = $("#modal-create-picture").val();
+
+            if (partner == null || partner == "") {
+                toastr.error('Vui lòng chọn đối tác');
+                return;
+            }
+
+            if (itemName == null || itemName == "") {
+                toastr.error('Nhập tên sản phẩm');
+                return;
+            }
+
+            if (storeNo == null || storeNo == "") {
+                toastr.error('Chọn cửa hàng');
+                return;
+            }
+
+            if (groupId == null || groupId == "") {
+                toastr.error('Chọn ngành hàng');
+                return;
+            }
+
+            if (unitPrice == null || unitPrice == "") {
+                toastr.error('Nhập giá bán sản phẩm');
+                return;
+            }
+
+            // check giá
+            if (unitPrice < 0) {
+                toastr.error("Giá bán phải là kiểu số dương (>0). Vui lòng kiểm tra lại");
+                return;
+            }
+
+            var check = $.isNumeric(unitPrice);
+            if (check == false) {
+                toastr.error("Giá bán phải là kiểu số (>0). Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (picture == null || picture == "") {
+                toastr.error('Chọn hình ảnh sản phẩm');
+                return;
+            }
+
+            var picture_id = picture.split('-')[0];
+            var picture_url = picture.split('/')[7];
+            var merchant_item_image = picture.split('-')[1];
+
+            var partner_restaurant_id = storeNo.split('-')[0];
+            if (partner == "BEF")  // Befood
+            {
+                var restaurant_id = storeNo;
+            }
+            else {
+                var restaurant_id = storeNo.split('-')[1];
+            }
+
+            var fromData = new FormData();
+            fromData.append('partner_id', partner);
+            fromData.append('restaurant_id', restaurant_id);
+            fromData.append('partner_restaurant_id', partner_restaurant_id);
+            fromData.append('partner_dish_group_id', groupId);
+            fromData.append('partner_dish_id', itemNo);
+            fromData.append('name', itemName);
+            fromData.append('description', description);
+            fromData.append('price', unitPrice);
+            fromData.append('picture_id', picture_id);
+            fromData.append('picture_url', picture_url);
+            fromData.append('merchant_item_image', merchant_item_image);            
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CreateItemByMappingPartner", "Partner")',
+                type: "POST",
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status != 200) {
+                        toastr.error(data.Message);
+                        $('#modal-create-item-now-food').modal("hide");
+                    }
+                    else {
+                        if (data.Data.meta.code == 201)
+                        {
+                            toastr.error('Sản phẩm này đã tồn tại trên kênh đối tác. Vui lòng chọn sản phẩm khác');
+                            $('#modal-create-item-now-food').modal("hide");
+                        }
+                        else if (data.Data.meta.code == 200)
+                        {
+                            toastr.success("Khai báo sản phẩm thành công");
+                            $("#txt-text-search").val('');
+                            $("#btn-header-search").trigger('click');
+                            $('#modal-create-item-now-food').modal("hide");
+                        }
+                        else
+                        {
+                            toastr.success(data.Data.meta.message);
+                            $('#modal-create-item-now-food').modal("hide");
+                        }
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function LoadComboxStorebyPartner() {
+            //debugger
+            var partner = $('#sel-create-partner').val();
+            
+            if (partner == null || partner == "") {
+                var html = "<option value=\"\" selected>--- Chọn ---</option>";
+                $('#modal-create-store-no').html(html);
+            }
+            else
+            {
+                var fromData = new FormData();
+                fromData.append('partner', partner);            
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxStoreByPartner", "Partner")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        //debugger
+                        if (data.length > 0) {
+                            if (partner == "NOF") {
+                                data.forEach((item, i) => {
+                                    html += "<option value='" + item.partner_restaurant_id + "-" + item.restaurant_id + "'>" + item.partner_restaurant_id + "-" + item.name + "</option>"
+                                });
+                            }
+                            else if (partner == "GRF") {
+                                data.forEach((item, i) => {
+                                    html += "<option value='" + item.restaurant_id + "'>" + item.partner_restaurant_id + "-" + item.restaurant_name + "</option>"
+                                });
+                            }
+                            else if (partner == "BEF") {
+                                data.forEach((item, i) => {
+                                    html += "<option value='" + item.restaurant_id + "'>" + item.partner_restaurant_id + "-" + item.restaurant_name + "</option>"
+                                });
+                            } 
+                        }
+                        $('#modal-create-store-no').html(html);
+                    },
+                    error: function () {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+            }
+        }
+
+        function LoadComboxCategoryByPartner() {
+            var partner = $('#sel-create-partner').val();
+            if (partner == null || partner == "") {
+                var html = "<option value=\"\" selected>--- Chọn ---</option>";
+                $('#modal-create-item-group-id').html(html);
+            }
+            else
+            {
+                var fromData = new FormData();
+                fromData.append('partner', partner);            
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxCategoryByPartner", "Partner")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        //debugger
+                        if (data.length > 0) {
+                            if (partner == "NOF") {
+                                data.forEach((item, i) => {
+                                    html += "<option value='" + item.Value + "'>" + item.Text + "</option>"
+                                });
+                            }
+                            //else if (partner == "BEF") {
+                            //    data.forEach((item, i) => {
+                            //        html += "<option value='" + item.Value + "'>" + item.Text + "</option>"
+                            //    });
+                            //} 
+                        }
+                        $('#modal-create-item-group-id').html(html);
+                    },
+                    error: function () {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+            }
+        }
+
+    function LoadItemListByNowFood(storeNo, itemNo, textSearch) {
+            //debugger
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', storeNo);
+            fromData.append('ItemNo', itemNo);
+            fromData.append('TextSearch', textSearch);
+            $.ajax({
+                url: '@Url.Action("APIItemListNowFoodByStore", "Partner")',
+                type: "POST",
+                data: fromData,
+                dataType: "json",
+                contentType: false,
+                processData: false,         
+                success: function (response)
+                {
+                    //debugger
+                    loading.hideloading();
+                    var html = '';
+                    if (response.length != null) {
+                        for (var i = 0; i < response.length; i++) {
+                            html += '<div class="col-xl-3 col-lg-4 col-md-6 col-sm-12" style="margin-bottom:-20px">';
+                            html += '<div class="card card-custom gutter-b card-stretch" style="border:1px solid #d5d2d2">';
+                            html += '<div class="card-body">';
+                            html += '<div style="cursor:pointer" class="d-flex align-items-center btnDetail" data-itemno="' + response[i].dish_id + '">';
+
+                            html += '<div class="flex-shrink-0 mr-4 mt-lg-0">';
+                            html += '<div class="symbol symbol-lg-75">';
+                            if (response[i].picture == null) {
+                                var ulrUploadImage = "~/Uploads/imgs/placeholder.png";
+                                html += '<img src="' + ulrUploadImage +'" />';
+                            }
+                            else {
+                                var imagesBase64 = response[i].picture.url;
+                                html += '<img src="' + imagesBase64 + '" />';
+                            }
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class="d-flex flex-column" style="font-family:Roboto ,Unicode Support Noto, sans-serif">';
+                            html += '<a class="text-dark font-weight-bold text-hover-primary mb-0">' + response[i].name + '</a>';
+                            html += '<span class="text-muted font-weight-bold">No: ' + response[i].dish_id + '</span>';
+                            html += '<span class="text-muted font-weight-bold">Sap: ' + response[i].partner_dish_id + '</span>';
+                            html += '<span class="text-muted font-weight-bold">Giá: ' + response[i].price + ' </span>';
+                            if (response[i].is_active == false) {
+                                var isActiveStr = "Deactive";
+                                html += '<span class=\"text-muted font-weight-bold\">Trạng thái: <span id="lbStatus' + response[i].partner_dish_id + '" style=\"color:#ff0000;font-weight-bold\">' + isActiveStr + '</span></span>';
+                            }
+                            else if (response[i].is_active == true) {
+                                var isActiveStr = "Active";
+                                html += '<span class=\"text-muted font-weight-bold\">Trạng thái: <span id="lbStatus' + response[i].partner_dish_id + '" style=\"color:#06b65c;font-weight-bold\">' + isActiveStr + '</span></span>';
+                            }
+                            html += '</div>';
+
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                    }
+                    else
+                    {
+                        html += '<div class="alert-cutom alert-warning" style="font-weight: 400; text-align: center;">';
+                        html += '<span>Không có dữ liệu</span>';
+                        html += '</div>';
+                    }
+                    $('#div-view-item-list-now-food').html(html);                    
+                },
+                error: function (event)
+                {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function ClearTextCreate() {
+            //debugger
+            $('#kt_img_item_create').find(".image-input-wrapper").css("background-image", 'url("/Uploads/imgs/placeholder.png"');
+            $("#modal-create-item-no").val('');
+            $("#modal-create-item-name").val('');
+            $("#modal-create-description").val('');
+            $("#modal-create-item-group-id").val('').trigger('change');
+            $("#modal-create-store-no").val('').trigger('change');
+            $("#modal-create-unit-price").val('').trigger('change');
+            $("#modal-create-picture").val('').trigger('change');
+        }
+
+
+    $(document).ready(function () {
+
+        $(".select2").select2();
+        var kt_img_item_create = new KTImageInput('kt_img_item_create');
+
+        $('#txt-text-search').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#txt-text-search-v1').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch-v1]').click();
+                return false;
+            }
+        });
+
+        LoadComboxStorebyPartner();
+        LoadComboxCategoryByPartner();
+        LoadComboxStore();
+
+        $('#sel-partner').on("change", function (e) {
+            LoadComboxStore(); 
+        });
+
+        $('#sel-create-partner').on("change", function (e) {
+            LoadComboxStorebyPartner();
+            LoadComboxCategoryByPartner();
+        });
+
+        $(".btn-view-detail-item").on("click", function (e) {
+            var itemNo = $(this).attr("data-item-no");
+            $("#modal-create-item-no").val(itemNo);
+            var itemName = $(this).attr("data-item-name");
+            $("#modal-create-item-name").val(itemName);
+            var price = $(this).attr("data-unit-price");
+            $("#modal-create-unit-price").val(price);
+            $("#modal-create-store-no").val('').trigger('change');
+            $("#modal-create-item-group-id").val('').trigger('change');
+            $("#modal-create-picture").val('').trigger('change');
+
+            $('#modal-create-item-now-food').modal({
+                backdrop: 'static',
+                keyboard: true
+            });
+
+        });
+
+         $("#modal-create-picture").on("change", function (e) {
+             //debugger
+             var strUrl = $("#modal-create-picture").val();
+             var imgUrl = "";
+
+             if (strUrl == null || strUrl == "")
+             {
+                 imgUrl = "~/Uploads/imgs/placeholder.png";
+             }
+             else
+             {
+                 imgUrl = strUrl.substring(7);
+             }
+
+            var imageChange = "image-input image-input-outline image-input-changed";
+            var urlImg = imgUrl;  
+            var html = "";
+                html += '<div class=\"' + imageChange + '\" id="kt_img_item_update">';
+                html += '<div class=\"image-input-wrapper\" style=\"background-image: url(' + urlImg + ')\"></div>';
+
+                //html += '<label class=\"btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow\" data-action=\"change\" data-toggle=\"tooltip\" title="" data-original-title=\"Change avatar\">';
+                //html += '<i class=\"fa fa-pen icon-sm text-muted\"></i>';
+                //html += '<input type="file" id="imgItem-update" name="imgItem" accept=".png, .jpg, .jpeg" disabled />';
+                //html += '<input type="hidden" name="imgItem_remove"  disabled/>';
+                //html += '</label>';
+
+                //html += '<span id="btnCancleImg-update" class=\"btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow\" data-action=\"cancel\" data-toggle=\"tooltip\" title=\"Cancel avatar\">';
+                //html += '<i class=\"ki ki-bold-close icon-xs text-muted\"></i>';
+                //html += '</span>';
+
+                html += '</div>';
+                $("#img-create-item-no-now-food").html(html);
+
+         });
+
+        //$("#btn-save-create-item-now-food").on("click", function (e) {
+        //    CreateItemNowFood();
+        //});
+
+        $("#btn-save-create-item-by-partner").on("click", function (e) {
+            CreateItemByMappingPartner();
+        });
+
+        $("#btn-header-search").on("click", function (e) {
+            var keyword = $("#txt-text-search").val();
+            $("#hdd-txt-key-word").val(keyword);
+            loading.showloading();
+            $('#frm-item-list-now-food-create').attr('action', "/khai-bao-san-pham/1/" + keyword + "").submit();     
+        });
+
+        $("#btn-search-item-list").on("click", function (e) {
+            //debugger
+            var storeNoStr = $("#sel-store-no").val();
+            if (storeNoStr == null || storeNoStr == "") {
+                toastr.error('Vui lòng chọn ST/CH');
+                return;
+            }
+            var storeNo = storeNoStr.split('-')[0];
+            //var restaurant_id = storeNo.split('-')[1];
+            var itemNo = $("#txt-text-search-v1").val();
+            var textSearch = $("#txt-text-search-v1").val();
+            LoadItemListByNowFood(storeNo, itemNo, textSearch);
+        });
+
+    });
+
+    </script>
+}
+
+
+<style>
+    .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+        color: #5E6278;
+        background-color: #ffffff;
+        border-color: #2c48c5 #E4E6EF #ffffff;
+    }
+
+    .nav-tabs {
+        border-bottom: 1px solid #0c713d;
+    }
+</style>
+
+

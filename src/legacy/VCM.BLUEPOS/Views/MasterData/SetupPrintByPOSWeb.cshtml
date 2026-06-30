@@ -1,0 +1,742 @@
+﻿@using VCM.BLUEPOS.Model.POS;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Helpers;
+
+@{
+    ViewBag.Title = "Cài đặt máy in POSWeb";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<StoreModel>;
+    
+}
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Master Data</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Cài đặt máy in POSWeb</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+       
+        <div class="d-flex align-items-center">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                @*<button type="button" id="btn-import-excel" class="btn btn-bg-warning font-weight-bold"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Import File Excel</span></button>*@
+                <button type="button" id="btn-add-setup-print-by-pos-web" class="btn btn-primary font-weight-bold"><i class="la la-plus-circle"></i>Thêm mới</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_SetupPrintByPOSWeb", "MasterData", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <label style="font-weight:600 !important">Kênh</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-chanel-no" name="ChanelNo">
+                                            <option value="-1" selected>Tất cả</option>
+                                            <option value="FS">FlagShip</option>
+                                            <option value="KS">Kiosk</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">ST/CH</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-store-no" name="StoreNo"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <label style="font-weight:600 !important">Trạng thái</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-status-active" name="Status">
+                                            <option value="" selected>Tất cả</option>
+                                            <option value="1">Active</option>
+                                            <option value="0">Deactive</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                    <label style="font-weight:600 !important">Địa chỉ IP</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="txt-ip-address" name="IPAddress" placeholder="Nhập địa chỉ IP...">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary" name="btnSearch"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-setup-print-by-pos-web" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th width="90px;">#</th>
+                                    <th width="120px;">Stt</th>
+                                    <th>Địa chỉ IP</th>
+                                    <th>Mã ST/CH</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-create-setup-print-by-pos-web" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-create-setup-print-by-pos-web">Cài đặt máy in POSWeb</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-create-setup-print-by-pos-web-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">Kênh<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-chanel-no" name="CreateChanelNo">
+                                                <option value="" selected disabled>--- Chọn ---</option>
+                                                <option value="FS">FlagShip</option>
+                                                <option value="KS">Kiosk</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-8 col-md-8 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">ST/CH <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-store-no" name="CreateStoreNo" value=""></select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label style="font-weight:400 !important;">Máy POS <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-pos-id" name="CreatePOSTerminal"></select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">Địa chỉ IP</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-create-ip-address" name="IPAddress" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-status" name="CreateStatus">
+                                                <option value="" selected disabled>--- Chọn ---</option>
+                                                <option value="1">Active</option>
+                                                <option value="0">Deactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="btn-save-create-setup-print-by-pos-web" class="btn btn-bg-primary" style="color:#fff"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-update-setup-print-by-pos-web" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-update-setup-print-pos-web">Cập nhật thông tin máy in POSWeb</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-setup-print-by-pos-web-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">ST/CH</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-store-no" name="UpdateStoreNo" disabled>
+                                            @*<select class="form-control select2" id="modal-update-store-no" name="UpdateStoreNo" disabled></select>*@
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">Địa chỉ IP</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-ip-address" name="UpdateIPAddress" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                        <label style="font-weight:600 !important;">Trạng thái <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-status" name="UpdateStatus">
+                                                <option value="1">Active</option>
+                                                <option value="0">Deactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" id="modal-update-store-no-temp"/>
+            <div class="modal-footer">
+                <button type="button" id="btn-save-update-setup-print-pos-web" class="btn btn-bg-primary" style="color:#fff"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        function LoadComboxStoreByChanel() {
+            var chanelNo = $('#sel-chanel-no').val();
+            loading.showloading();
+            var html = '<select class="form-control select2" style="width: 100%;" id="sel-store-no" name="StoreNo">';
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxStoreByChanel", "Common")',
+                    data: {
+                        ChanelNo: chanelNo
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        html += "<option value=\"\">Tất cả</option>";
+                        if (data.length > 0)
+                        {
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.SiteNo + "'>" + name.SiteNo + " - " + name.SiteName + " </option>"
+                           });
+                        }
+                        html += '</select>';
+                        $('#sel-store-no').html(html);
+                        loading.hideloading();
+                    },
+                    error: function ()
+                    {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+        };
+
+        function LoadComboxStoreByChanelForCreate() {
+                loading.showloading();
+                var chanelNo = $('#modal-create-chanel-no').val();
+                var html = '<select class="form-control select2" style="width: 100%;" id="modal-create-store-no" name="CreateStoreNo">';
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxStoreByChanel", "Common")',
+                    data: {
+                        ChanelNo: chanelNo
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        html += "<option value=\"\">--- Chọn ---</option>";
+                        if (data.length > 0)
+                        {
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.SiteNo + "'>" + name.SiteNo + " - " + name.SiteName + " </option>"
+                           });
+                        }
+                        html += '</select>';
+                        $('#modal-create-store-no').html(html);
+                        loading.hideloading();
+                    },
+                    error: function ()
+                    {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+
+        };
+
+
+        function CreateSetupPrintByPOSWeb() {
+            //debugger
+            var chanelNo = $('#modal-create-chanel-no').val();
+            var storeNo = $('#modal-create-store-no').val();
+            var posTerminal = $('#modal-create-pos-id').val();  // Lay gia tri IPAddress
+            var ipAddress = $('#modal-create-ip-address').val();
+            var status = $('#modal-create-status').val();
+            
+
+            if (chanelNo == null || chanelNo == "") {
+                toastr.error("Vui lòng chọn kênh bán hàng");
+                return;
+            }
+
+            if (storeNo == null || storeNo == "") {
+                toastr.error("Vui lòng chọn ST/CH");
+                return;
+            }
+
+            if (posTerminal == null || posTerminal == "") {
+                toastr.error("Vui lòng chọn máy POS bán hàng");
+                return;
+            }
+
+            if (ipAddress == null || ipAddress == "") {
+                toastr.error("IPAddress không được để rỗng. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (status == null || status == "") {
+                toastr.error("Vui lòng chọn trạng thái máy in");
+                return;
+            }
+
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CreateSetupPrintByPOSWeb", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    IPAddress: ipAddress,
+                    StoreNo: storeNo,
+                    Status: status
+                },
+                success: function (data) {
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-create-setup-print-by-pos-web').modal("hide");
+                    }
+                    else{
+                        toastr.error(data.Message);
+                    }
+
+                    $('#btn-search').trigger('click');
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+         function UpdateSetupPrintByPOSWeb() {
+            //debugger
+            var storeNo = $('#modal-update-store-no').val();
+             var ipAddress = $('#modal-update-ip-address').val();
+            var status = $('#modal-update-status').val();
+            
+            if (status == null || status == "") {
+                toastr.error("Vui lòng chọn trạng thái máy in");
+                return;
+            }
+
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("UpdateSetupPrintByPOSWeb", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    IPAddress: ipAddress,
+                    StoreNo: storeNo,
+                    Status: status
+                },
+                success: function (data) {
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modal-update-setup-print-by-pos-web').modal("hide");
+                    }
+                    else{
+                        toastr.error(data.Message);
+                    }
+
+                    $('#btn-search').trigger('click');
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function ClearTextCreate() {
+            $('#modal-create-chanel-no').val('').trigger('change');
+            $('#modal-create-store-no').val('').trigger('change');
+            $('#modal-create-pos-id').val('').trigger('change');
+            $('#modal-create-ip-address').val('');
+            $('#modal-create-status').val('').trigger('change');
+        };
+
+        function LoadComboxPOSTerminalByStore(storeNo) {
+            loading.showloading();
+            if (storeNo == null || storeNo == '') {
+                var html = "<option value=\"\" selected>Tất cả</option>";
+                return $('#modal-create-pos-id').html(html);
+            }
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadPOSTerminalByStoreSetupPrint", "Common")',
+                data: { StoreNo: storeNo },
+                dataType: "json",
+                success: function (data) {
+                    //debugger
+                    if (data != null) {
+                        if (data.length == 1)
+                        {
+                            var html = "<option value='" + data[0].IpAddress + "'>" + data[0].PosID + ' - ' + data[0].IpAddress +"</option>";
+                            $('#modal-create-pos-id').html(html);
+                        }
+                        else if (data.length > 1)
+                        {
+                            var html = "<option value=\"\" selected>Tất cả</option>";
+                            data.forEach((name, i) => {
+                                if (name.PosID != "") {
+                                    //html += "<option value='" + name.PosID + "'>" + name.PosID + "</option>";
+                                    html += "<option value='" + name.IpAddress + "'>" + name.PosID + ' - ' + name.IpAddress +"</option>";
+                                }
+                            });
+                            $('#modal-create-pos-id').html(html);
+                        }
+                    }
+                    loading.hideloading();
+                },
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+          });
+
+        };
+
+
+        $(document).ready(function () {
+            $('.select2').select2();
+            $('#txt-ip-address').keypress(function (e) {
+                var key = e.which;
+                if (key == 13) {
+                    $('button[name = btnSearch]').click();
+                    return false;
+                }
+            });
+
+            var ipv4_address = $('#txt-ip-address');
+            ipv4_address.inputmask({
+                alias: "ip",
+                greedy: false 
+            });
+
+            var ipv4_address_create = $('#modal-create-ip-address');
+            ipv4_address_create.inputmask({
+                alias: "ip",
+                greedy: false
+            });
+
+            var ipv4_address_update = $('#modal-update-ip-address');
+            ipv4_address_update.inputmask({
+                alias: "ip",
+                greedy: false
+            });
+
+            LoadComboxStoreByChanel();
+            $("#sel-chanel-no").on('change', function (e) {
+                LoadComboxStoreByChanel();
+            });
+
+            LoadComboxStoreByChanelForCreate();
+            $("#modal-create-chanel-no").on('change', function (e) {
+                LoadComboxStoreByChanelForCreate();
+            });
+
+            LoadComboxPOSTerminalByStore($("#modal-create-store-no").val());
+            $("#modal-create-store-no").on("change", function (e) {
+                LoadComboxPOSTerminalByStore($("#modal-create-store-no").val());
+            });
+
+            $("#modal-create-pos-id").on("change", function (e) {
+                var ipAddress = $("#modal-create-pos-id").val();
+                $("#modal-create-ip-address").val(ipAddress);
+            });
+
+            $('#btn-add-setup-print-by-pos-web').on('click', function () {
+                ClearTextCreate();
+                $('#modal-create-setup-print-by-pos-web').modal({
+                    backdrop: "static",
+                    keyboard: true
+                });
+            });
+
+            $('#btn-save-create-setup-print-by-pos-web').on("click", function () {
+                CreateSetupPrintByPOSWeb();
+            });
+
+            $('#btn-save-update-setup-print-pos-web').on("click", function () {
+                UpdateSetupPrintByPOSWeb();
+            });
+
+
+            table = $('#tbl-setup-print-by-pos-web').DataTable({
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    $(".btn-editor-setup-print-by-pos-web").click(function () {
+                        var ipAddress = $(this).attr("data-ip-address");
+                        $('#modal-update-ip-address').val(ipAddress);
+                        var storeNo = $(this).attr("data-store-no");
+                        $('#modal-update-store-no').val(storeNo);
+
+                        var status = $(this).parents('tr').find('td:nth-child(5)').find('span:nth-child(1)').html();
+                        if (status == "Active") {
+                            status = "1"
+                        }
+                        else {
+                            status = "0"
+                        }
+                        $('#modal-update-status').val(status).trigger('change');
+
+                        $('#modal-update-setup-print-by-pos-web').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+
+                    });
+
+                    $('.btn-delete-setup-print-by-pos-web').click(function () {
+                        var ipaddress = $(this).attr("data-ip-address");
+                        var storeNo = $(this).attr("data-store-no");
+                        $.confirm({
+                            backgroundDismiss: true,
+                            escapeKey: true,
+                            icon: 'fa fa-warning',
+                            type: 'red',
+                            typeAnimated: true,
+                            title: 'Thông báo',
+                            content: 'Bạn có chắc chắn muốn xóa không?',
+                            buttons: {
+                                "CÓ": {
+                                    btnClass: 'btn btn-default',
+                                    keys: ['ctrl'],
+                                    action: function () {
+                                        loading.showloading();
+                                        $.ajax({
+                                            url: '@Url.Action("DeleteSetupPrintByPOSWeb", "MasterData")',
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: {
+                                                IPAddress: ipaddress,
+                                                StoreNo: storeNo
+                                            },
+                                            success: function (data) {
+                                                if (data.Status == 1)
+                                                {
+                                                    toastr.success(data.Message);
+                                                }
+                                                else
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                $('#btn-search').trigger('click');
+                                                loading.hideloading();
+                                            },
+                                            error: function () {
+                                                toastr.error("Lỗi hệ thống");
+                                                loading.hideloading();
+                                            }
+                                        });
+                                    }
+                                },
+                                "KHÔNG": {
+                                    btnClass: 'btn-default',
+                                    action: function () { }
+                                }
+                            }
+                        });
+                    });
+
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: false,                // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: true,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("SetupPrintByPOSWebList", "MasterData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $('#sel-store-no').val();
+                        d.IPAddress = $('#txt-ip-address').val();
+                        d.Status = $('#sel-status-active').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        render: function (data, type, row) {
+                            var _ipAddress = row.IPAddress;
+                            var _storeNo = row.StoreNo;
+                            var html ="";
+                            html += '<a type="button" class="btn btn-icon btn-light-warning btn-editor-setup-print-by-pos-web"  data-ip-address="' + _ipAddress + '"   data-store-no="' + _storeNo + '"  data-toggle="tooltip" data-placement="left" title="Cập nhật"  style="color:#ffffff;text-align:center;"><i class="la la-edit"></i><span class="pulse-ring"></span></a>';
+                            html += '<a type="button" class="btn btn-icon btn-light-danger  btn-delete-setup-print-by-pos-web"  data-ip-address="' + _ipAddress + '"   data-store-no="' + _storeNo + '"  data-toggle="tooltip" data-placement="left" title="Xóa"  style="margin-left: 3px; color:#ffffff;text-align:center;"><i class="la la-close"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "IPAddress",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.IPAddress == null || row.IPAddress == "") {
+                                html += '<span style="display: block; font-weight: 700;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 700;">' + row.IPAddress + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StoreNo == null || row.StoreNo == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.StoreNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Status",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            if (row.Status == "Deactive")
+                            {
+                                return '<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">Deactive</span>';
+                            }
+                            else if (row.Status == "Active")
+                            {
+                                return '<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">Active</span>';
+                            }
+                        }
+                    }
+                ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('#tbl-setup-print-by-pos-web tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                //debugger
+                table.draw();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                $('#frm-export-excel').submit();
+            });
+
+    });
+
+    </script>
+}
+

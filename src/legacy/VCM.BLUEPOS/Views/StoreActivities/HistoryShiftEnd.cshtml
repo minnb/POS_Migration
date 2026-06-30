@@ -1,0 +1,488 @@
+﻿@using VCM.BLUEPOS.Model.StoreActivities;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Lịch sử kết thúc ca tại POS";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var error = ViewBag.Error;
+    var infoStaff = (StaffModel)ViewBag.InfoStaff;
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Hoạt động cửa hàng</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Lịch sử kết thúc ca tại POS</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                        @if (listStore != null && listStore.Count > 0)
+                                        {
+                                            if (listStore.Count == 1)
+                                            {
+                                                <option value="@listStore.FirstOrDefault().SiteNo">@listStore.FirstOrDefault().SiteNo - @listStore.FirstOrDefault().SiteName</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="" disabled>Chọn mã ST/CH</option>
+                                                foreach (var item in listStore)
+                                                {
+                                                    <option value="@item.SiteNo">@item.SiteNo - @item.SiteName</option>
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <option value="" selected disabled>Chọn mã ST/CH</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">Máy POS<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-pos-id" name="POSTerminal"></select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">Ngày kinh doanh<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="form-group">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <label class="input-group-btn" for="searchFromDate">
+                                                <span class="btn btn-default">
+                                                    <span class="glyphicon glyphicon-calendar">
+                                                        <i class="far fa-calendar-alt"></i>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <input type="text" class="form-control float-right" id="searchFromDate" name="TuNgay" placeholder="Ngày kinh doanh">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái</label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-status" name="Status">
+                                        <option value="">Tất cả</option>
+                                        <option value="0">Chưa đóng ca</option>
+                                        <option value="1">Đã đóng ca</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-primary btn-search" id="btn-search" name="btnSearch"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body table-responsive" style="padding: .25rem !important;margin-bottom: -15px;">
+                        <div id="divData"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div id="showPopup"></div>
+
+
+@section scripts {
+    <script type="text/javascript">
+        var table = "";
+
+        $(document).ready(function () {
+            $('.select2').select2();
+            $('#searchFromDate').val(moment().format('DD/MM/YYYY'));
+            $('#searchFromDate').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $("#btn-search").on("click", function (e) {
+                SearchHistory();
+            });
+
+            $("#sel-store-no").on("change", function (e) {
+                ListStaffCode($(this).val());
+            });
+            ListStaffCode($("#sel-store-no").val());
+        });
+
+        function LoadHistoryShift() {
+            //debugger
+            var siteCode = "";
+
+            table = $('#tblData').DataTable({
+
+                drawCallback: function (settings) {
+                    // Xem chi tiet
+                    $(".btn-search-detail").click(function () {
+                        var storeNo = $(this).attr("data-storeNo");
+                        var staffCode = $(this).attr("data-staffCode");
+                        var dateBussiness = $("#searchFromDate").val();
+                        ViewDetailPLG(storeNo, staffCode, dateBussiness);
+                    });
+                },
+
+                ajax: {
+                   url: '@Url.Action("HistoryEndShift", "StoreActivities")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = siteCode;
+                        d.BussinessDate = $("#searchFromDate").val();
+                        d.StaffCode = $("#sel-pos-id").val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "StaffCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;padding-top: 8px; display: block;">' + row.StaffCode + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "FormatBussinessDate",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;padding-top: 8px; display: block;">' + row.FormatBussinessDate + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CloseAmount",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CloseAmount > 0) {
+                                var CloseAmount = row.CloseAmount;
+                                html = '<span style="">' + parseFloat(CloseAmount).toLocaleString('en') + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "QuantityBox",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.QuantityBox > 0) {
+                                var QuantityBox = row.QuantityBox;
+                                html = '<span style="">' + parseFloat(QuantityBox).toLocaleString('en') + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "QuantityCoupon",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.QuantityCoupon > 0) {
+                                var QuantityCoupon = row.QuantityCoupon;
+                                html = '<span style="">' + parseFloat(QuantityCoupon).toLocaleString('en') + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "QuantityVoucher",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.QuantityVoucher > 0) {
+                                var QuantityVoucher = row.QuantityVoucher;
+                                html = '<span style="">' + parseFloat(QuantityVoucher).toLocaleString('en') + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var storeNo = row.StoreNo;
+                            var staffCode = row.StaffCode;
+                            var html = '<button type="button" class="btn btn-primary-custom btn-search-detail" data-toggle="tooltip" data-placement="left"  title="Xem chi tiết"  data-staffCode="' + staffCode + '"  data-storeNo = "' + storeNo + '"><i class="fa fa-list" style="color:#fff;"></i></button>';
+                            return html;
+                        }
+                    }
+                ]
+            });
+        }
+
+        function SearchHistory() {
+            //debugger
+            var siteCode = $("#sel-store-no").val();
+            var staffCode = $("#sel-pos-id").val();
+            var dateBussiness = $("#searchFromDate").val();
+            var trangthai = $("#sel-status").val();
+
+            loading.showloading();
+
+            var fromData = new FormData();
+            fromData.append('StoreNo', siteCode);
+            fromData.append('StaffCode', staffCode);
+            fromData.append('DateBusiness', dateBussiness);
+            fromData.append('Status', trangthai);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("HistoryEndShift", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    var resultDB = data.Result;
+                    var html = "";
+                    if (resultDB.length > 0) {
+                        var role = data.Role;
+                            html += "<table class=\"table table-bordered\">";
+                            html += "<thead>";
+                            html += "<tr style=\"text-align:center;text-transform:uppercase\">";
+                            html += "<th style=\"vertical-align:middle\">Máy POS</th>";
+                            html += "<th style=\"vertical-align:middle\">Loại POS</th>";
+                            html += "<th style=\"vertical-align:middle\">Ngày kinh doanh</th>";
+                            html += "<th style=\"vertical-align:middle\">Ca</th>";
+                            html += "<th style=\"vertical-align:middle\">Tiền kê khai</th>";
+                            html += "<th style=\"vertical-align:middle\">Tiền mặt</th>";
+                            html += "<th style=\"vertical-align:middle\">Chênh lệch</th>";
+                            html += "<th style=\"vertical-align:middle\">Số phong bì</th>";
+                            html += "<th style=\"vertical-align:middle\">Số coupon</th>";
+                            html += "<th style=\"vertical-align:middle\">Số PMH</th>";
+                            html += "<th style=\"vertical-align:middle\">Trạng thái</th>";
+                            html += "<th style=\"vertical-align:middle\">Nhân viên kết ca</th>";
+                            html += "<th style=\"vertical-align:middle\">T/G kết ca</th>";
+                            html += "<th style=\"vertical-align:middle\">#</th>";
+                            html += "</tr>";
+                            html += "</thead>";
+                            html += "<tbody style=\"text-align:center\">";
+
+                            resultDB.forEach((name, i) => {
+                                var colorText = name.ChenhLech > 100000 ? "red" : "";
+                                html += "<tr id=\"\">";
+                                html += "<td style=\"font-weight:bold;\">" + name.PosTerminal + "</td>";
+                                html += "<td style=\"font-weight:bold;\">" + name.Placement + "</td>";
+                                html += "<td style=\"font-weight:bold;\">" + name.FormatBussinessDate + "</td>";
+                                html += "<td style=\"\">" + name.ShiftNumber + "</td>";
+                                html += "<td style=\"font-weight:bold;\">" + parseFloat(name.CloseAmount).toLocaleString('en') + "</td>";
+                                html += "<td style=\"font-weight:bold;\">" + parseFloat(name.AmountCA00).toLocaleString('en') + "</td>";
+                                html += "<td style=\"font-weight:bold;color:" + colorText + "\">" + parseFloat(name.ChenhLech).toLocaleString('en') + "</td>";
+                                html += "<td style=\"\">" + parseFloat(name.QuantityBox).toLocaleString('en') + "</td>";
+                                html += "<td style=\"\">" + parseFloat(name.QuantityCoupon).toLocaleString('en') + "</td>";
+                                html += "<td style=\"\">" + parseFloat(name.QuantityVoucher).toLocaleString('en') + "</td>";
+                                if (name.IsShiftClosed == true) {
+                                    html += "<td style=\"font-weight:bold;color:#fff;\"><span class=\"badge bg-success\">Đã đóng ca</span></td>";
+                                }
+                                else {
+                                    html += "<td style=\"font-weight:bold;color:#fff;\"><span class=\"badge bg-warning\">Chưa đóng ca</span></td>";
+                                }
+                                html += "<td style=\"\">" + name.CreatedUser + "</td>";
+                                html += "<td style=\"\">" + name.FormatCloseShiftDate + "</td>";
+                                html += "<td style=\"text-align:center\">";
+                                html += "<a onclick =\"ViewDetailPLG('" + siteCode + "','" + name.PosTerminal + "','" + dateBussiness + "','" + name.ShiftNumber + "')\" type=\"button\" class=\"btn btn-icon btn-light-primary\" data-toggle=\"tooltip\" data-placement=\"left\" title=\"Xem chi tiết\" style=\"height:30px;margin-top:3px;\"><i class=\"fa fa-list\"></i ><span class=\"pulse-ring\"></span></a>";
+                                if (name.IsShiftClosed == true) {
+                                    html += " ";
+                                    html += "<a onclick=\"ViewGiaiTrinh('" + name.ShiftCode + "','" + name.PosTerminal + "','" + name.StoreNo + "','" + dateBussiness + "')\" type=\"button\" class=\"btn btn-icon btn-light-success\" data-toggle=\"tooltip\" data-placement=\"left\" title=\"Giải trình kết ca\" style=\"height:30px;margin-top:3px;\"><i class=\"fa fa-user-circle\"></i><span class=\"pulse-ring\"></span></a>";
+                                }
+                                html += "</td>";
+                                html += "</tr>";
+                            });
+                            html += "</tbody></table>";
+                    }
+
+                    $('#divData').html(html);
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function DeleteEndShift(shiftCode, staffCode, shiftNum) {
+            $.confirm({
+                backgroundDismiss: false,
+                //escapeKey: true,
+                icon: 'fa fa-warning',
+                type: 'red',
+                typeAnimated: true,
+                title: 'Thông báo',
+                content: 'Bạn có chắc chắn xóa ca <strong>' + shiftNum + '</strong> của nhân viên <strong>' + staffCode + '</strong> không?<br><textarea class="form-control" rows="2" placeholder="Nhập lý do xóa" id="txtRemark"></textarea>',
+                buttons: {
+                    "CÓ": {
+                        btnClass: 'btn btn-default',
+                        keys: ['ctrl'],
+                        action: function () {
+                            var remark = $("#txtRemark").val();
+                            if (remark != null && remark.length < 15) {
+                                $.alert({
+                                    content: "Vui lòng nhập nội dung xóa lớn hơn 15 ký tự",
+                                    type: 'red'
+                                });
+                                return false;
+                            }
+                            loading.showloading();
+                            var fromData = new FormData();
+                            fromData.append('ShiftCode', shiftCode);
+                            fromData.append('ShiftNumber', shiftNum);
+                            fromData.append('Remark', remark);
+                            $.ajax({
+                                type: "POST",
+                                url: '@Url.Action("DeleteShiftEnd", "StoreActivities")',
+                                data: fromData,
+                                contentType: "application/json",
+                                dataType: "json",
+                                contentType: false,
+                                processData: false,
+                                success: function (data) {
+                                    //debugger
+                                    if (data != null) {
+                                        if (data.Item1 == 1) {
+                                            $("#delShift_" + shiftCode).remove();
+                                            toastr.success(data.Item2);
+                                        }
+                                        else {
+                                            toastr.error(data.Item2);
+                                        }
+                                    }
+                                    loading.hideloading();
+                                },
+                                error: function () {
+                                    loading.hideloading();
+                                }
+                            });
+                        }
+                    },
+
+                    "KHÔNG": {
+                        btnClass: 'btn-default',
+                        action: function () { }
+                    }
+                }
+            });
+        }
+
+        function ViewGiaiTrinh(shiftCode, staffCode, storeNo,ngayKD) {
+            loading.showloading();
+
+            $.ajax({
+                type: "GET",
+                url: "/StoreActivities/_ViewGiaiTrinh?shiftCode=" + shiftCode + "&viewTitle=" + staffCode + "&storeNo=" + storeNo + "&bussinessDate=" + ngayKD + "",
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    loading.hideloading();
+                    $("#showPopup").html(result);
+                    $('#modalShiftDescription').modal({
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                },
+                error: function (event) {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function ViewDetailPLG(storeNo, posTerminal, businessDate, shiftCode) {
+            var url = '/StoreActivities/DetailEndShiftPLG?storeNo=' + storeNo + '&posTerminal=' + posTerminal + '&businessDate=' + businessDate + '&shiftCode=' + shiftCode;
+            window.open(url);
+        }
+
+        function ListStaffCode() {
+            var siteCode = $("#sel-store-no").val();
+            $("#sel-pos-id").empty();
+            loading.showloading(); 
+            var fromData = new FormData();
+            fromData.append('siteCode', siteCode);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetAllStaff", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data != null) {
+                        if (data.length == 1) {
+                            var html = "<option value='" + data[0].UserPOS + "'>" + data[0].UserPOS + "</option>";
+                            $('#sel-pos-id').html(html);
+                        }
+                        else if (data.length > 1 || data.length == 0) {
+                            var html = "<option value=\"\" selected>Tất cả</option>";
+                            data.forEach((name, i) => {
+                                if (name.UserPOS != "") {
+                                    html += "<option value='" + name.UserPOS + "'>" + name.UserPOS + "</option>";
+                                }
+                            });
+                            $('#sel-pos-id').html(html);
+                        }
+                    }
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+
+    </script>
+}

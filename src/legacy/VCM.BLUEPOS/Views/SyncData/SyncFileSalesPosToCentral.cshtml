@@ -1,0 +1,535 @@
+﻿@using VCM.BLUEPOS.Model.SyncData;
+@using VCM.BLUEPOS.Model.Common.DocumentTypeModel;
+
+
+@{
+    ViewBag.Title = "Đồng bộ File Sales POS To Central";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listDocumentType = ViewBag.ListDocumentType as List<DocumentTypeModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý POS</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ File Sales POS To Central</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-2 col-md-3 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Mã cửa hàng</label>
+                                <div class="form-group">
+                                    <input type="text" id="txt-search-store-no" placeholder="Nhập mã cửa hàng" class="form-control changeEvent">
+                                </div>
+                            </div>
+                            <div class="col-lg-2 col-md-3 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Tên máy tính</label>
+                                <div class="form-group">
+                                    <input type="text" id="txt-search-computer-name" placeholder="Nhập tên máy tính" class="form-control changeEvent">
+                                </div>
+                            </div>
+                            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">IPAddress</label>
+                                <div class="form-group">
+                                    <input type="text" id="txt-search-ipAddress" placeholder="Nhập địa chỉ IP cách nhau dấu ;" class="form-control changeEvent">
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12 mb-1 text-left">
+                                <button type="button" class="btn btn-primary btn-search" id="btnSearch" style="color: #fff;cursor:pointer;margin-top: 27px;"> <i class="fa fa-search"></i> Tìm</button>
+                            </div>
+                        </div>
+                        <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;"></div>
+
+                        <div class="row">
+                            <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-6 col-xs-12 mb-1 text-right">
+                                        <button type="button" class="btn btn-primary" id="btnArrowRight" onclick="MoveRight()" style="color: #ffffff;cursor:pointer;"> <i class="fa fa-arrow-alt-circle-right" style="font-size:22px"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                <div class="row">
+                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1 text-left">
+                                        <button type="button" class="btn btn-warning" id="btnArrowRight" onclick="MoveLeft()" style="color: #ffffff;cursor:pointer;"> <i class="fa fa-arrow-alt-circle-left" style="font-size:22px"></i></button>                                        
+                                    </div>
+                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1 text-right">
+                                        <button type="button" class="btn btn-success btn-view-param-by-sync-file-sales-pos" title="Đồng bộ file sales POS lên Central" style="color: #fff;cursor:pointer;"> <i class="fa fa-database" style="font-size:22px"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                <table class="table table-bordered table-striped" id="tblData">
+                                    <thead>
+                                        <tr style="text-align:center;">
+                                            <th>StoreNo</th>
+                                            <th>PosTerminal</th>
+                                            <th>IPAddress</th>
+                                            <th>ComputerName</th>
+                                            <th style="text-align:center"><input type="checkbox" class="chkAll" id="chkAll" value="" style="height:20px;width:20px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+
+                            <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12 mb-1" style="margin-top: 40px;">
+                                <table class="table table-bordered table-striped" id="tblData2" style="">
+                                    <thead style="">
+                                        <tr style="text-align:center;height:52px">
+                                            <th style="text-align:center"><input type="checkbox" class="chkAll2" id="chkAll2" value="" style="height:20px;width:20px;"></th>
+                                            <th>StoreNo</th>
+                                            <th>PosTerminal</th>
+                                            <th>IPAddress</th>
+                                            <th>ComputerName</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalSQL">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="titleNotFinish">ĐỒNG BỘ FILE SALES POS TO CENTRAL</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Ngày kinh doanh<strong style="color:#ff0000"> (*)</strong></label>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <label class="input-group-btn" for="txt-to-date">
+                                            <span class="btn btn-default">
+                                                <span class="glyphicon glyphicon-calendar">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <input type="text" class="form-control float-right" id="txt-date" name="TxtDate" placeholder="">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">DocumentType</label>
+                            <div class="input-group">
+                                <select class="form-control select2 sel-document-type" style="width:100%;" id="sel-document-type">
+                                    @if (listDocumentType != null && listDocumentType.Count > 0)
+                                    {
+                                        if (listDocumentType.Count == 1)
+                                        {
+                                            <option value="@listDocumentType.FirstOrDefault().Value">@listDocumentType.FirstOrDefault().Text</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="" selected>--- Vui lòng chọn ---</option>
+                                            foreach (var item in listDocumentType)
+                                            {
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 param-order-no" style="display: none;">
+                            <lable class="font-weight-bold" style="font-weight:bold !important">Số đơn hàng</lable>
+                            <div class="input-group" style="padding-top: 6px;">
+                                <input type="text" id="txt-order-no" placeholder="Nhập số đơn hàng, các số đơn hàng cách nhau bởi dấu chấm phẩy (;)" class="form-control changeEvent">
+                            </div>
+                        </div>
+
+                        @*<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                <div id="divResult" style="width:100%;float:left;max-height:500px;overflow-y:scroll"></div>
+                          </div>*@
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="">
+                <button type="button" class="btn btn-primary  btn-save-sync-file-sales-pos-to-central">Thực hiện</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalResult">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px;text-transform:uppercase" id="titleNotFinish">KẾT QUẢ: ĐỒNG BỘ FILE SALES POS TO CENTRAL</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                        <div id="listResult" style="width:100%;float:left;max-height:500px;overflow-y:scroll"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section scripts {
+
+<script type="text/javascript">
+    var table = "";
+    $('.select2').select2();
+
+    function MoveRight() {
+            var html = '';
+            $('#tblData input.chkIP:checkbox:checked').each(function () {
+                //debugger
+                var storeNo = $(this).closest('tr').find('td').eq(0).text();
+                var posTerminal = $(this).closest('tr').find('td').eq(1).text();
+                var ipAddress = $(this).closest('tr').find('td').eq(2).text();
+                var computerName = $(this).closest('tr').find('td').eq(3).text();
+                const regex = /./gi;
+                //var ipReplace = ipAddress.replace(regex, "");
+                var ipReplace = ipAddress.split('.').join("");
+
+                $('#tblData2 tbody').each(function () {
+                    var posTerminalRight = $("#tblData2 tbody tr").find('td').eq(2).text();
+                    if (posTerminalRight == posTerminal) {
+                        $("#moveLeft" + posTerminalRight).remove();
+                    }
+                });
+
+                html += '<tr id=\"moveLeft' + posTerminal + '\" class=\"ipError' + ipReplace+'\">';
+                html += '<td style=\"text-align:center\"><input type="checkbox" class="chkIP2" id="chkIPAddress2' + ipAddress + '" value="' + ipAddress + '" style="height:18px;width:18px;"></td>';
+                html += '<td style=\"text-align:center\">' + storeNo + '</td>';
+                html += '<td style=\"text-align:center\">' + posTerminal + '</td>';
+                html += '<td style=\"text-align:center\">' + ipAddress + '</td>';
+                html += '<td>' + computerName + '</td>';
+                html += '</tr>';
+
+            });
+
+            $('#tblData2 tbody').append(html);
+        }
+
+        function MoveLeft() {
+            //debugger
+            $('#tblData2 input.chkIP2:checkbox:checked').each(function () {
+                var posTerminal = $(this).closest('tr').find('td').eq(2).text();
+                $("#moveLeft" + posTerminal).remove();
+            });
+            $('#chkAll2').prop('checked', false);
+        }
+
+        function ExecuteScriptDocumentLog() {
+            //debugger
+            var countIP = 0;
+            var listIP = "";
+
+            $('#tblData2 > tbody > tr').each(function () {
+                //debugger
+                //listIP += $(this).find('td').eq(3).text() + ";";
+                //listIP += $(this).find('td').eq(1).text() + "_" + $(this).find('td').eq(3).text() + ";";
+                listIP += $(this).find('td').eq(2).text() + "_" + $(this).find('td').eq(3).text() + ";";
+                countIP++;
+            });
+
+            if (countIP == 0) {
+                toastr.error('Chọn địa chỉ IP máy POS để bắt đầu đồng bộ file', 'Thông báo');
+                return;
+            }
+
+            var dateBussiness = $("#txt-date").val();
+            var documentType = $("#sel-document-type").val();
+            var listOrderNo = $("#txt-order-no").val();
+
+            if (dateBussiness == null || dateBussiness == "") {
+                toastr.error('Chọn ngày kinh doanh', 'Thông báo');
+                return;
+            }
+
+            if (documentType == null || documentType == "") {
+                toastr.error('Chọn DocumentType', 'Thông báo');
+                return;
+            }
+
+            if (documentType == "SALE" || documentType == "VOID") {
+                if (listOrderNo == null || listOrderNo == "") {
+                    toastr.error('Nhập số đơn hàng cách nhau bởi dấu chấm phẩy (;)', 'Thông báo');
+                    return;
+                }
+            }
+
+            loading.showloading();
+           
+            $.ajax({
+                url: '@Url.Action("_ExcuteScriptByFileSalesPOS", "SyncData")',
+                data: {
+                    ListIPAddress: listIP,
+                    BussinessDate: dateBussiness,
+                    DocumentType: documentType,
+                    ListOrderNo: listOrderNo 
+                },
+                cache: false,
+                type: "POST",
+                success: function (data) {
+                    //debugger
+                    $('#modalSQL').modal('hide');
+                    $('#listResult').html(data.ViewPartial);
+                    $('.btn-search').trigger('click');
+
+                    loading.hideloading();
+
+                    $('#modalResult').modal({
+                        backdrop: 'static',
+                        keyboard: false
+                    }); 
+                },
+                error: function (xhr, status, error) {
+                    console.log(xhr.responseText);
+                    loading.hideloading();
+                }
+            });
+        }
+
+    function LoadMonitorPOS() {
+
+            table = $('#tblData').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: true,           // for show progress bar
+                serverSide: true,           // for process server side
+                filter: true,               // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 100,
+                searching: false,
+                lengthChange: false,
+
+                language: {
+                    lengthMenu: "Hiển thị số trang _MENU_",
+                    zeroRecords: "Không có dữ liệu",
+                    //info: "Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng",
+                    info: "Hiển thị từ _START_ đến _END_ trong tổng số _TOTAL_ dòng được tìm thấy",
+                    infoEmpty: "Không tìm thấy",
+                    //infoFiltered: "(filtered from MAX total records)",
+                    infoFiltered: " (trong tổng số _MAX_ dòng)",
+                    processing: "Đang tải dữ liệu!",
+                    search: "Tìm kiếm:",
+                    paginate: {
+                        first: "First",
+                        last: "Last",
+                        next: ">>",
+                        previous: "<<"
+                    }
+                },
+
+                ajax: {
+                    url: '@Url.Action("LoadIPAddressList", "SyncData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $("#txt-search-store-no").val();
+                        d.IpAddress = $("#txt-search-ipAddress").val();
+                        d.ComputerName = $("#txt-search-computer-name").val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "StoreNo",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "PosTerminalID",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "IpAddress"
+                    },
+
+                    {
+                        data: "ComputerName"
+                    },
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var ipAddress = row.IpAddress;
+                            var html = '<input type="checkbox" class="chkIP" id="chkIPAddress' + ipAddress + '" value="' + ipAddress + '" style="height:18px;width:18px;">';
+                            return html;
+                        }
+                    }
+                ]
+
+            }).on('page.dt', function () {
+                $('#chkAll').prop('checked', false);
+            });
+    }
+
+    function ClearText() {
+        $("#sel-document-type").val('').trigger('change');
+        $("#txt-order-no").val('');
+    }
+
+    $(document).ready(function () {
+            
+            LoadMonitorPOS();
+
+            $('#txt-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-date').datepicker(
+            {
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#txt-search-ipAddress').keypress(function (e) {
+                    var key = e.which;
+                    if (key == 13) {
+                        $('button[name = btnSearch]').click();
+                        return false;
+                    }
+                });
+
+            $('#txt-search-computer-name').keypress(function (e) {
+                    var key = e.which;
+                    if (key == 13) {
+                        $('button[name = btnSearch]').click();
+                        return false;
+                    }
+            });
+
+            $('#txt-search-store-no').keypress(function (e) {
+                var key = e.which;
+                if (key == 13) {
+                    $('button[name = btnSearch]').click();
+                    return false;
+                }
+            });
+
+            $("#chkAll").click(function () {
+                if ($("#chkAll").is(':checked'))
+                    $('.chkIP').prop('checked', true);
+                else
+                    $('.chkIP').prop('checked', false);
+            });
+
+            $("#chkAll2").click(function () {
+                //debugger               
+                if ($("#chkAll2").is(':checked')) {
+                    $('.chkIP2').prop('checked', true);
+                }
+                else {
+                    $('.chkIP2').prop('checked', false);
+                }
+            });
+
+            $("#sel-document-type").on("change", function (e) {
+                // Truong hop DocumentType = SALE / VOID : thì bat buoc phai nhap so don hang
+                if ($("#sel-document-type").val() == "SALE" || $("#sel-document-type").val() == "VOID") {
+                    $('.param-order-no').css("display", "block");
+                }
+                else {
+                    $('.param-order-no').css("display", "none");
+                }
+            });
+
+            $('.btn-search').on("click", function (e) {
+                table.draw();
+
+                $('#chkAll').prop('checked', false);
+                $('#chkAll2').prop('checked', false);
+                $('.chkIP2').prop('checked', false);
+            });
+
+            $(".changeEvent").on("change", function (e) {
+                table.draw();
+                $('#chkAll').prop('checked', false);
+            });
+
+            $('.btn-view-param-by-sync-file-sales-pos').on('click', function (e) {
+                var checkIPAll2 = $('#chkAll2').prop('checked');
+                var checkIP2 = $('.chkIP2').prop('checked');
+                if (checkIP2 == false) {
+                    toastr.error('Chọn địa chỉ IP máy POS để bắt đầu đồng bộ file', 'Thông báo');
+                    return;
+                }
+
+                ClearText();
+
+                $('#modalSQL').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            });
+
+            $('.btn-save-sync-file-sales-pos-to-central').on('click', function (e) {
+                ExecuteScriptDocumentLog();
+            });
+
+           
+
+        });
+
+       
+
+    </script>
+}
+

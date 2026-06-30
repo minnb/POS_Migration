@@ -1,0 +1,669 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion;
+@using VCM.BLUEPOS.Model.SetupPrice;
+
+@{
+    ViewBag.Title = "Cài đặt giá";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var modelView = Model as ViewSetupPriceModel;
+    //var listStorePriceGroup = modelView.listStorePriceGroup;
+    var listSalesType = modelView.ListSalesType;
+    var listPriceGroup = modelView.listPriceGroup;
+
+    // var type1 = listPriceGroup.Where(d => d.Type == 1).Select(a => new { PriceGroupCode = a.PriceGroupCode, Type = a.Type }).Distinct().ToList();
+    // var type2 = listPriceGroup.Where(d => d.Type == 2).Select(a => new { PriceGroupCode = a.PriceGroupCode, Type = a.Type }).Distinct().ToList();
+    // var type3 = listPriceGroup.Where(d => d.Type == 3).Select(a => new { PriceGroupCode = a.PriceGroupCode, Type = a.Type }).Distinct().ToList();
+    // var type4 = listPriceGroup.Where(d => d.Type == 4).Select(a => new { PriceGroupCode = a.PriceGroupCode, Type = a.Type }).Distinct().ToList();
+}
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+
+                    <li class="breadcrumb-item text-muted">
+                        <a>IT</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Quản lý giá</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Setup giá</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-primary" id="btnListPrice"><i class="la la-cog"></i> Danh sách giá</button>
+
+        </div>
+
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+
+                    <div class="card card-custom">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12 display:none">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Loại khai báo</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slTypeSetup" name="TypeSetup">
+                                                <option value="Item">Theo ITEM + ĐVT</option>
+                                                <option value="Barcode">Theo BARCODE</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Hình thức bán hàng</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slTypeSaleType" name="OfferType">
+                                                <option value="ALL">ALL</option>
+                                                @if (listSalesType != null && listSalesType.Count > 0)
+                                                {
+                                                    foreach (var item in listSalesType)
+                                                    {
+                                                        <option value="@item.Code">@item.Description</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Nhóm giá</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slChannel" name="Channel">
+                                               
+                                                @if (listPriceGroup != null && listPriceGroup.Count > 0)
+                                                {
+                                                    foreach (var item in listPriceGroup)
+                                                    {
+                                                        <option value="@item.PriceGroupCode">@item.PriceGroupName</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                    <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12">
+                                        <label class="font-weight-bold" style="margin-bottom: 0 !important;">Số lượng khai báo</label>
+                                        <div class="form-group">
+                                            <input type="text" value="10" class="form-control pull-right" style="width:100%;" id="txt-Qty-Row" name="QtyRow" />
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btnAddListItem" class="btn btn-primary"><i class="la la-plus-circle"></i> Khai báo giá bán</button>
+                                    <button type="button" id="btnImport" class="btn btn-bg-warning" style="color: #ffffff"><i class="la la-file-excel" style="color:#ffffff"></i> Import giá bán bằng excel</button>
+                                </div>
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row" style="display:none" id="displayTablePrice">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row" style="margin-bottom:5px;">
+                            <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                <button type="button" id="btnCancle" class="btn btn-bg-danger" style="color: #ffffff"><i class="la la-remove" style="color:#ffffff"></i> Xóa toàn bộ bảng giá</button>
+                                <button type="button" id="btnAddRow" class="btn btn-primary"><i class="la la-plus-circle"></i>Thêm (Ctrl + A)</button>
+                            </div>
+                            <div class="col-lg-8 col-md-88 col-sm-8 col-xs-12 text-right">
+                                <button type="button" id="btnSave" class="btn btn-bg-success" style="color: #ffffff"><i class="la la-save" style="color:#ffffff"></i> Lưu bảng giá</button>
+                            </div>
+
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" id="divLoadAppend">
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalImportPrice" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import bảng giá bằng excel</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <div class="custom-file">
+                                <input type="file" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" id="browseFileExcel" class="custom-file-input" />
+                                <label id="selectedFile" class="custom-file-label" for="browseFileExcel">Chọn file excel</label>
+                            </div>
+                            <span class="form-text text-muted" id="clickDownFileExample"><i class="fas fa-cloud-download-alt" style="color:blue"></i><a href=""> Download file excel mẫu(chỉ import đúng định dạng file mẫu) </a></span>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+                <button type="button" id="btnLoadDataImport" class="btn btn-primary font-weight-bold"> <i class="la la-save"></i> Load vào bảng giá</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalListPrice" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DANH SÁCH BẢNG GIÁ</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListPrice">              
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        $(document).on("click", "#btnAddRow", function () {
+
+            var table = $("#tblItemPrice tbody");
+
+            var rowCount = table.find("tr").length + 1;
+            var salesType = "";
+            var SalesTypeName = "";
+            var saleGroupCode = "";
+            var saleGroupName = "";
+
+            var lastRow = $("#tblItemPrice tbody tr:last");
+
+            var salesType = lastRow.find("td:eq(1)").text().trim();
+            var SalesTypeName = lastRow.find("td:eq(2)").text().trim();
+            var saleGroupCode = lastRow.find("td:eq(3)").text().trim();
+            var saleGroupName = lastRow.find("td:eq(4)").text().trim();
+
+
+            var html = `
+                <tr class="bgSelect_${rowCount}">
+                    <td class="text-center">${rowCount}</td>
+                    <td class="text-center" style="vertical-align:middle;display:none;">${salesType}</td>
+                    <td class="text-center" style="vertical-align:middle">${SalesTypeName}</td>
+                    <td class="text-center" style="vertical-align: middle; display: none;"${saleGroupCode}</td>
+                    <td class="text-center" style="vertical-align:middle">${saleGroupName}</td>
+                    <td class="text-center" style="vertical-align:middle">
+                        <input type="text" class="form-control barcode changeBarcode_${rowCount}" value="" data-stt="${rowCount}" />
+                    </td>
+                    <td class="text-center" style="vertical-align:middle">
+                        <select class="form-control select2 slItem slchangeItem_${rowCount}" data-stt="${rowCount}" style="width:100%">
+                            <option value="">Chọn sản phẩm</option>
+                        </select>
+                    </td>
+
+
+                    <td class="text-center" style="vertical-align:middle">
+                        <select class="form-control select2 slUom slchangeUom_${rowCount}" data-stt="${rowCount}" style="width:100%">
+                        </select>
+                    </td>
+                    <td class="text-center" style="vertical-align:middle">
+                        <input type="text" class="form-control money" value="" placeholder="0" data-stt="${rowCount}" />
+                    </td>
+
+                    <td class="text-center" style="vertical-align:middle">
+                     <div class="input-group">
+                         <div class="input-group-prepend">
+                             <span class="input-group-text">
+                                 <i class="far fa-calendar-alt"></i>
+                             </span>
+                         </div>
+                         <input type="text" class="form-control fromDate">
+                     </div>
+                 </td>
+                 <td class="text-center" style="vertical-align:middle">
+                     <div class="input-group">
+                         <div class="input-group-prepend">
+                             <span class="input-group-text">
+                                 <i class="far fa-calendar-alt"></i>
+                             </span>
+                         </div>
+                         <input type="text" class="form-control toDate">
+                     </div>
+                 </td>
+
+                  <td class="text-center" style="vertical-align:middle">
+                    <span>
+                        <a title="Xóa" class="btn btn-icon btn-light-danger removeItem removeItem_${rowCount}" data-stt="${rowCount}"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+                    </span>
+                  </td>
+                  <td class="text-center" style="vertical-align:middle;color:red; display:none"><span class="error error_${rowCount}"></span></td>
+                </tr>
+                `;
+
+            table.append(html);
+
+            initRow(rowCount);
+        });
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////
+        function checkGridError() {
+            var hasError = false;
+            var firstErrorRow = null;
+
+            $('#tblItemPrice tbody tr').each(function () {
+
+                var error = $(this).find('.error').text().trim();
+
+                if (error !== "") {
+
+                    hasError = true;
+
+                    // highlight dòng lỗi
+                   // $(this).addClass("bg-danger");
+
+                    // lưu dòng lỗi đầu tiên
+                    if (!firstErrorRow) {
+                        firstErrorRow = $(this);
+                    }
+                }
+            });
+
+            return {
+                hasError: hasError,
+                firstErrorRow: firstErrorRow
+            };
+        }
+
+
+        $(document).ready(function () {
+            $(".select2").select2();
+
+            $("#slChannel").on("change", function () {
+                var channelCode = $(this).val();
+                var html = "<option value='ALL'>ALL</option>";
+
+                if (channelCode == "ALL") {
+                 //   html += "<option value='ALL'>ALL</option>";
+                    $('#slStore').html(html);
+                }
+                else {
+                    $.ajax({
+                        type: "POST",
+                        url: '@Url.Action("GetComboSiteByChannel", "SetupPrice")',
+                        data: { ChannelCode: channelCode },
+                        dataType: "json",
+                        success: function (data) {
+                            //debugger
+                            if (data != null) {
+                                data.forEach((name, i) => {
+                                    html += "<option value='" + name.PriceGroupCode + "'>" + name.PriceGroupCode + " : " + name.DescGroupCode + "</option>";
+                                });
+                                $('#slStore').html(html);
+                            }
+                        },
+                        error: function () {
+                            toastr.error('Lỗi hệ thống');
+                        }
+
+                    });
+                }
+            });
+            $("#btnListPrice").on("click", function (e) {
+                loading.showloading();
+                $.ajax({
+                    type: "GET",
+                    url: "/SetupPrice/_ListPrice",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        loading.hideloading();
+                        $("#divPopupListPrice").html(result);
+                        $('#modalListPrice').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    },
+                    error: function (event) {
+                    }
+                });
+            });
+
+            $("#btnAddListItem").click(function () {
+                AppendListItemTable();
+            });
+
+            $("#btnCancle").click(function () {
+                $('#tblItemPrice tbody').remove();
+            });
+
+            $("#btnImport").on("click", function (e) {
+                //debugger
+                const file = document.querySelector('#browseFileExcel');
+                file.value = '';
+                $("#selectedFile").html("");
+                $('#modalImportPrice').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            });
+
+            $("#clickDownFileExample").click(function (e) {
+                loading.showloading();
+                e.preventDefault();
+                var req = new XMLHttpRequest();
+                var url = "/SetupPrice/ExcelExamplePrice";
+                req.open("GET", url, true);
+                req.responseType = "blob";
+                req.onload = function (event) {
+                    //debugger
+                    var blob = req.response;
+                    console.log(blob.size);
+                    if (blob.size > 10) {
+                        var link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+                        var d = new Date();
+                        var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                        link.download = "FileMauBangGia_" + fileName + ".xlsx";
+                        link.click();
+                    }
+                    else {
+                        toastr.error("Excel không có dữ liệu, nên không xuất được");
+                    }
+                    loading.hideloading();
+                };
+                req.send();
+
+            });
+
+            $("#btnLoadDataImport").on("click", function (e) {
+                //debugger
+                var typeSetup = $("#slTypeSetup").val();
+                var salesType = $("#slTypeSaleType").val();
+                var salesTypeName = $("#slTypeSaleType option:selected").text();
+                var saleGroupCode = $("#slChannel").val();
+                var saleGroupName = $("#slChannel option:selected").text();
+                // var channelCode = $("#slChannel").val();
+                var regionCode = $("#slArea").val();
+                var store = $("#slStore").val();
+                var files = $("#browseFileExcel").get(0).files;
+
+                if (files[0] == null) {
+                    toastr.error("Vui lòng chọn file excel để import");
+                    return;
+                }
+
+                loading.showloading();
+                var fromData = new FormData();
+                fromData.append('TypeSetup', typeSetup);
+                fromData.append('SalesType', salesType);
+                fromData.append('SalesTypeName', salesTypeName);
+                fromData.append('saleGroupCode', saleGroupCode);
+                fromData.append('saleGroupName', saleGroupName);
+                fromData.append('regionCode', regionCode);
+                fromData.append('Store', store);
+                fromData.append('importFile', files[0]);
+
+                $.ajax({
+                    url: '/SetupPrice/LoadDataExcelToTable',
+                    data: fromData,
+                    type: 'POST',
+                    contentType: false,
+                    processData: false,
+                    success: function (response) {
+                        if (response.Status === 200) {
+                            var data = response.Data;
+                            $("#displayTablePrice").css("display", "block");
+                            var viewHtml = response.ViewPartial;
+                            $("#divLoadAppend").html(viewHtml);
+                            $('#modalImportPrice').modal('hide');
+
+
+                        } else {
+                            toastr.error(response.Message);
+                        }
+                        loading.hideloading();
+                    }
+                });
+            });
+
+            $("#btnSave").click(function () {
+                //check neu import co bi loi thi k cho luu
+                var result = checkGridError();
+                if (result.hasError) {
+
+                    toastr.error("Có dữ liệu lỗi, vui lòng kiểm tra lại!");
+
+                    // scroll tới dòng lỗi đầu tiên
+                    if (result.firstErrorRow) {
+                        $('html, body').animate({
+                            scrollTop: result.firstErrorRow.offset().top - 100
+                        }, 500);
+                    }
+
+                    return;
+                }
+
+                //////////////////////////////////////////
+                var data = [];
+                var feErrors = [];
+                var typeSetup = $("#slTypeSetup").val();
+                if (typeSetup == "Item") {
+                    $('#tblItemPrice tbody tr').each(function (e) {
+                        var item = {};
+                        var stt = $(this).find('td:nth-child(1)').text().trim();
+                        var itemNo = $(this).find('td:nth-child(7) select').val();
+                        var uom = $(this).find('td:nth-child(8) select').val();
+                        var unitPrice = $(this).find('td:nth-child(9) input').val().replace(/\,/g, '');
+                        var startDate = $(this).find('td:nth-child(10) input').val();
+                        var endDate = $(this).find('td:nth-child(11) input').val();
+                        if (itemNo != null && itemNo.trim() != "") {
+                            if (!uom || uom.trim() == "") {
+                                feErrors.push("Dòng " + stt + ": Chưa chọn Đơn vị tính");
+                            }
+                            if (!unitPrice || parseFloat(unitPrice) <= 0) {
+                                feErrors.push("Dòng " + stt + ": Giá bán phải lớn hơn 0");
+                            }
+                            if (!startDate || startDate.trim() == "") {
+                                feErrors.push("Dòng " + stt + ": Chưa nhập Từ ngày");
+                            }
+                            if (!endDate || endDate.trim() == "") {
+                                feErrors.push("Dòng " + stt + ": Chưa nhập Đến ngày");
+                            }
+                            item['ID'] = $(this).find('td:nth-child(1)').html();
+                            item['SalesType'] = $(this).find('td:nth-child(2)').html();
+                            item['SalesCode'] = $(this).find('td:nth-child(4)').html();
+                            item['ChannelCode'] = "";
+                            item['RegionCode'] = "";
+                            item['StoreNo'] = "";
+                            item['ItemNo'] = itemNo;
+                            item['UOM'] = uom;
+                            item['Barcode'] = $(this).find('td:nth-child(8) input').val();
+                            item['UnitPrice'] = unitPrice;
+                            item['StartDate'] = startDate;
+                            item['EndDate'] = endDate;
+                            data.push(item);
+                        }
+                    });
+                }
+                else//Barcode
+                {
+                    $('#tblItemPrice tbody tr').each(function (e) {
+                        var item = {};
+                        var stt = $(this).find('td:nth-child(1)').text().trim();
+                        var itemNo = $(this).find('td:nth-child(7) select').val();
+                        var uom = $(this).find('td:nth-child(8) select').val();
+                        var unitPrice = $(this).find('td:nth-child(9) input').val().replace(/\,/g, '');
+                        var startDate = $(this).find('td:nth-child(10) input').val();
+                        var endDate = $(this).find('td:nth-child(11) input').val();
+                        if (itemNo != null && itemNo.trim() != "") {
+                            if (!uom || uom.trim() == "") {
+                                feErrors.push("Dòng " + stt + ": Chưa chọn Đơn vị tính");
+                            }
+                            if (!unitPrice || parseFloat(unitPrice) <= 0) {
+                                feErrors.push("Dòng " + stt + ": Giá bán phải lớn hơn 0");
+                            }
+                            if (!startDate || startDate.trim() == "") {
+                                feErrors.push("Dòng " + stt + ": Chưa nhập Từ ngày");
+                            }
+                            if (!endDate || endDate.trim() == "") {
+                                feErrors.push("Dòng " + stt + ": Chưa nhập Đến ngày");
+                            }
+                            item['ID'] = $(this).find('td:nth-child(1)').html();
+                            item['SalesType'] = $(this).find('td:nth-child(2)').html();
+                            item['SalesCode'] = $(this).find('td:nth-child(4)').html();
+                            item['ChannelCode'] = "";
+                            item['RegionCode'] = "";
+                            item['StoreNo'] = "";
+                            item['Barcode'] = $(this).find('td:nth-child(6) input').val();
+                            item['ItemNo'] = itemNo;
+                            item['UOM'] = uom;
+                            item['UnitPrice'] = unitPrice;
+                            item['StartDate'] = startDate;
+                            item['EndDate'] = endDate;
+                            data.push(item);
+                        }
+                    });
+                }
+
+                if (feErrors.length > 0) {
+                    toastr.error(feErrors.join("<br>"), "Vui lòng kiểm tra lại", { escapeHtml: false });
+                    return;
+                }
+
+                if (data.length == 0) {
+                    toastr.error("Bạn chưa có tạo dữ liệu trên lưới");
+                }
+                else {
+                    loading.showloading();
+                    var json = JSON.stringify(data);
+                    $.ajax({
+                        url: '@Url.Action("SaveItemPrice", "SetupPrice")',
+                        type: "POST",
+                        dataType: "json",
+                        data: { jsonRequest: json },
+                        success: function (response) {
+                            if (response.Status == 200) {
+                                toastr.success(response.Message);
+                                $('#tblItemPrice tbody').remove();
+                                $("#displayTablePrice").css("display", "none");
+                            }
+                            else {
+                                toastr.error(response.Message);
+                            }
+                            loading.hideloading();
+                        },
+                        error: function (data) {
+                            loading.hideloading();
+                            toastr.error('Lỗi hệ thống');
+                        }
+                    });
+                }
+            });
+        });
+
+        function AppendListItemTable() {
+            var typeSetup = $("#slTypeSetup").val();
+            var salesType = $("#slTypeSaleType").val();
+            var salesTypeName = $("#slTypeSaleType option:selected").text();
+            var saleGroupCode = $("#slChannel").val();
+            var saleGroupName = $("#slChannel option:selected").text();
+           // var channelCode = $("#slChannel").val();
+            var regionCode = $("#slArea").val();
+            var store = $("#slStore").val();
+            var QtyRow = $("#txt-Qty-Row").val();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('TypeSetup', typeSetup);
+            fromData.append('SalesType', salesType);
+            fromData.append('SalesTypeName', salesTypeName);
+            fromData.append('saleGroupCode', saleGroupCode);
+            fromData.append('saleGroupName', saleGroupName);
+            fromData.append('regionCode', regionCode);
+            fromData.append('Store', store);
+            fromData.append('QtyRow', QtyRow);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("_AppendListItem", "SetupPrice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    if (result.Status == 200) {
+                        $("#displayTablePrice").css("display","block");
+                        var viewHtml = result.ViewPartial;
+                        $("#divLoadAppend").html(viewHtml);
+                    }
+                    else {
+                        toastr.error(result.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        $(document).on("keydown", function (e) {
+            if (e.ctrlKey  && e.key.toLowerCase() === "a") {
+                e.preventDefault();
+                $("#btnAddRow").click();
+            }
+            /*
+            if (e.key.toLowerCase() === "delete") {
+                var row = $("#table tbody tr.row-active");
+
+                if (row.length) {
+                    var next = row.next();
+                    var prev = row.prev();
+
+                    row.remove();
+
+                    if (next.length) {
+                        next.addClass("row-active");
+                    } else if (prev.length) {
+                        prev.addClass("row-active");
+                    }
+                } else {
+                    alert("Vui lòng chọn dòng cần xóa");
+                }
+            }*/
+        });
+
+    </script>
+}

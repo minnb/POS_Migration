@@ -1,0 +1,569 @@
+﻿@using VCM.BLUEPOS.Model.Home;
+
+@{
+    ViewBag.Title = "Trang chủ";
+    var model = Model as HomeViewModel;
+    var listServerWeb = model.ListServerWeb;
+}
+
+@if (model != null && listServerWeb != null)
+{
+    var role = model.Role;
+    var ipserverHost = model.IPServerHost;
+
+    <div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+        <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">           
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="row">
+                        <div class="d-flex align-items-center flex-wrap mr-1">
+                            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                                <button type="button" class="btn btn-warning  mr-2" data-toggle="modal" id="btnmodalCheckList"><i class="la la-times-circle-o"></i> Công việc check list hàng ngày</button>
+                                <button type="button" class="btn btn-success" data-toggle="modal" id="btnModalReportCheckList"><i class="la la-times-circle-o"></i> Báo cáo checklist</button>
+                            </div>
+                            <button type="button" class="btn btn-success mr-2" data-toggle="modal" id="btnmodalAgentSQL"><i class="la la-cog"></i> Job Agent MS SQL</button>
+                            <button type="button" class="btn btn-primary mr-2" data-toggle="modal" id="btnModalJob"><i class="la la-cog"></i> Task scheduler</button>
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column-fluid">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body table-responsive">
+                            <table class="table table-bordered" id="tblData" style="margin-bottom:0px !important">
+                                <thead>
+                                    <tr style="text-align:center;background-color:#a7d0f9;color:#000000 !important">
+                                        <th style="width:300px;">LINK F5</th>
+                                        <th style="width:120px;">VIP IP</th>
+                                        <th style="width:120px;">TYPE</th>
+
+                                        @*<th style="width:120px;">
+                                            CHECK
+                                            <i class="fa fa-arrow-alt-circle-down" style="color:#ff6a00;font-size:22px;float:right" onclick="CheckAllServer()"></i>
+                                        </th>*@
+
+                                        <th style="width:120px;">SERVER IP</th>
+
+                                        @*<th style="width:400px;">
+                                            LINK MICRO
+                                            <i class="fa fa-arrow-alt-circle-down" style="color:#ff6a00;font-size:22px;float:right" onclick="CheckAllServer()"></i>
+                                        </th>*@
+
+                                        <th style="width:300px;">LINK SVR<i class="fa fa-arrow-alt-circle-down" style="color:#ff6a00;font-size:22px;float:right" onclick="CheckAllServer()"></i></th>                                        
+                                        <th>HEALTH CHECK</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @if (listServerWeb.Count > 0)
+                                    {
+                                        var listServerPOSPL = listServerWeb.Where(d => d.TYPESERVICE == "WEB" || d.TYPESERVICE == "APISERVICE" || d.TYPESERVICE == "UPFILE" || d.TYPESERVICE == "DOWNFILE").ToList();
+                                        var listServerExternal = listServerWeb.Where(d => d.TYPESERVICE == "APIPARTNER" || d.TYPESERVICE == "APIPAYMENT" || d.TYPESERVICE == "APIPAYMENTSV").ToList();
+                                        var listServerInvoice = listServerWeb.Where(d => d.TYPESERVICE == "INVOICE").ToList();
+                                        var listServerAPIFPT = listServerWeb.Where(d => d.TYPESERVICE == "APIFPT").ToList();
+                                        var listServerXMLFPT = listServerWeb.Where(d => d.TYPESERVICE == "XMLFPT").ToList();
+                                        if (listServerPOSPL != null && listServerPOSPL.Count > 0)
+                                        {
+                                            var y = 0;
+                                            var rowGroupFirst = listServerWeb.FirstOrDefault().TYPESERVICE;
+
+                                            string[] arrayBackground = { "#FFFFFF", "#f2f5f3", "#FFFFFF", "#f2f5f3" };
+                                            string[] arrayIPVIP = { "10.235.64.203", "10.235.64.204", "10.235.64.205", "10.235.64.206" };
+
+                                            foreach (var item in listServerPOSPL)
+                                            {
+                                                var background = arrayIPVIP[0] == item.IPVIP ? arrayBackground[0] : (arrayIPVIP[1] == item.IPVIP ? arrayBackground[1] : (arrayIPVIP[2] == item.IPVIP ? arrayBackground[2] : (arrayIPVIP[3] == item.IPVIP ? arrayBackground[3] : "")));
+                                                var backgroundWeb = ipserverHost == item.IPSERVER ? "#f5a153" : background;
+                                                var linkMulti = item.LINKMICRO != "" ? $"{item.LINKMICRO}_{item.LINKF5}" : "";
+
+                                    <tr class="arrowCheck" style="background-color:@background" data-linkMicro="@item.LINKMICRO" data-linkF5="@item.LINKF5" data-typeService="@item.TYPESERVICE" data-multiLink="@linkMulti">
+                                        @{
+                                            var rowFirst = listServerWeb.Count(n => n.TYPESERVICE == item.TYPESERVICE);
+                                            if (y == 0 || rowGroupFirst != item.TYPESERVICE)
+                                            {
+                                                var clssLinkF5 = item.TYPESERVICE != "WEB" ? "colorLinkF5" : "";
+                                                <td rowspan="@rowFirst" class="@clssLinkF5" style="vertical-align:middle;">
+                                                    @item.LINKF5
+                                                </td>
+
+                                                <td rowspan="@rowFirst" style="vertical-align : middle;text-align:center;">
+                                                    @item.IPVIP
+                                                </td>
+
+                                                <td rowspan="@rowFirst" style="vertical-align : middle;text-align:center;">
+                                                    @item.TYPESERVICE
+                                                </td>
+
+                                                @*<td rowspan="@rowFirst" style="vertical-align : middle;text-align:center;">
+                                                    @if (item.TYPESERVICE != "WEB")
+                                                    {
+                                                        <i class="fa fa-arrow-alt-circle-right" style="color:#ff6a00;font-size:28px;" onclick="CheckService('@item.LINKF5','@item.TYPESERVICE')"></i>
+                                                    }
+                                                </td>*@
+
+                                                rowGroupFirst = item.TYPESERVICE;
+                                            }
+                                        }
+
+                                        <td class="text-center clearBackgroundLinkF5" id="lbIPServer_@item.IPSERVER.Replace(".", "")" style="vertical-align:middle;background-color:@backgroundWeb">@item.IPSERVER</td>
+                                        
+                                        <!-- 28/10/2024 -->
+
+                                        <td style="vertical-align:middle;">
+                                            @if (!string.IsNullOrEmpty(item.LINKMICRO))
+                                            {
+                                                @item.LINKMICRO
+                                                <i class="fa fa-arrow-alt-circle-down" style="color:#ff6a00;font-size:22px;float:right" onclick="CheckService('@item.LINKMICRO')"></i>
+                                            }
+                                        </td>
+
+                                        <!-- End -->
+                                        <td style="vertical-align:middle;">
+                                            <strong class="classResult" id="lbResult_@item.IPSERVER.Replace(".", "")"></strong>
+                                        </td>
+                                    </tr>
+                                                y++;
+                                            }
+                                        }
+                                        if (listServerExternal != null && listServerExternal.Count > 0)
+                                        {
+                                            var stt = 1;
+                                            foreach (var item in listServerExternal)
+                                            {
+                                                var linkMulti = item.LINKMICRO != "" ? $"{item.LINKMICRO}_{item.LINKF5}" : "";
+                                                <tr style="background-color:#dddcd2" data-linkMicro="@item.LINKMICRO" data-linkF5="@item.LINKF5" data-typeService="@item.TYPESERVICE" data-multiLink="@linkMulti">
+                                                    <td style="vertical-align : middle;">
+                                                        <a href="@item.LINKF5" target="_blank">
+                                                            @item.LINKF5
+                                                        </a>
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.IPVIP
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.TYPESERVICE
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;"></td>
+                                                    <td class="text-center" style="vertical-align:middle;">@item.IPSERVER</td>
+
+                                                    <td style="vertical-align:middle;">
+                                                        <strong>@item.NOTE</strong>
+                                                    </td>
+                                                </tr>
+                                                stt += 1;
+                                            }
+                                        }
+                                        if (listServerInvoice != null && listServerInvoice.Count > 0)
+                                        {
+                                            foreach (var item in listServerInvoice)
+                                            {
+                                                var linkMulti = item.LINKMICRO != "" ? $"{item.LINKMICRO}_{item.LINKF5}" : "";
+                                                <tr style="background-color:#aae1d4" data-linkMicro="@item.LINKMICRO" data-linkF5="@item.LINKF5" data-typeService="@item.TYPESERVICE" data-multiLink="@linkMulti">
+                                                    <td style="vertical-align : middle;">
+                                                        <a href="@item.LINKF5" target="_blank">
+                                                            @item.LINKF5
+                                                        </a>
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.IPVIP
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.TYPESERVICE
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;"></td>
+                                                    <td class="text-center" style="vertical-align:middle;">@item.IPSERVER</td>
+                                                    <td style="vertical-align:middle;">
+                                                        <strong>@item.NOTE</strong>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                        if (listServerAPIFPT != null && listServerAPIFPT.Count > 0)
+                                        {
+                                            foreach (var item in listServerAPIFPT)
+                                            {
+                                                var linkMulti = item.LINKMICRO != "" ? $"{item.LINKMICRO}_{item.LINKF5}" : "";
+                                                <tr style="background-color:#dddcd2" data-linkMicro="@item.LINKMICRO" data-linkF5="@item.LINKF5" data-typeService="@item.TYPESERVICE" data-multiLink="@linkMulti">
+                                                    <td style="vertical-align : middle;">
+                                                        @item.LINKF5
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.IPVIP
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.TYPESERVICE
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;"></td>
+                                                    <td class="text-center" style="vertical-align:middle;">@item.IPSERVER</td>
+                                                    <td style="vertical-align:middle;">
+                                                        <strong>@item.NOTE</strong>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                        if (listServerXMLFPT != null && listServerXMLFPT.Count > 0)
+                                        {
+                                            foreach (var item in listServerXMLFPT)
+                                            {
+                                                var linkMulti = item.LINKMICRO != "" ? $"{item.LINKMICRO}_{item.LINKF5}" : "";
+                                                <tr style="background-color:#aae1d4" data-linkMicro="@item.LINKMICRO" data-linkF5="@item.LINKF5" data-typeService="@item.TYPESERVICE" data-multiLink="@linkMulti">
+                                                    <td style="vertical-align : middle;">
+                                                        @item.LINKF5
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.IPVIP
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;">
+                                                        @item.TYPESERVICE
+                                                    </td>
+                                                    <td style="vertical-align : middle;text-align:center;"></td>
+                                                    <td class="text-center" style="vertical-align:middle;">@item.IPSERVER</td>
+                                                    <td style="vertical-align:middle;">
+                                                        <strong>@item.NOTE</strong>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalServerJob" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Task scheduler</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i aria-hidden="true" class="ki ki-close"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="divPopupListServer">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="form-group">
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAgentSQL" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Job Agent MS SQL</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i aria-hidden="true" class="ki ki-close"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="divPopupJobSQL">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCheckList" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">CHECK LIST DAILY</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i aria-hidden="true" class="ki ki-close"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="divPopupCheckList">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+                    <button type="button" class="btn btn-success font-weight-bold" id="btnSaveCheckList"><i class="la la-save"></i>Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalReportCheckList" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">BÁO CÁO CÔNG VIỆC CHECK LIST</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i aria-hidden="true" class="ki ki-close"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="divPopupReportCheckList">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>                    
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section scripts {
+
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+
+            $("#btnModalJob").on("click", function () {
+                loading.showloading();
+                $.ajax({
+                    type: "GET",
+                    url: "/Home/_ViewServerScheduler",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupListServer").html(result);
+                        $('#modalServerJob').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            });
+
+            $("#btnmodalAgentSQL").on("click", function () {
+                loading.showloading();
+                $.ajax({
+                    type: "GET",
+                    url: "/Home/_ViewServerSQL",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupJobSQL").html(result);
+                        $('#modalAgentSQL').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            });
+
+            $("#btnmodalCheckList").on("click", function () {
+                loading.showloading();
+                $.ajax({
+                    type: "GET",
+                    url: "/Home/_ViewCheckList",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupCheckList").html(result);
+                        $('#modalCheckList').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            });
+
+            $("#btnSaveCheckList").on("click", function () {
+                var arrCheckList = [];
+                $('#tblCheckList tbody input[name="CheckList"]:checked').each(function () {
+                    //debugger
+                    var id = $(this).val();
+                    arrCheckList.push({ ID: id });
+                });
+
+                var jsonCheckList = JSON.stringify(arrCheckList);
+                loading.showloading();
+                var fromData = new FormData();
+                fromData.append('CheckListID', jsonCheckList);
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("CheckListUser", "Home")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data.Item1 == true) {
+                            toastr.success(data.Item2);
+                            $('#modalCheckList').modal('hide');
+                        }
+                        else {
+                            toastr.error(data.Item2);
+                        }
+                        loading.hideloading();
+                    },
+                    error: function () {
+                    }
+                });
+            });
+
+            $("#btnModalReportCheckList").on("click", function () {
+                loading.showloading();
+                $.ajax({
+                    type: "GET",
+                    url: "/Home/_ViewReportCheckList",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupReportCheckList").html(result);
+
+                        $('#modalReportCheckList').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            });
+        });
+
+        function CheckService(linkMicro, typeService) {
+            if (linkMicro != "") {
+                $("#lb_" + typeService).html('');
+                loading.showloading();
+                var fromData = new FormData();
+                fromData.append('LinkMicro', linkMicro);
+                fromData.append('TypeService', typeService);
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("CheckService", "Home")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (d) {
+                        //debugger
+                        if (typeService == "APIPARTNER" || typeService == "APIPAYMENT" || typeService == "APIPAYMENTSV") {
+                            $("#lb_" + typeService).html(d.Message);
+                        }
+                        else {
+                            delete d["LinkAPI"];
+                            delete d["TypeService"];
+                            if (d.DbConnection == true) {
+                                var rep = d.IPServer.replace(/\./g, '');
+                                $("#lbResult_" + rep).html('');
+                                var json = JSON.stringify(d);
+                                $("#lbResult_" + rep).html(json);
+                                $("#lbResult_" + rep).css("color", "green");
+                            }
+                            else {
+                                var rep = d.IPServer.replace(/\./g, '')
+                                $("#lbResult_" + rep).html('');
+                                var json = JSON.stringify(d);
+                                $("#lbResult_" + rep).html(json);
+                                $("#lbResult_" + rep).css("color", "red");
+                            }
+                        }
+                        loading.hideloading();
+                    },
+                    error: function () {
+                        loading.hideloading();
+                    }
+                });
+            }
+        }
+
+        function CheckAllServer() {
+            // var listLink = "";
+            var myarray = [];
+            $('#tblData > tbody .arrowCheck').each(function () {
+                var linkMicro = $(this).attr("data-linkMicro");
+                var linkF5 = $(this).attr("data-linkF5");
+                var typeServcie = $(this).attr("data-typeService");
+                var multiLink = $(this).attr("data-multiLink");
+                $(".classResult").html('');
+                myarray.push({ LinkF5: linkF5, LinkMircro: linkMicro, TypeService: typeServcie });
+            });
+
+            $(".clearBackgroundLinkF5").css("background-color", "#FFFFFF");
+            //debugger
+            var myJsonString = JSON.stringify(myarray);
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('JsonModel', myJsonString);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("CheckServiceAll", "Home")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    var result = data;
+                    result.forEach((d, i) => {
+                        if (d != null) {
+                            if (d.TypeService == "APIPARTNER" || d.TypeService == "APIPAYMENT" || d.TypeService == "APIPAYMENTSV") {
+                                $("#lb_" + d.TypeService).html(d.Message);
+                            }
+                            else {
+                                if (d.TypeService != "WEB") {
+                                    var repF5 = d.IPServer.replace(/\./g, '');
+                                    if (d.LinkAPI.indexOf('https') >= 0) {
+                                        $("#lbIPServer_" + repF5).css("background-color", "#f5a153");
+                                        $(".colorLinkF5").css("color", "#f5a153");
+                                        $(".colorLinkF5").css("font-weight", "bold");
+                                    }
+                                    delete d["LinkAPI"];
+                                    delete d["TypeService"];
+                                    if (d.DbConnection != null && d.DbConnection == true) {
+                                        var rep = d.IPServer.replace(/\./g, '');
+                                        var json = JSON.stringify(d);
+                                        $("#lbResult_" + rep).html(json);
+                                        $("#lbResult_" + rep).css("color", "#2e7514");
+                                    }
+                                    else {
+                                        var rep = d.IPServer.replace(/\./g, '');
+                                        var json = JSON.stringify(d);
+                                        $("#lbResult_" + rep).html(json);
+                                        $("#lbResult_" + rep).css("color", "red");
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+    </script>
+}

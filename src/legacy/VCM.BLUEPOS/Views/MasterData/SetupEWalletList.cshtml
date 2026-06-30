@@ -1,0 +1,1332 @@
+﻿@using VCM.BLUEPOS.Model.Bank;
+@using VCM.BLUEPOS.Model.POS;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+
+    ViewBag.Title = "Khai báo Ví điện tử";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<StoreModel>;
+    var listEWallet = ViewBag.ListEWallet as List<OptionModel>;
+    var listPayment = ViewBag.ListPaymentType as List<OptionModel>;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Master Data</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Khai báo Ví điện tử</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <button type="button" id="btn-import-excel" class="btn btn-bg-warning font-weight-bold"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Import File Excel</span></button>
+                <button type="button" id="btn-add-new-ewallet" class="btn btn-bg-success font-weight-bold"><i class="la la-plus-circle" style="color:#fff;"></i><span style="color:#fff;">Thêm mới</span></button>
+            </div>            
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcelSetupEWalletList", "MasterData", FormMethod.Post, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                            @if (listStore != null && listStore.Count() > 0)
+                                            {
+                                                if (listStore.Count == 1)
+                                                {
+                                                    <option value="@listStore.FirstOrDefault().StoreNo" data-array="@listStore.FirstOrDefault().ValueJson">@listStore.FirstOrDefault().StoreNo - @listStore.FirstOrDefault().StoreName</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="">Tất cả</option>
+                                                    foreach (var item in listStore)
+                                                    {
+                                                        var storeName = string.IsNullOrEmpty(item.StoreName) ? item.StoreNo : item.StoreName;
+                                                        <option value="@item.StoreNo" data-array="@item.ValueJson">@item.StoreNo - @storeName</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Loại ví điện tử<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-e-wallet-type" name="EWalletType">
+                                            <option value="" selected>Tất cả</option>
+                                            @if (listEWallet != null && listEWallet.Count > 0)
+                                            {
+                                                if (listEWallet.Count == 1)
+                                                {
+                                                    <option value="@listEWallet.FirstOrDefault().Value">@listEWallet.FirstOrDefault().Text</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listEWallet)
+                                                    {
+                                                        <option value="@item.Value">@item.Text</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 0: false ; 1: true -->
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-status" name="Status" style="width: 100%;">
+                                            <option value="-1" selected>Tất cả</option>
+                                            <option value="true">Đang được sử dụng</option>
+                                            <option value="false">Không sử dụng</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Từ khóa</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="txt-key-search" name="TextSearch" placeholder="Nhập mã máy thanh toán ví; số máy POS; số POSNo">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary" name="btnSearch"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-e-wallet-list" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th width="90px">#</th>
+                                    <th>STT</th>
+                                    <th>Mã máy thanh toán ví</th>
+                                    <th>POSNo</th>
+                                    <th>Máy POS</th>
+                                    <th>ST/CH</th>
+                                    <th>Tên ST/CH</th>
+                                    <th>Trạng thái</th>
+                                    <th>Mã loại ví điện tử</th>
+                                    <th>Tên loại ví điện tử</th>
+                                    <th>Loại thanh toán</th>
+                                    <th>TenderType</th>
+                                    <th>Model</th>
+                                    <th>Thanh toán Tpay</th>
+                                    <th>AccessKey</th>
+                                    <th>PartnerID</th>
+                                    <th>Ngày tạo</th>
+                                    <th>Người tạo</th>
+                                    <th>Ngày cập nhật</th>
+                                    <th>Người cập nhật</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-create-ewallet-list" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-ewallet-list">Khai báo Ví điện tử</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-create-ewallet-list-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">ST/CH <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-store-no" name="CreateStoreNo"></select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Máy POS bán hàng <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" style="width: 100%;" id="modal-create-pos-terminal" name="CreatePOSTerminal">
+                                                <option value="-1" disabled selected>--- Chọn ---</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Số thứ tự máy POS <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-create-pos-no" name="CreatePOSNo" placeholder="Nhập 3 ký tự số">
+                                        </div>
+                                    </div>
+                                </div> 
+
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Loại ví điện tử <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-ewallet-code" name="CreateEWalletCode">
+                                                @if (listEWallet != null && listEWallet.Count > 0)
+                                                {
+                                                    if (listEWallet.Count == 1)
+                                                    {
+                                                        <option value="@listEWallet.FirstOrDefault().Value">@listEWallet.FirstOrDefault().Text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="" selected disabled>--- Chọn ---</option>
+                                                        foreach (var item in listEWallet)
+                                                        {
+                                                            <option value="@item.Value">@item.Text</option>
+                                                        }
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mã máy thanh toán ví</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-create-terminal-code" name="TerminalCode" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">TenderType</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-create-tender-type" name="TenderType" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Loại thanh toán<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-payment-type" name="CreatePaymentType">
+                                                <option value="QRPAY" selected>QRCode tại quầy</option>
+                                                <option value="QUICKPAY">QRCode thanh toán</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                        <label style="font-weight:bold !important">Thanh toán TPay</label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-is-tpay" name="CreateIsTPAY">
+                                                <option value="0" selected>Không</option>
+                                                <option value="1">Có</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <!-- 0: offline ; 1: Online -->
+                                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Thanh toán Online<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-is-online" name="CreateIsOnline">
+                                                <option value="ALL" selected>ALL</option>
+                                                <option value="OFFLINE">Offline</option>
+                                                <option value="ONLINE">Online</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-create-status" name="CreateStatus">
+                                                <option value="true" selected>Đang được sử dụng</option>
+                                                <option value="false">Không sử dụng</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Access Key<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-create-access-key" name="AccessKey">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Partner ID<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-create-partner-id" name="PartnerID" placeholder="bf1742f3-d321-4e75-bbd6-da5b3c54b8ae">
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="btn-save-create-ewallet" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                    <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close" style="color:#fff;"></i>Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-update-ewallet-list" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-update-ewallet-list">Cập nhật Ví điện tử</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-ewallet-list-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-store-no" name="UpdateStoreNo" value="" disabled>
+                                                @if (listStore != null && listStore.Count() > 0)
+                                                {
+                                                    if (listStore.Count == 1)
+                                                    {
+                                                        <option value="@listStore.FirstOrDefault().StoreNo" data-array="@listStore.FirstOrDefault().ValueJson">@listStore.FirstOrDefault().StoreNo - @listStore.FirstOrDefault().StoreName</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="-1" selected disabled>--- Chọn ---</option>
+                                                        foreach (var item in listStore)
+                                                        {
+                                                            var storeName = string.IsNullOrEmpty(item.StoreName) ? item.StoreNo : item.StoreName;
+                                                            <option value="@item.StoreNo" data-array="@item.ValueJson">@item.StoreNo - @storeName</option>
+                                                        }
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Máy POS bán hàng<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" style="width: 100%;" id="modal-update-pos-terminal" name="UpdatePOSTerminal" disabled>
+                                                <option value="-1" disabled selected>--- Chọn ---</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Số thứ tự máy POS<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-pos-no" name="UpdatePOSNo" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Loại ví điện tử<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-ewallet-code" name="UpdateEWalletCode" disabled>
+                                                @if (listEWallet != null && listEWallet.Count > 0)
+                                                {
+                                                    if (listEWallet.Count == 1)
+                                                    {
+                                                        <option value="@listEWallet.FirstOrDefault().Value">@listEWallet.FirstOrDefault().Text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="" selected>--- Chọn ---</option>
+                                                        foreach (var item in listEWallet)
+                                                        {
+                                                            <option value="@item.Value">@item.Text</option>
+                                                        }
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mã máy thanh toán ví<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-terminal-code" name="UpdateTerminalCode" disabled>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">TenderType<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-tender-type" name="TenderType" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                        <label style="font-weight:bold !important">Loại thanh toán<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-payment-type" name="UpdatePaymentType">
+                                                <option value="QRPAY" selected>QRCode tại quầy</option>
+                                                <option value="QUICKPAY">QRCode thanh toán</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                        <label style="font-weight:bold !important">Thanh toán TPay<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-is-tpay" name="UpdateIsTPAY">
+                                                <option value="0" selected>Không</option>
+                                                <option value="1">Có</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- 0: offline ; 1: Online -->
+                                    <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Thanh toán Online<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-is-online" name="UpdateIsOnline">
+                                                <option value="ALL" selected>ALL</option>
+                                                <option value="OFFLINE">Offline</option>
+                                                <option value="ONLINE">Online</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- 0: false ; 1: true -->
+                                    <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="modal-update-status" name="UpdateStatus">
+                                                <option value="true" selected>Đang được sử dụng</option>
+                                                <option value="false">Không sử dụng</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Access Key<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-access-key" name="UpdateAccessKey">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Partner ID<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="modal-update-partner-id" name="UpdatePartnerID" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" id="modal-update-ewallet-name" name="UpdateEWalletName" />
+            <input type="hidden" id="modal-update-tender-type" name="UpdateTenderType" />
+
+            <div class="modal-footer">
+                <button type="button" id="btn-save-update-ewallet" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close" style="color:#fff;"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-import-excel-set-up-ewallet" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;" id="modal-title-ewallet">Import File Excel: Khai báo Ví điện tử</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-update-ewallet-body">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-sm-12 text-left">
+                            <div class="box">
+                                <input type="file" name="ImportFileExcel" id="importFile" class="inputfile inputfile-1" data-multiple-caption="{count} files selected" />
+                                @*<label for="importFile"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="17" viewBox="0 0 20 17"><path d="M10 0l-5.2 4.9h3.3v5.1h3.8v-5.1h3.3l-5.2-4.9zm9.3 11.5l-3.2-2.1h-2l3.4 2.6h-3.5c-.1 0-.2.1-.2.1l-.8 2.3h-6l-.8-2.2c-.1-.1-.1-.2-.2-.2h-3.6l3.4-2.6h-2l-3.2 2.1c-.4.3-.7 1-.6 1.5l.6 3.1c.1.5.7.9 1.2.9h16.3c.6 0 1.1-.4 1.3-.9l.6-3.1c.1-.5-.2-1.2-.7-1.5z" /></svg><span>Chọn file excel</span></label>*@
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="height:25px;"></div>
+                    <div class="row">
+                        <div class="col-sm-6 text-left">
+                            <div class="box">
+                                <a class="btn btn-bg-light" style="color:#0c713d;cursor:pointer;padding-top:5px;font-size:12px;" href='/Files/ImportEWallet.xlsx' target="_blank"><i class="fa fa fa-file-download"></i>Tải template mẫu</a>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 text-right">
+                            <button type="button" class="btn btn-bg-success" id="btn-save-import-ewallet" style="color:#fff;cursor:pointer;font-size:13px;"> <i class="fas fa-file-import" style="color:#fff"></i><span style="color:#fff;">Import File</span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        function CreateSetupEWallet() {
+            //debugger
+            var _storeNo        = $('#modal-create-store-no').val();
+            var _eWalletcode    = $('#modal-create-ewallet-code').val();
+            var _posTerminal    = $('#modal-create-pos-terminal').val();
+            var _posNo          = $('#modal-create-pos-no').val();
+            var _terminalCode   = $('#modal-create-terminal-code').val();
+            var _paymentType    = $('#modal-create-payment-type').val();
+            var _mode           = $('#modal-create-is-online').val();
+            var _status         = $('#modal-create-status').val();
+            var _accessKey      = $('#modal-create-access-key').val();
+            var _partnerID      = $('#modal-create-partner-id').val();
+            var _tenderType     = $('#modal-create-tender-type').val();
+
+            if (_storeNo == null || _storeNo == "") {
+                toastr.error("Chọn ST/CH. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_eWalletcode == null || _eWalletcode == "") {
+                toastr.error("Chọn loại ví điện tử. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_posTerminal == null || _posTerminal == "") {
+                toastr.error("Chọn máy POS. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_posNo == null || _posNo == "") {
+                toastr.error("Nhập số thứ tự máy POS. Vui lòng kiểm tra lại");
+                return;
+            }
+            else if (_posNo.length > 3 || _posNo.length < 3) {
+                toastr.error("Số thứ tự máy POS bao gồm 03 ký tự số nguyên dương. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_accessKey == null || _accessKey == "") {
+                toastr.error("Nhập Access Key. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_partnerID == null || _partnerID == "") {
+                // PRD
+                _partnerID = "bf1742f3-d321-4e75-bbd6-da5b3c54b8ae";
+            }
+
+            var isTPay = $('#modal-create-is-tpay').val();
+            var _isTPay = true;
+            if (isTPay == "1")
+            {
+                _isTPay = true;
+            }
+            else if (isTPay == "0")
+            {
+                _isTPay = false;
+            }
+
+            loading.showloading();
+
+            $.ajax({
+                url: '@Url.Action("CreateSetupEWallet", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    PartnerID: _partnerID,
+                    TerminalCode: _terminalCode,
+                    EWalletCode: _eWalletcode,
+                    StoreNoFull: _storeNo,
+                    StoreNo: _storeNo,
+                    POSNo: _posNo,
+                    POSTerminal: _posTerminal,
+                    PaymentType: _paymentType,
+                    TenderType: _tenderType,
+                    Mode: _mode,
+                    Status: _status,
+                    AccessKey: _accessKey,
+                    IsTPay: _isTPay
+                },
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 1)
+                    {
+                        toastr.success(data.Message);
+                        $('#sel-store-no').val(data.Item1).trigger('change');
+                        $('#sel-e-wallet-type').val(data.Item2);
+                        $('#sel-status').val(data.Item3);
+                        $('#btn-search').trigger('click');
+                        $('#modal-create-ewallet-list').modal("hide");
+                    }
+                    else if (data.Status == 2)
+                    {
+                        toastr.error(data.Message);
+                    }
+                    else if (data.Status == 3)
+                    {
+                        toastr.error(data.Message);
+                        $('#btn-save-create-ewallet').attr('disabled', true);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        //
+        function UpdateSetupEWallet() {
+            //debugger
+            var _storeNo        = $('#modal-update-store-no').val();
+            var _eWalletcode    = $('#modal-update-ewallet-code').val();
+            var _eWalletName    = $('#modal-update-ewallet-name').val();
+            var _posTerminal    = $('#modal-update-pos-terminal').val();
+            var _posNo          = $('#modal-update-pos-no').val();
+            var _terminalCode   = $('#modal-update-terminal-code').val();
+            var _paymentType    = $('#modal-update-payment-type').val();
+            var _tenderType     = $('#modal-update-tender-type').val();
+            var _mode           = $('#modal-update-is-online').val();
+            var _status         = $('#modal-update-status').val();
+            var _accessKey      = $('#modal-update-access-key').val();
+            var _partnerID      = $('#modal-update-partner-id').val();
+
+            if (_storeNo == null || _storeNo == "") {
+                toastr.error("Chọn ST/CH. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_eWalletcode == null || _eWalletcode == "") {
+                toastr.error("Chọn loại ví điện tử. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_posTerminal == null || _posTerminal == "") {
+                toastr.error("Chọn máy POS. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_posNo == null || _posNo == "") {
+                toastr.error("Nhập số thứ tự máy POS. Vui lòng kiểm tra lại");
+                return;
+            }
+            else if (_posNo.length > 3 || _posNo.length < 3) {
+                toastr.error("Số thứ tự máy POS bao gồm 03 ký tự số nguyên dương. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_accessKey == null || _accessKey == "") {
+                toastr.error("Nhập AccessKey. Vui lòng kiểm tra lại");
+                return;
+            }
+
+            if (_partnerID == null || _partnerID == "") {
+               // PRD
+                _partnerID = "bf1742f3-d321-4e75-bbd6-da5b3c54b8ae";
+            }
+
+            var isTPay = $('#modal-update-is-tpay').val();
+            var _isTPay = true;
+            if (isTPay == "1")
+            {
+                _isTPay = true;
+            }
+            else if (isTPay == "0")
+            {
+                _isTPay = false;
+            }
+
+            loading.showloading();
+
+            $.ajax({
+                url: '@Url.Action("UpdateSetupEWallet", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    PartnerID: _partnerID,
+                    TerminalCode: _terminalCode,
+                    EWalletCode: _eWalletcode,
+                    StoreNoFull: _storeNo,
+                    StoreNo: _storeNo,
+                    POSNo: _posNo,
+                    POSTerminal: _posTerminal,
+                    PaymentType: _paymentType,
+                    TenderType: _tenderType,
+                    Mode: _mode,
+                    Status: _status,
+                    AccessKey: _accessKey,
+                    IsTPay: _isTPay
+                },
+                success: function (data) {
+                    if (data.Status == 1)   // Thành công
+                    {
+                        toastr.success(data.Message);
+                        $('#sel-store-no').val(data.Item1).trigger('change');
+                        $('#sel-e-wallet-type').val(data.Item2);
+                        $('#sel-status').val(data.Item3);
+                        $('#btn-search').trigger('click');
+                        $('#modal-update-ewallet-list').modal("hide");
+                    }
+                    else if (data.Status == 2)
+                    {
+                        toastr.error(data.Message);
+                    }
+                    else if (data.Status == 3)
+                    {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function LoadComboxStoreList() {
+            $('#modal-create-store-no').empty();
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetComboxStoreList", "Common")',
+                dataType: "json",
+                success: function (data) {
+                    var html = "<option value=\"\" selected>--- Chọn ---</option>";
+                    if (data.length > 0) {
+                        data.forEach((name, i) => {
+                            html += "<option value='" + name.Value + "'>" + name.Value +"-"+ name.Text + "</option>"
+                        });
+                    }
+                    $('#modal-create-store-no').html(html);
+                },
+                error: function ()
+                {
+                }
+            });
+        }
+
+        function LoadComboxTenderTypeByWallet() {
+            //debugger
+            $('#modal-create-tender-type').empty();
+            var _walletCode = $('#modal-create-ewallet-code').val();
+            if (_walletCode == null || _walletCode == "") {
+                $('#modal-create-tender-type').val('');
+                return;
+            }
+
+            $.ajax({
+                url: '@Url.Action("LoadTenderTypeByWallet", "Common")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    EWalletCode: _walletCode
+                },
+                success: function (data) {
+                    $('#modal-create-tender-type').val(data);
+                },
+                error: function ()
+                {
+                }
+            });
+        }
+
+        function LoadEwalletCode() {
+                loading.showloading();
+                var _eWalletCode = $("#modal-create-ewallet-code").val();
+                var _storeNo = $("#modal-create-store-no").val();
+                var _posNo = $("#modal-create-pos-no").val();
+
+                $.ajax({
+                    type: "POST",
+                     url: '@Url.Action("GetEWalletTerminalCode", "MasterData")',
+                     data: {
+                         StoreNo: _storeNo,
+                         EWalletCode: _eWalletCode,
+                         POSNo: _posNo
+                     },
+                     dataType: "json",
+                     success: function (data)
+                     {
+                         if (data.Status != "2" && data != null)
+                         {
+                                 $('#modal-create-terminal-code').val(data);
+                         }
+                         else
+                         {
+                                 $('#modal-create-terminal-code').val('');
+                                 toastr.error(data.Message);
+                         }
+                        loading.hideloading();
+                     },
+                     error: function () {
+                         toastr.error('Lỗi hệ thống');
+                     }
+                 });
+
+        };
+
+        function LoadPosTerminalByCreate() {
+                loading.showloading();
+                var _storeNo = $('#modal-create-store-no').val();
+
+                 $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetComboxPOSTerminalByStore", "Common")',
+                    data: { StoreNo: _storeNo},
+                    dataType: "json",
+                     success: function (data) {
+                         var html = "<option value=\"\" disabled selected>--- Chọn ---</option>";
+                         if (data.length > 0)
+                         {
+                             data.forEach((name, i) => {
+                                 html += "<option value='" + name.Value + "'>" + name.Value + "</option>"
+                             });
+                         }
+                         $('#modal-create-pos-terminal').html(html);
+                         loading.hideloading();
+                     },
+                     error: function ()
+                     {
+                         toastr.error('Lỗi hệ thống');
+                     }
+                 });
+        };
+
+        function ClearText() {
+            $('#modal-create-store-no').val('').trigger('change');
+            $('#modal-create-pos-terminal').val('').trigger('change');
+            $('#modal-create-terminal-code').val('');
+            $('#modal-create-pos-no').val('');
+            $('#modal-create-access-key').val('');
+            $('#modal-create-partner-id').val('');
+        }
+
+        function ImportEWalletList() {
+            loading.showloading();
+            var files = $('#importFile').get(0).files;
+            var fileData = new FormData();
+            fileData.append('importFile', files[0]);
+
+            $.ajax({
+                url: '/MasterData/ImportExcelEWallet',
+                data: fileData,
+                type: 'POST',
+                datatype: 'json',
+                contentType: false,
+                processData: false,
+                async: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#importFile').val('');
+                        table.draw();
+                        $('#modal-import-excel-set-up-ewallet').modal('hide');
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                }
+            });
+        }
+
+    $(document).ready(function () {
+        $('.select2').select2();
+        LoadComboxStoreList();
+        LoadComboxTenderTypeByWallet();
+
+        $("#modal-create-ewallet-code").on("change", function (e) {
+            LoadComboxTenderTypeByWallet();
+        });
+
+        $('#txt-key-search').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $("#btn-import-excel").on("click", function () {
+            $('#file-excel').val('');
+            $('#modal-import-excel-set-up-ewallet').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        });
+
+        $("#btn-save-import-ewallet").on("click", function (e) {
+            ImportEWalletList();
+        });
+
+        $('#modal-create-store-no').on('change', function () {
+            LoadPosTerminalByCreate();
+            LoadEwalletCode();
+        });
+
+        $('#modal-create-ewallet-code').on('change', function () {
+            LoadEwalletCode();
+        });
+        
+        $('#modal-create-pos-no').on('change', function () {
+            LoadEwalletCode();
+        });
+
+        $('#btn-add-new-ewallet').on('click', function () {
+            ClearText();
+            $('#modal-create-ewallet-list').modal({
+                backdrop: "static",
+                keyboard: false
+            });
+        });
+
+        $('#btn-save-create-ewallet').on("click", function () {
+            CreateSetupEWallet();
+        });
+
+        $('#btn-save-update-ewallet').on("click", function () {
+            UpdateSetupEWallet();
+        });
+
+        table = $('#tbl-e-wallet-list').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                drawCallback: function (settings) {
+                    //
+                    $(".btn-editor-e-wallet").click(function () {
+
+                        var _terminalCode = $(this).parents('tr').find('td:nth-child(3)').find('span:nth-child(1)').html();
+                        $('#modal-update-terminal-code').val(_terminalCode);
+                        var _posNo = $(this).parents('tr').find('td:nth-child(4)').find('span:nth-child(1)').html();
+                        $('#modal-update-pos-no').val(_posNo).trigger('change');
+                        var _posTerminal = $(this).parents('tr').find('td:nth-child(5)').find('span:nth-child(1)').html();
+                        var _storeNo = $(this).parents('tr').find('td:nth-child(6)').find('span:nth-child(1)').html();
+                        $('#modal-update-store-no').val(_storeNo).trigger('change');
+
+                        $.ajax({
+                            type: "POST",
+                            url: '@Url.Action("GetComboxPOSTerminalByStore", "Common")',
+                            data: { StoreNo: _storeNo},
+                            dataType: "json",
+                            success: function (data) {
+                                 var html = "<option value=\"\" disabled selected>--- Chọn ---</option>";
+                                 if (data.length > 0)
+                                 {
+                                     data.forEach((name, i) => {
+                                         html += "<option value='" + name.Value + "'>" + name.Value + "</option>"
+                                     });
+                                 }
+                                $('#modal-update-pos-terminal').html(html);
+                                $('#modal-update-pos-terminal').val(_posTerminal).trigger('click');
+                             },
+                             error: function ()
+                             {
+                                 toastr.error('Lỗi hệ thống');
+                             }
+                        });
+
+                        var status = $(this).parents('tr').find('td:nth-child(8)').find('span:nth-child(1)').html();
+                        var _status = "";
+                        if (status == "Đang được sử dụng") {
+                            _status = "true"; // true = 1
+                        }
+                        else if (status == "Không sử dụng") {
+                            _status = "false"; // false = 0
+                        }
+                        $('#modal-update-status').val(_status).trigger('change');
+
+                        var _eWalletCode = $(this).parents('tr').find('td:nth-child(9)').find('span:nth-child(1)').html();
+                        $('#modal-update-ewallet-code').val(_eWalletCode).trigger('change');
+
+                        var _eWalletName = $(this).parents('tr').find('td:nth-child(10)').find('span:nth-child(1)').html();
+                        $('#modal-update-ewallet-name').val(_eWalletName);
+
+                        var _paymentType = $(this).parents('tr').find('td:nth-child(11)').find('span:nth-child(1)').html();
+                        $('#modal-update-payment-type').val(_paymentType).trigger('change');
+
+                        var _tenderType = $(this).parents('tr').find('td:nth-child(12)').find('span:nth-child(1)').html();
+                        $('#modal-update-tender-type').val(_tenderType);
+
+                        var _mode = $(this).parents('tr').find('td:nth-child(13)').find('span:nth-child(1)').html();
+                        $('#modal-update-is-online').val(_mode).trigger('change');
+
+                        var isTPay = $(this).parents('tr').find('td:nth-child(14)').find('span:nth-child(1)').html();
+                        var _isTPay = "";
+                        if (isTPay == "Có") {
+                            _isTPay = "1";           // true
+                        }
+                        else if (isTPay == "Không") {
+                            _isTPay = "0";          // false
+                        }
+                        $('#modal-update-is-tpay').val(_isTPay).trigger('change');
+
+                        var _accessKey = $(this).parents('tr').find('td:nth-child(15)').find('span:nth-child(1)').html();
+                        $('#modal-update-access-key').val(_accessKey);
+
+                        var _partnerId = $(this).parents('tr').find('td:nth-child(16)').find('span:nth-child(1)').html();
+                        $('#modal-update-partner-id').val(_partnerId);
+
+                        $('#modal-update-ewallet-list').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+
+                    });
+
+                    $('.btn-delete-e-wallet').click(function () {
+                        //debugger
+                        var _terminalCode = $(this).attr("data-terminal-code");
+                        $.confirm({
+                            backgroundDismiss: true,
+                            escapeKey: true,
+                            icon: 'fa fa-warning',
+                            type: 'red',
+                            typeAnimated: true,
+                            title: 'Thông báo',
+                            content: 'Bạn có chắc chắn muốn xóa thông tin này không?',
+                            buttons: {
+                                "CÓ": {
+                                    btnClass: 'btn btn-default',
+                                    keys: ['ctrl'],
+                                    action: function () {
+                                        loading.showloading();
+                                        $.ajax({
+                                            url: '@Url.Action("DeleteSetupEWalletList", "MasterData")',
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: { TerminalCode: _terminalCode },
+                                            success: function (data) {
+                                                if (data.Status == 1)
+                                                {
+                                                    toastr.success(data.Message);  // case: delete success
+                                                }
+                                                else if (data.Status == 2)
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                else
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                $('#btn-search').trigger('click');
+                                                loading.hideloading();
+                                            },
+                                            error: function () {
+                                                toastr.error("Lỗi hệ thống");
+                                                loading.hideloading();
+                                            }
+                                        });
+                                    }
+                                },
+                                "KHÔNG": {
+                                    btnClass: 'btn-default',
+                                    action: function () { }
+                                }
+                            }
+                        });
+                    });
+
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: false,                // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("LoadSetupEWalletList", "MasterData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.Status = $('#sel-status').val();
+                        d.StoreNo = $('#sel-store-no').val();
+                        d.EWalletType = $('#sel-e-wallet-type').val();
+                        d.TextSearch = $('#txt-key-search').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        render: function (data, type, row) {
+                            var _terminalCode = row.TerminalCode;
+                            var html = '<a type="button" class="btn btn-icon btn-light-warning btn-editor-e-wallet"  data-terminal-code ="' + _terminalCode + '"  data-toggle="tooltip" data-placement="left" title="Cập nhật"  style="color:#ffffff;text-align:center;"><i class="la la-edit"></i><span class="pulse-ring"></span></a>';
+                            html += '<a type="button" class="btn btn-icon btn-light-danger btn-delete-e-wallet"  data-terminal-code ="' + _terminalCode + '"  data-toggle="tooltip" data-placement="left" title="Xóa"  style="margin-left: 3px; color:#ffffff;text-align:center;"><i class="la la-close"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "TerminalCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.TerminalCode + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "POSNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.POSNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "POSTerminal",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;color:#0C713D;">' + row.POSTerminal + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.StoreNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "StoreName",
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;text-align:left;">' + row.StoreName + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "Status",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            //debugger
+                            var _status = row.Status;
+                            if (_status == "Đang được sử dụng") {
+                                return '<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">' + _status + '</span>';
+                            }
+                            else if (_status == "Không sử dụng") {
+                                return '<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">' + _status + '</span>';
+                            }
+                        }
+                    },
+
+                    {
+                        data: "EWalletCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.EWalletCode + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "EWalletName",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.EWalletName + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "PaymentType",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.PaymentType + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "TenderType",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.TenderType + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "Mode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.Mode + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "IsTpay",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.IsTpay + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "AccessKey",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.AccessKey + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "PartnerID",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.PartnerID + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "CreatedDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.CreatedDateStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "CreatedUser",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.CreatedUser + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "UpdatedDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.UpdatedDateStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "UpdatedUser",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.UpdatedUser + '</span>';
+                        }
+                    }
+            ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('#tbl-e-wallet-list tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                debugger
+                $('#frm-export-excel').submit();
+            });
+
+        });
+
+
+    </script>
+}
+
+
+
+
+
+

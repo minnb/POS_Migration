@@ -1,0 +1,266 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion;
+@{
+
+    var model = Model as ViewSetupGroupItemBuyModel;
+    var groupCode = model.GroupCode;
+    var offerNo = model.OfferNo;
+    var lineNo = model.LineNo;
+    var offerType = model.OfferType;
+    var conditionBuy = model.Condition;
+    var tabOffer = model.TabOffer;
+    var isTotalBill = model.IsTotalBill;
+    var isSetupGet = model.IsSetupGet;
+    var scaleType = model.ScaleType;
+
+}
+
+<div class="row">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+        <input type="text" id="viewSearchBuyGroupCode" class="form-control eventChangeGroup" value="" placeholder="groupCode" />
+    </div>
+
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+        <input type="text" id="viewSearchBuyGroupName" class="form-control eventChangeGroup" placeholder="groupName" />
+    </div>
+    @*<div class="col-lg-2 col-md-2 col-sm-5 col-xs-12">
+        <button type="button" id="btnSelectGroupItemBuy" class="btn btn-primary"><i class="fa fa-save"></i> Chọn</button>
+    </div>*@
+</div>
+
+<div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:10px;"></div>
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <table id="viewtblDataItemGroupBuy" class="table table-bordered table-hover">
+            <thead>
+                <tr class="text-center">
+                    <th>STT</th>
+                    <th>MÃ NHÓM</th>
+                    <th>TÊN NHÓM</th>
+                    <th>DANH SÁCH ITEM</th>
+                    <th>#</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var groupCodeOld = '@groupCode';
+    var offerNo = '@offerNo';
+    var lineNo = '@lineNo';
+    var tabOffer = '@tabOffer';
+    var isTotalBill = '@isTotalBill';
+    var isSetupGet = '@isSetupGet';
+    var conditionBuy = '@conditionBuy';
+    var offerType = '@offerType';
+    var scaleType = '@scaleType';
+    var table = "";
+
+    $(document).ready(function () {
+        $(".eventChangeGroup").on("change", function () {
+            table.draw();
+        });
+
+        //$("#btnSelectGroupItemBuy").on("click", function () {
+        //    var arrayGroupCode = [];
+        //    $('input[name="chkBuyGroupCode"]:checked').each(function () {
+        //        debugger
+        //        var groupCode = $(this).data('groupcode');
+        //        arrayGroupCode.push(groupCode);
+        //    });
+        //    var jsonGroupCode = JSON.stringify(arrayGroupCode);
+        //    if (arrayGroupCode.length == 0) {
+        //        toastr.error("Vui lòng chọn nhóm item");
+        //    }
+        //    else {
+        //        InsertUpdateGroupItemOfferBuy(offerNo, offerType, conditionBuy, lineNo, 1, jsonGroupCode, groupCodeOld, 0, 0, 0, "A", isTotalBill, isSetupGet);
+        //    }
+        //});
+
+        $("#viewbtnSearchGroup").on("click", function () { table.draw(); });
+
+
+        table = $('#viewtblDataItemGroupBuy').DataTable({
+            dom: '<"top"iflp<"clear">>rt',
+            destroy: true,
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false, // for show progress bar
+            serverSide: true, // for process server side
+            filter: true, // this is for disable filter (search box)
+            orderMulti: false, // for disable multiple column at once
+            autoWidth: true,
+            ordering: false,
+            displayLength: 10,
+            searching: false,
+            lengthChange: false,
+            ajax: {
+                url: '@Url.Action("LoadBuyGroupItem", "SetupPromotion")',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    d.GroupCode = $("#viewSearchBuyGroupCode").val();
+                    d.GroupName = $("#viewSearchBuyGroupName").val();
+                }
+            },
+            //data, type, full, meta
+            createdRow: function (row, data, full, meta) {
+                debugger
+                $(row).attr('id', "rowRecord" + data.GroupCode);
+                $(row).attr('class', "classGroupCode");
+                $(row).attr('data-groupcode', data.GroupCode);
+            },
+            drawCallback: function (settings) {
+                $(".eventGroupCode").click(function () {
+                    var groupcode = $(this).attr("data-groupcode");
+
+                    ViewListItem(groupcode);
+
+                });
+
+                $(".chkBuyGroupCode").click(function () {                  
+                    var arrayGroupCode = [];
+                    var groupCode = $(this).attr("data-groupcode");
+                    arrayGroupCode.push(groupCode);
+                    var jsonGroupCode = JSON.stringify(arrayGroupCode);
+
+                    InsertUpdateGroupItemOfferBuy(offerNo, offerType, conditionBuy, lineNo, 1, jsonGroupCode, groupCodeOld, 0, scaleType, isTotalBill, isSetupGet);
+
+                });
+                $(".deleteGroupCode").click(function () {
+                    debugger
+                    var groupCode = $(this).attr("data-groupcode");
+                    DeleteGroupItem(groupCode);
+
+                });
+            },
+            columns: [
+                {
+                    data: "GroupCode",
+                    "className": "text-center",
+                    "render": function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+                {
+                    data: "GroupCode",
+                    className: 'text-center classGroupCode'
+
+                },
+                {
+                    data: "GroupName",
+                    className: 'text-center classGroupCode'
+                },
+                {
+                    data: "GroupCode",
+                    render: function (data, type, full, meta) {
+                        var html = "";
+                        html += "<a title=\"Xem danh sách sản phẩm\" data-groupcode='" + full.GroupCode + "' data-groupname='" + full.GroupName + "' class=\"btn btn-icon btn-light-primary eventGroupCode\"><i class=\"flaticon2-gear\"></i><span class=\"pulse-ring\"></span></a>";
+                        html += "<a title=\"Xóa danh sách sản phẩm\" style=\"margin-left:5px\" data-groupcode='" + full.GroupCode + "' class=\"btn btn-icon btn-light-danger deleteGroupCode\"><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                        return html;
+                    },
+                    className: 'text-center'
+                },
+                {
+                    data: "GroupCode",
+                    render: function (data, type, full, meta) {
+                        //var html = "";
+                        //html += "<label class=\"checkbox checkbox-lg\" title=\"Chọn groupCode\">";
+                        //html += "<input type=\"checkbox\" data-groupcode='" + full.GroupCode + "' data-groupname='" + full.GroupName + "' class=\"chkBuyGroupCode\" name=\"chkBuyGroupCode\" />";
+                        //html += "<span></span>";
+                        //html += "</label>";
+                        //return html;
+
+                        var html = "";
+                        html += "<label class=\"radio radio-lg radio-rounded\" title=\"Chọn groupCode\">";
+                        html += "<input type=\"radio\" data-groupcode='" + full.GroupCode + "' data-groupname='" + full.GroupName + "' class=\"chkBuyGroupCode\" name=\"chkBuyGroupCode\" />";
+                        html += "<span></span>";
+                        html += "</label>";
+                        return html;
+                    },
+                    className: 'text-center'
+                }
+
+            ]
+        }).on('processing.dt', function (e, settings, processing) {
+
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+
+        });
+    });
+
+    
+    function ViewListItem(groupCode) {
+        $.ajax({
+            type: "GET",
+            url: "/SetupPromotion/_ViewListIem?groupCode=" + groupCode + "",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#loadGroupBuyItem").html(result);
+
+            },
+            error: function (event) {
+
+            }
+        });
+    }
+    function DeleteGroupItem(groupCode) {
+        var thongbao = "Bạn có chắc chắn xóa nhóm sản phẩm " + groupCode + " này không?";
+        $.confirm({
+            backgroundDismiss: false,
+            escapeKey: true,
+            icon: 'fa fa-warning',
+            type: 'red',
+            typeAnimated: true,
+            title: 'Thông báo',
+            content: thongbao,
+            buttons: {
+                "CÓ": {
+                    btnClass: 'btn btn-default',
+                    keys: ['ctrl'],
+                    action: function () {
+                        var fromData = new FormData();
+                        fromData.append('groupCode', groupCode);
+                        $.ajax({
+                            type: "POST",
+                            url: '@Url.Action("DeleteGroupItem", "SetupPromotion")',
+                            data: fromData,
+                            contentType: "application/json",
+                            dataType: "json",
+                            contentType: false,
+                            processData: false,
+                            success: function (data) {
+                                if (data.Status == 200) {
+                                    toastr.success(data.Message);
+                                    table.draw();
+                                }
+                                else {
+                                    toastr.error(data.Message);
+                                }
+
+                            },
+                            error: function () {
+                            }
+                        });
+                    }
+                },
+                "KHÔNG": {
+                    btnClass: 'btn-default',
+                    action: function () { }
+                }
+            }
+        });
+    }
+
+</script>
+

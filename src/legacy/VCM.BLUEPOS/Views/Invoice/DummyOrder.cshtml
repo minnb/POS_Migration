@@ -1,0 +1,281 @@
+﻿@using VCM.BLUEPOS.Model.Store;
+
+@{
+    ViewBag.Title = "Tạo hóa đơn dummy";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listSite = ViewBag.ListSite as List<StoreModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a>Hóa đơn điện tử</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Setup hóa đơn</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Tạo hóa đơn dummy</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid" style="margin-top:10px;">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-6 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body table-responsive">
+                        <div class="row">
+                            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Cửa hàng</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="slSiteNo" name="SiteNo">
+                                        @foreach (var item in listSite)
+                                        {
+                                            var ht = $"{item.StoreNo} : {item.StoreName}";
+                                            <option value="@item.StoreNo">@ht</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Hình thức</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="slHinhThu" name="HinhThuc">
+                                        <option value="EOD">EOD</option>
+                                        <option value="NOR">Normal</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Mẫu số</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="slMauSo" name="MauSo">
+                                        @*<option value="">Tất cả</option>*@
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Ký hiệu</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="slKyHieu" name="KyHieu"></select>
+                                </div>
+                            </div>
+
+                            @*<div class="col-lg-4 col-md-4 col-sm-6 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Số hóa đơn</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txtSoHD" name="SoHD" />
+                                </div>
+                            </div>*@                           
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                <label style="font-weight:bold">Số hóa đơn</label>
+                                <div class="form-group">
+                                    <textarea class="form-control" rows="4" placeholder="Nhập danh sách hóa đơn cách nhau dấu bởi dấu chấm phẩy (;) hoặc dấu phẩy (,) hoặc khoảng trắng " id="txtSoHD"></textarea>
+                                    @*<input type="text" class="form-control pull-right" style="width:100%;" id="txtSoHD" name="SoHD" />*@
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-primary btn-search" style="" onclick="CreateRummy()" id="btnPrint"><i class="fa fa-print"></i><span id="titleHF"> Tạo hóa đơn dummy</span></button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script>
+
+        $('.select2').select2();
+
+        $(document).ready(function () {
+
+            var siteCode = $("#slSiteNo").val();
+            var invoiceTyupe = $("#slHinhThu").val();
+            ListInvoicePattern(siteCode, invoiceTyupe);
+            ListSerialNo(siteCode, invoiceTyupe);
+
+            $("#slSiteNo").on("change", function (e) {
+                var siteCode = $("#slSiteNo").val();
+                var invoiceTyupe = $("#slHinhThu").val();
+                ListInvoicePattern(siteCode, invoiceTyupe);
+                ListSerialNo(siteCode, invoiceTyupe);
+            });
+
+            $("#slHinhThu").on("change", function (e) {
+                var siteCode = $("#slSiteNo").val();
+                ListInvoicePattern(siteCode, $(this).val());
+                ListSerialNo(siteCode, $(this).val());
+            });
+
+        });
+
+        function ListInvoicePattern(siteCode,invoiceType) {
+            $('#slMauSo').empty();
+            var fromData = new FormData();
+            fromData.append('SiteCode', siteCode);
+            fromData.append('InvoiceType', invoiceType);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetListInvoicePattern", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    debugger
+                    if (data != null) {
+                        if (data.length > 0) {
+                            data.forEach((name, i) => {
+                                //selected = name.DistrictCode == districtCode ? "selected=\"selected\"" : "";
+                                $('#slMauSo').append("<option value='" + name.InvoicePattern + "' data-nosericode=" + name.NoseriCode + ">" + name.InvoicePattern + "</option>");
+                            });
+                        }
+                        else {
+                            var html = "<option value='Not'>Không tìm thấy</option>";
+                            $('#slMauSo').html(html);
+                        }
+                    }
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function ListSerialNo(siteCode,invoiceType) {
+            //debugger
+            $('#slKyHieu').empty();
+            var fromData = new FormData();
+            fromData.append('SiteCode', siteCode);
+            fromData.append('InvoiceType', invoiceType);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetListSerialNo", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data != null) {
+                        if (data.length > 0) {
+                            data.forEach((name, i) => {
+                                //selected = name.DistrictCode == districtCode ? "selected=\"selected\"" : "";
+                                $('#slKyHieu').append("<option value='" + name.SerialNo + "'>" + name.SerialNo + "</option>");
+                            });
+                        }
+                        else {
+                            var html = "<option value='Not'>Không tìm thấy</option>";
+                            $('#slKyHieu').html(html);
+                        }
+                    }
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function CreateRummy() {
+            var siteNo = $("#slSiteNo").val();
+            var hinhThuc = $("#slHinhThu").val();
+            var mauSo = $("#slMauSo").val();
+            var soHD = $("#txtSoHD").val();
+            var kyHieu = $("#slKyHieu").val();
+            //var compTaxCode = $("#slMauSo").attr("data-comptaxcode");
+            var noseriCode = $('#slMauSo').find(':selected').data('nosericode');
+            if (siteNo == "" || siteNo==null) {
+                $('#slSiteNo').focus();
+                toastr.error("Chưa Chọn cửa hàng");
+                return;
+            }
+            if (hinhThuc == "" || hinhThuc.length == 0) {
+                $('#slHinhThu').focus();
+                toastr.error("Chưa Chọn hình thức");
+                return;
+            }
+            if (mauSo == "" || mauSo == null) {
+                //$('#txtMauSo').focus();
+                toastr.error("Chưa chọn mẫu số");
+                return;
+            }
+            if (kyHieu == "" || kyHieu == null) {
+                //$('#txtKyHieu').focus();
+                toastr.error("Chưa chọn ký hiệu");
+                return;
+            }
+            if (soHD == "" || soHD.length == 0) {
+                $('#txtSoHD').focus();
+                toastr.error("Chưa nhập số hóa đơn");
+                return;
+            }
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', siteNo);
+            fromData.append('HinhThuc', hinhThuc);
+            fromData.append('InvoicePattern', mauSo);
+            fromData.append('SerialNo', kyHieu);
+            fromData.append('ListInvoiceNo', soHD);
+            fromData.append('NoseriCode', noseriCode);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("CreatedDummy", "Invoice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 200) {
+                        //var resultData = data.Data;
+                        //$("#result_InvoiceNo").val(resultData.InvoiceNo);
+                        //$("#result_SerialNo").val(resultData.SerialNo);
+                        //$("#result_InvoicePattern").val(resultData.InvoicePattern);
+                        //$("#result_Key").val(resultData.Key);
+                        //$("#result_Salt").val(resultData.Salt);
+                        //$("#result_SaltEncrypt").val(resultData.SaltEncrypt);
+
+                        //$('#modalDummy').modal({
+                        //    backdrop: 'static',
+                        //    keyboard: false
+                        //});
+                        toastr.success(data.Message);
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+        }
+
+    </script>
+}

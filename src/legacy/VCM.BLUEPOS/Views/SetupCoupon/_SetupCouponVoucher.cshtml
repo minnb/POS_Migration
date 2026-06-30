@@ -1,0 +1,624 @@
+﻿@using VCM.BLUEPOS.Model.SetupCoupon
+@using VCM.BLUEPOS.Model.SetupPromotion;
+@{
+    var model = Model as ViewSetupCpnVchModel;
+    var listUOM = model.ListUOM;
+    var cpnRule = model.CpnVchHeader;
+    var listTypeCoupon = model.ListType;
+    var listDiscountType = model.ListDiscountType;
+
+    var listSalesType = model.ListSalesType;
+    var listStoreGroup = model.ListStoreGroup;
+    var listCpnItemLine = model.ListItemLine;
+    var listArticleType = model.ListArticleType;
+
+    string itemNo = "", couponCode = "", description = "", uom = "", saleType = "", storeGroup = "";
+    int discountType = 0;
+    double discountValue = 0;
+    var fromDate = "";
+    var toDate = "";
+    string cpnType = "";
+    string articleType = "";
+    var createdDate = new DateTime();
+    double maxAmount = 0;
+    int limitQty = 999999999;
+    int limitQtyUsed = 0;
+    var isMultile = false;
+    var isCheckAPI = true;
+    var isBlocked = false;
+    var isCheckItem = false;
+    if (cpnRule != null && !string.IsNullOrEmpty(cpnRule.ItemNo))
+    {
+        itemNo = cpnRule.ItemNo;
+        description = cpnRule.ItemName;
+        uom = cpnRule.UnitOfMeasure;
+        discountType = cpnRule.DiscountType;
+        discountValue = (double)cpnRule.DiscountValue;
+        maxAmount = (double)cpnRule.MaxAmount;
+
+        fromDate = cpnRule.StartingDate == null ? "" : cpnRule.StartingDate.ToString("dd/MM/yyyy");
+        toDate = cpnRule.EndingDate == null ? "" : cpnRule.EndingDate.ToString("dd/MM/yyyy");
+        cpnType = cpnRule.CpnVchType;
+        articleType = cpnRule.ArticleType;
+        couponCode = cpnRule.CouponCode;
+        //preFix = cpnRule.Prefix;
+        //lenCode = cpnRule.LenCode ?? 0;
+        //issueType = cpnRule.IssueType;
+        //charNumber = cpnRule.CharOfNumber ?? 0;
+        //charPosition = cpnRule.CharPosition ?? 0;
+        limitQty = cpnRule.LimitQty;
+        limitQtyUsed = cpnRule.LimitQtyUsed ?? 0;
+        createdDate = (DateTime)cpnRule.LastDateModified;
+        saleType = cpnRule.SaleType;
+        storeGroup = cpnRule.StoreGroupCode;
+        isCheckAPI = cpnRule.IsCheckAPI ?? false;
+        isBlocked = cpnRule.Blocked == 1 ? true : false;
+        isCheckItem = cpnRule.IsCheckItem ?? false;
+        isMultile = cpnRule.IsMultiUse ?? false;
+    }
+    if (!string.IsNullOrEmpty(cpnRule.ItemNo))
+    {
+        //displayEdit = "disabled";
+        //disableBrowse = "disabled";
+    }
+
+    var checkIsMultile = isMultile == true ? "checked" : "";
+    var checkAPI = isCheckAPI == true ? "checked" : "";
+    var checkBlocked = isBlocked == true ? "checked" : "";
+    
+    var checkItem = string.IsNullOrEmpty(cpnRule.ItemNo) ? "" : (isCheckItem == false ? "checked" : "");
+
+    var displaySoLanSuDung = isMultile == true ? "" : "disabled";
+    var displayBtnSearchItem = string.IsNullOrEmpty(itemNo) ? "" : "display:none";
+    var disalbleArticleType = string.IsNullOrEmpty(itemNo) ? "" : "disabled";
+
+}
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+            <div class="card card-custom">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Loại voucher/coupon</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" @disalbleArticleType style="width:100%;" id="slArticleType" name="ArticleType">
+                                                @if (listArticleType != null && listArticleType.Count > 0)
+                                                {
+                                                    foreach (var item in listArticleType)
+                                                    {
+                                                        var selected = item.ArticleNo == articleType ? "selected" : "";
+                                                        <option @selected value="@item.ArticleNo">@item.ArticleName</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mã phát hành</label>
+                                        <div class="input-group">
+                                            <input type="text" id="hdtxtItemNo" class="form-control" disabled value="@itemNo" />
+                                            <div class="input-group-prepend btnSearchCpnVch" style="cursor:pointer;@displayBtnSearchItem">
+                                                <span class="input-group-text">
+                                                    <i class="fa fa-search"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Tên phát hành</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtItemName" class="form-control" value="@description" />
+
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Đơn vị tính</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slUOM" name="UOM">
+                                                @if (listUOM != null && listUOM.Count > 0)
+                                                {
+                                                    <option value="">Chọn UOM</option>
+                                                    foreach (var item in listUOM)
+                                                    {
+                                                        var selected = item.Code == uom ? "selected" : "";
+                                                        <option @selected value="@item.Code">@item.Description</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Hình thức bán hàng</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slSalesType" name="SalesType">
+                                                @if (listSalesType != null && listSalesType.Count > 0)
+                                                {
+                                                    <option value="ALL">ALL</option>
+                                                    foreach (var item in listSalesType)
+                                                    {
+                                                        var selected = item.Code == saleType ? "selected" : "";
+                                                        <option @selected value="@item.Code">@item.Description</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Từ ngày</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="fromDate" name="StartingDate" value="@fromDate">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Đến ngày</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="toDate" name="EndingDate" value="@toDate">
+                                        </div>
+                                    </div>
+                                </div>
+
+
+
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Nhóm cửa hàng</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slStoreGroup" name="StoreGroupCode">
+                                                @if (listStoreGroup != null && listStoreGroup.Count > 0)
+                                                {
+                                                    <option value="ALL">ALL</option>
+                                                    foreach (var item in listStoreGroup)
+                                                    {
+                                                        var selected = item.GroupCode == storeGroup ? "selected" : "";
+                                                        <option @selected value="@item.GroupCode">@item.GroupCode</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Loại coupon/voucher</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slTypeCpn" name="CpnVchType">
+                                                @{ if (listTypeCoupon != null && listTypeCoupon.Count > 0)
+                                                    {
+                                                        foreach (var item in listTypeCoupon)
+                                                        {
+                                                            var selected = item.TypeCode == cpnType ? "selected" : "";
+                                                            <option @selected value="@item.TypeCode">@item.TypeName</option>
+                                                        }
+                                                    }
+                                                }
+
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Loại giảm giá</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slDiscountType" name="DiscountType">
+                                                @if (listDiscountType != null && listDiscountType.Count > 0)
+                                                {
+                                                    foreach (var item in listDiscountType)
+                                                    {
+                                                        var selected = item.DiscountType == discountType ? "selected" : "";
+                                                        <option @selected value="@item.DiscountType">@item.DiscountName</option>
+                                                    }
+                                                }
+
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Giá trị</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtDiscountValue" class="form-control money" value="@discountValue" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Giá trị max</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtMaxAmount" class="form-control money" value="@maxAmount" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Số lượng tối đa</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtLimitQty" class="form-control money" value="@limitQty" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Số lần sử dụng</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtLimitQtyUsed" class="form-control money" value="@limitQtyUsed" />
+                                        </div>
+                                    </div>
+                                </div>@*
+                                    <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                        <div class="input-group" style="margin-top:27px;">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <label class="checkbox checkbox-inline" title="Check API">
+                                                        <input type="checkbox" @checkAPI id="chkCheckAPI" class="chkCheckAPI" />
+                                                        <span></span>
+                                                    </label>
+                                                </span>
+                                            </div>
+                                            <div class="input-group-append"><span class="input-group-text">CheckAPI</span></div>
+                                        </div>
+
+                                    </div>*@
+                                @*<div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                        <div class="form-group">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Số voucher/coupon</label>
+                                            <div class="input-group">
+                                                <input type="text" id="txtCouponCode" class="form-control" value="@couponCode" />
+
+                                            </div>
+                                        </div>
+                                    </div>*@
+
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="input-group" style="margin-top:27px;">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">
+                                                <label class="checkbox checkbox-inline" title="Tổng hóa đơn">
+                                                    <input type="checkbox" @checkItem id="chkIsCheckItem" class="chkIsCheckItem" />
+                                                    <span></span>
+                                                </label>
+                                            </span>
+                                        </div>
+                                        <div class="input-group-append"><span class="input-group-text">Tổng hóa đơn</span></div>
+                                    </div>
+
+                                </div>
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="input-group" style="margin-top:27px;">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">
+                                                <label class="checkbox checkbox-inline" title="Blocked">
+                                                    <input type="checkbox" @checkBlocked id="chkBlocked" class="chkBlocked" />
+                                                    <span></span>
+                                                </label>
+                                            </span>
+                                        </div>
+                                        <div class="input-group-append"><span class="input-group-text">Blocked</span></div>
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:5px;"></div>
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="tab-pane fade show" id="listItem" role="tabpanel" aria-labelledby="listItem-tab">
+                                <div class="card card-custom">
+                                    <div class="card-header flex-wrap" style="background-color:#eaeaf0">
+                                        <div class="card-title">
+                                            <h3 class="card-label">
+                                                <i class="fas fa-barcode"></i>
+                                                Danh sách sản phẩm coupon/voucher
+                                            </h3>
+                                        </div>
+                                        <div class="card-toolbar">
+                                            <a style="cursor:pointer" class="btn btn-primary font-weight-bolder btnAddItem">
+                                                <i class="la la-plus-circle"></i>
+                                                Thêm sản phẩm
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <table id="tblItemCoupon" class="table table-bordered text-nowrap">
+                                            <thead>
+                                                <tr style="background-color:#eaeaf0 !important">
+                                                    <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Mã sản phẩm</th>
+                                                    <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Barcode</th>
+                                                    <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Tên sản phẩm</th>
+                                                    <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Đơn vị tính</th>
+                                                    <th class="text-center" style="color:#000000 !important;font-weight:bold !important">#</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody style="text-align:center">
+                                                @if (listCpnItemLine != null && listCpnItemLine.Count > 0)
+                                                {
+                                                    foreach (var item in listCpnItemLine)
+                                                    {
+                                                        <tr class="itemCoupon_@item.ItemNo">
+                                                            <td>@item.ItemNo</td>
+                                                            <td>@item.Barcode</td>
+                                                            <td>@item.ItemName</td>
+                                                            <td>@item.UOM</td>
+                                                            <td style="text-align:center;vertical-align:middle">
+                                                                <a title="Xóa" class="btn btn-icon btn-light-danger btnItemCouponDelete" data-itemno="@item.ItemNo"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                }
+                                            </tbody>
+                                        </table>
+
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="listCoupon" role="tabpanel" aria-labelledby="listCoupon-tab">
+                                <div class="card card-custom">
+                                    <table id="tblDataCoupon" class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr class="text-center">
+                                                <th>STT</th>
+                                                <th>MÃ COUPON</th>
+                                                <th>TRẠNG THÁI</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div style="display:none">
+    @*<input type="hidden" id="hdQuantityCodeDB" value="@quantityCode" />*@
+</div>
+
+
+<div class="modal fade" id="modalAdvanced" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupSetupAdvanceCoupon"></div>
+</div>
+
+
+<div class="modal fade" id="modalListItemCoupon" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">THÊM SẢN PHẨM COUPON</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListItemCoupon">
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Hủy</button>
+                <button type="button" class="btn btn-light-primary font-weight-bold btnSelectedItemCoupon"><i class="la la-check"></i>Chọn</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalListItemCpnVch" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DANH SÁCH SẢN PHẨM CPN/VCH</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListItemCpnVch">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Thoát</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+    
+    $(".select2").select2();
+       
+    $('#fromDate').datepicker({
+        format: 'dd/mm/yyyy',
+        autoUpdateInput: false,
+        todayHighlight: true,
+        singleDatePicker: true,
+        autoclose: true
+    });
+
+    $('#toDate').datepicker({
+        format: 'dd/mm/yyyy',
+        autoUpdateInput: false,
+        todayHighlight: true,
+        singleDatePicker: true,
+        autoclose: true
+    });
+
+    $('.money').mask('000,000,000', {
+        placeholder: "0",
+        reverse: true,
+        rightAlign: true
+    });
+
+    $(".btnSearchCpnVch").on("click", function () {
+        var articleType = $('#slArticleType').val();
+        $.ajax({
+            type: "GET",
+            url: "/SetupCoupon/_ViewListItemByArticleType?articleType=" + articleType+"",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#divPopupListItemCpnVch").html(result);
+                $('#modalListItemCpnVch').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                loading.hideloading();
+            },
+            error: function (event) {
+                loading.hideloading();
+            }
+        });
+
+    });
+
+    $(".btnAddItem").on("click", function (e) {
+        $.ajax({
+            type: "GET",
+            url: "/SetupCoupon/_ViewListItemCoupon",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#divPopupListItemCoupon").html(result);
+                $('#modalListItemCoupon').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                loading.hideloading();
+            },
+            error: function (event) {
+                loading.hideloading();
+            }
+        });
+    });
+
+    $(".btnSelectedItemCoupon").on("click", function (e) {
+        var isAllStore = $('.fs-label-wrap').attr('data-selectall');
+        if (isAllStore == 1) {
+            $("#txtListStore").val('')
+        }
+        else {
+            var arrayItem = [];
+            var listStore = $('#slItemCoupon').val();
+            var listStoreInArea = $("#viewListItemNoCoupon").val();
+            if (listStoreInArea == "") {
+                $("#viewListItemNoCoupon").val(listStore.join(";"));
+            }
+            else {
+                $('.fs-option').removeClass('selected');
+                $.each(listStoreInArea.split(/\;*\b\,*\ */), function (i, e) {
+                    $(".fs-option[data-value='" + e + "']").toggleClass('selected');
+                    arrayItem.push(e);
+                });
+                $("#slItemCoupon").val(arrayItem);
+                $("#slItemCoupon").fSelect('reloadDropdownLabel');
+            }
+        }
+
+        var listCoupon = $('#slItemCoupon').val();
+        if (listCoupon.length > 0) {
+            var arrayItemArea = [];
+            var jsonItem = JSON.stringify(listCoupon);
+            var listCouponInArea = $("#viewListItemNoCoupon").val();
+            $.each(listCouponInArea.split(/\;*\b\,*\ */), function (i, e) {
+                $(".fs-option[data-value='" + e + "']").toggleClass('selected');
+                arrayItemArea.push(e);
+            });
+            //debugger
+            var valItem = JSON.stringify(arrayItemArea);
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CheckListItemExists", "SetupCoupon")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    jsonItem: jsonItem,
+                    jsonItemArea: valItem
+                },
+                success: function (response) {
+                    //debugger
+                    if (response.Status == 200) {
+                        var html = "";
+                        var arraySelectedItem = response.Data;
+                        $('#tblItemCoupon tbody tr').each(function () {
+                            var itemNoCurrent = $(this).find('td:nth-child(1)').html();
+                            arraySelectedItem = arraySelectedItem.filter(item => item.ItemNo !== itemNoCurrent);
+                        });
+
+                        arraySelectedItem.forEach((name, i) => {
+                            html += "<tr class=\"itemCoupon_" + name.ItemNo + "\">";
+                            html += "<td>" + name.ItemNo + "</td>";
+                            html += "<td>" + name.Barcode + "</td>";
+                            html += "<td>" + name.ItemName + "</td>";
+                            html += "<td>" + name.UOM + "</td>";
+                            html += "<td>";
+                            html += "<a title=\"Xóa\" class=\"btn btn-icon btn-light-danger btnItemCouponDelete\" data-itemno=" + name.ItemNo + "><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                            html += "</td>";
+                            html += "</tr>";
+                        });
+
+                        $("#tblItemCoupon tbody").append(html);
+                        $('#modalListItemCoupon').modal('hide');
+
+                        $(".btnItemCouponDelete").on("click", function (e) {
+                            var itemNo = $(this).attr("data-itemno");
+                            $(".itemCoupon_" + itemNo).remove();
+                        });
+                    }
+                    else {
+                        toastr.error(response.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+        else {
+            toastr.error("Vui lòng chọn sản phẩm coupon");
+        }
+    });
+
+    $(".btnItemCouponDelete").on("click", function (e) {
+        var itemNo = $(this).attr("data-itemno");
+        $(".itemCoupon_" + itemNo).remove();
+    });
+
+  
+</script>

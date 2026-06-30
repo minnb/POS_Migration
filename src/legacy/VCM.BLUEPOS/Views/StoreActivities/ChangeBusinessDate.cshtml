@@ -1,0 +1,270 @@
+﻿@using VCM.BLUEPOS.Model.StoreActivities;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Thay đổi ngày kinh doanh";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+    var listSet = (List<SQLServerModel>)ViewBag.SetDB;
+}
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Hoạt động cửa hàng</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Thay đổi ngày kinh doanh</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="slSiteNo">
+                                        @if (listStore != null && listStore.Count > 0)
+                                        {
+                                            if (listStore.Count == 1)
+                                            {
+                                                <option value="@listStore.FirstOrDefault().SiteNo">@listStore.FirstOrDefault().DisplayCombo</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="" disabled>Chọn ST/CH</option>
+                                                foreach (var item in listStore)
+                                                {
+                                                    <option value="@item.SiteNo">@item.DisplayCombo</option>
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <option value="" selected disabled>Chọn mã ST/CH</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="notBusinessDate"></div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="font-weight:bold !important;">Ngày kinh doanh<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="form-group">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control float-right" id="dateBusiness" name="dateBusiness" placeholder="Ngày kinh doanh">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                <div class="form-group" style="margin-top:27px;">
+                                    <button type="button" class="btn btn-primary btn-search" style="display:block" onclick="ChangeDateBusiness()" id="btnEndShift"><i class="fa fa-chain-broken"></i> Thay đổi</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                <table class="table table-bordered" id="tblData" style="margin-bottom:0px !important">
+                                    <thead>
+                                        <tr style="background-color:#28a745">
+                                            <th colspan="2" class="text-center">LẦN CUỐI CÙNG THAY ĐỔI</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style="width:50%">USER</td>
+                                            <td style="width:50%"><span id="changeUser"></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>NGÀY THAY ĐỔI</td>
+                                            <td id="changeDate"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section scripts {
+    <script type="text/javascript">
+        $('.select2').select2();
+
+        $(document).ready(function () {
+
+            $('#dateBusiness').val(moment().format('DD/MM/YYYY'));
+            $('#dateBusiness').daterangepicker({
+                singleDatePicker: true,
+                locale: {
+                    format: 'DD/MM/YYYY'
+                }
+            });
+
+            $("#slSiteNo").on("change", function (e) {
+                GetInfoPOSBusinessDate($("#slSiteNo").val());
+            });
+
+        });
+
+        function GetInfoPOSBusinessDate(siteCode) {
+            //debugger
+            $("#changeUser").html('');
+            $("#changeDate").html('');
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', siteCode);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("EndDateBusiness", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     //debugger;
+                     if (data != null) {
+                         if (data.FormatBussinessDate == "") {
+                             var dateNow = moment().format('DD/MM/YYYY');
+                             $('#dateBusiness').val(dateNow);
+                             //debugger
+                             if (siteCode != "") {
+                                 $('.notBusinessDate').html("Mã ST/CH này(" + siteCode + ") chưa có ngày kinh doanh");
+                                 $('.notBusinessDate').css("display", "block");
+                                 $('.notBusinessDate').css("color", "red");
+                             }
+                             else {
+                                 $('.notBusinessDate').css("display", "none");
+                                 $("#changeUser").html('');
+                                 $("#changeDate").html('');
+                             }
+                         }
+                         else {
+                             $('.notBusinessDate').css("display", "none");
+                             var dateBusi = data.FormatBussinessDate;
+                             $('#dateBusiness').val(dateBusi);
+                             $("#changeUser").html(data.UpdatedUser);
+                             $("#changeDate").html(data.FormatUpdatedUser);
+                         }
+                     }
+                     $('#dateBusiness').daterangepicker({
+                         singleDatePicker: true,
+                         locale: {
+                             format: 'DD/MM/YYYY'
+                         }
+                     });
+                     loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+        }
+
+
+        function ChangeDateBusiness() {
+            var siteNo = $("#slSiteNo").val();
+            var dateBusiness = $("#dateBusiness").val();
+            //debugger
+            if (siteNo == "" || siteNo.length == 0) {
+                toastr.error("Chọn mã ST/CH");
+                return;
+            }
+            if (dateBusiness == "" || dateBusiness.length == 0) {
+                toastr.error("Chọn ngày kinh doanh");
+                return;
+            }
+            $.confirm({
+                backgroundDismiss: false,
+                escapeKey: true,
+                icon: 'fa fa-warning',
+                type: 'red',
+                typeAnimated: true,
+                title: 'Thông báo',
+                content: 'Bạn có chắc chắn thay đổi ngày kinh doanh không?',
+                buttons: {
+                    "CÓ": {
+                        btnClass: 'btn btn-default',
+                        keys: ['ctrl'],
+                        action: function () {
+                            loading.showloading();
+                            var fromData = new FormData();
+                            fromData.append('SiteNo', siteNo);
+                            fromData.append('BusinessDate', dateBusiness);
+                            $.ajax({
+                                type: "POST",
+                                url: '@Url.Action("BusinessDateUpdate", "StoreActivities")',
+                                data: fromData,
+                                contentType: "application/json",
+                                dataType: "json",
+                                contentType: false,
+                                processData: false,
+                                success: function (data) {
+                                    //debugger
+                                    if (data != null) {
+                                        if (data.Status == 1) {
+                                            toastr.success(data.Message);
+                                            $('.notBusinessDate').css("display", "none");
+                                            var model = data.Data;
+                                            $("#changeUser").html(model.UpdatedUser);
+                                            $("#changeDate").html(model.FormatUpdatedUser);
+                                        }
+                                        else {
+                                            toastr.error(data.Message);
+                                        }
+                                    }
+                                    else {
+                                        toastr.error(data.Message);
+                                    }
+                                    loading.hideloading();
+                                },
+                                error: function () {
+                                    loading.hideloading();
+                                }
+                            });
+                        }
+                    },
+                    "KHÔNG": {
+                        btnClass: 'btn-default',
+                        action: function () { }
+                    }
+                }
+            });
+        }
+
+    </script>
+}
+
+

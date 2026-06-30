@@ -1,0 +1,63 @@
+﻿@using VCM.BLUEPOS.Model.Invoice;
+@{
+    var model = Model as PrintAgainModel;
+    string tenKH = "", tenCty = "", mst = "", dienThoai = "", email = "", diachi = "";
+
+    if (model != null && !string.IsNullOrEmpty(model.InvoiceNo))
+    {
+        tenKH = model.CusName;
+        tenCty = model.CusCom;
+        mst = model.CusTaxCode;
+        dienThoai = model.CusPhone;
+        email = model.EmailDeliver;
+        diachi = model.CusAddress;
+    }
+}
+<div class="row">
+    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12 mb-1">
+        <label>Tên khách hàng</label>
+        <div class="form-group">
+            <input type="text" class="form-control" id="email_txtTen" disabled value="@tenKH" />
+        </div>
+    </div>
+
+    <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12 mb-1">
+        <label>Tên công ty</label>
+        <div class="form-group">
+            <input type="text" class="form-control" id="email_txtTenCTy" disabled value="@tenCty" />
+        </div>
+    </div>
+</div>
+<div class="row">
+
+    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-1">
+        <label>MST</label>
+        <div class="form-group">
+            <input type="text" class="form-control" id="email_txtMST" disabled value="@mst" />
+        </div>
+    </div>
+    <div class="col-lg-8 col-md-8 col-sm-12 col-xs-12 mb-1">
+        <label>Điện thoại</label>
+        <div class="form-group">
+            <input type="text" class="form-control" id="email_txtDienThoai" disabled value="@dienThoai" />
+        </div>
+    </div>
+
+</div>
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+        <label>Thư điện tử</label>
+        <div class="form-group">
+            <input type="text" class="form-control" id="email_txtEmail" value="@email" />
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+        <label>Địa chỉ</label>
+        <div class="form-group">
+            <textarea type="text" rows="2" class="form-control" id="email_txtDiaChi" disabled>@diachi</textarea>
+        </div>
+    </div>
+</div>

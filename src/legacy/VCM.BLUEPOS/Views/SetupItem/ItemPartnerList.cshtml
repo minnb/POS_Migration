@@ -1,0 +1,910 @@
+﻿
+@using Newtonsoft.Json;
+@using System.Web.Configuration;
+@using VCM.BLUEPOS.Models;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.SetupItem;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.MCH;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+
+@{
+    ViewBag.Title = "Sản phẩm bán kênh đối tác Master";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listNganhHang = (List<VCM.BLUEPOS.Model.SetupItem.OptionModel>)ViewBag.ComboxNganhHang;
+    var listStore = ViewBag.ListStore as List<VCM.BLUEPOS.Model.OptionModel.OptionModel>;
+    var listSalesType = (List<VCM.BLUEPOS.Model.OptionModel.OptionModel>)ViewBag.SaleOrderType;
+
+    var model = Model as ViewSetupItemPartnerModel;
+    var listItem = model.ListItem;
+    var totalPage = model.TotalPageNumber;
+    string pageCurrent = HttpContext.Current.Request.RequestContext.RouteData.Values["page"] == null ? "1" : HttpContext.Current.Request.RequestContext.RouteData.Values["page"].ToString();
+    int pageCR = int.Parse(pageCurrent);
+    var totalRow = model.TotalRow;
+    var pageSize = model.PageSize;
+    var displayRow = $"{pageCR}-{pageSize}/{totalRow} sản phẩm";
+
+    if (totalRow <= pageSize)
+    {
+        displayRow = $"{totalRow} sản phẩm";
+    }
+    if (pageCR > 1 && totalRow > pageSize)
+    {
+        displayRow = $"{(pageCR * pageSize + 1) - pageSize}-{(pageCR * pageSize > totalRow ? totalRow : pageCR * pageSize)} /{totalRow} sản phẩm";
+    }
+
+    var keyword = Html.Raw(model.Keyword);
+    var mch2 = Html.Raw(model.MCH2);
+    var storeno = Html.Raw(model.StoreNo);
+    var salestype = Html.Raw(model.SalesType);
+    var status = Html.Raw(model.Status);
+    var cupType = Html.Raw(model.CupType);
+
+    //string urlImg = WebConfigurationManager.AppSettings["urlImg"];
+    //var isButtionAdd = model.IsButtonAdd;
+    //string urlImgServer = WebConfigurationManager.AppSettings["urlImg"];
+
+    string urlImg = WebConfigurationManager.AppSettings["urlImg"];
+    var imgBase64 = ViewBag.ImagesBase64;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý sản phẩm</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Sản phẩm bán kênh NOWFOOD</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <!-- Tab -->
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="example-preview" style="background-color:#fff;margin-left:-15px;margin-right:-15px;">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link classTab active" id="tab-setup-item-partner" data-toggle="tab" href="#setupitempartner">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Khai báo sản phẩm
+                            </span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link classTab" id="tab-item-partner-list" data-toggle="tab" href="#itempartnerlist" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Danh mục sản phẩm
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <!-- End Tab -->
+
+        <div class="tab-content mt-5" id="myTabContent">
+            <!-- Khai báo sàn phẩm -->
+            <div class="tab-pane fade show active" id="tab-setup-item-partner" role="tabpanel" aria-labelledby="tab-setup-item-partner-v1">
+                <div class="card card-custom">
+                    <div class="card-header flex-wrap" style="background-color:#eaeaf0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danh mục sản phẩm -->
+            <div class="tab-pane fade show active" id="tab-item-partner-list" role="tabpanel" aria-labelledby="tab-item-partner-list-v2">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("ItemPartnerList", "SetupItem", FormMethod.Post, new { @id = "frm-item-partner-list" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="input-group">
+                                                <select class="form-control select2" id="sel-sales-order-type" name="SalesOrderType"></select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                                    @if (listStore != null && listStore.Count() > 0)
+                                                    {
+                                                        if (listStore.Count == 1)
+                                                        {
+                                                            <option value="ALL">ALL</option>
+                                                            <option value="@listStore.FirstOrDefault().Value">@listStore.FirstOrDefault().Value - @listStore.FirstOrDefault().Text</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="" selected>Tất cả</option>
+                                                            <option value="ALL">ALL</option>
+                                                            foreach (var item in listStore)
+                                                            {
+                                                                <option value="@item.Value">@item.Value - @item.Text</option>
+                                                            }
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Ngành hàng<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="input-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-mch2" name="MCH2">
+                                                    @if (listNganhHang != null && listNganhHang.Count > 0)
+                                                    {
+                                                        <option value="">Tất cả</option>
+                                                        foreach (var item in listNganhHang)
+                                                        {
+                                                            <option value="@item.Value">@item.Text</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="txt-text-search" name="TextSearch" placeholder="mã sản phẩm ; mã barcode; tên sản phẩm">
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái</label>
+                                            <div class="input-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-status" name="Status">
+                                                    <option value="">Tất cả</option>
+                                                    <option value="0" selected>Có hiệu lực</option>
+                                                    <option value="1">Hết hiệu lực</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <input type="hidden" id="hdd-txt-key-word" name="keyword" />
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-primary" style="" id="btn-header-search"><i class="fa fa-search"></i> Tìm kiếm</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card card-custom">
+                        <div class="card-body">
+
+                            <div id="loadItem">
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-6 col-sm-6 col-xl-6">
+                                        @using (Html.BeginForm("ItemPartnerList", "SetupItem", FormMethod.Post, new { id = "frm-item-partner-list", enctype = "multipart/form-data" }))
+                                        {
+                                            <div class="input-group input-group-sm input-group-solid" style="margin-top:10px;background: none;">
+                                                <input type="checkbox" class="cusor" style="width: 20px;height:20px;" id="chk-check-all" name="CheckAll" />
+                                                <span style="margin-left: 5px;font-weight:500;">Chọn tất cả (theo phân trang)</span>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="col-lg-12 col-md-6 col-sm-6 col-xl-6">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap" style="text-align:right; float:right">
+                                            @if (totalPage > 1)
+                                            {
+                                                <div class="d-flex flex-wrap">
+                                                    <a href="@Url.Action("ItemPartnerList", "SetupItem", new { page = 1, salestype = salestype, storeno = storeno, mch2 = mch2, keyword = keyword, status = status })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                        <i class="ki ki-bold-double-arrow-back icon-xs"></i>
+                                                    </a>
+                                                    <a href="@Url.Action("ItemPartnerList", "SetupItem", new { page = pageCR > 1 ? pageCR - 1 : pageCR, salestype = salestype, storeno = storeno, mch2 = mch2, keyword = keyword, status = status })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                        <i class="ki ki-bold-arrow-back icon-xs"></i>
+                                                    </a>
+
+                                                    @for (int page = 1; page <= totalPage; page++)
+                                                    {
+                                                        var activePage = pageCR == page ? "active" : "";
+                                                        <a href="@Url.Action("ItemPartnerList", "SetupItem", new { page = page, salestype = salestype, storeno = storeno, mch2 = mch2, keyword = keyword, status = status })" class="btn btn-icon btn-sm border-0 btn-hover-primary mr-2 my-1 @activePage">@page</a>
+                                                    }
+
+                                                    <a href="@Url.Action("ItemPartnerList", "SetupItem", new { page = pageCR < totalPage ? pageCR + 1 : pageCR, salestype = salestype, storeno = storeno, mch2 = mch2, keyword = keyword, status = status })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                        <i class="ki ki-bold-arrow-next icon-xs"></i>
+                                                    </a>
+
+                                                    <a href="@Url.Action("ItemPartnerList", "SetupItem", new { page = totalPage, salestype = salestype, storeno = storeno, mch2 = mch2, keyword = keyword, status = status })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                        <i class="ki ki-bold-double-arrow-next icon-xs"></i>
+                                                    </a>
+
+                                                </div>
+                                            }
+
+                                            <div class="d-flex align-items-center">
+                                                <span class="text-muted">@displayRow</span>
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:5px;"></div>
+
+                                <div class="row" id="div-infor-item-list">
+                                    @if (listItem != null && listItem.Count > 0)
+                                    {
+                                        foreach (var item in listItem)
+                                        {
+                                            var fullImgPath = $"{urlImg}/{item.ImageId}";
+                                            <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12" style="margin-bottom:-20px">
+                                                <div class="card card-custom gutter-b card-stretch" style="border:1px solid #d5d2d2">
+                                                    <div class="card-body">
+                                                        <div style="cursor:pointer" class="d-flex align-items-center div-infor-item btn-view-detail-item" data-item-no="@item.ItemNo" data-item-name="@item.ItemName" data-category-name="@item.MCH2_Name" data-sales-type="@item.SaleType" data-store-no="@item.StoreNo" data-unit-price="@item.UnitPrice" data-uom="@item.BaseUnitOfMeasure" data-size="@item.Size" data-topping="@item.IsTopping" data-blocked="@item.Blocked" data-cup-type="@item.CupType" >
+                                                            <div>
+                                                                <input type="checkbox" class="chk-item-no" name="CheckItemNo" style="width: 20px; height:20px;" data-item-no-2="@item.ItemNo" />
+                                                            </div>
+                                                            <div class="flex-shrink-0 mr-4 mt-lg-0" style="margin-left:5px;">
+                                                                <div class="symbol symbol-lg-75 div-image">
+                                                                    @if (item.ImageId > 0)
+                                                                    {
+                                                                        <img src="~/Uploads/imgs/placeholder.png" />
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <img src="@fullImgPath" />
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <div class="d-flex flex-column" style="font-family:Roboto ,Unicode Support Noto, sans-serif">
+                                                                <a class="text-dark font-weight-bold text-hover-primary mb-0 div-item-name" data-item-name="@item.ItemName"><span style="color:#0c713d;font-weight:700;">@item.ItemName</span></a>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-item-no" data-itemNo="@item.ItemNo">No:&ensp;<span>@item.ItemNo</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-price" data-unit-price="@item.UnitPrice">Giá:&ensp;<span>@item.UnitPrice</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-uom" data-uom="@item.BaseUnitOfMeasure">ĐVT:&ensp;<span>@item.BaseUnitOfMeasure</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-size" data-size="@item.Size">Size:&ensp;<span>@item.Size</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-size" data-cup-type="@item.CupType">Loại ly:&ensp;<span>@item.CupType</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-topping" data-topping="@item.IsTopping">Topping:&ensp;<span>@item.IsTopping</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-sales-type" data-sales-type="@item.SaleType">S-Type:&ensp;<span>@item.SaleType</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-store" data-store-no="@item.StoreNo">ST/CH:&ensp;<span>@item.StoreNo</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-category" data-category="@item.MCH2_Name">Ngành hàng:&ensp;<span>@item.MCH2</span><span>-</span><span>@item.MCH2_Name</span></span>
+                                                                <span class="text-dark font-weight-bold text-hover-primary mb-0 div-status" data-blocked="@item.Blocked">Trạng thái:&ensp;<span>@item.Blocked</span></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div id="updateItem" style="display:none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="modal-update-detail-item-partner" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-update-title">Cập nhật thông tin sản phẩm</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-detail-item-partner-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <table style="width:100%">
+                                            <tr>
+                                                <td style="width:13%;">
+                                                    <div class="form-group" style="margin-top: -40px;">
+                                                        <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Mã sản phẩm</label>
+                                                        <div class="input-group">
+                                                            <input type="text" class="form-control" id="modal-update-item-no" name="UpdateItemNo" value="" readonly />
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                <td style="width:1%"></td>
+
+                                                <td style="width:40%">
+                                                    <div class="form-group" style="margin-top: -40px;">
+                                                        <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Tên sản phẩm</label>
+                                                        <div class="input-group">
+                                                            <input type="text" class="form-control" id="modal-update-item-name" name="UpdateItemName" value="" readonly />
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                <td style="width:1%"></td>
+
+                                                <td style="width:30%">
+                                                    <div class="form-group" style="margin-top: -40px;">
+                                                        <label class="font-weight-bold" style="font-weight:bold !important">Ngành hàng</label>
+                                                        <div class="input-group">
+                                                            <select class="form-control select2" style="width:100%;" id="modal-update-item-group" name="UpdateItemGroup">
+                                                                @if (listNganhHang != null && listNganhHang.Count > 0)
+                                                                {
+                                                                    <option value="">Tất cả</option>
+                                                                    foreach (var item in listNganhHang)
+                                                                    {
+                                                                        <option value="@item.Value">@item.Text</option>
+                                                                    }
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                <td style="width:15%; text-align:right;padding-right:25px;">
+                                                    @*<div class="col-lg-4 col-md-12 col-sm-12 col-xs-12" style="text-align:right;">*@
+
+                                                    @{
+                                                        var urlImg_Update = "/Uploads/imgs/placeholder.png";
+                                                        var isChangeImg = "";
+                                                        if (!string.IsNullOrEmpty(imgBase64))
+                                                        {
+                                                            urlImg_Update = "data:image/jpeg;base64," + imgBase64;
+                                                            isChangeImg = "image-input-changed";
+                                                        }
+                                                    }
+
+                                                    <div class="image-input image-input-outline @isChangeImg" id="kt_img_item_create" style="margin-top: 30px;">
+                                                        <div class="image-input-wrapper" style="background-image: url(@urlImg_Update)"></div>
+                                                        <label class="btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow" data-action="change" data-toggle="tooltip" title="" data-original-title="Change avatar">
+                                                            <i class="fa fa-pen icon-sm text-muted"></i>
+                                                            <input type="file" id="imgItem" name="imgItem" accept=".png, .jpg, .jpeg" />
+                                                            <input type="hidden" name="imgItem_remove" />
+                                                        </label>
+
+                                                        <span id="btnCancleImg" class="btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow" data-action="cancel" data-toggle="tooltip" title="Cancel avatar">
+                                                            <i class="ki ki-bold-close icon-xs text-muted"></i>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            <tr>
+                                                <td style="width:13%;">
+                                                    <table style="margin-top: -30px;">
+                                                        <tr>
+                                                            <td>
+                                                                <div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">Kênh bán hàng</label>
+                                                                    <div class="input-group">
+                                                                        <input type="text" class="form-control" id="modal-update-sales-type" name="UpdateSalesType" readonly />
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+
+                                                <td style="width:1%"></td>
+
+                                                <td style="width:40%">
+                                                    <table style="margin-top: -30px;">
+                                                        <tr>
+                                                            <td style="width:14%">
+                                                                <div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">ST/CH</label>
+                                                                    <div class="form-group">
+                                                                        <select class="form-control select2" style="width:100%;" id="modal-update-store-no" name="UpdateStoreNo">
+                                                                            @if (listStore != null && listStore.Count() > 0)
+                                                                            {
+                                                                                if (listStore.Count == 1)
+                                                                                {
+                                                                                    <option value="ALL">ALL</option>
+                                                                                    <option value="@listStore.FirstOrDefault().Value">@listStore.FirstOrDefault().Value - @listStore.FirstOrDefault().Text</option>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    <option value="" selected>Tất cả</option>
+                                                                                    <option value="ALL">ALL</option>
+                                                                                    foreach (var item in listStore)
+                                                                                    {
+                                                                                        <option value="@item.Value">@item.Value - @item.Text</option>
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        </select>
+                                                                    </div>
+                                                                               
+                                                                </div>
+                                                            </td>
+
+                                                            <td style="width:1%"></td>
+                                                            <td style="width:14%">
+                                                                <div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">ĐVT</label>
+                                                                    <div class="input-group">
+                                                                        <input type="text" class="form-control" id="modal-update-uom" name="UpdateUOM" readonly />
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+
+                                                            <td style="width:1%"></td>
+
+                                                            <td style="width:14%">
+                                                                <div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">Giá</label>
+                                                                    <div class="input-group">
+                                                                        <input type="text" class="form-control" id="modal-update-unit-price" name="UpdateUnitPrice" />
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+
+                                                <td style="width:1%"></td>
+
+                                                <td style="width:10%;">
+                                                    <table style="margin-top: -30px;">
+                                                        <tr>
+                                                            <td>
+                                                                <div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">Size</label>
+                                                                    <div class="input-group">
+                                                                        <input type="text" class="form-control" id="modal-update-size" name="UpdateSize" readonly />
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+
+                                                            <td style="width:1%"></td>
+                                                            <td>
+                                                                @*<div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">IsTopping</label>
+                                                                    <div class="form-group">
+                                                                        <select class="form-control select2" style="width:100%;" id="modal-update-is-topping" name="UpdateIsTopping">
+                                                                            <option value="1">Có</option>
+                                                                            <option value="0">Không</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>*@
+
+                                                                <div class="form-group" style="margin-top: -30px;">
+                                                                    <label class="font-weight-bold" style="font-weight:bold !important">Loại ly</label>
+                                                                    <div class="input-group">
+                                                                        <input type="text" class="form-control" id="modal-update-cup-type" name="UpdateCupType" />
+                                                                    </div>
+                                                                </div>
+
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12">
+                                        <input type="checkbox" id="modal-update-chk-blocked-active" style="height:25px; width:25px; cursor:pointer; padding-top: 5px; margin-left: 1px; margin-top:10px;">
+                                        <label for="modal-update-chk-blocked-active" style="font-size:12px; font-weight:700 !important; position: absolute; top: 15px; padding-left: 8px;">Có hiệu lực</label>
+                                    </div>
+                                    <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12">
+                                        <input type="checkbox" id="modal-update-chk-blocked-no-active" style="height:25px; width:25px; cursor:pointer; padding-top: 5px; margin-left: 1px; margin-top:10px;">
+                                        <label for="modal-update-chk-blocked-no-active" style="font-size:12px; font-weight:700 !important; position: absolute; top: 15px; padding-left: 8px;">Hết hiệu lực</label>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="btn-save-update" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                    <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var keyword = $("#hdd-txt-key-word").val();
+        //
+        function UpdateItemDetailByPartner() {
+            //debugger
+            var itemNo = $("#modal-update-item-no").val();
+            var itemName = $("#modal-update-item-name").val();
+            var itemGroupName = $("#modal-update-item-group-name").val();
+            var storeNo = $("#modal-update-store-no").val();
+            var salesType = $("#modal-update-sales-type").val();
+            var unitPrice = $("#modal-update-unit-price").val();
+            var uom = $("#modal-update-uom").val();
+            var size = $("#modal-update-size").val();
+
+            //var topping = $("#modal-update-is-topping");
+            //var isTopping = true;
+            //if (topping == "Có") {
+            //    isTopping = true;
+            //} else {
+            //    isTopping = false;
+            //}
+
+            var active = $("#modal-update-chk-blocked-active").prop('checked');
+            var noActive = $("#modal-update-chk-blocked-no-active").prop('checked');
+            var isActive = true;
+            if (active == true && noActive == false) {
+                isActive = false; // 0 : co hieu luc
+            }
+            else if (active == false && noActive == true) {
+                isActive = true;  // 1 : khóa, hết hiệu lực
+            }
+
+            loading.showloading();
+
+            $.ajax({
+                url: '@Url.Action("UpdateItemDetailByPartner", "SetupItem")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    StoreNo: storeNo,
+                    ItemNo: itemNo,
+                    ItemName: itemName,
+                    ItemGroupName: itemGroupName,
+                    SalesType: salesType,
+                    Uom: uom,
+                    UnitPrice: unitPrice,
+                    Size: size,
+                    //IsTopping: isTopping,
+                    IsActive: isActive
+                },
+                success: function (data) {
+                    if (data.Status == 1)   // Thành công
+                    {
+                        toastr.success(data.Message);
+                        $('#modal-update-detail-item-partner').modal("hide");
+                    }
+                    else if (data.Status == 2)
+                    {
+                        toastr.error(data.Message);
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+
+                    loading.hideloading();
+
+                    //$('#btn-search').trigger('click');
+                    //$('#txt-store-no').val('');
+                    //$('#txt-bank-code').val('');
+                    //$('#txt-status').val('');
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+         function LoadComboxSalesOrderType() {
+                  loading.showloading();
+                  $.ajax({
+                        type: "POST",
+                        url: '@Url.Action("LoadComboxSalesOrderType", "Common")',
+                        dataType: "json",
+                        success: function (data) {
+                            if (data != null) {
+                                if (data.length == 1) {
+                                    data.forEach((name, i) => {
+                                        var html = "<option value='" + name.Text + "'>" + name.Value + " - " + name.Text + "</option>"
+                                        //var html = "<option value='" + name.Value + "'>" + name.Value + " - " + name.Text + "</option>"
+                                    });
+                                    $('#sel-sales-order-type').html(html);
+                                }
+                                else if (data.length > 1)
+                                {
+                                    var html = "<option value=\"\" selected>Tất cả</option>";
+                                    data.forEach((name, i) => {
+                                        if (name.Code != "") {
+                                            html += "<option value='" + name.Text + "'>" + name.Value + " - " + name.Text + "</option>";
+                                            //html += "<option value='" + name.Value + "'>" + name.Value + " - " + name.Text + "</option>";
+                                        }
+                                    });
+                                    $('#sel-sales-order-type').html(html);
+                                }
+                            }
+                            loading.hideloading();
+                        },
+                        error: function ()
+                        {
+                        }
+                    });
+        };
+
+        function GetDataRowItem() {
+             //debugger
+             var data = [];
+             var salesType = $('#sel-sales-order-type').val();
+
+            $('.div-infor-item div').each(function () {
+                //debugger
+                var item = {};
+                    var checkItemNo = $(this).parents('div').find('*.chk-item-no').prop('checked');
+                    var itemNo = $(this).parents('div').find('*.div-item-no').find('span:nth-child(1)').html();
+                    var itemName = $(this).parents('div').find('*.div-item-name').find('span:nth-child(1)').html();
+                    var barCode = $(this).parents('div').find('*.div-barcode').find('span:nth-child(1)').html();
+                    var uom = $(this).parents('div').find('*.div-uom').find('span:nth-child(1)').html();
+                    var cateCode = $(this).parents('div').find('*.div-category').find('span:nth-child(1)').html();
+                    var cateName = $(this).parents('div').find('*.div-category').find('span:nth-child(3)').html();
+                    //var img = $(this).parents('div').find('*.div-image').html();
+
+                    item['ItemNo'] = itemNo;
+                    item['ItemName'] = itemName;
+                    item['UnitOfMeasure'] = uom;
+                    item['Barcode'] = barCode;
+                    item['CategoryCode'] = cateCode;
+                    item['CategoryName'] = cateName;
+                    item['SaleType'] = salesType;
+                    item['CheckItem'] = checkItemNo;
+                    //item['Images'] = img;
+                    data.push(item);
+
+            });
+
+            return data;
+         };
+
+        function SaveItemListForPartner() {
+            //debugger
+            var itemInfor = GetDataRowItem();
+            if (itemInfor == null || itemInfor.length == 0) {
+                toastr.error('Không có thông tin để lưu. Vui lòng kiểm tra lại');
+                return;
+            }
+
+            loading.showloading();
+
+            $.ajax({
+                url: '@Url.Action("SaveItemListForPartner", "SetupItem")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    //StoreNo: _storeNo,
+                    ListItemPartnerStr: JSON.stringify(itemInfor)
+                },
+                success: function (response) {
+                    if (response.Status == 200) {
+                        toastr.success(response.Message);
+                        //$("#hdtxtItemNo").val('');
+                        //$("#btnCancle").trigger("click");
+                        location.reload();
+                    }
+                    else {
+                        toastr.error(response.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function GetInfoItem(itemNo) {
+            loading.showloading();
+            $.ajax({
+                type: "GET",
+                url: "/SetupItem/_SetupItemPartnerDetail?ItemNo=" + itemNo + "",
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    $("#loadItem").css("display", "none");
+                    $("#updateItem").html(result);
+                    $("#updateItem").css("display", "block");
+
+                    //$("#btnCancle").css("display", "block");
+                    //$("#btnSave").css("display", "block");
+                    //$("#btnAddItem").css("display", "none");
+
+                    loading.hideloading();
+                },
+                error: function (event) {
+                }
+            });
+        }
+
+
+        $(document).ready(function () {
+
+            $(".select2").select2();
+            LoadComboxSalesOrderType();
+
+            $(".btn-view-detail-item").on("click", function (e) {
+                var itemNo = $(this).attr("data-item-no");
+                $("#modal-update-item-no").val(itemNo);
+                var itemName = $(this).attr("data-item-name");
+                $("#modal-update-item-name").val(itemName);
+                var itemgroupname = $(this).attr("data-category-name");
+                $("#modal-update-item-group-name").val(itemgroupname);
+                var storeNo = $(this).attr("data-store-no");
+                $("#modal-update-store-no").val(storeNo);
+                var salesType = $(this).attr("data-sales-type");
+                $("#modal-update-sales-type").val(salesType);
+                var price = $(this).attr("data-unit-price");
+                $("#modal-update-unit-price").val(price);
+                var uom = $(this).attr("data-uom");
+                $("#modal-update-uom").val(uom);
+                var size = $(this).attr("data-size");
+                $("#modal-update-size").val(size);
+                var cupType = $(this).attr("data-cup-type");
+                $("#modal-update-cup-type").val(cupType);
+
+                //var topping = $(this).attr("data-topping");
+                //var isTopping = true;
+                //if (topping == "Có") {
+                //    isTopping = true;
+                //}
+                //else {
+                //    isTopping = false;
+                //}
+                //$("#modal-update-is-topping").val(isTopping).trigger('change');
+
+                var blocked = $(this).attr("data-blocked");
+                var isActive = true;
+                if (blocked == "Có hiệu lực") {
+                    isActive = 0; // true
+                    $("#modal-update-chk-blocked-active").prop('checked', true);
+                    $("#modal-update-chk-blocked-no-active").prop('checked', false);
+                } else {
+                    isActive = 1;  // False
+                    $("#modal-update-chk-blocked-no-active").prop('checked', true);
+                    $("#modal-update-chk-blocked-active").prop('checked', false);
+                }
+
+                $('#modal-update-detail-item-partner').modal({
+                    backdrop: 'static',
+                    keyboard: true
+                });
+
+                //GetInfoItem(itemNo);
+            });
+
+            $(".chk-item-no").change(function () {
+                if (this.checked) {
+                    var itemNo = $(this).attr("data-item-no-2");
+                    //GetInfoItem(itemNo);
+                    $('#modal-update-detail-item-partner').modal({
+                        backdrop: 'static',
+                        keyboard: true
+                    });
+                }
+            });
+
+            $("#modal-update-chk-blocked-active").on('click', function (e) {
+                if (this.checked) {
+                    $("#modal-update-chk-blocked-no-active").prop('checked', false);
+                }
+            });
+
+            $("#modal-update-chk-blocked-no-active").on('click',function (e) {
+                if (this.checked) {
+                    $("#modal-update-chk-blocked-active").prop('checked', false);
+                }
+            });
+
+            $("#btn-save-update").on("click", function (e) {
+                UpdateItemDetailByPartner();
+            });
+
+            $("#btn-header-search").on("click", function (e) {
+                debugger
+                var keyword = $("#txt-text-search").val();
+                $("#hdd-txt-key-word").val(keyword);
+
+                var salestype = $("#sel-sales-order-type").val();
+                var storeno = $("#sel-store-no").val();
+                var mch2 = $("#sel-mch2").val();
+                var status = $("#sel-status").val();
+
+                loading.showloading();
+                $('#frm-item-partner-list').attr('action', "/san-pham-doi-tac-on-app/").submit();
+                //$('#frm-item-partner-list').attr('action', "/san-pham-doi-tac-on-app/1/" + salestype + "/" + storeno + "/" + mch2 + "/" + keyword + "/" + status + "").submit();
+
+            });
+
+            $("#sel-mch2").on("change", function () {
+                var mch2 = $("#sel-mch2").val();
+                $("#sel-mch5").empty();
+                loading.showloading();
+                var fromData = new FormData();
+                fromData.append('MCH2', mch2);
+
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetMCH5", "SetupItem")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        var html = "";
+                        html += "<option value=''>Tất cả</option>";
+                        if (data != null) {
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.Code + "'>" + name.Name + "</option>";
+                            });
+                        }
+                        $('#sel-mch5').html(html);
+                        loading.hideloading();
+                    },
+                    error: function () { }
+                });
+            });
+
+            $('#btn-header-save').on('click', function (e) {
+                //debugger
+                SaveItemListForPartner();
+            });
+
+
+
+
+
+    });
+    </script>
+}
+
+
+<style>
+    .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+        color: #5E6278;
+        background-color: #ffffff;
+        border-color: #2c48c5 #E4E6EF #ffffff;
+    }
+
+    .nav-tabs {
+        border-bottom: 1px solid #0c713d;
+    }
+</style>
+
+

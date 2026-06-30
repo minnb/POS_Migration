@@ -1,0 +1,343 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{02DCC438-B855-4C7F-B743-84C2BC706296}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>VCM.BLUEPOS.Model</RootNamespace>
+    <AssemblyName>VCM.BLUEPOS.Model</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="HtmlAgilityPack, Version=1.11.43.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
+      <HintPath>..\packages\HtmlAgilityPack.1.11.43\lib\Net45\HtmlAgilityPack.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Account\ADUserModel.cs" />
+    <Compile Include="Account\LoginViewModel.cs" />
+    <Compile Include="Account\MenuModel.cs" />
+    <Compile Include="Account\RoleModel.cs" />
+    <Compile Include="Account\UserRoleModel.cs" />
+    <Compile Include="Authen\AdminUserModel.cs" />
+    <Compile Include="Authen\ADUserModel.cs" />
+    <Compile Include="Authen\LoginViewModel.cs" />
+    <Compile Include="Authen\MenuModel.cs" />
+    <Compile Include="Authen\MenuRoleModel.cs" />
+    <Compile Include="Authen\PermStoreRequest.cs" />
+    <Compile Include="Authen\RoleModel.cs" />
+    <Compile Include="Authen\UserRoleModel.cs" />
+    <Compile Include="Bank\BankCardTypeModel.cs" />
+    <Compile Include="Bank\BankModel.cs" />
+    <Compile Include="Barcode\Barcode.cs" />
+    <Compile Include="BaseFilterModel.cs" />
+    <Compile Include="Campaign\CampaignAPIModel.cs" />
+    <Compile Include="Campaign\CampaignAPIResultModel.cs" />
+    <Compile Include="Campaign\CampaignCopyModel.cs" />
+    <Compile Include="Campaign\CampaignCreateModel.cs" />
+    <Compile Include="Campaign\CampaignDetailItemModel.cs" />
+    <Compile Include="Campaign\CampaignDetailModel.cs" />
+    <Compile Include="Campaign\CampaignFilterModel.cs" />
+    <Compile Include="Campaign\CampaignImportModel.cs" />
+    <Compile Include="Campaign\CampaignItemFilterModel.cs" />
+    <Compile Include="Campaign\CampaignOfferNoFilterModel.cs" />
+    <Compile Include="Campaign\CampaignStoreFilterModel.cs" />
+    <Compile Include="Campaign\CampaignStoreModel.cs" />
+    <Compile Include="CheckAPI\CheckAPICouponRequest.cs" />
+    <Compile Include="CheckAPI\CheckAPIVoucherRequest.cs" />
+    <Compile Include="Common\CheckStoreModel.cs" />
+    <Compile Include="Common\CommonModel.cs" />
+    <Compile Include="Common\DataTableModel.cs" />
+    <Compile Include="Common\DocumentTypeModel.cs" />
+    <Compile Include="Common\IPAddressModel.cs" />
+    <Compile Include="Common\LogErrorWebModel.cs" />
+    <Compile Include="Common\POSDataSetupModel.cs" />
+    <Compile Include="Common\ProvinceModel.cs" />
+    <Compile Include="Common\ResultExecuteModel.cs" />
+    <Compile Include="Common\SAPConfigXMLModel.cs" />
+    <Compile Include="Common\ScanOrderInsertResponseModel.cs" />
+    <Compile Include="Common\ScanOrderLoadModal.cs" />
+    <Compile Include="Common\ScanOrderViewModel.cs" />
+    <Compile Include="Common\SyncJobLogModel.cs" />
+    <Compile Include="Common\SyncTableListModel.cs" />
+    <Compile Include="CrownX\TransactionDataCrownXPOSModel.cs" />
+    <Compile Include="Employee\EmployeeModel.cs" />
+    <Compile Include="Enums\Enums.cs" />
+    <Compile Include="Home\AgentSQLResult.cs" />
+    <Compile Include="Home\CheckListDailyModel.cs" />
+    <Compile Include="Home\CheckListRequest.cs" />
+    <Compile Include="Home\CheckListUserModel.cs" />
+    <Compile Include="Home\CheckListUserRequest.cs" />
+    <Compile Include="Home\HealthCheckModel.cs" />
+    <Compile Include="Home\HomeViewModel.cs" />
+    <Compile Include="Home\JobSQLAgentModel.cs" />
+    <Compile Include="Home\ServerWebModel.cs" />
+    <Compile Include="Home\TaskSchedulerJobModel.cs" />
+    <Compile Include="HotKey\ItemModel.cs" />
+    <Compile Include="HotKey\POSHotKeyItemModel.cs" />
+    <Compile Include="HotKey\ProvinceModel.cs" />
+    <Compile Include="Invoice\BranchModel.cs" />
+    <Compile Include="Invoice\CreatedDummyMTTModel.cs" />
+    <Compile Include="Invoice\CheckPublishInvoiceModel.cs" />
+    <Compile Include="Invoice\CustomerVATModel.cs" />
+    <Compile Include="Invoice\DetailInvoiceWinlifeModel.cs" />
+    <Compile Include="Invoice\EODCreatedInvoiceModel.cs" />
+    <Compile Include="Invoice\ExportInvoiceReportModel.cs" />
+    <Compile Include="Invoice\InfoInvoiceModel.cs" />
+    <Compile Include="Invoice\InvoiceByViewHeaderModel.cs" />
+    <Compile Include="Invoice\InvoiceCreatedModel.cs" />
+    <Compile Include="Invoice\InvoiceHearderModel.cs" />
+    <Compile Include="Invoice\InvoiceHearderRequest.cs" />
+    <Compile Include="Invoice\CheckInvoiceMTTModel.cs" />
+    <Compile Include="Invoice\SearchTaxCodeInfoModel.cs" />
+    <Compile Include="Invoice\InvoiceInfoVATModel.cs" />
+    <Compile Include="Invoice\InvoiceLineModel.cs" />
+    <Compile Include="Invoice\InvoicePrintModel.cs" />
+    <Compile Include="Invoice\InvoiceResultModel.cs" />
+    <Compile Include="Invoice\InvoiceTypeModel.cs" />
+    <Compile Include="Invoice\ListInvoiceReplaceModel.cs" />
+    <Compile Include="Invoice\ListOrderDetailModel.cs" />
+    <Compile Include="Invoice\PosTerminalNoModel.cs" />
+    <Compile Include="Invoice\PrintAgainModel.cs" />
+    <Compile Include="Invoice\StoreNoseriVATModel.cs" />
+    <Compile Include="Invoice\TransHeaderModel.cs" />
+    <Compile Include="Invoice\VatNumberModel.cs" />
+    <Compile Include="Invoice\VATPrintModel.cs" />
+    <Compile Include="Invoice\ViewDieuChinhThayTheModel.cs" />
+    <Compile Include="Invoice\ViewIssueInvoiceModel.cs" />
+    <Compile Include="Invoice\ViewDetailByDocumentNoModel.cs" />
+    <Compile Include="Invoice\ViewMngInvoiceModel.cs" />
+    <Compile Include="LogsData\LogAPIVoucherModel.cs" />
+    <Compile Include="LogsData\LogCloseSalePOSModel.cs" />
+    <Compile Include="LogsData\LogFileSalePOSModel.cs" />
+    <Compile Include="LogsData\LogMissSaleModel.cs" />
+    <Compile Include="LogsData\LoyaltyCXLogAPIModel.cs" />
+    <Compile Include="LogsData\EInvoiceLogsModel.cs" />
+    <Compile Include="LogsData\SyncBussinessDateToCentralModel.cs" />
+    <Compile Include="LogsData\SyncChangeLogStoreModel.cs" />
+    <Compile Include="LogsData\ViewLogFileSalePOSModel.cs" />
+    <Compile Include="Loyalty\SetupLoyaltyModel.cs" />
+    <Compile Include="MasterData\ChangePassWordModel.cs" />
+    <Compile Include="MasterData\EWalletModel.cs" />
+    <Compile Include="MasterData\QRInformationModel.cs" />
+    <Compile Include="MasterData\SetupImageSliderModel.cs" />
+    <Compile Include="MasterData\SalesOrderTypeModel.cs" />
+    <Compile Include="MasterData\ProvinceModel.cs" />
+    <Compile Include="MasterData\SetupPrintByPOSWebModel.cs" />
+    <Compile Include="MCH\MCHComboboxModel.cs" />
+    <Compile Include="MonitorPOS\ListProcessModel.cs" />
+    <Compile Include="MonitorPOS\PingResponse.cs" />
+    <Compile Include="MonitorPOS\POSMonitorModel.cs" />
+    <Compile Include="MonitorPOS\SignalStoreModel.cs" />
+    <Compile Include="Notify\NotifyModel.cs" />
+    <Compile Include="Notify\ViewNotifyModel.cs" />
+    <Compile Include="Partner\ZaloFoodModel.cs" />
+    <Compile Include="Partner\CheckAPINowFoodItemListRequest.cs" />
+    <Compile Include="Partner\ConvertImagesToBase64Model.cs" />
+    <Compile Include="Partner\BeFoodModel.cs" />
+    <Compile Include="Partner\ItemListNowFoodModel.cs" />
+    <Compile Include="Partner\GrabFoodModel.cs" />
+    <Compile Include="Partner\JsonPropertyNameAttribute.cs" />
+    <Compile Include="Partner\NowFoodModel.cs" />
+    <Compile Include="Partner\OrderSalesListByNowFoodModel.cs" />
+    <Compile Include="Partner\UpdateItemListNowFoodModel.cs" />
+    <Compile Include="Partner\ViewDetailItemLockByNowFoodModel.cs" />
+    <Compile Include="OptionModel\OptionModel.cs" />
+    <Compile Include="Order\OrderWinLifeModel.cs" />
+    <Compile Include="Order\OrderModel.cs" />
+    <Compile Include="Order\PrintInvoiceOrderSalesModel.cs" />
+    <Compile Include="Order\PrintInvoiceReturnOrderSalesModel.cs" />
+    <Compile Include="POS\POSVersionModel.cs" />
+    <Compile Include="POS\POSModel.cs" />
+    <Compile Include="Price\PriceGroupModel.cs" />
+    <Compile Include="Price\PriceModel.cs" />
+    <Compile Include="Product\ProductLockModel.cs" />
+    <Compile Include="Product\ProductModel.cs" />
+    <Compile Include="Promotion\ExportExcel_PromotionOfferSiteModel.cs" />
+    <Compile Include="Promotion\ExportExcel_PromotionOfferGetModel.cs" />
+    <Compile Include="Promotion\ExportExcel_PromotionOfferBuyModel.cs" />
+    <Compile Include="Promotion\PromotionModel.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Report\CumulativeSalesModel.cs" />
+    <Compile Include="Report\EndShiftModel.cs" />
+    <Compile Include="Report\KPIStaffModel.cs" />
+    <Compile Include="Report\OfferTypeListModel.cs" />
+    <Compile Include="Report\OfferTypePromotionModel.cs" />
+    <Compile Include="Report\PromotionOfferTypeComboModel.cs" />
+    <Compile Include="Report\OrderSalesDiscountValueResponseModel.cs" />
+    <Compile Include="Report\PaymentOrderSalesModel.cs" />
+    <Compile Include="Report\ReportDeleteRowOrderModel.cs" />
+    <Compile Include="Report\ReportShiftEndModel.cs" />
+    <Compile Include="Report\RevenueOrderSalesByMCHResponseModel.cs" />
+    <Compile Include="Report\RevenueOrderSalesByProductModel.cs" />
+    <Compile Include="Report\RevenueOrderSalesReportByMCHModel.cs" />
+    <Compile Include="Report\RevenueOrderSalesReportByStaffModel.cs" />
+    <Compile Include="Report\RevenueOrderSalesReportByStoreModel.cs" />
+    <Compile Include="Report\RevenueSalesByHourlyModel.cs" />
+    <Compile Include="Report\SaleOdooModel.cs" />
+    <Compile Include="Report\SalesDetailListByMCHModel.cs" />
+    <Compile Include="Report\SalesFailDateBusByStoreModel.cs" />
+    <Compile Include="Report\SalesTypePromotionModel.cs" />
+    <Compile Include="Report\SalesTypeRequestModel.cs" />
+    <Compile Include="Report\SaleUsedCupModel.cs" />
+    <Compile Include="Report\Sale_Report_Detail_Cup_Model.cs" />
+    <Compile Include="Report\ViewSalesTypeModel.cs" />
+    <Compile Include="Report\VoucherReceiptResponseModel.cs" />
+    <Compile Include="Report\WinLifeModel.cs" />
+    <Compile Include="ResultResponseModel.cs" />
+    <Compile Include="Reward\RewardCodeModel.cs" />
+    <Compile Include="Reward\RewardHeaderModel.cs" />
+    <Compile Include="Reward\RewardHeaderRequest.cs" />
+    <Compile Include="Reward\ViewOfferByTypeRequest.cs" />
+    <Compile Include="Reward\ViewRewardModel.cs" />
+    <Compile Include="Role\RolePermissionModel.cs" />
+    <Compile Include="SalesStaging\StagingSyncTableFromPOSModel.cs" />
+    <Compile Include="SalesStaging\StagingTransHeaderModel.cs" />
+    <Compile Include="SelectionItem.cs" />
+    <Compile Include="ServiceLog\ServiceLogModel.cs" />
+    <Compile Include="SetupCoupon\CpnItemModel.cs" />
+    <Compile Include="SetupCoupon\CpnVchBOMHeaderModel.cs" />
+    <Compile Include="SetupCoupon\CpnVchBOMIssueRuleModel.cs" />
+    <Compile Include="SetupCoupon\ExcelExampleCouponModel.cs" />
+    <Compile Include="SetupCoupon\LoadCouponCodeModel.cs" />
+    <Compile Include="SetupCoupon\SaveIssueCouponRequest.cs" />
+    <Compile Include="SetupCoupon\SetupAdvancedCouponRequest.cs" />
+    <Compile Include="SetupCoupon\SetupCouponRequestModel.cs" />
+    <Compile Include="SetupCoupon\StoreGroupCodeModel.cs" />
+    <Compile Include="SetupCoupon\ViewItemByArticleTypeRequest.cs" />
+    <Compile Include="SetupCoupon\ViewSetupCouponModel.cs" />
+    <Compile Include="SetupCoupon\ViewSetupCpnVchModel.cs" />
+    <Compile Include="SetupExtraFee\ExtraFeeHeaderModel.cs" />
+    <Compile Include="SetupExtraFee\ExtraFeeStroreGroupModel.cs" />
+    <Compile Include="SetupExtraFee\SaveExtraFeeRequest.cs" />
+    <Compile Include="SetupExtraFee\StoreExtraFeeModel.cs" />
+    <Compile Include="SetupExtraFee\ViewNganhHangModel.cs" />
+    <Compile Include="SetupExtraFee\ViewSetupExtraFeeModel.cs" />
+    <Compile Include="SetupItem\ItemModel.cs" />
+    <Compile Include="SetupItem\ItemProcedureModel.cs" />
+    <Compile Include="SetupItem\ListItemSetupRequest.cs" />
+    <Compile Include="SetupItem\SetupItemModel.cs" />
+    <Compile Include="SetupItem\SetupItemPartnerModel.cs" />
+    <Compile Include="SetupItem\SetupItemRequestModel.cs" />
+    <Compile Include="SetupItem\ViewCapNhatSanPhamModel.cs" />
+    <Compile Include="SetupItem\ViewSetupItemModel.cs" />
+    <Compile Include="SetupPrice\ExcelExamplePriceModel.cs" />
+    <Compile Include="SetupPrice\ListPriceModel.cs" />
+    <Compile Include="SetupPrice\SalesPriceModel.cs" />
+    <Compile Include="SetupPrice\SaveItemPriceRequest.cs" />
+    <Compile Include="SetupPrice\SetupComboboxModel.cs" />
+    <Compile Include="SetupPrice\StorePriceGroupModel.cs" />
+    <Compile Include="SetupPrice\ViewSetupItemPriceModel.cs" />
+    <Compile Include="SetupPrice\ViewSetupPriceModel.cs" />
+    <Compile Include="SetupPromotion\AdvanceSetupModel.cs" />
+    <Compile Include="SetupPromotion\AppendOfferBuyModel.cs" />
+    <Compile Include="SetupPromotion\AppendOfferGetModel.cs" />
+    <Compile Include="SetupPromotion\BuyGroupItemModel.cs" />
+    <Compile Include="SetupPromotion\ComboboxModel.cs" />
+    <Compile Include="SetupPromotion\DayInWeekModel.cs" />
+    <Compile Include="SetupPromotion\GetBBModel.cs" />
+    <Compile Include="SetupPromotion\GroupSiteModel.cs" />
+    <Compile Include="SetupPromotion\ItemSetupMode.cs" />
+    <Compile Include="SetupPromotion\OfferBuyModel.cs" />
+    <Compile Include="SetupPromotion\OfferGetModel.cs" />
+    <Compile Include="SetupPromotion\OfferHeaderModel.cs" />
+    <Compile Include="SetupPromotion\ItemByComboLineModel.cs" />
+    <Compile Include="SetupPromotion\OfferSiteModel.cs" />
+    <Compile Include="SetupPromotion\OfferTypeModel.cs" />
+    <Compile Include="SetupPromotion\SalesTypeModel.cs" />
+    <Compile Include="SetupPromotion\CodeBySpecialComboHeaderModel.cs" />
+    <Compile Include="SetupPromotion\SetupSpecialComboModel.cs" />
+    <Compile Include="SetupPromotion\SetupBuyModel.cs" />
+    <Compile Include="SetupPromotion\SetupMainModel.cs" />
+    <Compile Include="SetupPromotion\SetupPromotionBUYModel.cs" />
+    <Compile Include="SetupPromotion\SetupPromotionGETModel.cs" />
+    <Compile Include="SetupPromotion\SetupPromotionHEADERModel.cs" />
+    <Compile Include="SetupPromotion\SetupPromotionSITEModel.cs" />
+    <Compile Include="SetupPromotion\StoreSetupModel.cs" />
+    <Compile Include="SetupPromotion\ViewDetailOfferSiteModel.cs" />
+    <Compile Include="SetupPromotion\ViewItemRequestModel.cs" />
+    <Compile Include="SetupPromotion\ViewSetupCHSTModel.cs" />
+    <Compile Include="SetupPromotion\ViewSetupGroupItemBuyModel.cs" />
+    <Compile Include="SetupPromotion\ViewTabOfferGetModel.cs" />
+    <Compile Include="StoreActivities\BusinessDateModel.cs" />
+    <Compile Include="StoreActivities\BussinessDateConfirmModel.cs" />
+    <Compile Include="StoreActivities\BussinessDateOpenModel.cs" />
+    <Compile Include="StoreActivities\CheckSaleStaffCodeVMModel.cs" />
+    <Compile Include="StoreActivities\HistoryConfirmPOSExcel.cs" />
+    <Compile Include="StoreActivities\HistoryEndDateModel.cs" />
+    <Compile Include="StoreActivities\HistoryEndShiftModel.cs" />
+    <Compile Include="StoreActivities\LogMisSaleModel.cs" />
+    <Compile Include="StoreActivities\MessageCheckEndShiftResponse.cs" />
+    <Compile Include="StoreActivities\POSBussinessDateModel.cs" />
+    <Compile Include="StoreActivities\POSEODModel.cs" />
+    <Compile Include="StoreActivities\PosTerminalMissOrderModel.cs" />
+    <Compile Include="StoreActivities\PosTerminalModel.cs" />
+    <Compile Include="StoreActivities\SaleBusinessStoreModel.cs" />
+    <Compile Include="Report\SalesByMCHModel.cs" />
+    <Compile Include="Report\SalesByMCHRepsone.cs" />
+    <Compile Include="StoreActivities\ShiftHeaderDesciptionModel.cs" />
+    <Compile Include="StoreActivities\ShiftHeaderModel.cs" />
+    <Compile Include="StoreActivities\ShiftLineArray.cs" />
+    <Compile Include="StoreActivities\ShiftLineModel.cs" />
+    <Compile Include="StoreActivities\StaffCodeModel.cs" />
+    <Compile Include="StoreActivities\StaffModel.cs" />
+    <Compile Include="StoreActivities\StyleProfileModel.cs" />
+    <Compile Include="StoreActivities\TransHeaderPOSModel.cs" />
+    <Compile Include="StoreActivities\ViewDetailEndDateModel.cs" />
+    <Compile Include="StoreActivities\ViewDetailEndShiftPLGModel.cs" />
+    <Compile Include="StoreActivities\ViewDetailEndShiftModel.cs" />
+    <Compile Include="StoreActivities\ViewPopupNotEnd.cs" />
+    <Compile Include="Store\StoreModel.cs" />
+    <Compile Include="Store\StorePartnerModel.cs" />
+    <Compile Include="Store\TableStoreModel.cs" />
+    <Compile Include="SyncData\SalePosMisModel.cs" />
+    <Compile Include="SyncData\SAPLogModel.cs" />
+    <Compile Include="SyncData\SyncDataDateModel.cs" />
+    <Compile Include="VinID\TransactionBluePointsModel.cs" />
+    <Compile Include="VinID\TransactionHistoryBluePOSResponseModel.cs" />
+    <Compile Include="Voucher\CouponVoucherModel.cs" />
+    <Compile Include="Voucher\POSDocumentNosResponseModel.cs" />
+    <Compile Include="Voucher\VoucherModel.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

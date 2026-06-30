@@ -1,0 +1,881 @@
+﻿@using VCM.BLUEPOS.Model.Order.PrintInvoiceOrderSalesModel;
+@using VCM.BLUEPOS.Helpers;
+@using VCM.BLUEPOS.Common.Helpers;
+
+@{
+    var header = $"{Model.StoreName}  {Model.Address}  {Model.PhoneNo}";
+    Layout = "~/Views/Shared/_PrintLayout.cshtml";
+    var line = ".....................................................................................";
+    var text = "...................................................................................";
+    var textsub = ".......................................................";
+    var titleName = "";
+}
+
+@model PrintInvoiceOrderSalesResponseModel
+
+@if (Model.Status == "1")
+{
+    <div id="order-print-session" style='width:270px;font-family:Roboto, sans-serif;margin:auto;font-size: 12px;'>
+        <div style="display: block;min-height: 85px;margin:auto;">
+            <div style='float: left;text-align: left;margin-top: 25px;'><img src='@Model.Host/AdminLTE-3.0.5/dist/img/logo_invoice.png' width="102" height="25" /></div>
+            <div style="float: right; display: inline-block; text-align: center; width: 59%; font-size: 12px !important;">
+                <span style="display: inline-block;">@Model.StoreName</span>
+                <span style="display: inline-block;">@Model.Address</span>
+                <span style="display: inline-block;">@Model.PhoneNo</span>
+            </div>
+        </div>
+        <br />
+
+        <div style="padding-top: 25px;">
+
+            @if (Model.SalesIsReturn == 0)
+            {
+                titleName = $"HÓA ĐƠN BÁN HÀNG IN LẠI";
+                <div style='display:block;text-align:center;font-weight:bold;font-size:16px !important;'>@titleName</div>
+                <br />
+
+                <div style='margin-top:10px;display:block;'>
+                    @if (Model.OrderTime != null)
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">Ngày bán:</span> @Model.OrderTime.Value.ToString("dd/MM/yyyy HH:mm")</div>
+                    }
+                    else
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">Ngày bán:</span></div>
+                    }
+
+                    @if (Model.POSTerminalNo != null)
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">Quầy:</span> @Model.POSTerminalNo</div>
+                    }
+                    else
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">Quầy:</span></div>
+                    }
+                </div>
+
+                <div style='margin-top:10px;display:block;'>
+                    @if (Model.OrderNo != null)
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">HĐ:</span> @Model.OrderNo </div><br />
+                    }
+                    else
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">HĐ:</span></div><br />
+                    }
+
+                    @if (Model.CashierID != null)
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">NVBH:</span> @Model.CashierID</div>
+                    }
+                    else
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">NVBH:</span></div>
+                    }
+                </div>
+                <br />
+
+                <div style='margin-top:15px;padding-top: 15px;'>
+                    <table style='width:100%'>
+                        <thead>
+                            <tr>
+                                <td style="font-weight: 700;text-align:left;">Mặt hàng</td>
+                                <td style="font-weight: 700;text-align:right;">Đơn giá</td>
+                                <td style="font-weight: 700;text-align:right;">SL</td>
+                                <td style="font-weight: 700;text-align:right;">T.Tiền</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                if (Model.ListData != null)
+                                {
+                                    foreach (var item in Model.ListData)
+                                    {
+                                        var promotionCount = 1;
+                                        var amount = Math.Round((decimal)(item.UnitPrice * item.Quantity), 0);
+
+                                        @*product*@
+                                        <tr>
+                                            <td colspan="4">@item.ItemName</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="text-align:left;">@item.Barcode</td>
+                                            <td style="text-align:right;">@item.UnitPrice.VNCurrency()</td>
+                                            <td style="text-align:right;">@item.Quantity.VNCurrency()</td>
+                                            <td style="text-align:right;">@amount.VNCurrency()</td>
+                                        </tr>
+
+                                        @*coupon*@
+                                        if (Model.ListCoupon != null && Model.ListCoupon.Count > 0)
+                                        {
+                                            var checkCoupon = Model.ListCoupon.Where(m => m.OrderLineNo == item.LineNo && m.DiscountAmount > 0).ToList();
+                                            if (checkCoupon != null && checkCoupon.Count > 0)
+                                            {
+                                                foreach (var coupon in checkCoupon)
+                                                {
+                                                    var couponAmount = Math.Round(-1 * coupon.DiscountAmount ?? 0, 0);
+                                                    <tr>
+                                                        <td colspan="4">@coupon.CouponName</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="text-align:left;">@coupon.CouponCode</td>
+                                                        <td style="text-align:right;">@coupon.DiscountAmount.VNCurrency()</td>
+                                                        <td style="text-align:right;">@coupon.Quantity.VNCurrency()</td>
+                                                        <td style="text-align:right;">@couponAmount.VNCurrency()</td>
+                                                    </tr>
+                                                }
+                                            }
+                                        }
+
+                                        @*Voucher*@
+                                        if (Model.ListVoucher != null && Model.ListVoucher.Count > 0)
+                                        {
+                                            var checkVoucher = Model.ListVoucher.Where(m => m.OrderLineNo == item.LineNo && m.DiscountAmount > 0).ToList();
+                                            if (checkVoucher != null && checkVoucher.Count > 0)
+                                            {
+                                                foreach (var voucher in checkVoucher)
+                                                {
+                                                    var voucherName = $"KM{promotionCount}";
+                                                    var voucherAmount = Math.Round(-1 * voucher.DiscountAmount ?? 0, 0);
+                                                    <tr>
+                                                        <td style="text-align:left;">@voucherName</td>
+                                                        <td style="text-align:right;"></td>
+                                                        <td style="text-align:right;"></td>
+                                                        <td style="text-align:right;">@voucherAmount.VNCurrency()</td>
+                                                    </tr>
+
+                                                    promotionCount++;
+
+                                                }
+                                            }
+                                        }
+
+                                        @*BLUE*@
+                                        if (Model.ListBluePoint != null && Model.ListBluePoint.Count > 0)
+                                        {
+                                            var checkBluePoint = Model.ListBluePoint.Where(m => m.Barcode == item.Barcode && m.DiscountType == GoBlueDiscountType.ZMS2).ToList();
+                                            if (checkBluePoint != null)
+                                            {
+                                                var bluePointName = $"KM masan";
+                                                var extraAmountEarn = checkBluePoint.Sum(m => m.ExtraAmountEarn);
+                                                if (extraAmountEarn > 0)
+                                                {
+                                                    var bluePoint = extraAmountEarn * -1;
+                                                    <tr>
+                                                        <td style="text-align:left;">@bluePointName</td>
+                                                        <td style="text-align:right;"></td>
+                                                        <td style="text-align:right;"></td>
+                                                        <td style="text-align:right;">@bluePoint.VNCurrency()</td>
+                                                    </tr>
+                                                }
+                                            }
+                                        }
+
+                                    }
+
+                                }
+                            }
+
+                        </tbody>
+
+                    </table>
+                </div>
+
+                <div>@line</div>
+
+                <div style="padding-top:5px;">
+                    <div style="padding-top:5px;">
+                        <div><span style="font-weight: 700; float:left;">TỔNG TIỀN T.TOÁN</span></div>
+                        <div><span style="font-weight: 700; float:right;">@Model.TotalAmount.VNCurrency()</span></div>
+                    </div>
+                    <br />
+
+                    <div style="padding-top:10px;">
+                        <div><span style="font-weight: 700; float:left;">TỔNG TIỀN ĐÃ GIẢM</span></div>
+                        <div><span style="font-weight: 700; float:right;">@Model.TotalDiscountAmount.VNCurrency()</span></div>
+                    </div>
+                    <br />
+
+                    <div style="padding-top:10px;">
+                        <div><span style="font-weight: 700; float:left;">TIỀN KHÁCH TRẢ</span></div>
+                        <div><span style="font-weight: 700; float:right;">@Model.TotalPayment.VNCurrency()</span></div>
+                    </div>
+                    <br />
+
+                    <div style="padding-top:3px;">
+                        @if (Model.ListPaymentInfor != null && Model.ListPaymentInfor.Count > 0)
+                        {
+                            <!-- Tiên mat -->
+                            //var cashMethod = "PTCS";
+                            <!-- The ngan hang-->
+                            //var bankMethod = "ZCRE";
+                            <!-- Biên nhận mua hàng -->
+                            //var returnVoucherMethod = "ZRET";
+                            //var voucherMethod = "ZIVO";
+                            //var externalVoucherMethod = "ZEVO";
+
+                            var cashMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "CASHTENDERTYPE")?.Value;              // PTCS --- Tien mat
+                            var bankMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "BANK")?.Value;                        // ZCRE
+                            var returnVoucherMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "RETURNVOUCHER")?.Value;      // ZRET --- Bien nhan mua hang
+                            var voucherMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "INTERNALVOUCHER")?.Value;          // ZIVO
+                            var externalVoucherMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "EXTERNALVOUCHER")?.Value;  // ZEVO
+                            var vinidMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "VINIDTENDER")?.Value;                // ZVIN
+
+
+                            var listPaymentInfor = Model.ListPaymentInfor.ToList();
+                            var refundCashAmountTemp = Model.ListPaymentInfor.Where(m => m.Code == cashMethod && m.Amount < 0).Sum(m => m.Amount) ?? 0;
+                            listPaymentInfor.RemoveAll(m => m.Code == cashMethod && m.Amount < 0);
+
+                            foreach (var paymentItem in listPaymentInfor)
+                            {
+                                var description = paymentItem.Description;
+                                var code = string.Empty;
+                                if (paymentItem.Code == bankMethod)                // Thẻ ngân hàng
+                                {
+                                    description = $"{description}";
+                                    code = $"({paymentItem.ApprovalCode})";        // Mã chuẩn chi
+
+                                }
+                                else if (paymentItem.Code == returnVoucherMethod || paymentItem.Code == voucherMethod || paymentItem.Code == externalVoucherMethod)
+                                {
+                                    description = $"{description}";
+                                    code = $"({paymentItem.CardOrAccount})";
+
+                                }
+
+                                if (paymentItem.Code == cashMethod)   // Tiền mặt
+                                {
+                                    <div><span style="float:left;">@description</span></div>
+                                    <div><span style="font-weight: 400; float:right;">@paymentItem.Amount.VNCurrency()</span></div>
+                                }
+                                else
+                                {
+                                    <div><span style="float:left;">@description</span></div>
+                                    <div><span style="font-weight: 400; float:right;">@paymentItem.Amount.VNCurrency()</span></div>
+                                    <br />
+                                }
+
+                                if (code != null || code != "")
+                                {
+                                    <div><span style="float:left; word-break: break-word;">@code</span></div>
+                                    <br />
+                                }
+
+                            }
+
+                        }
+                    </div>
+                    <br />
+
+                    @if (Model.ReturnVoucherAmount != null || Model.ReturnVoucherAmount > 0)
+                    {
+                        var cashMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "CASHTENDERTYPE")?.Value;
+                        var RefundCashAmount = Model.ListPaymentInfor.Where(m => m.Code == cashMethod && m.Amount < 0).Sum(m => m.Amount) ?? 0;
+                        var _refundCashAmount = Math.Abs((double)(RefundCashAmount));
+
+                        <div style="padding-top:10px;">
+                            <div><span style="font-weight: 700; float:left;">TIỀN TRẢ LẠI</span></div>
+                            <div><span style="font-weight: 700; float:right;">@_refundCashAmount.VNCurrency()</span></div>
+                        </div>
+                    }
+
+                </div>
+
+                <div>@line</div>
+
+                <div style="padding-top: 5px;">
+                    @{
+                        if (Model.ListCpnVchIssue != null && Model.ListCpnVchIssue.Count > 0)
+                        {
+                            /*3: coupon, 2: Voucher*/
+                            if (Model.ListCpnVchIssue.FirstOrDefault().SerialNo.Substring(6, 1) == "3")
+                            {
+                                var cpnVchIssueName = $"MÃ GIẢM GIÁ";
+                                var cpnVchIssueValue = $"Mệnh giá";
+                                var conditionsOfApp = $"Điều kiện áp dụng:";
+                                var expiryDate = $"Hạn sử dụng: từ";
+
+                                <div style="float:left; font-weight: 700">@cpnVchIssueName</div>
+                                <br />
+
+                                <div style="float:left;">@cpnVchIssueValue</div>
+                                <div style="float:right;font-weight:700">@Model.ListCpnVchIssue.FirstOrDefault().Voucher_Value.VNCurrency()</div>
+                                <br />
+
+                                <div style="float:left;">@conditionsOfApp</div>
+                                <div style="float:right;">@Model.ListCpnVchIssue.FirstOrDefault().ItemName</div>
+                                <br />
+
+                                <div style="float:left;">@expiryDate @Model.ListCpnVchIssue.FirstOrDefault().Validity_From_Date.Value.ToString("dd/MM/yyyy") tới @Model.ListCpnVchIssue.FirstOrDefault().Expiry_Date.Value.ToString("dd/MM/yyyy")</div>
+                                <br />
+                                <br />
+
+                                <div style="text-align:center;">
+                                    <img src="data:image/png;base64,@BarcodeHelper.GenerateBarcodeToString(Model.ListCpnVchIssue.FirstOrDefault().SerialNo)" width="140" height="35">
+                                </div>
+                                <div style="text-align:center;">@Model.ListCpnVchIssue.FirstOrDefault().SerialNo</div>
+
+                            }
+                            else
+                            {
+                                var voucherName = $"VOUCHER";
+                                var voucherValue = $"Mệnh giá";
+                                var conditionsOfAppVoucher = $"Điều kiện áp dụng:";
+                                var expiryDate = $"Hạn sử dụng: từ";
+
+                                <div style="float:left; font-weight: 700"> @voucherName </div>
+                                <br />
+
+                                <div style="float:left;"> @voucherValue </div>
+
+                                <div style="float:right;font-weight:700">@Model.ListCpnVchIssue.FirstOrDefault().Voucher_Value.VNCurrency()</div>
+                                <br />
+
+                                <div style="float:left;"> @conditionsOfAppVoucher </div>
+
+                                <div style="float:right;"> @Model.ListCpnVchIssue.FirstOrDefault().ItemName </div>
+                                <br />
+
+                                <div style="float:left;"> @expiryDate @Model.ListCpnVchIssue.FirstOrDefault().Validity_From_Date.Value.ToString("dd/MM/yyyy") tới @Model.ListCpnVchIssue.FirstOrDefault().Expiry_Date.Value.ToString("dd/MM/yyyy")</div>
+                                <br />
+                                <br />
+
+                                <div style="text-align:center;">
+                                    <img src="data:image/png;base64,@BarcodeHelper.GenerateBarcodeToString(Model.ListCpnVchIssue.FirstOrDefault().SerialNo)" width="140" height="35">
+                                </div>
+                                <div style="text-align:center;">@Model.ListCpnVchIssue.FirstOrDefault().SerialNo</div>
+
+                            }
+                        }
+
+                    }
+
+                    <div style="padding-top: 5px; text-align:center;">(Giá đã bao gồm thuế GTGT)</div>
+                    <div>@line</div>
+
+                    <div style="padding-top: 5px;">
+                        @if (Model.MemberCardNo != null && Model.MemberCardNo.Length > 0)
+                        {
+                            var memberCardNo = Model.MemberCardNo.Substring(Model.MemberCardNo.Length - 4, 4);
+                            var memberCardNoShow = memberCardNo.PadLeft(16, 'X');
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">ID thẻ khách hàng</span>
+                                <span style="float:right;">@memberCardNoShow</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">ID thẻ khách hàng</span>
+                                <span style="float:right;"></span>
+                            </div>
+                        }
+
+
+                        <!-- Điểm tích lũy VinID -->
+                        @if (Model.TotalPoint != null)
+                        {
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">Điểm tích lũy (@Model.VinIDRate VNĐ = 1 điểm)</span>
+                                <span style="float:right;">@Model.TotalPoint.VNCurrency()</span>
+                                @if (Model.IsOfflineVinID == true && Model.TotalPoint > 0)
+                                {
+                                    var infor = $"POS trong trạng thái ngoại tuyến, điểm sẽ được cộng trong vòng 24h tới";
+                                    <span style="float:left;">@infor</span>
+                                }
+                            </div>
+                        }
+
+                        <!-- Điểm cho nhân viên -->
+                        @if (Model.CampaignPoint != null && Model.CampaignPoint > 0)
+                        {
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">Điểm cho nhân viên</span>
+                                <span style="float:right;">@Model.CampaignPoint.VNCurrency()</span>
+                            </div>
+                        }
+
+                        <!-- KM Masan-->
+                        @if (Model.BluePoint != null && Model.BluePoint > 0)
+                        {
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">KM masan</span>
+                                <span style="float:right;">@Model.BluePoint.VNCurrency()</span>
+                            </div>
+                        }
+
+                        <!-- Số tham chiếu -->
+                        @if (Model.ReferenceNo != null && Model.ReferenceNo.Length > 0)
+                        {
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">Số tham chiếu</span>
+                                <span style="float:right;">@Model.ReferenceNo</span>
+                            </div>
+                        }
+
+                        <!-- Ref -->
+                        @if (Model.Ref != null && Model.Ref.Length > 0)
+                        {
+                            <div style="display:inline-block;width: 100%;">
+                                <span style="float:left;">Ref</span>
+                                <span style="float:right;">@Model.Ref</span>
+                            </div>
+                        }
+                    </div>
+
+
+                    <div>@line</div>
+                    <div style="text-align:center;">Chỉ xuất hóa đơn trong ngày</div>
+                    <div style="text-align:center;">Tax Invoice will be issued within same day</div>
+                    <div>@line</div>
+
+                    <div style="text-align:center;">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI</div>
+                    @if (Model.CompanyInforList.Count > 0)
+                    {
+                        var _hotline = Model.CompanyInforList.FirstOrDefault()?.Hotline;
+                        var _website = Model.CompanyInforList.FirstOrDefault()?.Website;
+                        <div style="text-align:center;">Hotline: @_hotline  Website: @_website</div>
+                        <br />
+                    }
+
+                    <!-- Barcode : OrderNo -->
+                    <div style="text-align:center;">
+                        <img src="data:image/png;base64,@BarcodeHelper.GenerateBarcodeToString(Model.OrderNo)" width="200" height="50">
+                    </div>
+                    <br />
+
+                    <!-- Marketing -->
+                    @*@if (Model.MarketingList != null && Model.MarketingList.Count > 0)
+                        {
+                            foreach (var item in Model.MarketingList)
+                            {
+                                if (item.ContentType == MarketingContentTypeConstant.Link)
+                                {
+                                    <div style="text-align:center;">
+                                        <img src="data:image/png;base64,@BarcodeHelper.GenerateQRCodeToString(item.QRLink,100)" width="100" height="100">
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="text-align:center;">@item.Content</div>
+                                }
+                            }
+                        }*@
+
+                </div>
+
+            }
+            else
+            {
+                titleName = $"HÓA ĐƠN TRẢ HÀNG IN LẠI";
+                <div style='display:block;text-align:center;font-weight:bold;font-size:16px !important;'>@titleName</div>
+                <br />
+
+                <div style='margin-top:10px;display:block;'>
+                    @if (Model.OrderTime != null)
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">Ngày bán:</span> @Model.OrderTime.Value.ToString("dd/MM/yyyy HH:mm")</div>
+                    }
+                    else
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">Ngày bán:</span></div>
+                    }
+
+                    @if (Model.POSTerminalNo != null)
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">Quầy:</span> @Model.POSTerminalNo</div>
+                    }
+                    else
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">Quầy:</span></div>
+                    }
+
+                </div>
+                <div style='margin-top:10px;display:block;'>
+                    @if (Model.OrderNo != null)
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">HĐ:</span> @Model.OrderNo </div><br />
+                    }
+                    else
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">HĐ:</span></div><br />
+                    }
+
+                    @if (Model.CashierID != null)
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">NVBH:</span> @Model.CashierID</div>
+                    }
+                    else
+                    {
+                        <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">NVBH:</span></div>
+                    }
+                </div>
+                <br />
+
+                <div style='margin-top:10px;display:block;'>
+                    @if (Model.ReturnedOrderNo != null)
+                    {
+                        <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">ID hóa đơn bán hàng:</span> @Model.ReturnedOrderNo</div>
+                    }
+                </div>
+                <br />
+
+
+                <div style='margin-top:15px;padding-top: 15px;'>
+                    <table style='width:100%'>
+                        <thead>
+                            <tr>
+                                <td style="font-weight: 700;text-align:left;">Mặt hàng</td>
+                                <td style="font-weight: 700;text-align:right;">Đơn giá</td>
+                                <td style="font-weight: 700;text-align:right;">SL</td>
+                                <td style="font-weight: 700;text-align:right;">T.Tiền</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                if (Model.ListData != null)
+                                {
+                                    foreach (var item in Model.ListData)
+                                    {
+                                        //var _quantity = Math.Round(-1 * item.Quantity ?? 0, 0);
+                                        //var _lineAmountIncVAT = Math.Round(-1 * item.LineAmountIncVAT ?? 0, 0);
+
+                                        var quantity = Math.Round(item.Quantity ?? 0, 3);
+                                        var _quantity = Math.Round(-1 * quantity);
+                                        var amount = Math.Round((decimal)(item.UnitPrice * (-1 * quantity)), 0);
+
+                                        @*product*@
+                                        <tr>
+                                            <td colspan="4">@item.ItemName</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="text-align:left;">@item.Barcode</td>
+                                            <td style="text-align:right;">@item.UnitPrice.VNCurrency()</td>
+                                            <td style="text-align:right;">@_quantity</td>
+                                            <td style="text-align:right;">@amount.VNCurrency()</td>
+                                        </tr>
+
+                                        @*Check KM*@
+
+                                        var kmAmount = item.AmountBeforeDiscount - item.LineAmountIncVAT;
+                                        if (kmAmount > 0)
+                                        {
+                                            var promotionName = $"KM";
+                                            <tr>
+                                                <td style="text-align:left;">@promotionName</td>
+                                                <td style="text-align:left;"></td>
+                                                <td style="text-align:left;"></td>
+                                                <td style="text-align:right;">@kmAmount.VNCurrency()</td>
+                                            </tr>
+                                        }
+
+                                        @*BLUE : KM Masan *@
+                                        if (Model.ListBluePoint != null && Model.ListBluePoint.Count > 0)
+                                        {
+                                            var checkBluePoint = Model.ListBluePoint.Where(m => m.Barcode == item.Barcode && m.DiscountType == GoBlueDiscountType.ZMS2).ToList();
+                                            if (checkBluePoint != null && checkBluePoint.Count > 0)
+                                            {
+                                                var bluePointName = $"KM masan";
+                                                var extraAmountEarn = checkBluePoint.Sum(m => m.ExtraAmountEarn);
+                                                if (extraAmountEarn > 0)
+                                                {
+                                                    var bluePointAmount = extraAmountEarn * Model.VinIDRate;
+                                                    <tr>
+                                                        <td style="text-align:left;">@bluePointName</td>
+                                                        <td style="text-align:left;"></td>
+                                                        <td style="text-align:left;"></td>
+                                                        <td style="text-align:right;">@bluePointAmount.VNCurrency()</td>
+                                                    </tr>
+                                                }
+                                            }
+                                        }
+
+                                    }
+
+                                }
+                            }
+
+                        </tbody>
+
+                    </table>
+                </div>
+
+                <div>@line</div>
+
+                <div style="padding-top:5px;">
+                    @if (Model.ListData != null)
+                    {
+                        var listItem = Model.ListData.OrderBy(m => m.LineNo).ToList();
+                        var totalAmount = listItem.Sum(m => Math.Round((double)(m.LineAmountIncVAT), 0));
+                        var _totalAmount = Math.Round(-1 * totalAmount);
+
+                        // update total amount
+
+                        var vinidMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "VINIDTENDER")?.Value;
+
+                        var listPaymentInformation = Model.ListPaymentInfor.ToList();
+                        if (listPaymentInformation.FirstOrDefault(m => m.Code == vinidMethod) != null)
+                        {
+                            listPaymentInformation.FirstOrDefault(m => m.Code == vinidMethod).Amount = Model.MemberPointsRedeem * Model.VinIDRate;
+                        }
+
+                        var discountTotal = listItem.Sum(m => Math.Round((double)(m.AmountBeforeDiscount), 0)) - totalAmount;
+                        var totalPayment = Model.ListPaymentInfor.Where(m => m.Amount > 0).Sum(m => m.Amount);
+                        var _totalPayment = Math.Round(-1 * totalAmount);
+
+                        <div style="padding-top:5px;">
+                            <div><span style="font-weight: 700; float:left;">TỔNG TIỀN T.TOÁN</span></div>
+                            <div><span style="font-weight: 700; float:right;">@_totalAmount.VNCurrency()</span></div>
+                        </div>
+                        <br />
+
+                        <div style="padding-top:10px;">
+                            <div><span style="font-weight: 700; float:left;">TỔNG TIỀN ĐÃ GIẢM</span></div>
+                            <div><span style="font-weight: 700; float:right;">@discountTotal.VNCurrency()</span></div>
+                        </div>
+                        <br />
+
+                        <div style="padding-top:10px;">
+                            <div><span style="font-weight: 700; float:left;">TIỀN KHÁCH TRẢ</span></div>
+                            <div><span style="font-weight: 700; float:right;">@_totalPayment.VNCurrency()</span></div>
+                        </div>
+                        <br />
+
+                    }
+
+                    <div style="padding-top:4px;">
+                        @if (Model.ListPaymentInfor != null && Model.ListPaymentInfor.Count > 0)
+                        {
+                            var cashMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "CASHTENDERTYPE")?.Value;
+                            var bankMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "BANK")?.Value;
+                            var returnVoucherMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "RETURNVOUCHER")?.Value;      // ZRET
+                            var voucherMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "INTERNALVOUCHER")?.Value;
+                            var externalVoucherMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "EXTERNALVOUCHER")?.Value;
+                            var vinidMethod = Model.ListPOSDataSetup.FirstOrDefault(m => m.Code == "VINIDTENDER")?.Value;
+                            var listPaymentInformation = Model.ListPaymentInfor.ToList();
+
+                            if (listPaymentInformation.FirstOrDefault(m => m.Code == vinidMethod) != null)
+                            {
+                                listPaymentInformation.FirstOrDefault(m => m.Code == vinidMethod).Amount = Model.MemberPointsRedeem * Model.VinIDRate;
+                            }
+
+                            foreach (var paymentItem in listPaymentInformation)
+                            {
+                                var description = paymentItem.Description;
+                                var code = string.Empty;
+
+                                if (paymentItem.Code == bankMethod)             // Thẻ ngân hàng
+                                {
+                                    description = $"{description}";
+                                    code = $"({paymentItem.ApprovalCode})";     // Mã chuẩn chi
+
+                                }
+                                else if (paymentItem.Code == returnVoucherMethod)    // Biên nhận mua hàng
+                                {
+                                    description = $"{description}";
+                                    code = string.Empty;
+                                }
+                                else if (paymentItem.Code == voucherMethod || paymentItem.Code == externalVoucherMethod)
+                                {
+                                    description = $"{description}";
+                                    code = $"({paymentItem.CardOrAccount})";
+
+                                }
+                                else if (paymentItem.Code == vinidMethod)      // VinID
+                                {
+                                    paymentItem.Amount = Model.MemberPointsRedeem * Model.VinIDRate;
+                                }
+
+                                var _paymentAmount = Math.Round(-1 * (double)(paymentItem.Amount));
+                                if (paymentItem.Code == cashMethod)
+                                {
+                                    <div><span style="float:left;">@description</span></div>
+                                    <div><span style="font-weight: 400; float:right;">@_paymentAmount.VNCurrency()</span></div>
+                                }
+                                else
+                                {
+                                    <div><span style="float:left;">@description</span></div>
+                                    <div><span style="font-weight: 400; float:right;">@_paymentAmount.VNCurrency()</span></div>
+                                    <br />
+                                }
+
+                                if (code != null || code != "")
+                                {
+                                    <div><span style="float:left;word-break: break-word;">@code</span></div>
+                                    <br />
+                                }
+                            }
+
+                        }
+                    </div>
+                    <br />
+
+                    <div style="padding-top: 5px;text-align:center;">(Giá đã bao gồm thuế GTGT)</div>
+                    <div>@line</div>
+
+                </div>
+
+                <div style="padding-top: 5px;">
+
+                    @if (Model.MemberCardNo != null && Model.MemberCardNo.Length > 0)
+                    {
+                        var memberCardNo = Model.MemberCardNo.Substring(Model.MemberCardNo.Length - 4, 4);
+                        var memberCardNoShow = memberCardNo.PadLeft(16, 'X');
+
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">ID thẻ khách hàng</span>
+                            <span style="float:right;">@memberCardNoShow</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">ID thẻ khách hàng</span>
+                            <span style="float:right;"></span>
+                        </div>
+                    }
+
+                    @if (Model.ReturnedOrderNo != null && Model.ReturnedOrderNo.Length > 0)
+                    {
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">Số tham chiếu GD gốc</span>
+                            <span style="float:right;">@Model.ReturnedOrderNo</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">Số tham chiếu GD gốc</span>
+                            <span style="float:right;"></span>
+                        </div>
+                    }
+
+
+                    <!-- Điểm tích lũy VinID -->
+                    @if (Model.TotalPoint != null)
+                    {
+                        var _totalPoint = (-1 * (Int32)(Model.TotalPoint));
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">Điểm tích lũy (@Model.VinIDRate VNĐ = 1 điểm)</span>
+                            <span style="float:right;">@_totalPoint.VNCurrency()</span>
+                        </div>
+                    }
+
+                    <!-- Điểm cho nhân viên -->
+                    @if (Model.CampaignPoint != null && Model.CampaignPoint > 0)
+                    {
+                        var _campaignPoint = (-1 * (Int32)(Model.CampaignPoint));
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">Điểm cho nhân viên</span>
+                            <span style="float:right;">@_campaignPoint.VNCurrency()</span>
+                        </div>
+                    }
+
+                    <!-- KM Masan-->
+                    @if (Model.BluePoint != null && Model.BluePoint > 0)
+                    {
+                        var _promotionBluePoint = (-1 * (Int32)(Model.BluePoint));
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">KM masan</span>
+                            <span style="float:right;">@_promotionBluePoint.VNCurrency()</span>
+                        </div>
+                    }
+
+                    <!-- Số tham chiếu -->
+                    @if (Model.ReferenceNo != null && Model.ReferenceNo.Length > 0)
+                    {
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">Số tham chiếu</span>
+                            <span style="float:right;">@Model.ReferenceNo</span>
+                        </div>
+                    }
+
+                    <!-- Ref -->
+                    @if (Model.Ref != null && Model.Ref.Length > 0)
+                    {
+                        <div style="display:inline-block;width: 100%;">
+                            <span style="float:left;">Ref</span>
+                            <span style="float:right;">@Model.Ref</span>
+                        </div>
+                    }
+                    <div>@line</div>
+
+                    <div style="display:inline-block;width: 100%;">
+                        <span style="float:left;">Lý do trả hàng</span>
+                        <span style="float:right;">@Model.Description</span>
+                    </div>
+
+                    <div>@line</div>
+
+                    <div style="text-align:center;">Chỉ xuất hóa đơn trong ngày</div>
+                    <div style="text-align:center;">Tax Invoice will be issued within same day</div>
+
+                    <div>@line</div>
+
+                    <div style="text-align:center;">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI</div>
+                    @if (Model.CompanyInforList.Count > 0)
+                    {
+                        var _hotline = Model.CompanyInforList.FirstOrDefault()?.Hotline;
+                        var _website = Model.CompanyInforList.FirstOrDefault()?.Website;
+                        <div style="text-align:center;">Hotline: @_hotline  Website: @_website</div>
+                        <br />
+                    }
+
+                    <!-- Barcode : OrderNo -->
+                    <div style="text-align:center;">
+                        <img src="data:image/png;base64,@BarcodeHelper.GenerateBarcodeToString(Model.OrderNo)" width="200" height="50">
+                    </div>
+                    <br />
+
+                    <!-- Marketing -->
+                    @*@if (Model.MarketingList != null && Model.MarketingList.Count > 0)
+                        {
+                            foreach (var item in Model.MarketingList)
+                            {
+                                if (item.ContentType == MarketingContentTypeConstant.Link)
+                                {
+                                    <div style="text-align:center;">
+                                        <img src="data:image/png;base64,@BarcodeHelper.GenerateQRCodeToString(item.QRLink,100)" width="100" height="100">
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="text-align:center;">@item.Content</div>
+                                }
+                            }
+                        }*@
+
+                </div>
+
+            }
+
+        </div>
+    </div>
+}
+
+<script src="~/AdminLTE-3.0.5/plugins/jquery/jquery.min.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        window.print();
+    })
+
+    window.print();
+    window.onafterprint = function () {
+        // xủ lý open tab 2
+        var returnVoucherNo = @Model.ReturnVoucherNo;
+        if (returnVoucherNo == "0") {
+            window.top.close();
+        }
+        else {
+            var storeNo = @Model.StoreNo;
+            var posID = @Model.POSTerminalNo;
+            var orderNo = @Model.OrderNo;
+            var url2 = '@Model.Host/Order/PrintInvoiceOrderSalesForCustomer?StoreCode=' + storeNo + '&PosID=' + posID + '&OrderNo=' + orderNo;
+            window.location.href = url2;
+        }
+
+    }
+
+</script>
+
+

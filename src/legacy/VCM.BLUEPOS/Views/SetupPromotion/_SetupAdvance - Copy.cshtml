@@ -1,0 +1,435 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var listDay = Model.ListDayMonth as List<DayModel>;
+    var getModelHeader = Model.GetOfferHeader as OfferHeaderModel;
+    var offerType = getModelHeader.OfferType;
+    var isTotalBill = Model.isTotalBill;
+    var isSetupBuy = Model.isSetupBuy;
+    var isSetupGet = Model.isSetupGet;
+    var totalBill = getModelHeader.AmountTotalBill;
+    var isVoucher = (bool)Model.isVoucher;
+
+    var disableVoucher = isVoucher == false ? "disabled" : "";
+    var disableTotalBill = isTotalBill == false ? "disabled" : "";
+
+    var checkMon = getModelHeader.Mon == 0 ? "" : "checked=checked";
+    var checkTue = getModelHeader.Tue == 0 ? "" : "checked=checked";
+    var checkWed = getModelHeader.Wed == 0 ? "" : "checked=checked";
+    var checkThu = getModelHeader.Thu == 0 ? "" : "checked=checked";
+    var checkFri = getModelHeader.Fri == 0 ? "" : "checked=checked";
+    var checkSat = getModelHeader.Sat == 0 ? "" : "checked=checked";
+    var checkSun = getModelHeader.Sun == 0 ? "" : "checked=checked";
+
+    var checkMemberOnly = getModelHeader.MemberOnly == 0 ? "" : "checked=checked";
+    var uutien = getModelHeader.PriorityBBY;
+    var soLanPhatHanh = getModelHeader.VoucherLimitNumber;//LIMITNR
+    var songayHieuLuc = getModelHeader.VoucherValidDay;
+    var soLanApDung = (int)getModelHeader.LimitQty;//LIMIT
+    var numOfDay = getModelHeader.NumOfDays;
+    var fromTime = string.IsNullOrEmpty(getModelHeader.FromTime) ? "" : getModelHeader.FromTime;
+    var toTime = string.IsNullOrEmpty(getModelHeader.ToTime) ? "" : getModelHeader.ToTime;
+
+    var vcFromDate = getModelHeader.VoucherFromDate.Value.ToString("yyyy-MM-dd");
+    var vcToDate = getModelHeader.VoucherToDate.Value.ToString("yyyy-MM-dd");
+    var memberCode = getModelHeader.MemberCode;
+
+}
+<div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="titleModalMenu">SETUP CHƯƠNG TRÌNH KHUYẾN MÃI</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <i aria-hidden="true" class="ki ki-close"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Mã CTKM</label>
+                            <div class="col-8">
+                                <input class="form-control form-control-lg form-control-solid" type="text" readonly="readonly" id="advanceTxtMaCTKM" value="@getModelHeader.No" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Voucher/Coupon từ-đến ngày</label>
+                            <div class="col-4">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="far fa-calendar-alt"></i>
+                                        </span>
+                                    </div>
+                                    <input type="text" class="form-control float-right" id="advanceFromDate" name="AdvanceFromDate" @disableVoucher />
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="far fa-calendar-alt"></i>
+                                        </span>
+                                    </div>
+                                    <input type="text" class="form-control float-right" id="advanceToDate" name="AdvanceToDate" @disableVoucher />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Voucher/Coupon số ngày hiệu lực</label>
+                            <div class="col-8">
+                                <input class="form-control form-control-lg" type="text" id="advanceTxtValidNumberDate" value="@songayHieuLuc" @disableVoucher />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Voucher/Coupon số lần phát hành</label>
+                            <div class="col-8">
+                                <input class="form-control form-control-lg" type="text" id="advanceTxtLimited" value="@soLanPhatHanh" @disableVoucher />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Từ giờ-đến giờ</label>
+                            <div class="col-4">
+                                <input class="form-control form-control-lg" type="text" id="advanceTxtFromHour" value="@fromTime" />
+                            </div>
+                            <div class="col-4">
+                                <input class="form-control form-control-lg" type="text" id="advanceTxtToHour" value="@toTime" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @*<div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="form-group row">
+                                <label class="col-form-label col-4 text-left font-weight-bold">Giá trị tổng bill</label>
+                                <div class="col-8">
+                                    <input class="form-control form-control-lg" type="text" id="advanceTxtTotalBill" value="@totalBill" @disableTotalBill />
+                                </div>
+                            </div>
+                        </div>
+                    </div>*@
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Các ngày trong tuần</label>
+                            <div class="col-8">
+
+                                <div class="checkbox-inline">
+                                    <label class="checkbox checkbox-lg" title="Mon">
+                                        <input type="checkbox" @checkMon id="chkMon" name="Mon" title="Mon" />
+                                        <span></span>
+                                    </label>
+                                    <label class="checkbox checkbox-lg" title="Tue">
+                                        <input type="checkbox" @checkTue id="chkTue" name="Tue" title="Tue" />
+                                        <span></span>
+
+                                    </label>
+                                    <label class="checkbox checkbox-lg" title="Wed">
+                                        <input type="checkbox" @checkWed id="chkWed" name="Wed" title="Wed" />
+                                        <span></span>
+                                    </label>
+                                    <label class="checkbox checkbox-lg" title="Thu">
+                                        <input type="checkbox" @checkThu id="chkThu" name="Thu" title="Thu" />
+                                        <span></span>
+                                    </label>
+                                    <label class="checkbox checkbox-lg" title="Fri">
+                                        <input type="checkbox" @checkFri id="chkFri" name="Fri" title="Fri" />
+                                        <span></span>
+
+                                    </label>
+                                    <label class="checkbox checkbox-lg" title="Sat">
+                                        <input type="checkbox" @checkSat id="chkSat" name="Sat" title="Sat" />
+                                        <span></span>
+                                    </label>
+                                    <label class="checkbox checkbox-lg" title="Sun">
+                                        <input type="checkbox" @checkSun id="chkSun" name="Sun" title="Sun" />
+                                        <span></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Số lần được áp dụng</label>
+                            <div class="col-8">
+                                <input class="form-control form-control-lg" type="text" id="advancedTxtLimitCustomer" value="@soLanApDung" />
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Áp dụng cho thẻ thành viên</label>
+                            <div class="col-2">
+                                <div class="checkbox-inline">
+                                    <label class="checkbox checkbox-lg" title="Áp dụng cho thành viên">
+                                        <input type="checkbox" @checkMemberOnly id="chkMemberOnly" name="MemberOnly" />
+                                        <span></span>
+                                    </label>
+
+                                </div>
+                            </div>
+                            <label class="col-form-label col-3 text-left" style="font-weight:bold">Hạng thẻ thành viên</label>
+                            <div class="col-3">
+                                <input class="form-control form-control-lg" type="text" id="advancedTxtMemberCode" value="@memberCode" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Thứ tự ưu tiên</label>
+                            <div class="col-8">
+                                <select class="form-control select2" style="width:100%;" id="slAdvancePriority">
+                                    <option value="">Vui lòng chọn</option>
+                                    <option value="1">01</option>
+                                    <option value="2">02</option>
+                                    <option value="3">03</option>
+                                    <option value="4">04</option>
+                                    <option value="5">05</option>
+                                    <option value="6">06</option>
+                                    <option value="7">07</option>
+                                    <option value="8">08</option>
+                                    <option value="9">09</option>
+                                    <option value="10">10</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="form-group row">
+                            <label class="col-form-label col-4 text-left" style="font-weight:bold">Ngày áp dụng CTKM trong tháng</label>
+                            <div class="col-8">
+                                <select class="form-control select2" style="width:100%;" id="slAdvanceListMonth">
+                                    <option value="0">Vui lòng chọn</option>
+                                    @if (listDay != null && listDay.Count > 0)
+                                    {
+                                        foreach (var item in listDay)
+                                        {
+                                            <option value="@item.Day">@item.DayName</option>
+
+                                        }
+                                    }
+
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+            <button type="button" class="btn btn-primary font-weight-bold" id="btnSaveAdvance" onclick="InsertUpdateAdvance()"><i class="fa fa fa-save"></i> Lưu</button>
+        </div>
+    </div>
+</div>
+<div style="display:none">
+
+</div>
+
+
+<script type="text/javascript">
+    var isTotalBill = '@isTotalBill';
+    var isVoucher = '@isVoucher';
+    $(document).ready(function () {
+        $('#advanceFromDate').datepicker({
+            format: 'dd/mm/yyyy',
+            autoUpdateInput: false,
+            todayHighlight: true,
+            singleDatePicker: true,
+            autoclose: true
+        });
+        $('#advanceToDate').datepicker({
+            format: 'dd/mm/yyyy',
+            autoUpdateInput: false,
+            todayHighlight: true,
+            singleDatePicker: true,
+            autoclose: true
+        });
+        debugger
+        var checkVoucher = '@isVoucher';
+        if (checkVoucher.toLowerCase() == "true") {
+            $('#advanceFromDate').datepicker("setDate", moment('@vcFromDate').format("DD/MM/YYYY"));
+            $('#advanceToDate').datepicker("setDate", moment('@vcToDate').format("DD/MM/YYYY"));
+        }
+
+
+        $('#advanceTxtFromHour').mask('00:00:00', {
+            placeholder: "00:00:00"
+        });
+        $('#advanceTxtToHour').mask('00:00:00', {
+            placeholder: "00:00:00"
+        });
+        //$('#advanceTxtTotalBill').mask('000,000,000,000,000', {
+        //    reverse: true
+        //});
+
+        $('#advanceTxtPriority').mask('00', {
+            reverse: true
+        });
+
+        $('#advanceTxtValidNumberDate').mask('000', {
+            reverse: true
+        });
+
+        $('#advanceTxtLimited').mask('000', {
+            reverse: true
+        });
+
+        $('#advancedTxtLimitCustomer').mask('000', {
+            reverse: true
+        });
+
+        $(".select2").select2();
+
+        $("#slAdvancePriority").select2('val',['@uutien'])
+        $("#slAdvanceListMonth").select2('val',['@numOfDay'])
+    });
+
+    function InsertUpdateAdvance() {
+
+
+        var mon = 0, tue = 0, wed = 0, thu = 0, fri = 0, sat = 0, sun = 0;
+        var memberOnly = 0;
+        var vcFromDate = $("#advanceFromDate").val();
+        var vcToDate = $("#advanceToDate").val();
+        var vcValidNumber = $("#advanceTxtValidNumberDate").val();
+        var soLanPhatHanhVC = $("#advanceTxtLimited").val();
+        var soLanApDung = $("#advancedTxtLimitCustomer").val();
+
+        var fromTime = $("#advanceTxtFromHour").val();
+        var toTime = $("#advanceTxtToHour").val();
+       // var totalBill = $("#advanceTxtTotalBill").val().replace(/\,/g, '');
+
+        var maCTKM = $("#advanceTxtMaCTKM").val();
+        if (maCTKM == "") {
+            toastr.error("Không tìm thấy mã CTKM");
+            return;
+        }
+        //if (isTotalBill==true && parseFloat(totalBill) <= 0) {
+        //    toastr.error("Vui lòng nhập giá trị tổng bill");
+        //    $("#advanceTxtTotalBill").focus();
+        //    return;
+        //}
+
+        if ($("#chkMon").prop('checked')) {
+            mon = 1;
+        }
+        if ($("#chkTue").prop('checked')) {
+            tue = 1;
+        }
+        if ($("#chkWed").prop('checked')) {
+            wed = 1;
+        }
+        if ($("#chkThu").prop('checked')) {
+            thu = 1;
+        }
+        if ($("#chkFri").prop('checked')) {
+            fri = 1;
+        }
+        if ($("#chkSat").prop('checked')) {
+            sat = 1;
+        }
+        if ($("#chkSun").prop('checked')) {
+            sun = 1;
+        }
+        if ($("#chkMemberOnly").prop('checked')) {
+            memberOnly = 1;
+        }
+
+
+        var priority = $("#slAdvancePriority").val();
+        var numOfDay = $("#slAdvanceListMonth").val();
+
+        var memberCode = $("#advancedTxtMemberCode").val();
+
+        //if (isVoucher.toLowerCase() == "true" && (vcValidNumber == "0" || vcValidNumber == "")) {
+        //    toastr.error("Vui lòng nhập số ngày hiệu lực voucher/coupon");
+        //    return;
+        //}
+
+        var fromData = new FormData();
+        fromData.append('No', maCTKM);
+        fromData.append('OfferType', '@offerType');
+        fromData.append('VoucherFromDateStr', vcFromDate);
+        fromData.append('VoucherToDateStr', vcToDate);
+        fromData.append('VoucherValidDay', vcValidNumber);
+        fromData.append('LimitQty', soLanApDung);
+        fromData.append('FromTime', fromTime);
+        fromData.append('ToTime', toTime);
+        fromData.append('Mon', mon);
+        fromData.append('Tue', tue);
+        fromData.append('Wed', wed);
+        fromData.append('Thu', thu);
+        fromData.append('Fri', fri);
+        fromData.append('Sat', sat);
+        fromData.append('Sun', sun);
+        fromData.append('VoucherLimitNumber', soLanPhatHanhVC);
+        fromData.append('MemberOnly', memberOnly);
+        fromData.append('PriorityBBY', priority);
+        fromData.append('NumOfDays', numOfDay);
+        fromData.append('isTotalBill', '@isTotalBill');
+        fromData.append('IsVoucherHeader', isVoucher);
+        fromData.append('MemberCode', memberCode);
+
+        var url = "SetupPromotion/InsertUpdateAdvance";
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: fromData,
+            contentType: "application/json",
+            dataType: "json",
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                debugger
+                if (result.Status == 200) {
+                    GetOfferHeader(maCTKM);
+                    toastr.success("Setup thành công");
+                    $("#modalAdvanced").modal('hide');
+                    $("#offHeader-tab").trigger("click");
+                }
+                else {
+                    toastr.error(result.Message);
+                }
+
+                loading.hideloading();
+            },
+            error: function () {
+                loading.hideloading();
+            }
+        });
+    }
+</script>

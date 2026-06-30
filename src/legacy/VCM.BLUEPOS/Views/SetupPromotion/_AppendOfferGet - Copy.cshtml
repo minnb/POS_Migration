@@ -1,0 +1,188 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var comboLineType = ComboboxModel.ComboLineType();
+    var comboScaleType = ComboboxModel.ComboScaleType();
+    var comboDiscountType = ComboboxModel.ComboDiscountType();
+    var modelGet = Model.GetOfferGet as OfferGetModel;
+    var model = Model as AppendOfferGetModel;
+    var offerNo = model.OfferNo;
+
+    var conditonGet = model.ConditonGet;
+    var offerType = model.OfferType;
+    var isTotalBill = model.IsTottalBill;
+    var isSetupGet = model.IsSetupGet;
+    var totalBill = model.TotalBill;
+
+    var lineNo = modelGet.LineNo;
+    var lineGroup = modelGet.LineGroup;
+    var lineType = modelGet.LineType;
+    var groupCode = modelGet.BonusBuyNo;
+    var tagTr = $"trGet_{offerNo}_{lineNo}";
+
+    var clssItem = $"itemGet_{offerNo}_{lineNo}";
+    var clssHiddenItem = $"itemHiddenGet_{offerNo}_{lineNo}";
+    var clssDesc = $"descGet_{offerNo}_{lineNo}";
+    var clssUOM = $"uomGet_{offerNo}_{lineNo}";
+    var clssLineType = $"selectLineTypeGet_{offerNo}_{lineNo}";
+    var clssDiscountType = $"selectDiscountTypeGet_{offerNo}_{lineNo}";
+    var clssDiscountValue = $"txtDiscountValueGet_{offerNo}_{lineNo}";
+    var clssScaleType = $"selectScaleTypeGet_{offerNo}_{lineNo}";
+    var clssQuantity = $"txtQuantityGet_{offerNo}_{lineNo}";
+    var spanHtml = $"spanActionGet_{offerNo}_{lineNo}";
+    var classHiddenLineType = $"hiddenLineTypeGet_{offerNo}_{lineNo}";
+    var placeHolder = modelGet.LineType == 1 ? "groupCode" : "itemNo";
+}
+
+<tr class="text-center" id="@tagTr">
+    <td style="width:100px;vertical-align:middle">
+        <input type="hidden" class="form-control @classHiddenLineType" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" value="@lineType" />
+        <select class="form-control eventGetGrid select2 @clssLineType"
+                data-offerno="@offerNo"
+                data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode">
+            @foreach (var loai in comboLineType)
+            {
+                <option value="@loai.value">@loai.Display</option>
+            }
+        </select>
+    </td>
+    <td style="min-width:150px;vertical-align:middle">
+        <input type="hidden" class="form-control @clssHiddenItem" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" value="" />
+        <div class="input-group">
+            <input type="text" class="form-control @clssItem eventItemGetKeyPress" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" placeholder="@placeHolder" name="No" value="" />
+            <div class="input-group-append eventGetPopup" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode"><span class="input-group-text"><i class="flaticon2-search-1 icon-md"></i></span></div>
+        </div>
+    </td>
+    <td style="vertical-align:middle;text-align:left">
+        <span class="@clssDesc"></span>
+    </td>
+    <td style="vertical-align:middle;text-align:center"><span class="@clssUOM"></span></td>
+    <td style="vertical-align:middle">
+        <input type="text" style="width:70px" class="form-control eventGetGrid @clssQuantity money" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" value="1" />
+    </td>
+
+    <td style="width:100px;vertical-align:middle">
+        <select class="form-control select2 eventGetGrid @clssScaleType"
+                data-offerno="@offerNo"
+                data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode">
+            @foreach (var loai in comboScaleType)
+            {
+                var selected = loai.value == "C" ? "selected" : "";
+                <option value="@loai.value" @selected>@loai.Display</option>
+            }
+        </select>
+    </td>
+    <td style="width:100px;vertical-align:middle">
+        <select class="form-control select2 eventGetGrid @clssDiscountType"
+                data-offerno="@offerNo"
+                data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode">
+            @foreach (var loai in comboDiscountType)
+            {
+                <option value="@loai.value">@loai.Display</option>
+            }
+        </select>
+    </td>
+    <td style="vertical-align:middle;text-align:center">
+        <input type="text" style="width:100px" class="form-control money eventGetGrid money @clssDiscountValue" data-offerno="@offerNo" data-lineno="@lineNo" data-linetype="@lineType" data-groupcode="@groupCode" value="0" />
+    </td>
+    @*<td style="vertical-align:middle;text-align:center">@lineGroup</td>*@
+    <td style="vertical-align:middle;text-align:center">
+        <span class="@spanHtml">
+            <a onclick="DeleteOfferGet('@offerNo',@lineNo,'','false','true',@lineType,'@groupCode')" title="Xóa" class="btn btn-icon btn-light-danger eventDelOfferBuy"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+        </span>
+    </td>
+</tr>
+
+<script type="text/javascript">
+    var condition = '@conditonGet';
+    var offerType = '@offerType';
+    var isTotalBill = '@isTotalBill';
+    var isSetupGet = '@isSetupGet';
+    var groupCode = '@groupCode';
+    var totalBill = '@totalBill';
+
+    $(document).ready(function () {
+        $(".select2").select2();
+        $('.money').mask('000,000,000', {
+            placeholder: "0",
+            reverse: true,
+            rightAlign: true
+        });
+
+        $('.eventItemGetKeyPress').keydown(function (e) {
+            var code = e.keyCode || e.which;
+            debugger
+            if (code === 9 || code == 13) {//Tab or Enter
+                //e.preventDefault();
+                var offerNo = $(this).attr("data-offerno");
+                var lineNo = $(this).attr("data-lineno");
+                var itemNo = $(this).val();
+                GetItemTabGet(offerNo, lineNo, itemNo, offerType, condition, groupCode, isTotalBill, isSetupGet, totalBill);
+            }
+        });
+
+        $(".eventGetGrid").on("change", function () {
+            var offerNo = $(this).attr("data-offerno");
+            var lineNo = $(this).attr("data-lineno");
+            ParamOfferGet(offerNo, offerType, condition, lineNo, groupCode, isTotalBill, isSetupGet, totalBill);
+
+        });
+
+        $(".eventGetPopup").on("click", function () {
+            loading.showloading();
+            var offerNo = $(this).attr("data-offerno");
+            var lineNo = $(this).attr("data-lineno");
+            var lineType = $(this).attr("data-linetype");//0:Item,1:Group
+            if (lineType == 1) {
+                $.ajax({
+                    type: "GET",
+                    url: "/SetupPromotion/_ViewSetupGroupItemGet?groupCode=" + groupCode + "&offerNo=" + offerNo + "&offerType=" + offerType + "&condition=" + condition + "&lineNo=" + lineNo + "&tabOffer=OfferGet&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "&totalBill=" + totalBill + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        loading.hideloading();
+                        $("#divPopupListItemGet").html(result);
+
+                        $('#modalListItemSetupGet').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    },
+                    error: function (event) {
+
+                    }
+                });
+
+                loading.hideloading();
+            }
+            else {
+                $.ajax({
+                    type: "GET",
+                    url: "/SetupPromotion/_ViewListItemGetSetup?offerNo=" + offerNo + "&offerType=" + offerType + "&conditionGet=" + condition + "&lineNo=" + lineNo + "&tabOffer=OfferGet&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "&totalBill=" + totalBill + "",
+                    //url: "/SetupPromotion/_ViewListItemGetSetup?offerNo=" + offerNo + "&offerType=" + offerType + "&conditionGet=" + condition + "&lineNo=" + lineNo + "&tabOffer=OfferGet&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupListItemGet").html(result);
+
+                        $('#modalListItemSetupGet').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            }
+
+
+        });
+
+    });
+</script>
+
+
+

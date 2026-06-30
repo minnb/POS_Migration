@@ -1,0 +1,1075 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion;
+
+@{
+    ViewBag.Title = "Cài đặt chương trình khuyến mãi";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var model = Model as SetupMainModel;
+    var listOfferType = model.ListOfferType;
+    var listSalesType = model.ListSalesType;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Khuyến mãi</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Setup chương trình</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card card-custom">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12 mb-1">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Mã CTKM</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <label class="checkbox checkbox-inline" title="Kiểm tra CTKM">
+                                                        <input type="checkbox" id="chkPromotion" />
+                                                        <span></span>
+                                                    </label>
+                                                </span>
+                                            </div>
+                                            <input type="text" id="txtMaCTKM" class="form-control" readonly />
+                                            <div class="input-group-prepend btnSearchOffer" style="cursor:pointer">
+                                                <span class="input-group-text">
+                                                    <i class="fa fa-search"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Hình thức bán hàng<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slSalesType" name="SalesType">
+                                                <option value="ALL" selected="selected">ALL</option>
+                                                @if (listSalesType != null && listSalesType.Count > 0)
+                                                {
+                                                    foreach (var item in listSalesType)
+                                                    {
+                                                        <option value="@item.Code">@item.Description</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-7 col-md-7 col-sm-7 col-xs-12 mb-1" style="vertical-align:middle">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Tên CTKM<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtDescription" class="form-control" />
+                                            <div class="input-group-append">
+                                                <button class="btn btn-primary" type="button" id="btnAdvanced"><i class="flaticon2-gear"></i>Advanced</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row align-items-center">
+                                <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Trạng thái</label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slStatus" name="Status">
+                                                <option value="0">Activated</option>
+                                                <option value="1" selected>Planned</option>
+                                                <option value="2">Deactivated</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12" style="vertical-align:middle">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Loại CTKM<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group">
+                                            <select class="form-control select2" style="width:100%;" id="slOfferType" name="OfferType">
+                                                @if (listOfferType != null && listOfferType.Count > 0)
+                                                {
+                                                    <option value="">Chọn loại CTKM</option>
+                                                    foreach (var item in listOfferType)
+                                                    {
+                                                        var displaySelect = $"{item.OfferType1} : {item.OfferName}";
+                                                        <option value="@item.OfferType1" data-totalbill="@item.IsTotalBill" data-setupbuy="@item.IsSetupBuy" data-setupget="@item.IsSetupGet" data-voucher="@item.IsVoucher" data-setGift="@item.IsGift" data-userguide="@item.UserGuide" title="@item.Description">@displaySelect</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-2 col-sm-3 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="d-block">&nbsp;</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <label class="checkbox checkbox-inline" title="voucher">
+                                                        <input type="checkbox" id="chkVoucher" class="chkVoucher" />
+                                                        <span></span>
+                                                    </label>
+                                                </span>
+                                            </div>
+                                            <div class="input-group-append"><span class="input-group-text">Voucher/Coupon</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-2 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Từ ngày<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control" id="fromDate" name="FromDate">
+                                        </div>
+
+                                    </div>
+                                </div>
+                                <div class="col-lg-2 col-md-2 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Đến ngày<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control" id="toDate" name="ToDate">
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="row" style="margin-bottom:10px;margin-left:5px;">
+                                <span class="nav-text font-weight-bold" id="userguide"></span>
+                            </div>
+                            <div class="row" style="margin-bottom:5px;">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 d-flex justify-content-end" style="gap:8px;">
+                                    <button type="button" class="btn btn-success font-weight-bold" id="btnSaveSetup"><i class="la la-save"></i> Lưu tạm</button>
+                                    <div id="displayBtnFinish" style="display:none;">
+                                        <button type="button" class="btn btn-primary font-weight-bold" id="btnFinishSetup"><i class="la la-check"></i><span class="titleAppove"> Duyệt CTKM </span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;"></div>
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                    <div class="example-preview">
+                                        <ul class="nav nav-tabs" id="myTab" role="tablist">
+                                            <li class="nav-item">
+                                                <a class="nav-link classTab active" id="offHeader-tab" data-toggle="tab" href="#offHeader">
+                                                    <span class="nav-icon">
+                                                        <i class="flaticon-information"></i>
+                                                    </span>
+                                                    <span class="nav-text font-weight-bold">
+                                                        Thông tin chung
+                                                    </span>
+                                                </a>
+                                            </li>
+
+                                            <li class="nav-item">
+                                                <a class="nav-link classTab" id="offBuy-tab" data-toggle="tab" href="#offBuy" aria-controls="profile">
+                                                    <span class="nav-icon">
+                                                        <i class="flaticon2-shopping-cart"></i>
+                                                    </span>
+                                                    <span class="nav-text font-weight-bold">Sản phẩm mua</span>
+                                                </a>
+                                            </li>
+
+                                            <li class="nav-item">
+                                                <a class="nav-link classTab" id="offGet-tab" data-toggle="tab" href="#offGet" aria-controls="contact">
+                                                    <span class="nav-icon">
+                                                        <i class="flaticon-gift"></i>
+                                                    </span>
+                                                    <span class="nav-text font-weight-bold">Sản phẩm khuyến mãi</span>
+                                                </a>
+                                            </li>
+
+                                            <li class="nav-item">
+                                                <a class="nav-link classTab" id="offSite-tab" data-toggle="tab" href="#offSite" aria-controls="contact">
+                                                    <span class="nav-icon">
+                                                        <i class="flaticon-cogwheel-1"></i>
+                                                    </span>
+                                                    <span class="nav-text font-weight-bold">Danh sách cửa hàng</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+
+                                        <div class="tab-content mt-5" id="myTabContent">
+                                            <div class="tab-pane fade classActiveShow show active" id="offHeader" role="tabpanel" aria-labelledby="offHeader-tab">
+                                                <div id="loadDataOfferHeader"></div>
+                                            </div>
+                                            <div class="tab-pane fade classActiveShow" id="offBuy" role="tabpanel" aria-labelledby="offBuy-tab">
+                                                <div id="loadDataOfferBuy"></div>
+                                            </div>
+                                            <div class="tab-pane fade classActiveShow" id="offGet" role="tabpanel" aria-labelledby="offGet-tab">
+                                                <div id="loadDataOfferGet"></div>
+                                            </div>
+                                            <div class="tab-pane fade classActiveShow" id="offSite" role="tabpanel" aria-labelledby="offSite-tab">
+                                                <div id="loadDataOfferSite"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAdvanced" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupSetupAdvance"></div>
+</div>
+
+<div class="modal fade" id="modalListItemSetup" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupListItem"></div>
+</div>
+
+
+<div class="modal fade" id="modalListOfferHeader" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DANH SÁCH CTKM</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListOfferHeader">
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Thoát</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="display:none">
+    <input type="hidden" value="" id="hdBuyLinkCat" />
+    <input type="hidden" value="" id="hdGetLinkCat" />
+    <input type="hidden" value="" id="hdCheckMinValue" />
+    <input type="hidden" value="" id="hdTotalMinValue" />
+
+    <input type="hidden" value="false" id="hdIsApprove" />
+</div>
+
+@section Scripts
+{
+    <script type="text/javascript">
+        
+        $(document).ready(function () {
+            $(".select2").select2();
+
+            $('#slOfferType').on('change', function () {
+                var userGuide = $(this).find('option:selected').data('userguide');
+                $("#userguide").html(userGuide);
+                var dataVoucher = $(this).find('option:selected').data('voucher');
+                var isVoucher = dataVoucher === "True" || dataVoucher === "true" || dataVoucher == "1";
+
+                $('#chkVoucher').prop('checked', isVoucher);
+                // Chỉ disable khi OfferType bắt buộc Voucher; nếu không thì cho user tự chọn
+                $('#chkVoucher').prop('disabled', isVoucher);
+            });
+            
+           
+            $('#fromDate').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false, 
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            }).on('changeDate', function (e) {
+                $(this).val(e.format('dd/mm/yyyy'));
+                $(this).datepicker('hide');
+            });
+
+            $('#toDate').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            }).on('changeDate', function (e) {
+                $(this).val(e.format('dd/mm/yyyy'));
+                $(this).datepicker('hide');
+            });
+            $('#fromDate').datepicker("setDate", moment().format("DD/MM/YYYY"));
+            $('#toDate').datepicker("setDate", moment().format("DD/MM/YYYY"));
+            //hien thi default
+            var bonusBuy = $("#txtMaCTKM").val();
+            GetOfferHeader(bonusBuy);
+            
+           
+            $(".btnSearchOffer").on("click", function () {
+                $.ajax({
+                    type: "GET",
+                    url: "/SetupPromotion/_ViewListOfferHeader",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupListOfferHeader").html(result);
+                        $('#modalListOfferHeader').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            });
+
+            $("#offBuy-tab").on("click", function (e) {
+              //  debugger;
+                // 1. Kiểm tra nếu đã có dữ liệu rồi thì không gọi server
+                /*
+                var LineCount = $("#tableOfferBuy tbody tr._rowBuy").length;
+
+                if (LineCount > 0) {
+                    // Nếu cần, hãy đảm bảo tab được active ở đây (tùy thuộc template bạn dùng)
+                    // console.log("Data exists, skip request.");
+                    return;
+                }*/
+                if ($("#loadDataOfferBuy").text().trim() !== "") {
+                    return; // Đã có nội dung chữ hoặc dòng, không load lại
+                }
+
+                // 2. Lấy các thông tin cần thiết
+                var $selectedOffer = $('#slOfferType').find(':selected');
+                var offerType = $("#slOfferType").val();
+
+                if (!offerType) {
+                    toastr.error("Vui lòng chọn loại CTKM");
+                    //$("#slOfferType").focus();
+
+                    // Ngăn không cho chuyển tab nếu chưa chọn loại CTKM (tùy chọn)
+                    if (e) e.preventDefault();
+                    return;
+                }
+
+                // 3. Thực hiện gọi dữ liệu
+                loading.showloading();
+
+                var isSetupBuy = $selectedOffer.data('setupbuy');
+                var isTotalBill = $selectedOffer.data('totalbill');
+                var isSetupGet = $selectedOffer.data('setupget');
+                var maCTKM = $("#txtMaCTKM").val();
+                var buyLinkCat = $("#hdBuyLinkCat").val();
+                var checkMinValue = $("#hdCheckMinValue").val();
+                var totalMinValue = $("#hdTotalMinValue").val();
+
+                // Gọi hàm AJAX
+                GetOfferBuy(maCTKM, isSetupBuy, offerType, isTotalBill, isSetupGet, buyLinkCat, checkMinValue, totalMinValue);
+
+                loading.hideloading();
+                // LƯU Ý: loading.hideloading() nên được gọi bên trong hàm GetOfferBuy 
+                // sau khi AJAX thành công/thất bại.
+            });
+
+            $("#offGet-tab").on("click", function () {
+
+                if ($("#loadDataOfferGet").text().trim() !== "") {
+                    return; // Đã có nội dung chữ hoặc dòng, không load lại
+                }
+                // if ($("#chkPromotion").prop('checked')) {
+                var maCTKM = $("#txtMaCTKM").val();
+                var isTotalBill = $('#slOfferType').find(':selected').data('totalbill');
+                var isSetupGet = $("#slOfferType").find(':selected').data('setupget');
+                var offerType = $("#slOfferType").val();
+                /*
+                if (maCTKM != "") {
+                    GetOfferGet(maCTKM, offerType, isTotalBill, isSetupGet);
+                }
+                */
+                // }
+                if (offerType) {
+                    GetOfferGet(maCTKM, offerType, isTotalBill, isSetupGet);
+                } else {
+                    toastr.error("Vui lòng chọn loại CTKM");
+                    $("#slOfferType").focus();
+                }
+
+            });
+            $("#offSite-tab").on("click", function () {
+                
+                if ($("#loadDataOfferSite").text().trim() !== "") {
+                    return; // Đã có nội dung chữ hoặc dòng, không load lại
+                }
+                
+                // if ($("#chkPromotion").prop('checked')) {
+                var maCTKM = $("#txtMaCTKM").val();
+                // if (maCTKM != "") {
+
+                GetOfferSite(maCTKM);
+                // }
+                // }
+            });
+
+            // Load dữ liệu tab Thông tin chung khi click
+            $("#offHeader-tab").on("click", function () {
+                var maCTKM = $("#txtMaCTKM").val();
+                if (maCTKM === "") {
+                    var headerRaw = sessionStorage.getItem("OfferHeader");
+                    if (!headerRaw) return;
+
+                    var header = JSON.parse(headerRaw);
+                    var adv = {};
+                    var advRaw = sessionStorage.getItem("OfferAdvance");
+                    if (advRaw) adv = JSON.parse(advRaw);
+
+                    function _dayCell(id, val) {
+                        var chk = (val == 1 || val === true) ? 'checked="checked"' : '';
+                        return '<td class="text-center" style="vertical-align:middle;width:70px;">'
+                            + '<div class="icheck-warning d-inline" style="margin-bottom:0 !important">'
+                            + '<label class="checkbox checkbox-lg">'
+                            + '<input type="checkbox" id="' + id + '" ' + chk + ' /><span></span>'
+                            + '</label></div></td>';
+                    }
+
+                    var html = '<div class="row"><div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-xs-12">'
+                        + '<div class="alert alert-info mb-2" style="margin-bottom:8px!important">'
+                        + '<i class="fa fa-info-circle"></i> <strong>Dữ liệu chưa lưu xuống CSDL</strong> - Bấm <strong>Lưu tạm</strong> để lưu.'
+                        + '</div>'
+                        + '<table class="table table-bordered text-nowrap"><thead><tr>'
+                        + '<th class="text-center">Mã CTKM</th>'
+                        + '<th class="text-center">Tên CTKM</th>'
+                        + '<th class="text-center">Loại CTKM</th>'
+                        + '<th class="text-center">Trạng thái</th>'
+                        + '<th class="text-center">Từ giờ</th>'
+                        + '<th class="text-center">Đến giờ</th>'
+                        + '<th class="text-center">Mon</th><th class="text-center">Tue</th>'
+                        + '<th class="text-center">Wed</th><th class="text-center">Thu</th>'
+                        + '<th class="text-center">Fri</th><th class="text-center">Sat</th>'
+                        + '<th class="text-center">Sun</th>'
+                        + '</tr></thead><tbody><tr>'
+                        + '<td class="text-center" style="vertical-align:middle;width:150px;font-style:italic;color:#999;">(chưa có)</td>'
+                        + '<td style="vertical-align:middle;">' + (header.Description || '') + '</td>'
+                        + '<td class="text-center" style="vertical-align:middle;">' + (header.OfferType || '') + '</td>'
+                        + '<td class="text-center" style="vertical-align:middle;width:100px;">'
+                        + '<span class="badge" style="color:#fff;background-color:#007bff;">Planned</span></td>'
+                        + '<td class="text-center" style="vertical-align:middle;width:100px;">'
+                        + '<input class="form-control form-control-lg time-input" type="text" id="TxtFromHour" placeholder="hh:mm" maxlength="5" style="vertical-align:middle;width:100px;" value="' + (adv.FromTime || header.FromTime || '') + '" />'
+                        + '</td>'
+                        + '<td class="text-center" style="vertical-align:middle;width:100px;">'
+                        + '<input class="form-control form-control-lg time-input" type="text" id="TxtToHour" placeholder="hh:mm" maxlength="5" style="vertical-align:middle;width:100px;" value="' + (adv.ToTime || header.ToTime || '') + '" />'
+                        + '</td>'
+                        + _dayCell('chkHdrMon', adv.Mon || header.Mon) + _dayCell('chkHdrTue', adv.Tue || header.Tue) + _dayCell('chkHdrWed', adv.Wed || header.Wed)
+                        + _dayCell('chkHdrThu', adv.Thu || header.Thu) + _dayCell('chkHdrFri', adv.Fri || header.Fri)
+                        + _dayCell('chkHdrSat', adv.Sat || header.Sat) + _dayCell('chkHdrSun', adv.Sun || header.Sun)
+                        + '</tr></tbody></table></div></div>';
+
+                    $("#loadDataOfferHeader").html(html).attr("data-loaded-ma", "");
+                    return;
+                }
+                // Có mã: chỉ load khi tab chưa hiển thị đúng mã này
+                if ($("#loadDataOfferHeader").attr("data-loaded-ma") !== maCTKM) {
+                    GetOfferHeader(maCTKM);
+                }
+            });
+
+            $("#btnSaveSetup").on("click", function () {
+                var bb = $("#txtMaCTKM").val();
+                var isTotalBill = $('#slOfferType').find(':selected').data('totalbill');
+                var isSetupBuy = $("#slOfferType").find(':selected').data('setupbuy');
+                var isSetupGet = $("#slOfferType").find(':selected').data('setupget');
+                var tenCTKM = $("#txtDescription").val().trim();
+                var startDate = $('#fromDate').val();
+                var endDate = $('#toDate').val();
+                var salesType = $("#slSalesType").val();
+                var isVoucher = $("#chkVoucher").prop('checked');
+                var status = $("#slStatus").val();
+                var offerType = $("#slOfferType").val();
+
+                if (offerType == "") {
+                    toastr.error("Vui lòng chọn loại CTKM");
+                    return;
+                }
+
+                if (tenCTKM == "") {
+                    toastr.error("Vui lòng nhập tên chương trình khuyến mãi");
+                    return;
+                }
+
+                if (startDate == "") {
+                    toastr.error("Vui lòng nhập ngày bắt đầu CTKM");
+                    return;
+                }
+                if (endDate == "") {
+                    toastr.error("Vui lòng nhập ngày kết thúc CTKM");
+                    return;
+                }
+
+                // Kiểm tra ngày bắt đầu <= ngày kết thúc
+                var _start = moment(startDate, 'DD/MM/YYYY');
+                var _end   = moment(endDate,   'DD/MM/YYYY');
+                if (_end.diff(_start, 'days') < 0) {
+                    toastr.error("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu");
+                    return;
+                }
+
+                var isApprove = $("#hdIsApprove").val();
+                SaveSetupCTKM(bb, salesType, offerType, isTotalBill, isSetupBuy, isSetupGet, isVoucher, tenCTKM, startDate, endDate, status, isVoucher, isApprove);
+            });
+
+            $("#btnAdvanced").on("click", function () {
+
+                if ($("#chkPromotion").prop('checked')) {
+                    var maCTKM = $("#txtMaCTKM").val();
+                    if (maCTKM == "") {
+                        toastr.error("Vui lòng nhập mã CTKM");
+                        $("#txtMaCTKM").focus();
+                        return;
+                    }
+
+                    var isVoucherHeader = false;
+                    if ($("#chkVoucher").prop('checked')) {
+                        isVoucherHeader = true;
+                    }
+
+                    var isTotalBill = $('#slOfferType').find(':selected').data('totalbill');
+                    var isSetupBuy = $("#slOfferType").find(':selected').data('setupbuy');
+                    var isSetupGet = $("#slOfferType").find(':selected').data('setupget');
+                    PopupModalAdvance(maCTKM, isTotalBill, isSetupBuy, isSetupGet, isVoucherHeader);
+                    $("#displayBtnFinish").css("display", "block");
+
+                }
+                else {
+                    var bb = $("#txtMaCTKM").val();
+                    var offerType = $("#slOfferType").val();
+
+                    if (offerType == "") {
+                        toastr.error("Vui lòng chọn loại CTKM");
+                        return;
+                    }
+
+                    var isTotalBill = $('#slOfferType').find(':selected').data('totalbill');
+                    var isSetupBuy = $("#slOfferType").find(':selected').data('setupbuy');
+                    var isSetupGet = $("#slOfferType").find(':selected').data('setupget');
+                    var tenCTKM = $("#txtDescription").val();
+                    var startDate = $('#fromDate').val();
+
+                    if (tenCTKM == "") {
+                        toastr.error("Vui lòng nhập tên chương trình khuyến mãi");
+                        return;
+                    }
+                    var endDate = $('#toDate').val();
+
+                    var salesType = $("#slSalesType").val();
+
+                    var isVoucherHeader = false;
+                    if ($("#chkVoucher").prop('checked')) {
+                        isVoucherHeader = true;
+                    }
+
+                    if (startDate == "") {
+                        toastr.error("Vui lòng nhập ngày bắt đầu CTKM");
+                        return;
+                    }
+                    if (endDate == "") {
+                        toastr.error("Vui lòng nhập ngày kết thúc CTKM");
+                        return;
+                    }
+
+                    ModalSetupAdvance(bb, salesType, offerType, isTotalBill, isSetupBuy, isSetupGet, isVoucherHeader, tenCTKM, startDate, endDate, isVoucherHeader);
+                    $("#displayBtnFinish").css("display", "block");
+                }
+            });
+
+            $('#txtMaCTKM').keydown(function (e) {
+                var key = e.keyCode || e.which;
+                if ((key == 13 || key == 9) && $(this).val() != "") {
+                    e.preventDefault();
+                    GetOfferHeader($(this).val());
+                    $("#txtMaCTKM").blur();
+                    $(".classTab").removeClass("active");
+                    $(".classActiveShow").removeClass("active");
+                    $("#offHeader-tab").addClass("active");
+                    $("#offHeader").addClass("show active");
+                    $("#slOfferType").prop("disabled", true);
+                    $("#displayBtnFinish").css("display", "block");
+                }
+            });
+
+            $("#chkPromotion").on("change", function () {
+                if ($(this).prop('checked')) {
+                    $('#txtMaCTKM').prop('readonly', false);
+                }
+                else {
+                    $('#txtMaCTKM').prop('readonly', true);
+                    $("#slOfferType").prop("disabled", false);
+                    $("#chkVoucher").prop('checked', false);
+                    $("#displayBtnFinish").css("display", "none");
+                    ClearOfferHeader();
+                    GetOfferHeader($('#txtMaCTKM').val());
+                }
+            });
+
+            $("#btnFinishSetup").on("click", function () {
+                //debugger
+                var maCTKM = $("#txtMaCTKM").val();
+                var status = $("#slStatus").val();
+                if (maCTKM == "") {
+                    toastr.error("Vui lòng nhập mã chương trình khuyến mãi");
+                }
+                else if (status == "1")
+                {
+                    toastr.error("Trạng thái Planned không DUYỆT được CTKM, vui lòng chọn trạng thái khác");
+                }
+                else {
+
+                    var tenCTKM = $("#txtDescription").val();
+                    var startDate = $('#fromDate').val();
+                    var endDate = $('#toDate').val();
+
+                    var salesType = $("#slSalesType").val();
+
+                    var isVoucherHeader = false;
+                    if ($("#chkVoucher").prop('checked')) {
+                        isVoucherHeader = true;
+                    }
+                    var isApprove = $("#hdIsApprove").val();
+                    loading.showloading();
+                    var fromData = new FormData();
+                    fromData.append('offerNo', maCTKM);
+                    fromData.append('status', status);
+                    fromData.append('salesType', salesType);
+                    fromData.append('offerName', tenCTKM);
+                    fromData.append('tuNgay', startDate);
+                    fromData.append('denNgay', endDate);
+                    fromData.append('isVoucher', isVoucherHeader);
+                    fromData.append('isApprove', isApprove);
+
+                    $.ajax({
+                        type: "POST",
+                        url: '@Url.Action("FinishSetupPromotion", "SetupPromotion")',
+                        data: fromData,
+                        contentType: "application/json",
+                        dataType: "json",
+                        contentType: false,
+                        processData: false,
+                        success: function (result) {
+                            //debugger
+                            if (result.Status == 200) {
+                                toastr.success(result.Message);
+                                GetOfferHeader(maCTKM);
+                                $("#offHeader-tab").trigger("click");
+                                if (isApprove == "true") {
+                                    $(".titleAppove").html("Bỏ duyệt CTKM");
+                                    $("#hdIsApprove").val('false');
+                                }
+                                else {
+                                    $(".titleAppove").html("Duyệt CTKM");
+                                    $("#hdIsApprove").val('true');
+                                }
+                            }
+                            else {
+                                toastr.error(result.Message);
+                            }
+                            loading.hideloading();
+                        },
+                        error: function () {
+                            loading.hideloading();
+                        }
+                    });
+                }
+            });
+
+            // Sync Từ giờ / Đến giờ / các ngày trong tuần từ DOM → sessionStorage["OfferAdvance"] real-time
+            $(document).on('blur', '#TxtFromHour, #TxtToHour', function () {
+                var adv = {};
+                var raw = sessionStorage.getItem('OfferAdvance');
+                if (raw) adv = JSON.parse(raw);
+                adv.FromTime = $('#TxtFromHour').val() || '';
+                adv.ToTime   = $('#TxtToHour').val()   || '';
+                sessionStorage.setItem('OfferAdvance', JSON.stringify(adv));
+            });
+
+            $(document).on('change', '#chkHdrMon, #chkHdrTue, #chkHdrWed, #chkHdrThu, #chkHdrFri, #chkHdrSat, #chkHdrSun', function () {
+                var adv = {};
+                var raw = sessionStorage.getItem('OfferAdvance');
+                if (raw) adv = JSON.parse(raw);
+                adv.Mon = $('#chkHdrMon').prop('checked') ? 1 : 0;
+                adv.Tue = $('#chkHdrTue').prop('checked') ? 1 : 0;
+                adv.Wed = $('#chkHdrWed').prop('checked') ? 1 : 0;
+                adv.Thu = $('#chkHdrThu').prop('checked') ? 1 : 0;
+                adv.Fri = $('#chkHdrFri').prop('checked') ? 1 : 0;
+                adv.Sat = $('#chkHdrSat').prop('checked') ? 1 : 0;
+                adv.Sun = $('#chkHdrSun').prop('checked') ? 1 : 0;
+                sessionStorage.setItem('OfferAdvance', JSON.stringify(adv));
+            });
+        });
+
+        function ClearTable() {
+            $("#loadDataOfferHeader").html('');
+            $("#loadDataOfferBuy").html('');
+            $("#loadDataOfferGet").html('');
+            $("#loadDataOfferSite").html('');
+        }
+
+        function ClearOfferHeader() {
+            $('#txtMaCTKM').val('');
+            $('#txtDescription').val('');
+            $("#slOfferType").select2('val', ['']);
+            $("#slStatus").select2('val', ['1']);
+            $("#chkVoucher").prop('checked', false);
+            ClearTable();
+            $('#fromDate').datepicker("setDate", moment().format("DD/MM/YYYY"));
+            $('#toDate').datepicker("setDate", moment().format("DD/MM/YYYY"));
+        }
+
+        function SaveSetupCTKM(bonusBuy, salesType, offerType, isTotalBill, isSetupBuy, isSetupGet, isVoucher, tenCTKM, startingDate, endingDate, status, isVoucherHeader, isApprove) {
+            loading.showloading();
+
+            var payload = {
+                BonusBuy: bonusBuy,
+                SalesType: salesType,
+                OfferType: offerType,
+                isTotalBill: isTotalBill,
+                isSetupBuy: isSetupBuy,
+                isSetupGet: isSetupGet,
+                isVoucher: isVoucher,
+                Description: tenCTKM,
+                StartingDate: startingDate,
+                EndingDate: endingDate,
+                Status: status,
+                isVoucherHeader: isVoucherHeader,
+                isApprove: isApprove,
+                ConditionBuy: $('#slDKApDungBuy').length > 0 ? $('#slDKApDungBuy').val() : 'AND',
+                ConditionGet: $('#slDKApDungGet').length > 0 ? $('#slDKApDungGet').val() : 'AND',
+                BuyRows: _collectBuyRows(),
+                GetRows: _collectGetRows(),
+                SiteRows: _collectSiteRows()
+            };
+
+            // Advanced settings từ sessionStorage nếu có
+            var advanceRaw = sessionStorage.getItem('OfferAdvance');
+            if (advanceRaw) {
+                var adv = JSON.parse(advanceRaw);
+                payload.HasAdvanceData = true;
+                payload.LimitQty = adv.LimitQty || 0;
+                payload.FromTime = adv.FromTime || '';
+                payload.ToTime = adv.ToTime || '';
+                payload.Mon = adv.Mon || 0;
+                payload.Tue = adv.Tue || 0;
+                payload.Wed = adv.Wed || 0;
+                payload.Thu = adv.Thu || 0;
+                payload.Fri = adv.Fri || 0;
+                payload.Sat = adv.Sat || 0;
+                payload.Sun = adv.Sun || 0;
+                payload.MemberOnly = adv.MemberOnly || 0;
+                payload.PriorityBBY = adv.PriorityBBY || 1;
+                payload.VoucherFromDateStr = adv.VoucherFromDateStr || '';
+                payload.VoucherToDateStr = adv.VoucherToDateStr || '';
+                payload.VoucherValidDay = adv.VoucherValidDay || 0;
+                payload.VoucherLimitNumber = adv.VoucherLimitNumber || 0;
+                payload.MemberCode = adv.MemberCode || '';
+                payload.NumOfDays = adv.NumOfDays || 0;
+                payload.AllowUseAfterDay = adv.AllowUseAfterDay || 0;
+                payload.AllowUseAfterTime = adv.AllowUseAfterTime || '';
+            }
+
+            // Đọc Từ giờ / Đến giờ / các ngày trong tuần trực tiếp từ bảng Thông tin chung
+            // (ưu tiên hơn sessionStorage vì user có thể chỉnh trực tiếp trên bảng)
+            if ($('#TxtFromHour').length) {
+                payload.HasAdvanceData = true;
+                payload.FromTime = $('#TxtFromHour').val() || payload.FromTime || '';
+                payload.ToTime   = $('#TxtToHour').val()   || payload.ToTime   || '';
+                payload.Mon = $('#chkHdrMon').prop('checked') ? 1 : (payload.Mon || 0);
+                payload.Tue = $('#chkHdrTue').prop('checked') ? 1 : (payload.Tue || 0);
+                payload.Wed = $('#chkHdrWed').prop('checked') ? 1 : (payload.Wed || 0);
+                payload.Thu = $('#chkHdrThu').prop('checked') ? 1 : (payload.Thu || 0);
+                payload.Fri = $('#chkHdrFri').prop('checked') ? 1 : (payload.Fri || 0);
+                payload.Sat = $('#chkHdrSat').prop('checked') ? 1 : (payload.Sat || 0);
+                payload.Sun = $('#chkHdrSun').prop('checked') ? 1 : (payload.Sun || 0);
+            }
+
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("SaveSetupCTKM", "SetupPromotion")',
+                data: JSON.stringify(payload),
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function (result) {
+                    if (result.Status == 200) {
+                        $('#displayBtnFinish').css('display', 'block');
+                        var savedOfferNo = result.Data.GetOfferHeader.No;
+                        $('#txtMaCTKM').val(savedOfferNo);
+                        $('#loadDataOfferBuy').empty();
+                        $('#loadDataOfferGet').empty();
+                        $('#loadDataOfferSite').empty();
+                        GetOfferHeader(savedOfferNo);
+                        $('#chkPromotion').prop('checked', true);
+                        $('#offHeader-tab').tab('show');
+                        sessionStorage.removeItem('OfferHeader');
+                        sessionStorage.removeItem('OfferAdvance');
+                        toastr.success(result.Message);
+                    } else {
+                        toastr.error(result.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function _collectSiteRows() {
+            var rows = [];
+            if ($('#tableOfferSite').length === 0) return rows;
+            $('#tableOfferSite tbody tr[id^="trSite_"]').each(function () {
+                var groupCode = $(this).find('input.eventChangeGroup').val() || '';
+                if (groupCode) rows.push(groupCode);
+            });
+            return rows;
+        }
+
+        function _collectBuyRows() {
+            var rows = [];
+            if ($('#tableOfferBuy').length === 0) return rows;
+            // Dòng đã có trong DB (id bắt đầu bằng "tr_")
+            $('#tableOfferBuy tbody tr[id^="tr_"]').each(function () {
+                var $first = $(this).find('.eventGrid[data-offerno]').first();
+                if (!$first.length) return;
+                var rowOfferNo = $first.data('offerno') + '';
+                var lineNo     = $first.data('lineno');
+                var lineType   = parseInt($first.data('linetypebuy') || 0);
+                var itemNo     = $('.itemHiddenBuy_' + rowOfferNo + '_' + lineNo).val() || '';
+                if (!itemNo) return;
+                var groupCode  = lineType === 1 ? ($('.itemHiddenBuy_' + rowOfferNo + '_' + lineNo).data('groupcode') || itemNo) : '';
+                var desc  = $('.descBuy_'  + rowOfferNo + '_' + lineNo).text() || '';
+                var uom   = $('.uomBuy_'   + rowOfferNo + '_' + lineNo).text() || '';
+                var qty   = parseFloat(($('.txtQuantity_' + rowOfferNo + '_' + lineNo).val() || '1').replace(/,/g, '')) || 1;
+                var scale = $('.selectScaleTypeBuy_' + rowOfferNo + '_' + lineNo).val() || 'C';
+                rows.push({ LineNo: lineNo, LineType: lineType, No: itemNo, GroupCode: groupCode, Description: desc, UnitOfMeasure: uom, Quantity: qty, ScaleType: scale });
+            });
+            // Dòng mới thêm qua AppendBuyTable (id là số nguyên, class _rowBuy)
+            $('#tableOfferBuy tbody tr._rowBuy').each(function () {
+                var rowId = $(this).attr('id') + '';
+                if (!rowId || isNaN(rowId)) return;
+                var lineNo   = $(this).data('lineno');
+                var lineType = parseInt($('.sLineTypeBuy_' + lineNo).val() || 0);
+                var itemNo   = lineType === 1 ? $('.changebarcodeBuy_' + lineNo).val() : $('.slchangeItemBuy_' + lineNo).val();
+                if (!itemNo) return;
+                var uom   = $('.slchangeUomBuy_' + lineNo).val() || '';
+                var qty   = parseFloat(($('.changeQuantity_' + lineNo).val() || '1').replace(/,/g, '')) || 1;
+                var scale = $('.ScaleTypeBuy[data-stt="' + lineNo + '"]').val() || 'C';
+                rows.push({ LineNo: lineNo, LineType: lineType, No: itemNo, GroupCode: lineType === 1 ? itemNo : '', Description: '', UnitOfMeasure: uom, Quantity: qty, ScaleType: scale });
+            });
+            return rows;
+        }
+
+        function _collectGetRows() {
+            var rows = [];
+            if ($('#tableOfferGet').length === 0) return rows;
+            // Dòng đã có trong DB (id bắt đầu bằng "trGet_")
+            $('#tableOfferGet tbody tr[id^="trGet_"]').each(function () {
+                var $first = $(this).find('.eventGetGrid[data-offerno]').first();
+                if (!$first.length) return;
+                var rowOfferNo = $first.data('offerno') + '';
+                var lineNo     = $first.data('lineno');
+                var lineType   = parseInt($first.data('linetype') || 0);
+                var itemNo     = $('.itemHiddenGet_' + rowOfferNo + '_' + lineNo).val() || '';
+                if (!itemNo) return;
+                var groupCode  = lineType === 1 ? ($('.itemHiddenGet_' + rowOfferNo + '_' + lineNo).data('groupcode') || itemNo) : '';
+                var desc      = $('.descGet_'  + rowOfferNo + '_' + lineNo).text() || '';
+                var uom       = $('.uomGet_'   + rowOfferNo + '_' + lineNo).text() || '';
+                var qty       = parseFloat(($('.txtQuantityGet_' + rowOfferNo + '_' + lineNo).val() || '1').replace(/,/g, '')) || 1;
+                var scale     = $('.selectScaleTypeGet_' + rowOfferNo + '_' + lineNo).val() || 'C';
+                var discType  = parseInt($('.selectDiscountTypeGet_' + rowOfferNo + '_' + lineNo).val() || 0);
+                var discValue = parseFloat(($('.txtDiscountValueGet_' + rowOfferNo + '_' + lineNo).val() || '0').replace(/,/g, '')) || 0;
+                rows.push({ LineNo: lineNo, LineType: lineType, No: itemNo, GroupCode: groupCode, Description: desc, UnitOfMeasure: uom, Quantity: qty, ScaleType: scale, DiscountType: discType, DiscountValue: discValue });
+            });
+            // Dòng mới thêm qua AppendGetTable (id là số nguyên, class _row)
+            $('#tableOfferGet tbody tr._row').each(function () {
+                var rowId = $(this).attr('id') + '';
+                if (!rowId || isNaN(rowId)) return;
+                var lineNo    = $(this).data('lineno');
+                var lineType  = parseInt($('.sLineType_' + lineNo).val() || 0);
+                var itemNo    = lineType === 1 ? $('.changeBarcode_' + lineNo).val() : $('.slchangeItem_' + lineNo).val();
+                if (!itemNo) return;
+                var uom       = $('.slchangeUom_' + lineNo).val() || '';
+                var qty       = parseFloat(($('.changeQuantity_' + lineNo).val() || '1').replace(/,/g, '')) || 1;
+                var scale     = $('.SChangecaleType_' + lineNo).val() || 'C';
+                var discType  = parseInt($('.sDiscountType_' + lineNo).val() || 0);
+                var discValue = parseFloat(($('.sDiscountValue_' + lineNo).val() || '0').replace(/,/g, '')) || 0;
+                rows.push({ LineNo: lineNo, LineType: lineType, No: itemNo, GroupCode: lineType === 1 ? itemNo : '', Description: '', UnitOfMeasure: uom, Quantity: qty, ScaleType: scale, DiscountType: discType, DiscountValue: discValue });
+            });
+            return rows;
+        }
+
+        function ModalSetupAdvance(bonusBuy, salesType, offerType, isTotalBill, isSetupBuy, isSetupGet, isVoucher, tenCTKM, startingDate, endingDate, isVoucherHeader) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('BonusBuy', bonusBuy);
+            fromData.append('SalesType', salesType);
+            fromData.append('OfferType', offerType);
+            fromData.append('isTotalBill', isTotalBill);
+            fromData.append('isSetupBuy', isSetupBuy);
+            fromData.append('isSetupGet', isSetupGet);
+            fromData.append('Description', tenCTKM);
+            fromData.append('StartingDate', startingDate);
+            fromData.append('EndingDate', endingDate);
+            fromData.append('Status', "1");
+            fromData.append('isVoucherHeader', isVoucherHeader);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("_SetupAdvance", "SetupPromotion")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    if (result.Status == 200) {
+                        var viewHtml = result.ViewPartial;
+
+                        // Lưu tạm thông tin header vào sessionStorage, chưa lưu xuống DB
+                        var headerDraft = {
+                            BonusBuy: bonusBuy,
+                            SalesType: salesType,
+                            OfferType: offerType,
+                            isTotalBill: isTotalBill,
+                            isSetupBuy: isSetupBuy,
+                            isSetupGet: isSetupGet,
+                            isVoucherHeader: isVoucherHeader,
+                            Description: tenCTKM,
+                            StartingDate: startingDate,
+                            EndingDate: endingDate,
+                            FromTime: $('#TxtFromHour').val() || '',
+                            ToTime:   $('#TxtToHour').val()   || '',
+                            Mon: $('#chkHdrMon').prop('checked') ? 1 : 0,
+                            Tue: $('#chkHdrTue').prop('checked') ? 1 : 0,
+                            Wed: $('#chkHdrWed').prop('checked') ? 1 : 0,
+                            Thu: $('#chkHdrThu').prop('checked') ? 1 : 0,
+                            Fri: $('#chkHdrFri').prop('checked') ? 1 : 0,
+                            Sat: $('#chkHdrSat').prop('checked') ? 1 : 0,
+                            Sun: $('#chkHdrSun').prop('checked') ? 1 : 0
+                        };
+                        sessionStorage.setItem("OfferHeader", JSON.stringify(headerDraft));
+
+                        $("#divPopupSetupAdvance").html(viewHtml);
+
+                        $('#modalAdvanced').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    }
+                    else {
+                        toastr.error(result.Message);
+                        ClearTable();
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function PopupModalAdvance(bonusBuy, isTotalBill, isSetupBuy, isSetupGet, isVoucher) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('BonusBuy', bonusBuy);
+            fromData.append('isTotalBill', isTotalBill);
+            fromData.append('isSetupBuy', isSetupBuy);
+            fromData.append('isSetupGet', isSetupGet);
+            fromData.append('isVoucher', isVoucher);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("PopupAdvance", "SetupPromotion")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    if (result.Status == 200) {
+                        var viewHtml = result.ViewPartial;
+                        $("#divPopupSetupAdvance").html(viewHtml);
+                        $('#modalAdvanced').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    }
+                    else {
+                        toastr.error(result.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function GetOfferSite(offerNo) {
+            var url = "SetupPromotion/_DetailOfferSite";
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('offerNo', offerNo);
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    if (result.Status == 200) {
+                        var viewHtml = result.ViewPartial;
+                        $("#loadDataOfferSite").html(viewHtml);
+                    }
+                    else {
+                        toastr.error(result.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+    </script>
+}

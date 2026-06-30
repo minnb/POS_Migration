@@ -1,0 +1,504 @@
+﻿@using VCM.BLUEPOS.Model.MasterData;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+    ViewBag.Title = "Danh sách User Login POS Web";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    //var model = Model as SalesType;
+    //var listSalesType = model.ListSalesType;
+    //var listTenderType = ViewBag.ListTenderType as List<OptionModel>;
+    //var listPaymentTenderType = ViewBag.ListPaymentTenderType as List<OptionModel>;
+}
+
+<style>
+    div.dataTables_wrapper div.dataTables_paginate ul.pagination {
+        white-space: nowrap;
+        -webkit-box-pack: end;
+        -ms-flex-pack: end;
+        justify-content: flex-end;
+        margin-top: -35px;
+    }
+</style>
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Master Data</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh sách User Login POS Web</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center"></div>
+    </div>
+</div>
+
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_UserLoginPOSWebList", "MasterData", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <label style="font-weight:600 !important">Kênh</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-chanel-no" name="ChanelNo">
+                                            <option value="-1" selected>Tất cả</option>
+                                            <option value="FS">FlagShip</option>
+                                            <option value="KS">Kiosk</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">ST/CH</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-store-no" name="StoreNo"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Máy POS</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width: 100%;" id="sel-pos-terminal" name="PosTerminal"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <label style="font-weight:600 !important">Loại</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-type-pos" name="TypePOS">
+                                            <option value="-1" selected>Tất cả</option>
+                                            <option value="">POS thu ngân</option>
+                                            <option value="POS_SHIPPER">POS shipper</option>
+                                            <option value="POS_CUSTOMER">POS khách hàng</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <label style="font-weight:600 !important">Từ khóa</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="txt-text-search" name="TextSearch" placeholder="Nhập mã nhân viên / tài khoản AD">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div style="padding-top:5px;">
+                            <table id="tbl-user-admin-login-pos" class="table table-bordered table-hover text-nowrap">
+                                <thead>
+                                    <tr class="text-center" style="text-transform:uppercase">
+                                        <th width="90px">#</th>
+                                        <th>Stt</th>
+                                        <th>Tài khoản</th>
+                                        <th>Mã nhân viên</th>
+                                        <th>Tên nhân viên</th>
+                                        <th>Mã CH/ST</th>
+                                        <th>Máy POS</th>
+                                        <th>Loại</th>
+                                        <th>Token</th>
+                                        <th>Ngày</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+    function LoadComboxStoreByChanel() {
+            var chanelNo = $('#sel-chanel-no').val();
+            loading.showloading();
+            var html = '<select class="form-control select2" style="width: 100%;" id="sel-store-no" name="StoreNo">';
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoadComboxStoreByChanel", "Common")',
+                    data: {
+                        ChanelNo: chanelNo
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        html += "<option value=\"\">Tất cả</option>";
+                        if (data.length > 0)
+                        {
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.SiteNo + "'>" + name.SiteNo + " - " + name.SiteName + " </option>"
+                           });
+                        }
+                        html += '</select>';
+                        $('#sel-store-no').html(html);
+                        loading.hideloading();
+                    },
+                    error: function ()
+                    {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+        };
+
+        function LoadComboxPOSByStore(storeNo) {
+            loading.showloading();
+            if (storeNo == null || storeNo == '') {
+                var html = "<option value=\"\" selected>Tất cả</option>";
+                return $('#sel-pos-terminal').html(html);
+            }
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadPOSTerminalByStore", "Common")',
+                data: { StoreNo: storeNo },
+                dataType: "json",
+                success: function (data) {
+                    if (data != null) {
+                        if (data.length == 1) {
+                            var html = "<option value='" + data[0].PosID + "'>" + data[0].PosID + "</option>";
+                            $('#sel-pos-terminal').html(html);
+                        }
+                        else if (data.length > 1) {
+                            var html = "<option value=\"\" selected>Tất cả</option>";
+                            data.forEach((name, i) => {
+                                if (name.PosID != "") {
+                                    html += "<option value='" + name.PosID + "'>" + name.PosID + "</option>";
+                                }
+                            });
+                            $('#sel-pos-terminal').html(html);
+                        }
+                    }
+                    loading.hideloading();
+                },
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+          });
+
+        };
+
+
+
+    $(document).ready(function () {
+        $(".select2").select2();
+        LoadComboxStoreByChanel();
+        LoadComboxPOSByStore($("#sel-store-no").val());
+        $("#sel-store-no").on("change", function (e) {
+            LoadComboxPOSByStore($("#sel-store-no").val());
+        });
+
+        //$('#btn-editor-sales-order-type').on('click', function (e) {
+        //    $('#modal-update-sales-order-type').modal({
+        //        backdrop: "static"
+        //    });
+        //});
+
+        table = $('#tbl-user-admin-login-pos').DataTable({
+            destroy: true,
+            select: {
+                style: 'single'
+            },
+            drawCallback: function (settings) {
+                $(".btn-delete-perm-user-pos-web").click(function () {
+                    debugger
+                    var _userName = $(this).attr("data-user-name");
+                    var _staffCode = $(this).attr("data-staff-code");
+                    var _posTerminal = $(this).attr("data-posterminal");
+
+                    $.confirm({
+                        backgroundDismiss: true,
+                        escapeKey: true,
+                        icon: 'fa fa-warning',
+                        type: 'red',
+                        typeAnimated: true,
+                        title: 'Thông báo',
+                        content: 'Bạn có chắc chắn muốn xóa thông tin này không?',
+                        buttons: {
+                            "CÓ": {
+                                btnClass: 'btn btn-default',
+                                keys: ['ctrl'],
+                                action: function () {
+                                    loading.showloading();
+                                    $.ajax({
+                                        url: '@Url.Action("DeleteUserLoginPOSWeb", "MasterData")',
+                                        type: "POST",
+                                        dataType: "json",
+                                        data: {
+                                            UserName: _userName,
+                                            StaffCode: _staffCode,
+                                            PosNo: _posTerminal
+                                        },
+                                        success: function (data) {
+                                            if (data.Status == 1)
+                                            {
+                                                toastr.success(data.Message);  // case: delete success
+                                            }
+                                            else if (data.Status == 2)
+                                            {
+                                                toastr.error(data.Message);
+                                            }
+                                            else
+                                            {
+                                                toastr.error(data.Message);
+                                            }
+                                            $('#btn-search').trigger('click');
+                                            loading.hideloading();
+                                        },
+                                        error: function () {
+                                            toastr.error("Lỗi hệ thống");
+                                            loading.hideloading();
+                                        }
+                                    });
+                                }
+                            },
+                            "KHÔNG": {
+                                btnClass: 'btn-default',
+                                action: function () { }
+                            }
+                        }
+                    });
+                });
+
+            },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: false,                // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                ajax: {
+                    url: '@Url.Action("UserLoginPOSWebList", "MasterData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.storeNo = $('#sel-store-no').val();
+                        d.posTerminal = $('#sel-pos-terminal').val();
+                        d.typePOS = $('#sel-type-pos').val();
+                        d.textSearch = $('#txt-text-search').val();                       
+                    }
+                },  
+                
+                columns: [
+                    {
+                        data: "UserName",
+                        className: 'text-center',
+                        render: function (data, type, full, meta) {
+                            var typeLogin = full.typePOS;
+                            var userName = full.UserName;
+                            var staffCode = full.StaffCode;
+                            var storeNo = full.StoreNo;
+                            var posTerminal = full.PosNo;
+                            var html = "";
+                            html += "<a href=\"javascript:;\" class=\"btn btn-icon btn-light-danger btn-delete-perm-user-pos-web\" style=\"cursor:pointer;margin-left: 5px;\" id=\"btn-delete-perm-user-pos-web\" data-type-login= '" + typeLogin + "'  data-user-name= '" + userName + "'   data-staff-code= '" + staffCode + "'  data-store-no= '" + storeNo + "' data-posterminal= '" + posTerminal + "' >";
+                            html += "<i class=\"la la-close\"></i>";
+                            html += "</a>";
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "UserName",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.UserName == null || row.UserName == "") {
+                                html += '<span style="display: block; font-weight: 700;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 700;">' + row.UserName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StaffCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StaffCode == null || row.StaffCode == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.StaffCode + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "FullName",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.FullName == null || row.FullName == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.FullName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StoreNo == null || row.StoreNo == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.StoreNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "PosNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.PosNo == null || row.PosNo == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.PosNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "TypePOS",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.TypePOS == null || row.TypePOS == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.TypePOS + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Token",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.Token == null || row.Token == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.Token + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreatedDateStr",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreatedDateStr == null || row.CreatedDateStr == "") {
+                                html += '<span style="display: block; font-weight: 400;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;">' + row.CreatedDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('#btn-search').on('click', function (e) {
+                table.draw();
+        });
+
+        $("#btn-export-excel").on("click", function (e) {
+            $('#frm-export-excel').submit();
+        });
+
+
+        })
+
+       
+
+    </script>
+}
+
+
+
+
+
+

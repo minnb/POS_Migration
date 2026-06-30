@@ -1,0 +1,132 @@
+﻿@using VCM.BLUEPOS.Model.SetupExtraFee;
+@using VCM.BLUEPOS.Model.SetupItem;
+@{
+    var model = Model as ViewNganhHangModel;
+    var listNganhHang = model.ListNganhHang;
+    var listNganhHangSelected = model.ListNganhHangSelected;
+
+    var extraFeeValue = "0";
+    string displayFeeValue = "";
+    if (listNganhHangSelected != null && listNganhHangSelected.Count > 0)
+    {
+        displayFeeValue = "disabled";
+        extraFeeValue = listNganhHangSelected.FirstOrDefault().ExtraFeeValue;
+    }
+}
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="form-group row">
+            <label class="col-form-label col-3 text-left" style="font-weight:bold">Phụ thu(%)</label>
+            <div class="col-9">
+                <input class="form-control form-control-lg" type="text" @displayFeeValue id="txtExtraFeeValue" value="@extraFeeValue" />
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row table-responsive" style="height:500px">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <table id="tblSelectedNganhHang" class="table table-bordered table-hover">
+            <thead>
+                <tr class="text-center">
+                    <th>STT</th>
+                    <th>Ngành hàng</th>
+                    <th>Tên ngành hàng</th>
+                    <th>#</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (listNganhHang != null && listNganhHang.Count > 0)
+                {
+                    var listNganhHangCha = listNganhHang.Where(d => string.IsNullOrEmpty(d.ParentCode)).ToList();
+                    if (listNganhHangCha != null && listNganhHangCha.Count > 0)
+                    {
+
+                        foreach (var itemCha in listNganhHangCha)
+                        {
+                            var arraySelected = (listNganhHangSelected != null && listNganhHangSelected.Count > 0) ? listNganhHangSelected.Select(a => a.No).ToList() : new List<string>();
+                            <tr style="background-color:#eaeaf0">
+                                <td colspan="3" style="font-weight:bold">@itemCha.Description</td>
+                                <td class="text-right">
+                                    <label class="checkbox checkbox-lg success">
+                                        <input type="checkbox" class="chkNganhHangAll" name="chkNganhHangAll" value="@itemCha.GroupCode" />
+                                        <span></span>
+                                    </label>
+                                </td>
+                            </tr>
+                            var listType = listNganhHang.Where(d => d.ParentCode == itemCha.GroupCode && !arraySelected.Any(a => a == d.GroupCode)).ToList();
+                            var stt = 1;
+                            foreach (var item in listType)
+                            {
+                                //var checkedSelected = "";
+                                //var backgroundColor = "";
+                                //if (listNganhHangSelected != null && listNganhHangSelected.Count > 0)
+                                //{
+                                //    if (listNganhHangSelected.Any(d => d.No == item.GroupCode))
+                                //    {
+                                //        checkedSelected = "checked";
+                                //        backgroundColor = "background-color:#f5f3ec";
+                                //    }
+                                //}
+                                <tr>
+                                    <td class="text-center">
+                                        @stt
+                                    </td>
+                                    <td class="text-center">
+                                        @item.GroupCode
+                                    </td>
+                                    <td>@item.Description</td>
+                                    <td class="text-center">
+                                        <label class="checkbox checkbox-lg">
+                                            <input type="checkbox" class="chkNganhHang" name="chkNganhHang" value="@itemCha.GroupCode" data-groupcode="@item.GroupCode" data-parentcode="@item.ParentCode" data-parentname="@itemCha.Description" data-groupname="@item.Description" />
+                                            <span></span>
+                                        </label>
+                                    </td>
+                                </tr>
+                                stt++;
+                            }
+                        }
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $(".chkNganhHangAll").on("click", function () {
+            var groupCode = $(this).val();
+            if ($(this).is(':checked')) {
+                $(".chkNganhHang[value=" + groupCode + "]").prop('checked', true);
+            }
+            else {
+                $(".chkNganhHang[value=" + groupCode + "]").prop('checked', false);
+            }    
+        })
+
+        $(".chkNganhHang").on("click", function () {
+            var groupCode = $(this).val();
+            if ($(this).is(':checked')) {
+                var countCheck = 0;
+                var countTotal = 0;
+                $("#tblSelectedNganhHang tbody tr label input.chkNganhHang[value=" + groupCode + "]").each(function (e) {
+                    countTotal++
+                    if ($(this).is(':checked')) {
+                        countCheck++;
+                    }
+                    else {
+                        countCheck--;
+                    }
+                })
+                if (countTotal == countCheck) {
+                    $(".chkNganhHangAll[value=" + groupCode + "]").prop('checked', true);
+                }
+            }
+            else {
+                $(".chkNganhHangAll[value=" + groupCode + "]").prop('checked', false);
+            }
+
+        })
+    });
+</script>

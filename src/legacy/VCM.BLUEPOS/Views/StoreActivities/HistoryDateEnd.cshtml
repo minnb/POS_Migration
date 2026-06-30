@@ -1,0 +1,372 @@
+﻿@using VCM.BLUEPOS.Model.StoreActivities;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Lịch sử xác nhận kết thúc ngày";
+    Layout = "~/Views/Shared/_Layout.cshtml";    
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+    var listSet = (List<SQLServerModel>)ViewBag.SetDB;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Hoạt động cửa hàng</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Lịch sử xác nhận kết thúc ngày</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("HistoryDateEndStoreExcel", "StoreActivities", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Vùng Set<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-set-server" name="SetServer">
+                                            @if (listSet != null && listSet.Count > 0)
+                                            {
+                                                if (listSet.Count == 1)
+                                                {
+                                                    <option value="@listSet.FirstOrDefault().IPServer" data-serverread="@listSet.FirstOrDefault().IPServerRead">@listSet.FirstOrDefault().Description</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listSet)
+                                                    {
+                                                        <option value="@item.IPServer" data-serverread="@item.IPServerRead">@item.Description</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Ngày kinh doanh<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="searchFromDate">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="searchFromDate" name="TuNgay" placeholder="Ngày kinh doanh">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái</label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-status"  name="Status">
+                                            <option value="" selected>Tất cả</option>
+                                            <option value="0">Chưa xác nhận ngày</option>
+                                            <option value="1">Đã xác nhận ngày</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12">
+                                    <div class="form-group" style="margin-top:25px;">
+                                        <button type="button" class="btn btn-primary" id="btn-search" name="btnSearch"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table class="table table-bordered" id="table-history-date-end">
+                            <thead>
+                                <tr style="text-align:center;text-transform:uppercase;">
+                                    <th>Ngày kinh doanh</th>
+                                    <th>ST/CH</th>
+                                    <th>Tổng tiền bán ra</th>
+                                    <th>Tiền mặt</th>
+                                    <th>Số tiền ngân hàng</th>
+                                    <th>Xác nhận</th>
+                                    <th>Người xác nhận</th>
+                                    <th>Thời gian xác nhận</th>
+                                    <th>#</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+        var table = "";
+
+        function LoadComboxStoreByServer(ipServer) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('IPServer', ipServer);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadStoreBySetServerIP", "Common")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {                   
+                    if (data != null) {
+                        if (data.length == 1) {
+                            var html = "<option value='" + data[0].SiteNo + "'>" + data[0].DisplayComboSite + "</option>";
+                            $('#sel-store-no').html(html);
+                        }
+                        else if (data.length > 1) {
+                            var html = "<option value=\"\" selected>Tất cả</option>";
+                            data.forEach((name, i) => {
+                                if (name.SiteNo != "") {
+                                    html += "<option value='" + name.SiteNo + "'>" + name.DisplayComboSite + "</option>";
+                                }
+                            });
+                            $('#sel-store-no').html(html);
+                        }
+                    }  
+                    loading.hideloading();
+                },
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function LoadHistory() {
+            table = $('#table-history-date-end').DataTable({
+                drawCallback: function (settings) {
+                    $(".btn-search-detail").click(function () {
+                        var storeNo = $(this).attr("data-storeNo");
+                        var dateBussiness = $("#searchFromDate").val();
+                        ViewDetail(storeNo, dateBussiness);
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                deferLoading: 0,
+                info: true,
+
+                ajax: {
+                    url: '@Url.Action("HistoryEndDate", "StoreActivities")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.SetDB = $("#sel-set-server").val();
+                        d.ServerRead = $("#sel-set-server").select2().find(":selected").data("serverread");
+                        d.StoreNo = $("#sel-store-no").val();
+                        d.BusinessDate = $("#searchFromDate").val();
+                        d.IsConfirm = $("#sel-status").val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "FormatBusinessDate",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700; display: block;">' + row.FormatBusinessDate + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StoreNo == null || row.StoreNo == "") {
+                                html += '<span style="font-weight:700; display: block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700; display: block;">' + row.StoreNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "AmountTotal",  // tong tien ban ra
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700; display: block;">' + parseFloat(row.AmountTotal).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CashMoney",  // tien mat
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700; display: block;">' + parseFloat(row.CashMoney).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "AmountBank",  // tien bank
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.AmountBank > 0) {
+                                html += '<span style="font-weight:700; display: block;">' + parseFloat(row.AmountBank).toLocaleString('en') + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.IsConfirm == true) {
+                                html += "<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">Đã xác nhận</span>";
+                            }
+                            else {
+                                html += "<span class=\"badge\" style=\"color: #fff;background-color:#FFA800;\">Chưa xác nhận</span>";
+                            }   
+                            return html;
+                        }  
+                    },
+
+                    {
+                        data: "CreatedUser",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreatedUser == null || row.CreatedUser == "") {
+                                html += '<span style="font-weight:400; display: block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400; display: block;">' + row.CreatedUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "FormatConfirmDate",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700; display: block;">' + row.FormatConfirmDate + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var storeNo = row.StoreNo;
+                            var html = '<button type="button" class="btn btn-icon btn-light-primary btn-search-detail" data-toggle="tooltip" data-placement="left" title="Xem chi tiết"  data-id="' + storeNo + '"  data-storeNo = "' + storeNo + '"  style=\"height:30px;margin-top:3px;\"><i class="fa fa-list""></i></button>';
+                            return html; 
+                        }
+                    }
+                ]
+            }).on('processing.dt', function (e, settings, processing) {
+
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+            });
+        }
+
+        function ViewDetail(storeNo, businessDate) {
+            var url = '/StoreActivities/DetailEndDate?storeNo=' + storeNo + '&businessDate=' + businessDate;
+            window.open(url);
+        };
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            LoadComboxStoreByServer($("#sel-set-server").val());
+            $("#sel-set-server").on("change", function (e) {
+                LoadComboxStoreByServer($("#sel-set-server").val());
+            });
+
+            $('#searchFromDate').val(moment().format('DD/MM/YYYY'));
+            $('#searchFromDate').datepicker(
+                {
+                    format: 'dd/mm/yyyy',
+                    autoUpdateInput: false,
+                    todayHighlight: true,
+                    singleDatePicker: true,
+                    autoclose: true
+                }
+            );
+
+            LoadHistory();
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            });
+
+        });
+    </script>
+}

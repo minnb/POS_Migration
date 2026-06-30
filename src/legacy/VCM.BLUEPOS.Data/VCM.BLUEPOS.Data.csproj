@@ -1,0 +1,1597 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{DAC448AA-AAF1-4AEE-AC75-74F78D071AAC}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>VCM.BLUEPOS.Data</RootNamespace>
+    <AssemblyName>VCM.BLUEPOS.Data</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\EntityFramework.6.2.0\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\EntityFramework.6.2.0\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="EPPlus, Version=5.7.1.0, Culture=neutral, PublicKeyToken=ea159fdaa78159a1, processorArchitecture=MSIL">
+      <HintPath>..\packages\EPPlus.5.7.1\lib\net45\EPPlus.dll</HintPath>
+    </Reference>
+    <Reference Include="HtmlAgilityPack, Version=1.11.43.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
+      <HintPath>..\packages\HtmlAgilityPack.1.11.43\lib\Net45\HtmlAgilityPack.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=9.0.0.14, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.9.0.14\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.2, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.8.0.2\lib\net462\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.3, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.8.0.3\lib\net462\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Pipelines.Sockets.Unofficial, Version=1.0.0.0, Culture=neutral, PublicKeyToken=42ea0a778e13fbe2, processorArchitecture=MSIL">
+      <HintPath>..\packages\Pipelines.Sockets.Unofficial.2.2.16\lib\net472\Pipelines.Sockets.Unofficial.dll</HintPath>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="StackExchange.Redis, Version=2.0.0.0, Culture=neutral, PublicKeyToken=c219ff1ca8c2ce46, processorArchitecture=MSIL">
+      <HintPath>..\packages\StackExchange.Redis.2.13.17\lib\net472\StackExchange.Redis.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.Entity" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Compression.4.3.0\lib\net46\System.IO.Compression.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.IO.Hashing, Version=9.0.0.12, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Hashing.9.0.12\lib\net462\System.IO.Hashing.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Pipelines, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Pipelines.8.0.0\lib\net462\System.IO.Pipelines.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.5.3\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Threading.Channels, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Channels.5.0.0\lib\net461\System.Threading.Channels.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks" />
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Account\AccountData.cs" />
+    <Compile Include="Authen\AccountData.cs" />
+    <Compile Include="Authen\AuthenData.cs" />
+    <Compile Include="Barcode\BarcodeData.cs" />
+    <Compile Include="Caching\RedisCacheHelper.cs" />
+    <Compile Include="Campaign\CampaignData.cs" />
+    <Compile Include="Common\CommonData.cs" />
+    <Compile Include="CrownX\CrownXData.cs" />
+    <Compile Include="EF\Central\AdminRole.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AdminRoleGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AdminUser.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AdminUserLoginPOS.cs">
+      <DependentUpon>PLHWebMobileModel.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AdminUserRole.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AdminUserStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ArticleType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AssortmentItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AssortmentSite.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\AssortmentSiteItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Bank.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BankCardType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BankDiscount.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BankDiscountItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BankDiscountStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Barcode.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BarcodeSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Branch.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BSMItemDiscount.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BussinessDate.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BussinessDateConfirm.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\BussinessDateOpen.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralGeneral.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralGeneral.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralGeneral.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralGeneral.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralMDPartner.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMDPartner.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralMDPartner.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralMDPartner.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMDPartner.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralMDPartner1.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralSales.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSales.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralSales.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralSales.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSales.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralSalesStaging.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSalesStaging.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralSalesStaging.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CentralSalesStaging.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CentralSalesStaging.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CheckListDaily.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CheckListUser.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ComboRegion.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ComboStyleProfile.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Combox.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CompanyInformation.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ConfirmCollectedCash.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMCodeIssue.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMCodeRedeem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMIssueRule.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMLine.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMQuota.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchBOMStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CpnVchCodeSend.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CurrencyRate.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CustomerVAT.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\CXOfflinePercent.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\EDInnovation.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\EDInnovationLine.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\EDInnovationSite.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ESL_Item.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ESL_Item_Price.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ESL_Store_Change.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\EWalletTerminal.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExcelExampleCoupon.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExcelExamplePrice.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExtraFeeHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExtraFeeLine.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExtraFeeOrderType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExtraFeeStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ExtraFeeStroreGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\FinishSale.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\GiftRedeem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\GiftRedeemModifyLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ImageSlider.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\INBOUND.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>INBOUND.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\INBOUND.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>INBOUND.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\INBOUND.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>INBOUND.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Interface_Errors.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\InvoiceType.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Item.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemBlock.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemBlockVAT.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemDiscount.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemDiscountMember.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemEarnScale.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemExtra.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemHiFresh.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemMaxSalesQty.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemOption.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemPaymentBlocked.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemPointsMember.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ItemUnitOfMeasure.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\JobRunning.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\KafkaReport.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\LinkedItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\LogErrorWeb.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\LogMisSale.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\LogSendEmail.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\LoyaltyRate.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MappingQRCode.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Marketing.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MCH.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MemberBalance.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MemberEarnItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MemberEarnItemLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MemberEarnTransaction.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MemberEarnTransactionLine.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MemberTransaction.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Menu.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MenuRole.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MMLItemDiscount.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MMLSchemeHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MMLSchemeItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\MMLSchemeResponse.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Notify.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\NotifyComfirm.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\NotifyConfig.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\NotifyTelegram.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OCC_TransHeader.cs">
+      <DependentUpon>INBOUND.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OCC_TransLine.cs">
+      <DependentUpon>INBOUND.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OCC_TransPaymentEntry.cs">
+      <DependentUpon>INBOUND.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Odoo_SALE.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferBenefit.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferBuy.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferGet.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferMaxQuantity.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferPriority.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferRetrict.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferSite.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OfferType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OptionData.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\OptionDataPartner.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Partner.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PartnerEarnPointBlocked.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PartnerPaymentBlocked.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PartnerService.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PartnerServiceItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PartnerSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PaymentMethodQRCode.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PLHWebMobileModel.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHWebMobileModel.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PLHWebMobileModel.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHWebMobileModel.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PLHWebMobileModel.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHWebMobileModel.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSBussinessDate_Log.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSDataSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSEOD.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PosGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PosGroupItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSHotKeyGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSHotKeyItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSHotKeyItemGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSInfo.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSMonitor.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSTerminal.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSTerminalBank.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PosterminalMapping.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSTerminalSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PosUpdateLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSVATCode.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\POSVersion.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PosWebGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PosWebGroupItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\PriceGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Price_Range.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Province.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ReasonCode.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\RetailSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\RewardCode.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\RewardCodeSend.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\RewardHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Role.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SalesOrderType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SalesOrderTypeByStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SalesPrice.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SalesPriceRange.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SalesPriceRate.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SERVERWEB.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupGroupItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupGroupSite.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupItemLineItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupPromotionBUY.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupPromotionGET.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupPromotionHEADER.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupPromotionSITE.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupSalePriceLineItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SetupSiteCustomerMaster.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ShiftHeader.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ShiftHeaderDescription.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ShiftLine.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\ShiftOrder.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SignalStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SmartPOS.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SourceBill.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SpecialComboHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SpecialComboLine.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SpecialComboStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SQLServer.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StackTraceLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Staff.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\Store.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StoreGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StoreNoMapping.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StorePriceGroup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StoreSetServer.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StoreSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\StoreSetupPrint.cs">
+      <DependentUpon>PLHWebMobileModel.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SurveyAnswer.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SurveyQuestion.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncAction.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncActionFinished.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncChangeLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncChangeLogStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncChangeLogStore_Web.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncCopyFileLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncDataAll.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncDateLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncJobLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncJobLogCounter.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncJobPOSLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncStoreChangeList.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncStoreChangeListLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncTableFromPOS.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncTableList.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SyncWriteFileLog.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\sysdiagram.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SysWebApi.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SysWebApiConfig.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SysWebApiRoute.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\SysWebApiUser.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TenderType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TenderTypeConfig.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TenderTypeImage.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TenderTypeSetup.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransBluePoint.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransCpnVchIssue.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransDiscountCouponEntry.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransDiscountEntry.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransHeader.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransInfocodeEntry.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransInputData.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransLine.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransOptionLine.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransPartnerLine.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransPaymentEntry.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransVoidHeader.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\TransVoidLine.cs">
+      <DependentUpon>CentralSales.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\UnitOfMeasure.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\UploadSaleLog.cs">
+      <DependentUpon>CentralSalesStaging.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\User.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\VatNumber.cs">
+      <DependentUpon>CentralGeneral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\VinIDOfflinePercent.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\VoucherPartner.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\VoucherType.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_AssortmentItem.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_AssortmentSite.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_INGREDIENT.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_Item_Change.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_Log.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_Multimex.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_PLU_LIST.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_PLU_PRICE_STORE.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WeightScale_Processing.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WinCodeCustomer.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WinCodeHeader.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Central\WinCodeStore.cs">
+      <DependentUpon>CentralMDPartner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>ReadCentralSalesContainer.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>ReadCentralSalesContainer.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>ReadCentralSalesContainer.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\Branch.cs">
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EInvoice.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>EInvoice.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EInvoice.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EInvoice.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>EInvoice.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EInvoicePLH.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>EInvoicePLH.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EInvoicePLH.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EInvoicePLH.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>EInvoicePLH.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\EODCreatedInvoice.cs">
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\InvoiceCreated.cs">
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\InvoiceHeaderEOD.cs">
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\InvoiceHeaderNormal.cs">
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\InvoiceLineEOD.cs">
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\InvoiceLineNormal.cs">
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\InvoiceNormalOrderProcess.cs">
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\OrderNoCreatedInvoice.cs">
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\OrderNoCreatedInvoiceOther.cs">
+      <DependentUpon>EInvoice.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\StoreNoseriVAT.cs">
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\EInvoices\VatNumberFPT.cs">
+      <DependentUpon>EInvoicePLH.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\IFSAP\ConfigXML.cs">
+      <DependentUpon>IFSAP.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\IFSAP\IFSAP.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>IFSAP.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\IFSAP\IFSAP.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>IFSAP.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\IFSAP\IFSAP.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>IFSAP.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\IFSAP\Log.cs">
+      <DependentUpon>IFSAP.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\BatchFileLog.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\CX_ExtraHeader.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\CX_ExtraItemBill.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\CX_LogAPI.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\CX_TransactionLoyalty.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\ExtraHeader.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\ExtraItemBill.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\LogAPI.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\LogSAP.cs">
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\Loyalty.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Loyalty.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\Loyalty.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Loyalty.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\Loyalty\Loyalty.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Loyalty.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_categories.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_items.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_modifier.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_modifier_group.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_modifier_group_name.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_notify_new_order.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\BeeFood_restaurant.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_categories.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_items.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_modifier.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_modifier_group.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_modifier_group_name.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_orders.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_service_hours.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\GrabFood_store.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\ItemSalesOnApp.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\ItemToppingMapping.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\MappingDataPartner.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\PartnerMDCentral.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PartnerMDCentral.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\PartnerMDCentral.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\PartnerMDCentral.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PartnerMDCentral.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Shopee_dish.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Shopee_dish_group.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Shopee_dish_group_detail.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Shopee_restaurant.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Shopee_topping.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Shopee_topping_group.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\ToppingSalesOnApp.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerMD\Zalo_store.cs">
+      <DependentUpon>PartnerMDCentral.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerPLH\PartnerPLHContainer.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PartnerPLHContainer.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerPLH\PartnerPLHContainer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PartnerPLHContainer.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerPLH\PartnerPLHContainer.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PartnerPLHContainer.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerPLH\Shopee_update_order.cs">
+      <DependentUpon>PartnerPLHContainer.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PartnerPLH\Shopee_update_order_backup.cs">
+      <DependentUpon>PartnerPLHContainer.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\Branch.cs">
+      <DependentUpon>PLG.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\PLG.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLG.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\PLG.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLG.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\PLG.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLG.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\PLGEODCreatedInvoice.cs">
+      <DependentUpon>PLG.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\Store.cs">
+      <DependentUpon>PLG.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\StoreNoseriVAT.cs">
+      <DependentUpon>PLG.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLG\VatNumber.cs">
+      <DependentUpon>PLG.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PLHLog.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHLog.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PLHLog.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHLog.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PLHLog.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHLog.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PLHLogProd.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHLogProd.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PLHLogProd.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHLogProd.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PLHLogProd.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PLHLogProd.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="EF\PLHLog\PL_TransactionLoyalty.cs">
+      <DependentUpon>PLHLog.tt</DependentUpon>
+    </Compile>
+    <Compile Include="HotKey\HotKeyData.cs" />
+    <Compile Include="Invoice\InvoiceData.cs" />
+    <Compile Include="LogsData\LogsIData.cs" />
+    <Compile Include="Loyalty\LoyaltyData.cs" />
+    <Compile Include="MasterData\MasterIData.cs" />
+    <Compile Include="MonitorPOS\MonitorPOSData.cs" />
+    <Compile Include="Notify\NotifyData.cs" />
+    <Compile Include="Partner\PartnerData.cs" />
+    <Compile Include="Order\OrderData.cs" />
+    <Compile Include="Order\ReturnOrderSalesPrintData.cs" />
+    <Compile Include="Order\OrderSalesPrintData.cs" />
+    <Compile Include="Price\PriceData.cs" />
+    <Compile Include="Product\ProductData.cs" />
+    <Compile Include="Promotion\PromotionData.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Report\ReportData.cs" />
+    <Compile Include="Reward\RewardData.cs" />
+    <Compile Include="SalesStaging\SalesStagingData.cs" />
+    <Compile Include="ServerIPConnection.cs" />
+    <Compile Include="ServiceLog\ServiceLogData.cs" />
+    <Compile Include="SetupCoupon\SetupCouponData.cs" />
+    <Compile Include="SetupExtraFee\SetupExtraFeeData.cs" />
+    <Compile Include="SetupItem\SetupItemData.cs" />
+    <Compile Include="SetupPrice\SetupPriceData.cs" />
+    <Compile Include="SetupPromotion\SetupPromotionData.cs" />
+    <Compile Include="StoreActivities\StoreActivitiesData.cs" />
+    <Compile Include="Store\StoreData.cs" />
+    <Compile Include="SyncData\SyncIData.cs" />
+    <Compile Include="VinID\VinIDData.cs" />
+    <Compile Include="Voucher\ComboxOptionModel.cs" />
+    <Compile Include="Voucher\VoucherData.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.Config">
+      <SubType>Designer</SubType>
+    </None>
+    <EntityDeploy Include="EF\Central\CentralGeneral.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralGeneral.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\Central\CentralGeneral.edmx.diagram">
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\Central\CentralSales.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralSales.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="EF\Central\CentralMDPartner.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralMDPartner.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\Central\CentralMDPartner.edmx.diagram">
+      <DependentUpon>CentralMDPartner.edmx</DependentUpon>
+    </None>
+    <None Include="EF\Central\CentralSales.edmx.diagram">
+      <DependentUpon>CentralSales.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\Central\CentralSalesStaging.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CentralSalesStaging.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\Central\CentralSalesStaging.edmx.diagram">
+      <DependentUpon>CentralSalesStaging.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\Loyalty\Loyalty.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>Loyalty.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="EF\IFSAP\IFSAP.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>IFSAP.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="EF\Central\INBOUND.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>INBOUND.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\Central\INBOUND.edmx.diagram">
+      <DependentUpon>INBOUND.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\EInvoices\EInvoice.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>EInvoice.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="EF\Central\PLHWebMobileModel.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PLHWebMobileModel.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\Central\PLHWebMobileModel.edmx.diagram">
+      <DependentUpon>PLHWebMobileModel.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>ReadCentralSalesContainer.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.edmx.diagram">
+      <DependentUpon>ReadCentralSalesContainer.edmx</DependentUpon>
+    </None>
+    <None Include="EF\EInvoices\EInvoice.edmx.diagram">
+      <DependentUpon>EInvoice.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\EInvoices\EInvoicePLH.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>EInvoicePLH.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\EInvoices\EInvoicePLH.edmx.diagram">
+      <DependentUpon>EInvoicePLH.edmx</DependentUpon>
+    </None>
+    <None Include="EF\IFSAP\IFSAP.edmx.diagram">
+      <DependentUpon>IFSAP.edmx</DependentUpon>
+    </None>
+    <None Include="EF\Loyalty\Loyalty.edmx.diagram">
+      <DependentUpon>Loyalty.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\PLG\PLG.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PLG.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="EF\PartnerPLH\PartnerPLHContainer.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PartnerPLHContainer.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <EntityDeploy Include="EF\PartnerMD\PartnerMDCentral.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PartnerMDCentral.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\PartnerMD\PartnerMDCentral.edmx.diagram">
+      <DependentUpon>PartnerMDCentral.edmx</DependentUpon>
+    </None>
+    <None Include="EF\PartnerPLH\PartnerPLHContainer.edmx.diagram">
+      <DependentUpon>PartnerPLHContainer.edmx</DependentUpon>
+    </None>
+    <None Include="EF\PLG\PLG.edmx.diagram">
+      <DependentUpon>PLG.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\PLHLog\PLHLog.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PLHLog.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\PLHLog\PLHLog.edmx.diagram">
+      <DependentUpon>PLHLog.edmx</DependentUpon>
+    </None>
+    <EntityDeploy Include="EF\PLHLog\PLHLogProd.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>PLHLogProd.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="EF\PLHLog\PLHLogProd.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLHLogProd.Context.cs</LastGenOutput>
+      <DependentUpon>PLHLogProd.edmx</DependentUpon>
+    </None>
+    <None Include="EF\PLHLog\PLHLogProd.edmx.diagram">
+      <DependentUpon>PLHLogProd.edmx</DependentUpon>
+    </None>
+    <None Include="EF\PLHLog\PLHLogProd.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLHLogProd.cs</LastGenOutput>
+      <DependentUpon>PLHLogProd.edmx</DependentUpon>
+    </None>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VCM.BLUEPOS.Common\VCM.BLUEPOS.Common.csproj">
+      <Project>{55FF1878-96D9-4A56-BE8D-E24AEE844F2E}</Project>
+      <Name>VCM.BLUEPOS.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\VCM.BLUEPOS.Model\VCM.BLUEPOS.Model.csproj">
+      <Project>{02DCC438-B855-4C7F-B743-84C2BC706296}</Project>
+      <Name>VCM.BLUEPOS.Model</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="EF\Central\CentralGeneral.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralGeneral.Context.cs</LastGenOutput>
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\CentralGeneral.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralGeneral.cs</LastGenOutput>
+      <DependentUpon>CentralGeneral.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\CentralMDPartner.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>CentralMDPartner.edmx</DependentUpon>
+      <LastGenOutput>CentralMDPartner.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\Central\CentralMDPartner.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>CentralMDPartner.edmx</DependentUpon>
+      <LastGenOutput>CentralMDPartner1.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\Central\CentralSales.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSales.Context.cs</LastGenOutput>
+      <DependentUpon>CentralSales.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\CentralSales.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSales.cs</LastGenOutput>
+      <DependentUpon>CentralSales.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\CentralSalesStaging.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSalesStaging.Context.cs</LastGenOutput>
+      <DependentUpon>CentralSalesStaging.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\CentralSalesStaging.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CentralSalesStaging.cs</LastGenOutput>
+      <DependentUpon>CentralSalesStaging.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\INBOUND.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>INBOUND.Context.cs</LastGenOutput>
+      <DependentUpon>INBOUND.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\INBOUND.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>INBOUND.cs</LastGenOutput>
+      <DependentUpon>INBOUND.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Central\PLHWebMobileModel.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>PLHWebMobileModel.edmx</DependentUpon>
+      <LastGenOutput>PLHWebMobileModel.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\Central\PLHWebMobileModel.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>PLHWebMobileModel.edmx</DependentUpon>
+      <LastGenOutput>PLHWebMobileModel.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>ReadCentralSalesContainer.edmx</DependentUpon>
+      <LastGenOutput>ReadCentralSalesContainer.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\DBRead\CentralSales\ReadCentralSalesContainer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>ReadCentralSalesContainer.edmx</DependentUpon>
+      <LastGenOutput>ReadCentralSalesContainer.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\EInvoices\EInvoice.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>EInvoice.edmx</DependentUpon>
+      <LastGenOutput>EInvoice.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\EInvoices\EInvoice.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>EInvoice.edmx</DependentUpon>
+      <LastGenOutput>EInvoice.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\EInvoices\EInvoicePLH.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>EInvoicePLH.edmx</DependentUpon>
+      <LastGenOutput>EInvoicePLH.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\EInvoices\EInvoicePLH.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>EInvoicePLH.edmx</DependentUpon>
+      <LastGenOutput>EInvoicePLH.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\IFSAP\IFSAP.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>IFSAP.Context.cs</LastGenOutput>
+      <DependentUpon>IFSAP.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\IFSAP\IFSAP.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>IFSAP.cs</LastGenOutput>
+      <DependentUpon>IFSAP.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Loyalty\Loyalty.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Loyalty.Context.cs</LastGenOutput>
+      <DependentUpon>Loyalty.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\Loyalty\Loyalty.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Loyalty.cs</LastGenOutput>
+      <DependentUpon>Loyalty.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\PartnerMD\PartnerMDCentral.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>PartnerMDCentral.edmx</DependentUpon>
+      <LastGenOutput>PartnerMDCentral.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\PartnerMD\PartnerMDCentral.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>PartnerMDCentral.edmx</DependentUpon>
+      <LastGenOutput>PartnerMDCentral.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\PartnerPLH\PartnerPLHContainer.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>PartnerPLHContainer.edmx</DependentUpon>
+      <LastGenOutput>PartnerPLHContainer.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\PartnerPLH\PartnerPLHContainer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>PartnerPLHContainer.edmx</DependentUpon>
+      <LastGenOutput>PartnerPLHContainer.cs</LastGenOutput>
+    </Content>
+    <Content Include="EF\PLG\PLG.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLG.Context.cs</LastGenOutput>
+      <DependentUpon>PLG.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\PLG\PLG.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLG.cs</LastGenOutput>
+      <DependentUpon>PLG.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\PLHLog\PLHLog.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLHLog.Context.cs</LastGenOutput>
+      <DependentUpon>PLHLog.edmx</DependentUpon>
+    </Content>
+    <Content Include="EF\PLHLog\PLHLog.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>PLHLog.cs</LastGenOutput>
+      <DependentUpon>PLHLog.edmx</DependentUpon>
+    </Content>
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

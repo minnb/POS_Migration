@@ -1,0 +1,853 @@
+﻿
+@using Newtonsoft.Json;
+@using System.Web.Configuration;
+@using VCM.BLUEPOS.Models;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.Partner;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.MCH;
+
+@{
+    ViewBag.Title = "Tạo Topping sản phẩm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listStoreHead = ViewBag.ListStoreHead as List<Shopee_Restaurant_Model>;
+    var listNganhHang = (List<VCM.BLUEPOS.Model.Partner.OptionModel>)ViewBag.ListCategory;
+    var listPicture = ViewBag.ListPicture as List<PictureResponseModel>;
+
+    var model = Model as CreateViewItemListNowFoodModel;
+    var listItem = model.ListItem;
+    var totalPage = Model.TotalPageNumber;
+
+    string pageCurrent = HttpContext.Current.Request.RequestContext.RouteData.Values["page"] == null ? "1" : HttpContext.Current.Request.RequestContext.RouteData.Values["page"].ToString();
+    int pageCR = int.Parse(pageCurrent);
+    var totalRow = Model.TotalRow;
+    var pageSize = Model.PageSize;
+    var displayRow = $"{pageCR}-{pageSize}/{totalRow} sản phẩm";
+
+    if (totalRow <= pageSize)
+    {
+        displayRow = $"{totalRow} sản phẩm";
+    }
+    if (pageCR > 1 && totalRow > pageSize)
+    {
+        displayRow = $"{(pageCR * pageSize + 1) - pageSize}-{(pageCR * pageSize > totalRow ? totalRow : pageCR * pageSize)} /{totalRow} sản phẩm";
+    }
+
+    var textsearch = Html.Raw(Model.Keyword);
+    string urlImg = WebConfigurationManager.AppSettings["urlImg"];
+    string urlImg_Create = WebConfigurationManager.AppSettings["urlImg"];
+    
+    var imgBase64 = ViewBag.ImagesBase64;
+
+    var modelListAPI = Model as APIListItemNowFoodResponseModel;  // APINowFoodItemListRequest
+    var listItemAPI = modelListAPI;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">NOWFOOD</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Tạo sản phẩm</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <!-- Tab -->
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="example-preview" style="background-color:#fff;margin-left:-15px;margin-right:-15px;">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link classTab active" id="tab-create-item-list-now-food" data-toggle="tab" href="#createitemlistnowfood" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Tạo sản phẩm
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link classTab" id="tab-item-list-now-food" data-toggle="tab" href="#itemlistnowfood">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Danh sách sản phẩm
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <!-- End Tab -->
+        <div class="tab-content mt-5" id="myTabContent">
+
+            <!-- Tạo sản phẩm -->
+            <div class="tab-pane fade show active" id="createitemlistnowfood" role="tabpanel" aria-labelledby="tab-create-item-list-now-food">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("ItemListNowFoodByCreate", "NowFood", FormMethod.Post, new { @id = "frm-item-list-now-food-create" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="txt-text-search" name="TextSearch" placeholder="mã sản phẩm ; mã barcode; tên sản phẩm">
+                                            </div>
+                                        </div>
+
+                                        <input type="hidden" id="hdd-txt-key-word" name="textsearch" />
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-primary" style="" id="btn-header-search"><i class="fa fa-search"></i> Tìm kiếm</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Tao san pham -->
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <div id="loadItem">
+                                        <div class="row">
+                                            <div class="col-lg-12 col-md-6 col-sm-6 col-xl-6">
+                                                <div class="d-flex justify-content-between align-items-center flex-wrap" style="text-align:right; float:right">
+                                                    @if (totalPage > 1)
+                                                    {
+                                                        <div class="d-flex flex-wrap">
+                                                            <a href="@Url.Action("ItemListNowFoodByCreate", "NowFood", new { page = 1, textsearch = textsearch})" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                                <i class="ki ki-bold-double-arrow-back icon-xs"></i>
+                                                            </a>
+                                                            <a href="@Url.Action("ItemListNowFoodByCreate", "NowFood", new { page = pageCR > 1 ? pageCR - 1 : pageCR, textsearch = textsearch })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                                <i class="ki ki-bold-arrow-back icon-xs"></i>
+                                                            </a>
+
+                                                            @for (int page = 1; page <= totalPage; page++)
+                                                            {
+                                                                var activePage = pageCR == page ? "active" : "";
+                                                                <a href="@Url.Action("ItemListNowFoodByCreate", "NowFood", new { page = page, textsearch = textsearch })" class="btn btn-icon btn-sm border-0 btn-hover-primary mr-2 my-1 @activePage">@page</a>
+                                                            }
+
+                                                            <a href="@Url.Action("ItemListNowFoodByCreate", "NowFood", new { page = pageCR < totalPage ? pageCR + 1 : pageCR, textsearch = textsearch })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                                <i class="ki ki-bold-arrow-next icon-xs"></i>
+                                                            </a>
+
+                                                            <a href="@Url.Action("ItemListNowFoodByCreate", "NowFood", new { page = totalPage, textsearch = textsearch })" class="btn btn-icon btn-sm btn-light-primary mr-2 my-1">
+                                                                <i class="ki ki-bold-double-arrow-next icon-xs"></i>
+                                                            </a>
+                                                        </div>
+                                                    }
+
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="text-muted">@displayRow</span>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+                                        <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:5px;"></div>
+
+                                        <div class="row" id="div-infor-item-list">
+                                            @if (listItem != null && listItem.Count > 0)
+                                            {
+                                                foreach (var item in listItem)
+                                                {
+                                                    var fullImgPath = $"{urlImg}/{item.ImageName}";
+                                                    //var images = $"{urlImg}/{item.ImageName}";
+                                                    //var imagesBase64 = images;
+
+                                                    <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12" style="margin-bottom:-20px">
+                                                        <div class="card card-custom gutter-b card-stretch" style="border:1px solid #d5d2d2">
+                                                            <div class="card-body">
+                                                                <div style="cursor:pointer" class="d-flex align-items-center div-infor-item btn-view-detail-item" data-item-no="@item.ItemNo" data-item-name="@item.ItemName" data-unit-price="@item.UnitPrice" data-uom="@item.BaseUnitOfMeasure" data-blocked="@item.Blocked">
+                                                                    <div>
+                                                                        <input type="checkbox" class="chk-item-no" name="CheckItemNo" style="width: 20px; height:20px;" data-item-no-2="@item.ItemNo" />
+                                                                    </div>
+                                                                    <div class="flex-shrink-0 mr-4 mt-lg-0" style="margin-left:5px;">
+                                                                        <div class="symbol symbol-lg-75 div-image">
+                                                                            @if (string.IsNullOrEmpty(item.ImageName))
+                                                                            {
+                                                                                var imageURL ="/Uploads/imgs/placeholder.png";
+                                                                                <img src= "@imageURL" />
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <img src="@fullImgPath" />
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="d-flex flex-column" style="font-family:Roboto ,Unicode Support Noto, sans-serif">
+
+                                                                        <a class="text-dark font-weight-bold text-hover-primary mb-0 div-item-name" data-item-name="@item.ItemName"><span style="color:#0c713d;font-weight:700;">@item.ItemName</span></a>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-item-no" data-itemNo="@item.ItemNo">No:&ensp;<span>@item.ItemNo</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-price" data-unit-price="@item.UnitPrice">Giá:&ensp;<span>@item.UnitPrice</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-uom" data-uom="@item.BaseUnitOfMeasure">ĐVT:&ensp;<span>@item.BaseUnitOfMeasure</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-status" data-blocked="@item.Blocked">Trạng thái:&ensp;<span>@item.Blocked</span></span>
+
+
+                                                                        @*<span class="text-dark font-weight-bold text-hover-primary mb-0 div-size" data-size="@item.Size">Size:&ensp;<span>@item.Size</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-size" data-cup-type="@item.CupType">Loại ly:&ensp;<span>@item.CupType</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-topping" data-topping="@item.IsTopping">Topping:&ensp;<span>@item.IsTopping</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-sales-type" data-app-code="@item.AppCode">S-Type:&ensp;<span>@item.AppCode</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-store" data-store-no="@item.StoreNo">ST/CH:&ensp;<span>@item.StoreNo</span></span>
+                                                                        <span class="text-dark font-weight-bold text-hover-primary mb-0 div-category" data-category="@item.MCH2_Name">Ngành hàng:&ensp;<span>@item.MCH2</span><span>-</span><span>@item.MCH2_Name</span></span>*@
+
+
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div id="updateItem" style="display:none"></div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Call API: Danh sách sản phẩm theo Store, Realtime -->
+
+            <div class="tab-pane fade" id="itemlistnowfood" role="tabpanel" aria-labelledby="tab-item-list-now-food">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("APIItemListNowFoodByStore", "NowFood", FormMethod.Post, new { @id = "frm-item-list-now-food" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                                    <option value="" selected disabled>------ Chọn ------</option>
+                                                    @if (listStoreHead != null && listStoreHead.Count() > 0)
+                                                    {
+                                                        foreach (var item in listStoreHead)
+                                                        {
+                                                            <option value="@item.partner_restaurant_id - @item.restaurant_id">@item.partner_restaurant_id - @item.name</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-primary" style="" id="btn-search-item-list"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+               
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <div class="row" id="div-view-item-list-now-food"></div>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+         </div>
+    </div>
+
+    <div class="modal fade" id="modal-create-item-now-food" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-create-title" style="text-transform:uppercase">Tạo sản phẩm</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i aria-hidden="true" class="ki ki-close"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body" id="modal-create-item-now-food-body">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                            <div class="card card-custom bgi-no-repeat card-stretch">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-top: 20px;">
+                                            <table style="width:100%;">
+                                                <tr style="display:flex;">
+                                                    <td style="width:10%;">
+                                                        <div class="form-group" style="padding-left:5px;">
+                                                            <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Mã sản phẩm</label>
+                                                            <div class="input-group">
+                                                                <input type="text" class="form-control" id="modal-create-item-no" name="CreateItemNo" disabled />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td style="width:35%">
+                                                        <div class="form-group" style="padding-left:5px;">
+                                                            <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Tên sản phẩm</label>
+                                                            <div class="input-group">
+                                                                <input type="text" class="form-control" id="modal-create-item-name" name="CreateItemName" />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td style="width:40%">
+                                                        <div class="form-group" style="padding-left:5px;">
+                                                            <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Thông tin diễn giải</label>
+                                                            <div class="input-group">
+                                                                <input type="text" class="form-control" id="modal-create-description" name="CreateDescription" />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td style="width:15%; text-align:right;padding-right:25px;">
+                                                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="text-align:center;">
+                                                            @{
+                                                                var urlImgCreatePath = "~/Uploads/imgs/placeholder.png";
+                                                                var isChangeImg = "";
+                                                                if (!string.IsNullOrEmpty(imgBase64))
+                                                                {
+                                                                    urlImg = "data:image/jpeg;base64," + imgBase64;
+                                                                    isChangeImg = "image-input-changed";
+                                                                }
+                                                            }
+
+                                                            <div class="image-input image-input-outline @isChangeImg" id="kt_img_item_create" style="margin-top: 30px;">
+                                                                <div class="image-input-wrapper" style="background-image: url(@urlImgCreatePath)"></div>
+                                                                <label class="btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow" data-action="change" data-toggle="tooltip" title="" data-original-title="Change avatar">
+                                                                    <i class="fa fa-pen icon-sm text-muted"></i>
+                                                                    <input type="file" id="modal-create-img-item" name="imgItem" accept=".png, .jpg, .jpeg" />
+                                                                    <input type="hidden" name="imgItem_remove" />
+                                                                </label>
+
+                                                                <span id="btnCancleImg" class="btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow" data-action="cancel" data-toggle="tooltip" title="Cancel avatar">
+                                                                    <i class="ki ki-bold-close icon-xs text-muted"></i>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-top: -30px;">
+                                            <table style="width:100%;">
+                                                <tr style="display:flex;">
+                                                    <td style="width:15%">
+                                                        <div class="form-group" style="padding-left:5px;">
+                                                            <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Nhóm loại</label>
+                                                            <div class="form-group">
+                                                                <select class="form-control select2" style="width:100%;" id="modal-create-item-group-id" name="CreateItemGroupID">
+                                                                    @if (listNganhHang != null && listNganhHang.Count > 0)
+                                                                    {
+                                                                        <option value="" selected disabled>----- Chọn -----</option>
+                                                                        foreach (var item in listNganhHang)
+                                                                        {
+                                                                            <option value="@item.Value">@item.Text</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td style="width:25%;">
+                                                        <div class="form-group" style="padding-left:5px;">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">ST/CH</label>
+                                                            <div class="form-group">
+                                                                <select class="form-control select2" style="width:100%;" id="modal-create-store-no" name="CreateStoreNo">
+                                                                    <option value="" selected disabled>------ Chọn ------</option>
+                                                                    @if (listStoreHead != null && listStoreHead.Count() > 0)
+                                                                    {
+                                                                        foreach (var item in listStoreHead)
+                                                                        {
+                                                                            <option value="@item.partner_restaurant_id - @item.restaurant_id">@item.partner_restaurant_id - @item.name</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td style="width:15%">
+                                                        <div class="form-group" style="padding-left:5px;">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Giá bán</label>
+                                                            <div class="input-group">
+                                                                <input type="text" class="form-control" id="modal-create-unit-price" name="CreateUnitPrice" />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td style="width:45%;">
+                                                        <div class="form-group">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Chọn hình ảnh</label>
+                                                            <div class="form-group">
+                                                                <select class="form-control select2" style="width:100%;" id="modal-create-picture" name="CreatePicture">
+                                                                    <option value="" selected disabled>------ Chọn ------</option>
+                                                                    @if (listPicture != null && listPicture.Count() > 0)
+                                                                    {
+                                                                        foreach (var item in listPicture)
+                                                                        {
+                                                                            <option value="@item.picture_id - @item.url">@item.picture_id - @item.url</option>
+                                                                        }
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" id="btn-save-create-item-now-food" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                        <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+</div>
+
+
+@section Scripts
+{
+<script type="text/javascript">
+
+        var keyword = $("#hdd-txt-key-word").val();
+
+        function CreateItemNowFood() {
+            //debugger
+            var itemNo = $("#modal-create-item-no").val();
+            var itemName = $("#modal-create-item-name").val();
+            var description = $("#modal-create-description").val();
+            var groupId = $("#modal-create-item-group-id").val();
+            var storeNo = $("#modal-create-store-no").val();
+            var unitPrice = $("#modal-create-unit-price").val();
+            var picture = $("#modal-create-picture").val();
+
+            if (itemName == null || itemName == "") {
+                toastr.error('Nhập tên sản phẩm');
+                return;
+            }
+            if (groupId == null || groupId == "") {
+                toastr.error('Chọn nhóm loại sản phẩm');
+                return;
+            }
+            if (storeNo == null || storeNo == "") {
+                toastr.error('Chọn ST/CH');
+                return;
+            }
+            if (unitPrice == null || unitPrice == "") {
+                toastr.error('Nhập giá bán sản phẩm');
+                return;
+            }
+            if (picture == null || picture == "") {
+                toastr.error('Chọn hình ảnh sản phẩm');
+                return;
+            }
+
+            var picture_id = picture.split('-')[0];
+            var picture_url = picture.split('/')[7];
+            var partner_restaurant_id = storeNo.split('-')[0];
+            var restaurant_id = storeNo.split('-')[1];
+
+            loading.showloading();
+
+            var fromData = new FormData();
+            fromData.append('restaurant_id', restaurant_id);
+            fromData.append('partner_restaurant_id', partner_restaurant_id);
+            fromData.append('partner_dish_group_id', groupId);
+            fromData.append('partner_dish_id', itemNo);
+            fromData.append('name', itemName);
+            fromData.append('description', description);
+            fromData.append('price', unitPrice);
+            fromData.append('picture_id', picture_id);
+            fromData.append('picture_url', picture_url);
+
+            $.ajax({
+                url: '@Url.Action("CreateItemNowFood", "NowFood")',
+                type: "POST",
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    debugger
+                    //var dataResponse = JSON.stringify(data.Data);
+                    //var jsonResponseNowFood = JSON.parse(dataResponse);
+                    if (data.Status != 200) {
+                        toastr.error(data.Message);
+                        ClearTextCreate();
+                        $('#modal-create-item-now-food').modal("hide");
+                    }
+                    else {
+                        if (data.Data.meta.code == 201)
+                        {
+                            //toastr.error(data.Data.meta.message);
+                            toastr.error('Sản phẩm này đã tồn tại trên NOWFOOD. Vui lòng chọn sản phẩm khác');
+                            ClearTextCreate();
+                            $('#modal-create-item-now-food').modal("hide");
+                        }
+                        else if (data.Data.meta.code == 200)
+                        {
+                            toastr.success("Tạo sản phẩm mới thành công");
+                            ClearTextCreate();
+                            $('#modal-create-item-now-food').modal("hide");
+                        }
+                        else
+                        {
+                            toastr.success(data.Data.meta.message);
+                            ClearTextCreate();
+                            $('#modal-create-item-now-food').modal("hide");
+                        }
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function GetDataRowItem() {
+             //debugger
+            var data = [];
+            var appCode = $('#sel-app-code').val();
+            $('.div-infor-item div').each(function () {
+                //debugger
+                var item = {};
+                    var checkItemNo = $(this).parents('div').find('*.chk-item-no').prop('checked');
+                    var itemNo = $(this).parents('div').find('*.div-item-no').find('span:nth-child(1)').html();
+                    var itemName = $(this).parents('div').find('*.div-item-name').find('span:nth-child(1)').html();
+                    var barCode = $(this).parents('div').find('*.div-barcode').find('span:nth-child(1)').html();
+                    var uom = $(this).parents('div').find('*.div-uom').find('span:nth-child(1)').html();
+                    var cateCode = $(this).parents('div').find('*.div-category').find('span:nth-child(1)').html();
+                    var cateName = $(this).parents('div').find('*.div-category').find('span:nth-child(3)').html();
+                    //var img = $(this).parents('div').find('*.div-image').html();
+
+                    item['ItemNo'] = itemNo;
+                    item['ItemName'] = itemName;
+                    item['UnitOfMeasure'] = uom;
+                    item['Barcode'] = barCode;
+                    item['CategoryCode'] = cateCode;
+                    item['CategoryName'] = cateName;
+                    item['AppCode'] = appCode;
+                    item['CheckItem'] = checkItemNo;
+                    //item['Images'] = img;
+                    data.push(item);
+
+            });
+
+            return data;
+         };
+
+        function SaveItemListForPartner() {
+            //debugger
+            var itemInfor = GetDataRowItem();
+            if (itemInfor == null || itemInfor.length == 0) {
+                toastr.error('Không có thông tin để lưu. Vui lòng kiểm tra lại');
+                return;
+            }
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("SaveItemListForPartner", "SetupItem")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    //StoreNo: _storeNo,
+                    ListItemPartnerStr: JSON.stringify(itemInfor)
+                },
+                success: function (response) {
+                    if (response.Status == 200) {
+                        toastr.success(response.Message);
+                        location.reload();
+                    }
+                    else {
+                        toastr.error(response.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function GetInfoItem(itemNo) {
+            loading.showloading();
+            $.ajax({
+                type: "GET",
+                //url: "/SetupItem/_SetupItemPartnerDetail?ItemNo=" + itemNo + "",
+                url: "/NowFood/_SetupDetailItemNowFood?ItemNo=" + itemNo + "",
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    $("#loadItem").css("display", "none");
+                    $("#updateItem").html(result);
+                    $("#updateItem").css("display", "block");
+                    loading.hideloading();
+                },
+                error: function (event) {
+                }
+            });
+        }
+
+    function LoadItemListByNowFood(storeNo) {
+            //debugger
+            loading.showloading();
+            $.ajax({
+                type: "POST",
+                url: "/NowFood/APIItemListNowFoodByStore?StoreNo=" + storeNo + "",
+                dataType: 'json',
+                //dataType: 'html',
+                cache: false,
+                contentType: false,
+                processData: false,
+                success: function (response)
+                {
+                    //debugger
+                    //var listData = JSON.stringify(data.data);
+                    //var listItem = JSON.parse(listData);
+                    var html = '';
+                    if (response.data.length != null) {                        
+                        for (var i = 0; i < response.data.length; i++) {
+                            var imagesBase64 = response.data[i].picture.url;
+                            html += '<div class="col-xl-3 col-lg-4 col-md-6 col-sm-12" style="margin-bottom:-20px">';
+                            html += '<div class="card card-custom gutter-b card-stretch" style="border:1px solid #d5d2d2">';
+                            html += '<div class="card-body">';
+                            html += '<div style="cursor:pointer" class="d-flex align-items-center btnDetail" data-itemno="' + response.data[i].dish_id + '">';
+
+                            html += '<div class="flex-shrink-0 mr-4 mt-lg-0">';
+                            html += '<div class="symbol symbol-lg-75">';
+                            if (response.data[i].picture.url == null) {
+                                var ulrUploadImage = "~/Uploads/imgs/placeholder.png";
+                                html += '<img src="' + ulrUploadImage +'" />';
+                            }
+                            else {
+                                html += '<img src="' + imagesBase64 + '" />';
+                            }
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class="d-flex flex-column" style="font-family:Roboto ,Unicode Support Noto, sans-serif">';
+                            html += '<a class="text-dark font-weight-bold text-hover-primary mb-0">' + response.data[i].name + '</a>';
+                            html += '<span class="text-muted font-weight-bold">No: ' + response.data[i].dish_id + '</span>';
+                            html += '<span class="text-muted font-weight-bold">Sap: ' + response.data[i].partner_dish_id + '</span>';
+                            html += '<span class="text-muted font-weight-bold">Giá: ' + response.data[i].price + ' </span>';
+                            html += '</div>';
+
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                    }
+                    else
+                    {
+                        html += '<div class="alert-cutom alert-warning" style="font-weight: 400; text-align: center;">';
+                        html += '<span>Không có dữ liệu</span>';
+                        html += '</div>';
+                    }
+                    $('#div-view-item-list-now-food').append(html);
+                    loading.hideloading();
+                },
+                error: function (event)
+                {
+                    loading.hideloading();
+                }
+            });
+        }
+
+
+        function ClearTextCreate() {
+            //debugger
+            $('#kt_img_item_create').find(".image-input-wrapper").css("background-image", 'url("/Uploads/imgs/placeholder.png"');
+            $("#modal-create-item-no").val('');
+            $("#modal-create-item-name").val('');
+            $("#modal-create-description").val('');
+            $("#modal-create-item-group-id").val('').trigger('change');
+            $("#modal-create-store-no").val('').trigger('change');
+            $("#modal-create-unit-price").val('').trigger('change');
+
+            //$("#txt-create-store-no").fSelect('reload');
+            //$("#txt-create-store-no-slider-not").fSelect('reload');
+            //$('#txt-create-file-name').val('');
+            //$('#txt-create-description').val('');
+        }
+
+
+        $(document).ready(function () {
+            $(".select2").select2();
+            var kt_img_item_create = new KTImageInput('kt_img_item_create');
+
+            $(".btn-view-detail-item").on("click", function (e) {
+                var itemNo = $(this).attr("data-item-no");
+                $("#modal-create-item-no").val(itemNo);
+                var itemName = $(this).attr("data-item-name");
+                $("#modal-create-item-name").val(itemName);
+                var price = $(this).attr("data-unit-price");
+                $("#modal-create-unit-price").val(price);
+
+                //var itemgroupname = $(this).attr("data-category-name");
+                //$("#modal-update-item-group-name").val(itemgroupname);
+                //var storeNo = $(this).attr("data-store-no");
+                //$("#modal-update-store-no").val(storeNo);
+                //var appCode = $(this).attr("data-app-code");
+                //$("#modal-update-app-code").val(appCode);
+
+                //var uom = $(this).attr("data-uom");
+                //$("#modal-update-uom").val(uom);
+                //var size = $(this).attr("data-size");
+                //$("#modal-update-size").val(size);
+                //var cupType = $(this).attr("data-cup-type");
+                //$("#modal-update-cup-type").val(cupType);
+
+                //CupType
+
+                //var topping = $(this).attr("data-topping");
+                //var isTopping = true;
+                //if (topping == "Có") {
+                //    isTopping = true;
+                //}
+                //else {
+                //    isTopping = false;
+                //}
+                //$("#modal-update-is-topping").val(isTopping).trigger('change');
+
+                //var blocked = $(this).attr("data-blocked");
+                //var isActive = true;
+                //if (blocked == "Có hiệu lực") {
+                //    isActive = 0; // true
+                //    $("#modal-update-chk-blocked-active").prop('checked', true);
+                //    $("#modal-update-chk-blocked-no-active").prop('checked', false);
+                //} else {
+                //    isActive = 1;  // False
+                //    $("#modal-update-chk-blocked-no-active").prop('checked', true);
+                //    $("#modal-update-chk-blocked-active").prop('checked', false);
+                //}
+
+                $('#modal-create-item-now-food').modal({
+                    backdrop: 'static',
+                    keyboard: true
+                });
+
+                //GetInfoItem(itemNo);
+
+            });
+
+            //$(".chk-item-no").change(function () {
+            //    if (this.checked) {
+            //        var itemNo = $(this).attr("data-item-no-2");
+            //        //GetInfoItem(itemNo);
+            //        $('#modal-create-item-now-food').modal({
+            //            backdrop: 'static',
+            //            keyboard: true
+            //        });
+            //    }
+            //});
+
+            //$("#modal-update-chk-blocked-active").on('click', function (e) {
+            //    if (this.checked) {
+            //        $("#modal-update-chk-blocked-no-active").prop('checked', false);
+            //    }
+            //});
+
+            //$("#modal-update-chk-blocked-no-active").on('click',function (e) {
+            //    if (this.checked) {
+            //        $("#modal-update-chk-blocked-active").prop('checked', false);
+            //    }
+            //});
+
+            $("#btn-save-create-item-now-food").on("click", function (e) {
+                //debugger
+                CreateItemNowFood();
+            });
+
+            $("#btn-header-search").on("click", function (e) {
+                //debugger
+                var keyword = $("#txt-text-search").val();
+                $("#hdd-txt-key-word").val(keyword);
+                loading.showloading();
+                $('#frm-item-list-now-food-create').attr('action', "/tao-moi-san-pham-now-food/").submit();
+                //$('#frm-item-list-now-food').attr('action', "/danh-sach-san-pham-now-food/").submit();
+                //$('#frm-item-partner-list').attr('action', "/san-pham-doi-tac-on-app/1/" + salestype + "/" + storeno + "/" + mch2 + "/" + keyword + "/" + status + "").submit();
+            });
+
+            $("#btn-search-item-list").on("click", function (e) {
+                //loading.showloading();
+                var storeNoStr = $("#sel-store-no").val();
+                if (storeNoStr == null || storeNoStr == "") {
+                    toastr.error('Chọn ST/CH');
+                    return;
+                }
+
+                var storeNo = storeNoStr.split('-')[0];  
+                //var restaurant_id = storeNo.split('-')[1];
+                LoadItemListByNowFood(storeNo);
+                //$('#frm-item-list-now-food').attr('action', "/danh-sach-san-pham-now-food-by-store/").submit();
+            });
+
+
+    });
+</script>
+    }
+
+
+    <style>
+        .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+            color: #5E6278;
+            background-color: #ffffff;
+            border-color: #2c48c5 #E4E6EF #ffffff;
+        }
+
+        .nav-tabs {
+            border-bottom: 1px solid #0c713d;
+        }
+    </style>
+
+

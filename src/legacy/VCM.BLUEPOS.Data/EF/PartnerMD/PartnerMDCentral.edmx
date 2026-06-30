@@ -1,0 +1,1559 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="PartnerMDModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="BeeFood_categories">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="256" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="NameTranslation" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="CateId" Type="uniqueidentifier" />
+        </EntityType>
+        <EntityType Name="BeeFood_items">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="Taxable" Type="bit" Nullable="false" />
+          <Property Name="Photo" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="Price" Type="int" Nullable="false" />
+          <Property Name="MaxStock" Type="int" Nullable="false" />
+          <Property Name="CategoryID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="CategoryName" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="NameTranslation" Type="nvarchar" MaxLength="100" />
+          <Property Name="IsModifierGroups" Type="bit" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="ItemId" Type="uniqueidentifier" />
+          <Property Name="IsCampaign" Type="bit" Nullable="false" />
+          <Property Name="IsTopping" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="BeeFood_modifier">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="ModifierGroupID" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="Price" Type="int" Nullable="false" />
+          <Property Name="ModifierGroupID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="ModifierId" Type="uniqueidentifier" />
+          <Property Name="IsCampaign" Type="bit" />
+        </EntityType>
+        <EntityType Name="BeeFood_modifier_group">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+            <PropertyRef Name="ItemID" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="SelectionRangeMin" Type="int" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="int" Nullable="false" />
+          <Property Name="CategoryID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="ItemID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="ModifierGroupId" Type="uniqueidentifier" />
+          <Property Name="ParentId" Type="int" />
+          <Property Name="IsCampaign" Type="bit" />
+        </EntityType>
+        <EntityType Name="BeeFood_modifier_group_name">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="SelectionRangeMin" Type="int" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="int" Nullable="false" />
+          <Property Name="IsCampaign" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="BeeFood_notify_new_order">
+          <Key>
+            <PropertyRef Name="order_id" />
+            <PropertyRef Name="status" />
+          </Key>
+          <Property Name="order_id" Type="bigint" Nullable="false" />
+          <Property Name="restaurant_id" Type="int" Nullable="false" />
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="status" Type="int" Nullable="false" />
+          <Property Name="is_pick_up_order" Type="bit" Nullable="false" />
+          <Property Name="remaining_time" Type="int" Nullable="false" />
+          <Property Name="delivery_address" Type="nvarchar" MaxLength="550" />
+          <Property Name="order_amount" Type="int" Nullable="false" />
+          <Property Name="customer_name" Type="nvarchar" MaxLength="250" />
+          <Property Name="created_at" Type="datetime" Nullable="false" />
+          <Property Name="delivery_note" Type="nvarchar" MaxLength="150" />
+          <Property Name="order_items" Type="nvarchar" MaxLength="2000" Nullable="false" />
+          <Property Name="flag_update" Type="varchar" MaxLength="1" Nullable="false" />
+          <Property Name="status_message" Type="nvarchar" MaxLength="1000" Nullable="false" />
+          <Property Name="updated_time" Type="datetime" Nullable="false" />
+          <Property Name="created_time" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="BeeFood_restaurant">
+          <Key>
+            <PropertyRef Name="restaurant_id" />
+            <PropertyRef Name="partner_restaurant_id" />
+          </Key>
+          <Property Name="restaurant_id" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="restaurant_name" Type="nvarchar" MaxLength="250" />
+          <Property Name="city" Type="nvarchar" MaxLength="50" />
+          <Property Name="address" Type="nvarchar" MaxLength="250" />
+          <Property Name="foody_service" Type="nvarchar" MaxLength="100" />
+          <Property Name="crt_date" Type="datetime" />
+          <Property Name="is_header" Type="bit" />
+          <Property Name="parent_restaurant" Type="varchar" MaxLength="6" />
+          <Property Name="blocked" Type="bit" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" />
+          <Property Name="CrtDate" Type="datetime" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" />
+          <Property Name="ChgDate" Type="datetime" />
+        </EntityType>
+        <EntityType Name="GrabFood_categories">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="256" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="NameTranslation" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="CateId" Type="uniqueidentifier" />
+        </EntityType>
+        <EntityType Name="GrabFood_items">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="Taxable" Type="bit" Nullable="false" />
+          <Property Name="Photo" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="Price" Type="int" Nullable="false" />
+          <Property Name="MaxStock" Type="int" Nullable="false" />
+          <Property Name="CategoryID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="CategoryName" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="NameTranslation" Type="nvarchar" MaxLength="100" />
+          <Property Name="IsModifierGroups" Type="bit" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="ItemId" Type="uniqueidentifier" />
+          <Property Name="IsCampaign" Type="bit" Nullable="false" />
+          <Property Name="IsTopping" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_modifier">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="ModifierGroupID" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="Price" Type="int" Nullable="false" />
+          <Property Name="ModifierGroupID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="ModifierId" Type="uniqueidentifier" />
+          <Property Name="IsCampaign" Type="bit" />
+        </EntityType>
+        <EntityType Name="GrabFood_modifier_group">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+            <PropertyRef Name="ItemID" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="Sequence" Type="int" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="SelectionRangeMin" Type="int" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="int" Nullable="false" />
+          <Property Name="CategoryID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="ItemID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="ModifierGroupId" Type="uniqueidentifier" />
+          <Property Name="ParentId" Type="int" />
+          <Property Name="IsCampaign" Type="bit" />
+        </EntityType>
+        <EntityType Name="GrabFood_modifier_group_name">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="AvailableStatus" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="SelectionRangeMin" Type="int" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="int" Nullable="false" />
+          <Property Name="IsCampaign" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_orders">
+          <Key>
+            <PropertyRef Name="OrderID" />
+          </Key>
+          <Property Name="OrderID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="MerchantID" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="PartnerMerchantID" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="ShortOrderNumber" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="OrderTime" Type="datetime" Nullable="false" />
+          <Property Name="State" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="RawData" Type="nvarchar(max)" />
+          <Property Name="Message" Type="nvarchar" MaxLength="1000" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgDate" Type="datetime" Nullable="false" />
+          <Property Name="MarkOrderAsReady" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_service_hours">
+          <Key>
+            <PropertyRef Name="OpenPeriodType" />
+            <PropertyRef Name="Day" />
+          </Key>
+          <Property Name="OpenPeriodType" Type="varchar" MaxLength="30" Nullable="false" />
+          <Property Name="Day" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="StartTime" Type="varchar" MaxLength="7" Nullable="false" />
+          <Property Name="EndTime" Type="varchar" MaxLength="7" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_store">
+          <Key>
+            <PropertyRef Name="GrabMerchantID" />
+            <PropertyRef Name="StoreNo" />
+          </Key>
+          <Property Name="GrabMerchantID" Type="varchar" MaxLength="30" Nullable="false" />
+          <Property Name="PartnerMerchantID" Type="varchar" MaxLength="6" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="StoreName" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="IsOpen" Type="bit" Nullable="false" />
+          <Property Name="CloseReason" Type="nvarchar" MaxLength="200" />
+          <Property Name="DeliveryStartTime" Type="varchar" MaxLength="5" />
+          <Property Name="DeliveryEndTime" Type="varchar" MaxLength="5" />
+          <Property Name="SpecialStartTime" Type="varchar" MaxLength="5" />
+          <Property Name="SpecialEndTime" Type="varchar" MaxLength="5" />
+          <Property Name="DineInStartTime" Type="varchar" MaxLength="5" />
+          <Property Name="DineInEndTime" Type="varchar" MaxLength="5" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" />
+          <Property Name="CrtDate" Type="datetime" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" />
+          <Property Name="ChgDate" Type="datetime" />
+        </EntityType>
+        <EntityType Name="ItemSalesOnApp">
+          <Key>
+            <PropertyRef Name="PartnerCode" />
+            <PropertyRef Name="AppCode" />
+            <PropertyRef Name="ItemNo" />
+            <PropertyRef Name="Uom" />
+            <PropertyRef Name="StoreNo" />
+          </Key>
+          <Property Name="PartnerCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="AppCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ItemNo" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="ItemName" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="Uom" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="UnitPrice" Type="decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="Blocked" Type="bit" Nullable="false" />
+          <Property Name="IsSync" Type="bit" Nullable="false" />
+          <Property Name="Size" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="ItemGroup" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ItemGroupName" Type="nvarchar" MaxLength="200" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgeDate" Type="datetime" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="IsApplyAll" Type="bit" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" />
+          <Property Name="PictureId" Type="int" Nullable="false" />
+          <Property Name="SyncResults" Type="nvarchar" MaxLength="250" />
+          <Property Name="Id" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="ParentCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="IsTopping" Type="bit" />
+          <Property Name="IsSales" Type="bit" Nullable="false" />
+          <Property Name="DishId" Type="int" Nullable="false" />
+          <Property Name="CupType" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="Action" Type="varchar" MaxLength="20" />
+        </EntityType>
+        <EntityType Name="ItemToppingMapping">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="PartnerCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="AppCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="ItemNo" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="ToppingNo" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="UnitPrice" Type="decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="IsRequired" Type="bit" Nullable="false" />
+          <Property Name="IsApplyAll" Type="bit" Nullable="false" />
+          <Property Name="MinQuantity" Type="int" Nullable="false" />
+          <Property Name="MaxQuantity" Type="int" Nullable="false" />
+          <Property Name="Blocked" Type="bit" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgeDate" Type="datetime" Nullable="false" />
+          <Property Name="IsSync" Type="bit" Nullable="false" />
+          <Property Name="IsSetQuantity" Type="bit" Nullable="false" />
+          <Property Name="SyncResults" Type="nvarchar" MaxLength="250" />
+          <Property Name="Id" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="SyncSetQuantity" Type="nvarchar" MaxLength="500" />
+          <Property Name="Action" Type="varchar" MaxLength="20" />
+        </EntityType>
+        <EntityType Name="MappingDataPartner">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="AppCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="ItemNo" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="ItemName" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="Uom" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="IsSync" Type="bit" Nullable="false" />
+          <Property Name="Description" Type="nvarchar" MaxLength="100" />
+          <Property Name="PictureId" Type="int" Nullable="false" />
+          <Property Name="RefId" Type="int" Nullable="false" />
+          <Property Name="Action" Type="varchar" MaxLength="20" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgeDate" Type="datetime" Nullable="false" />
+          <Property Name="Id" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="10" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_dish">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="dish_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="dish_id" Type="int" Nullable="false" />
+          <Property Name="dish_group_id" Type="int" Nullable="false" />
+          <Property Name="partner_dish_id" Type="varchar" MaxLength="18" />
+          <Property Name="name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="name_en" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="display_order" Type="int" Nullable="false" />
+          <Property Name="price" Type="decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="description" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="is_active" Type="bit" Nullable="false" />
+          <Property Name="partner_dish_group_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="created_time" Type="datetime" Nullable="false" />
+          <Property Name="updated_time" Type="datetime" Nullable="false" />
+          <Property Name="picture_id" Type="int" Nullable="false" />
+          <Property Name="url" Type="nvarchar" MaxLength="1000" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_dish_group">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="dish_group_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="dish_group_id" Type="int" Nullable="false" />
+          <Property Name="partner_dish_group_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="name_en" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="description" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="display_order" Type="int" Nullable="false" />
+          <Property Name="crt_date" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_dish_group_detail">
+          <Key>
+            <PropertyRef Name="restaurant_id" />
+            <PropertyRef Name="dish_group_id" />
+          </Key>
+          <Property Name="restaurant_id" Type="int" Nullable="false" />
+          <Property Name="dish_group_id" Type="int" Nullable="false" />
+          <Property Name="partner_dish_group_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="name_en" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="description" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="display_order" Type="int" Nullable="false" />
+          <Property Name="is_active" Type="bit" Nullable="false" />
+          <Property Name="crt_date" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_restaurant">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+          </Key>
+          <Property Name="restaurant_id" Type="int" Nullable="false" />
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="city" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="address" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="foody_service" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="crt_date" Type="datetime" Nullable="false" />
+          <Property Name="is_header" Type="bit" Nullable="false" />
+          <Property Name="parent_restaurant" Type="varchar" MaxLength="6" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_topping">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="topping_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="topping_id" Type="int" Nullable="false" />
+          <Property Name="topping_group_id" Type="int" Nullable="false" />
+          <Property Name="partner_topping_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="partner_topping_group_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="name_en" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="display_order" Type="int" Nullable="false" />
+          <Property Name="price" Type="decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="is_active" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_topping_group">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="topping_group_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="topping_group_id" Type="int" Nullable="false" />
+          <Property Name="partner_topping_group_id" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="name_en" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="display_order" Type="int" Nullable="false" />
+          <Property Name="description" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="is_active" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ToppingSalesOnApp">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="PartnerCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="AppCode" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="6" Nullable="false" />
+          <Property Name="ToppingGroup" Type="varchar" MaxLength="30" Nullable="false" />
+          <Property Name="ToppingNo" Type="varchar" MaxLength="18" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="Name_En" Type="nvarchar" MaxLength="250" Nullable="false" />
+          <Property Name="UnitPrice" Type="decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="DisplayOrder" Type="bit" Nullable="false" />
+          <Property Name="IsApplyAll" Type="bit" Nullable="false" />
+          <Property Name="Blocked" Type="bit" Nullable="false" />
+          <Property Name="IsSync" Type="bit" Nullable="false" />
+          <Property Name="SyncResults" Type="nvarchar" MaxLength="250" />
+          <Property Name="Id" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="CrtDate" Type="datetime" Nullable="false" />
+          <Property Name="ChgeDate" Type="datetime" Nullable="false" />
+          <Property Name="Action" Type="varchar" MaxLength="20" />
+        </EntityType>
+        <EntityType Name="Zalo_store">
+          <Key>
+            <PropertyRef Name="store_id" />
+            <PropertyRef Name="merchant_store_id" />
+          </Key>
+          <Property Name="store_id" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="merchant_store_id" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="merchant_name" Type="nvarchar" MaxLength="200" Nullable="false" />
+          <Property Name="blocked" Type="bit" Nullable="false" />
+          <Property Name="crt_date" Type="datetime" Nullable="false" />
+          <Property Name="CrtUser" Type="varchar" MaxLength="20" />
+          <Property Name="ChgUser" Type="varchar" MaxLength="20" />
+          <Property Name="ChgDate" Type="datetime" />
+        </EntityType>
+        <EntityContainer Name="PartnerMDModelStoreContainer">
+          <EntitySet Name="BeeFood_categories" EntityType="Self.BeeFood_categories" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="BeeFood_items" EntityType="Self.BeeFood_items" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="BeeFood_modifier" EntityType="Self.BeeFood_modifier" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="BeeFood_modifier_group" EntityType="Self.BeeFood_modifier_group" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="BeeFood_modifier_group_name" EntityType="Self.BeeFood_modifier_group_name" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="BeeFood_notify_new_order" EntityType="Self.BeeFood_notify_new_order" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="BeeFood_restaurant" EntityType="Self.BeeFood_restaurant" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_categories" EntityType="Self.GrabFood_categories" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_items" EntityType="Self.GrabFood_items" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_modifier" EntityType="Self.GrabFood_modifier" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_modifier_group" EntityType="Self.GrabFood_modifier_group" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_modifier_group_name" EntityType="Self.GrabFood_modifier_group_name" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_orders" EntityType="Self.GrabFood_orders" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_service_hours" EntityType="Self.GrabFood_service_hours" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GrabFood_store" EntityType="Self.GrabFood_store" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ItemSalesOnApp" EntityType="Self.ItemSalesOnApp" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ItemToppingMapping" EntityType="Self.ItemToppingMapping" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="MappingDataPartner" EntityType="Self.MappingDataPartner" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_dish" EntityType="Self.Shopee_dish" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_dish_group" EntityType="Self.Shopee_dish_group" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_dish_group_detail" EntityType="Self.Shopee_dish_group_detail" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_restaurant" EntityType="Self.Shopee_restaurant" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_topping" EntityType="Self.Shopee_topping" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_topping_group" EntityType="Self.Shopee_topping_group" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ToppingSalesOnApp" EntityType="Self.ToppingSalesOnApp" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Zalo_store" EntityType="Self.Zalo_store" Schema="dbo" store:Type="Tables" />
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="PartnerMDModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="GrabFood_categories">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="256" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="NameTranslation" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="CateId" Type="Guid" />
+        </EntityType>
+        <EntityType Name="GrabFood_items">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+          </Key>
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="150" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Description" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Taxable" Type="Boolean" Nullable="false" />
+          <Property Name="Photo" Type="String" MaxLength="500" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Price" Type="Int32" Nullable="false" />
+          <Property Name="MaxStock" Type="Int32" Nullable="false" />
+          <Property Name="CategoryID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CategoryName" Type="String" MaxLength="150" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="NameTranslation" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="IsModifierGroups" Type="Boolean" Nullable="false" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ItemId" Type="Guid" />
+          <Property Name="IsCampaign" Type="Boolean" Nullable="false" />
+          <Property Name="IsTopping" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_modifier">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="ModifierGroupID" />
+          </Key>
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="150" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Price" Type="Int32" Nullable="false" />
+          <Property Name="ModifierGroupID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ModifierId" Type="Guid" />
+          <Property Name="IsCampaign" Type="Boolean" />
+        </EntityType>
+        <EntityType Name="GrabFood_modifier_group">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+            <PropertyRef Name="ItemID" />
+          </Key>
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="150" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="SelectionRangeMin" Type="Int32" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="Int32" Nullable="false" />
+          <Property Name="CategoryID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ModifierGroupId" Type="Guid" />
+          <NavigationProperty Name="GrabFood_modifier_group_name" Relationship="Self.FK_modifier_group_name" FromRole="GrabFood_modifier_group" ToRole="GrabFood_modifier_group_name" />
+          <Property Name="ParentId" Type="Int32" />
+          <Property Name="IsCampaign" Type="Boolean" />
+        </EntityType>
+        <EntityType Name="GrabFood_modifier_group_name">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="150" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="SelectionRangeMin" Type="Int32" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="GrabFood_modifier_group" Relationship="Self.FK_modifier_group_name" FromRole="GrabFood_modifier_group_name" ToRole="GrabFood_modifier_group" />
+          <Property Name="IsCampaign" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_orders">
+          <Key>
+            <PropertyRef Name="OrderID" />
+          </Key>
+          <Property Name="OrderID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="MerchantID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="PartnerMerchantID" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ShortOrderNumber" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="OrderTime" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="State" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="RawData" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="Message" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="MarkOrderAsReady" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GrabFood_service_hours">
+          <Key>
+            <PropertyRef Name="OpenPeriodType" />
+            <PropertyRef Name="Day" />
+          </Key>
+          <Property Name="OpenPeriodType" Type="String" MaxLength="30" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Day" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="StartTime" Type="String" MaxLength="7" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="EndTime" Type="String" MaxLength="7" FixedLength="false" Unicode="false" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ItemSalesOnApp">
+          <Key>
+            <PropertyRef Name="PartnerCode" />
+            <PropertyRef Name="AppCode" />
+            <PropertyRef Name="ItemNo" />
+            <PropertyRef Name="Uom" />
+            <PropertyRef Name="StoreNo" />
+          </Key>
+          <Property Name="PartnerCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="AppCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemNo" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemName" Type="String" MaxLength="500" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Uom" Type="String" MaxLength="10" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="UnitPrice" Type="Decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="Blocked" Type="Boolean" Nullable="false" />
+          <Property Name="IsSync" Type="Boolean" Nullable="false" />
+          <Property Name="Size" Type="String" MaxLength="10" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemGroup" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemGroupName" Type="String" MaxLength="200" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgeDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="StoreNo" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="IsApplyAll" Type="Boolean" Nullable="false" />
+          <Property Name="Description" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="PictureId" Type="Int32" Nullable="false" />
+          <Property Name="SyncResults" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="ParentCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="IsTopping" Type="Boolean" />
+          <Property Name="IsSales" Type="Boolean" Nullable="false" />
+          <Property Name="DishId" Type="Int32" Nullable="false" />
+          <Property Name="CupType" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Action" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="ItemToppingMapping">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="PartnerCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="AppCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="StoreNo" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemNo" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ToppingNo" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="UnitPrice" Type="Decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="IsRequired" Type="Boolean" Nullable="false" />
+          <Property Name="IsApplyAll" Type="Boolean" Nullable="false" />
+          <Property Name="MinQuantity" Type="Int32" Nullable="false" />
+          <Property Name="MaxQuantity" Type="Int32" Nullable="false" />
+          <Property Name="Blocked" Type="Boolean" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgeDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="IsSync" Type="Boolean" Nullable="false" />
+          <Property Name="IsSetQuantity" Type="Boolean" Nullable="false" />
+          <Property Name="SyncResults" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="SyncSetQuantity" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="Action" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="MappingDataPartner">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="AppCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemNo" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ItemName" Type="String" MaxLength="500" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Uom" Type="String" MaxLength="10" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="IsSync" Type="Boolean" Nullable="false" />
+          <Property Name="Description" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="PictureId" Type="Int32" Nullable="false" />
+          <Property Name="RefId" Type="Int32" Nullable="false" />
+          <Property Name="Action" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgeDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="Id" Type="Guid" Nullable="false" />
+          <Property Name="StoreNo" Type="String" MaxLength="10" FixedLength="false" Unicode="false" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_dish">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="dish_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="dish_id" Type="Int32" Nullable="false" />
+          <Property Name="dish_group_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_dish_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" />
+          <Property Name="name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="name_en" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="display_order" Type="Int32" Nullable="false" />
+          <Property Name="price" Type="Decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="description" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="is_active" Type="Boolean" Nullable="false" />
+          <Property Name="partner_dish_group_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="created_time" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="updated_time" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="picture_id" Type="Int32" Nullable="false" />
+          <Property Name="url" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_dish_group">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="dish_group_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="dish_group_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_dish_group_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="name_en" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="description" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="display_order" Type="Int32" Nullable="false" />
+          <Property Name="crt_date" Type="DateTime" Nullable="false" Precision="3" />
+        </EntityType>
+        <EntityType Name="Shopee_dish_group_detail">
+          <Key>
+            <PropertyRef Name="restaurant_id" />
+            <PropertyRef Name="dish_group_id" />
+          </Key>
+          <Property Name="restaurant_id" Type="Int32" Nullable="false" />
+          <Property Name="dish_group_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_dish_group_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="name_en" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="description" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="display_order" Type="Int32" Nullable="false" />
+          <Property Name="is_active" Type="Boolean" Nullable="false" />
+          <Property Name="crt_date" Type="DateTime" Nullable="false" Precision="3" />
+        </EntityType>
+        <EntityType Name="Shopee_restaurant">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+          </Key>
+          <Property Name="restaurant_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="city" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="address" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="foody_service" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="crt_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="is_header" Type="Boolean" Nullable="false" />
+          <Property Name="parent_restaurant" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_topping">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="topping_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="topping_id" Type="Int32" Nullable="false" />
+          <Property Name="topping_group_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_topping_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="partner_topping_group_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="name_en" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="display_order" Type="Int32" Nullable="false" />
+          <Property Name="price" Type="Decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="is_active" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Shopee_topping_group">
+          <Key>
+            <PropertyRef Name="partner_restaurant_id" />
+            <PropertyRef Name="topping_group_id" />
+          </Key>
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="topping_group_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_topping_group_id" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="name_en" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="display_order" Type="Int32" Nullable="false" />
+          <Property Name="description" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="is_active" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ToppingSalesOnApp">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="PartnerCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="AppCode" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="StoreNo" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ToppingGroup" Type="String" MaxLength="30" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="ToppingNo" Type="String" MaxLength="18" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Name_En" Type="String" MaxLength="250" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="UnitPrice" Type="Decimal" Precision="18" Scale="0" Nullable="false" />
+          <Property Name="DisplayOrder" Type="Boolean" Nullable="false" />
+          <Property Name="IsApplyAll" Type="Boolean" Nullable="false" />
+          <Property Name="Blocked" Type="Boolean" Nullable="false" />
+          <Property Name="IsSync" Type="Boolean" Nullable="false" />
+          <Property Name="SyncResults" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="Id" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgeDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="Action" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <Association Name="FK_modifier_group_name">
+          <End Role="GrabFood_modifier_group_name" Type="Self.GrabFood_modifier_group_name" Multiplicity="1" />
+          <End Role="GrabFood_modifier_group" Type="Self.GrabFood_modifier_group" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="GrabFood_modifier_group_name">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="GrabFood_modifier_group">
+              <PropertyRef Name="Id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="PartnerMDEntities" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="GrabFood_categories" EntityType="Self.GrabFood_categories" />
+          <EntitySet Name="GrabFood_items" EntityType="Self.GrabFood_items" />
+          <EntitySet Name="GrabFood_modifier" EntityType="Self.GrabFood_modifier" />
+          <EntitySet Name="GrabFood_modifier_group" EntityType="Self.GrabFood_modifier_group" />
+          <EntitySet Name="GrabFood_modifier_group_name" EntityType="Self.GrabFood_modifier_group_name" />
+          <EntitySet Name="GrabFood_orders" EntityType="Self.GrabFood_orders" />
+          <EntitySet Name="GrabFood_service_hours" EntityType="Self.GrabFood_service_hours" />
+          <EntitySet Name="ItemSalesOnApps" EntityType="Self.ItemSalesOnApp" />
+          <EntitySet Name="ItemToppingMappings" EntityType="Self.ItemToppingMapping" />
+          <EntitySet Name="MappingDataPartners" EntityType="Self.MappingDataPartner" />
+          <EntitySet Name="Shopee_dish" EntityType="Self.Shopee_dish" />
+          <EntitySet Name="Shopee_dish_group" EntityType="Self.Shopee_dish_group" />
+          <EntitySet Name="Shopee_dish_group_detail" EntityType="Self.Shopee_dish_group_detail" />
+          <EntitySet Name="Shopee_restaurant" EntityType="Self.Shopee_restaurant" />
+          <EntitySet Name="Shopee_topping" EntityType="Self.Shopee_topping" />
+          <EntitySet Name="Shopee_topping_group" EntityType="Self.Shopee_topping_group" />
+          <EntitySet Name="ToppingSalesOnApps" EntityType="Self.ToppingSalesOnApp" />
+          <AssociationSet Name="FK_modifier_group_name" Association="Self.FK_modifier_group_name">
+            <End Role="GrabFood_modifier_group_name" EntitySet="GrabFood_modifier_group_name" />
+            <End Role="GrabFood_modifier_group" EntitySet="GrabFood_modifier_group" />
+          </AssociationSet>
+          <EntitySet Name="BeeFood_categories" EntityType="PartnerMDModel.BeeFood_categories" />
+          <EntitySet Name="BeeFood_items" EntityType="PartnerMDModel.BeeFood_items" />
+          <EntitySet Name="BeeFood_modifier" EntityType="PartnerMDModel.BeeFood_modifier" />
+          <EntitySet Name="BeeFood_modifier_group" EntityType="PartnerMDModel.BeeFood_modifier_group" />
+          <EntitySet Name="BeeFood_modifier_group_name" EntityType="PartnerMDModel.BeeFood_modifier_group_name" />
+          <EntitySet Name="BeeFood_notify_new_order" EntityType="PartnerMDModel.BeeFood_notify_new_order" />
+          <EntitySet Name="GrabFood_store" EntityType="PartnerMDModel.GrabFood_store" />
+          <EntitySet Name="BeeFood_restaurant" EntityType="PartnerMDModel.BeeFood_restaurant" />
+          <EntitySet Name="Zalo_store" EntityType="PartnerMDModel.Zalo_store" />
+        </EntityContainer>
+        <EntityType Name="BeeFood_categories">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="256" FixedLength="false" Unicode="true" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="NameTranslation" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="CateId" Type="Guid" />
+        </EntityType>
+        <EntityType Name="BeeFood_items">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+          </Key>
+          <Property Name="Id" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="Description" Type="String" Nullable="false" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="Taxable" Type="Boolean" Nullable="false" />
+          <Property Name="Photo" Type="String" Nullable="false" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="Price" Type="Int32" Nullable="false" />
+          <Property Name="MaxStock" Type="Int32" Nullable="false" />
+          <Property Name="CategoryID" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CategoryName" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="NameTranslation" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="IsModifierGroups" Type="Boolean" Nullable="false" />
+          <Property Name="CrtUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ItemId" Type="Guid" />
+          <Property Name="IsCampaign" Type="Boolean" Nullable="false" />
+          <Property Name="IsTopping" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="BeeFood_modifier">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="ModifierGroupID" />
+          </Key>
+          <Property Name="Id" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="Price" Type="Int32" Nullable="false" />
+          <Property Name="ModifierGroupID" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CrtUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ModifierId" Type="Guid" />
+          <Property Name="IsCampaign" Type="Boolean" />
+        </EntityType>
+        <EntityType Name="BeeFood_modifier_group">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="CategoryID" />
+            <PropertyRef Name="ItemID" />
+          </Key>
+          <Property Name="Id" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="Sequence" Type="Int32" Nullable="false" />
+          <Property Name="AvailableStatus" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="SelectionRangeMin" Type="Int32" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="Int32" Nullable="false" />
+          <Property Name="CategoryID" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ItemID" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CrtUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ModifierGroupId" Type="Guid" />
+          <Property Name="ParentId" Type="Int32" />
+          <Property Name="IsCampaign" Type="Boolean" />
+        </EntityType>
+        <EntityType Name="BeeFood_modifier_group_name">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="AvailableStatus" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChgUser" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="SelectionRangeMin" Type="Int32" Nullable="false" />
+          <Property Name="SelectionRangeMax" Type="Int32" Nullable="false" />
+          <Property Name="IsCampaign" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="BeeFood_notify_new_order">
+          <Key>
+            <PropertyRef Name="order_id" />
+            <PropertyRef Name="status" />
+          </Key>
+          <Property Name="order_id" Type="Int64" Nullable="false" />
+          <Property Name="restaurant_id" Type="Int32" Nullable="false" />
+          <Property Name="partner_restaurant_id" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="status" Type="Int32" Nullable="false" />
+          <Property Name="is_pick_up_order" Type="Boolean" Nullable="false" />
+          <Property Name="remaining_time" Type="Int32" Nullable="false" />
+          <Property Name="delivery_address" Type="String" MaxLength="550" FixedLength="false" Unicode="true" />
+          <Property Name="order_amount" Type="Int32" Nullable="false" />
+          <Property Name="customer_name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="created_at" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="delivery_note" Type="String" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="order_items" Type="String" Nullable="false" MaxLength="2000" FixedLength="false" Unicode="true" />
+          <Property Name="flag_update" Type="String" Nullable="false" MaxLength="1" FixedLength="false" Unicode="false" />
+          <Property Name="status_message" Type="String" Nullable="false" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="updated_time" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="created_time" Type="DateTime" Nullable="false" Precision="3" />
+        </EntityType>
+        <EntityType Name="GrabFood_store">
+          <Key>
+            <PropertyRef Name="GrabMerchantID" />
+            <PropertyRef Name="StoreNo" />
+          </Key>
+          <Property Name="GrabMerchantID" Type="String" Nullable="false" MaxLength="30" FixedLength="false" Unicode="false" />
+          <Property Name="PartnerMerchantID" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
+          <Property Name="StoreNo" Type="String" Nullable="false" MaxLength="6" FixedLength="false" Unicode="false" />
+          <Property Name="StoreName" Type="String" Nullable="false" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="IsOpen" Type="Boolean" Nullable="false" />
+          <Property Name="CloseReason" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="DeliveryStartTime" Type="String" MaxLength="5" FixedLength="false" Unicode="false" />
+          <Property Name="DeliveryEndTime" Type="String" MaxLength="5" FixedLength="false" Unicode="false" />
+          <Property Name="SpecialStartTime" Type="String" MaxLength="5" FixedLength="false" Unicode="false" />
+          <Property Name="SpecialEndTime" Type="String" MaxLength="5" FixedLength="false" Unicode="false" />
+          <Property Name="DineInStartTime" Type="String" MaxLength="5" FixedLength="false" Unicode="false" />
+          <Property Name="DineInEndTime" Type="String" MaxLength="5" FixedLength="false" Unicode="false" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Precision="3" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Precision="3" />
+        </EntityType>
+        <EntityType Name="BeeFood_restaurant">
+          <Key>
+            <PropertyRef Name="restaurant_id" />
+            <PropertyRef Name="partner_restaurant_id" />
+          </Key>
+          <Property Name="restaurant_id" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="partner_restaurant_id" Type="String" Nullable="false" MaxLength="6" FixedLength="false" Unicode="false" />
+          <Property Name="restaurant_name" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="city" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="address" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="foody_service" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="crt_date" Type="DateTime" Precision="3" />
+          <Property Name="is_header" Type="Boolean" />
+          <Property Name="parent_restaurant" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
+          <Property Name="blocked" Type="Boolean" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="CrtDate" Type="DateTime" Precision="3" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Precision="3" />
+        </EntityType>
+        <EntityType Name="Zalo_store">
+          <Key>
+            <PropertyRef Name="store_id" />
+            <PropertyRef Name="merchant_store_id" />
+          </Key>
+          <Property Name="store_id" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="merchant_store_id" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="merchant_name" Type="String" Nullable="false" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="blocked" Type="Boolean" Nullable="false" />
+          <Property Name="crt_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="CrtUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgUser" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="ChgDate" Type="DateTime" Precision="3" />
+        </EntityType>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="PartnerMDModelStoreContainer" CdmEntityContainer="PartnerMDEntities">
+          <EntitySetMapping Name="GrabFood_categories">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_categories">
+              <MappingFragment StoreEntitySet="GrabFood_categories">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="NameTranslation" ColumnName="NameTranslation" />
+                <ScalarProperty Name="CateId" ColumnName="CateId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_items">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_items">
+              <MappingFragment StoreEntitySet="GrabFood_items">
+                <ScalarProperty Name="IsTopping" ColumnName="IsTopping" />
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Taxable" ColumnName="Taxable" />
+                <ScalarProperty Name="Photo" ColumnName="Photo" />
+                <ScalarProperty Name="Price" ColumnName="Price" />
+                <ScalarProperty Name="MaxStock" ColumnName="MaxStock" />
+                <ScalarProperty Name="CategoryID" ColumnName="CategoryID" />
+                <ScalarProperty Name="CategoryName" ColumnName="CategoryName" />
+                <ScalarProperty Name="NameTranslation" ColumnName="NameTranslation" />
+                <ScalarProperty Name="IsModifierGroups" ColumnName="IsModifierGroups" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ItemId" ColumnName="ItemId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_modifier">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_modifier">
+              <MappingFragment StoreEntitySet="GrabFood_modifier">
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Price" ColumnName="Price" />
+                <ScalarProperty Name="ModifierGroupID" ColumnName="ModifierGroupID" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ModifierId" ColumnName="ModifierId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_modifier_group">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_modifier_group">
+              <MappingFragment StoreEntitySet="GrabFood_modifier_group">
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="ParentId" ColumnName="ParentId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="SelectionRangeMin" ColumnName="SelectionRangeMin" />
+                <ScalarProperty Name="SelectionRangeMax" ColumnName="SelectionRangeMax" />
+                <ScalarProperty Name="CategoryID" ColumnName="CategoryID" />
+                <ScalarProperty Name="ItemID" ColumnName="ItemID" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ModifierGroupId" ColumnName="ModifierGroupId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_modifier_group_name">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_modifier_group_name">
+              <MappingFragment StoreEntitySet="GrabFood_modifier_group_name">
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="SelectionRangeMin" ColumnName="SelectionRangeMin" />
+                <ScalarProperty Name="SelectionRangeMax" ColumnName="SelectionRangeMax" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_orders">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_orders">
+              <MappingFragment StoreEntitySet="GrabFood_orders">
+                <ScalarProperty Name="OrderID" ColumnName="OrderID" />
+                <ScalarProperty Name="MerchantID" ColumnName="MerchantID" />
+                <ScalarProperty Name="PartnerMerchantID" ColumnName="PartnerMerchantID" />
+                <ScalarProperty Name="ShortOrderNumber" ColumnName="ShortOrderNumber" />
+                <ScalarProperty Name="OrderTime" ColumnName="OrderTime" />
+                <ScalarProperty Name="State" ColumnName="State" />
+                <ScalarProperty Name="RawData" ColumnName="RawData" />
+                <ScalarProperty Name="Message" ColumnName="Message" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="MarkOrderAsReady" ColumnName="MarkOrderAsReady" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_service_hours">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_service_hours">
+              <MappingFragment StoreEntitySet="GrabFood_service_hours">
+                <ScalarProperty Name="OpenPeriodType" ColumnName="OpenPeriodType" />
+                <ScalarProperty Name="Day" ColumnName="Day" />
+                <ScalarProperty Name="StartTime" ColumnName="StartTime" />
+                <ScalarProperty Name="EndTime" ColumnName="EndTime" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ItemSalesOnApps">
+            <EntityTypeMapping TypeName="PartnerMDModel.ItemSalesOnApp">
+              <MappingFragment StoreEntitySet="ItemSalesOnApp">
+                <ScalarProperty Name="PartnerCode" ColumnName="PartnerCode" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+                <ScalarProperty Name="ItemName" ColumnName="ItemName" />
+                <ScalarProperty Name="Uom" ColumnName="Uom" />
+                <ScalarProperty Name="UnitPrice" ColumnName="UnitPrice" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="IsSync" ColumnName="IsSync" />
+                <ScalarProperty Name="Size" ColumnName="Size" />
+                <ScalarProperty Name="ItemGroup" ColumnName="ItemGroup" />
+                <ScalarProperty Name="ItemGroupName" ColumnName="ItemGroupName" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgeDate" ColumnName="ChgeDate" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="IsApplyAll" ColumnName="IsApplyAll" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="PictureId" ColumnName="PictureId" />
+                <ScalarProperty Name="SyncResults" ColumnName="SyncResults" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="ParentCode" ColumnName="ParentCode" />
+                <ScalarProperty Name="IsTopping" ColumnName="IsTopping" />
+                <ScalarProperty Name="IsSales" ColumnName="IsSales" />
+                <ScalarProperty Name="DishId" ColumnName="DishId" />
+                <ScalarProperty Name="CupType" ColumnName="CupType" />
+                <ScalarProperty Name="Action" ColumnName="Action" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ItemToppingMappings">
+            <EntityTypeMapping TypeName="PartnerMDModel.ItemToppingMapping">
+              <MappingFragment StoreEntitySet="ItemToppingMapping">
+                <ScalarProperty Name="PartnerCode" ColumnName="PartnerCode" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+                <ScalarProperty Name="ToppingNo" ColumnName="ToppingNo" />
+                <ScalarProperty Name="UnitPrice" ColumnName="UnitPrice" />
+                <ScalarProperty Name="IsRequired" ColumnName="IsRequired" />
+                <ScalarProperty Name="IsApplyAll" ColumnName="IsApplyAll" />
+                <ScalarProperty Name="MinQuantity" ColumnName="MinQuantity" />
+                <ScalarProperty Name="MaxQuantity" ColumnName="MaxQuantity" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgeDate" ColumnName="ChgeDate" />
+                <ScalarProperty Name="IsSync" ColumnName="IsSync" />
+                <ScalarProperty Name="IsSetQuantity" ColumnName="IsSetQuantity" />
+                <ScalarProperty Name="SyncResults" ColumnName="SyncResults" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="SyncSetQuantity" ColumnName="SyncSetQuantity" />
+                <ScalarProperty Name="Action" ColumnName="Action" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="MappingDataPartners">
+            <EntityTypeMapping TypeName="PartnerMDModel.MappingDataPartner">
+              <MappingFragment StoreEntitySet="MappingDataPartner">
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+                <ScalarProperty Name="ItemNo" ColumnName="ItemNo" />
+                <ScalarProperty Name="ItemName" ColumnName="ItemName" />
+                <ScalarProperty Name="Uom" ColumnName="Uom" />
+                <ScalarProperty Name="IsSync" ColumnName="IsSync" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="PictureId" ColumnName="PictureId" />
+                <ScalarProperty Name="RefId" ColumnName="RefId" />
+                <ScalarProperty Name="Action" ColumnName="Action" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgeDate" ColumnName="ChgeDate" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_dish">
+            <EntityTypeMapping TypeName="PartnerMDModel.Shopee_dish">
+              <MappingFragment StoreEntitySet="Shopee_dish">
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="dish_id" ColumnName="dish_id" />
+                <ScalarProperty Name="dish_group_id" ColumnName="dish_group_id" />
+                <ScalarProperty Name="partner_dish_id" ColumnName="partner_dish_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="name_en" ColumnName="name_en" />
+                <ScalarProperty Name="display_order" ColumnName="display_order" />
+                <ScalarProperty Name="price" ColumnName="price" />
+                <ScalarProperty Name="description" ColumnName="description" />
+                <ScalarProperty Name="is_active" ColumnName="is_active" />
+                <ScalarProperty Name="partner_dish_group_id" ColumnName="partner_dish_group_id" />
+                <ScalarProperty Name="created_time" ColumnName="created_time" />
+                <ScalarProperty Name="updated_time" ColumnName="updated_time" />
+                <ScalarProperty Name="picture_id" ColumnName="picture_id" />
+                <ScalarProperty Name="url" ColumnName="url" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_dish_group">
+            <EntityTypeMapping TypeName="PartnerMDModel.Shopee_dish_group">
+              <MappingFragment StoreEntitySet="Shopee_dish_group">
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="dish_group_id" ColumnName="dish_group_id" />
+                <ScalarProperty Name="partner_dish_group_id" ColumnName="partner_dish_group_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="name_en" ColumnName="name_en" />
+                <ScalarProperty Name="description" ColumnName="description" />
+                <ScalarProperty Name="display_order" ColumnName="display_order" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_dish_group_detail">
+            <EntityTypeMapping TypeName="PartnerMDModel.Shopee_dish_group_detail">
+              <MappingFragment StoreEntitySet="Shopee_dish_group_detail">
+                <ScalarProperty Name="restaurant_id" ColumnName="restaurant_id" />
+                <ScalarProperty Name="dish_group_id" ColumnName="dish_group_id" />
+                <ScalarProperty Name="partner_dish_group_id" ColumnName="partner_dish_group_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="name_en" ColumnName="name_en" />
+                <ScalarProperty Name="description" ColumnName="description" />
+                <ScalarProperty Name="display_order" ColumnName="display_order" />
+                <ScalarProperty Name="is_active" ColumnName="is_active" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_restaurant">
+            <EntityTypeMapping TypeName="PartnerMDModel.Shopee_restaurant">
+              <MappingFragment StoreEntitySet="Shopee_restaurant">
+                <ScalarProperty Name="restaurant_id" ColumnName="restaurant_id" />
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="city" ColumnName="city" />
+                <ScalarProperty Name="address" ColumnName="address" />
+                <ScalarProperty Name="foody_service" ColumnName="foody_service" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+                <ScalarProperty Name="is_header" ColumnName="is_header" />
+                <ScalarProperty Name="parent_restaurant" ColumnName="parent_restaurant" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_topping">
+            <EntityTypeMapping TypeName="PartnerMDModel.Shopee_topping">
+              <MappingFragment StoreEntitySet="Shopee_topping">
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="topping_id" ColumnName="topping_id" />
+                <ScalarProperty Name="topping_group_id" ColumnName="topping_group_id" />
+                <ScalarProperty Name="partner_topping_id" ColumnName="partner_topping_id" />
+                <ScalarProperty Name="partner_topping_group_id" ColumnName="partner_topping_group_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="name_en" ColumnName="name_en" />
+                <ScalarProperty Name="display_order" ColumnName="display_order" />
+                <ScalarProperty Name="price" ColumnName="price" />
+                <ScalarProperty Name="is_active" ColumnName="is_active" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_topping_group">
+            <EntityTypeMapping TypeName="PartnerMDModel.Shopee_topping_group">
+              <MappingFragment StoreEntitySet="Shopee_topping_group">
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="topping_group_id" ColumnName="topping_group_id" />
+                <ScalarProperty Name="partner_topping_group_id" ColumnName="partner_topping_group_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="name_en" ColumnName="name_en" />
+                <ScalarProperty Name="display_order" ColumnName="display_order" />
+                <ScalarProperty Name="description" ColumnName="description" />
+                <ScalarProperty Name="is_active" ColumnName="is_active" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ToppingSalesOnApps">
+            <EntityTypeMapping TypeName="PartnerMDModel.ToppingSalesOnApp">
+              <MappingFragment StoreEntitySet="ToppingSalesOnApp">
+                <ScalarProperty Name="PartnerCode" ColumnName="PartnerCode" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="ToppingGroup" ColumnName="ToppingGroup" />
+                <ScalarProperty Name="ToppingNo" ColumnName="ToppingNo" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Name_En" ColumnName="Name_En" />
+                <ScalarProperty Name="UnitPrice" ColumnName="UnitPrice" />
+                <ScalarProperty Name="DisplayOrder" ColumnName="DisplayOrder" />
+                <ScalarProperty Name="IsApplyAll" ColumnName="IsApplyAll" />
+                <ScalarProperty Name="Blocked" ColumnName="Blocked" />
+                <ScalarProperty Name="IsSync" ColumnName="IsSync" />
+                <ScalarProperty Name="SyncResults" ColumnName="SyncResults" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="ChgeDate" ColumnName="ChgeDate" />
+                <ScalarProperty Name="Action" ColumnName="Action" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_categories">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_categories">
+              <MappingFragment StoreEntitySet="BeeFood_categories">
+                <ScalarProperty Name="CateId" ColumnName="CateId" />
+                <ScalarProperty Name="NameTranslation" ColumnName="NameTranslation" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_items">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_items">
+              <MappingFragment StoreEntitySet="BeeFood_items">
+                <ScalarProperty Name="IsTopping" ColumnName="IsTopping" />
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="ItemId" ColumnName="ItemId" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="IsModifierGroups" ColumnName="IsModifierGroups" />
+                <ScalarProperty Name="NameTranslation" ColumnName="NameTranslation" />
+                <ScalarProperty Name="CategoryName" ColumnName="CategoryName" />
+                <ScalarProperty Name="CategoryID" ColumnName="CategoryID" />
+                <ScalarProperty Name="MaxStock" ColumnName="MaxStock" />
+                <ScalarProperty Name="Price" ColumnName="Price" />
+                <ScalarProperty Name="Photo" ColumnName="Photo" />
+                <ScalarProperty Name="Taxable" ColumnName="Taxable" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_modifier">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_modifier">
+              <MappingFragment StoreEntitySet="BeeFood_modifier">
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="ModifierId" ColumnName="ModifierId" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="ModifierGroupID" ColumnName="ModifierGroupID" />
+                <ScalarProperty Name="Price" ColumnName="Price" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_modifier_group">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_modifier_group">
+              <MappingFragment StoreEntitySet="BeeFood_modifier_group">
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="ParentId" ColumnName="ParentId" />
+                <ScalarProperty Name="ModifierGroupId" ColumnName="ModifierGroupId" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="ItemID" ColumnName="ItemID" />
+                <ScalarProperty Name="CategoryID" ColumnName="CategoryID" />
+                <ScalarProperty Name="SelectionRangeMax" ColumnName="SelectionRangeMax" />
+                <ScalarProperty Name="SelectionRangeMin" ColumnName="SelectionRangeMin" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Sequence" ColumnName="Sequence" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_modifier_group_name">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_modifier_group_name">
+              <MappingFragment StoreEntitySet="BeeFood_modifier_group_name">
+                <ScalarProperty Name="IsCampaign" ColumnName="IsCampaign" />
+                <ScalarProperty Name="SelectionRangeMax" ColumnName="SelectionRangeMax" />
+                <ScalarProperty Name="SelectionRangeMin" ColumnName="SelectionRangeMin" />
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="AvailableStatus" ColumnName="AvailableStatus" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_notify_new_order">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_notify_new_order">
+              <MappingFragment StoreEntitySet="BeeFood_notify_new_order">
+                <ScalarProperty Name="created_time" ColumnName="created_time" />
+                <ScalarProperty Name="updated_time" ColumnName="updated_time" />
+                <ScalarProperty Name="status_message" ColumnName="status_message" />
+                <ScalarProperty Name="flag_update" ColumnName="flag_update" />
+                <ScalarProperty Name="order_items" ColumnName="order_items" />
+                <ScalarProperty Name="delivery_note" ColumnName="delivery_note" />
+                <ScalarProperty Name="created_at" ColumnName="created_at" />
+                <ScalarProperty Name="customer_name" ColumnName="customer_name" />
+                <ScalarProperty Name="order_amount" ColumnName="order_amount" />
+                <ScalarProperty Name="delivery_address" ColumnName="delivery_address" />
+                <ScalarProperty Name="remaining_time" ColumnName="remaining_time" />
+                <ScalarProperty Name="is_pick_up_order" ColumnName="is_pick_up_order" />
+                <ScalarProperty Name="status" ColumnName="status" />
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="restaurant_id" ColumnName="restaurant_id" />
+                <ScalarProperty Name="order_id" ColumnName="order_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GrabFood_store">
+            <EntityTypeMapping TypeName="PartnerMDModel.GrabFood_store">
+              <MappingFragment StoreEntitySet="GrabFood_store">
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="DineInEndTime" ColumnName="DineInEndTime" />
+                <ScalarProperty Name="DineInStartTime" ColumnName="DineInStartTime" />
+                <ScalarProperty Name="SpecialEndTime" ColumnName="SpecialEndTime" />
+                <ScalarProperty Name="SpecialStartTime" ColumnName="SpecialStartTime" />
+                <ScalarProperty Name="DeliveryEndTime" ColumnName="DeliveryEndTime" />
+                <ScalarProperty Name="DeliveryStartTime" ColumnName="DeliveryStartTime" />
+                <ScalarProperty Name="CloseReason" ColumnName="CloseReason" />
+                <ScalarProperty Name="IsOpen" ColumnName="IsOpen" />
+                <ScalarProperty Name="StoreName" ColumnName="StoreName" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="PartnerMerchantID" ColumnName="PartnerMerchantID" />
+                <ScalarProperty Name="GrabMerchantID" ColumnName="GrabMerchantID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="BeeFood_restaurant">
+            <EntityTypeMapping TypeName="PartnerMDModel.BeeFood_restaurant">
+              <MappingFragment StoreEntitySet="BeeFood_restaurant">
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtDate" ColumnName="CrtDate" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="blocked" ColumnName="blocked" />
+                <ScalarProperty Name="parent_restaurant" ColumnName="parent_restaurant" />
+                <ScalarProperty Name="is_header" ColumnName="is_header" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+                <ScalarProperty Name="foody_service" ColumnName="foody_service" />
+                <ScalarProperty Name="address" ColumnName="address" />
+                <ScalarProperty Name="city" ColumnName="city" />
+                <ScalarProperty Name="restaurant_name" ColumnName="restaurant_name" />
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="restaurant_id" ColumnName="restaurant_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Zalo_store">
+            <EntityTypeMapping TypeName="PartnerMDModel.Zalo_store">
+              <MappingFragment StoreEntitySet="Zalo_store">
+                <ScalarProperty Name="ChgDate" ColumnName="ChgDate" />
+                <ScalarProperty Name="ChgUser" ColumnName="ChgUser" />
+                <ScalarProperty Name="CrtUser" ColumnName="CrtUser" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+                <ScalarProperty Name="blocked" ColumnName="blocked" />
+                <ScalarProperty Name="merchant_name" ColumnName="merchant_name" />
+                <ScalarProperty Name="merchant_store_id" ColumnName="merchant_store_id" />
+                <ScalarProperty Name="store_id" ColumnName="store_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="true" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

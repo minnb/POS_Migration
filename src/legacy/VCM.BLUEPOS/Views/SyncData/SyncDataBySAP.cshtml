@@ -1,0 +1,207 @@
+﻿@using VCM.BLUEPOS.Model.SyncData;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Đồng bộ dữ liệu SAP";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listSAP = (List<SAPConfigXMLModel>)ViewBag.ListConfigXMLSAP;
+}
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý POS</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ dữ liệu SAP</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+
+        <div class="row">
+            <div class="col-lg-6 col-md-6 col-sm-6 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12" style="padding-left: 9.5px; padding-right: 9.5px;">
+                                <label style="font-size: 12px; font-weight: 400; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">TransType<strong style="color:#ff0000"> (*)</strong></label>
+                                <div id="divTransType"></div>
+                            </div>
+
+                            <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12">
+                                <div class="form-group" style="margin-top:27px;">
+                                    <button type="button" class="btn btn-primary btn-search" style="" id="btnSearch"><i class="fa fa-sync"></i> Đồng bộ SAP</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="card-header">
+                            <h5 class="card-title">Kết quả đồng bộ SAP</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="divResult"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+        var table = "";
+
+        $(document).ready(function () {
+            LoadTransType();
+            $("#btnSearch").on("click", function (e) {
+                $.confirm({
+                    backgroundDismiss: false,
+                    escapeKey: true,
+                    icon: 'fa fa-warning',
+                    type: 'red',
+                    typeAnimated: true,
+                    title: 'Thông báo',
+                    content: 'Bạn có chắc chắn đồng bộ data từ SAP hay không?',
+                    buttons: {
+                        "CÓ": {
+                            btnClass: 'btn btn-default',
+                            keys: ['ctrl'],
+                            action: function () {
+                                SyncSAP();
+                            }
+                        },
+                        "KHÔNG": {
+                            btnClass: 'btn-default',
+                            action: function () { }
+                        }
+                    }
+                });
+            });
+        });
+
+        function LoadTransType() {
+            var html = '<select class="form-control" multiple="multiple" style="width: 100%;" id="slTransType">';
+            var fromData = new FormData();
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadTransType", "Common")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data != null) {
+                        data.forEach((name, i) => {
+                            if (name.SiteNo != "") {
+                                html += "<option value=" + name.TransType + ">" + name.TransType + "</option>";
+                            }
+                        });
+                        html += '</select>';
+                        $("#divTransType").html(html);
+
+                        $('#slTransType').fSelect({
+                            placeholder: 'Chọn TransType',
+                            numDisplayed: 1,
+                            overflowText: '{n} TransType đã chọn',
+                            searchText: 'Tìm kiếm....',
+                            noResultsText: 'Không tìm thấy TransType',
+                            showSearch: true,
+                            optionFormatter: false,
+                            isSelectAll: true
+                        });
+                    }
+                },
+                error: function () {}
+            });
+        }
+
+        function SyncSAP() {
+            var transType = $('#slTransType').val();
+            if (transType.length == 0) {
+                toastr.error("Chưa chọn TransType");
+                return;
+            }
+
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('ListTransType', transType);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetSyncDataBySAP", "SyncData")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    var html = "<ul class=\"nav nav-pills flex-column\">";
+                    if (data.length > 0) {
+                        data.forEach((name, i) => {
+                            if (name.Status == false) {
+                                html += "<li class=\"nav-item active\">";
+                                html += "<a class=\"nav-link\">";
+                                html += "<i class=\"fas fa-address-card\"></i> " + name.TransType + " (" + name.Message + ")";
+                                html += "<span class=\"badge bg-danger float-right\">Fail</span>";
+                                html += "</a>";
+                                html += "</li>";
+                            }
+                            else {
+
+                                html += "<li class=\"nav-item active\">";
+                                html += "<a class=\"nav-link\">";
+                                html += "<i class=\"fas fa-address-card\"></i> " + name.TransType + " (" + name.Message + ")";
+                                html += "<span class=\"badge bg-primary float-right\">OK</span>";
+                                html += "</a>";
+                                html += "</li>";
+                            }
+                        });
+                    }
+                    else {
+                        html += "<li class=\"nav-item active\">";
+                        html += "<a class=\"nav-link\">";
+                        html += "<i class=\"fas fa-address-card\"></i> Không có file SAP";
+                        html += "</a>";
+                        html += "</li>";
+                    }
+                    html += "</ul>";
+                    $("#divResult").html(html);                           
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+    </script>
+}
+
