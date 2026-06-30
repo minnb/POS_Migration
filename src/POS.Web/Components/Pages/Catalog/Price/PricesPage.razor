@@ -1,0 +1,18 @@
+@page "/catalog/prices"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>Bảng giá – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.PriceChange" Class="mr-2" Style="vertical-align:middle"/>
+    Bảng giá
+</MudText>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+    Tính năng đang được phát triển.
+</MudAlert>

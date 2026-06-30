@@ -1,0 +1,18 @@
+@page "/promotion/offers"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>Danh mục Khuyến mãi – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.LocalOffer" Class="mr-2" Style="vertical-align:middle"/>
+    Danh mục Khuyến mãi
+</MudText>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+    Tính năng đang được phát triển.
+</MudAlert>

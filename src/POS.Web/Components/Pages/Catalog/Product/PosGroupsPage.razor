@@ -1,0 +1,18 @@
+@page "/catalog/pos-groups"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+
+<PageTitle>POS Group – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Category" Class="mr-2" Style="vertical-align:middle"/>
+    POS Group
+</MudText>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+    Tính năng đang được phát triển.
+</MudAlert>
