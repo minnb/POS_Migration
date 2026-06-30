@@ -273,9 +273,10 @@ Hệ thống POS legacy (VCM.BLUEPOS) là ứng dụng MVC lớn với hơn **35
 - **Controller + Action**: `VCM.BLUEPOS/Controllers/MasterDataController.cs` → `EmployeeList()`, `GetEmployeeList()`
 - **View .cshtml**: `VCM.BLUEPOS/Views/MasterData/EmployeeList.cshtml`
 - **ViewModel/Model**: `EmployeeModel`
-- **DAL methods + SQL**: `MasterDataDAL.GetEmployeeList()` → SP `[dbo].[sp_EmployeeList_Get]`
+- **DAL methods + SQL**: `MasterIData.GetEmployeeList()` → SP `[dbo].[GetEmployeeList]` (list, server-side paging) + `[dbo].[GetEmployeeList_Export]` (export, no paging). DB `RPOSMasterData` (CentralMD).
 - **Phụ thuộc**: `IMasterDataBLO`
 - **Độ phức tạp**: Trung bình
+- **Trạng thái**: ✅ DONE — POS.Web `/catalog/employees` (List + Filter + Export Excel, ẩn cột mật khẩu; CRUD chưa migrate)
 
 #### 5.2 Khai báo Máy POS
 - **Route/URL**: `GET /MasterData/SetupPOSList`, `POST /MasterData/GetSetupPOSList`
@@ -461,9 +462,10 @@ Hệ thống POS legacy (VCM.BLUEPOS) là ứng dụng MVC lớn với hơn **35
 - **Controller + Action**: `VCM.BLUEPOS/Controllers/PromotionController.cs` → `PromotionList()`, `GetOfferHeaderList()`
 - **View .cshtml**: `VCM.BLUEPOS/Views/Promotion/PromotionList.cshtml`
 - **ViewModel/Model**: `OfferHeaderModel`
-- **DAL methods + SQL**: `PromotionDAL.GetOfferHeaderList()` → SP `[dbo].[sp_OfferHeader_Get]`
+- **DAL methods + SQL**: `PromotionData.GetOfferHeaderList()` → SP `[dbo].[GetPromotionOfferHeaderList]` (bản cập nhật **9 tham số**: `@No,@Description,@Status,@OfferType,@ItemNo,@StoreNo,@Exp,@PageSize,@PageNumber` — đã bỏ `@StyleProfile`/`@SalesType`; server-side paging, trả `Total`/row). Dropdown Loại CTKM: `dbo.OfferType` (Enabled=1). DB `RPOSMasterData` (CentralMD). Filter "Hình thức bán" bỏ khỏi UI vì SP không còn nhận; `SalesTypeName` chỉ hiển thị cột.
 - **Phụ thuộc**: `IPromotionBLO`
 - **Độ phức tạp**: Cao
+- **Trạng thái**: ✅ DONE — POS.Web `/promotion/offers` (List + Filter + Export Excel, auto-load trang 1; modal chi tiết 6 tab = 7.2 chưa làm). Service 3 lớp `IPromotionRepository` → `IPromotionService` (POS.Api tái dùng được).
 
 #### 7.2 Chi tiết Khuyến mãi
 - **Route/URL**: `POST /Promotion/GetDetailOfferHeaderList`, `POST /Promotion/GetDetailOfferBuyList`, `POST /Promotion/GetDetailOfferBenefitsList`, `POST /Promotion/GetDetailOfferGetList`, `POST /Promotion/GetDetailOfferSiteList`
@@ -612,18 +614,26 @@ Hệ thống POS legacy (VCM.BLUEPOS) là ứng dụng MVC lớn với hơn **35
 - **Controller + Action**: `VCM.BLUEPOS/Controllers/SetupPromotionController.cs` → `SetupMain()`, `ListOfferHeaderLoad()`, `SaveSetupCTKM()`
 - **View .cshtml**: `VCM.BLUEPOS/Views/SetupPromotion/SetupMain.cshtml`
 - **ViewModel/Model**: `SetupPromotionModel`
-- **DAL methods + SQL**: `SetupPromotionDAL` → SP `[dbo].[sp_SetupPromotion_Save]`
+- **DAL methods + SQL**: legacy `SetupPromotionData.SaveSetupCTKMAll` (EF) → bảng `SetupPromotionHEADER/BUY/GET/SITE` (draft), Duyệt = SP `[dbo].[Setup_Promotion_Insert] @BBY` (publish → `OfferHeader/OfferBuy/OfferGet/OfferBenefit/OfferSite`). DB `RPOSMasterData`.
 - **Phụ thuộc**: `ISetupPromotionBLO`
 - **Độ phức tạp**: Cao
+- **Trạng thái**: ✅ DONE (Phase 1 + Phase 2) — POS.Web `/promotion/setup` (List + form Header + grid Buy/Get/Site + tab Cài đặt nâng cao + Lưu + Duyệt). Service 3 lớp `IPromotionRepository`→`IPromotionService` (POS.Api tái dùng được).
+  - **Phase 2 (Advanced):** Voucher (ngày/số ngày hiệu lực/số lần phát hành) + Số lần áp dụng (LimitQty) + Thành viên (MemberOnly + Hạng thẻ dropdown từ `dbo.OptionData` Caption='MEMBERCODETYPE') + Độ ưu tiên + Ngày áp dụng trong tháng. Lưu vào cùng `SetupPromotionHEADER` (LIMIT/VINID/MemberCode/ZPRIOR/NUMOFDAYS/ZVCDATE_ST/EN/ZVCDATE_VA/LIMITNR).
+  - **SP đã có (tái dùng):** `[dbo].[Setup_Promotion_Insert]`.
+  - **SP mới cần chạy trên CentralMD:** `docs/sql/SetupPromotion_Save.sql` (3 TVP + `usp_SaveSetupCTKMAll` — **P2 đã thêm tham số advance, chạy lại**), `docs/sql/SetupPromotion_ApproveAndStatus.sql` (`usp_SetupPromotion_Approve`, `usp_SetupPromotion_UpdateStatus`).
+  - **Hoãn:** Special Combo (11.2 — mục riêng); giờ áp dụng (TIMEFROM/TO) & ngày-trong-tuần (MON..SUN) & AllowUseAfterDay/Time (legacy ẩn / DB thiếu cột).
 
 #### 11.2 Special Combo
 - **Route/URL**: `GET /SetupPromotion/SetupSpecialComboList`, `POST /SetupPromotion/CreateSpecialComboV2`, `POST /SetupPromotion/UpdateSpecialComboV2`
 - **Controller + Action**: `VCM.BLUEPOS/Controllers/SetupPromotionController.cs` → `SetupSpecialComboList()`, `CreateSpecialComboV2()`, `UpdateSpecialComboV2()`
 - **View .cshtml**: `VCM.BLUEPOS/Views/SetupPromotion/SetupSpecialComboList.cshtml`
 - **ViewModel/Model**: `SpecialComboModel`
-- **DAL methods + SQL**: SP `[dbo].[sp_SpecialCombo_Get]`, `[dbo].[sp_SpecialCombo_Save]`
+- **DAL methods + SQL**: legacy CRUD bằng EF trên 3 bảng `SpecialComboHeader/Line/Store` (CentralMD, CentralMDPartnerContainer). Tham chiếu `Item/SalesPrice/PosGroupItem`.
 - **Phụ thuộc**: `ISetupPromotionBLO`
 - **Độ phức tạp**: Cao
+- **Trạng thái**: ✅ DONE (Trọng tâm) — POS.Web `/promotion/special-combo` (List + filter + form Header + Lines (gom theo GroupCode) + Store (ALL/multi-select) + Lưu replace-on-save + bật/tắt + xóa; quy tắc ≤1 item giá động). Service 3 lớp `ISpecialComboRepository`→`ISpecialComboService` (POS.Api tái dùng được). Tái dùng `IPromotionService` (item/salestype/membercode lookup) + `ICentralMDRepository.GetStoreListAsync`.
+  - **SP mới cần chạy trên CentralMD:** `docs/sql/SpecialCombo_Read.sql` (`usp_SpecialCombo_GetList`, `usp_SpecialCombo_GetDetail`), `docs/sql/SpecialCombo_Save.sql` (2 TVP + `usp_SpecialCombo_Save`), `docs/sql/SpecialCombo_Status.sql` (`usp_SpecialCombo_UpdateStatus`, `usp_SpecialCombo_Delete`).
+  - **Hoãn:** toggle trạng thái từng store riêng, modal quản lý item/store tách rời, V2/V3 manual store-string.
 
 ---
 

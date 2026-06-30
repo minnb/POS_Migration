@@ -3,6 +3,7 @@ using POS.Application.Features.Common;
 using POS.Application.Features.DataSync;
 using POS.Application.Features.Gift;
 using POS.Application.Features.Partner;
+using POS.Application.Features.Promotion;
 using POS.Application.Features.Sap;
 
 namespace POS.Application;
@@ -22,6 +23,8 @@ public static class DependencyInjection
         services.AddScoped<IKafkaService, KafkaService>();
         services.AddScoped<IGiftService, GiftService>();
         services.AddScoped<ISAPService, SAPService>();
+        services.AddScoped<IPromotionService, PromotionService>();
+        services.AddScoped<ISpecialComboService, SpecialComboService>();
         return services;
     }
 }

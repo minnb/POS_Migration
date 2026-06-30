@@ -366,6 +366,41 @@ public sealed class CentralMDRepository(
         return (await QueryAsync<StoreListDto>(sql, ct: ct)).ToList();
     }
 
+    // ── Danh mục Nhân viên (Staff) ───────────────────────────────────────────
+
+    public async Task<(List<EmployeeListItemDto> Items, int Total)> GetEmployeeListAsync(
+        EmployeeListFilter filter, CancellationToken ct = default)
+    {
+        const string sql = "[dbo].[GetEmployeeList] @StaffCode,@StaffName,@StoreNo,@TypeGroup,@Status,@PageSize,@PageNumber";
+        var items = (await QueryAsync<EmployeeListItemDto>(sql, new
+        {
+            StaffCode  = (filter.StaffCode ?? string.Empty).Trim(),
+            StaffName  = (filter.StaffName ?? string.Empty).Trim(),
+            StoreNo    = (filter.StoreNo ?? string.Empty).Trim(),
+            TypeGroup  = string.IsNullOrWhiteSpace(filter.TypeGroup) ? "-1" : filter.TypeGroup.Trim(),
+            Status     = string.IsNullOrWhiteSpace(filter.Status) ? "-1" : filter.Status.Trim(),
+            PageSize   = Math.Max(1, filter.PageSize),
+            PageNumber = Math.Max(0, filter.PageNumber)
+        }, commandTimeout: 120, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<List<EmployeeListItemDto>> ExportEmployeeListAsync(
+        EmployeeListFilter filter, CancellationToken ct = default)
+    {
+        const string sql = "[dbo].[GetEmployeeList_Export] @StaffCode,@StaffName,@StoreNo,@TypeGroup,@Status";
+        return (await QueryAsync<EmployeeListItemDto>(sql, new
+        {
+            StaffCode = (filter.StaffCode ?? string.Empty).Trim(),
+            StaffName = (filter.StaffName ?? string.Empty).Trim(),
+            StoreNo   = (filter.StoreNo ?? string.Empty).Trim(),
+            TypeGroup = string.IsNullOrWhiteSpace(filter.TypeGroup) ? "-1" : filter.TypeGroup.Trim(),
+            Status    = string.IsNullOrWhiteSpace(filter.Status) ? "-1" : filter.Status.Trim()
+        }, commandTimeout: 120, ct: ct)).ToList();
+    }
+
     // ── POSDataSetup CRUD (Web admin UI) ─────────────────────────────────────
 
     public async Task<List<POSDataSetupAdminDto>> GetPOSDataSetupAdminListAsync(CancellationToken ct = default)

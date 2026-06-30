@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<IDataRawJsonRepository, DataRawJsonRepository>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
+        services.AddScoped<IPromotionRepository, PromotionRepository>();
+        services.AddScoped<ISpecialComboRepository, SpecialComboRepository>();
         services.AddScoped<IWincodeRepository, WincodeRepository>();
         services.AddScoped<ISAPVoucherRepository, SAPVoucherRepository>();
 

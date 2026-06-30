@@ -3,16 +3,258 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using MudBlazor
+@using POS.Application.Features.Promotion
+@using POS.Common.Dtos.Promotion
+@using POS.Infrastructure.Logging
 @using POS.Web.Auth
+@using POS.Web.Services
+@using ClosedXML.Excel
+
+@inject IPromotionService PromotionService
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>Danh mục Khuyến mãi – POS Dashboard</PageTitle>
 
+@* ── Header ──────────────────────────────────────────────────────────── *@
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.LocalOffer" Class="mr-2" Style="vertical-align:middle"/>
     Danh mục Khuyến mãi
 </MudText>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter bar ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_filter.OfferType" Label="Loại CTKM" Clearable="true"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                @foreach (var o in _offerTypes)
+                {
+                    <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_filter.Status" Label="Trạng thái"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
+                <MudSelectItem T="string" Value="@("0")">Có hiệu lực</MudSelectItem>
+                <MudSelectItem T="string" Value="@("2")">Hết hiệu lực</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.TextSearch" Label="Bonus Buy / Promotion No"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filter.ItemNo" Label="Mã sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.PromotionName" Label="Tên CTKM"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.FileDownload"
+                       FullWidth="true" Disabled="_exporting" OnClick="ExportExcelAsync">
+                @(_exporting ? "Đang xuất..." : "Xuất Excel")
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Offer header table (server-side) ────────────────────────────────── *@
+<MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferHeaderListItemDto">
+    <HeaderContent>
+        <MudTh Style="width:48px">STT</MudTh>
+        <MudTh>Bonus Buy</MudTh>
+        <MudTh>Promotion No</MudTh>
+        <MudTh>Tên CTKM</MudTh>
+        <MudTh>Loại CTKM</MudTh>
+        <MudTh>Hình thức bán</MudTh>
+        <MudTh>Trạng thái</MudTh>
+        <MudTh>Từ ngày</MudTh>
+        <MudTh>Đến ngày</MudTh>
+        <MudTh>Local Site Group</MudTh>
+        <MudTh Style="text-align:right">LimitQty</MudTh>
+        <MudTh>Ngày cập nhật</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+        <MudTd DataLabel="Bonus Buy"><b>@context.BonusbuyNo</b></MudTd>
+        <MudTd DataLabel="Promotion No">@context.PromotionNo</MudTd>
+        <MudTd DataLabel="Tên CTKM">@context.Description</MudTd>
+        <MudTd DataLabel="Loại CTKM">@context.OfferType</MudTd>
+        <MudTd DataLabel="Hình thức bán">@context.SalesTypeName</MudTd>
+        <MudTd DataLabel="Trạng thái">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                     Color="@(IsActive(context.Status) ? Color.Success : Color.Error)">
+                @context.Status
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Từ ngày">@context.StartingDate</MudTd>
+        <MudTd DataLabel="Đến ngày">@context.EndingDate</MudTd>
+        <MudTd DataLabel="Local Site Group">@context.LocalSiteGroup</MudTd>
+        <MudTd DataLabel="LimitQty" Style="text-align:right">@context.LimitQty.ToString("#,##0.##")</MudTd>
+        <MudTd DataLabel="Ngày cập nhật">
+            <MudText Typo="Typo.caption">@context.LastDateModified</MudText>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+            <MudText Typo="Typo.body2">Không có khuyến mãi khớp bộ lọc.</MudText>
+        </div>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<OfferHeaderListItemDto> _table = null!;
+    private readonly OfferListFilter _filter = new() { Status = "-1", PageSize = 20 };
+
+    private List<OfferHeaderListItemDto> _rows = [];
+    private List<OptionItemDto> _offerTypes = [];
+    private int _offset;
+    private bool _exporting;
+    private string? _errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _offerTypes = await PromotionService.GetOfferTypeOptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OffersPage.LoadOptions", ex);
+        }
+    }
+
+    // ── Server-side data load (auto-load trang 1 khi render) ─────────────
+    private async Task<TableData<OfferHeaderListItemDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        _filter.PageNumber = state.Page;          // SP OFFSET = PageSize * PageNumber (0-based)
+        _filter.PageSize   = state.PageSize;
+        _offset            = state.Page * state.PageSize;
+        try
+        {
+            var (items, total) = await PromotionService.GetOfferHeaderListAsync(_filter, token);
+            _rows = items;
+            _errorMsg = null;
+            return new TableData<OfferHeaderListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh mục khuyến mãi.";
+            FileLogger.WriteExpLogs("OffersPage.Load", ex);
+            _rows = [];
+            return new TableData<OfferHeaderListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task SearchAsync() => await _table.ReloadServerData();
+
+    private async Task ClearFilterAsync()
+    {
+        _filter.TextSearch    = null;
+        _filter.PromotionName = null;
+        _filter.OfferType     = null;
+        _filter.ItemNo        = null;
+        _filter.Status        = "-1";
+        await _table.ReloadServerData();
+    }
+
+    private static bool IsActive(string? status) =>
+        !string.IsNullOrEmpty(status)
+        && status.Contains("hiệu lực", StringComparison.OrdinalIgnoreCase)
+        && !status.Contains("Hết", StringComparison.OrdinalIgnoreCase);
+
+    // ── Export Excel (ClosedXML) ─────────────────────────────────────────
+    private async Task ExportExcelAsync()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var data = await PromotionService.ExportOfferHeaderListAsync(_filter);
+            var bytes = BuildXlsx(data);
+            var fileName = $"DanhMucKhuyenMai_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            await JS.SaveAsFileAsync(fileName, bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add($"Đã xuất {data.Count} khuyến mãi.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OffersPage.Export", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static byte[] BuildXlsx(IReadOnlyList<OfferHeaderListItemDto> data)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("KhuyenMai");
+
+        string[] headers =
+        [
+            "Bonus Buy", "Promotion No", "Tên CTKM", "Loại CTKM", "Hình thức bán",
+            "Trạng thái", "Từ ngày", "Đến ngày", "Local Site Group", "LimitQty", "Ngày cập nhật"
+        ];
+        for (var c = 0; c < headers.Length; c++)
+            ws.Cell(1, c + 1).Value = headers[c];
+        ws.Row(1).Style.Font.Bold = true;
+
+        var r = 2;
+        foreach (var e in data)
+        {
+            ws.Cell(r, 1).Value = e.BonusbuyNo;
+            ws.Cell(r, 2).Value = e.PromotionNo;
+            ws.Cell(r, 3).Value = e.Description;
+            ws.Cell(r, 4).Value = e.OfferType;
+            ws.Cell(r, 5).Value = e.SalesTypeName;
+            ws.Cell(r, 6).Value = e.Status;
+            ws.Cell(r, 7).Value = e.StartingDate;
+            ws.Cell(r, 8).Value = e.EndingDate;
+            ws.Cell(r, 9).Value = e.LocalSiteGroup;
+            ws.Cell(r, 10).Value = e.LimitQty;
+            ws.Cell(r, 11).Value = e.LastDateModified;
+            r++;
+        }
+
+        ws.Columns().AdjustToContents();
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+}

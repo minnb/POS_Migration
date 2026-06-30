@@ -62,7 +62,7 @@
 
 | # | Chức năng | Route | Độ phức tạp | Trạng thái |
 |---|-----------|-------|-------------|------------|
-| 5.1 | Danh mục Nhân viên | `GET /MasterData/EmployeeList` | Trung bình | ⏳ TODO |
+| 5.1 | Danh mục Nhân viên | `GET /MasterData/EmployeeList` | Trung bình | ✅ DONE |
 | 5.2 | Khai báo Máy POS | `GET /MasterData/SetupPOSList` | Trung bình | ⏳ TODO |
 | 5.3 | Danh mục Cửa hàng | `GET /MasterData/StoreList` | Trung bình | ⏳ TODO |
 | 5.4 | Danh mục Ngân hàng | `GET /MasterData/BankList` | Thấp | ⏳ TODO |
@@ -96,7 +96,7 @@
 
 | # | Chức năng | Route | Độ phức tạp | Trạng thái |
 |---|-----------|-------|-------------|------------|
-| 7.1 | Danh mục Khuyến mãi | `GET /Promotion/PromotionList` | Cao | ⏳ TODO |
+| 7.1 | Danh mục Khuyến mãi | `GET /Promotion/PromotionList` | Cao | ✅ DONE |
 | 7.2 | Chi tiết Khuyến mãi | `POST /Promotion/GetDetailOfferHeaderList` | Cao | ⏳ TODO |
 | 7.3 | Export Khuyến mãi | `GET /Promotion/ExportExcelGetOfferHeaderList` | Trung bình | ⏳ TODO |
 | 7.4 | Campaign List (CTKM) | `GET /Campaign/ListCampaign` | Cao | ⏳ TODO |
@@ -139,8 +139,8 @@
 
 | # | Chức năng | Route | Độ phức tạp | Trạng thái |
 |---|-----------|-------|-------------|------------|
-| 11.1 | Cài đặt CTKM | `GET /SetupPromotion/SetupMain` | Cao | ⏳ TODO |
-| 11.2 | Special Combo | `GET /SetupPromotion/SetupSpecialComboList` | Cao | ⏳ TODO |
+| 11.1 | Cài đặt CTKM | `GET /SetupPromotion/SetupMain` | Cao | ✅ DONE (P1+P2) |
+| 11.2 | Special Combo | `GET /SetupPromotion/SetupSpecialComboList` | Cao | ✅ DONE |
 
 ---
 
@@ -339,7 +339,16 @@
 
 | Trạng thái | Số lượng |
 |-----------|---------|
-| ⏳ TODO | 99 |
+| ⏳ TODO | 95 |
 | 🔄 IN PROGRESS | 0 |
-| ✅ DONE | 0 |
+| ✅ DONE | 4 |
 | ❌ SKIP | 0 |
+
+### Đã hoàn thành
+
+| # | Chức năng | POS.Web | Ghi chú |
+|---|-----------|---------|---------|
+| 5.1 | Danh mục Nhân viên | `/catalog/employees` | List + Filter + Export Excel (ClosedXML), server-side paging qua SP `GetEmployeeList`/`GetEmployeeList_Export`. **Ẩn cột mật khẩu** (khác legacy). CRUD chưa migrate. |
+| 7.1 | Danh mục Khuyến mãi | `/promotion/offers` | List + Filter + Export Excel, auto-load trang 1, server-side paging qua SP `GetPromotionOfferHeaderList`. Service 3 lớp `IPromotionRepository`→`IPromotionService` (POS.Api tái dùng được). Modal chi tiết 6 tab (7.2) chưa làm. |
+| 11.1 | Cài đặt CTKM (P1+P2) | `/promotion/setup` | List + form Header + grid Buy/Get/Site + **tab Cài đặt nâng cao** (Voucher/LimitQty/Thành viên+Hạng thẻ/Priority/Ngày-trong-tháng) + Lưu + Duyệt. SP: `docs/sql/SetupPromotion_Save.sql` (đã thêm advance — chạy lại), `SetupPromotion_ApproveAndStatus.sql`, `Setup_Promotion_Insert` (có sẵn). Hoãn: giờ/ngày-trong-tuần & AllowUseAfter (legacy ẩn / thiếu cột). |
+| 11.2 | Special Combo | `/promotion/special-combo` | List + filter + form (Header + Lines gom theo GroupCode + Store ALL/multi) + Lưu replace-on-save + bật/tắt + xóa; quy tắc ≤1 item giá động. SP mới: `docs/sql/SpecialCombo_Read.sql`, `SpecialCombo_Save.sql` (2 TVP), `SpecialCombo_Status.sql` (CHẠY trên CentralMD). Service 3 lớp tái dùng cho POS.Api. Hoãn: toggle store riêng, modal item/store tách. |

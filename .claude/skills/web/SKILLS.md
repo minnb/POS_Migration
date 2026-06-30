@@ -19,6 +19,7 @@
 | `.claude/skills/web/theming.md` | Sửa màu/theme toàn app |
 | `.claude/skills/web/deployment.md` | Deploy production (Docker / nginx) |
 | **`.claude/skills/web/audit-logging.md`** | **Tạo/sửa page có thao tác Create/Update/Delete** |
+| **`.claude/skills/web/ui-migrate-legacy.md`** | **Làm đẹp UI trang migrate từ legacy — chỉ sửa markup, giữ `@code`** |
 
 ---
 

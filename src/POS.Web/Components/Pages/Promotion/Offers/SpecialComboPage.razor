@@ -1,0 +1,540 @@
+@page "/promotion/special-combo"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using Newtonsoft.Json
+@using POS.Application.Features.Promotion
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.Promotion
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+
+@inject ISpecialComboService ComboService
+@inject IPromotionService PromotionService
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IAuditLogger AuditLogger
+
+<PageTitle>Special Combo – POS Dashboard</PageTitle>
+
+@if (!_editing)
+{
+    @* ══ LIST ══════════════════════════════════════════════════════════ *@
+    <div class="pos-page-header mb-4">
+        <MudText Typo="Typo.h5" Class="pos-page-header-title">
+            <MudIcon Icon="@Icons.Material.Filled.Fastfood" Class="mr-2" Style="vertical-align:middle"/>
+            Special Combo
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-page-header-btn"
+                   StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNewAsync">Thêm combo</MudButton>
+    </div>
+
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudAutocomplete T="string" Value="_filter.StoreNo" ValueChanged="@(v => _filter.StoreNo = v)"
+                                 SearchFunc="SearchStoreAsync" Label="Cửa hàng" ToStringFunc="@StoreToString"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" MaxItems="50"/>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect @bind-Value="_filter.SalesType" Label="Hình thức bán" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                    @foreach (var o in _salesTypes)
+                    {
+                        <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect @bind-Value="_filter.MemberType" Label="Hạng thẻ" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                    @foreach (var o in _memberCodes)
+                    {
+                        <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect @bind-Value="_filter.Status" Label="Trạng thái"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("1")">Đang áp dụng</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("0")">Ngưng</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
+                <MudStack Row="true" Spacing="1" Class="w-100">
+                    <MudTextField @bind-Value="_filter.TextSearch" Label="Mã / Tên combo"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
+                    <MudButton Variant="Variant.Outlined" OnClick="ClearFilterAsync">Xóa</MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+              Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="SpecialComboListItemDto">
+        <HeaderContent>
+            <MudTh Style="width:48px">STT</MudTh>
+            <MudTh>Mã combo</MudTh>
+            <MudTh>Tên combo</MudTh>
+            <MudTh>Hình thức bán</MudTh>
+            <MudTh Style="text-align:right">Số lượng</MudTh>
+            <MudTh Style="text-align:right">Giá trị</MudTh>
+            <MudTh>Hạng thẻ</MudTh>
+            <MudTh>Hiệu lực</MudTh>
+            <MudTh>Trạng thái</MudTh>
+            <MudTh Style="text-align:center">Thao tác</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+            <MudTd DataLabel="Mã combo"><b>@context.Code</b></MudTd>
+            <MudTd DataLabel="Tên combo">@context.Name</MudTd>
+            <MudTd DataLabel="Hình thức bán">@context.SalesType</MudTd>
+            <MudTd DataLabel="Số lượng" Style="text-align:right">@context.ComboQuantity.ToString("#,##0.##")</MudTd>
+            <MudTd DataLabel="Giá trị" Style="text-align:right">@context.Amount.ToString("#,##0")</MudTd>
+            <MudTd DataLabel="Hạng thẻ">@(context.IsMember ? context.MemberCode : "—")</MudTd>
+            <MudTd DataLabel="Hiệu lực">@Fmt(context.FromDate) – @Fmt(context.ToDate)</MudTd>
+            <MudTd DataLabel="Trạng thái">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                         Color="@(context.IsEnable ? Color.Success : Color.Default)">
+                    @(context.IsEnable ? "Đang áp dụng" : "Ngưng")
+                </MudChip>
+            </MudTd>
+            <MudTd Style="text-align:center">
+                <MudTooltip Text="Sửa">
+                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                   OnClick="@(() => OpenEditAsync(context.Code))"/>
+                </MudTooltip>
+                <MudTooltip Text="@(context.IsEnable ? "Tắt" : "Bật")">
+                    <MudIconButton Size="Size.Small" Color="@(context.IsEnable ? Color.Warning : Color.Success)"
+                                   Icon="@(context.IsEnable ? Icons.Material.Filled.ToggleOn : Icons.Material.Filled.ToggleOff)"
+                                   OnClick="@(() => ToggleStatusAsync(context))"/>
+                </MudTooltip>
+                <MudTooltip Text="Xóa">
+                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                   OnClick="@(() => DeleteAsync(context))"/>
+                </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                <MudText Typo="Typo.body2">Không có combo khớp bộ lọc.</MudText>
+            </div>
+        </NoRecordsContent>
+        <LoadingContent><MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText></LoadingContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
+else
+{
+    @* ══ EDITOR ════════════════════════════════════════════════════════ *@
+    <div class="pos-page-header mb-4">
+        <MudText Typo="Typo.h5" Class="pos-page-header-title">
+            <MudIcon Icon="@Icons.Material.Filled.Fastfood" Class="mr-2" Style="vertical-align:middle"/>
+            @(string.IsNullOrEmpty(_header.Code) ? "Thêm combo" : $"Combo {_header.Code}")
+        </MudText>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                   Class="pos-page-header-btn" OnClick="@(() => _editing = false)">Quay lại</MudButton>
+    </div>
+
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+        <MudTabPanel Text="Thông tin chung" Icon="@Icons.Material.Filled.Info">
+            <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-1">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
+                Thông tin cơ bản
+            </MudText>
+            <MudDivider Class="mb-3"/>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_header.Name" Label="Tên combo *"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect @bind-Value="_header.SalesType" Label="Hình thức bán" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var o in _salesTypes)
+                        {
+                            <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+                    <MudCheckBox @bind-Value="_header.IsEnable" Label="Có hiệu lực" Color="Color.Primary"/>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-1 mt-4">
+                <MudIcon Icon="@Icons.Material.Filled.Sell" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
+                Giá &amp; số lượng
+            </MudText>
+            <MudDivider Class="mb-3"/>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="decimal" @bind-Value="_header.ComboQuantity" Label="Số lượng"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="decimal" @bind-Value="_header.Amount" Label="Giá trị combo"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-1 mt-4">
+                <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
+                Thời gian &amp; Hội viên
+            </MudText>
+            <MudDivider Class="mb-3"/>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày *"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="_toDate" Label="Đến ngày *"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+                    <MudCheckBox @bind-Value="_header.IsMember" Label="Hội viên WIN" Color="Color.Primary"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect @bind-Value="_header.MemberCode" Label="Hạng thẻ" Clearable="true"
+                               Disabled="@(!_header.IsMember)" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var m in _memberCodes)
+                        {
+                            <MudSelectItem T="string" Value="@m.Value">@m.Text</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Sản phẩm" Icon="@Icons.Material.Filled.ShoppingBasket">
+            <div class="d-flex align-center gap-2 flex-wrap mb-3">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => _lines.Add(new SpecialComboLineDto()))">Thêm dòng</MudButton>
+                <MudText Typo="Typo.caption" Class="ml-2">Gom sản phẩm theo cùng "Mã nhóm". Tối đa 1 dòng giá động.</MudText>
+            </div>
+            <MudTable Items="_lines" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="SpecialComboLineDto">
+                <HeaderContent>
+                    <MudTh Style="width:110px">Mã nhóm</MudTh>
+                    <MudTh Style="width:140px">Tên nhóm</MudTh>
+                    <MudTh>Sản phẩm</MudTh>
+                    <MudTh Style="width:80px">ĐVT</MudTh>
+                    <MudTh Style="width:90px;text-align:right">SL min</MudTh>
+                    <MudTh Style="width:90px;text-align:right">SL max</MudTh>
+                    <MudTh Style="width:150px">Loại giá</MudTh>
+                    <MudTh Style="width:56px;text-align:center">Xóa</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Mã nhóm"><MudTextField @bind-Value="context.GroupCode" Variant="Variant.Outlined" Margin="Margin.Dense"/></MudTd>
+                    <MudTd DataLabel="Tên nhóm"><MudTextField @bind-Value="context.GroupName" Variant="Variant.Outlined" Margin="Margin.Dense"/></MudTd>
+                    <MudTd DataLabel="Sản phẩm">
+                        <MudText Typo="Typo.caption">@(string.IsNullOrEmpty(context.ItemNo) ? "(chưa chọn)" : $"{context.ItemNo} – {context.ItemName}")</MudText>
+                        <MudAutocomplete T="ItemOptionDto" SearchFunc="SearchItemsAsync" Dense="true"
+                                         ToStringFunc="@(i => i == null ? string.Empty : $"{i.No} – {i.Description}")"
+                                         ValueChanged="@(i => OnItemSelected(context, i))"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" MaxItems="50"
+                                         Clearable="true" Placeholder="Tìm sản phẩm..."/>
+                    </MudTd>
+                    <MudTd DataLabel="ĐVT"><MudTextField @bind-Value="context.UOM" Variant="Variant.Outlined" Margin="Margin.Dense"/></MudTd>
+                    <MudTd DataLabel="SL min" Style="text-align:right">
+                        <MudNumericField T="decimal" @bind-Value="context.MinimumQuantity" Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
+                    </MudTd>
+                    <MudTd DataLabel="SL max" Style="text-align:right">
+                        <MudNumericField T="decimal" @bind-Value="context.MaximumQuantity" Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
+                    </MudTd>
+                    <MudTd DataLabel="Loại giá">
+                        <MudSelect T="int" @bind-Value="context.PriceMode" Dense="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem T="int" Value="0">Thường</MudSelectItem>
+                            <MudSelectItem T="int" Value="1">Mặc định</MudSelectItem>
+                            <MudSelectItem T="int" Value="2">Giá động</MudSelectItem>
+                        </MudSelect>
+                    </MudTd>
+                    <MudTd Style="text-align:center">
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                       OnClick="@(() => _lines.Remove(context))"/>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                        <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                        <MudText Typo="Typo.body2">Chưa có sản phẩm.</MudText>
+                    </div>
+                </NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Cửa hàng" Icon="@Icons.Material.Filled.Store">
+            <MudCheckBox @bind-Value="_applyAllStores" Label="Áp dụng tất cả cửa hàng (ALL)" Color="Color.Primary" Class="mb-2"/>
+            @if (!_applyAllStores)
+            {
+                <div class="d-flex align-center gap-2 flex-wrap mb-3">
+                    <MudAutocomplete T="StoreDto" Label="Thêm cửa hàng" Dense="true"
+                                     SearchFunc="SearchStoreObjAsync" ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                     ValueChanged="AddStore" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     MaxItems="50" Style="max-width:420px" Clearable="true"/>
+                </div>
+                <MudTable Items="_stores" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="SpecialComboStoreDto">
+                    <HeaderContent><MudTh>Mã CH</MudTh><MudTh Style="text-align:center">Xóa</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Mã CH">@context.StoreNo</MudTd>
+                        <MudTd Style="text-align:center">
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                           OnClick="@(() => _stores.Remove(context))"/>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                            <MudText Typo="Typo.body2">Chưa chọn cửa hàng.</MudText>
+                        </div>
+                    </NoRecordsContent>
+                </MudTable>
+            }
+        </MudTabPanel>
+    </MudTabs>
+
+    <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="_saving" OnClick="SaveAsync">Lưu</MudButton>
+    </MudPaper>
+}
+
+@code {
+    private MudTable<SpecialComboListItemDto> _table = null!;
+    private readonly SpecialComboListFilter _filter = new() { Status = "-1", PageSize = 20 };
+    private List<SpecialComboListItemDto> _rows = [];
+    private int _offset;
+
+    private List<OptionItemDto> _salesTypes = [];
+    private List<OptionItemDto> _memberCodes = [];
+    private List<StoreDto> _allStores = [];
+
+    private bool _editing;
+    private bool _saving;
+    private SpecialComboHeaderDto _header = new();
+    private List<SpecialComboLineDto> _lines = [];
+    private List<SpecialComboStoreDto> _stores = [];
+    private bool _applyAllStores = true;
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+
+    private string _actor = "unknown";
+
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthState;
+            _actor = state.User.Identity?.Name ?? "unknown";
+            _salesTypes = await PromotionService.GetSalesOrderTypeOptionsAsync();
+            _memberCodes = await PromotionService.GetMemberCodeOptionsAsync();
+            _allStores = await MdRepo.GetStoreListAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SpecialComboPage.Init", ex);
+        }
+    }
+
+    private async Task<TableData<SpecialComboListItemDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        _filter.PageNumber = state.Page;
+        _filter.PageSize = state.PageSize;
+        _offset = state.Page * state.PageSize;
+        try
+        {
+            var (items, total) = await ComboService.GetListAsync(_filter, token);
+            _rows = items;
+            return new TableData<SpecialComboListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SpecialComboPage.Load", ex);
+            Snackbar.Add("Không thể tải danh sách combo.", Severity.Error);
+            _rows = [];
+            return new TableData<SpecialComboListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task SearchAsync() => await _table.ReloadServerData();
+
+    private async Task ClearFilterAsync()
+    {
+        _filter.StoreNo = null; _filter.SalesType = null; _filter.MemberType = null;
+        _filter.Status = "-1"; _filter.TextSearch = null;
+        await _table.ReloadServerData();
+    }
+
+    // ── Editor open ──
+    private Task OpenNewAsync()
+    {
+        _header = new SpecialComboHeaderDto();
+        _lines = [];
+        _stores = [];
+        _applyAllStores = true;
+        _fromDate = null;
+        _toDate = null;
+        _editing = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenEditAsync(string code)
+    {
+        try
+        {
+            var detail = await ComboService.GetDetailAsync(code);
+            if (detail == null) { Snackbar.Add("Không tìm thấy combo.", Severity.Warning); return; }
+            _header = detail.Header;
+            _lines = detail.Lines;
+            _stores = detail.Stores.Where(s => s.StoreNo != "ALL").ToList();
+            _applyAllStores = detail.Stores.Any(s => s.StoreNo == "ALL") || detail.Stores.Count == 0;
+            _fromDate = ParseDmy(_header.FromDate);
+            _toDate = ParseDmy(_header.ToDate);
+            _editing = true;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SpecialComboPage.OpenEdit", ex);
+            Snackbar.Add("Lỗi tải chi tiết combo.", Severity.Error);
+        }
+    }
+
+    // ── Save ──
+    private async Task SaveAsync()
+    {
+        if (_saving) return;
+        _header.FromDate = _fromDate?.ToString("dd/MM/yyyy") ?? string.Empty;
+        _header.ToDate = _toDate?.ToString("dd/MM/yyyy") ?? string.Empty;
+
+        var stores = _applyAllStores
+            ? new List<SpecialComboStoreDto> { new() { StoreNo = "ALL", IsEnable = true } }
+            : _stores;
+
+        _saving = true;
+        try
+        {
+            var isNew = string.IsNullOrEmpty(_header.Code);
+            var request = new SpecialComboSaveRequest { Header = _header, Lines = _lines, Stores = stores };
+            var (ok, message, code) = await ComboService.SaveAsync(request, _actor);
+            if (!ok) { Snackbar.Add(message, Severity.Error); return; }
+
+            _header.Code = code;
+            await AuditLogger.LogAsync(_actor, isNew ? "CREATE" : "UPDATE", "SpecialCombo", code,
+                oldValueJson: null, newValueJson: JsonConvert.SerializeObject(request));
+            Snackbar.Add(message, Severity.Success);
+            _editing = false;
+            await _table.ReloadServerData();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SpecialComboPage.Save", ex);
+            Snackbar.Add("Lưu combo thất bại.", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // ── Status toggle ──
+    private async Task ToggleStatusAsync(SpecialComboListItemDto item)
+    {
+        var newStatus = !item.IsEnable;
+        var ok = await ComboService.UpdateStatusAsync(item.Code, newStatus, _actor);
+        if (!ok) { Snackbar.Add("Cập nhật trạng thái thất bại.", Severity.Error); return; }
+        await AuditLogger.LogAsync(_actor, "STATUS", "SpecialCombo", item.Code, null,
+            JsonConvert.SerializeObject(new { IsEnable = newStatus }));
+        Snackbar.Add(newStatus ? "Đã bật combo." : "Đã tắt combo.", Severity.Success);
+        await _table.ReloadServerData();
+    }
+
+    // ── Delete ──
+    private async Task DeleteAsync(SpecialComboListItemDto item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Message"]    = $"Xóa combo {item.Code} – {item.Name}? Không thể hoàn tác.",
+            ["YesText"]    = "Xóa",
+            ["CancelText"] = "Hủy"
+        };
+        var dialog = await DialogService.ShowAsync<MudMessageBox>("Xác nhận xóa", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is null or { Canceled: true }) return;
+
+        var ok = await ComboService.DeleteAsync(item.Code);
+        if (!ok) { Snackbar.Add("Xóa combo thất bại.", Severity.Error); return; }
+        await AuditLogger.LogAsync(_actor, "DELETE", "SpecialCombo", item.Code,
+            JsonConvert.SerializeObject(item), null);
+        Snackbar.Add($"Đã xóa combo {item.Code}.", Severity.Info);
+        await _table.ReloadServerData();
+    }
+
+    // ── Item / store autocomplete ──
+    private async Task<IEnumerable<ItemOptionDto>> SearchItemsAsync(string value, CancellationToken ct)
+        => await PromotionService.SearchItemsAsync(value ?? string.Empty, ct);
+
+    private void OnItemSelected(SpecialComboLineDto line, ItemOptionDto? item)
+    {
+        if (item == null) return;
+        line.ItemNo = item.No;
+        line.ItemName = item.Description;
+        line.UOM = item.Uom;
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreObjAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s => (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private void AddStore(StoreDto? store)
+    {
+        if (store?.StoreNo == null) return;
+        if (_stores.Any(s => s.StoreNo == store.StoreNo)) return;
+        _stores.Add(new SpecialComboStoreDto { StoreNo = store.StoreNo, IsEnable = true });
+    }
+
+    private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s => (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50).Select(s => s.StoreNo ?? string.Empty));
+    }
+
+    private string StoreToString(string? storeNo)
+    {
+        if (string.IsNullOrEmpty(storeNo)) return string.Empty;
+        var s = _allStores.FirstOrDefault(x => x.StoreNo == storeNo);
+        return s == null ? storeNo : $"{s.StoreNo} – {s.Name}";
+    }
+
+    // ── Helpers ──
+    private static string Fmt(DateTime? d) => d?.ToString("dd/MM/yyyy") ?? "";
+    private static DateTime? ParseDmy(string dmy)
+        => DateTime.TryParseExact(dmy, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture,
+               System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+}

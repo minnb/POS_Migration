@@ -881,6 +881,34 @@ public async ValueTask DisposeAsync()
 
 ---
 
+### 13. UI Polish — Trang migrate từ Legacy (BẮT BUỘC đọc khi "làm đẹp UI")
+
+> **Chi tiết đầy đủ: `.claude/skills/web/ui-migrate-legacy.md`** — đọc trước khi sửa markup
+> bất kỳ trang nào nhận yêu cầu "sync UI", "trông giống legacy", "làm đẹp".
+
+**Nguyên tắc cốt lõi:**
+
+- GIỮ NGUYÊN 100% `@code { }` — không thêm method/biến/helper. Chỉ sửa markup Razor.
+- Màu chip dùng **ternary inline** tại `Color=` — không thêm helper vào `@code`.
+- `div.pos-page-header` **là chuẩn dự án** — KHÔNG đổi sang `MudStack Justify.SpaceBetween`.
+
+**4 pattern bắt buộc áp cho mọi trang migrate:**
+
+| Pattern | Áp dụng khi |
+|---------|------------|
+| **Cột Trạng thái → MudChip màu** | Cột status là text thường |
+| **NoRecordsContent → icon Inbox + text** | Bảng rỗng chỉ có MudText |
+| **Tab "Thông tin chung" → nhóm field** | Tab editor là 1 MudGrid phẳng |
+| **Action bar Lưu/Duyệt → MudPaper justify-end** | Nút nằm trong `div.d-flex` rời |
+
+**Verification bắt buộc sau mỗi task:**
+```powershell
+dotnet build src/POS.Web/POS.Web.csproj -nologo -clp:ErrorsOnly   # phải 0 error
+dotnet test tests/POS.ContractTests -nologo                         # phải xanh
+```
+
+---
+
 ### 14. MudBlazor Flat UI Standard — BẮT BUỘC với mọi component mới
 
 > Áp dụng từ phiên thiết kế 2026-06-26. Theme flat đã được cấu hình sẵn trong `PosTheme.cs`.

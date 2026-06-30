@@ -67,6 +67,22 @@ public interface ICentralMDRepository
     /// <summary>Toàn bộ danh sách cửa hàng (kể cả đã đóng) dùng cho trang quản trị Store.</summary>
     Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default);
 
+    // ── Danh mục Nhân viên (Staff) — migrate từ legacy MasterData/EmployeeList ─
+
+    /// <summary>
+    /// SP [dbo].[GetEmployeeList] — danh sách nhân viên có lọc + phân trang server-side.
+    /// Trả (Items, Total); Total lấy từ field Total mà SP nhồi vào mỗi row. Không cache.
+    /// </summary>
+    Task<(List<EmployeeListItemDto> Items, int Total)> GetEmployeeListAsync(
+        EmployeeListFilter filter, CancellationToken ct = default);
+
+    /// <summary>
+    /// SP [dbo].[GetEmployeeList_Export] — toàn bộ nhân viên theo bộ lọc (không phân trang),
+    /// dùng cho xuất Excel. Không cache.
+    /// </summary>
+    Task<List<EmployeeListItemDto>> ExportEmployeeListAsync(
+        EmployeeListFilter filter, CancellationToken ct = default);
+
     // ── POSDataSetup CRUD (Web admin UI) ─────────────────────────────────────
 
     /// <summary>SELECT đủ 5 cột (Code, Value, Description, StoreNo, Counter) — không cache, dùng cho admin UI.</summary>
