@@ -371,6 +371,82 @@ Mỗi bước có đúng một nơi để đặt file. Sau khi xong: `dotnet tes
 
 ---
 
+## Sinh file master data .zip cho POS (Sync Master Data)
+
+> Tính năng cho máy POS đầu ngày tải master data đã nén. Endpoint giữ **contract cũ** (5.000 POS không đổi).
+
+### Luồng
+
+```
+GET api/posblue/GetFileFromFTP?...&typeSync=ALL
+  → SyncDataPosController (nhánh typeSync=="ALL")
+    → IMasterDataSyncService.EnsureMasterDataFileAsync   (POS.Application/Features/DataSync)
+        → ISyncRepository.GetSyncTablesAsync             (SP1 [SyncTable_Get] @IsChange='A')
+        → ISyncRepository.StreamTableToFileAsync         (SP2 [SyncGetDataByTable], STREAM SqlDataReader)
+        → IFileArchiveService.CreateZipFromDirectory     (nén thư mục tạm)
+        → ISyncFileLock                                  (keyed SemaphoreSlim chống sinh trùng)
+    → GetFileFromServerApiAsync → trả List<PathFileAPIModel>   (GIỮ NGUYÊN contract)
+GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công application/x-zip-compressed (FileShare.Read)
+                                                  + ghi log DB dbo.MasterDataDownloadLog (Success/Aborted/Error)
+```
+
+> **Download logging**: `DowloadFileStream` stream thủ công (`CopyToAsync(Response.Body, RequestAborted)`) để biết
+> kết quả best-effort: `Success` = gửi đủ byte không bị ngắt (KHÔNG đảm bảo POS lưu xong), `Aborted` = client ngắt,
+> `Error`. Ghi 1 dòng `dbo.MasterDataDownloadLog` qua `IMasterDataSyncService.LogDownloadAsync` (fail-safe, nuốt lỗi
+> nếu bảng chưa tạo). **KHÔNG tự xóa file** sau download (giữ cache ngày; dọn bằng daily-refresh + KeepZipDays).
+> Script bảng: `docs/sql/MasterDataDownloadLog.sql`. Log với `ct=CancellationToken.None` để ghi được cả khi client ngắt.
+
+### Quyết định kiến trúc (giữ chuẩn cho session sau)
+
+- **Response GIỮ NGUYÊN `List<PathFileAPIModel>`** — KHÔNG đổi sang shape mới. Service chỉ sinh file, controller
+  re-list qua `GetFileFromServerApiAsync` để build response như cũ. `GetMasterDataFileResult` chỉ dùng nội bộ/log.
+- **Định dạng file trong zip = JSON envelope `SyncTableList`** (bám `DataRawService.CreateFileSODFakeAsync`):
+  `{ FileName, TableName, Action, ProcedureName, ProcessID, Data:[rows] }`, UTF-8 (`Encoding.UTF8`).
+  Stream mảng `Data` từ `SqlDataReader` (`SequentialAccess`) bằng Newtonsoft
+  `JsonTextWriter` — **KHÔNG** nạp DataTable/RAM. `// TODO: confirm format vs POS parser`.
+- **Chia batch file `.txt`** (`MasterDataSync:BatchSizePerFile`, mặc định 10000): bảng lớn tách nhiều file
+  `{site}_{table}_{rnd}_{idx}_{batchNo:D3}.txt` (random tạo 1 lần/bảng để cùng prefix + sort đúng). **Batch đầu
+  `Action="TRUNC-INSERT"`, các batch sau `Action="INSERT"`** (append) → POS truncate 1 lần rồi nối, tránh mất dữ liệu.
+  Vẫn stream từng dòng (constant memory). `BatchSizePerFile <= 0` → không tách (1 file/bảng).
+- **Tên zip**: `{siteCode}_{typeSync}_{posTerminal}_{yyyyMMdd}.zip` → sang ngày mới tự sinh lại (daily-refresh).
+- **Atomic publish**: ghi `{guid}.zip` tạm → `File.Move(..., overwrite:true)` sang tên chính thức. POS không bao giờ
+  tải file ghi dở. Lỗi giữa chừng → cleanup `_tmp`/zip tạm, **KHÔNG** publish, log + throw.
+- **Mức nén**: `MasterDataSync:ZipCompressionLevel` (mặc định `Fastest`). KHÔNG dùng `Optimal` — master data JSON
+  lớn, Optimal tốn CPU/chậm; Fastest nhanh 2–5× (file lớn hơn ~10–30%, POS giải nén Deflate chuẩn bình thường).
+- **Song song hóa SP2**: `MasterDataSync:MaxParallelTables` (mặc định 4). Mỗi bảng dùng `SqlConnection` riêng
+  → thread-safe. `≤ 0` = sequential an toàn. Tăng nếu SQL Server còn headroom; mục tiêu 15–25s cho 85 bảng.
+- **SHA-256 companion file**: sau khi publish zip, API tự tạo `{zipName}.sha256` cùng thư mục. Ops verify
+  bằng `sha256sum`; POS có thể download để self-verify (tùy chọn). Cleanup tự xóa `.sha256` cùng zip.
+- **Redis cache SP1** (`MD:SyncTableList`, TTL 3600s): metadata 85 bảng cache Redis — tránh SP1 mỗi request.
+  Invalidate thủ công: `DEL MD:SyncTableList` khi DBA thay đổi cấu hình `SyncTableList`.
+- **Khóa**: keyed `SemaphoreSlim` Singleton, key = `{typeSync}_{siteCode}_{posTerminal}` (KHÔNG kèm ngày →
+  bounded theo terminal) + double-check `File.Exists` sau khóa.
+- **Daily-refresh / dọn file cũ**: `GetFileFromServerApiAsync` liệt kê **mọi** .zip trong folder → sau khi publish,
+  xóa zip cùng prefix có tên ≠ ngày hôm nay (tránh POS nhận file cũ). Khi đọc file đã tồn tại: kiểm tra
+  `LastWriteTime.Date == hôm nay`, nếu cũ → xóa và sinh lại.
+- **SP1**: `@IsChange='A'` → bỏ qua `@IsByStore`/`@GroupName` (default SP). `@POSLastCounter=0` khi
+  `typeSync==ALL` hoặc `IsFirstDataAll=1`.
+- **Filter per-store** (bảng `IsByStore=1`): SP2 `[SyncGetDataByTable]` đã được mở rộng 2 tham số
+  `@FilterColumn`/`@FilterValue` (default rỗng, backward-compatible) → `WHERE ([Counter]>N OR 0=N) AND [Col]=@val`
+  (parameterized, bracket-quote). Service truyền `@FilterColumn = ColumnFilter`, `@FilterValue = siteCode` khi
+  `IsByStore=1` và `ColumnFilter` khác rỗng → file chỉ chứa dòng của store đó. `IsByStore=0` hoặc thiếu ColumnFilter
+  → không filter (lấy all). Script SP: `docs/sql/SyncGetDataByTable_AddFilter.sql` (phải apply trên CentralMD).
+  **BẮT BUỘC bọc ngoặc** điều kiện Counter trong SP, nếu không `AND` bind chặt hơn `OR` → lọt mọi dòng.
+
+### Vị trí file
+
+| Layer | File | Namespace |
+|---|---|---|
+| Contracts | `POS.Common/Dtos/DataSync/{SyncTableInfo,GetMasterDataFileRequest,GetMasterDataFileResult}.cs` | `POS.Common.Dtos.DataSync` |
+| Infra repo | `POS.Infrastructure/Repositories/DataSync/{I}SyncRepository.cs` | `...Repositories(.Interfaces)` |
+| Infra files | `POS.Infrastructure/Files/{IFileArchiveService,FileArchiveService,ISyncFileLock,SyncFileLock,MasterDataSyncOptions}.cs` | `POS.Infrastructure.Files` |
+| App service | `POS.Application/Features/DataSync/{I}MasterDataSyncService.cs` | `POS.Application.Features.DataSync` |
+| Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`) | — |
+
+> Thư mục đích dùng `AppSettings:FtpRootPath` qua `MapFtpPath` — KHÔNG thêm `RootPath` riêng.
+
+---
+
 ## POS.Web — Blazor Server Dashboard
 
 > Webapp quản trị nội bộ: `src/POS.Web/` — .NET 10, Blazor Server, MudBlazor 9.5.0
@@ -1005,6 +1081,59 @@ CSS global (`app.css`) đã tự xử lý trên `@media (max-width: 599.98px)`:
 - ❌ Gọi `AuditLogger.LogAsync` mà không `await`
 - ❌ Log trước khi xác nhận DB op thành công
 - ❌ Dialog trả `Ok(true)` — page không có newValue để log UPDATE/CREATE
+
+---
+
+## Migrate VCM.BLUEPOS (legacy MVC) → POS.Web — BẮT BUỘC
+
+> Nguồn legacy: `src/legacy/` (VCM.BLUEPOS, .NET Framework 4.6, MVC).
+> Danh mục: `_migration/INVENTORY.md` — Tracking: `_migration/PROGRESS.md`.
+
+### 1. Đích đến
+Dashboard nội bộ **Blazor Server .NET 10 + MudBlazor 9.5.0**, render mode **global `InteractiveServer`**.
+Mọi quy ước UI/Auth/DI theo mục **POS.Web** ở trên.
+
+### 2. Quy ước port code
+- `System.Data.SqlClient` → **`Microsoft.Data.SqlClient`**.
+- Connection string: lấy qua **`IConfiguration`** (KHÔNG hardcode, KHÔNG dùng legacy `ConfigurationManager`).
+- Mọi DAL method **`async`** + **`await using`** (`SqlConnection`/`SqlCommand`/`SqlDataReader`), nhận `CancellationToken`.
+- Serialize **Newtonsoft.Json**; DTO đặt trong `POS.Common` (giữ contract field nếu tái dùng).
+- Business logic → `POS.Application`; I/O (DB/HTTP) → `POS.Infrastructure`.
+
+### 3. Bảng map `.cshtml` (MVC) → `.razor` (Blazor)
+
+| Legacy (MVC) | POS.Web (Blazor) |
+|---|---|
+| `Views/{Ctrl}/{Action}.cshtml` | `Components/Pages/{Section}/{Name}Page.razor` (`@page`, `@rendermode InteractiveServer`, `@attribute [Authorize]`) |
+| Partial view `_Xyz.cshtml` | child component `.razor` hoặc `<MudDialog>` |
+| `@model XyzViewModel` | DTO trong `POS.Common` + field trong `@code` |
+| Controller Action GET (mở view) | route `@page` + `OnInitializedAsync` |
+| Controller Action POST (ajax load) | method trong `@code` gọi Service/Repository qua DI |
+| `$.ajax` / jQuery DataTables | `<MudTable HorizontalScrollbar="true">` (client/server-side) |
+| `@Html.DropDownList` / select2 | `<MudSelect>` / `<MudAutocomplete>` (xem mục 13 POS.Web) |
+| `Html.BeginForm` + validation | `<MudForm>` + `@bind-Value` |
+| `ViewBag` / `TempData` | component state fields |
+| Export Excel (EPPlus/NPOI) | giữ lib, trả file qua download stream |
+| Rotativa PDF / in ấn | `// TODO: chọn lib PDF .NET 10` |
+| Auth Forms/AD/SSO | cookie + bridge token (POS.Web §2) |
+
+### 4. Checklist chuyển 1 chức năng
+```
+□ Mở _migration/INVENTORY.md, đọc ĐÚNG mục của chức năng → CHỈ đọc các file nó liệt kê
+□ Tạo DTO POS.Common/Dtos/{Domain}/ (Newtonsoft, [JsonProperty])
+□ Repository POS.Infrastructure/.../{Domain}/ — async + await using + Microsoft.Data.SqlClient + IConfiguration
+□ Service POS.Application/Features/{Domain}/ + đăng ký DI (DependencyInjection.cs)
+□ Page .razor Components/Pages/{Section}/ theo template chuẩn (responsive, flat, density)
+□ Row-level store filter cho StoreOperator nếu áp dụng
+□ Audit log (IAuditLogger) nếu có CRUD
+□ Build POS.Web + dotnet test (DI test + contract test xanh)
+□ Cập nhật _migration/PROGRESS.md: ⏳ TODO → ✅ DONE (kèm bảng Tổng kết)
+```
+
+### 5. RULE quan trọng — phạm vi đọc khi migrate
+> Khi port một chức năng: **CHỈ đọc các file được liệt kê trong mục INVENTORY của chức năng đó**
+> (Controller+Action, View, ViewModel, DAL/SP). **TUYỆT ĐỐI KHÔNG quét lại toàn bộ `src/legacy/`** —
+> tránh nhiễu ngữ cảnh và lãng phí. Thiếu file → bổ sung vào INVENTORY trước, rồi mới đọc.
 
 ---
 

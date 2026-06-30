@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<IUrboxService, UrboxService>();
         services.AddScoped<IDataRawService, DataRawService>();
         services.AddScoped<ISyncDataPosService, SyncDataPosService>();
+        services.AddScoped<IMasterDataSyncService, MasterDataSyncService>();
         services.AddScoped<IHealthCheckService, HealthCheckService>();
         services.AddScoped<IKafkaService, KafkaService>();
         services.AddScoped<IGiftService, GiftService>();

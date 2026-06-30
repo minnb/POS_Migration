@@ -268,9 +268,22 @@ public sealed class CommonController(
     {
         try
         {
+            var requestPayload = JsonConvert.SerializeObject(new
+            {
+                path = Request.Path.Value,
+                query = Request.QueryString.Value,
+                headers = Request.Headers
+                        .Where(h => !h.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase)
+                                 && !h.Key.Equals("Cookie", StringComparison.OrdinalIgnoreCase))
+                        .ToDictionary(h => h.Key, h => h.Value.ToString()),
+                clientIp = GetIpAddressClient(),
+                timestamp = DateTime.UtcNow
+            });
+            _ = Task.Run(() => fileLogHelper.WriteLogs($"[GetPOSVersion] Request: {requestPayload}"));
+
             var data = await commonService.GetPOSVersionAsync();
             if (data == null || data.Count == 0)
-                return BadRequestResult("Không có dữ liệu");
+                return BadRequestResult("Không có dữ liệu POS version");
             return OkResult(data);
         }
         catch (Exception ex)

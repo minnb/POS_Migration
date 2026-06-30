@@ -2,7 +2,7 @@
 
 Dùng lệnh này sau khi hoàn thành **bất kỳ task nào** trong solution POS —
 feature mới, bug fix, pattern mới, hay refactor.
-Command tự động cập nhật SKILLS, CURRENT_STRUCTURE, WEB_STATUS và CHANGELOG.
+Command tự động cập nhật SKILLS, CURRENT_STRUCTURE, WEB_STATUS, CHANGELOG **và đồng bộ appsettings UAT/Production**.
 
 ---
 
@@ -45,7 +45,70 @@ Nếu không tự phát hiện được → hỏi user:
 
 ---
 
-### Bước 2 — Cập nhật SKILLS nếu có pattern mới
+### Bước 2 — Đồng bộ appsettings UAT/Production (khi appsettings.json thay đổi)
+
+**Chỉ chạy** nếu `appsettings.json` của bất kỳ project nào bị sửa trong session.
+
+**Project cần kiểm tra:**
+
+| Project | DEV base | Môi trường cần sync |
+|---|---|---|
+| `POS.Api` | `src/POS.Api/appsettings.json` | `appsettings.UAT.json` + `appsettings.Production.json` |
+| `POS.Worker` | `src/POS.Worker/appsettings.json` | `appsettings.UAT.json` + `appsettings.Production.json` |
+| `POS.Web` | `src/POS.Web/appsettings.json` | `appsettings.UAT.json` + `appsettings.Production.json` |
+
+**Quy trình:**
+1. Đọc `appsettings.json` và cả 2 file UAT/Production của cùng project
+2. So sánh: section/key nào có trong DEV nhưng **thiếu** trong UAT hoặc Production?
+3. Với mỗi section/key thiếu → thêm vào file môi trường theo quy tắc sau:
+
+**Quy tắc thêm giá trị theo loại section:**
+
+| Section | Loại | Hành động |
+|---|---|---|
+| `MasterDataSync`, `*Options*`, tuning số (timeout, batch size, parallelism) | **Tuning** | Copy y hệt giá trị DEV — default an toàn cho mọi môi trường |
+| `ConnectionStrings`, `Redis`, `RabbitMQ`, `Elasticsearch` | **Hạ tầng** | Thêm key với placeholder `"<UAT_...>"` / `"<PROD_...">`|
+| `AppSettings` (paths, URLs, server IPs) | **Hạ tầng** | Thêm placeholder hoặc `""` (rỗng) |
+| `Logging` | **Mixed** | Level → copy; `FileLogDirectory` → `"/app/logs"` |
+| `Security` (POS.Web) | **Hạ tầng** | Thêm key với giá trị production-safe mặc định (vd `RequireHttps: true`) |
+
+**Ví dụ — thêm section `MasterDataSync` vào UAT:**
+```json
+"MasterDataSync": {
+  "SqlCommandTimeoutSeconds": 600,
+  "KeepZipDays": 2,
+  "DateInZipName": true,
+  "ZipCompressionLevel": "Fastest",
+  "BatchSizePerFile": 10000,
+  "MaxParallelTables": 4
+}
+```
+> (copy y DEV vì đây là tuning — không có credential, không phụ thuộc môi trường)
+
+**Ví dụ — thêm key hạ tầng mới vào UAT:**
+```json
+"SomeNewService": {
+  "Host": "<UAT_SOME_SERVICE_HOST>",
+  "ApiKey": "<UAT_SOME_SERVICE_APIKEY>"
+}
+```
+
+**Lưu ý quan trọng:**
+- **KHÔNG** đồng bộ key đã có rồi trong UAT/Production (tránh ghi đè giá trị prod thật)
+- **KHÔNG** copy `ConnectionStrings` hay credentials từ DEV sang môi trường khác — chỉ thêm placeholder
+- Nếu section đã có trong UAT/Production nhưng **thiếu key con** mới → thêm key con đó vào đúng section
+- Sau khi thêm placeholder → ghi chú vào CHANGELOG để ops team biết cần điền giá trị thật
+
+**Tóm tắt ra màn hình:**
+```
+• appsettings sync:
+  POS.Api → UAT ✅ (thêm "MasterDataSync") | Production ✅ (thêm "MasterDataSync")
+  POS.Worker → không thay đổi
+```
+
+---
+
+### Bước 3 — Cập nhật SKILLS nếu có pattern mới
 
 **Chỉ cập nhật** nếu task tạo ra pattern/standard **mới** chưa có trong skill file.
 **Không cập nhật** nếu chỉ là feature thường theo pattern đã có sẵn.
@@ -78,7 +141,7 @@ Nếu có pattern mới → thêm vào **cuối section phù hợp** trong skill
 
 ---
 
-### Bước 3 — Cập nhật CURRENT_STRUCTURE.md nếu có file mới
+### Bước 4 — Cập nhật CURRENT_STRUCTURE.md nếu có file mới
 
 **Chỉ chạy** nếu có file mới được tạo (Controller, Service, Repository,
 Interface, Component, Page, DTO).
@@ -94,7 +157,7 @@ Interface, Component, Page, DTO).
 
 ---
 
-### Bước 4 — Cập nhật WEB_STATUS.md nếu task thuộc POS.Web
+### Bước 5 — Cập nhật WEB_STATUS.md nếu task thuộc POS.Web
 
 **Chỉ chạy** nếu có file thay đổi trong `src/POS.Web/`.
 
@@ -105,7 +168,7 @@ Interface, Component, Page, DTO).
 
 ---
 
-### Bước 5 — Ghi vào CHANGELOG.md
+### Bước 6 — Ghi vào CHANGELOG.md
 
 Đọc `docs/CHANGELOG.md`. Nếu chưa có → tạo mới với header:
 
@@ -138,7 +201,7 @@ Thêm entry mới vào **đầu file** (mới nhất ở trên cùng, sau header
 
 ---
 
-### Bước 6 — Tóm tắt ra màn hình
+### Bước 7 — Tóm tắt ra màn hình
 
 In kết quả ngắn gọn:
 
@@ -149,6 +212,7 @@ Task: {tên task}
 Files thay đổi: {số lượng}
 
 Đã cập nhật:
+• appsettings sync: POS.Api UAT ✅ Production ✅ | (hoặc: không có thay đổi appsettings)
 • SKILLS.md ({layer}): {có/không} {nếu có: → tên pattern}
 • CURRENT_STRUCTURE.md: {có/không}
 • WEB_STATUS.md: {có/không}
@@ -163,5 +227,6 @@ Session sau nhớ: {1 câu từ "Lưu ý cho session sau"}
 
 - CHANGELOG.md **luôn** được cập nhật — dù không có pattern mới hay file mới
 - SKILLS.md **chỉ** cập nhật khi có pattern thực sự mới — không thêm vì task "có vẻ quan trọng"
+- appsettings sync: **chỉ THÊM key mới**, KHÔNG ghi đè key đã có trong UAT/Production — tránh mất giá trị thật
 - Không commit hay push — chỉ cập nhật file tài liệu local
 - Nếu `docs/CURRENT_STRUCTURE.md` chưa tồn tại → bỏ qua bước 3, ghi chú vào CHANGELOG

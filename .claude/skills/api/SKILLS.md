@@ -321,3 +321,110 @@ if (enc.Count > 0) {
 
 > **Anti-pattern:** ❌ mã hóa `appsettings.json` (base) → MỌI môi trường (kể cả Dev không có khóa) fail-fast. Chỉ mã hóa file môi trường (Production).
 > Ví dụ thực tế: `SecretProtector.cs`, `src/POS.Web/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`
+
+---
+
+## Pattern: Parallel.ForEachAsync cho nhiều DB call độc lập
+
+> Áp dụng khi: cần xử lý N item (ví dụ N bảng SP2) mà mỗi item **mở connection riêng, không shared state** → song song hóa an toàn.
+
+```csharp
+// Precompute index TRƯỚC khi song song (index ổn định, không race condition)
+var entries = items
+    .Where(t => !string.IsNullOrWhiteSpace(t.Key))
+    .Select((t, idx) => (Item: t, Index: idx + 1))
+    .ToList();
+
+await Parallel.ForEachAsync(entries, new ParallelOptions
+{
+    MaxDegreeOfParallelism = _opt.MaxParallelTables > 0 ? _opt.MaxParallelTables : 1,
+    CancellationToken = ct
+}, async (entry, token) =>
+{
+    // Mỗi iteration mở SqlConnection riêng → hoàn toàn thread-safe
+    await repo.StreamTableToFilesAsync(entry.Item, ..., token);
+});
+```
+
+**Điều kiện an toàn:** (1) mỗi iteration tạo connection/resource riêng; (2) output (file, key) unique per-item; (3) exception 1 item → `AggregateException` wrap throw ra caller.
+**Cấu hình:** `MaxParallelTables <= 0` → sequential (fallback an toàn). SQL Server connection pool (default 100) đủ cho parallelism = 4–8.
+
+> Ví dụ thực tế: `src/POS.Application/Features/DataSync/MasterDataSyncService.cs` — `EnsureMasterDataFileAsync`
+
+---
+
+## Pattern: SHA-256 companion file cho binary được publish
+
+> Áp dụng khi: publish file binary (zip, archive) ra đĩa và cần ops/monitoring verify integrity sau này.
+
+```csharp
+// Sau atomic publish (File.Move overwrite)
+File.Move(tmpZip, destPath, overwrite: true);
+
+var hash = await ComputeSha256HexAsync(destPath, ct);
+await File.WriteAllTextAsync(destPath + ".sha256", hash, ct);  // "a3f5c2e1..." (64 hex chars)
+
+// Cleanup: xóa .sha256 cùng lúc với zip
+TryDeleteFile(destPath);
+TryDeleteFile(destPath + ".sha256");
+
+// Helper (BCL .NET 6+ — không cần NuGet)
+private static async Task<string> ComputeSha256HexAsync(string filePath, CancellationToken ct)
+{
+    await using var fs = File.OpenRead(filePath);
+    var bytes = await SHA256.HashDataAsync(fs, ct);
+    return Convert.ToHexString(bytes).ToLowerInvariant();
+}
+```
+
+**Quan trọng:** file `.sha256` là companion, KHÔNG thêm vào response API (filter `*.zip` → `.sha256` không bị liệt kê). Verify trên server: `sha256sum {file}.zip` rồi so sánh với nội dung `.sha256`.
+
+> Ví dụ thực tế: `src/POS.Application/Features/DataSync/MasterDataSyncService.cs`
+
+---
+
+## Pattern: Middleware xác thực request từ POS (X-API key)
+
+> Áp dụng khi: cần validate MỌI request đến POS.Api ở tầng pipeline (không gắn `[Attribute]` từng controller).
+> Fail-closed: thiếu credential → 401, không pass-through.
+
+```csharp
+// src/POS.Api/Middleware/PosApiKeyMiddleware.cs
+public sealed class PosApiKeyMiddleware(RequestDelegate next)
+{
+    // Scoped service nhận qua THAM SỐ InvokeAsync — KHÔNG inject vào constructor
+    // (middleware là singleton; tham số method được resolve đúng scope mỗi request).
+    public async Task InvokeAsync(HttpContext context,
+        ICentralMDRepository repo, IFileLogHelper fileLog)
+    {
+        var path = context.Request.Path;
+        if (path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
+        { await next(context); return; }            // miễn xác thực
+
+        var xApi = context.Request.Headers["X-API"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(xApi))
+        {
+            // privateKey lấy từ GetPOSDataSetupAsync() — đã cache Redis MD:POSDataSetup 12h
+            var key = (await repo.GetPOSDataSetupAsync(context.RequestAborted))?
+                .FirstOrDefault(x => string.Equals(x.Code, "X-API", StringComparison.OrdinalIgnoreCase))?.Value;
+            var expected = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(key ?? "")));  // uppercase hex
+            if (string.IsNullOrEmpty(key) || !string.Equals(xApi, expected, StringComparison.Ordinal))
+            { await Write401(context, "Chưa xác thực"); return; }
+            await next(context); return;
+        }
+        // Không X-API: có Authorization (Basic /api/v2/* | Bearer pending) → pass-through; thiếu cả → 401
+        if (!string.IsNullOrEmpty(context.Request.Headers.Authorization.FirstOrDefault()))
+        { await next(context); return; }
+        await Write401(context, "Chưa xác thực");
+    }
+}
+// Đăng ký: app.UsePosApiKeyAuth(); SAU UseSerilogRequestLogging(), TRƯỚC UseAuthentication().
+```
+
+**Quan trọng:**
+- `MD5.HashData()` + `Convert.ToHexString()` → uppercase hex, khớp `MD5(privateKey).toUpper()` phía POS.
+- Write401 phải dùng `DefaultContractResolver` + `NullValueHandling.Ignore` để khớp contract `ResultResponse` (PascalCase, bỏ `Data` null).
+- ⚠️ Fail-closed → mọi endpoint (trừ `/health`, `/swagger/*`) bắt buộc có header; rà soát script/monitor nội bộ trước khi deploy.
+
+> Ví dụ thực tế: `src/POS.Api/Middleware/PosApiKeyMiddleware.cs`

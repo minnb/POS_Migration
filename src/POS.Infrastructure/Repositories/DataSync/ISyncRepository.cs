@@ -1,0 +1,35 @@
+using POS.Common.Dtos.DataSync;
+
+namespace POS.Infrastructure.Repositories.Interfaces;
+
+/// <summary>
+/// Truy vấn master data từ CentralMD phục vụ sinh file sync cho POS.
+/// </summary>
+public interface ISyncRepository
+{
+    /// <summary>SP1 [SyncTable_Get] @IsChange='A' — danh sách bảng cần sync.</summary>
+    Task<List<SyncTableInfo>> GetSyncTablesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// SP2 [SyncGetDataByTable] — STREAM SqlDataReader (SequentialAccess) ghi ra một hoặc nhiều file .txt
+    /// dạng JSON envelope SyncTableList { ..., Data:[rows] }. KHÔNG nạp DataTable/RAM.
+    /// Cứ <paramref name="batchSize"/> dòng tách 1 file mới (batchSize &lt;= 0 → không tách, 1 file).
+    /// <paramref name="fileNameFactory"/>(batchNo) trả tên file cho batch (batchNo bắt đầu từ 1);
+    /// <paramref name="actionFactory"/>(batchNo) trả Action ghi vào envelope của batch đó.
+    /// <paramref name="filterColumn"/>/<paramref name="filterValue"/>: lọc per-store cho bảng IsByStore=1
+    /// (WHERE [filterColumn] = filterValue); rỗng → không lọc (bảng global). File ghi vào <paramref name="targetDir"/>.
+    /// Trả về (số file, tổng số dòng).
+    /// </summary>
+    Task<(int FileCount, long RowCount)> StreamTableToFilesAsync(
+        SyncTableInfo table, string targetDir,
+        Func<int, string> fileNameFactory, Func<int, string> actionFactory,
+        string processId, long posLastCounter, int batchSize,
+        string filterColumn, string filterValue, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ghi 1 dòng log POS tải file vào bảng dbo.MasterDataDownloadLog. (Service gọi bọc try/catch fail-safe.)
+    /// </summary>
+    Task InsertDownloadLogAsync(
+        string? siteCode, string? posTerminal, string? fileName, string? filePath,
+        long fileSizeBytes, long durationMs, string status, string? clientIp, CancellationToken ct = default);
+}

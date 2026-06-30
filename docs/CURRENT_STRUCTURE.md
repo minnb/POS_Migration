@@ -37,7 +37,8 @@ src/
 │   │   └── ValidateModelFilter.cs
 │   ├── Middleware/
 │   │   ├── BasicAuthHandler.cs
-│   │   └── ExceptionHandlingMiddleware.cs   ← G3 global exception → ResultResponse (UsePosExceptionHandling)
+│   │   ├── ExceptionHandlingMiddleware.cs   ← G3 global exception → ResultResponse (UsePosExceptionHandling)
+│   │   └── PosApiKeyMiddleware.cs           ← Xác thực X-API (MD5) / Authorization, fail-closed (UsePosApiKeyAuth)
 │   ├── Program.cs
 │   └── Properties/
 │       └── launchSettings.json
@@ -55,7 +56,8 @@ src/
 │       ├── DataSync/
 │       │   ├── IDataRawService.cs / DataRawService.cs
 │       │   ├── ISyncDataPosService.cs / SyncDataPosService.cs
-│       │   └── IKafkaService.cs / KafkaService.cs
+│       │   ├── IKafkaService.cs / KafkaService.cs
+│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync (Parallel SP2 × MaxParallelTables) + LogDownloadAsync
 │       ├── Sap/
 │       │   └── ISAPService.cs / SAPService.cs
 │       └── Gift/
@@ -112,6 +114,10 @@ src/
 │   │   │                          CpnVchBOMHeaderDto, CpnVchBOMLineDto, ItemDto, ItemPointsMemberDto,
 │   │   │                          LoyaltyRateDto, MMLSchemeHeader, MMLSchemeItem, MMLSchemeResponse,
 │   │   │                          MMLSchemeRequest, MMLSchemeItemsRequest)
+│   │   ├── DataSync/
+│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName)
+│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir
+│   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
 │   │   ├── CXVoucher/CXVoucherDto.cs
 │   │   ├── DRW/UpdateStatusSfaffDiscountDto.cs
@@ -231,7 +237,10 @@ src/
     ├── Files/
     │   ├── ConnectToSharedFolder.cs
     │   ├── IFtpFileTransfer.cs
-    │   └── WinScpFileTransfer.cs
+    │   ├── WinScpFileTransfer.cs
+    │   ├── IFileArchiveService.cs / FileArchiveService.cs   ← ZipFile.CreateFromDirectory (Singleton, MasterDataSyncOptions.ZipCompressionLevel)
+    │   ├── ISyncFileLock.cs / SyncFileLock.cs               ← keyed SemaphoreSlim (Singleton), chống sinh zip trùng
+    │   └── MasterDataSyncOptions.cs                         ← bind section "MasterDataSync": SqlCommandTimeoutSeconds, BatchSizePerFile, MaxParallelTables, ZipCompressionLevel, KeepZipDays, DateInZipName
     ├── Logging/
     │   ├── ElasticsearchOptions.cs
     │   ├── FileLogHelper.cs
@@ -267,8 +276,10 @@ src/
         │   ├── ILoyaltyRepository.cs / LoyaltyRepository.cs
         │   ├── IOfferStaffRepository.cs / OfferStaffRepository.cs
         │   └── IWincodeRepository.cs / WincodeRepository.cs
-        └── Sap/
-            └── ISAPVoucherRepository.cs / SAPVoucherRepository.cs
+        ├── Sap/
+        │   └── ISAPVoucherRepository.cs / SAPVoucherRepository.cs
+        └── DataSync/
+            └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync, Redis cache MD:SyncTableList) + SP2 stream (StreamTableToFilesAsync)
 ```
 
 ---
@@ -287,6 +298,7 @@ src/
 | `IDataRawService` | `DataRawService` | `POS.Application.Features.DataSync` | POS.Application |
 | `ISyncDataPosService` | `SyncDataPosService` | `POS.Application.Features.DataSync` | POS.Application |
 | `IKafkaService` | `KafkaService` | `POS.Application.Features.DataSync` | POS.Application |
+| `IMasterDataSyncService` | `MasterDataSyncService` | `POS.Application.Features.DataSync` | POS.Application |
 | `ISAPService` | `SAPService` | `POS.Application.Features.Sap` | POS.Application |
 | `IGiftService` | `GiftService` | `POS.Application.Features.Gift` | POS.Application |
 
@@ -305,6 +317,7 @@ src/
 | `IOfferStaffRepository` | `OfferStaffRepository` | Loyalty/ | POS.Infrastructure |
 | `IWincodeRepository` | `WincodeRepository` | Loyalty/ | POS.Infrastructure |
 | `ISAPVoucherRepository` | `SAPVoucherRepository` | Sap/ | POS.Infrastructure |
+| `ISyncRepository` | `SyncRepository` | DataSync/ | POS.Infrastructure |
 | _(static, no interface)_ | `SecretProtector` | `POS.Infrastructure.Security` | POS.Infrastructure |
 
 ### POS.Infrastructure — AppServices
@@ -327,6 +340,8 @@ src/
 | `IFileLogHelper` | `FileLogHelper` | `POS.Infrastructure.Logging` | POS.Infrastructure |
 | `IKibanaService` | `KibanaService` | `POS.Infrastructure.Logging` | POS.Infrastructure |
 | `IFtpFileTransfer` | `WinScpFileTransfer` | `POS.Infrastructure.Files` | POS.Infrastructure |
+| `IFileArchiveService` | `FileArchiveService` | `POS.Infrastructure.Files` | POS.Infrastructure |
+| `ISyncFileLock` | `SyncFileLock` | `POS.Infrastructure.Files` | POS.Infrastructure |
 | `IDbConnectionFactory` | `CentralMDConnectionFactory`, `LoyaltyConnectionFactory`, `StagingDbConnectionFactory`, `StoreRoutedConnectionFactory` | `POS.Infrastructure.Database` | POS.Infrastructure |
 
 ---
@@ -347,6 +362,7 @@ src/
 | `IKafkaService` → `KafkaService` | Scoped | Publish sale messages lên Kafka |
 | `ISAPService` → `SAPService` | Scoped | SAP voucher/coupon |
 | `IGiftService` → `GiftService` | Scoped | Gift barcode |
+| `IMasterDataSyncService` → `MasterDataSyncService` | Scoped | Sinh zip master data + log download |
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 
@@ -366,6 +382,9 @@ src/
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
 | `ISAPVoucherRepository` → `SAPVoucherRepository` | Scoped | SAP voucher DB |
+| `ISyncRepository` → `SyncRepository` | Scoped | SP1 GetSyncTables (Redis cache) + SP2 StreamTableToFiles |
+| `IFileArchiveService` → `FileArchiveService` | Singleton | ZipFile.CreateFromDirectory (compression level configurable) |
+| `ISyncFileLock` → `SyncFileLock` | Singleton | keyed SemaphoreSlim chống sinh zip trùng |
 | `IRedisManager` → `RedisManager` | Singleton | StackExchange.Redis low-level |
 | `IRedisService` → `RedisService` | Singleton | High-level Redis wrapper (sử dụng trong code) |
 | `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
@@ -389,6 +408,7 @@ src/
 | `ApiBehaviorOptions.SuppressModelStateInvalidFilter = true` | — | Cho phép ValidateModelFilter kiểm soát hoàn toàn |
 | `MemoryCache` | Singleton | Không dùng cho biz logic (chỉ còn trong code cũ chưa migrate) |
 | Authentication `"BasicAuth"` → `BasicAuthHandler` | — | Chỉ áp dụng route api/v2/... |
+| `PosApiKeyMiddleware` (`UsePosApiKeyAuth`) | — | Sau Serilog, trước UseAuthentication. Validate X-API (MD5 vs POSDataSetup[X-API]); fail-closed — miễn `/health` + `/swagger/*` |
 | `HttpClient` (generic factory) | — | `IHttpClientFactory` |
 | Swagger | — | Chỉ đăng ký khi `IsDevelopment()` |
 | `app.MapGet("/health", ...)` | — | Health endpoint public (Docker HEALTHCHECK) |

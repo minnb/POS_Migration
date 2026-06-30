@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using POS.Infrastructure.AppServices.DataSync;
 using POS.Infrastructure.AppServices.Partner;
 using POS.Infrastructure.Cache;
@@ -65,6 +66,17 @@ public static class DependencyInjection
 
         // ── File transfer (SyncDataPos) ───────────────────────────────────────
         services.AddSingleton<IFtpFileTransfer, WinScpFileTransfer>();
+
+        // ── Master data sync (.zip cho POS) ───────────────────────────────────
+        // Bind options theo convention dự án (GetSection().Get<T>()), bọc IOptions qua Options.Create.
+        var masterDataSyncOptions =
+            configuration.GetSection(MasterDataSyncOptions.SectionName).Get<MasterDataSyncOptions>()
+            ?? new MasterDataSyncOptions();
+        services.AddSingleton(Options.Create(masterDataSyncOptions));
+        // SyncRepository: Scoped (mở connection per call). Lock + Archive: Singleton (lock giữ dictionary toàn cục).
+        services.AddScoped<Repositories.Interfaces.ISyncRepository, Repositories.SyncRepository>();
+        services.AddSingleton<IFileArchiveService, FileArchiveService>();
+        services.AddSingleton<ISyncFileLock, SyncFileLock>();
 
         // ── Logging ───────────────────────────────────────────────────────────
         // FileLogHelper nhận baseDirectory từ config, không inject IConfiguration trực tiếp.

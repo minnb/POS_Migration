@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Application.Features.DataSync;
 using POS.Common;
+using POS.Common.Dtos.DataSync;
 using POS.Common.Dtos.FileModel;
 using POS.Common.Dtos.Request;
 using POS.Common.Helpers;
@@ -29,6 +30,7 @@ namespace POS.Api.Controllers;
 public sealed class SyncDataPosController(
     ISyncDataPosService syncDataPosService,
     IDataRawService dataRawService,
+    IMasterDataSyncService masterDataSyncService,
     IKibanaService kibanaService,
     IFileLogHelper fileLogHelper,
     IConfiguration configuration,
@@ -67,8 +69,20 @@ public sealed class SyncDataPosController(
         [FromQuery] string? syncAPI,
         [FromQuery] string? typeSync)
     {
-        kibanaService.LogRequest($"GetFileFromFTP_{typeSync}", posTerminal,
-            $"GetFileFromFTP: {siteCode}_{posTerminal}_{folderFile}_{pathSync}_{syncAPI}_{typeSync}");
+        var requestPayload = JsonConvert.SerializeObject(new
+        {
+            path = Request.Path.Value,
+            query = Request.QueryString.Value,
+            headers = Request.Headers
+                       .Where(h => !h.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase)
+                                && !h.Key.Equals("Cookie", StringComparison.OrdinalIgnoreCase))
+                       .ToDictionary(h => h.Key, h => h.Value.ToString()),
+            clientIp = GetIpAddressClient(),
+            timestamp = DateTime.UtcNow
+        });
+        _ = Task.Run(() => fileLogHelper.WriteLogs($"[GetFileFromFTP] Request: {requestPayload}"));
+
+        kibanaService.LogRequest($"GetFileFromFTP_{typeSync}", posTerminal, $"GetFileFromFTP: {requestPayload}");
         var ipServer = GetIpAddressClient();
         var listResult = new List<PathFileAPIModel>();
         try
@@ -78,20 +92,31 @@ public sealed class SyncDataPosController(
 
             if (typeSync == "ALL")
             {
-                listResult = await syncDataPosService.GetFileFromServerApiAsync(
-                    pathSync ?? "", folderFile ?? "", typeSync, syncAPI ?? "", ipServer);
-                if (listResult.Count > 0)
-                    return HttpResponseData(HttpStatusCode.OK, $"Response from IPServer {ipServer}", listResult);
-
-                var (sodCreated, sodMsg) = await dataRawService.CreateFileSODFakeAsync(siteCode, pathFile);
-                kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
-                    $"CreateFileSODFake {sodCreated} ({sodMsg}), siteCode {siteCode}");
-
-                if (!sodCreated)
+                // Sinh master data thật (thay CreateFileSODFakeAsync). Idempotent: chỉ sinh nếu zip
+                // hôm nay chưa có — sửa lỗi daily-refresh: logic cũ trả zip hôm qua vì còn trong 2 ngày.
+                var genRequest = new GetMasterDataFileRequest
+                {
+                    SiteCode = siteCode,
+                    PosTerminal = posTerminal,
+                    FolderFile = folderFile ?? "",
+                    PathSync = pathSync ?? "",
+                    TypeSync = typeSync,
+                    TargetDir = pathFile
+                };
+                try
+                {
+                    var genResult = await masterDataSyncService.EnsureMasterDataFileAsync(genRequest, HttpContext.RequestAborted);
+                    kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
+                        $"EnsureMasterDataFile {genResult.Success} ({genResult.Message}), {genResult.TableCount} tables, siteCode {siteCode}");
+                }
+                catch (Exception exGen)
+                {
+                    kibanaService.LogException($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
+                        $"EnsureMasterDataFile failed siteCode {siteCode}: {exGen.Message}");
                     return HttpResponseData(HttpStatusCode.BadGateway,
-                        $"Response from IPServer {ipServer}, CreateFileSODFake failed: {sodMsg}", null);
+                        $"Response from IPServer {ipServer}, EnsureMasterDataFile failed: {exGen.Message}", null);
+                }
 
-                await Task.Delay(500);
                 listResult = await syncDataPosService.GetFileFromServerApiAsync(
                     pathSync ?? "", folderFile ?? "", typeSync, syncAPI ?? "", ipServer);
                 return HttpResponseData(HttpStatusCode.OK, $"Response from IPServer {ipServer}", listResult);
@@ -412,14 +437,52 @@ public sealed class SyncDataPosController(
                         filePath[(idx + ftpRoot.Length)..].Replace('\\', '/'));
             }
 
-            if (!System.IO.File.Exists(localPath))
+            // Path-traversal: chỉ cho tải file nằm trong FtpRootPath.
+            var ftpRootDir = Path.GetFullPath(syncDataPosService.MapFtpPath(""));
+            var fullLocal = Path.GetFullPath(localPath ?? "");
+            if (!fullLocal.StartsWith(ftpRootDir, StringComparison.OrdinalIgnoreCase))
+            {
+                fileLogHelper.WriteLogs($"DowloadFileStream: path traversal blocked {filePath}");
+                return HttpResponseData(HttpStatusCode.BadRequest, $"Đường dẫn file không hợp lệ", null);
+            }
+
+            if (!System.IO.File.Exists(fullLocal))
                 return HttpResponseData(HttpStatusCode.BadRequest, $"File: {fileName} không tồn tại", null);
 
-            var readFile = await System.IO.File.ReadAllBytesAsync(localPath!);
+            // Stream THỦ CÔNG (FileShare.Read, async, không nạp RAM) để biết download có gửi đủ byte hay bị ngắt.
+            // Best-effort: "Success" = gửi hết byte không bị client ngắt (KHÔNG đảm bảo POS đã lưu xong file).
+            var fileSize = new FileInfo(fullLocal).Length;
+            var clientIp = GetIpServer();
+            var status = "Success";
+
+            Response.ContentType = "application/x-zip-compressed";
+            Response.ContentLength = fileSize;
+            Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
+
+            try
+            {
+                await using var stream = new FileStream(fullLocal, FileMode.Open, FileAccess.Read, FileShare.Read,
+                    bufferSize: 65536, useAsync: true);
+                await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
+            }
+            catch (OperationCanceledException)
+            {
+                status = "Aborted"; // POS ngắt kết nối giữa chừng
+            }
+            catch (Exception exStream)
+            {
+                status = "Error";
+                fileLogHelper.WriteExpLogs("DowloadFileStream.Stream", exStream);
+            }
+
             st1.Stop();
-            kibanaService.LogResponse("DowloadFileStream", GetIpServer(), st1.ElapsedMilliseconds, "",
-                $"StatusCode:OK download file {filePath}{fileName}");
-            return File(readFile, "application/x-zip-compressed", fileName);
+            kibanaService.LogResponse("DowloadFileStream", clientIp, st1.ElapsedMilliseconds, "",
+                $"Status:{status} download file {filePath}{fileName}");
+            // ct = None: client có thể đã ngắt (RequestAborted bị cancel) nhưng vẫn phải ghi được log Aborted.
+            await masterDataSyncService.LogDownloadAsync(
+                fileName, fullLocal, fileSize, st1.ElapsedMilliseconds, status, clientIp, CancellationToken.None);
+
+            return new EmptyResult();
         }
         catch (Exception ex)
         {
