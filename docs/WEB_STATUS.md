@@ -1,5 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-28 (Phase 1: IKibanaService → IFileLogHelper toàn POS.Web; Phase 2: audit logging UsersPage+PosMapPage — xem J5, J6)
+> Cập nhật: 2026-06-30 (thêm Catalog section: ProductsPage 6.1+6.2+6.3, ProductLockPage 6.4 — migrate từ VCM.BLUEPOS)
 > Trước đó 2026-06-28 (Security hardening: config-driven HTTPS/cookie + RequireHttps, security headers/CSP, mã hóa credentials AES-256-GCM `enc:`, SQL Console mask+toggle, DetailedErrors off Prod)
 
 ---
@@ -34,6 +34,11 @@ src/POS.Web/
 │       │   ├── PosTerminalSavePayload.cs      ← shared record: payload chain PosMapPage→DetailDialog→EditDialog
 │       │   └── Dialogs/ (PosTerminalDetailDialog, PosTerminalEditDialog, StoreDetailDialog,
 │       │                  PosDataSetupFormDialog)
+│       ├── Catalog/
+│       │   └── Product/
+│       │       ├── ProductsPage.razor               ← /catalog/products — danh sách + thêm mới + xuất Excel
+│       │       ├── ProductDetailDialog.razor         ← form tạo SP mới (dynamic barcode rows)
+│       │       └── ProductLockPage.razor             ← /catalog/product-lock — khóa/mở khóa SP theo cửa hàng
 │       └── Store/
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
 │           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)
@@ -159,6 +164,9 @@ src/POS.Web/
 | J2 | PosDataSetupFormDialog – Add/Edit form, trả DTO đầy đủ | Pages/Ops/Dialogs/PosDataSetupFormDialog.razor | ✅ | Code read-only khi Edit; trả DialogResult.Ok(_model) (không Ok(true)) để page có newValue; duplicate Code → thông báo thân thiện |
 | J3 | migration_dashboard_audit_log.sql – bảng DashboardAuditLog + 3 index | Auth/migration_dashboard_audit_log.sql | ⚠️ | Script idempotent — **PHẢI CHẠY trên RPOSMasterData trước deploy**; chưa chạy → log fail silently |
 | J4 | audit-logging.md – rule audit CRUD chuẩn hóa cho toàn dự án | .claude/skills/web/audit-logging.md | ✅ | Pattern: snapshot oldValue từ item đã có, await LogAsync sau DB success, dialog trả DTO, checklist 12 mục |
+| K1 | ProductsPage – /catalog/products + OpsAndAbove | Pages/Catalog/Product/ProductsPage.razor | ✅ | Danh sách SP/Barcode — SP GetProductList server-side paging; filter (mã/tên/barcode/thuế suất); nút Thêm mới + dialog tạo SP; Export Excel (ClosedXML); pos-page-header. Migrate 6.1+6.2+6.3 |
+| K2 | ProductDetailDialog – form tạo sản phẩm mới | Pages/Catalog/Product/ProductDetailDialog.razor | ✅ | 8 field (ItemName/Full/UoM/SalesUoM/FamilyCode/TaxCode/Blocked/BlockedVINID) + dynamic barcode table; INSERT dbo.Item + dbo.Barcode trong transaction; auto ItemNo (Max+1). Edit button disabled pending UPDATE route |
+| K3 | ProductLockPage – /catalog/product-lock + OpsAndAbove | Pages/Catalog/Product/ProductLockPage.razor | ✅ | Khóa/mở khóa SP theo cửa hàng — StoreNo bắt buộc; MudTable server-side + MultiSelection + chip màu; toggle đơn + bulk action; MudMessageBox @ref confirm; UPSERT dbo.ItemBlock. Migrate 6.4 (Central mode) |
 | J5 | IKibanaService → IFileLogHelper — migration toàn POS.Web | 24 .razor + 3 .cs (PendingUpdate, SqlConsoleService, DbAuditLogger) | ✅ | LogInfo → WriteLogs(`[{fn}] {entity}: {msg}`); LogException có ex → WriteExpLogs; LogException không có ex → WriteLogs(`[EXCEPTION][{fn}] msg`) |
 | J6 | Audit log UsersPage (CREATE/UPDATE/LOCK/UNLOCK) + PosMapPage (UPDATE PosTerminal, chained dialog) | UsersPage.razor / UserFormDialog.razor / PosMapPage.razor / PosTerminalEditDialog.razor / PosTerminalDetailDialog.razor / PosTerminalSavePayload.cs (mới) | ✅ | UserFormDialog trả DTO đầy đủ (PasswordHash masked); DetailDialog forward result.Data!; PosMapPage capture oldJson trước dialog |
 | H1 | Build pass (0 error, 3 warning pre-existing MUD0002) | — | ✅ | `dotnet build POS.Web` → Build succeeded. 3 Warning(s) MUD0002 Title pre-existing (VoidsPage + TransactionsPage ×2). 0 Error(s). |
@@ -167,12 +175,12 @@ src/POS.Web/
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **87 / 89 hạng mục**
+- ✅ Hoàn thành: **90 / 92 hạng mục**
 - ⚠️ Có vấn đề: **2 hạng mục** (B9 — SQL seed hash placeholder; J3 — migration chưa chạy trên DB)
 - ❌ Còn thiếu: **0 hạng mục**
 
-> +2 hạng mục mới (session 2026-06-28 Phase1+2): J5 (IKibanaService → IFileLogHelper migration), J6 (Audit logging UsersPage + PosMapPage).
-> Previous +5: G24, J1-J4. Previous: S1-S7, G16-G23, I1-I12.
+> +3 hạng mục mới (session 2026-06-30): K1 (ProductsPage 6.1+6.2+6.3), K2 (ProductDetailDialog), K3 (ProductLockPage 6.4).
+> Previous +2 (session 2026-06-28 Phase1+2): J5, J6. Previous +5: G24, J1-J4. Previous: S1-S7, G16-G23, I1-I12.
 
 ---
 

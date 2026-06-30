@@ -1,3 +1,5 @@
+using System.Data;
+using Dapper;
 using POS.Common.Dtos;
 using POS.Common.Dtos.CentralMD;
 using POS.Common.Dtos.Ops;
@@ -23,6 +25,7 @@ public sealed class CentralMDRepository(
     private const string KeyStoreSetConfig    = "MD:StoreSetConfig";
     private const string KeyStoreList         = "MD:StoreList";
     private const string KeyTenderTypeSetup   = "MD:TenderTypeSetup";
+    private const string KeyBankList          = "MD:BankList";
 
     public async Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
     {
@@ -466,7 +469,386 @@ public sealed class CentralMDRepository(
         catch { return false; }
     }
 
+    // ── BankPOS — Máy POS Ngân hàng (migrate 5.5) ───────────────────────────
+
+    public async Task<List<BankPOSListDto>> GetBankPOSListAsync(CancellationToken ct = default)
+    {
+        const string sql = "[dbo].[GetBankPOSList] @StoreNo,@TextSearch,@BankCode,@Status,@Export,@PageSize,@PageNumber";
+        return (await QueryAsync<BankPOSListDto>(sql, new
+        {
+            StoreNo    = string.Empty,
+            TextSearch = string.Empty,
+            BankCode   = string.Empty,
+            Status     = string.Empty,
+            Export     = 2,
+            PageSize   = 9999,
+            PageNumber = 0
+        }, commandTimeout: 60, ct: ct)).ToList();
+    }
+
+    public async Task<(bool success, bool duplicateCode)> SaveBankPOSAsync(
+        BankPOSSaveDto dto, string actor, CancellationToken ct = default)
+    {
+        if (dto.IsNew)
+        {
+            const string checkSql = "SELECT COUNT(1) FROM dbo.POSTerminalBanks (NOLOCK) WHERE BankPOSCode = @BankPOSCode;";
+            var exists = await QueryFirstOrDefaultAsync<int>(checkSql, new { dto.BankPOSCode }, ct: ct);
+            if (exists > 0) return (false, true);
+
+            const string sql = @"INSERT INTO dbo.POSTerminalBanks
+                                     (BankPOSCode, BankPOSName, BankCode, StoreNo, StoreNoFull,
+                                      POSNo, POSTerminal, AccessKey, PartnerId,
+                                      IsOnline, Status, Counter, CreatedDate, CreatedUser)
+                                 VALUES
+                                     (@BankPOSCode, @BankPOSName, @BankCode, @StoreNo, @StoreNo,
+                                      @POSNo, @POSTerminal, @AccessKey, @PartnerId,
+                                      @IsOnline, @Status, 1, GETDATE(), @Actor);";
+            try
+            {
+                await ExecuteAsync(sql, new
+                {
+                    dto.BankPOSCode, dto.BankPOSName, dto.BankCode, dto.StoreNo,
+                    dto.POSNo, dto.POSTerminal, dto.AccessKey, dto.PartnerId,
+                    dto.IsOnline, dto.Status, Actor = actor
+                }, ct: ct);
+                return (true, false);
+            }
+            catch { return (false, false); }
+        }
+        else
+        {
+            const string sql = @"UPDATE dbo.POSTerminalBanks
+                                 SET    BankPOSName  = @BankPOSName,
+                                        BankCode     = @BankCode,
+                                        POSNo        = @POSNo,
+                                        POSTerminal  = @POSTerminal,
+                                        AccessKey    = @AccessKey,
+                                        PartnerId    = @PartnerId,
+                                        IsOnline     = @IsOnline,
+                                        Status       = @Status,
+                                        Counter      = ISNULL(Counter, 0) + 1,
+                                        UpdatedDate  = GETDATE(),
+                                        UpdatedUser  = @Actor
+                                 WHERE  BankPOSCode  = @BankPOSCode;";
+            try
+            {
+                var rows = await ExecuteAsync(sql, new
+                {
+                    dto.BankPOSCode, dto.BankPOSName, dto.BankCode,
+                    dto.POSNo, dto.POSTerminal, dto.AccessKey, dto.PartnerId,
+                    dto.IsOnline, dto.Status, Actor = actor
+                }, ct: ct);
+                return (rows > 0, false);
+            }
+            catch { return (false, false); }
+        }
+    }
+
+    public async Task<bool> DeleteBankPOSAsync(string bankPOSCode, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM dbo.POSTerminalBanks WHERE BankPOSCode = @bankPOSCode;";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new { bankPOSCode }, ct: ct);
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    public async Task<List<BankDropdownDto>> GetBankListForDropdownAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<BankDropdownDto>>(KeyBankList);
+        if (cached?.Count > 0) return cached;
+
+        const string sql = "SELECT BankCode, BankName FROM dbo.Banks (NOLOCK) ORDER BY BankCode;";
+        var data = (await QueryAsync<BankDropdownDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyBankList, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    // ── Product Create — Tạo sản phẩm mới (migrate 6.2) ─────────────────────
+
+    private const string KeyArticleTypes   = "MD:ArticleTypes";
+    private const string KeyUnitOfMeasures = "MD:UnitOfMeasures";
+
+    public async Task<List<ArticleTypeDto>> GetArticleTypesAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<ArticleTypeDto>>(KeyArticleTypes);
+        if (cached?.Count > 0) return cached;
+
+        // Tên cột "Code" — xác nhận với DBA nếu khác.
+        const string sql = "SELECT Code FROM dbo.ArticleType (NOLOCK) ORDER BY Code;";
+        var data = (await QueryAsync<ArticleTypeDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyArticleTypes, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    public async Task<List<UnitOfMeasureDto>> GetUnitOfMeasuresAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<UnitOfMeasureDto>>(KeyUnitOfMeasures);
+        if (cached?.Count > 0) return cached;
+
+        // Tên cột "Code" — xác nhận với DBA nếu khác.
+        const string sql = "SELECT Code FROM dbo.UnitOfMeasure (NOLOCK) ORDER BY Code;";
+        var data = (await QueryAsync<UnitOfMeasureDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyUnitOfMeasures, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    public async Task<(bool Success, string ItemNo, string Message)> CreateProductAsync(
+        ProductCreateDto dto, CancellationToken ct = default)
+    {
+        var itemNo    = string.Empty;
+        var message   = string.Empty;
+        var success   = false;
+
+        await ExecuteInTransactionAsync(async (conn, tx) =>
+        {
+            // 1. Auto-generate ItemNo (Max+1, start 1000000001)
+            const string sqlNextNo = @"
+SELECT CAST(ISNULL(MAX(CAST(No AS BIGINT)), 1000000000) + 1 AS NVARCHAR(50))
+FROM dbo.Item (NOLOCK);";
+            itemNo = await conn.QueryFirstOrDefaultAsync<string>(
+                new CommandDefinition(sqlNextNo, transaction: tx,
+                    commandTimeout: 30, cancellationToken: ct)) ?? "1000000001";
+
+            // 2. Max Counter cho Item
+            const string sqlItemCounter = "SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Item (NOLOCK);";
+            var itemCounter = await conn.QueryFirstOrDefaultAsync<int>(
+                new CommandDefinition(sqlItemCounter, transaction: tx,
+                    commandTimeout: 30, cancellationToken: ct));
+
+            // 3. INSERT Item
+            const string sqlInsertItem = @"
+INSERT INTO dbo.Item
+(No, No2, Description, SearchDescription, LongDescription,
+ BaseUnitOfMeasure, SalesUnitOfMeasure, TaxGroupCode,
+ ItemFamilyCode, Blocked, BlockedVINID,
+ PriceIncludesVAT, StatisticsGroup, CommissionGroup,
+ UnitPrice, CostingMethod, UnitCost, StandardCost,
+ VendorNo, VendorItemNo, MaximumInventory, ReorderQuantity,
+ GrossWeight, NetWeight, UnitsPerParcel, UnitVolume,
+ PreventNegativeInventory, MinimumOrderQuantity, MaximumOrderQuantity,
+ SafetyStockQuantity, OrderMultiple,
+ ManufacturerCode, ItemCategoryCode, ProductGroupCode,
+ ServiceItemGroup, ItemTrackingCode, ProductionBOMNo,
+ CommonItemNo, DivisionCode, KeyinginPrice, ZeroPriceValid,
+ LastDateModified, Counter, Pkey)
+VALUES
+(@No, '', @Description, @SearchDescription, @LongDescription,
+ @BaseUnitOfMeasure, @SalesUnitOfMeasure, @TaxGroupCode,
+ @ItemFamilyCode, @Blocked, @BlockedVINID,
+ 1, 0, 0,
+ 0, 0, 0, 0,
+ '', '', 0, 0,
+ 0, 0, 0, 0,
+ 0, 0, 0,
+ 0, 0,
+ '', '', '',
+ '', '', '',
+ '', '', 0, 0,
+ @LastDateModified, @Counter, @No);";
+
+            var taxCode = dto.TaxGroupCode == "-1" ? string.Empty : dto.TaxGroupCode;
+            await conn.ExecuteAsync(
+                new CommandDefinition(sqlInsertItem, new
+                {
+                    No               = itemNo,
+                    Description      = dto.ItemName,
+                    SearchDescription = dto.ItemName,
+                    LongDescription  = dto.ItemNameFull,
+                    BaseUnitOfMeasure  = dto.BaseUnitOfMeasure,
+                    SalesUnitOfMeasure = dto.SalesUnitOfMeasure,
+                    TaxGroupCode     = taxCode,
+                    ItemFamilyCode   = dto.ItemFamilyCode,
+                    Blocked          = dto.Blocked,
+                    BlockedVINID     = dto.BlockedVINID,
+                    LastDateModified = DateTime.Now,
+                    Counter          = itemCounter
+                }, transaction: tx, commandTimeout: 30, cancellationToken: ct));
+
+            // 4. Max Counter cho Barcode (fetch 1 lần trước loop)
+            const string sqlBarcodeCounter = "SELECT ISNULL(MAX(Counter), 0) FROM dbo.Barcode (NOLOCK);";
+            var baseBarcodeCounter = await conn.QueryFirstOrDefaultAsync<int>(
+                new CommandDefinition(sqlBarcodeCounter, transaction: tx,
+                    commandTimeout: 30, cancellationToken: ct));
+
+            // 5. INSERT Barcodes
+            const string sqlInsertBarcode = @"
+INSERT INTO dbo.Barcode
+(BarcodeNo, ItemNo, UnitOfMeasureCode, ShowForItem, Description,
+ Blocked, LastDateModified, VariantCode, DiscountPercent, Counter, Pkey)
+VALUES
+(@BarcodeNo, @ItemNo, @UnitOfMeasureCode, 0, '',
+ 1, @LastDateModified, '', 0, @Counter, @BarcodeNo);";
+
+            var now = DateTime.Now;
+            for (var i = 0; i < dto.Barcodes.Count; i++)
+            {
+                var bc = dto.Barcodes[i];
+                await conn.ExecuteAsync(
+                    new CommandDefinition(sqlInsertBarcode, new
+                    {
+                        bc.BarcodeNo,
+                        ItemNo           = itemNo,
+                        bc.UnitOfMeasureCode,
+                        LastDateModified  = now,
+                        Counter          = baseBarcodeCounter + i + 1
+                    }, transaction: tx, commandTimeout: 30, cancellationToken: ct));
+            }
+
+            success = true;
+            message = $"Thêm mới thành công. Mã sản phẩm: {itemNo}";
+        }, ct: ct);
+
+        return (success, itemNo, message);
+    }
+
+    // ── Product Lock — Khóa sản phẩm (migrate 6.4) ───────────────────────────
+
+    public async Task<(List<ProductLockItemDto> Items, int Total)> GetProductLockListAsync(
+        ProductLockFilter filter, CancellationToken ct = default)
+    {
+        const string sql = @"
+SELECT  i.No               AS ItemNo,
+        i.Description      AS ItemName,
+        i.SalesUnitOfMeasure AS UnitOfMeasure,
+        ISNULL(CAST(ib.Status AS BIT), 0) AS IsLocked,
+        ib.UpdatedDate,
+        COUNT(*) OVER()    AS Total
+FROM    dbo.Item i (NOLOCK)
+LEFT JOIN dbo.ItemBlock ib (NOLOCK)
+       ON ib.ItemNo = i.No AND ib.StoreNo = @StoreNo
+WHERE   (@ItemNo   = '' OR i.No          LIKE '%' + @ItemNo   + '%')
+  AND   (@ItemName = '' OR i.Description LIKE '%' + @ItemName + '%')
+  AND   (@Status = -1
+         OR (@Status = 1 AND ib.Status = 1)
+         OR (@Status = 0 AND (ib.Status = 0 OR ib.Status IS NULL)))
+ORDER BY i.No
+OFFSET  @PageNumber * @PageSize ROWS
+FETCH NEXT @PageSize ROWS ONLY;";
+
+        var rows = (await QueryAsync<ProductLockItemDto>(sql, new
+        {
+            filter.StoreNo,
+            ItemNo    = filter.ItemNo.Trim(),
+            ItemName  = filter.ItemName.Trim(),
+            filter.Status,
+            PageSize   = Math.Max(1, filter.PageSize),
+            PageNumber = Math.Max(0, filter.PageNumber)
+        }, commandTimeout: 60, ct: ct)).ToList();
+
+        var total = rows.FirstOrDefault()?.Total ?? 0;
+        return (rows, total);
+    }
+
+    public async Task<(bool Success, string Message)> SaveProductLockAsync(
+        ProductLockSaveDto dto, CancellationToken ct = default)
+    {
+        if (dto.ItemNos.Count == 0)
+            return (false, "Danh sách sản phẩm không được rỗng");
+
+        // Fetch UoM for each item in one query
+        var itemNoList = string.Join(",", dto.ItemNos.Select(n => $"'{n.Replace("'", "''")}'"));
+        var sqlUom = $"SELECT No, SalesUnitOfMeasure FROM dbo.Item (NOLOCK) WHERE No IN ({itemNoList});";
+        var uomMap = (await QueryAsync<(string No, string SalesUnitOfMeasure)>(sqlUom, commandTimeout: 30, ct: ct))
+            .ToDictionary(x => x.No, x => x.SalesUnitOfMeasure ?? string.Empty);
+
+        const string sqlUpsert = @"
+IF EXISTS (SELECT 1 FROM dbo.ItemBlock WHERE Pkey = @Pkey)
+    UPDATE dbo.ItemBlock
+    SET    Status = @Status, UpdatedDate = GETDATE(), Counter = Counter + 1
+    WHERE  Pkey = @Pkey
+ELSE
+    INSERT INTO dbo.ItemBlock (ItemNo, UnitOfMeasure, StoreNo, Status, UpdatedDate, Counter, Pkey)
+    VALUES (@ItemNo, @UnitOfMeasure, @StoreNo, @Status, GETDATE(), 1, @Pkey);";
+
+        await ExecuteInTransactionAsync(async (conn, tx) =>
+        {
+            foreach (var itemNo in dto.ItemNos)
+            {
+                var pkey = $"{dto.StoreNo}-{itemNo}";
+                uomMap.TryGetValue(itemNo, out var uom);
+                await conn.ExecuteAsync(
+                    new CommandDefinition(sqlUpsert, new
+                    {
+                        Pkey          = pkey,
+                        Status        = dto.TargetLock,
+                        ItemNo        = itemNo,
+                        UnitOfMeasure = uom ?? string.Empty,
+                        dto.StoreNo
+                    }, transaction: tx, commandTimeout: 30, cancellationToken: ct));
+            }
+        }, ct: ct);
+
+        var action = dto.TargetLock ? "Khóa" : "Mở khóa";
+        return (true, $"{action} thành công {dto.ItemNos.Count} sản phẩm");
+    }
+
     // ── Dashboard Audit Log ──────────────────────────────────────────────────
+
+    // ── Product List — Danh mục SP / Barcode (migrate 6.1) ──────────────────
+
+    private const string KeyPosVatCodes = "MD:PosVatCodes";
+
+    public async Task<(List<ProductListItemDto> Items, int Total)> GetProductListAsync(
+        ProductListFilter filter, CancellationToken ct = default)
+    {
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var rows = (await conn.QueryAsync<ProductListItemDto>(
+            new CommandDefinition(
+                "[dbo].[GetProductList]",
+                new
+                {
+                    ItemCode   = filter.ItemNo.Trim(),
+                    ItemName   = filter.ItemName.Trim(),
+                    BarCode    = filter.BarcodeNo.Trim(),
+                    TaxCode    = filter.TaxCode.Trim(),
+                    PageSize   = Math.Max(1, filter.PageSize),
+                    PageNumber = Math.Max(0, filter.PageNumber)
+                },
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: 120,
+                cancellationToken: ct))).ToList();
+
+        var total = rows.FirstOrDefault()?.Total ?? 0;
+        return (rows, total);
+    }
+
+    public async Task<List<ProductListItemDto>> ExportProductListAsync(
+        ProductListFilter filter, CancellationToken ct = default)
+    {
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        return (await conn.QueryAsync<ProductListItemDto>(
+            new CommandDefinition(
+                "[dbo].[GetProductList_Export]",
+                new
+                {
+                    ItemCode = filter.ItemNo.Trim(),
+                    ItemName = filter.ItemName.Trim(),
+                    BarCode  = filter.BarcodeNo.Trim(),
+                    TaxCode  = filter.TaxCode.Trim()
+                },
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: 120,
+                cancellationToken: ct))).ToList();
+    }
+
+    public async Task<List<PosVatCodeDto>> GetPosVatCodesAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<PosVatCodeDto>>(KeyPosVatCodes);
+        if (cached?.Count > 0) return cached;
+
+        // Tên cột (Code, Description) cần xác nhận với DBA nếu bảng dùng tên khác.
+        const string sql = "SELECT Code, Description FROM dbo.POSVATCode (NOLOCK) ORDER BY Code;";
+        var data = (await QueryAsync<PosVatCodeDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyPosVatCodes, data, ttlSeconds: 43200);
+        return data;
+    }
 
     public async Task InsertDashboardAuditLogAsync(
         string actor, string action, string entityType, string entityKey,

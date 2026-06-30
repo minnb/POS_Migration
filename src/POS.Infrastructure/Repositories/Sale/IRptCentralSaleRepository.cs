@@ -55,4 +55,21 @@ public interface IRptCentralSaleRepository
             DateTime fromDate, DateTime toDate,
             string? storeNo,
             CancellationToken ct = default);
+
+    // ── 15.4 Doanh thu theo Nhân viên ────────────────────────────────────────
+    // SP [dbo].[GET_REVENUE_ORDER_SALES_BY_STAFF] trên CentralSales.
+    // staffCode rỗng = tất cả nhân viên.
+    Task<List<RevenueByStaffDto>> GetRevenueByStaffAsync(
+        DateTime fromDate, DateTime toDate,
+        string storeNo, string? staffCode,
+        CancellationToken ct = default);
+
+    // ── 15.5 Doanh thu theo Cửa hàng ─────────────────────────────────────────
+    // SP [dbo].[SP_SALES_BY_STORE_BUSSINESS_DATE] trên CentralSales.
+    // listStoreJson: JSON [{"SiteNo":"VIN001","SiteName":"..."},...].
+    // pageNumber: 0-based (hoặc 1-based — kiểm tra với SP). Total trong mỗi row = tổng records.
+    Task<List<RevenueByStoreDto>> GetRevenueByStoreAsync(
+        string listStoreJson, DateTime fromDate, DateTime toDate,
+        int pageSize, int pageNumber,
+        CancellationToken ct = default);
 }

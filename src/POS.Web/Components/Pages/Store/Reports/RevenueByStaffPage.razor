@@ -1,0 +1,417 @@
+@page "/store/revenue-by-staff"
+@namespace POS.Web.Components.Pages.Store
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+@implements IDisposable
+
+@using System.Globalization
+@using ClosedXML.Excel
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using Newtonsoft.Json
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+@using POS.Web.Services
+
+@inject IRptCentralSaleRepository RptRepo
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Doanh thu Theo Nhân viên – POS Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
+
+<MudText Typo="Typo.h5" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" Style="vertical-align:middle"/>
+    Doanh thu Theo Nhân viên
+</MudText>
+
+@* ── Preset chips ─────────────────────────────────────────────────────────── *@
+<div class="d-flex align-center gap-2 flex-wrap mb-4">
+    @foreach (var label in _presetLabels)
+    {
+        <MudChip T="string"
+                 Color="@(_activePreset == label ? Color.Primary : Color.Default)"
+                 Variant="@(_activePreset == label ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => ApplyPreset(label))"
+                 Size="Size.Small">
+            @label
+        </MudChip>
+    }
+</div>
+
+@* ── Filter panel ────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@_storeDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng" Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                 SearchFunc="SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0" MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filterStaffCode"
+                          Label="Mã nhân viên"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Badge"
+                          Placeholder="Để trống = tất cả"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDate" Label="Đến ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="SearchAsync" Disabled="@_searching"
+                           FullWidth="true">
+                    @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
+                    Tìm
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="ClearFilter"
+                           FullWidth="true">
+                    Xóa
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           OnClick="ExportExcelAsync" Disabled="@(_items.Count == 0 || _exporting)"
+                           FullWidth="true">
+                    Excel
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Error state ──────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_errorMsg</MudAlert>
+}
+
+@* ── KPI row ─────────────────────────────────────────────────────────────── *@
+@if (_searched && !_searching)
+{
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 130px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #1976D2">
+                <MudText Typo="Typo.h5" Color="Color.Primary">@_items.Count</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Nhân viên</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #388E3C">
+                <MudText Typo="Typo.h5" Color="Color.Success">@FormatVND(_totalRevenue)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng doanh số</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 130px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #F57C00">
+                <MudText Typo="Typo.h5" Style="color:#F57C00">@_totalOrders.ToString("N0")</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng hóa đơn</MudText>
+            </MudPaper>
+        </div>
+    </div>
+}
+
+@* ── Data table ──────────────────────────────────────────────────────────── *@
+<MudTable Items="@_items"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm"
+          HorizontalScrollbar="true"
+          Loading="@_searching"
+          SortLabel="Sắp xếp theo"
+          Class="mb-4">
+    <NoRecordsContent>
+        @if (_searched)
+        {
+            <div class="d-flex flex-column align-center pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Style="font-size:3rem;color:#bbb" Class="mb-2"/>
+                <MudText Color="Color.Secondary">Không có dữ liệu cho bộ lọc đã chọn</MudText>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex flex-column align-center pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Style="font-size:3rem;color:#bbb" Class="mb-2"/>
+                <MudText Color="Color.Secondary">Chọn bộ lọc và nhấn Tìm để xem báo cáo</MudText>
+            </div>
+        }
+    </NoRecordsContent>
+    <HeaderContent>
+        <MudTh Style="width:60px">STT</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<RevenueByStaffDto, object>(x => x.StaffCode ?? string.Empty)">Mã NV</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<RevenueByStaffDto, object>(x => x.FullName ?? string.Empty)">Tên nhân viên</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right">
+            <MudTableSortLabel SortBy="new Func<RevenueByStaffDto, object>(x => x.AmountTotal ?? 0m)" InitialDirection="SortDirection.Descending">
+                Doanh số
+            </MudTableSortLabel>
+        </MudTh>
+        <MudTh Style="text-align:right">
+            <MudTableSortLabel SortBy="new Func<RevenueByStaffDto, object>(x => x.CountOrderTotal ?? 0)">
+                Số hóa đơn
+            </MudTableSortLabel>
+        </MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="STT">@(context.ID)</MudTd>
+        <MudTd DataLabel="Mã NV">@context.StaffCode</MudTd>
+        <MudTd DataLabel="Tên nhân viên">@context.FullName</MudTd>
+        <MudTd DataLabel="Doanh số" Style="text-align:right">
+            <strong>@FormatVND(context.AmountTotal ?? 0m)</strong>
+        </MudTd>
+        <MudTd DataLabel="Số hóa đơn" Style="text-align:right">
+            @(context.CountOrderTotal?.ToString("N0") ?? "–")
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool _loading   = true;
+    private bool _searching;
+    private bool _exporting;
+    private bool _searched;
+    private bool _isStoreOperator;
+    private string? _errorMsg;
+    private string _storeDisplayText = string.Empty;
+
+    private List<StoreDto>          _allStores = [];
+    private StoreDto?               _selectedStore;
+    private string                  _filterStaffCode = string.Empty;
+    private DateTime?               _fromDate = DateTime.Today;
+    private DateTime?               _toDate   = DateTime.Today;
+    private IReadOnlyList<string>   _userStoreCodes = [];
+
+    private List<RevenueByStaffDto> _items        = [];
+    private decimal                  _totalRevenue;
+    private long                     _totalOrders;
+
+    private string   _activePreset = "Hôm nay";
+    private readonly string[] _presetLabels = ["Hôm nay", "7 ngày", "30 ngày", "Tháng này"];
+
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json  = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes  = string.IsNullOrEmpty(json)
+            ? []
+            : JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        try
+        {
+            _allStores = await MdRepo.GetStoreListAsync();
+            if (_isStoreOperator)
+            {
+                var myStore = _allStores.FirstOrDefault(s => s.StoreNo == _userStoreCodes[0]);
+                _selectedStore    = myStore;
+                _storeDisplayText = myStore != null ? $"{myStore.StoreNo} – {myStore.Name}" : _userStoreCodes[0];
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh sách cửa hàng.";
+            FileLogger.WriteExpLogs("RevenueByStaffPage.Init", ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> result = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(result.Take(50));
+    }
+
+    private void ApplyPreset(string label)
+    {
+        _activePreset = label;
+        var today = DateTime.Today;
+        (_fromDate, _toDate) = label switch
+        {
+            "Hôm nay"   => ((DateTime?)today, (DateTime?)today),
+            "7 ngày"    => (today.AddDays(-6), (DateTime?)today),
+            "30 ngày"   => (today.AddDays(-29), (DateTime?)today),
+            "Tháng này" => (new DateTime(today.Year, today.Month, 1), (DateTime?)today),
+            _           => (_fromDate, _toDate)
+        };
+    }
+
+    private async Task SearchAsync()
+    {
+        if (_fromDate == null || _toDate == null)
+        {
+            Snackbar.Add("Vui lòng chọn khoảng ngày.", Severity.Warning);
+            return;
+        }
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _searching = true;
+        _errorMsg  = null;
+        _searched  = true;
+        try
+        {
+            var storeNo = _selectedStore?.StoreNo ?? string.Empty;
+            _items = await RptRepo.GetRevenueByStaffAsync(
+                _fromDate.Value, _toDate.Value,
+                storeNo, _filterStaffCode,
+                _cts.Token);
+            _totalRevenue = _items.Sum(x => x.AmountTotal ?? 0m);
+            _totalOrders  = _items.Sum(x => (long)(x.CountOrderTotal ?? 0));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _errorMsg = "Lỗi khi tải báo cáo. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("RevenueByStaffPage.Search", ex);
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    private void ClearFilter()
+    {
+        _activePreset    = string.Empty;
+        _filterStaffCode = string.Empty;
+        _fromDate        = DateTime.Today;
+        _toDate          = DateTime.Today;
+        if (!_isStoreOperator) _selectedStore = null;
+        _items           = [];
+        _searched        = false;
+        _errorMsg        = null;
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (_items.Count == 0) return;
+        _exporting = true;
+        try
+        {
+            var from = _fromDate?.ToString("dd/MM/yyyy") ?? "";
+            var to   = _toDate?.ToString("dd/MM/yyyy") ?? "";
+            using var wb  = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Doanh thu theo NV");
+
+            // Header
+            ws.Cell(1, 1).Value = "STT";
+            ws.Cell(1, 2).Value = "Mã nhân viên";
+            ws.Cell(1, 3).Value = "Tên nhân viên";
+            ws.Cell(1, 4).Value = "Doanh số";
+            ws.Cell(1, 5).Value = "Số hóa đơn";
+            var headerRange = ws.Range("A1:E1");
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#78bff5");
+
+            // Data rows
+            for (var i = 0; i < _items.Count; i++)
+            {
+                var item = _items[i];
+                var row  = i + 2;
+                ws.Cell(row, 1).Value = item.ID;
+                ws.Cell(row, 2).Value = item.StaffCode ?? "";
+                ws.Cell(row, 3).Value = item.FullName  ?? "";
+                ws.Cell(row, 4).Value = (double)(item.AmountTotal ?? 0m);
+                ws.Cell(row, 5).Value = item.CountOrderTotal ?? 0;
+                ws.Cell(row, 4).Style.NumberFormat.Format = "#,##0";
+            }
+
+            // Total row
+            var totalRow = _items.Count + 2;
+            ws.Cell(totalRow, 3).Value = "TỔNG CỘNG";
+            ws.Cell(totalRow, 3).Style.Font.Bold = true;
+            ws.Cell(totalRow, 4).Value  = (double)_totalRevenue;
+            ws.Cell(totalRow, 4).Style.Font.Bold = true;
+            ws.Cell(totalRow, 4).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(totalRow, 5).Value  = (double)_totalOrders;
+            ws.Cell(totalRow, 5).Style.Font.Bold = true;
+
+            ws.Columns().AdjustToContents();
+
+            using var ms   = new MemoryStream();
+            wb.SaveAs(ms);
+            var bytes    = ms.ToArray();
+            var fileName = $"DoanhThu_NhanVien_{from.Replace("/", "")}_{to.Replace("/", "")}.xlsx";
+            await JS.SaveAsFileAsync(fileName, bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+            FileLogger.WriteExpLogs("RevenueByStaffPage.Export", ex);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static string FormatVND(decimal amount) => amount switch
+    {
+        >= 1_000_000_000m => $"{amount / 1_000_000_000m:N1} tỷ",
+        >= 1_000_000m     => $"{amount / 1_000_000m:N0} triệu",
+        _                 => $"{amount:N0} ₫"
+    };
+
+    public void Dispose() => _cts?.Cancel();
+}

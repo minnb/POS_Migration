@@ -399,4 +399,69 @@ public sealed class RptCentralSaleRepository(
         PaymentKpiDto Kpi,
         List<PaymentByMethodDto> ByMethod,
         List<PaymentTrendDto> Trend);
+
+    // ── 15.4 Doanh thu theo Nhân viên ────────────────────────────────────────
+
+    public async Task<List<RevenueByStaffDto>> GetRevenueByStaffAsync(
+        DateTime fromDate, DateTime toDate,
+        string storeNo, string? staffCode,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var result = await conn.QueryAsync<RevenueByStaffDto>(
+                new CommandDefinition(
+                    "[dbo].[GET_REVENUE_ORDER_SALES_BY_STAFF]",
+                    new
+                    {
+                        FromDate  = fromDate.Date,
+                        ToDate    = toDate.Date,
+                        StoreNo   = storeNo ?? string.Empty,
+                        StaffCode = string.IsNullOrWhiteSpace(staffCode) ? string.Empty : staffCode.Trim()
+                    },
+                    commandType: CommandType.StoredProcedure,
+                    commandTimeout: 300,
+                    cancellationToken: ct));
+            return result.ToList();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetRevenueByStaff", ex);
+            throw;
+        }
+    }
+
+    // ── 15.5 Doanh thu theo Cửa hàng ─────────────────────────────────────────
+
+    public async Task<List<RevenueByStoreDto>> GetRevenueByStoreAsync(
+        string listStoreJson, DateTime fromDate, DateTime toDate,
+        int pageSize, int pageNumber,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
+            var result = await conn.QueryAsync<RevenueByStoreDto>(
+                new CommandDefinition(
+                    "[dbo].[SP_SALES_BY_STORE_BUSSINESS_DATE]",
+                    new
+                    {
+                        ListStoreJson = listStoreJson,
+                        FromDate      = fromDate.Date,
+                        ToDate        = toDate.Date,
+                        PageSize      = Math.Max(1, pageSize),
+                        PageNumber    = Math.Max(0, pageNumber)
+                    },
+                    commandType: CommandType.StoredProcedure,
+                    commandTimeout: 300,
+                    cancellationToken: ct));
+            return result.ToList();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetRevenueByStore", ex);
+            throw;
+        }
+    }
 }

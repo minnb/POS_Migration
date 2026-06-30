@@ -66,7 +66,7 @@
 | 5.2 | Khai báo Máy POS | `GET /MasterData/SetupPOSList` | Trung bình | ⏳ TODO |
 | 5.3 | Danh mục Cửa hàng | `GET /MasterData/StoreList` | Trung bình | ⏳ TODO |
 | 5.4 | Danh mục Ngân hàng | `GET /MasterData/BankList` | Thấp | ⏳ TODO |
-| 5.5 | Máy POS Ngân hàng (Bank POS) | `GET /MasterData/BankPOSList` | Trung bình | ⏳ TODO |
+| 5.5 | Máy POS Ngân hàng (Bank POS) | `GET /MasterData/BankPOSList` | Trung bình | ✅ DONE |
 | 5.6 | POS Version Management | `GET /MasterData/POSVersionlist` | Trung bình | ⏳ TODO |
 | 5.7 | Danh mục Tỉnh/Thành | `GET /MasterData/ProvinceList` | Thấp | ⏳ TODO |
 | 5.8 | Sales Order Type | `GET /MasterData/SetupSalesOrderType` | Thấp | ⏳ TODO |
@@ -84,10 +84,10 @@
 
 | # | Chức năng | Route | Độ phức tạp | Trạng thái |
 |---|-----------|-------|-------------|------------|
-| 6.1 | Danh mục Barcode / Product List | `GET /Product/ProductList` | Trung bình | ⏳ TODO |
-| 6.2 | Tạo/Cập nhật Sản phẩm | `GET /Product/CreateArticle` | Trung bình | ⏳ TODO |
-| 6.3 | Export Sản phẩm | `GET /Product/ExportProductList` | Trung bình | ⏳ TODO |
-| 6.4 | Khóa Sản phẩm | `GET /Product/ProductLock` | Trung bình | ⏳ TODO |
+| 6.1 | Danh mục Barcode / Product List | `GET /Product/ProductList` | Trung bình | ✅ DONE |
+| 6.2 | Tạo/Cập nhật Sản phẩm | `GET /Product/CreateArticle` | Trung bình | ✅ DONE |
+| 6.3 | Export Sản phẩm | `GET /Product/ExportProductList` | Trung bình | ✅ DONE |
+| 6.4 | Khóa Sản phẩm | `GET /Product/ProductLock` | Trung bình | ✅ DONE |
 | 6.5 | Khóa/Mở khóa Sản phẩm GrabFood | `POST /Product/SetupLockItemByGrabFoodAPI` | Cao | ⏳ TODO |
 
 ---
@@ -177,8 +177,8 @@
 | 15.1 | Báo cáo Hủy Hàng | `GET /Report/ReportDeleteOrder` | Cao | ⏳ TODO |
 | 15.2 | Báo cáo Doanh thu Chi tiết | `GET /Report/DetailedRevenueReport` | Cao | ⏳ TODO |
 | 15.3 | Báo cáo Hình thức Thanh toán | `GET /Report/PaymentOrderSalesReport` | Cao | ⏳ TODO |
-| 15.4 | Báo cáo Doanh thu Theo Nhân viên | `GET /Report/RevenueOrderSalesByStaff` | Cao | ⏳ TODO |
-| 15.5 | Báo cáo Doanh thu Theo Cửa hàng | `GET /Report/RevenueOrderSalesByStore` | Cao | ⏳ TODO |
+| 15.4 | Báo cáo Doanh thu Theo Nhân viên | `GET /Report/RevenueOrderSalesByStaff` | Cao | ✅ DONE |
+| 15.5 | Báo cáo Doanh thu Theo Cửa hàng | `GET /Report/RevenueOrderSalesByStore` | Cao | ✅ DONE |
 | 15.6 | Báo cáo Doanh thu Theo Ngành hàng (MCH) | `GET /Report/RevenueOrderSalesByMCH` | Cao | ⏳ TODO |
 | 15.7 | Báo cáo Sử dụng Voucher/BNMH | `GET /Report/VoucherReceiptSalesReport` | Cao | ⏳ TODO |
 | 15.8 | Báo cáo Kết Ca | `GET /Report/ReportShiftEndVM` | Cao | ⏳ TODO |
@@ -339,12 +339,13 @@
 
 | Trạng thái | Số lượng |
 |-----------|---------|
-| ⏳ TODO | 95 |
+| ⏳ TODO | 88 |
 | 🔄 IN PROGRESS | 0 |
-| ✅ DONE | 4 |
+| ✅ DONE | 11 |
 | ❌ SKIP | 0 |
 
 ### Đã hoàn thành
+
 
 | # | Chức năng | POS.Web | Ghi chú |
 |---|-----------|---------|---------|
@@ -352,3 +353,10 @@
 | 7.1 | Danh mục Khuyến mãi | `/promotion/offers` | List + Filter + Export Excel, auto-load trang 1, server-side paging qua SP `GetPromotionOfferHeaderList`. Service 3 lớp `IPromotionRepository`→`IPromotionService` (POS.Api tái dùng được). Modal chi tiết 6 tab (7.2) chưa làm. |
 | 11.1 | Cài đặt CTKM (P1+P2) | `/promotion/setup` | List + form Header + grid Buy/Get/Site + **tab Cài đặt nâng cao** (Voucher/LimitQty/Thành viên+Hạng thẻ/Priority/Ngày-trong-tháng) + Lưu + Duyệt. SP: `docs/sql/SetupPromotion_Save.sql` (đã thêm advance — chạy lại), `SetupPromotion_ApproveAndStatus.sql`, `Setup_Promotion_Insert` (có sẵn). Hoãn: giờ/ngày-trong-tuần & AllowUseAfter (legacy ẩn / thiếu cột). |
 | 11.2 | Special Combo | `/promotion/special-combo` | List + filter + form (Header + Lines gom theo GroupCode + Store ALL/multi) + Lưu replace-on-save + bật/tắt + xóa; quy tắc ≤1 item giá động. SP mới: `docs/sql/SpecialCombo_Read.sql`, `SpecialCombo_Save.sql` (2 TVP), `SpecialCombo_Status.sql` (CHẠY trên CentralMD). Service 3 lớp tái dùng cho POS.Api. Hoãn: toggle store riêng, modal item/store tách. |
+| 5.5 | Máy POS Ngân hàng | `/catalog/bank-pos` | List + filter client-side + KPI (Tổng/Online/Offline) + CRUD (Create/Update/Delete + confirm) + Export Excel (ClosedXML). SP đọc: `GetBankPOSList` (@Export=2). Ghi trực tiếp SQL vào `dbo.POSTerminalBanks` (Dapper). BankPOSCode tự sinh `{StoreNo}_{BankCode}_{POSNo}`. Audit log đầy đủ. Bank dropdown cache Redis 12h (`MD:BankList`). **Hoãn:** Import Excel. |
+| 15.4 | Doanh thu Theo Nhân viên | `/store/revenue-by-staff` | Preset chips + filter (store, staff free-text, ngày) + KPI (nhân viên/doanh số/hóa đơn) + MudTable client-side sort + Export Excel. SP: `[dbo].[GET_REVENUE_ORDER_SALES_BY_STAFF]` (CentralSales, timeout 300s). StoreOperator: locked store. |
+| 15.5 | Doanh thu Theo Cửa hàng | `/store/revenue-by-store` | Preset chips + filter (store, ngày) + KPI (SumXxx từ row đầu) + MudTable **server-side paging** + footer "Tổng tất cả" (MudTFootRow) + Export toàn bộ. SP: `[dbo].[SP_SALES_BY_STORE_BUSSINESS_DATE]` (CentralSales, @ListStoreJson, timeout 300s). |
+| 6.1 | Danh mục Sản phẩm / Barcode | `/catalog/products` | Filter (mã SP, tên SP, barcode, **thuế suất động từ `dbo.POSVATCode` cache Redis 12h**) + MudTable **server-side paging** + Export Excel (ClosedXML). SP: `[dbo].[GetProductList]` / `[GetProductList_Export]` (CentralMD, @ItemCode/@BarCode — khác tên field model). |
+| 6.3 | Export Sản phẩm | `/catalog/products` | Tích hợp vào 6.1 (nút Excel dùng SP `[GetProductList_Export]`). |
+| 6.2 | Tạo sản phẩm mới | `/catalog/products` | Dialog "Thêm mới" từ trang danh sách. Form: 8 field + dynamic barcode table (≥1 row, BarcodeNo phải số). INSERT `dbo.Item` + `dbo.Barcode` trong transaction (Dapper, không SP). Dropdown ArticleType/UnitOfMeasure cache Redis 12h. **UPDATE chưa implement** (không tìm thấy source route). DBA cần xác nhận tên cột `dbo.ArticleType`, `dbo.UnitOfMeasure`, `dbo.POSVATCode`. |
+| 6.4 | Khóa sản phẩm | `/catalog/product-lock` | Filter (store bắt buộc, status, mã/tên SP) + MudTable server-side + chip màu trạng thái + toggle icon/bulk action. UPSERT `dbo.ItemBlock` (Pkey="{StoreNo}-{ItemNo}") trong transaction. **Central mode only** — Direct POS DB và GrabFood API (6.5) để sau. |

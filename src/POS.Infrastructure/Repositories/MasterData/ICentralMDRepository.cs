@@ -100,6 +100,72 @@ public interface ICentralMDRepository
     /// <summary>DELETE theo Code. Invalidate Redis cache sau khi xóa.</summary>
     Task<bool> DeletePOSDataSetupAsync(string code, CancellationToken ct = default);
 
+    // ── BankPOS — Máy POS Ngân hàng (migrate 5.5) ───────────────────────────
+
+    /// <summary>SP [dbo].[GetBankPOSList] với @Export=2 — toàn bộ danh sách (không phân trang), dùng cho client-side filter.</summary>
+    Task<List<BankPOSListDto>> GetBankPOSListAsync(CancellationToken ct = default);
+
+    /// <summary>INSERT (dto.IsNew=true) hoặc UPDATE (dto.IsNew=false) bảng POSTerminalBanks. Trả false nếu thất bại.</summary>
+    Task<(bool success, bool duplicateCode)> SaveBankPOSAsync(BankPOSSaveDto dto, string actor, CancellationToken ct = default);
+
+    /// <summary>DELETE theo BankPOSCode.</summary>
+    Task<bool> DeleteBankPOSAsync(string bankPOSCode, CancellationToken ct = default);
+
+    /// <summary>SELECT BankCode, BankName FROM dbo.Banks — dropdown danh sách ngân hàng, cache Redis 12h.</summary>
+    Task<List<BankDropdownDto>> GetBankListForDropdownAsync(CancellationToken ct = default);
+
+    // ── Product List — Danh mục SP / Barcode (migrate 6.1) ──────────────────
+
+    /// <summary>
+    /// SP [dbo].[GetProductList] — server-side paging.
+    /// Tham số SP: @ItemCode, @ItemName, @BarCode, @TaxCode, @PageSize, @PageNumber.
+    /// Total lấy từ row đầu tiên (SP inject vào mọi row).
+    /// </summary>
+    Task<(List<ProductListItemDto> Items, int Total)> GetProductListAsync(
+        ProductListFilter filter, CancellationToken ct = default);
+
+    /// <summary>SP [dbo].[GetProductList_Export] — toàn bộ không phân trang, dùng cho xuất Excel.</summary>
+    Task<List<ProductListItemDto>> ExportProductListAsync(
+        ProductListFilter filter, CancellationToken ct = default);
+
+    /// <summary>
+    /// SELECT Code, Description FROM dbo.POSVATCode — dropdown thuế suất, cache Redis 12h.
+    /// </summary>
+    Task<List<PosVatCodeDto>> GetPosVatCodesAsync(CancellationToken ct = default);
+
+    // ── Product Create — Tạo sản phẩm mới (migrate 6.2) ─────────────────────
+
+    /// <summary>SELECT Code FROM dbo.ArticleType — dropdown loại hàng, cache Redis 12h.</summary>
+    Task<List<ArticleTypeDto>> GetArticleTypesAsync(CancellationToken ct = default);
+
+    /// <summary>SELECT Code FROM dbo.UnitOfMeasure — dropdown đơn vị đo, cache Redis 12h.</summary>
+    Task<List<UnitOfMeasureDto>> GetUnitOfMeasuresAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// INSERT dbo.Item + N rows dbo.Barcode trong transaction.
+    /// ItemNo auto-generated (Max+1, bắt đầu "1000000001").
+    /// BarcodeNo phải là số; BarcodeList không được rỗng — validate ở caller.
+    /// </summary>
+    Task<(bool Success, string ItemNo, string Message)> CreateProductAsync(
+        ProductCreateDto dto, CancellationToken ct = default);
+
+    // ── Product Lock — Khóa sản phẩm (migrate 6.4) ───────────────────────────
+
+    /// <summary>
+    /// JOIN dbo.Item + dbo.ItemBlock: danh sách sản phẩm + trạng thái khóa của 1 store.
+    /// StoreNo bắt buộc. Status: -1=all, 0=active, 1=locked.
+    /// Total lấy từ row đầu tiên (COUNT(*) OVER() inject mọi row).
+    /// </summary>
+    Task<(List<ProductLockItemDto> Items, int Total)> GetProductLockListAsync(
+        ProductLockFilter filter, CancellationToken ct = default);
+
+    /// <summary>
+    /// UPSERT dbo.ItemBlock cho nhiều ItemNo trong 1 transaction.
+    /// Pkey = "{StoreNo}-{ItemNo}". TargetLock=true → khóa, false → mở khóa.
+    /// </summary>
+    Task<(bool Success, string Message)> SaveProductLockAsync(
+        ProductLockSaveDto dto, CancellationToken ct = default);
+
     // ── Dashboard Audit Log ──────────────────────────────────────────────────
 
     /// <summary>

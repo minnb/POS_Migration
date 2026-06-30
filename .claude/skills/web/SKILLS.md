@@ -422,7 +422,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | Biểu đồ cột | `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
 | Số liệu tổng quan | `MudPaper` + `MudText` (xem RevenuePage KPI cards) |
 | Thông báo popup | `ISnackbar` (inject, gọi `Snackbar.Add(...)`) |
-| Dialog xác nhận | `IDialogService` + `DialogService.ShowAsync<T>()` |
+| Dialog xác nhận đơn giản | `MudMessageBox @ref="_msgBox"` trong Razor + `await _msgBox!.ShowAsync()` trong code |
+| Dialog form đầy đủ | `IDialogService` + `DialogService.ShowAsync<T>()` |
 | Input text | `MudTextField<T>` |
 | Dropdown chọn một | `MudSelect<T>` |
 | Date picker | `MudDatePicker` |
@@ -603,6 +604,32 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ `@namespace` đặt trước `@page` trong routable component → Blazor endpoint routing không nhận dạng được route → page không truy cập được (xem section "Tổ chức thư mục Pages")
 - ❌ Đặt page mới vào root `Store/` thay vì sub-folder đúng nhóm nav (Operations/Transactions/Reports)
 - ❌ Đặt dialog component lẫn với page file trong cùng folder — dialog không có `@page`, đặt vào `{Section}/Dialogs/`
+- ❌ Gọi `IDialogService.ShowMessageBox(...)` cho confirm đơn giản → không có overload đó trong MudBlazor v9. Dùng `MudMessageBox @ref` trong Razor + `await _msgBox!.ShowAsync()` (xem pattern bên dưới)
+
+### Pattern: `MudMessageBox @ref` — confirm dialog đơn giản
+> Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete mà không cần form — thay thế `IDialogService.ShowMessageBox` (không tồn tại trong v9).
+
+```razor
+@* Khai báo trong Razor template — đặt gần đầu content *@
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton><MudButton Variant="Variant.Filled" Color="Color.Primary">Xác nhận</MudButton></YesButton>
+</MudMessageBox>
+
+@code {
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
+
+    private async Task ToggleAsync(MyItem item)
+    {
+        _confirmMsg = $"Bạn có chắc muốn khóa [{item.Code}]?";
+        var ok = await _confirmBox!.ShowAsync();
+        if (ok != true) return;
+        // thực hiện action
+    }
+}
+```
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`
 
 ---
 

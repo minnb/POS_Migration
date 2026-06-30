@@ -6,6 +6,27 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-06-30] Migrate 6.4 — Product Lock (Khóa/Mở khóa sản phẩm theo cửa hàng)
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Web
+**Loại:** Feature (migrate VCM.BLUEPOS 6.4 — Central mode only)
+
+**Thay đổi:**
+- `src/POS.Common/Dtos/CentralMD/ProductLockDto.cs` (MỚI): 3 DTO — `ProductLockItemDto`, `ProductLockFilter`, `ProductLockSaveDto`
+- `src/POS.Infrastructure/Repositories/MasterData/ICentralMDRepository.cs`: +2 method: `GetProductLockListAsync`, `SaveProductLockAsync`
+- `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`: implement 2 methods — JOIN Item+ItemBlock server-side paging; UPSERT `dbo.ItemBlock` trong transaction (Pkey=`"{StoreNo}-{ItemNo}"`)
+- `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`: replace skeleton → full page — filter (StoreNo bắt buộc, Status, ItemNo/ItemName), MudTable server-side + MultiSelection, chip màu trạng thái, toggle đơn + bulk action, `MudMessageBox @ref` confirm
+
+**Pattern mới:** `MudMessageBox @ref` — confirm dialog đơn giản (thay `IDialogService.ShowMessageBox` không tồn tại trong MudBlazor v9) → đã cập nhật `.claude/skills/web/SKILLS.md`
+
+**Lưu ý cho session sau:**
+- `dbo.ItemBlock.Pkey = "{StoreNo}-{ItemNo}"` — bắt buộc tạo đúng format khi INSERT mới.
+- Direct POS DB mode và GrabFood API (6.5) OUT OF SCOPE — để sau; 6.4 chỉ Central DB.
+- StoreOperator auto-select store đơn lẻ từ claim; StoreNo bắt buộc chọn trước khi load dữ liệu.
+- `GetProductLockListAsync` dùng `BaseRepository.QueryAsync` (không SP, raw SQL với COUNT(*) OVER()).
+
+---
+
 ## [2026-06-30] Xác thực request từ POS — PosApiKeyMiddleware (X-API key)
 
 **Layer:** POS.Api

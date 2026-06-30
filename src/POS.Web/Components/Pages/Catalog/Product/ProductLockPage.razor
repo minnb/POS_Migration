@@ -1,18 +1,375 @@
 @page "/catalog/product-lock"
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
+@implements IDisposable
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
 @using POS.Web.Auth
 
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+
 <PageTitle>Khóa sản phẩm – POS Dashboard</PageTitle>
+
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận thao tác" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary">Xác nhận</MudButton>
+    </YesButton>
+</MudMessageBox>
 
 <MudText Typo="Typo.h5" Class="mb-4">
     <MudIcon Icon="@Icons.Material.Filled.Lock" Class="mr-2" Style="vertical-align:middle"/>
     Khóa sản phẩm
 </MudText>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter panel ────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudAutocomplete T="StoreDto"
+                             Value="_selectedStore"
+                             ValueChanged="OnStoreChanged"
+                             SearchFunc="SearchStoreAsync"
+                             Label="Cửa hàng *"
+                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Clearable="true" MaxItems="50"
+                             ResetValueOnEmptyText="false"
+                             ToStringFunc="@(s => s is null ? string.Empty : $"{s.StoreNo} – {s.Name}")"
+                             HelperText="@(_allStores.Count == 0 ? "Đang tải..." : string.Empty)"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filter.Status"
+                       Label="Trạng thái"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@(-1)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@(0)">Đang hoạt động</MudSelectItem>
+                <MudSelectItem Value="@(1)">Đang bị khóa</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.ItemNo"
+                          Label="Mã sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.QrCode"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.ItemName"
+                          Label="Tên sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="SearchAsync" Disabled="@(_searching || string.IsNullOrEmpty(_filter.StoreNo))"
+                           FullWidth="true">
+                    @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
+                    Tìm
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="ClearFilter"
+                           FullWidth="true">
+                    Xóa
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Bulk action bar ──────────────────────────────────────────────────────── *@
+@if (_selectedItems.Count > 0)
+{
+    <MudPaper Elevation="1" Class="pa-3 mb-3">
+        <div class="d-flex align-center gap-3 flex-wrap">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Đã chọn <strong>@_selectedItems.Count</strong> sản phẩm
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Lock"
+                       OnClick="@(() => BulkToggleAsync(true))"
+                       Disabled="@_saving">
+                Khóa đã chọn
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.LockOpen"
+                       OnClick="@(() => BulkToggleAsync(false))"
+                       Disabled="@_saving">
+                Mở khóa đã chọn
+            </MudButton>
+        </div>
+    </MudPaper>
+}
+
+@* ── Error state ──────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3" Dense="true">@_errorMsg</MudAlert>
+}
+
+@if (string.IsNullOrEmpty(_filter.StoreNo))
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        Vui lòng chọn cửa hàng để xem danh sách sản phẩm.
+    </MudAlert>
+}
+else
+{
+    @* ── Table ────────────────────────────────────────────────────────────── *@
+    <MudTable @ref="_table"
+              ServerData="ServerReloadAsync"
+              MultiSelection="true"
+              @bind-SelectedItems="_selectedItems"
+              Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm"
+              HorizontalScrollbar="true"
+              Loading="@_searching"
+              Class="mb-4">
+        <NoRecordsContent>
+            <div class="d-flex flex-column align-center pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Style="font-size:3rem;color:#bbb" Class="mb-2"/>
+                <MudText Color="Color.Secondary">Không có dữ liệu phù hợp</MudText>
+            </div>
+        </NoRecordsContent>
+        <HeaderContent>
+            <MudTh>Mã SP</MudTh>
+            <MudTh>Tên sản phẩm</MudTh>
+            <MudTh Style="width:80px">ĐVT</MudTh>
+            <MudTh Style="width:130px">Trạng thái</MudTh>
+            <MudTh Style="width:130px">Ngày cập nhật</MudTh>
+            <MudTh Style="width:65px"></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Mã SP">@context.ItemNo</MudTd>
+            <MudTd DataLabel="Tên SP">@context.ItemName</MudTd>
+            <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
+            <MudTd DataLabel="Trạng thái">
+                <MudChip T="string"
+                         Color="@(context.IsLocked ? Color.Error : Color.Success)"
+                         Size="Size.Small"
+                         Variant="Variant.Filled">
+                    @(context.IsLocked ? "Đang bị khóa" : "Đang hoạt động")
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Ngày CN">
+                @(context.UpdatedDate.HasValue ? context.UpdatedDate.Value.ToString("dd/MM/yyyy HH:mm") : "–")
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@(context.IsLocked ? "Mở khóa" : "Khóa")">
+                    <MudIconButton Icon="@(context.IsLocked ? Icons.Material.Filled.LockOpen : Icons.Material.Filled.Lock)"
+                                   Color="@(context.IsLocked ? Color.Success : Color.Error)"
+                                   Size="Size.Small"
+                                   Disabled="@_saving"
+                                   OnClick="@(() => ToggleSingleAsync(context))"/>
+                </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private MudTable<ProductLockItemDto> _table = null!;
+
+    private bool _loading  = true;
+    private bool _searching;
+    private bool _saving;
+    private string? _errorMsg;
+
+    private readonly ProductLockFilter _filter = new();
+    private HashSet<ProductLockItemDto> _selectedItems = [];
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
+
+    private StoreDto? _selectedStore;
+    private List<StoreDto> _allStores = [];
+    private string _actor = "unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+
+        // StoreOperator: filter store list by claim
+        var storeCodesJson = state.User.FindFirst("store_codes")?.Value;
+        var allowedCodes = string.IsNullOrEmpty(storeCodesJson)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(storeCodesJson) ?? [];
+
+        try
+        {
+            var all = await MdRepo.GetStoreListAsync();
+            _allStores = allowedCodes.Count > 0
+                ? all.Where(s => allowedCodes.Contains(s.StoreNo ?? string.Empty)).ToList()
+                : all;
+
+            // StoreOperator auto-select their only store
+            if (allowedCodes.Count == 1)
+            {
+                _selectedStore = _allStores.FirstOrDefault();
+                if (_selectedStore != null)
+                    _filter.StoreNo = _selectedStore.StoreNo ?? string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("ProductLockPage.Init", ex);
+            _errorMsg = "Không thể tải danh sách cửa hàng.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private async Task OnStoreChanged(StoreDto? store)
+    {
+        _selectedStore     = store;
+        _filter.StoreNo    = store?.StoreNo ?? string.Empty;
+        _filter.PageNumber = 0;
+        _selectedItems     = [];
+        _errorMsg          = null;
+        if (store != null && _table != null)
+            await _table.ReloadServerData();
+    }
+
+    private Task SearchAsync() => _table.ReloadServerData();
+
+    private async Task<TableData<ProductLockItemDto>> ServerReloadAsync(TableState state, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(_filter.StoreNo))
+            return new TableData<ProductLockItemDto> { Items = [], TotalItems = 0 };
+
+        _searching    = true;
+        _errorMsg     = null;
+        _filter.PageSize   = state.PageSize;
+        _filter.PageNumber = state.Page;
+        try
+        {
+            var (items, total) = await MdRepo.GetProductLockListAsync(_filter, ct);
+            return new TableData<ProductLockItemDto> { Items = items, TotalItems = total };
+        }
+        catch (OperationCanceledException)
+        {
+            return new TableData<ProductLockItemDto> { Items = [], TotalItems = 0 };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Lỗi khi tải dữ liệu. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("ProductLockPage.Reload", ex);
+            return new TableData<ProductLockItemDto> { Items = [], TotalItems = 0 };
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    private async Task ToggleSingleAsync(ProductLockItemDto item)
+    {
+        var targetLock = !item.IsLocked;
+        var action     = targetLock ? "khóa" : "mở khóa";
+        _confirmMsg    = $"Bạn có chắc muốn {action} sản phẩm [{item.ItemNo}]?";
+        var confirm    = await _confirmBox!.ShowAsync();
+        if (confirm != true) return;
+
+        await ExecuteLockAsync([item.ItemNo ?? string.Empty], targetLock, $"{action} sản phẩm {item.ItemNo}");
+    }
+
+    private async Task BulkToggleAsync(bool targetLock)
+    {
+        if (_selectedItems.Count == 0) return;
+        var action    = targetLock ? "khóa" : "mở khóa";
+        _confirmMsg   = $"Bạn có chắc muốn {action} {_selectedItems.Count} sản phẩm đã chọn?";
+        var confirm   = await _confirmBox!.ShowAsync();
+        if (confirm != true) return;
+
+        var itemNos = _selectedItems.Select(i => i.ItemNo ?? string.Empty).ToList();
+        await ExecuteLockAsync(itemNos, targetLock, $"Bulk {action} {_selectedItems.Count} SP");
+        _selectedItems = [];
+    }
+
+    private async Task ExecuteLockAsync(List<string> itemNos, bool targetLock, string logContext)
+    {
+        _saving   = true;
+        _errorMsg = null;
+        try
+        {
+            var dto = new ProductLockSaveDto
+            {
+                StoreNo    = _filter.StoreNo,
+                ItemNos    = itemNos,
+                TargetLock = targetLock,
+                Actor      = _actor
+            };
+            var (success, message) = await MdRepo.SaveProductLockAsync(dto);
+            if (success)
+            {
+                var icon = targetLock ? Severity.Warning : Severity.Success;
+                Snackbar.Add(message, icon);
+                await _table.ReloadServerData();
+            }
+            else
+            {
+                _errorMsg = message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Lỗi hệ thống. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs($"ProductLockPage.{logContext}", ex);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ClearFilter()
+    {
+        _filter.Status   = -1;
+        _filter.ItemNo   = string.Empty;
+        _filter.ItemName = string.Empty;
+        _errorMsg = null;
+        if (!string.IsNullOrEmpty(_filter.StoreNo))
+            _ = _table.ReloadServerData();
+    }
+
+    public void Dispose() { }
+}

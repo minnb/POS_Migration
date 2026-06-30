@@ -2,17 +2,421 @@
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
 
+@using ClosedXML.Excel
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using MudBlazor
+@using Newtonsoft.Json
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using POS.Web.Services
+
+@inject ICentralMDRepository MdRepo
+@inject IAuditLogger AuditLogger
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IFileLogHelper FileLogger
+@inject IJSRuntime JS
 
 <PageTitle>Máy POS Ngân hàng – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.CreditCard" Class="mr-2" Style="vertical-align:middle"/>
-    Máy POS Ngân hàng
-</MudText>
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Class="mr-2" Style="vertical-align:middle"/>
+        Máy POS Ngân hàng
+    </MudText>
+    <div class="d-flex align-center gap-2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.FileDownload"
+                   Disabled="@(_exporting || _loading)"
+                   OnClick="ExportExcelAsync">
+            @(_exporting ? "Đang xuất..." : "Xuất Excel")
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Class="pos-page-header-btn"
+                   OnClick="@(() => OpenDialogAsync(null))">
+            Thêm mới
+        </MudButton>
+    </div>
+</div>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Loading bar ─────────────────────────────────────────────────────── *@
+@if (_loading && !_allItems.Any())
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+}
+
+@* ── KPI row ─────────────────────────────────────────────────────────── *@
+@if (_allItems.Any())
+{
+    var total   = _allItems.Count;
+    var online  = _allItems.Count(x => x.IsOnline);
+    var offline = total - online;
+
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng máy</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center"
+                      Style="border-left:3px solid var(--pos-success)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@online</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">● Online</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center"
+                      Style="border-left:3px solid var(--pos-danger)">
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@offline</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">● Offline</MudText>
+            </MudPaper>
+        </div>
+    </div>
+}
+
+@* ── Filter panel ────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="3">
+            <MudAutocomplete T="StoreDto" Value="_filterStore"
+                             ValueChanged="@(s => { _filterStore = s; ApplyFilter(); })"
+                             SearchFunc="SearchStoreAsync" Label="Cửa hàng"
+                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Clearable="true" MaxItems="50"
+                             ResetValueOnEmptyText="false"
+                             ToStringFunc="@(s => s is null ? string.Empty : $"{s.StoreNo} – {s.Name}")"
+                             OnClearButtonClick="@(() => { _filterStore = null; ApplyFilter(); })"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="string" Value="_filterBankCode"
+                       ValueChanged="@(v => { _filterBankCode = v; ApplyFilter(); })"
+                       Label="Ngân hàng"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@string.Empty">Tất cả</MudSelectItem>
+                @foreach (var b in _banks)
+                {
+                    <MudSelectItem Value="@b.BankCode">@b.BankCode – @b.BankName</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect T="string" Value="_filterStatus"
+                       ValueChanged="@(v => { _filterStatus = v; ApplyFilter(); })"
+                       Label="Trạng thái"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@("all")">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("online")">Online</MudSelectItem>
+                <MudSelectItem Value="@("offline")">Offline</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField Value="_filterText" Immediate="true"
+                          ValueChanged="@((string v) => { _filterText = v; ApplyFilter(); })"
+                          Label="Tìm kiếm"
+                          Placeholder="BankPOSCode, Terminal..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          OnClearButtonClick="@(() => { _filterText = string.Empty; ApplyFilter(); })"/>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudButton Variant="Variant.Outlined" FullWidth="true"
+                       OnClick="ClearFilter">Xóa lọc</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Error ───────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Table ───────────────────────────────────────────────────────────── *@
+<MudTable Items="@_filtered" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Loading="@(_loading && !_allItems.Any())"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.BankPOSCode)">Mã BankPOS</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.BankPOSName ?? string.Empty)">Tên</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.BankCode ?? string.Empty)">Ngân hàng</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.StoreNo ?? string.Empty)">Cửa hàng</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.POSNo ?? string.Empty)">POSNo</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.POSTerminal ?? string.Empty)">Terminal ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BankPOSListDto, object>(x => x.IsOnline ? 0 : 1)">Trạng thái</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right; width:90px"></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Mã BankPOS">
+            <MudText Style="font-family:monospace; font-size:0.85rem">@context.BankPOSCode</MudText>
+        </MudTd>
+        <MudTd DataLabel="Tên">@context.BankPOSName</MudTd>
+        <MudTd DataLabel="Ngân hàng">@context.BankCode</MudTd>
+        <MudTd DataLabel="Cửa hàng">@context.StoreNo</MudTd>
+        <MudTd DataLabel="POSNo">@context.POSNo</MudTd>
+        <MudTd DataLabel="Terminal ID">
+            <MudText Typo="Typo.caption">@(context.POSTerminal ?? "—")</MudText>
+        </MudTd>
+        <MudTd DataLabel="Trạng thái">
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(context.IsOnline ? Color.Success : Color.Error)"
+                     Variant="Variant.Filled">
+                @(context.IsOnline ? "● Online" : "● Offline")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="" Style="text-align:right">
+            <MudTooltip Text="Sửa">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               Color="Color.Primary"
+                               OnClick="@(() => OpenDialogAsync(context))"/>
+            </MudTooltip>
+            <MudTooltip Text="Xóa">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="@(() => ConfirmDeleteAsync(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Color="Color.Secondary" Class="pa-4" Align="Align.Center">
+            @(_allItems.Any() ? "Không có kết quả khớp bộ lọc." : "Không có dữ liệu Máy POS Ngân hàng.")
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private string _currentActor = "unknown";
+
+    private List<BankPOSListDto>  _allItems    = [];
+    private List<BankPOSListDto>  _filtered    = [];
+    private List<StoreDto>        _stores      = [];
+    private List<BankDropdownDto> _banks       = [];
+
+    private bool    _loading    = true;
+    private bool    _exporting;
+    private string? _errorMsg;
+
+    private StoreDto? _filterStore;
+    private string    _filterBankCode = string.Empty;
+    private string    _filterStatus   = "all";
+    private string    _filterText     = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var itemsTask  = MdRepo.GetBankPOSListAsync();
+            var storesTask = MdRepo.GetStoreListAsync();
+            var banksTask  = MdRepo.GetBankListForDropdownAsync();
+            await Task.WhenAll(itemsTask, storesTask, banksTask);
+            _allItems = itemsTask.Result;
+            _stores   = storesTask.Result;
+            _banks    = banksTask.Result;
+            FileLogger.WriteLogs($"[BankPosPage.Load] {_currentActor}: {_allItems.Count} records, {_allItems.Count(x => x.IsOnline)} online");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh sách Máy POS Ngân hàng.";
+            FileLogger.WriteExpLogs("BankPosPage.Load", ex);
+        }
+        finally
+        {
+            _loading = false;
+            ApplyFilter();
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var q = _filtered = _allItems.AsEnumerable()
+            .Where(x => _filterStore is null || x.StoreNo == _filterStore.StoreNo)
+            .Where(x => string.IsNullOrEmpty(_filterBankCode) || x.BankCode == _filterBankCode)
+            .Where(x => _filterStatus switch
+            {
+                "online"  => x.IsOnline,
+                "offline" => !x.IsOnline,
+                _         => true
+            })
+            .Where(x => string.IsNullOrWhiteSpace(_filterText) ||
+                        x.BankPOSCode.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ||
+                        (x.BankPOSName?.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (x.POSTerminal?.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (x.POSNo?.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ?? false))
+            .ToList();
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        _filterStore    = null;
+        _filterBankCode = string.Empty;
+        _filterStatus   = "all";
+        _filterText     = string.Empty;
+        ApplyFilter();
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _stores
+            : _stores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private async Task OpenDialogAsync(BankPOSListDto? item)
+    {
+        var oldJson = item is null ? null : JsonConvert.SerializeObject(item);
+        var dialog = await DialogService.ShowAsync<BankPosDetailDialog>(
+            item is null ? "Thêm Máy POS Ngân hàng" : $"Sửa: {item.BankPOSCode}",
+            new DialogParameters<BankPosDetailDialog>
+            {
+                { x => x.ExistingItem, item },
+                { x => x.Actor, _currentActor }
+            },
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium, FullWidth = true,
+                CloseButton = true, CloseOnEscapeKey = true, BackdropClick = false
+            });
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is BankPOSSaveDto saved)
+        {
+            var newJson = JsonConvert.SerializeObject(saved);
+            var action  = saved.IsNew ? "CREATE" : "UPDATE";
+            await AuditLogger.LogAsync(_currentActor, action, "BankPOS", saved.BankPOSCode,
+                oldValueJson: oldJson, newValueJson: newJson);
+            Snackbar.Add(saved.IsNew ? $"Đã thêm {saved.BankPOSCode}." : $"Đã cập nhật {saved.BankPOSCode}.",
+                Severity.Success);
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(BankPOSListDto item)
+    {
+        var dialog = await DialogService.ShowAsync<MudMessageBox>(
+            "Xác nhận xóa",
+            new DialogParameters
+            {
+                ["Message"]    = $"Bạn có chắc muốn xóa máy POS Ngân hàng \"{item.BankPOSCode}\"?",
+                ["YesText"]    = "Xóa",
+                ["CancelText"] = "Hủy"
+            },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (result is null or { Canceled: true }) return;
+
+        var ok = await MdRepo.DeleteBankPOSAsync(item.BankPOSCode);
+        if (ok)
+        {
+            await AuditLogger.LogAsync(_currentActor, "DELETE", "BankPOS", item.BankPOSCode,
+                oldValueJson: JsonConvert.SerializeObject(item), newValueJson: null);
+            Snackbar.Add($"Đã xóa \"{item.BankPOSCode}\".", Severity.Info);
+            await LoadDataAsync();
+        }
+        else
+        {
+            Snackbar.Add("Xóa thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+    }
+
+    // ── Export Excel ─────────────────────────────────────────────────────
+
+    private async Task ExportExcelAsync()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var bytes    = BuildXlsx(_filtered.Count > 0 ? _filtered : _allItems);
+            var fileName = $"MayPOSNganHang_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            await JS.SaveAsFileAsync(fileName, bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add($"Đã xuất {_filtered.Count} dòng.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("BankPosPage.Export", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static byte[] BuildXlsx(IReadOnlyList<BankPOSListDto> data)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("MayPOSNganHang");
+
+        string[] headers =
+        [
+            "Mã BankPOS", "Tên", "Ngân hàng", "Cửa hàng", "POSNo",
+            "Terminal ID", "Access Key", "Partner ID", "Online", "Status",
+            "Counter", "Ngày tạo", "Người tạo", "Ngày sửa", "Người sửa"
+        ];
+        for (var i = 0; i < headers.Length; i++)
+        {
+            var cell = ws.Cell(1, i + 1);
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#2051A3");
+            cell.Style.Font.FontColor = XLColor.White;
+        }
+
+        for (var r = 0; r < data.Count; r++)
+        {
+            var d = data[r];
+            var row = r + 2;
+            ws.Cell(row, 1).Value  = d.BankPOSCode;
+            ws.Cell(row, 2).Value  = d.BankPOSName ?? string.Empty;
+            ws.Cell(row, 3).Value  = d.BankCode    ?? string.Empty;
+            ws.Cell(row, 4).Value  = d.StoreNo     ?? string.Empty;
+            ws.Cell(row, 5).Value  = d.POSNo       ?? string.Empty;
+            ws.Cell(row, 6).Value  = d.POSTerminal ?? string.Empty;
+            ws.Cell(row, 7).Value  = d.AccessKey   ?? string.Empty;
+            ws.Cell(row, 8).Value  = d.PartnerId   ?? string.Empty;
+            ws.Cell(row, 9).Value  = d.IsOnline ? "Online" : "Offline";
+            ws.Cell(row, 10).Value = d.Status;
+            ws.Cell(row, 11).Value = d.Counter?.ToString() ?? string.Empty;
+            ws.Cell(row, 12).Value = d.CreatedDate?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty;
+            ws.Cell(row, 13).Value = d.CreatedUser ?? string.Empty;
+            ws.Cell(row, 14).Value = d.UpdatedDate?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty;
+            ws.Cell(row, 15).Value = d.UpdatedUser ?? string.Empty;
+        }
+
+        ws.Columns().AdjustToContents();
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+}

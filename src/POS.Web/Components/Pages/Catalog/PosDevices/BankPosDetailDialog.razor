@@ -1,0 +1,277 @@
+@namespace POS.Web.Components.Pages.Catalog.PosDevices
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+
+@inject ICentralMDRepository MdRepo
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(IsEdit ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)"
+                     Class="mr-2" Style="vertical-align:middle"/>
+            @(IsEdit ? $"Sửa: {ExistingItem?.BankPOSCode}" : "Thêm Máy POS Ngân hàng")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+
+                @* Cửa hàng *@
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="StoreDto"
+                                     Value="_selectedStore"
+                                     ValueChanged="OnStoreChanged"
+                                     Label="Cửa hàng *"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     SearchFunc="SearchStoreAsync"
+                                     ToStringFunc="@(s => s is null ? string.Empty : $"{s.StoreNo} – {s.Name}")"
+                                     Clearable="true" MaxItems="50"
+                                     ResetValueOnEmptyText="false"
+                                     Disabled="@IsEdit"
+                                     Required="true" RequiredError="Vui lòng chọn cửa hàng"/>
+                </MudItem>
+
+                @* Ngân hàng *@
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string"
+                               Value="_model.BankCode"
+                               ValueChanged="OnBankChanged"
+                               Label="Ngân hàng *"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               Disabled="@IsEdit"
+                               Required="true" RequiredError="Vui lòng chọn ngân hàng">
+                        <MudSelectItem Value="@string.Empty">-- Chọn ngân hàng --</MudSelectItem>
+                        @foreach (var bank in _banks)
+                        {
+                            <MudSelectItem Value="@bank.BankCode">@bank.BankCode – @bank.BankName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                @* POSNo *@
+                <MudItem xs="12" sm="6">
+                    <MudTextField Value="@_model.POSNo"
+                                  ValueChanged="@((string v) => { _model.POSNo = v; UpdateBankPOSCode(); })"
+                                  Label="Mã máy POS (POSNo) *"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Disabled="@IsEdit"
+                                  Required="true" RequiredError="Vui lòng nhập POSNo"
+                                  MaxLength="20" Immediate="true"/>
+                </MudItem>
+
+                @* BankPOSCode — tự sinh, readonly *@
+                <MudItem xs="12" sm="6">
+                    <MudTextField Value="@_model.BankPOSCode"
+                                  Label="Mã BankPOS (tự sinh)"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  ReadOnly="true"
+                                  HelperText="@(IsEdit ? "Mã không thể thay đổi" : "Tự động từ StoreNo_BankCode_POSNo")"/>
+                </MudItem>
+
+                @* BankPOSName *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.BankPOSName"
+                                  Label="Tên máy POS Ngân hàng"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  MaxLength="200" Immediate="true"/>
+                </MudItem>
+
+                @* POSTerminal *@
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.POSTerminal"
+                                  Label="Terminal ID"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  MaxLength="100" Immediate="true"
+                                  HelperText="Serial / ID thiết bị tại POS"/>
+                </MudItem>
+
+                @* AccessKey *@
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.AccessKey"
+                                  Label="Access Key"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  MaxLength="200" Immediate="true"/>
+                </MudItem>
+
+                @* PartnerId *@
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.PartnerId"
+                                  Label="Partner ID"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  MaxLength="100" Immediate="true"/>
+                </MudItem>
+
+                @* IsOnline + Status *@
+                <MudItem xs="12" sm="3">
+                    <MudSwitch @bind-Value="_model.IsOnline"
+                               Label="@(_model.IsOnline ? "Đang dùng (Online)" : "Không dùng (Offline)")"
+                               Color="Color.Success"/>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudSelect T="int" @bind-Value="_model.Status"
+                               Label="Status"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="1">1 – Hoạt động</MudSelectItem>
+                        <MudSelectItem Value="0">0 – Tắt</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                @* Counter — chỉ hiển thị khi Edit *@
+                @if (IsEdit && ExistingItem?.Counter != null)
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Value="@ExistingItem.Counter.ToString()"
+                                      Label="Counter (hệ thống)"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      ReadOnly="true"
+                                      HelperText="Hệ thống tự tăng mỗi lần cập nhật"/>
+                    </MudItem>
+                }
+
+            </MudGrid>
+        </MudForm>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@_saving"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/> }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public BankPOSListDto? ExistingItem { get; set; }
+
+    [Parameter]
+    public string Actor { get; set; } = "unknown";
+
+    private bool IsEdit => ExistingItem is not null;
+
+    private BankPOSSaveDto _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+
+    private List<StoreDto>       _stores = [];
+    private List<BankDropdownDto> _banks  = [];
+    private StoreDto?             _selectedStore;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var storesTask = MdRepo.GetStoreListAsync();
+        var banksTask  = MdRepo.GetBankListForDropdownAsync();
+        await Task.WhenAll(storesTask, banksTask);
+        _stores = storesTask.Result;
+        _banks  = banksTask.Result;
+
+        if (IsEdit && ExistingItem is not null)
+        {
+            _model = new BankPOSSaveDto
+            {
+                BankPOSCode = ExistingItem.BankPOSCode,
+                BankPOSName = ExistingItem.BankPOSName,
+                BankCode    = ExistingItem.BankCode    ?? string.Empty,
+                StoreNo     = ExistingItem.StoreNo     ?? string.Empty,
+                POSNo       = ExistingItem.POSNo       ?? string.Empty,
+                POSTerminal = ExistingItem.POSTerminal,
+                AccessKey   = ExistingItem.AccessKey,
+                PartnerId   = ExistingItem.PartnerId,
+                IsOnline    = ExistingItem.IsOnline,
+                Status      = ExistingItem.Status,
+                IsNew       = false
+            };
+            _selectedStore = _stores.FirstOrDefault(s => s.StoreNo == ExistingItem.StoreNo);
+        }
+        else
+        {
+            _model = new BankPOSSaveDto { IsNew = true, IsOnline = true, Status = 1 };
+        }
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _stores
+            : _stores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private void OnStoreChanged(StoreDto? store)
+    {
+        _selectedStore  = store;
+        _model.StoreNo  = store?.StoreNo ?? string.Empty;
+        UpdateBankPOSCode();
+    }
+
+    private void OnBankChanged(string value)
+    {
+        _model.BankCode = value;
+        UpdateBankPOSCode();
+    }
+
+    private void UpdateBankPOSCode()
+    {
+        if (!IsEdit && !string.IsNullOrWhiteSpace(_model.StoreNo)
+                    && !string.IsNullOrWhiteSpace(_model.BankCode)
+                    && !string.IsNullOrWhiteSpace(_model.POSNo))
+        {
+            _model.BankPOSCode = $"{_model.StoreNo}_{_model.BankCode}_{_model.POSNo}";
+        }
+    }
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+        if (string.IsNullOrWhiteSpace(_model.BankPOSCode))
+        {
+            _errorMsg = "Mã BankPOS chưa được tạo. Vui lòng chọn đủ Cửa hàng, Ngân hàng và POSNo.";
+            return;
+        }
+
+        _saving   = true;
+        _errorMsg = null;
+        try
+        {
+            var (success, duplicateCode) = await MdRepo.SaveBankPOSAsync(_model, Actor);
+            if (duplicateCode)
+            {
+                _errorMsg = $"Mã \"{_model.BankPOSCode}\" đã tồn tại. Vui lòng đổi StoreNo / BankCode / POSNo.";
+                return;
+            }
+            if (!success)
+            {
+                _errorMsg = IsEdit ? "Cập nhật thất bại. Vui lòng thử lại." : "Thêm thất bại. Vui lòng thử lại.";
+                return;
+            }
+            MudDialog.Close(DialogResult.Ok(_model));
+        }
+        catch
+        {
+            _errorMsg = "Đã xảy ra lỗi. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

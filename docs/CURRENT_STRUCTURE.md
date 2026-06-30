@@ -109,11 +109,14 @@ src/
 │   │   │   │   └── TransactionDetailResponse.cs
 │   │   │   └── Vouchers/ValidateVoucherCapillary.cs
 │   │   ├── CentralMD/
-│   │   │   └── CentralMDDto.cs  (StoreDto, StoreSetup, SysWebApiConfig, StoreSetConfig, SyncTableList,
-│   │   │                          CpnVchCodeQuotaRemn, CpnVchCodeSendQuota, CpnVchCodeSendDto,
-│   │   │                          CpnVchBOMHeaderDto, CpnVchBOMLineDto, ItemDto, ItemPointsMemberDto,
-│   │   │                          LoyaltyRateDto, MMLSchemeHeader, MMLSchemeItem, MMLSchemeResponse,
-│   │   │                          MMLSchemeRequest, MMLSchemeItemsRequest)
+│   │   │   ├── CentralMDDto.cs  (StoreDto, StoreSetup, SysWebApiConfig, StoreSetConfig, SyncTableList,
+│   │   │   │                      CpnVchCodeQuotaRemn, CpnVchCodeSendQuota, CpnVchCodeSendDto,
+│   │   │   │                      CpnVchBOMHeaderDto, CpnVchBOMLineDto, ItemDto, ItemPointsMemberDto,
+│   │   │   │                      LoyaltyRateDto, MMLSchemeHeader, MMLSchemeItem, MMLSchemeResponse,
+│   │   │   │                      MMLSchemeRequest, MMLSchemeItemsRequest)
+│   │   │   ├── ProductListDto.cs (ProductListItemDto, ProductListFilter, PosVatCodeDto)             ← 6.1
+│   │   │   ├── ProductCreateDto.cs (ProductCreateDto, BarcodeRowDto, ArticleTypeDto, UnitOfMeasureDto) ← 6.2
+│   │   │   └── ProductLockDto.cs (ProductLockItemDto, ProductLockFilter, ProductLockSaveDto)        ← 6.4
 │   │   ├── DataSync/
 │   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName)
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir
@@ -456,6 +459,21 @@ Task<POSDataSetupAdminDto?> GetPOSDataSetupByCodeAsync(string code, Cancellation
 Task<(bool success, bool duplicateCode)> InsertPOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)
 Task<bool> UpdatePOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)    // KHÔNG đụng Counter/Pkey
 Task<bool> DeletePOSDataSetupAsync(string code, CancellationToken ct = default)
+// ── BankPOS (migrate 5.5) ──
+Task<List<BankPOSListDto>> GetBankPOSListAsync(CancellationToken ct = default)
+Task<(bool success, bool duplicateCode)> SaveBankPOSAsync(BankPOSSaveDto dto, string actor, CancellationToken ct = default)
+Task<bool> DeleteBankPOSAsync(string bankPOSCode, CancellationToken ct = default)
+Task<List<BankDropdownDto>> GetBankListForDropdownAsync(CancellationToken ct = default)         // cache Redis 12h
+// ── Product List/Create (migrate 6.1/6.2) — dbo.Item + dbo.Barcode ──
+Task<(List<ProductListItemDto> Items, int Total)> GetProductListAsync(ProductListFilter filter, CancellationToken ct = default)
+Task<List<ProductListItemDto>> ExportProductListAsync(ProductListFilter filter, CancellationToken ct = default)
+Task<List<PosVatCodeDto>> GetPosVatCodesAsync(CancellationToken ct = default)                   // cache MD:PosVatCodes 12h
+Task<List<ArticleTypeDto>> GetArticleTypesAsync(CancellationToken ct = default)                  // cache MD:ArticleTypes 12h
+Task<List<UnitOfMeasureDto>> GetUnitOfMeasuresAsync(CancellationToken ct = default)              // cache MD:UnitOfMeasures 12h
+Task<(bool Success, string ItemNo, string Message)> CreateProductAsync(ProductCreateDto dto, CancellationToken ct = default)
+// ── Product Lock (migrate 6.4) — dbo.ItemBlock, Pkey="{StoreNo}-{ItemNo}" ──
+Task<(List<ProductLockItemDto> Items, int Total)> GetProductLockListAsync(ProductLockFilter filter, CancellationToken ct = default)
+Task<(bool Success, string Message)> SaveProductLockAsync(ProductLockSaveDto dto, CancellationToken ct = default)
 // ── Dashboard Audit Log — try/catch nội bộ, caller không cần bọc thêm ──
 Task InsertDashboardAuditLogAsync(string actor, string action, string entityType, string entityKey, string? oldValueJson = null, string? newValueJson = null, CancellationToken ct = default)
 ```

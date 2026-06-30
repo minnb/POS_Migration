@@ -1,0 +1,294 @@
+@namespace POS.Web.Components.Pages.Catalog.Product
+
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+
+<MudForm @ref="_form" @bind-IsValid="_formValid">
+    <MudGrid Spacing="2">
+
+        @* ── Thông tin cơ bản ─────────────────────────────────────────────── *@
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_model.ItemName"
+                          Label="Tên sản phẩm *"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Required="true" RequiredError="Vui lòng nhập tên sản phẩm"
+                          MaxLength="50"/>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_model.ItemNameFull"
+                          Label="Tên đầy đủ *"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Required="true" RequiredError="Vui lòng nhập tên đầy đủ"
+                          MaxLength="100"/>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudSelect @bind-Value="_model.BaseUnitOfMeasure"
+                       Label="Đơn vị cơ sở *"
+                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Required="true" RequiredError="Vui lòng chọn đơn vị cơ sở"
+                       Disabled="@(_unitOfMeasures.Count == 0)">
+                <MudSelectItem Value="@string.Empty" Disabled="true">-- Chọn --</MudSelectItem>
+                @foreach (var u in _unitOfMeasures)
+                {
+                    <MudSelectItem Value="@(u.Code ?? string.Empty)">@u.Code</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSelect @bind-Value="_model.SalesUnitOfMeasure"
+                       Label="Đơn vị bán *"
+                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Required="true" RequiredError="Vui lòng chọn đơn vị bán"
+                       Disabled="@(_unitOfMeasures.Count == 0)">
+                <MudSelectItem Value="@string.Empty" Disabled="true">-- Chọn --</MudSelectItem>
+                @foreach (var u in _unitOfMeasures)
+                {
+                    <MudSelectItem Value="@(u.Code ?? string.Empty)">@u.Code</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSelect @bind-Value="_model.ItemFamilyCode"
+                       Label="Loại hàng *"
+                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Required="true" RequiredError="Vui lòng chọn loại hàng"
+                       Disabled="@(_articleTypes.Count == 0)">
+                <MudSelectItem Value="@string.Empty" Disabled="true">-- Chọn --</MudSelectItem>
+                @foreach (var a in _articleTypes)
+                {
+                    <MudSelectItem Value="@(a.Code ?? string.Empty)">@a.Code</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudSelect @bind-Value="_model.TaxGroupCode"
+                       Label="Thuế suất"
+                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Disabled="@(_vatCodes.Count == 0)">
+                <MudSelectItem Value="@string.Empty">Không có thuế</MudSelectItem>
+                @foreach (var v in _vatCodes)
+                {
+                    <MudSelectItem Value="@(v.Code ?? string.Empty)">
+                        @(v.Description ?? v.Code)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSelect @bind-Value="_model.Blocked"
+                       Label="Trạng thái *"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((byte)0)">Đang hoạt động</MudSelectItem>
+                <MudSelectItem Value="@((byte)1)">Ngừng hoạt động</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4" Class="d-flex align-center">
+            <MudSwitch @bind-Value="_memberPoints"
+                       Label="Tích điểm thành viên"
+                       Color="Color.Primary"/>
+        </MudItem>
+
+    </MudGrid>
+
+    @* ── Barcode Table ─────────────────────────────────────────────────────── *@
+    <MudDivider Class="my-4"/>
+    <div class="d-flex align-center justify-space-between mb-2">
+        <MudText Typo="Typo.subtitle1"><strong>Danh sách Barcode</strong> <span style="color:red">*</span></MudText>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddBarcodeRow">
+            Thêm dòng
+        </MudButton>
+    </div>
+
+    @if (_barcodeError != null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">@_barcodeError</MudAlert>
+    }
+
+    @for (var i = 0; i < _barcodes.Count; i++)
+    {
+        var idx = i;
+        <MudGrid Spacing="1" Class="mb-1">
+            <MudItem xs="1" Class="d-flex align-center">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@(idx + 1)</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_barcodes[idx].UnitOfMeasureCode"
+                           Label="Đơn vị tính *"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Disabled="@(_unitOfMeasures.Count == 0)">
+                    <MudSelectItem Value="@string.Empty" Disabled="true">-- Chọn --</MudSelectItem>
+                    @foreach (var u in _unitOfMeasures)
+                    {
+                        <MudSelectItem Value="@(u.Code ?? string.Empty)">@u.Code</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_barcodes[idx].BarcodeNo"
+                              Label="Mã Barcode *"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Validation="@ValidateBarcodeNo"
+                              MaxLength="30"/>
+            </MudItem>
+            <MudItem xs="1" Class="d-flex align-center">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error" Size="Size.Small"
+                               Disabled="@(_barcodes.Count <= 1)"
+                               OnClick="@(() => RemoveBarcodeRow(idx))"/>
+            </MudItem>
+        </MudGrid>
+    }
+
+    @if (_errorMsg != null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_errorMsg</MudAlert>
+    }
+
+</MudForm>
+
+<MudDialogActions>
+    <MudButton OnClick="Cancel" Disabled="@_saving">Đóng</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)"
+               StartIcon="@Icons.Material.Filled.Save">
+        @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
+        Lưu
+    </MudButton>
+</MudDialogActions>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    // ExistingItem reserved for future Edit; currently only Create is implemented.
+    [Parameter]
+    public ProductListItemDto? ExistingItem { get; set; }
+
+    private bool IsEdit => ExistingItem is not null;
+
+    private readonly ProductCreateDto _model = new();
+    private readonly List<BarcodeRowDto> _barcodes = [new()];
+    private bool _memberPoints;
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+    private string? _barcodeError;
+
+    private List<ArticleTypeDto>   _articleTypes   = [];
+    private List<UnitOfMeasureDto> _unitOfMeasures = [];
+    private List<PosVatCodeDto>    _vatCodes       = [];
+
+    private string _actor = "unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+
+        try
+        {
+            var t1 = MdRepo.GetArticleTypesAsync();
+            var t2 = MdRepo.GetUnitOfMeasuresAsync();
+            var t3 = MdRepo.GetPosVatCodesAsync();
+            await Task.WhenAll(t1, t2, t3);
+            _articleTypes   = await t1;
+            _unitOfMeasures = await t2;
+            _vatCodes       = await t3;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("ProductDetailDialog.Init", ex);
+            _errorMsg = "Không thể tải danh sách dropdown. Vui lòng thử lại.";
+        }
+    }
+
+    private void AddBarcodeRow()
+    {
+        _barcodes.Add(new BarcodeRowDto());
+        _barcodeError = null;
+    }
+
+    private void RemoveBarcodeRow(int idx)
+    {
+        if (_barcodes.Count > 1)
+            _barcodes.RemoveAt(idx);
+    }
+
+    private string? ValidateBarcodeNo(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mã barcode";
+        if (!value.All(char.IsDigit)) return "Mã barcode phải là số";
+        return null;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        // Validate barcode rows (MudForm không cover dynamic list)
+        _barcodeError = null;
+        if (_barcodes.Count == 0 || _barcodes.All(b => string.IsNullOrWhiteSpace(b.BarcodeNo)))
+        {
+            _barcodeError = "Vui lòng nhập ít nhất 1 barcode";
+            return;
+        }
+        foreach (var bc in _barcodes)
+        {
+            if (string.IsNullOrWhiteSpace(bc.UnitOfMeasureCode))
+            {
+                _barcodeError = "Vui lòng chọn đơn vị tính cho tất cả barcode";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(bc.BarcodeNo) || !bc.BarcodeNo.All(char.IsDigit))
+            {
+                _barcodeError = "Mã barcode phải là số và không được để trống";
+                return;
+            }
+        }
+
+        _saving   = true;
+        _errorMsg = null;
+        try
+        {
+            _model.BlockedVINID = _memberPoints ? (byte)1 : (byte)0;
+            _model.CreatedUser  = _actor;
+            _model.Barcodes     = _barcodes;
+
+            var (success, itemNo, message) = await MdRepo.CreateProductAsync(_model);
+            if (success)
+                MudDialog.Close(DialogResult.Ok(itemNo));
+            else
+            {
+                _errorMsg = message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Lỗi hệ thống. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("ProductDetailDialog.Save", ex);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

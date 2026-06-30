@@ -1,18 +1,338 @@
 @page "/catalog/products"
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
+@implements IDisposable
 
+@using ClosedXML.Excel
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
 @using POS.Web.Auth
+@using POS.Web.Services
+
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IDialogService DialogService
 
 <PageTitle>Danh sách Sản phẩm / Barcode – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" Style="vertical-align:middle"/>
-    Danh sách Sản phẩm / Barcode
-</MudText>
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+}
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" Style="vertical-align:middle"/>
+        Danh sách Sản phẩm / Barcode
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Class="pos-page-header-btn"
+               OnClick="@(() => OpenDialogAsync(null))">
+        Thêm mới
+    </MudButton>
+</div>
+
+@* ── Filter panel ────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.ItemNo"
+                          Label="Mã sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.QrCode"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filter.ItemName"
+                          Label="Tên sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.BarcodeNo"
+                          Label="Barcode"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.CropFree"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filter.TaxCode"
+                       Label="Thuế suất"
+                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Disabled="@(_vatCodes.Count == 0)">
+                <MudSelectItem Value="@string.Empty">Tất cả</MudSelectItem>
+                @foreach (var vat in _vatCodes)
+                {
+                    <MudSelectItem Value="@(vat.Code ?? string.Empty)">
+                        @(vat.Description ?? vat.Code)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="SearchAsync" Disabled="@_searching"
+                           FullWidth="true">
+                    @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
+                    Tìm
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="ClearFilter"
+                           FullWidth="true">
+                    Xóa
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           OnClick="ExportExcelAsync"
+                           Disabled="@(_totalItems == 0 || _exporting)"
+                           FullWidth="true">
+                    Excel
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@* ── Error state ──────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_errorMsg</MudAlert>
+}
+
+@* ── Table ────────────────────────────────────────────────────────────────── *@
+<MudTable @ref="_table"
+          ServerData="ServerReloadAsync"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm"
+          HorizontalScrollbar="true"
+          Loading="@_searching"
+          Class="mb-4">
+    <NoRecordsContent>
+        <div class="d-flex flex-column align-center pa-6">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox" Style="font-size:3rem;color:#bbb" Class="mb-2"/>
+            <MudText Color="Color.Secondary">Không có dữ liệu phù hợp</MudText>
+        </div>
+    </NoRecordsContent>
+    <HeaderContent>
+        <MudTh Style="width:55px">STT</MudTh>
+        <MudTh>Mã SP</MudTh>
+        <MudTh>Mã SP PLG</MudTh>
+        <MudTh>Tên sản phẩm</MudTh>
+        <MudTh>Tên SP (VN)</MudTh>
+        <MudTh Style="width:80px">ĐVT</MudTh>
+        <MudTh>Barcode</MudTh>
+        <MudTh Style="width:90px">ĐVT BC</MudTh>
+        <MudTh Style="width:80px">Thuế suất</MudTh>
+        <MudTh>Mã cha</MudTh>
+        <MudTh Style="width:70px">Size</MudTh>
+        <MudTh Style="width:110px">Ngày cập nhật</MudTh>
+        <MudTh Style="width:55px"></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="STT">@context.ID</MudTd>
+        <MudTd DataLabel="Mã SP">@context.ItemNo</MudTd>
+        <MudTd DataLabel="Mã SP PLG">@context.ItemNo_PLG</MudTd>
+        <MudTd DataLabel="Tên sản phẩm">@context.ItemName1</MudTd>
+        <MudTd DataLabel="Tên SP (VN)">@context.ItemName2</MudTd>
+        <MudTd DataLabel="ĐVT">@context.SalesUnit</MudTd>
+        <MudTd DataLabel="Barcode">@context.BarcodeNo</MudTd>
+        <MudTd DataLabel="ĐVT BC">@context.BarcodeUnit</MudTd>
+        <MudTd DataLabel="Thuế suất">@context.TaxGroupCode</MudTd>
+        <MudTd DataLabel="Mã cha">@context.ParentCode</MudTd>
+        <MudTd DataLabel="Size">@context.Size</MudTd>
+        <MudTd DataLabel="Ngày cập nhật">@context.LastDateModifiedStr</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                           Size="Size.Small" Color="Color.Primary"
+                           Title="Chỉnh sửa (chưa hỗ trợ)"
+                           Disabled="true"/>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<ProductListItemDto> _table = null!;
+
+    private bool _loading   = true;
+    private bool _searching;
+    private bool _exporting;
+    private string? _errorMsg;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private readonly ProductListFilter _filter    = new();
+    private List<PosVatCodeDto>        _vatCodes  = [];
+    private int                         _totalItems;
+
+    private Task SearchAsync() => _table.ReloadServerData();
+
+    private async Task<TableData<ProductListItemDto>> ServerReloadAsync(TableState state, CancellationToken ct)
+    {
+        _searching    = true;
+        _errorMsg     = null;
+        _filter.PageSize   = state.PageSize;
+        _filter.PageNumber = state.Page;
+        try
+        {
+            var (items, total) = await MdRepo.GetProductListAsync(_filter, ct);
+            _totalItems = total;
+            return new TableData<ProductListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (OperationCanceledException)
+        {
+            return new TableData<ProductListItemDto> { Items = [], TotalItems = 0 };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Lỗi khi tải dữ liệu. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("ProductsPage.ServerReload", ex);
+            return new TableData<ProductListItemDto> { Items = [], TotalItems = 0 };
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    private void ClearFilter()
+    {
+        _filter.ItemNo    = string.Empty;
+        _filter.ItemName  = string.Empty;
+        _filter.BarcodeNo = string.Empty;
+        _filter.TaxCode   = string.Empty;
+        _errorMsg = null;
+        _ = _table.ReloadServerData();
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (_totalItems == 0) return;
+        _exporting = true;
+        try
+        {
+            var allRows = await MdRepo.ExportProductListAsync(_filter);
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("ProductList");
+
+            var headers = new[]
+            {
+                "Mã sản phẩm", "Mã SP PLG", "Tên sản phẩm", "Tên SP (VN)",
+                "Đơn vị tính", "Barcode", "ĐVT Barcode", "Thuế suất",
+                "Mã cha", "Size", "Ngày cập nhật"
+            };
+            for (var c = 0; c < headers.Length; c++)
+                ws.Cell(1, c + 1).Value = headers[c];
+            var headerRange = ws.Range(1, 1, 1, headers.Length);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#b1afaf");
+
+            for (var i = 0; i < allRows.Count; i++)
+            {
+                var r   = allRows[i];
+                var row = i + 2;
+                ws.Cell(row,  1).Value = r.ItemNo              ?? "";
+                ws.Cell(row,  2).Value = r.ItemNo_PLG          ?? "";
+                ws.Cell(row,  3).Value = r.ItemName1           ?? "";
+                ws.Cell(row,  4).Value = r.ItemName2           ?? "";
+                ws.Cell(row,  5).Value = r.SalesUnit           ?? "";
+                ws.Cell(row,  6).Value = r.BarcodeNo           ?? "";
+                ws.Cell(row,  7).Value = r.BarcodeUnit         ?? "";
+                ws.Cell(row,  8).Value = r.TaxGroupCode        ?? "";
+                ws.Cell(row,  9).Value = r.ParentCode          ?? "";
+                ws.Cell(row, 10).Value = r.Size                ?? "";
+                ws.Cell(row, 11).Value = r.LastDateModifiedStr ?? "";
+            }
+
+            ws.Columns().AdjustToContents();
+
+            using var ms     = new MemoryStream();
+            wb.SaveAs(ms);
+            var bytes    = ms.ToArray();
+            var fileName = $"ProductList_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            await JS.SaveAsFileAsync(fileName, bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+            FileLogger.WriteExpLogs("ProductsPage.Export", ex);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private string _actor = "unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+        try
+        {
+            _vatCodes = await MdRepo.GetPosVatCodesAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("ProductsPage.Init", ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenDialogAsync(ProductListItemDto? item)
+    {
+        var dialog = await DialogService.ShowAsync<ProductDetailDialog>(
+            item is null ? "Thêm mới sản phẩm" : $"Chỉnh sửa: {item.ItemNo}",
+            new DialogParameters<ProductDetailDialog>
+            {
+                { x => x.ExistingItem, item }
+            },
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Large, FullWidth = true,
+                CloseButton = true, CloseOnEscapeKey = true, BackdropClick = false
+            });
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            var newItemNo = result.Data as string;
+            if (!string.IsNullOrEmpty(newItemNo))
+                Snackbar.Add($"Tạo thành công sản phẩm: {newItemNo}", Severity.Success);
+            await _table.ReloadServerData();
+        }
+    }
+
+    public void Dispose() { }
+}
