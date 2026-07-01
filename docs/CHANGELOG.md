@@ -6,6 +6,152 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-01] UI polish + tài liệu luồng Duyệt — Cài đặt CTKM (PromotionSetupPage)
+
+**Layer:** POS.Web
+**Loại:** Refactor (UI polish, markup-only) + Tài liệu
+
+**Thay đổi:**
+- `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor` (editor mode, **chỉ markup — giữ 100% `@code`**):
+  - MudTabs: `Outlined` + `SliderColor="Color.Primary"` → icon tabs có gạch chân dưới tab active.
+  - Gom nhóm cả 5 tab bằng `MudCard` (CardHeader avatar + title + caption + help tooltip); bảng Buy/Get/Site bọc trong card với MudTable `Elevation="0"`.
+  - Tooltip + `HelperText` giải thích field khó; tooltip cột "Loại chiết khấu"/"Giá trị CK"; tooltip điều kiện AND/OR.
+  - Validation trực quan: `Required`/`RequiredError` (Tên/Loại/Hình thức bán/Từ-Đến ngày) — KHÔNG chặn Save.
+  - Nút Lưu có spinner khi `_saving`; ô "Điều kiện" (Buy/Get) `max-width` 160→240px.
+- `docs/web/LOGIC_APPROVE_CTKM.md` (mới): tài liệu kỹ thuật luồng "Duyệt CTKM" UI→Service→Repo→SP `usp_SetupPromotion_Approve`→publish `Setup_Promotion_Insert`→`Offer*`; kèm bảng mapping `SetupPromotion*`→`Offer*`.
+
+**Pattern mới:** Polish thân thiện End-user (MudCard + tooltip + `Required` visual + nút loading v9) → đã cập nhật `.claude/skills/web/ui-migrate-legacy.md` §8.
+
+**Lưu ý cho session sau:**
+- MudBlazor v9 **không có** `MudButton Loading` — dùng `MudProgressCircular` trong content theo cờ `_saving`.
+- Bọc `MudTable` trong `MudCard` phải đặt `Elevation="0"` cho table (tránh 2 lớp bóng).
+- `Required`/`RequiredError` chỉ báo trực quan; validation chặn thật vẫn ở server (SaveAsync không đổi).
+
+---
+
+## [2026-07-01] Migrate 8.3 Danh mục Voucher (Full CRUD) + 8.4 Tra cứu Voucher phát hành
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web
+**Loại:** Feature
+
+**Thay đổi:**
+- `docs/sql/SetupVoucher_Read.sql` / `SetupVoucher_Save.sql` / `SetupVoucher_Delete.sql`: SP mới (CentralMD) — GetList/GetDetail, TVP `VoucherLineTVP` + Save (upsert header + replace lines), Delete. **8.4 KHÔNG tạo SP** — reuse `[dbo].[GetTransCpnVchIssueList]` có sẵn trên CentralSales.
+- `src/POS.Common/Dtos/Voucher/SetupVoucherDtos.cs`: DTOs 8.3 (VoucherListFilter/ListItem/Detail/Line/SaveRequest/SaveResult/FormLookup) + 8.4 (VoucherPublishedFilter/Item).
+- `src/POS.Infrastructure/Repositories/CouponVoucher/`: `IVoucherRepository`/`VoucherRepository` (CentralMD, Dapper SP) + `IVoucherPublishedRepository`/`VoucherPublishedRepository` (StoreRoutedConnectionFactory per-store) + DI.
+- `src/POS.Application/Features/CouponVoucher/`: `IVoucherService`/`VoucherService` (validate serial/ngày/items, item search reuse `GetProductListAsync`) + `IVoucherPublishedService`/`VoucherPublishedService` (thin) + DI.
+- `src/POS.Web/.../CouponVoucher/VouchersPage.razor` (8.3 list+CRUD+Export), `VouchersPublishedPage.razor` (8.4 lookup+Export, store picker bắt buộc), `Dialogs/VoucherFormDialog.razor` + `VoucherItemPickerDialog.razor`.
+- `tests/POS.ContractTests/JsonFieldContractTests.cs`: khóa field `VoucherListItemDto` + `VoucherPublishedItemDto`.
+- `docs/ROLLOUT.md` §D4; `_migration/PROGRESS.md` 8.3/8.4 → ✅.
+
+**Pattern mới:** không (bám pattern 3 lớp của Coupon 8.1/8.2 + per-store read của CentralSaleRepository) → KHÔNG cập nhật SKILLS.
+
+**Lưu ý cho session sau:**
+- ⚠️ **`IsCheckItem` NGƯỢC nghĩa giữa Voucher và Coupon:** Voucher `true`=tổng bill (KHÔNG có line), `false`=theo sản phẩm (có line). Coupon thì ngược. Đừng copy nhầm logic giữa 2 module.
+- ⚠️ **ItemNo voucher = SỐ THUẦN** seed `70000001` (khác coupon `C7...`). SP chỉ `MAX` trên ItemNo thuần số (bỏ mã 'C...') — nếu không sẽ lỗi CAST như legacy `int.Parse(Max)`.
+- Voucher & Coupon **dùng chung bảng `CpnVchBOMHeader`/`CpnVchBOMLine`** — phân tách bằng `NOT EXISTS CpnVchBOMIssueRule` (voucher = không có IssueRule). **Cần DBA xác nhận** quy tắc này + prefix ItemNo + filter "Loại"=ArticleType (đã đánh dấu `// TODO` trong SP).
+- 8.4 cần SP `[dbo].[GetTransCpnVchIssueList]` tồn tại trên mọi server CentralSales; Resend-SAP **đã hoãn** (phase sau).
+
+---
+
+## [2026-07-01] Migrate 8.1 Cài đặt Coupon + 8.2 Phát hành Coupon
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web
+**Loại:** Feature
+
+**Thay đổi:**
+- `docs/sql/SetupCoupon_Read.sql` / `SetupCoupon_Save.sql` / `SetupCoupon_Delete.sql`: SP mới (CentralMD) — GetList/GetCodes/GetDetail, 2 TVP (`CouponCodeTVP`, `CouponLineTVP`) + CheckCodesExist/SaveIssue/SaveAdvanced, Delete (guard QtyCoupon==0). Legacy dùng EF LINQ (INVENTORY ghi `sp_SetupCoupon_Get` là SAI).
+- `src/POS.Common/Dtos/SetupCoupon/SetupCouponDtos.cs` + 2 contract fact.
+- `src/POS.Infrastructure/Repositories/CouponVoucher/ICouponRepository`/`CouponRepository` + DI.
+- `src/POS.Application/Features/CouponVoucher/ICouponService`/`CouponService` (sinh mã Auto + validate + parse Excel Import) + DI.
+- `src/POS.Web/.../CouponVoucher/CouponsPage.razor` (8.1 list+xóa), `CouponIssuePage.razor` (8.2 phát hành Auto/Import + nâng cao + tab mã), `Dialogs/CouponItemPickerDialog` + `CouponAdvancedDialog`.
+- `docs/web/coupon-flow.md`: tài liệu kiểm thử QA (12 điểm yếu code E1–E12).
+
+**Pattern mới:** không → KHÔNG cập nhật SKILLS.
+
+**Lưu ý cho session sau:**
+- Sinh mã Auto ở tầng Application (C#, thay `Thread.Sleep(1)` legacy bằng offset theo index để mã duy nhất, không block). SP chỉ nhận danh sách mã qua TVP.
+- Item picker tái dùng `ICentralMDRepository.GetProductListAsync` (6.1).
+- Tài liệu QA `docs/web/coupon-flow.md` liệt kê điểm yếu (dual-write Advanced, audit oldValue sai, mất item ngầm, Quantity không chặn trần…) — dev nên vá dần.
+
+---
+
+## [2026-07-01] Fix BankPosPage/BankPosDetailDialog — sai tên bảng vật lý, SP param sai, crash circuit
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Web
+**Loại:** Bug fix + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`:
+  - `GetBankPOSListAsync`: SP `[dbo].[GetBankPOSList]` KHÔNG có tham số `@Export` (đã tồn tại sẵn từ
+    legacy, không phải SP mới) — code cũ truyền dư 1 param → "too many arguments". Sửa lại đúng 6 param
+    `@StoreNo,@TextSearch,@BankCode,@Status,@PageSize,@PageNumber`; SP trả `IsOnline`/`Status` dạng text
+    tiếng Việt (IIF) và `Counter`/ngày đã format sẵn thành chuỗi — thêm `BankPOSListRow` map riêng rồi
+    convert sang kiểu UI cần (xem pattern mới bên dưới).
+  - `SaveBankPOSAsync`/`DeleteBankPOSAsync`: sửa tên bảng sai `dbo.POSTerminalBanks` (số nhiều — thực ra
+    là tên EF DbSet) → `dbo.POSTerminalBank` (tên bảng vật lý thật, xác minh qua legacy EDMX).
+  - `GetBankListForDropdownAsync`: sửa tên bảng sai `dbo.Banks` → `dbo.Bank` (cùng lỗi class với trên).
+- `src/POS.Common/Dtos/CentralMD/BankPOSDto.cs`: `BankPOSListDto` thêm `StoreName`, `StatusText`;
+  `Counter`/`CreatedDateStr`/`UpdatedDateStr` đổi sang `string?` (khớp kiểu SP thực trả) — giữ `Status`
+  là `int` (không đổi) để form Edit round-trip đúng kiểu khi Save.
+- `src/POS.Web/Components/Pages/Catalog/PosDevices/BankPosPage.razor`: `LoadDataAsync` — bỏ
+  `Task.WhenAll` + 1 try/catch chung → await + try/catch riêng từng nguồn (BankPOS list / Store list /
+  Bank list) để 1 nguồn lỗi không xoá luôn dropdown Cửa hàng/Ngân hàng; cột "Cửa hàng" hiển thị thêm
+  `StoreName`; Excel export cập nhật theo DTO mới.
+- `src/POS.Web/Components/Pages/Catalog/PosDevices/BankPosDetailDialog.razor`: `OnInitializedAsync` —
+  cùng sửa như trên (await + try/catch riêng từng task) vì exception chưa bắt trong lifecycle method
+  của dialog làm SẬP LUÔN circuit Blazor Server (không chỉ riêng dialog) → Lưu/Hủy không gọi được nữa,
+  console chỉ thấy lỗi phụ `mudResizeListener.js: Cannot send data if the connection is not in the
+  'Connected' State` (JS interop đầu tiên bắn ra sau khi circuit đã chết, không phải nguyên nhân gốc).
+
+**Pattern mới:**
+- Xác minh tên bảng vật lý qua legacy EDMX (SSDL, không phải CSDL/DbSet pluralized) trước khi viết raw
+  SQL nhắm bảng cũ → đã cập nhật `.claude/skills/api/SKILLS.md`
+- Map SP trả cột đã format/localize sẵn (khác kiểu bảng vật lý) qua row riêng rồi convert → đã cập nhật
+  `.claude/skills/api/SKILLS.md`
+- Load nhiều nguồn độc lập trong `OnInitializedAsync` (page lẫn dialog) — await + try/catch riêng từng
+  task để tránh crash circuit → đã cập nhật `.claude/skills/web/SKILLS.md`
+
+**Lưu ý cho session sau:**
+- `BankPOSListDto.PartnerId` vẫn khai báo trên DTO nhưng SP gốc người dùng cung cấp KHÔNG SELECT cột
+  này — user đã đồng ý tự thêm `B.[PartnerId]` vào SELECT của SP khi deploy; code đã map sẵn field này,
+  không cần sửa gì thêm khi SP được cập nhật.
+- DB DEV (`RPOSMasterData`) thiếu nhiều SP khác không liên quan BankPOS (`usp_SpecialCombo_GetList`,
+  `SP_SALES_BY_STORE_BUSSINESS_DATE`, `GET_REVENUE_ORDER_SALES_BY_STAFF`, `dbo.OptionData`) — user tự
+  đồng bộ DB, không phải việc sửa code.
+- Khi debug lỗi tương tự (page/dialog "im lặng" không thao tác được, console chỉ có lỗi JS interop
+  chung chung) → luôn kiểm tra `D:\ROOT\Logs\POS.Web\Exception\log-{yyyyMMdd}.txt` trước, đây là cách
+  nhanh nhất tìm exception gốc thay vì đoán từ console browser.
+
+---
+
+## [2026-07-01] Fix Sidebar (MainLayout) — accordion collapse sai + active highlight trùng
+
+**Layer:** POS.Web
+**Loại:** Bug fix
+
+**Thay đổi:**
+- `src/POS.Web/Components/Layout/MainLayout.razor`:
+  - `UpdateExpanded()`: bổ sung 2 route bị thiếu trong điều kiện `Contains(...)` — `/catalog/pos-setup`
+    (thiếu trong `_expandCatPos`) và `/catalog/stores` (thiếu trong `_expandCatOrg`). Vì toàn bộ state
+    accordion được tính lại từ URI mỗi lần navigate (không giữ trạng thái cũ), thiếu 1 route khiến
+    điều hướng tới route đó không match nhánh nào — accordion sụp về false ở MỌI cấp, nhìn như "chọn
+    menu thì tất cả menu bị thu lại".
+  - Thêm `Match="NavLinkMatch.All"` vào toàn bộ `MudNavLink` (kể cả các link đang comment) — mặc định
+    `NavLinkMatch.Prefix` khiến route ngắn (`/promotion/coupons`) bị đánh dấu active luôn khi đang ở
+    route dài hơn cùng tiền tố (`/promotion/coupons/issue`), gây 2 leaf link cùng sáng active. Cùng
+    lỗi class cũng ảnh hưởng nhóm `/store/revenue*` (chưa được user báo cáo nhưng đã fix luôn).
+
+**Pattern mới:** đã cập nhật ví dụ + anti-pattern trong section "Sidebar nav (MainLayout) — 3 cấp" của
+`.claude/skills/web/SKILLS.md` (thêm `Match="NavLinkMatch.All"` vào code mẫu + cảnh báo thiếu route).
+
+**Lưu ý cho session sau:**
+- Mỗi khi thêm `MudNavLink` mới vào sidebar, BẮT BUỘC thêm route đó vào đúng điều kiện `Contains(...)`
+  tương ứng trong `UpdateExpanded()` — nếu không sẽ tái diễn lỗi accordion collapse toàn bộ.
+- `_expandCatPay`/`_expandCatMisc` là dead code (markup 2 group tương ứng đang bị comment) — chưa dọn,
+  để nguyên vì không ai yêu cầu, không ảnh hưởng hành vi.
+
+---
+
 ## [2026-06-30] Migrate 6.4 — Product Lock (Khóa/Mở khóa sản phẩm theo cửa hàng)
 
 **Layer:** POS.Common, POS.Infrastructure, POS.Web

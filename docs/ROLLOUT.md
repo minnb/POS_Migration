@@ -12,8 +12,11 @@
 | H2 | AllowedHosts | Đặt domain dashboard thật thay cho `"*"` | HIGH | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | H1 | SQL Console | Cân nhắc `Security:EnableSqlConsole=false` | HIGH | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | O1 | Master data sync (POS.Api) | Đảm bảo `FtpRootPath` ghi được + tinh chỉnh `MasterDataSync` | MEDIUM | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
+| O2 | File import worker (POS.Worker) | Tạo 3 thư mục inbox/error/_work + cấp quyền ghi + điền path `FileImport` | MEDIUM | [§O2](#o2--worker-nạp-sale-từ-file-zip-posworker) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
+| D3 | SP Setup Coupon (8.1/8.2) | Chạy 3 script SQL tạo SP + TVP trên CentralMD | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
+| D4 | SP Voucher (8.3) + reuse (8.4) | Chạy 3 script SQL tạo SP + TVP trên CentralMD; 8.4 tái dùng SP CentralSales | REQUIRED (cho `/promotion/vouchers`) | [§D4](#d4--stored-procedures-voucher-8384) |
 
 ---
 
@@ -199,6 +202,48 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 
 ---
 
+## O2 — Worker nạp sale từ file .zip (POS.Worker)
+
+> `PosFileImportWorker` là **đường nạp sale thứ hai** (song song với `PosSalesConsumerWorker` đọc RabbitMQ).
+> Worker quét `InboxFolder`, gặp `.zip` thì giải nén ra các `.txt` (mỗi file = 1 `KafkaMessageDto`) và insert DB
+> qua đúng luồng `ICentralSaleRepository.InInsertToTableByJson` (source = `FILE` để truy vết trong `DataRawJson`).
+
+- **Tạo 3 thư mục** (theo path đã cấu hình) trên host chạy POS.Worker + **cấp quyền ghi** cho service account:
+  - `InboxFolder` — nơi hệ thống nguồn đặt file `.zip` cần nạp.
+  - `ErrorFolder` — worker move zip **xử lý thất bại** vào đây (giữ để retry/audit thủ công; worker **không** tự quét lại).
+  - `WorkFolder` — thư mục temp giải nén (rỗng → mặc định `{InboxFolder}/_work`). Được dọn sau mỗi file.
+  - Docker (UAT/PROD): mount volume cho `/app/fileimport/{inbox,error,_work}`.
+- **Section `"FileImport"`** trong `appsettings` từng môi trường (giá trị mặc định chạy được, chỉ chỉnh path là bắt buộc):
+  ```json
+  "FileImport": {
+    "Enabled": true,
+    "InboxFolder": "D:\\ROOT\\FILEIMPORT\\inbox",
+    "ErrorFolder": "D:\\ROOT\\FILEIMPORT\\error",
+    "WorkFolder": "D:\\ROOT\\FILEIMPORT\\_work",
+    "FileFilter": "*.zip",
+    "PollIntervalSeconds": 30,
+    "StableSeconds": 10,
+    "MaxFilesPerCycle": 20,
+    "Source": "FILE"
+  }
+  ```
+  - `Enabled`: đặt `false` để tắt worker (worker idle, không quét).
+  - `StableSeconds`: bỏ qua zip mới ghi trong N giây (tránh nhận file đang upload dở). Tăng nếu nguồn ghi file chậm.
+  - `PollIntervalSeconds`: chu kỳ quét; `MaxFilesPerCycle`: số zip xử lý tối đa mỗi vòng.
+- **Định dạng file `.txt`** (BẮT BUỘC đúng để insert được):
+  - **Tên file**: `Type_PosNo_TransactionId.txt` → worker tách lấy `Type`, `PosNo`, `TransactionId`;
+    `StoreNo = LEFT(PosNo, 4)` (dùng route DB shard). Tên sai định dạng → file bị bỏ qua (log warning).
+  - **Nội dung file**: JSON `{Type, Data}` (payload `KafkaMessagePOS` — chính là phần `Message` của
+    message RabbitMQ, KHÔNG phải envelope `KafkaMessageDto`). Toàn bộ nội dung được truyền nguyên làm
+    `message` cho SP `Sale_InsertDataByOrder_KAFKA`.
+  - Zip không có `.txt`, tên file sai, hoặc SP báo lỗi → có ≥1 record lỗi → zip vào `ErrorFolder`.
+- **Vòng đời zip**: xử lý **toàn bộ .txt OK** → xóa zip; có **≥1 record lỗi** → move zip sang `ErrorFolder` (tên gắn timestamp+guid).
+- **Đa-instance**: worker "claim" zip bằng `File.Move` khỏi inbox trước khi xử lý → an toàn khi chạy nhiều instance chung thư mục
+  (instance không claim được sẽ bỏ qua). Không cần khóa ngoài.
+- **Giám sát**: heartbeat ghi Redis key **`Worker:Heartbeat:PosFileImport`** (TTL ~3× interval) — dùng cho trang Ops theo dõi worker.
+
+---
+
 ## D1 — Stored Procedures Cài đặt CTKM (11.1)
 
 > Trang `GET /promotion/setup` (POS.Web) lưu/duyệt CTKM qua các SP dưới đây trên **CentralMD (RPOSMasterData)**.
@@ -209,10 +254,15 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
     (upsert header + replace Buy/Get/Site theo BBYNR, transaction). **Phase 2: `usp_SaveSetupCTKMAll` đã thêm tham số
     advanced** (LimitQty/MemberOnly/MemberCode/Priority/NumOfDays/Voucher*) → **chạy lại script này** để cập nhật proc
     (idempotent: tự DROP/CREATE). TVP không đổi.
+    **Fix 2026-07-01:** nhánh INSERT header (tạo mới) giờ tự kiểm tra `sys.columns.is_identity` cho cột `ID` trước khi
+    insert — trước đó giả định `ID` luôn là IDENTITY (theo EDMX legacy) nên môi trường nào có `ID` không phải IDENTITY
+    sẽ lỗi `Cannot insert the value NULL into column 'ID'`. **Chạy lại script này** trên các môi trường đã deploy bản cũ.
   - `docs/sql/SetupPromotion_ApproveAndStatus.sql` — `dbo.usp_SetupPromotion_Approve` (đánh dấu duyệt + EXEC `Setup_Promotion_Insert` publish sang Offer*) và `dbo.usp_SetupPromotion_UpdateStatus`.
 - **SP tái dùng (đã có, không tạo lại):** `[dbo].[Setup_Promotion_Insert] @BBY`.
 - **Nếu chưa chạy script** → trang báo lỗi khi Lưu/Duyệt (SP không tồn tại). Repository nuốt lỗi, hiện snackbar đỏ.
 - Cột INSERT bám đúng schema legacy; nếu sau này `SetupPromotionHEADER` thêm cột NOT NULL mới → cập nhật `usp_SaveSetupCTKMAll`.
+- **Lưu ý tên bảng:** bảng nhóm cửa hàng vật lý là `dbo.SetupGroupSite` (số ít) — tên DbSet EF legacy `SetupGroupSites`
+  (số nhiều) chỉ là tên property C#, không phải tên bảng SQL thật.
 
 ---
 
@@ -228,6 +278,49 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   - `docs/sql/SpecialCombo_Status.sql` — `usp_SpecialCombo_UpdateStatus` (bật/tắt), `usp_SpecialCombo_Delete` (xóa header+lines+stores).
 - **Nếu chưa chạy** → trang báo lỗi khi tải/lưu (SP không tồn tại); repository nuốt lỗi, hiện snackbar đỏ.
 - Code combo auto-gen phía repository (`S{yyyyMMddHHmmss}`) khi tạo mới; sửa thì giữ Code cũ.
+
+---
+
+## D3 — Stored Procedures Setup Coupon (8.1/8.2)
+
+> Trang `GET /promotion/coupons` (list + xóa) và `/promotion/coupons/issue` (phát hành + nâng cao) đọc/ghi
+> qua các SP dưới đây trên **CentralMD (RPOSMasterData)**. 5 bảng `CpnVchBOMIssueRule`, `CpnVchBOMHeader`,
+> `CpnVchBOMCodeIssue`, `CpnVchBOMLine`, `CpnVchBOMStore` được xác nhận **đã có sẵn**.
+> ⚠️ Legacy dùng **EF LINQ trực tiếp** (không có SP) — các SP dưới đây là **mới**, viết lại cho .NET 10.
+
+- **BẮT BUỘC chạy 3 script** trên `RPOSMasterData` trước khi dùng trang:
+  - `docs/sql/SetupCoupon_Read.sql` — `usp_SetupCoupon_GetList` (list + paging, join IssueRule+Header, Status
+    theo Blocked/EndingDate), `usp_SetupCoupon_GetCodes` (mã coupon theo ItemNo), `usp_SetupCoupon_GetDetail`
+    (header+rule + danh sách sản phẩm — dùng khi sửa).
+  - `docs/sql/SetupCoupon_Save.sql` — 2 TYPE TVP (`CouponCodeTVP`, `CouponLineTVP`) +
+    `usp_SetupCoupon_CheckCodesExist` (check trùng mã) + `usp_SetupCoupon_SaveIssue` (upsert IssueRule+Header,
+    insert Codes 1 lần, replace Lines/Stores, tự sinh ItemNo `C7...`, transaction) +
+    `usp_SetupCoupon_SaveAdvanced` (upsert field nâng cao: discount/limit/blocked...).
+  - `docs/sql/SetupCoupon_Delete.sql` — `usp_SetupCoupon_Delete` (guard: chỉ xóa khi QtyCoupon==0, trả Deleted+Message).
+- **Sinh mã Auto** chạy ở tầng Application (`CouponService`, C#) — không nằm trong SP; SP chỉ nhận danh sách mã qua TVP.
+- **Nếu chưa chạy script** → trang báo lỗi khi tải/lưu/xóa (SP không tồn tại); service nuốt lỗi, hiện snackbar đỏ.
+- Store áp dụng: `StoreGroupCode='ALL'` → 1 dòng `StoreNo='ALL'`; ngược lại bung theo `dbo.StoreGroup` (GroupCode).
+
+---
+
+## D4 — Stored Procedures Voucher (8.3/8.4)
+
+> Trang `/promotion/vouchers` (8.3 CRUD) và `/promotion/vouchers-published` (8.4 tra cứu).
+> ⚠️ 8.3 dùng CHUNG bảng `CpnVchBOMHeader`/`CpnVchBOMLine` với Coupon (8.1/8.2) — phân tách bằng
+> **NOT EXISTS CpnVchBOMIssueRule** (voucher = nhập serial thủ công; coupon = có sinh mã). Legacy dùng EF LINQ,
+> các SP dưới đây là **mới**.
+
+- **BẮT BUỘC chạy 3 script** trên `RPOSMasterData` trước khi dùng trang 8.3:
+  - `docs/sql/SetupVoucher_Read.sql` — `usp_SetupVoucher_GetList` (filter + paging, lọc NOT EXISTS IssueRule),
+    `usp_SetupVoucher_GetDetail` (header + sản phẩm áp dụng).
+  - `docs/sql/SetupVoucher_Save.sql` — TVP `dbo.VoucherLineTVP` + `usp_SetupVoucher_Save` (upsert header + replace
+    lines, transaction). **ItemNo voucher = số thuần seed 70000001** (bỏ qua mã coupon 'C...'). **Serial (CouponCode)
+    bắt buộc duy nhất.** **IsCheckItem=1 → tổng bill (no lines); =0 → theo sản phẩm** (NGƯỢC nghĩa coupon).
+  - `docs/sql/SetupVoucher_Delete.sql` — `usp_SetupVoucher_Delete` (xóa header + lines).
+- **8.4 KHÔNG cần SP mới** — tái dùng SP có sẵn **`[dbo].[GetTransCpnVchIssueList]` trên CentralSales**
+  (đọc `TransCpnVchIssue`, routed per-store qua `StoreRoutedConnectionFactory`). Đảm bảo SP này tồn tại trên
+  mọi server CentralSales. StoreNo là **bắt buộc**; `@Export=1` (paging) / `=2` (export). Resend-SAP: **HOÃN** (phase sau).
+- **Nếu chưa chạy** → trang báo lỗi khi tải/lưu; service nuốt lỗi, hiện snackbar/banner đỏ.
 
 ---
 

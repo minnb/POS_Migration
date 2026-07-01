@@ -12,6 +12,7 @@
 
 | File | Đọc khi |
 |---|---|
+| **`.claude/skills/web/form-input.md`** | **Thiết kế form nhập liệu (MudCard section + MudGrid + validation trực quan)** |
 | `.claude/skills/web/filter-store.md` | Thêm combobox lọc cửa hàng vào page |
 | `.claude/skills/web/datatable.md` | Tạo bảng dữ liệu (MudTable) — client/server/dynamic |
 | `.claude/skills/web/charts.md` | Thêm biểu đồ Line/Bar (MudBlazor v9) |
@@ -587,7 +588,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Inject `IDbConnectionFactory` (interface) → phải inject concrete: `CentralMDConnectionFactory`
 - ❌ Không có `_loading` state → UI trắng khi chờ data, UX xấu
 - ❌ Không filter row-level với `StoreAndAbove` → lộ data cửa hàng khác cho StoreOperator
-- ❌ Bỏ `try/catch` trong `OnInitializedAsync` → crash cả page, không có error message
+- ❌ Bỏ `try/catch` trong `OnInitializedAsync` → **không chỉ crash page**: exception chưa bắt trong lifecycle method làm SẬP LUÔN circuit Blazor Server (SignalR) — mọi tương tác sau đó (kể cả dialog khác đang mở) fail với lỗi JS `"Cannot send data if the connection is not in the 'Connected' State"`. Xem pattern bên dưới khi `OnInitializedAsync` gọi nhiều nguồn độc lập.
 - ❌ Gọi `SignInAsync` trong Blazor InteractiveServer component → phải dùng bridge token (xem Auth flow)
 - ❌ Dùng `<MudChart ChartType="...">` (v8 syntax) → compile error với MudBlazor 9.5.0
 - ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
@@ -630,6 +631,70 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 }
 ```
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`
+
+---
+
+### Pattern: Load nhiều nguồn độc lập trong `OnInitializedAsync` — tránh crash circuit
+> Áp dụng khi: page/dialog cần load ≥2 nguồn dữ liệu ĐỘC LẬP (list chính + dropdown/lookup, hoặc
+> ≥2 dropdown/lookup không liên quan nhau — vd danh sách cửa hàng + danh sách ngân hàng + danh sách
+> loại hàng) lúc khởi tạo.
+> Rút ra từ sự cố thực tế (lặp lại **5 lần** trong 1 session — `BankPosPage`, `BankPosDetailDialog`,
+> `ProductDetailDialog`, `SpecialComboPage`, `PromotionSetupPage`): nhiều lệnh `await` (dù chạy song
+> song qua `Task.WhenAll` hay chạy tuần tự từng dòng — **hai cách đều lỗi y hệt nhau**) nằm trong
+> 1 `try/catch` DUY NHẤT. Chỉ 1 nguồn lỗi (SP/bảng thiếu ở môi trường DEV) làm exception ném ra giữa
+> chừng — các dòng SAU nó KHÔNG BAO GIỜ CHẠY, nên dropdown tương ứng trống dù bản thân nguồn đó lẽ ra
+> load được bình thường. Nếu method KHÔNG có `try/catch` bao ngoài nào cả (hay chỉ page có, dialog
+> quên) → exception chưa bắt trong lifecycle method còn làm sập luôn CIRCUIT Blazor Server, không
+> riêng gì phần data bị lỗi.
+
+**Cách nhận diện "độc lập" (PHẢI tách try/catch) vs "cùng 1 báo cáo" (được dùng chung 1 catch):**
+
+| Tình huống | Độc lập hay cùng báo cáo? | Xử lý |
+|---|---|---|
+| `_articleTypes` + `_unitOfMeasures` + `_vatCodes` cho 3 dropdown KHÁC NHAU trong form | Độc lập | Tách 3 try/catch |
+| `_salesTypes` + `_memberCodes` + `_allStores` cho 3 filter/dropdown KHÁC NHAU | Độc lập | Tách 3 try/catch |
+| Summary + Detail list của CÙNG 1 domain (vd DataRawLog summary + DataRawLog list) | Cùng báo cáo | 1 try/catch OK |
+| Kỳ hiện tại + kỳ so sánh của CÙNG 1 metric (vd Revenue kỳ này + kỳ trước) | Cùng báo cáo | 1 try/catch OK |
+| Order lines + payment entries của CÙNG 1 đơn hàng (dialog chi tiết giao dịch) | Cùng báo cáo | 1 try/catch OK |
+
+Quy tắc nhanh: nếu 2 nguồn dữ liệu đến từ 2 **domain nghiệp vụ khác nhau** (cửa hàng vs ngân hàng vs
+loại hàng vs hạng thẻ...) và feed vào 2 **control UI khác nhau** — tách. Nếu chúng chỉ là 2 GÓC NHÌN
+của CÙNG 1 dữ liệu/báo cáo (chi tiết vs tổng hợp, kỳ này vs kỳ trước) — gộp 1 catch là hợp lý, vì cả
+trang/dialog vốn dĩ vô nghĩa nếu thiếu 1 trong 2.
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    // Await + try/catch RIÊNG từng nguồn ĐỘC LẬP — 1 nguồn lỗi không kéo sập các nguồn khác,
+    // và quan trọng nhất: không để exception thoát khỏi OnInitializedAsync (circuit crash).
+    // Sai y hệt nếu viết tuần tự 3 dòng await trong CÙNG 1 try — không liên quan gì Task.WhenAll.
+    try { _stores = await Repo.GetStoreListAsync(); }
+    catch (Exception ex)
+    {
+        FileLogger.WriteExpLogs("MyPage.LoadStores", ex);
+        Snackbar.Add("Không tải được danh sách cửa hàng.", Severity.Warning);
+    }
+
+    try { _banks = await Repo.GetBankListAsync(); }
+    catch (Exception ex)
+    {
+        FileLogger.WriteExpLogs("MyPage.LoadBanks", ex);
+        Snackbar.Add("Không tải được danh sách ngân hàng.", Severity.Warning);
+    }
+}
+```
+
+**Quan trọng:**
+- Áp dụng cho CẢ page lẫn dialog con (`MudDialog` component) — dialog dễ bị bỏ sót vì hay copy pattern gọn (1 try bọc hết) nhưng không có `try/catch` bao ngoài như page.
+- KHÔNG dùng `await Task.WhenAll(taskA, taskB)` rồi `try/catch` bao NGOÀI `WhenAll` nếu muốn 1 nguồn lỗi không ảnh hưởng nguồn còn lại — `WhenAll` ném exception của task đầu tiên fail, các task còn lại tuy vẫn chạy xong nhưng `.Result` không bao giờ được gán vì nằm sau dòng `await` đã throw.
+- KHÔNG chỉ nhìn `Task.WhenAll` khi rà soát code cũ — search cả các `OnInitializedAsync` có ≥2 dòng `await Repo.GetXxxAsync()` tuần tự trong 1 try, feed vào ≥2 field khác nhau.
+- Nếu component đã có sẵn kiểu báo lỗi khác (vd `Snackbar.Add(...)` đã dùng ở method khác trong CÙNG file) → dùng lại kiểu đó cho nhất quán, không cần thêm field `_errorMsg` + `MudAlert` mới nếu file chưa có.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/PosDevices/BankPosPage.razor` (`LoadDataAsync`),
+> `src/POS.Web/Components/Pages/Catalog/PosDevices/BankPosDetailDialog.razor` (`OnInitializedAsync`),
+> `src/POS.Web/Components/Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor` (`OnInitializedAsync`),
+> `src/POS.Web/Components/Pages/Promotion/Offers/SpecialComboPage.razor` (`OnInitializedAsync`),
+> `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor` (`OnInitializedAsync`)
 
 ---
 
@@ -736,9 +801,9 @@ Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (def
 <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart" @bind-Expanded="_expandOps">
     @* Cấp 2 — sub-group (có icon) *@
     <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Filled.Monitor" @bind-Expanded="_expandOpsMonitor">
-        @* Cấp 3 — leaf link (KHÔNG icon) *@
-        <MudNavLink Href="/ops/health">System health</MudNavLink>
-        <MudNavLink Href="/ops/alerts">Alerts</MudNavLink>
+        @* Cấp 3 — leaf link (KHÔNG icon). BẮT BUỘC Match="NavLinkMatch.All" *@
+        <MudNavLink Href="/ops/health" Match="NavLinkMatch.All">System health</MudNavLink>
+        <MudNavLink Href="/ops/alerts" Match="NavLinkMatch.All">Alerts</MudNavLink>
     </MudNavGroup>
 </MudNavGroup>
 ```
@@ -750,13 +815,19 @@ private bool _expandOps, _expandOpsMonitor, _expandOpsLog;
 private void UpdateExpanded(string uri)
 {
     var u = uri.ToLowerInvariant();
+    // BẮT BUỘC liệt kê ĐỦ mọi Href leaf đang render trong group — thiếu 1 route (vd thêm
+    // link mới mà quên thêm vào đây) khiến navigate tới route đó không match điều kiện NÀO,
+    // toàn bộ cây (kể cả các nhánh không liên quan) sụp về false → nhìn như "menu bị thu hết".
     _expandOpsMonitor = u.Contains("/ops/health") || u.Contains("/ops/alerts");
     _expandOpsLog     = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log");
     _expandOps        = _expandOpsMonitor || _expandOpsLog;
 }
 ```
 
-> Anti-pattern: ❌ Thêm `Icon="..."` vào MudNavLink cấp 3.
+> Anti-pattern:
+> - ❌ Thêm `Icon="..."` vào MudNavLink cấp 3.
+> - ❌ Thêm `MudNavLink` mới vào markup mà quên thêm route đó vào `UpdateExpanded()` — điều hướng tới route mới sẽ không mở đúng nhánh cha, có thể khiến TOÀN BỘ sidebar collapse (mọi flag đều tính lại từ URI mỗi lần navigate, không giữ trạng thái cũ).
+> - ❌ `MudNavLink` thiếu `Match="NavLinkMatch.All"` — mặc định `NavLinkMatch.Prefix` (như `NavLink` gốc) khiến 1 route ngắn (vd `/promotion/coupons`) bị đánh dấu active luôn khi đang ở route dài hơn cùng tiền tố (`/promotion/coupons/issue`) → 2 leaf link cùng sáng active. Áp dụng cho MỌI leaf link, kể cả link chưa có route trùng tiền tố hiện tại (phòng khi thêm route mới sau này).
 > Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`
 
 ---

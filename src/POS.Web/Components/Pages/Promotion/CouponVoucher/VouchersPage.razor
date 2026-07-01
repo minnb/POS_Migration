@@ -3,16 +3,349 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using MudBlazor
+@using Newtonsoft.Json
+@using POS.Application.Features.CouponVoucher
+@using POS.Common.Dtos.Voucher
+@using POS.Infrastructure.Logging
 @using POS.Web.Auth
+@using POS.Web.Components.Pages.Promotion.CouponVoucher.Dialogs
+@using POS.Web.Services
+@using ClosedXML.Excel
+
+@inject IVoucherService VoucherService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
+@inject IFileLogHelper FileLogger
+@inject IJSRuntime JS
 
 <PageTitle>Danh mục Voucher – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Class="mr-2" Style="vertical-align:middle"/>
-    Danh mục Voucher
-</MudText>
+@* ── Header ─────────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Class="mr-2" Style="vertical-align:middle"/>
+        Danh mục Voucher
+    </MudText>
+    <div class="d-flex align-center gap-2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.FileDownload"
+                   Disabled="_exporting" OnClick="ExportExcelAsync">
+            @(_exporting ? "Đang xuất..." : "Xuất Excel")
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn"
+                   OnClick="@(() => OpenFormAsync(null))">Thêm mới</MudButton>
+    </div>
+</div>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter bar ──────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.Serial" Label="Số serial"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.ItemNo" Label="Mã voucher"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filter.ItemName" Label="Tên voucher"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filter.ArticleType" Label="Loại"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                @foreach (var a in _lookup.ArticleTypes)
+                {
+                    <MudSelectItem T="string" Value="@a.Value">@a.Text</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="1">
+            <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
+                <MudSelectItem T="string" Value="@("1")">Hiệu lực</MudSelectItem>
+                <MudSelectItem T="string" Value="@("0")">Hết hiệu lực</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Voucher table (server-side) ─────────────────────────────────────────── *@
+<MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="VoucherListItemDto">
+    <HeaderContent>
+        <MudTh Style="width:48px">STT</MudTh>
+        <MudTh>Serial</MudTh>
+        <MudTh>Mã</MudTh>
+        <MudTh>Tên voucher/coupon</MudTh>
+        <MudTh>Loại</MudTh>
+        <MudTh>ĐVT</MudTh>
+        <MudTh Style="text-align:right">Giá trị</MudTh>
+        <MudTh>Giảm giá</MudTh>
+        <MudTh Style="text-align:right">Giá trị tối đa</MudTh>
+        <MudTh>Tổng bill</MudTh>
+        <MudTh>Hiệu lực</MudTh>
+        <MudTh>Từ ngày</MudTh>
+        <MudTh>Đến ngày</MudTh>
+        <MudTh Style="text-align:right; width:90px"></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+        <MudTd DataLabel="Serial"><b>@context.SerialNo</b></MudTd>
+        <MudTd DataLabel="Mã">@context.ItemNo</MudTd>
+        <MudTd DataLabel="Tên voucher/coupon">@context.ItemName</MudTd>
+        <MudTd DataLabel="Loại">@context.ArticleType</MudTd>
+        <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
+        <MudTd DataLabel="Giá trị" Style="text-align:right">@context.ValueOfVoucher.ToString("#,##0.##")</MudTd>
+        <MudTd DataLabel="Giảm giá">@DiscountText(context)</MudTd>
+        <MudTd DataLabel="Giá trị tối đa" Style="text-align:right">@context.MaxAmount.ToString("#,##0.##")</MudTd>
+        <MudTd DataLabel="Tổng bill">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                     Color="@(context.IsCheckItem ? Color.Info : Color.Default)">
+                @(context.IsCheckItem ? "Tổng bill" : "Theo SP")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Hiệu lực">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                     Color="@(context.Status ? Color.Success : Color.Error)">
+                @(context.Status ? "Hiệu lực" : "Hết hiệu lực")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Từ ngày">@context.StartingDate</MudTd>
+        <MudTd DataLabel="Đến ngày">@context.EndingDate</MudTd>
+        <MudTd DataLabel="" Style="text-align:right">
+            <MudTooltip Text="Sửa">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => OpenFormAsync(context))"/>
+            </MudTooltip>
+            <MudTooltip Text="Xóa">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => ConfirmDeleteAsync(context))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+            <MudText Typo="Typo.body2">Không có voucher khớp bộ lọc.</MudText>
+        </div>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private MudTable<VoucherListItemDto> _table = null!;
+    private readonly VoucherListFilter _filter = new() { Status = "-1", PageSize = 10 };
+    private VoucherFormLookupDto _lookup = new();
+
+    private List<VoucherListItemDto> _rows = [];
+    private int _offset;
+    private bool _exporting;
+    private string? _errorMsg;
+    private string _currentActor = "unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+        try
+        {
+            _lookup = await VoucherService.GetFormLookupAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VouchersPage.LoadLookup", ex);
+        }
+    }
+
+    private async Task<TableData<VoucherListItemDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        _filter.PageNumber = state.Page;
+        _filter.PageSize   = state.PageSize;
+        _offset            = state.Page * state.PageSize;
+        try
+        {
+            var (items, total) = await VoucherService.GetListAsync(_filter, token);
+            _rows = items;
+            _errorMsg = null;
+            return new TableData<VoucherListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh mục voucher. (Kiểm tra SP usp_SetupVoucher_* đã deploy chưa)";
+            FileLogger.WriteExpLogs("VouchersPage.Load", ex);
+            _rows = [];
+            return new TableData<VoucherListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task SearchAsync() => await _table.ReloadServerData();
+
+    private async Task ClearFilterAsync()
+    {
+        _filter.Serial      = null;
+        _filter.ItemNo      = null;
+        _filter.ItemName    = null;
+        _filter.ArticleType = null;
+        _filter.Status      = "-1";
+        await _table.ReloadServerData();
+    }
+
+    private async Task OpenFormAsync(VoucherListItemDto? item)
+    {
+        var oldJson = item is null ? null : JsonConvert.SerializeObject(item);
+        var parameters = new DialogParameters<VoucherFormDialog>
+        {
+            { x => x.Lookup, _lookup },
+            { x => x.ExistingItemNo, item?.ItemNo },
+            { x => x.Actor, _currentActor }
+        };
+        var dialog = await DialogService.ShowAsync<VoucherFormDialog>(
+            item is null ? "Thêm Voucher/Coupon" : $"Sửa: {item.ItemNo}", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true, BackdropClick = false });
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is VoucherSaveRequest saved)
+        {
+            await AuditLogger.LogAsync(_currentActor, item is null ? "CREATE" : "UPDATE", "SetupVoucher",
+                saved.ItemNo, oldValueJson: oldJson, newValueJson: JsonConvert.SerializeObject(saved));
+            Snackbar.Add(item is null ? $"Đã thêm voucher {saved.ItemNo}." : $"Đã cập nhật {saved.ItemNo}.",
+                Severity.Success);
+            await _table.ReloadServerData();
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(VoucherListItemDto item)
+    {
+        var dialog = await DialogService.ShowAsync<MudMessageBox>(
+            "Xác nhận xóa",
+            new DialogParameters
+            {
+                ["Message"]    = $"Bạn có chắc muốn xóa voucher \"{item.ItemNo}\" (serial {item.SerialNo})?",
+                ["YesText"]    = "Xóa",
+                ["CancelText"] = "Hủy"
+            },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (result is null or { Canceled: true }) return;
+
+        try
+        {
+            var (ok, message) = await VoucherService.DeleteAsync(item.ItemNo);
+            if (ok)
+            {
+                await AuditLogger.LogAsync(_currentActor, "DELETE", "SetupVoucher",
+                    item.ItemNo, oldValueJson: JsonConvert.SerializeObject(item), newValueJson: null);
+                Snackbar.Add($"Đã xóa voucher \"{item.ItemNo}\".", Severity.Info);
+                await _table.ReloadServerData();
+            }
+            else
+            {
+                Snackbar.Add(string.IsNullOrEmpty(message) ? "Xóa thất bại." : message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VouchersPage.Delete", ex);
+            Snackbar.Add("Xóa thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var exportFilter = new VoucherListFilter
+            {
+                Serial = _filter.Serial, ItemNo = _filter.ItemNo, ItemName = _filter.ItemName,
+                ArticleType = _filter.ArticleType, Status = _filter.Status, PageSize = 100000, PageNumber = 0
+            };
+            var (data, _) = await VoucherService.GetListAsync(exportFilter);
+            var bytes = BuildXlsx(data);
+            await JS.SaveAsFileAsync($"DanhMucVoucher_{DateTime.Now:yyyyMMddHHmmss}.xlsx", bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add($"Đã xuất {data.Count} voucher.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VouchersPage.Export", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally { _exporting = false; }
+    }
+
+    private static byte[] BuildXlsx(IReadOnlyList<VoucherListItemDto> data)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Voucher");
+        string[] headers =
+        [
+            "Số serial", "Mã voucher", "Tên voucher/coupon", "Loại", "ĐVT", "Trạng thái",
+            "Giá trị voucher", "Loại giảm giá", "Giá trị giảm", "Giá trị tối đa", "Limit", "Tổng bill",
+            "Từ ngày", "Đến ngày", "Ngày cập nhật"
+        ];
+        for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+        ws.Row(1).Style.Font.Bold = true;
+
+        var r = 2;
+        foreach (var e in data)
+        {
+            ws.Cell(r, 1).Value  = e.SerialNo;
+            ws.Cell(r, 2).Value  = e.ItemNo;
+            ws.Cell(r, 3).Value  = e.ItemName;
+            ws.Cell(r, 4).Value  = e.ArticleType;
+            ws.Cell(r, 5).Value  = e.UnitOfMeasure;
+            ws.Cell(r, 6).Value  = e.Status ? "Hiệu lực" : "Hết hiệu lực";
+            ws.Cell(r, 7).Value  = e.ValueOfVoucher;
+            ws.Cell(r, 8).Value  = e.DiscountType == 1 ? "Percent (%)" : "Amount (VNĐ)";
+            ws.Cell(r, 9).Value  = e.DiscountValue;
+            ws.Cell(r, 10).Value = e.MaxAmount;
+            ws.Cell(r, 11).Value = e.LimitQty;
+            ws.Cell(r, 12).Value = e.IsCheckItem ? "Tổng bill" : "Theo sản phẩm";
+            ws.Cell(r, 13).Value = e.StartingDate;
+            ws.Cell(r, 14).Value = e.EndingDate;
+            ws.Cell(r, 15).Value = e.LastDateModified;
+            r++;
+        }
+        ws.Columns().AdjustToContents();
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+
+    private static string DiscountText(VoucherListItemDto v)
+        => v.DiscountType == 1 ? $"{v.DiscountValue:#,##0.##}%" : $"{v.DiscountValue:#,##0.##} đ";
+}

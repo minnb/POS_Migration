@@ -15,4 +15,11 @@ public sealed class FileArchiveService(IOptions<MasterDataSyncOptions> options) 
         // Mức nén theo cấu hình (mặc định Fastest) — Optimal tốn CPU/chậm với master data JSON lớn.
         ZipFile.CreateFromDirectory(sourceDir, destZipPath, _opt.ResolveCompressionLevel(), includeBaseDirectory: false);
     }
+
+    public void ExtractToDirectory(string zipPath, string destDir)
+    {
+        // .NET tự chuẩn hóa & chặn zip-slip (entry vượt ra ngoài destDir sẽ throw).
+        Directory.CreateDirectory(destDir);
+        ZipFile.ExtractToDirectory(zipPath, destDir, overwriteFiles: true);
+    }
 }

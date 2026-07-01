@@ -137,83 +137,137 @@ else
                    Class="pos-page-header-btn" OnClick="BackToList">Quay lại</MudButton>
     </div>
 
-    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+    <MudTabs Outlined="true" ApplyEffectsToContainer="true" PanelClass="pa-4" SliderColor="Color.Primary">
         @* ── Tab Thông tin chung ── *@
         <MudTabPanel Text="Thông tin chung" Icon="@Icons.Material.Filled.Info">
-            <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-1">
-                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
-                Thông tin cơ bản
-            </MudText>
-            <MudDivider Class="mb-3"/>
-            <MudGrid Spacing="2">
-                <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_header.Description" Label="Tên CTKM *" Disabled="_isReadonly"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"/>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect @bind-Value="_header.OfferType" Label="Loại CTKM *" Disabled="_isReadonly"
-                               Variant="Variant.Outlined" Margin="Margin.Dense">
-                        @foreach (var o in _offerTypes)
-                        {
-                            <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect @bind-Value="_header.SalesType" Label="Hình thức bán *" Disabled="_isReadonly"
-                               Variant="Variant.Outlined" Margin="Margin.Dense">
-                        @foreach (var o in _salesTypes)
-                        {
-                            <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect @bind-Value="_header.Status" Label="Trạng thái" Disabled="_isReadonly"
-                               Variant="Variant.Outlined" Margin="Margin.Dense">
-                        <MudSelectItem T="string" Value="@("0")">Đang áp dụng</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("1")">Lên kế hoạch</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("2")">Ngưng áp dụng</MudSelectItem>
-                    </MudSelect>
-                </MudItem>
-            </MudGrid>
+            <MudCard Elevation="1" Class="mb-4">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Thông tin cơ bản</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Tên, loại và hình thức áp dụng của chương trình</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="Các trường có dấu * là bắt buộc. Tên CTKM sẽ hiển thị cho thu ngân trên máy POS.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_header.Description" Label="Tên CTKM" Required="true"
+                                          RequiredError="Vui lòng nhập tên chương trình khuyến mãi" Disabled="_isReadonly"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Tên hiển thị cho thu ngân"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudSelect @bind-Value="_header.OfferType" Label="Loại CTKM" Required="true"
+                                       RequiredError="Vui lòng chọn loại CTKM" Disabled="_isReadonly"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Nhóm loại: mua-tặng, chiết khấu...">
+                                @foreach (var o in _offerTypes)
+                                {
+                                    <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudSelect @bind-Value="_header.SalesType" Label="Hình thức bán" Required="true"
+                                       RequiredError="Vui lòng chọn hình thức bán hàng" Disabled="_isReadonly"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Kênh/hình thức bán áp dụng">
+                                @foreach (var o in _salesTypes)
+                                {
+                                    <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudSelect @bind-Value="_header.Status" Label="Trạng thái" Disabled="_isReadonly"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Trạng thái vòng đời CTKM">
+                                <MudSelectItem T="string" Value="@("0")">Đang áp dụng</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("1")">Lên kế hoạch</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("2")">Ngưng áp dụng</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" Class="d-flex align-center">
+                            <MudCheckBox @bind-Value="_header.IsVoucher" Label="Voucher/Coupon" Disabled="_isReadonly"
+                                         Color="Color.Primary"/>
+                            <MudTooltip Text="Bật nếu CTKM phát hành voucher/coupon. Khi bật sẽ hiện thêm cấu hình Voucher ở tab Cài đặt nâng cao.">
+                                <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" Color="Color.Default" Class="ml-1"/>
+                            </MudTooltip>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
 
-            <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mb-1 mt-4">
-                <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
-                Thời gian áp dụng
-            </MudText>
-            <MudDivider Class="mb-3"/>
-            <MudGrid Spacing="2">
-                <MudItem xs="12" sm="6" md="3">
-                    <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày *" Disabled="_isReadonly"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudDatePicker @bind-Date="_toDate" Label="Đến ngày *" Disabled="_isReadonly"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
-                </MudItem>
-                <MudItem xs="12" md="3" Class="d-flex align-center">
-                    <MudCheckBox @bind-Value="_header.IsVoucher" Label="Voucher/Coupon" Disabled="_isReadonly"
-                                 Color="Color.Primary"/>
-                </MudItem>
-            </MudGrid>
+            <MudCard Elevation="1">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.DateRange" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Thời gian áp dụng</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Khoảng ngày CTKM có hiệu lực</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="Đến ngày phải lớn hơn hoặc bằng Từ ngày.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="6">
+                            <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày" Required="true"
+                                           RequiredError="Vui lòng chọn ngày bắt đầu" Disabled="_isReadonly"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="6">
+                            <MudDatePicker @bind-Date="_toDate" Label="Đến ngày" Required="true"
+                                           RequiredError="Vui lòng chọn ngày kết thúc" Disabled="_isReadonly"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
         </MudTabPanel>
 
         @* ── Tab Sản phẩm mua (Buy) ── *@
         <MudTabPanel Text="Sản phẩm mua" Icon="@Icons.Material.Filled.ShoppingCart">
-            <div class="d-flex align-center gap-2 flex-wrap mb-3">
-                <MudSelect T="string" @bind-Value="_header.ConditionBuy" Label="Điều kiện" Dense="true"
-                           Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px">
-                    <MudSelectItem T="string" Value="@("AND")">Tất cả (AND)</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("OR")">Một trong (OR)</MudSelectItem>
-                </MudSelect>
-                @if (!_isReadonly)
-                {
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="@(() => _buyRows.Add(new OfferBuyLineDto()))">Thêm dòng</MudButton>
-                }
-            </div>
-            <MudTable Items="_buyRows" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="OfferBuyLineDto">
+            <MudCard Elevation="1">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Điều kiện sản phẩm mua</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Sản phẩm/nhóm khách phải mua để được hưởng khuyến mãi</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="AND = phải thỏa mọi dòng; OR = chỉ cần thỏa một dòng. Bấm 'Thêm dòng' để thêm sản phẩm/nhóm.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="_buyRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                              HorizontalScrollbar="true" T="OfferBuyLineDto">
+                        <ToolBarContent>
+                            <MudTooltip Text="AND = thỏa mọi dòng; OR = thỏa một trong các dòng">
+                                <MudSelect T="string" @bind-Value="_header.ConditionBuy" Label="Điều kiện" Dense="true"
+                                           Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px">
+                                    <MudSelectItem T="string" Value="@("AND")">Tất cả (AND)</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("OR")">Một trong (OR)</MudSelectItem>
+                                </MudSelect>
+                            </MudTooltip>
+                            <MudSpacer/>
+                            @if (!_isReadonly)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="@(() => _buyRows.Add(new OfferBuyLineDto()))">Thêm dòng</MudButton>
+                            }
+                        </ToolBarContent>
                 <HeaderContent>
                     <MudTh Style="width:120px">Loại</MudTh>
                     <MudTh>Sản phẩm / Nhóm</MudTh>
@@ -235,8 +289,9 @@ else
                                       Variant="Variant.Outlined" Margin="Margin.Dense"/>
                     </MudTd>
                     <MudTd DataLabel="Số lượng" Style="text-align:right">
-                        <MudNumericField T="decimal" @bind-Value="context.Quantity" Disabled="_isReadonly"
-                                         Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
+                        <MudNumericField T="int" Value="@((int)context.Quantity)" ValueChanged="@(v => context.Quantity = v)"
+                                         Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         HideSpinButtons="true" Min="0"/>
                     </MudTd>
                     <MudTd Style="text-align:center">
                         @if (!_isReadonly)
@@ -252,31 +307,61 @@ else
                         <MudText Typo="Typo.body2">Chưa có dòng sản phẩm mua.</MudText>
                     </div>
                 </NoRecordsContent>
-            </MudTable>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
         </MudTabPanel>
 
         @* ── Tab Sản phẩm khuyến mãi (Get) ── *@
         <MudTabPanel Text="Sản phẩm khuyến mãi" Icon="@Icons.Material.Filled.CardGiftcard">
-            <div class="d-flex align-center gap-2 flex-wrap mb-3">
-                <MudSelect T="string" @bind-Value="_header.ConditionGet" Label="Điều kiện" Dense="true"
-                           Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px">
-                    <MudSelectItem T="string" Value="@("AND")">Tất cả (AND)</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("OR")">Một trong (OR)</MudSelectItem>
-                </MudSelect>
-                @if (!_isReadonly)
-                {
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="@(() => _getRows.Add(new OfferGetLineDto()))">Thêm dòng</MudButton>
-                }
-            </div>
-            <MudTable Items="_getRows" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="OfferGetLineDto">
+            <MudCard Elevation="1">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Sản phẩm khuyến mãi / chiết khấu</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Sản phẩm/nhóm được tặng hoặc chiết khấu khi thỏa điều kiện mua</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="AND = phải thỏa mọi dòng; OR = chỉ cần thỏa một dòng. Mỗi dòng chọn loại chiết khấu và giá trị.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="_getRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                              HorizontalScrollbar="true" T="OfferGetLineDto">
+                        <ToolBarContent>
+                            <MudTooltip Text="AND = thỏa mọi dòng; OR = thỏa một trong các dòng">
+                                <MudSelect T="string" @bind-Value="_header.ConditionGet" Label="Điều kiện" Dense="true"
+                                           Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px">
+                                    <MudSelectItem T="string" Value="@("AND")">Tất cả (AND)</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("OR")">Một trong (OR)</MudSelectItem>
+                                </MudSelect>
+                            </MudTooltip>
+                            <MudSpacer/>
+                            @if (!_isReadonly)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="@(() => _getRows.Add(new OfferGetLineDto()))">Thêm dòng</MudButton>
+                            }
+                        </ToolBarContent>
                 <HeaderContent>
                     <MudTh Style="width:120px">Loại</MudTh>
                     <MudTh>Sản phẩm / Nhóm</MudTh>
                     <MudTh Style="width:90px">ĐVT</MudTh>
                     <MudTh Style="width:110px;text-align:right">Số lượng</MudTh>
-                    <MudTh Style="width:150px">Loại chiết khấu</MudTh>
-                    <MudTh Style="width:120px;text-align:right">Giá trị CK</MudTh>
+                    <MudTh Style="width:150px">
+                        <MudTooltip Text="% = giảm theo phần trăm; Số tiền = giảm số tiền cố định; Giá cố định = bán theo giá ấn định">
+                            <span>Loại chiết khấu</span>
+                        </MudTooltip>
+                    </MudTh>
+                    <MudTh Style="width:120px;text-align:right">
+                        <MudTooltip Text="Giá trị chiết khấu tương ứng loại đã chọn">
+                            <span>Giá trị CK</span>
+                        </MudTooltip>
+                    </MudTh>
                     <MudTh Style="width:56px;text-align:center">Xóa</MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -293,8 +378,9 @@ else
                                       Variant="Variant.Outlined" Margin="Margin.Dense"/>
                     </MudTd>
                     <MudTd DataLabel="Số lượng" Style="text-align:right">
-                        <MudNumericField T="decimal" @bind-Value="context.Quantity" Disabled="_isReadonly"
-                                         Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
+                        <MudNumericField T="int" Value="@((int)context.Quantity)" ValueChanged="@(v => context.Quantity = v)"
+                                         Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         HideSpinButtons="true" Min="0"/>
                     </MudTd>
                     <MudTd DataLabel="Loại chiết khấu">
                         <MudSelect T="int" @bind-Value="context.DiscountType" Dense="true" Disabled="_isReadonly"
@@ -322,22 +408,41 @@ else
                         <MudText Typo="Typo.body2">Chưa có dòng sản phẩm khuyến mãi.</MudText>
                     </div>
                 </NoRecordsContent>
-            </MudTable>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
         </MudTabPanel>
 
         @* ── Tab Cửa hàng (Site) ── *@
         <MudTabPanel Text="Cửa hàng áp dụng" Icon="@Icons.Material.Filled.Store">
-            @if (!_isReadonly)
-            {
-                <div class="d-flex align-center gap-2 flex-wrap mb-3">
-                    <MudAutocomplete T="OfferSiteLineDto" Label="Thêm nhóm cửa hàng" Dense="true"
-                                     SearchFunc="SearchSiteGroupAsync" ToStringFunc="@(s => s == null ? "" : $"{s.SiteGroupCode} – {s.GroupName}")"
-                                     ValueChanged="AddSite" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     MaxItems="50" Style="max-width:420px" Clearable="true"/>
-                </div>
-            }
-            <MudTable Items="_siteRows" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="OfferSiteLineDto">
-                <HeaderContent>
+            <MudCard Elevation="1">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.Store" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Cửa hàng áp dụng</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Chọn nhóm cửa hàng được áp dụng CTKM</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="Gõ mã hoặc tên để tìm và thêm nhóm cửa hàng. Hệ thống tự bung nhóm thành danh sách cửa hàng khi lưu.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    @if (!_isReadonly)
+                    {
+                        <div class="d-flex align-center gap-2 flex-wrap mb-3">
+                            <MudAutocomplete T="OfferSiteLineDto" Label="Thêm nhóm cửa hàng" Dense="true"
+                                             SearchFunc="SearchSiteGroupAsync" ToStringFunc="@(s => s == null ? "" : $"{s.SiteGroupCode} – {s.GroupName}")"
+                                             ValueChanged="AddSite" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             MaxItems="50" Style="max-width:420px" Clearable="true"/>
+                        </div>
+                    }
+                    <MudTable Items="_siteRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                              HorizontalScrollbar="true" T="OfferSiteLineDto">
+                        <HeaderContent>
                     <MudTh>Mã nhóm</MudTh><MudTh>Tên nhóm</MudTh><MudTh Style="text-align:center">Xóa</MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -357,83 +462,156 @@ else
                         <MudText Typo="Typo.body2">Chưa có nhóm cửa hàng.</MudText>
                     </div>
                 </NoRecordsContent>
-            </MudTable>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
         </MudTabPanel>
 
         @* ── Tab Cài đặt nâng cao (Advanced) ── *@
         <MudTabPanel Text="Cài đặt nâng cao" Icon="@Icons.Material.Filled.Settings">
-            <MudGrid Spacing="2">
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="decimal" @bind-Value="_header.LimitQty" Label="Số lần được áp dụng"
-                                     Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HideSpinButtons="true" Min="0"/>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="int" @bind-Value="_header.PriorityBBY" Label="Độ ưu tiên" Disabled="_isReadonly"
-                               Variant="Variant.Outlined" Margin="Margin.Dense">
-                        @for (var i = 1; i <= 10; i++)
-                        {
-                            var v = i;
-                            <MudSelectItem T="int" Value="@v">@v</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="int" @bind-Value="_header.NumOfDays" Label="Ngày áp dụng trong tháng (0 = không giới hạn)"
-                                     Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                     HideSpinButtons="true" Min="0" Max="31"/>
-                </MudItem>
+            <MudCard Elevation="1" Class="mb-4">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.Tune" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Giới hạn & ưu tiên</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Số lần áp dụng, thứ tự ưu tiên, ngày áp dụng trong tháng</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="Độ ưu tiên quyết định CTKM nào được chọn khi nhiều chương trình cùng thỏa điều kiện.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="decimal" @bind-Value="_header.LimitQty" Label="Số lần được áp dụng"
+                                             Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             HideSpinButtons="true" Min="0" HelperText="0 = không giới hạn số lần"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudSelect T="int" @bind-Value="_header.PriorityBBY" Label="Độ ưu tiên" Disabled="_isReadonly"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Thứ tự ưu tiên khi nhiều CTKM trùng">
+                                @for (var i = 1; i <= 10; i++)
+                                {
+                                    var v = i;
+                                    <MudSelectItem T="int" Value="@v">@v</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int" @bind-Value="_header.NumOfDays" Label="Ngày áp dụng trong tháng (0 = không giới hạn)"
+                                             Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             HideSpinButtons="true" Min="0" Max="31"/>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
 
-                <MudItem xs="12" md="3" Class="d-flex align-center">
-                    <MudCheckBox @bind-Value="_header.MemberOnly" Label="Chỉ áp dụng cho thành viên"
-                                 Disabled="_isReadonly" Color="Color.Primary"/>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="string" @bind-Value="_header.MemberCode" Label="Hạng thẻ" Clearable="true"
-                               Disabled="@(_isReadonly || !_header.MemberOnly)"
-                               Variant="Variant.Outlined" Margin="Margin.Dense">
-                        @foreach (var m in _memberCodes)
-                        {
-                            <MudSelectItem T="string" Value="@m.Value">@m.Text</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
+            <MudCard Elevation="1" Class="mb-4">
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.CardMembership" Color="Color.Primary"/>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">Thành viên</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Giới hạn CTKM theo hạng thẻ thành viên</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudTooltip Text="Bật 'Chỉ áp dụng cho thành viên' rồi chọn hạng thẻ được hưởng CTKM.">
+                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                        </MudTooltip>
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="4" Class="d-flex align-center">
+                            <MudCheckBox @bind-Value="_header.MemberOnly" Label="Chỉ áp dụng cho thành viên"
+                                         Disabled="_isReadonly" Color="Color.Primary"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudSelect T="string" @bind-Value="_header.MemberCode" Label="Hạng thẻ" Clearable="true"
+                                       Disabled="@(_isReadonly || !_header.MemberOnly)"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Chỉ áp dụng cho hạng thẻ đã chọn">
+                                @foreach (var m in _memberCodes)
+                                {
+                                    <MudSelectItem T="string" Value="@m.Value">@m.Text</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
 
-                @if (_header.IsVoucher)
-                {
-                    <MudItem xs="12"><MudDivider Class="my-2"/><MudText Typo="Typo.subtitle2">Voucher / Coupon</MudText></MudItem>
-                    <MudItem xs="12" sm="6" md="3">
-                        <MudDatePicker @bind-Date="_voucherFromDate" Label="Voucher từ ngày" Disabled="_isReadonly"
-                                       Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
-                    </MudItem>
-                    <MudItem xs="12" sm="6" md="3">
-                        <MudDatePicker @bind-Date="_voucherToDate" Label="Voucher đến ngày" Disabled="_isReadonly"
-                                       Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
-                    </MudItem>
-                    <MudItem xs="12" sm="6" md="3">
-                        <MudNumericField T="int" @bind-Value="_header.VoucherValidDay" Label="Số ngày hiệu lực"
-                                         Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                         HideSpinButtons="true" Min="0"/>
-                    </MudItem>
-                    <MudItem xs="12" sm="6" md="3">
-                        <MudNumericField T="int" @bind-Value="_header.VoucherLimitNumber" Label="Số lần phát hành"
-                                         Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                         HideSpinButtons="true" Min="0"/>
-                    </MudItem>
-                }
-            </MudGrid>
+            @if (_header.IsVoucher)
+            {
+                <MudCard Elevation="1">
+                    <MudCardHeader>
+                        <CardHeaderAvatar>
+                            <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Color="Color.Primary"/>
+                        </CardHeaderAvatar>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.subtitle1">Voucher / Coupon</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Cấu hình phát hành voucher (chỉ hiện khi bật Voucher/Coupon)</MudText>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudTooltip Text="Hiệu lực và số lần phát hành của voucher sinh ra từ CTKM này.">
+                                <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Default"/>
+                            </MudTooltip>
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudDatePicker @bind-Date="_voucherFromDate" Label="Voucher từ ngày" Disabled="_isReadonly"
+                                               Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudDatePicker @bind-Date="_voucherToDate" Label="Voucher đến ngày" Disabled="_isReadonly"
+                                               Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudNumericField T="int" @bind-Value="_header.VoucherValidDay" Label="Số ngày hiệu lực"
+                                                 Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                 HideSpinButtons="true" Min="0" HelperText="Số ngày voucher còn dùng được"/>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudNumericField T="int" @bind-Value="_header.VoucherLimitNumber" Label="Số lần phát hành"
+                                                 Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                 HideSpinButtons="true" Min="0" HelperText="0 = không giới hạn"/>
+                            </MudItem>
+                        </MudGrid>
+                    </MudCardContent>
+                </MudCard>
+            }
         </MudTabPanel>
     </MudTabs>
 
     @if (!_isReadonly)
     {
-        <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
-                       Disabled="_saving" OnClick="SaveAsync">Lưu tạm</MudButton>
+        <MudPaper Elevation="1" Class="pa-4 mt-4 d-flex justify-end gap-2 flex-wrap">
+            <MudTooltip Text="Lưu nháp CTKM (chưa phát hành cho máy POS)">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Disabled="_saving" OnClick="SaveAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2"/>
+                    }
+                    Lưu tạm
+                </MudButton>
+            </MudTooltip>
             @if (!string.IsNullOrEmpty(_header.No))
             {
-                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle"
-                           Disabled="_saving" OnClick="@(() => ApproveAsync(_header.No))">Duyệt CTKM</MudButton>
+                <MudTooltip Text="Duyệt & phát hành CTKM cho máy POS (không sửa lại được)">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle"
+                               Disabled="_saving" OnClick="@(() => ApproveAsync(_header.No))">Duyệt CTKM</MudButton>
+                </MudTooltip>
             }
         </MudPaper>
     }
@@ -450,6 +628,7 @@ else
     private List<OptionItemDto> _offerTypes = [];
     private List<OptionItemDto> _salesTypes = [];
     private List<OptionItemDto> _memberCodes = [];
+    private List<OfferSiteLineDto> _siteGroups = [];
 
     // ── Editor state ──
     private bool _editing;
@@ -470,17 +649,53 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+
+        // Await + try/catch riêng từng lookup độc lập — 1 cái lỗi (vd bảng thiếu ở DEV)
+        // không được kéo sập luôn các dropdown còn lại.
         try
         {
-            var state = await AuthState;
-            _actor = state.User.Identity?.Name ?? "unknown";
             _offerTypes = await PromotionService.GetOfferTypeOptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PromotionSetupPage.LoadOfferTypes", ex);
+            Snackbar.Add("Không tải được danh sách Loại CTKM.", Severity.Warning);
+        }
+
+        try
+        {
             _salesTypes = await PromotionService.GetSalesOrderTypeOptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PromotionSetupPage.LoadSalesTypes", ex);
+            Snackbar.Add("Không tải được danh sách Hình thức bán.", Severity.Warning);
+        }
+
+        try
+        {
             _memberCodes = await PromotionService.GetMemberCodeOptionsAsync();
         }
         catch (Exception ex)
         {
-            FileLogger.WriteExpLogs("PromotionSetupPage.Init", ex);
+            FileLogger.WriteExpLogs("PromotionSetupPage.LoadMemberCodes", ex);
+            Snackbar.Add("Không tải được danh sách Hạng thẻ.", Severity.Warning);
+        }
+
+        // Preload nhóm cửa hàng (dbo.SetupGroupSite Status=1 — khớp legacy) để combobox có sẵn
+        // dữ liệu và lỗi (bảng thiếu/query sai) hiện rõ thay vì combobox trống im lặng.
+        try
+        {
+            _siteGroups = await PromotionService.GetSiteGroupOptionsAsync();
+            if (_siteGroups.Count == 0)
+                Snackbar.Add("Chưa có nhóm cửa hàng nào (dbo.SetupGroupSite).", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PromotionSetupPage.LoadSiteGroups", ex);
+            Snackbar.Add("Không tải được danh sách nhóm cửa hàng.", Severity.Warning);
         }
     }
 
@@ -627,14 +842,13 @@ else
     }
 
     // ── Site autocomplete ──
-    private async Task<IEnumerable<OfferSiteLineDto>> SearchSiteGroupAsync(string value, CancellationToken ct)
+    private Task<IEnumerable<OfferSiteLineDto>> SearchSiteGroupAsync(string value, CancellationToken ct)
     {
-        var all = await PromotionService.GetSiteGroupOptionsAsync(ct);
         IEnumerable<OfferSiteLineDto> matches = string.IsNullOrWhiteSpace(value)
-            ? all
-            : all.Where(s => s.SiteGroupCode.Contains(value, StringComparison.OrdinalIgnoreCase)
-                          || s.GroupName.Contains(value, StringComparison.OrdinalIgnoreCase));
-        return matches.Take(50);
+            ? _siteGroups
+            : _siteGroups.Where(s => s.SiteGroupCode.Contains(value, StringComparison.OrdinalIgnoreCase)
+                                  || s.GroupName.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(matches.Take(50));
     }
 
     private void AddSite(OfferSiteLineDto? site)
@@ -657,23 +871,47 @@ else
         line.GroupCode = string.Empty;
     }
 
-    // Cell chọn Sản phẩm (autocomplete) / Nhóm (textfield) — dùng chung Buy & Get
+    // Bỏ chọn sản phẩm để chọn lại — hiện lại ô autocomplete
+    private void ClearLineItem(IOfferLineItem line)
+    {
+        line.No = string.Empty;
+        line.Description = string.Empty;
+        line.UnitOfMeasure = string.Empty;
+    }
+
+    // Cell chọn Sản phẩm (autocomplete) / Nhóm (textfield) — dùng chung Buy & Get.
+    // Đã chọn SP → hiện gọn "Mã – Tên" + nút đổi; chưa chọn → hiện ô tìm.
     private RenderFragment LineItemCell(IOfferLineItem line) => __builder =>
     {
         <text>
         @if (line.LineType == 0)
         {
-            <MudText Typo="Typo.caption">
-                @(string.IsNullOrEmpty(line.No) ? "(chưa chọn)"
-                    : string.IsNullOrEmpty(line.Description) ? line.No : $"{line.No} – {line.Description}")
-            </MudText>
-            @if (!_isReadonly)
+            @if (!string.IsNullOrEmpty(line.No))
+            {
+                <div class="d-flex align-center gap-1">
+                    <MudText Typo="Typo.body2">
+                        <b>@line.No</b>@(string.IsNullOrEmpty(line.Description) ? "" : $" – {line.Description}")
+                    </MudText>
+                    @if (!_isReadonly)
+                    {
+                        <MudTooltip Text="Đổi sản phẩm">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Default"
+                                           OnClick="@(() => ClearLineItem(line))"/>
+                        </MudTooltip>
+                    }
+                </div>
+            }
+            else if (!_isReadonly)
             {
                 <MudAutocomplete T="ItemOptionDto" SearchFunc="SearchItemsAsync" Dense="true"
                                  ToStringFunc="@(i => i == null ? string.Empty : $"{i.No} – {i.Description}")"
                                  ValueChanged="@(i => OnItemSelected(line, i))"
                                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxItems="50"
                                  Clearable="true" Placeholder="Tìm sản phẩm..."/>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption">(chưa chọn)</MudText>
             }
         }
         else

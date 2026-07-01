@@ -10,6 +10,7 @@ builder.Services.AddSingleton<WorkerHealthState>();
 builder.Services.AddHostedService<PosSalesConsumerWorker>();
 builder.Services.AddHostedService<WorkerHeartbeatService>();
 builder.Services.AddHostedService<Rpt_ReportSaleDetail_Insert>();
+builder.Services.AddHostedService<PosFileImportWorker>();
 
 var host = builder.Build();
 host.Run();

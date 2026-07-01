@@ -63,7 +63,7 @@ public sealed class RptCentralSaleRepository(
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
             var data = await conn.QueryAsync<DetailRevenueSalesDto>(
                 new CommandDefinition(
-                    "[dbo].[RPT_GET_DETAIL_REVENUE_SALES_LIST]",
+                    "[dbo].[Rpt_GetRevenueSalesLists]",
                     new
                     {
                         FromDate    = fromDate.Date,
@@ -412,7 +412,7 @@ public sealed class RptCentralSaleRepository(
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
             var result = await conn.QueryAsync<RevenueByStaffDto>(
                 new CommandDefinition(
-                    "[dbo].[GET_REVENUE_ORDER_SALES_BY_STAFF]",
+                    "[dbo].[Rpt_ReportSalesByStaff]",
                     new
                     {
                         FromDate  = fromDate.Date,
@@ -444,7 +444,7 @@ public sealed class RptCentralSaleRepository(
             using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
             var result = await conn.QueryAsync<RevenueByStoreDto>(
                 new CommandDefinition(
-                    "[dbo].[SP_SALES_BY_STORE_BUSSINESS_DATE]",
+                    "[dbo].[Rpt_ReportSalesByStore]",
                     new
                     {
                         ListStoreJson = listStoreJson,

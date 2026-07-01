@@ -172,3 +172,25 @@ dotnet test tests/POS.ContractTests -nologo
 ```
 
 Cả hai phải **xanh (0 error)** trước khi báo hoàn thành.
+
+---
+
+## 8. Pattern: Polish "thân thiện End-user" (MudCard + tooltip + validation trực quan + loading)
+> Áp dụng khi: yêu cầu "đẹp/thân thiện hơn" nhưng vẫn **giữ 100% `@code`** (markup-only).
+
+- **Gom nhóm bằng `MudCard`**: `MudCardHeader` (`CardHeaderAvatar` icon + `CardHeaderContent` title/caption +
+  `CardHeaderActions` tooltip help) → `MudCardContent`. Khi bọc **MudTable trong MudCard** → đặt
+  `Elevation="0"` cho MudTable để tránh box-in-box (2 lớp bóng).
+- **Tooltip giải thích**: `MudTooltip` bọc `MudIcon HelpOutline` ở header card; `HelperText="..."` tĩnh cho
+  field khó; tooltip bọc `<MudTh>` cho cột khó (đặt `<span>` bên trong).
+- **Validation trực quan (KHÔNG cần MudForm/@code)**: `Required="true"` + `RequiredError="..."` → tự hiện dấu `*`
+  + báo đỏ inline khi chạm & rỗng. KHÔNG chặn Save (server vẫn validate). Field `Disabled` không validate.
+- **Nút loading (MudBlazor v9 KHÔNG có prop `Loading`)**: bỏ `StartIcon`, render trong content theo cờ sẵn có:
+  ```razor
+  @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/> }
+  else { <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2"/> }
+  Lưu tạm
+  ```
+> Anti-pattern: ❌ `<MudButton Loading="...">` (không tồn tại v9). ❌ MudTable trong MudCard mà quên
+> `Elevation="0"` → 2 lớp bóng. ❌ Bọc `MudForm` + check `IsValid` trong Save khi yêu cầu là markup-only (đụng `@code`).
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`

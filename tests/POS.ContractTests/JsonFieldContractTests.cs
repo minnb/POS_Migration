@@ -1,6 +1,8 @@
 using POS.Common;
 using POS.Common.Dtos.Loyalty;
 using POS.Common.Dtos.POS.Gift;
+using POS.Common.Dtos.SetupCoupon;
+using POS.Common.Dtos.Voucher;
 
 namespace POS.ContractTests;
 
@@ -49,4 +51,32 @@ public class JsonFieldContractTests
     public void GiftDataRespone_locked()
         => AssertFields(typeof(GiftDataRespone),
             "GiftCode", "GiftStatus", "PosUsed", "TimeUsed");
+
+    // ── 8.1/8.2 Setup Coupon (dashboard DTOs) ──────────────────────────────
+    [Fact]
+    public void CouponListItemDto_locked()
+        => AssertFields(typeof(CouponListItemDto),
+            "ItemNo", "Description", "Prefix", "LenCode", "IssueType", "CharOfNumber",
+            "CharPosition", "StartingDate", "EndingDate", "QtyCoupon", "Status");
+
+    [Fact]
+    public void CouponCodeDto_locked()
+        => AssertFields(typeof(CouponCodeDto),
+            "ItemNo", "Code", "Enable");
+
+    // ── 8.3/8.4 Voucher (dashboard DTOs) ───────────────────────────────────
+    [Fact]
+    public void VoucherListItemDto_locked()
+        => AssertFields(typeof(VoucherListItemDto),
+            "ItemNo", "SerialNo", "ItemName", "ArticleType", "UnitOfMeasure", "DiscountType",
+            "DiscountValue", "ValueOfVoucher", "MaxAmount", "LimitQty", "IsCheckItem",
+            "StartingDate", "EndingDate", "LastDateModified", "Status");
+
+    [Fact]
+    public void VoucherPublishedItemDto_locked()
+        => AssertFields(typeof(VoucherPublishedItemDto),
+            "StoreNo", "PosNo", "BonusBuy", "SerialNo", "OrderNo", "ArticleNo", "ItemName",
+            "ApplyType", "Status", "VoucherValue", "MaxAmount", "MaxQtyUse", "MaxQuantityIssue",
+            "TranDateStr", "IsOffline", "IsSend", "IsCheckItem", "VoucherType",
+            "FromDateStr", "EnDateStr", "CreatedDateStr");
 }

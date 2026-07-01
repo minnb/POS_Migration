@@ -1,0 +1,242 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@using POS.Application.Features.CouponVoucher
+@using POS.Common.Dtos.Voucher
+@using POS.Infrastructure.Logging
+
+@inject IVoucherService VoucherService
+@inject IDialogService DialogService
+@inject IFileLogHelper FileLogger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(IsEdit ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)"
+                     Class="mr-2" Style="vertical-align:middle"/>
+            @(IsEdit ? $"Sửa voucher: {_model.ItemNo}" : "Thêm Voucher/Coupon")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" Style="border-radius:4px"/>
+        }
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField Value="@_model.ItemNo" Label="Mã voucher" ReadOnly="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="Tự sinh khi lưu"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="_model.Serial" Label="Số serial *" Immediate="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="50"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="6">
+                    <MudTextField @bind-Value="_model.ItemName" Label="Tên voucher/coupon *" Immediate="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="300"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect @bind-Value="_model.ArticleType" Label="Loại voucher/coupon *"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var a in Lookup.ArticleTypes)
+                        {
+                            <MudSelectItem T="string" Value="@a.Value">@a.Text</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect @bind-Value="_model.UnitOfMeasure" Label="Đơn vị tính *"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var u in Lookup.Uoms)
+                        {
+                            <MudSelectItem T="string" Value="@u.Value">@u.Text</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect @bind-Value="_model.DiscountType" Label="Loại giảm giá *"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem T="int" Value="1">Discount Percent (%)</MudSelectItem>
+                        <MudSelectItem T="int" Value="2">Discount Amount (VNĐ)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField @bind-Value="_model.DiscountValue" Label="Giá trị giảm *" Min="0"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField @bind-Value="_model.ValueOfVoucher" Label="Giá trị voucher" Min="0"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField @bind-Value="_model.MaxAmount" Label="Giá trị tối đa" Min="0"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField @bind-Value="_model.LimitQty" Label="Giới hạn số lượng" Min="0"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày *" DateFormat="dd/MM/yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="_toDate" Label="Đến ngày *" DateFormat="dd/MM/yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4" Class="d-flex align-center">
+                    <MudSwitch @bind-Value="_model.Blocked" Color="Color.Error"
+                               Label="@(_model.Blocked ? "Đang khóa" : "Đang hiệu lực")"/>
+                </MudItem>
+                <MudItem xs="12" md="8" Class="d-flex align-center">
+                    <MudCheckBox @bind-Value="_model.IsCheckItem" Color="Color.Primary" Dense="true"
+                                 Label="Áp dụng tổng bill (bỏ chọn = áp dụng theo danh sách sản phẩm)"/>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+
+        @* ── Danh sách sản phẩm (chỉ khi áp dụng theo sản phẩm) ─────────────── *@
+        @if (!_model.IsCheckItem)
+        {
+            <div class="d-flex justify-space-between align-center mt-4 mb-2 flex-wrap gap-2">
+                <MudText Typo="Typo.subtitle2">Sản phẩm áp dụng</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
+            </div>
+            <MudTable Items="@_items" Dense="true" Hover="true" Striped="true"
+                      Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="VoucherLineDto">
+                <HeaderContent>
+                    <MudTh>Mã sản phẩm</MudTh>
+                    <MudTh>Barcode</MudTh>
+                    <MudTh>Tên sản phẩm</MudTh>
+                    <MudTh>ĐVT</MudTh>
+                    <MudTh Style="text-align:right; width:60px"></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Mã sản phẩm">@context.ItemNo</MudTd>
+                    <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
+                    <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
+                    <MudTd DataLabel="ĐVT">@context.UOM</MudTd>
+                    <MudTd Style="text-align:right">
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                       OnClick="@(() => _items.Remove(context))"/>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4" Style="color:#9e9e9e">Chưa có sản phẩm.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        }
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@_saving" StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/> }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public VoucherFormLookupDto Lookup { get; set; } = new();
+    [Parameter] public string? ExistingItemNo { get; set; }
+    [Parameter] public string Actor { get; set; } = "unknown";
+
+    private bool IsEdit => !string.IsNullOrWhiteSpace(ExistingItemNo);
+
+    private VoucherSaveRequest _model = new() { DiscountType = 1, LimitQty = 99999999 };
+    private List<VoucherLineDto> _items = [];
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+
+    private MudForm _form = null!;
+    private bool _loading;
+    private bool _saving;
+    private string? _errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!IsEdit) return;
+        _loading = true;
+        try
+        {
+            var d = await VoucherService.GetDetailAsync(ExistingItemNo!);
+            if (d == null) { _errorMsg = "Không tìm thấy voucher."; return; }
+            _model = new VoucherSaveRequest
+            {
+                ItemNo = d.ItemNo, Serial = d.SerialNo, ItemName = d.ItemName, ArticleType = d.ArticleType,
+                UnitOfMeasure = d.UnitOfMeasure, DiscountType = d.DiscountType == 0 ? 1 : d.DiscountType,
+                DiscountValue = d.DiscountValue, ValueOfVoucher = d.ValueOfVoucher, MaxAmount = d.MaxAmount,
+                LimitQty = d.LimitQty, IsCheckItem = d.IsCheckItem, Blocked = d.Blocked
+            };
+            _items = d.Items ?? [];
+            _fromDate = ParseDmy(d.StartingDate);
+            _toDate = ParseDmy(d.EndingDate);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VoucherFormDialog.LoadDetail", ex);
+            _errorMsg = "Không tải được chi tiết voucher.";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task OpenItemPickerAsync()
+    {
+        var dialog = await DialogService.ShowAsync<VoucherItemPickerDialog>("Thêm sản phẩm áp dụng",
+            new DialogParameters(),
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true, BackdropClick = false });
+        var res = await dialog.Result;
+        if (res is { Canceled: false } && res.Data is List<VoucherLineDto> picked)
+        {
+            foreach (var p in picked)
+                if (!_items.Any(x => x.ItemNo == p.ItemNo && x.Barcode == p.Barcode))
+                    _items.Add(p);
+        }
+    }
+
+    private async Task Submit()
+    {
+        _errorMsg = null;
+        if (_fromDate == null) { _errorMsg = "Vui lòng chọn ngày bắt đầu"; return; }
+        if (_toDate == null) { _errorMsg = "Vui lòng chọn ngày kết thúc"; return; }
+
+        _model.StartingDateStr = _fromDate.Value.ToString("dd/MM/yyyy");
+        _model.EndingDateStr = _toDate.Value.ToString("dd/MM/yyyy");
+        _model.Items = _model.IsCheckItem ? [] : _items;
+
+        _saving = true;
+        try
+        {
+            var result = await VoucherService.SaveAsync(_model, Actor);
+            if (!result.Ok) { _errorMsg = result.Message; return; }
+            _model.ItemNo = result.ItemNo;
+            MudDialog.Close(DialogResult.Ok(_model));
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VoucherFormDialog.Save", ex);
+            _errorMsg = "Lưu thất bại. Vui lòng thử lại.";
+        }
+        finally { _saving = false; }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static DateTime? ParseDmy(string? dmy)
+        => DateTime.TryParseExact(dmy, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+}

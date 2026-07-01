@@ -3,16 +3,311 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using MudBlazor
+@using POS.Application.Features.CouponVoucher
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.Voucher
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using POS.Web.Services
+@using ClosedXML.Excel
+
+@inject IVoucherPublishedService PublishedService
+@inject ICentralMDRepository MdRepo
+@inject ISnackbar Snackbar
+@inject IFileLogHelper FileLogger
+@inject IJSRuntime JS
 
 <PageTitle>Voucher phát hành – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Redeem" Class="mr-2" Style="vertical-align:middle"/>
-    Voucher phát hành
-</MudText>
+@* ── Header ─────────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Redeem" Class="mr-2" Style="vertical-align:middle"/>
+        Tra cứu Voucher phát hành
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-page-header-btn"
+               StartIcon="@Icons.Material.Filled.FileDownload"
+               Disabled="@(_exporting || _filterStore is null)" OnClick="ExportExcelAsync">
+        @(_exporting ? "Đang xuất..." : "Xuất Excel")
+    </MudButton>
+</div>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter bar ──────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="3">
+            <MudAutocomplete T="StoreDto" Value="_filterStore" ValueChanged="OnStoreChanged"
+                             SearchFunc="SearchStoreAsync" Label="Cửa hàng *"
+                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Clearable="true" MaxItems="50" ResetValueOnEmptyText="false"
+                             ToStringFunc="@(s => s is null ? string.Empty : $"{s.StoreNo} – {s.Name}")"
+                             HelperText="@(_stores.Count == 0 ? "Đang tải..." : "Bắt buộc chọn cửa hàng")"/>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="2">
+            <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày" DateFormat="dd/MM/yyyy"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="2">
+            <MudDatePicker @bind-Date="_toDate" Label="Đến ngày" DateFormat="dd/MM/yyyy"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filter.VoucherType" Label="Loại"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                <MudSelectItem T="string" Value="@("V")">Voucher/Coupon</MudSelectItem>
+                <MudSelectItem T="string" Value="@("R")">Mã dự thưởng</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filter.TextSearch" Label="Từ khóa"
+                          Placeholder="BonusBuy / SerialNo / Số đơn hàng"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filter.StatusVoucher" Label="Tình trạng"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                <MudSelectItem T="string" Value="@("SOLD")">SOLD (bán hàng)</MudSelectItem>
+                <MudSelectItem T="string" Value="@("EXP")">EXP (trả hàng)</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_filter.SendSAP" Label="Send SAP"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                <MudSelectItem T="string" Value="@("1")">Đã send</MudSelectItem>
+                <MudSelectItem T="string" Value="@("0")">Chưa send</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_filterStore is null)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        Vui lòng chọn cửa hàng để tra cứu voucher đã phát hành.
+    </MudAlert>
+}
+else
+{
+    <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+              Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="VoucherPublishedItemDto">
+        <HeaderContent>
+            <MudTh Style="width:48px">STT</MudTh>
+            <MudTh>Cửa hàng</MudTh>
+            <MudTh>Máy POS</MudTh>
+            <MudTh>BonusBuy</MudTh>
+            <MudTh>SerialNo</MudTh>
+            <MudTh>Số đơn hàng</MudTh>
+            <MudTh>ArticleNo</MudTh>
+            <MudTh>Tên chương trình</MudTh>
+            <MudTh>Tình trạng</MudTh>
+            <MudTh Style="text-align:right">Giá trị</MudTh>
+            <MudTh>Thời gian tạo</MudTh>
+            <MudTh>Send SAP</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+            <MudTd DataLabel="Cửa hàng">@context.StoreNo</MudTd>
+            <MudTd DataLabel="Máy POS">@context.PosNo</MudTd>
+            <MudTd DataLabel="BonusBuy">@context.BonusBuy</MudTd>
+            <MudTd DataLabel="SerialNo"><b>@context.SerialNo</b></MudTd>
+            <MudTd DataLabel="Số đơn hàng">@context.OrderNo</MudTd>
+            <MudTd DataLabel="ArticleNo">@context.ArticleNo</MudTd>
+            <MudTd DataLabel="Tên chương trình">@context.ItemName</MudTd>
+            <MudTd DataLabel="Tình trạng">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                         Color="@(context.Status == "SOLD" ? Color.Success : Color.Warning)">
+                    @context.Status
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Giá trị" Style="text-align:right">@context.VoucherValue</MudTd>
+            <MudTd DataLabel="Thời gian tạo"><MudText Typo="Typo.caption">@context.TranDateStr</MudText></MudTd>
+            <MudTd DataLabel="Send SAP">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                         Color="@(context.IsSend == "1" || context.IsSend == "Đã send" ? Color.Success : Color.Default)">
+                    @(context.IsSend == "1" || context.IsSend == "Đã send" ? "Đã send" : "Chưa send")
+                </MudChip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                <MudText Typo="Typo.body2">Không có voucher phát hành khớp bộ lọc.</MudText>
+            </div>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private MudTable<VoucherPublishedItemDto> _table = null!;
+    private readonly VoucherPublishedFilter _filter = new() { PageSize = 10 };
+
+    private List<StoreDto> _stores = [];
+    private StoreDto? _filterStore;
+    private DateTime? _fromDate = DateTime.Today;
+    private DateTime? _toDate = DateTime.Today;
+
+    private List<VoucherPublishedItemDto> _rows = [];
+    private int _offset;
+    private bool _exporting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _stores = await MdRepo.GetStoreListAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VouchersPublishedPage.LoadStores", ex);
+            Snackbar.Add("Không tải được danh sách cửa hàng.", Severity.Warning);
+        }
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _stores
+            : _stores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private async Task OnStoreChanged(StoreDto? store)
+    {
+        _filterStore = store;
+        _filter.StoreNo = store?.StoreNo ?? string.Empty;
+        if (store is not null && _table is not null)
+            await _table.ReloadServerData();
+    }
+
+    private async Task<TableData<VoucherPublishedItemDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(_filter.StoreNo))
+            return new TableData<VoucherPublishedItemDto> { Items = [], TotalItems = 0 };
+
+        _filter.PageNumber = state.Page;
+        _filter.PageSize   = state.PageSize;
+        _filter.FromDate   = _fromDate?.ToString("dd/MM/yyyy") ?? string.Empty;
+        _filter.ToDate     = _toDate?.ToString("dd/MM/yyyy") ?? string.Empty;
+        _offset            = state.Page * state.PageSize;
+        try
+        {
+            var (items, total) = await PublishedService.GetListAsync(_filter, token);
+            _rows = items;
+            return new TableData<VoucherPublishedItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VouchersPublishedPage.Load", ex);
+            Snackbar.Add("Không thể tải dữ liệu voucher phát hành.", Severity.Error);
+            _rows = [];
+            return new TableData<VoucherPublishedItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        if (_filterStore is null) { Snackbar.Add("Vui lòng chọn cửa hàng.", Severity.Warning); return; }
+        await _table.ReloadServerData();
+    }
+
+    private async Task ClearFilterAsync()
+    {
+        _filter.VoucherType   = string.Empty;
+        _filter.StatusVoucher = string.Empty;
+        _filter.SendSAP       = string.Empty;
+        _filter.TextSearch    = string.Empty;
+        _fromDate = DateTime.Today;
+        _toDate = DateTime.Today;
+        if (_filterStore is not null) await _table.ReloadServerData();
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (_exporting || _filterStore is null) return;
+        _exporting = true;
+        try
+        {
+            _filter.FromDate = _fromDate?.ToString("dd/MM/yyyy") ?? string.Empty;
+            _filter.ToDate   = _toDate?.ToString("dd/MM/yyyy") ?? string.Empty;
+            var data = await PublishedService.ExportAsync(_filter);
+            var bytes = BuildXlsx(data);
+            await JS.SaveAsFileAsync($"VoucherPhatHanh_{_filter.StoreNo}_{DateTime.Now:yyyyMMddHHmmss}.xlsx", bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add($"Đã xuất {data.Count} dòng.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("VouchersPublishedPage.Export", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally { _exporting = false; }
+    }
+
+    private static byte[] BuildXlsx(IReadOnlyList<VoucherPublishedItemDto> data)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("VoucherPhatHanh");
+        string[] headers =
+        [
+            "Cửa hàng", "Máy POS", "Bonus Buy", "Serial No", "Số đơn hàng", "Article No",
+            "Tên chương trình", "Loại áp dụng", "Tình trạng", "Giá trị", "Giá trị tối đa",
+            "Số lượng SD tối đa", "Số lượng phát hành tối đa", "Thời gian tạo", "Batch File",
+            "Áp dụng Item", "Loại", "Ngày tạo"
+        ];
+        for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+        ws.Row(1).Style.Font.Bold = true;
+
+        var r = 2;
+        foreach (var e in data)
+        {
+            ws.Cell(r, 1).Value  = e.StoreNo;
+            ws.Cell(r, 2).Value  = e.PosNo;
+            ws.Cell(r, 3).Value  = e.BonusBuy;
+            ws.Cell(r, 4).Value  = e.SerialNo;
+            ws.Cell(r, 5).Value  = e.OrderNo;
+            ws.Cell(r, 6).Value  = e.ArticleNo;
+            ws.Cell(r, 7).Value  = e.ItemName;
+            ws.Cell(r, 8).Value  = e.ApplyType;
+            ws.Cell(r, 9).Value  = e.Status;
+            ws.Cell(r, 10).Value = e.VoucherValue;
+            ws.Cell(r, 11).Value = e.MaxAmount;
+            ws.Cell(r, 12).Value = e.MaxQtyUse;
+            ws.Cell(r, 13).Value = e.MaxQuantityIssue;
+            ws.Cell(r, 14).Value = e.TranDateStr;
+            ws.Cell(r, 15).Value = e.IsOffline;
+            ws.Cell(r, 16).Value = e.IsCheckItem;
+            ws.Cell(r, 17).Value = e.VoucherType;
+            ws.Cell(r, 18).Value = e.CreatedDateStr;
+            r++;
+        }
+        ws.Columns().AdjustToContents();
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+}

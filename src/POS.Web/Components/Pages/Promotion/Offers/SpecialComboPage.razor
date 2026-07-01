@@ -340,17 +340,39 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+
+        // Await + try/catch riêng từng lookup độc lập — 1 cái lỗi (vd bảng thiếu ở DEV)
+        // không được kéo sập luôn các dropdown còn lại.
         try
         {
-            var state = await AuthState;
-            _actor = state.User.Identity?.Name ?? "unknown";
             _salesTypes = await PromotionService.GetSalesOrderTypeOptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SpecialComboPage.LoadSalesTypes", ex);
+            Snackbar.Add("Không tải được danh sách Hình thức bán.", Severity.Warning);
+        }
+
+        try
+        {
             _memberCodes = await PromotionService.GetMemberCodeOptionsAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SpecialComboPage.LoadMemberCodes", ex);
+            Snackbar.Add("Không tải được danh sách Hạng thẻ.", Severity.Warning);
+        }
+
+        try
+        {
             _allStores = await MdRepo.GetStoreListAsync();
         }
         catch (Exception ex)
         {
-            FileLogger.WriteExpLogs("SpecialComboPage.Init", ex);
+            FileLogger.WriteExpLogs("SpecialComboPage.LoadStores", ex);
+            Snackbar.Add("Không tải được danh sách cửa hàng.", Severity.Warning);
         }
     }
 

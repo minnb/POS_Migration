@@ -473,17 +473,61 @@ public sealed class CentralMDRepository(
 
     public async Task<List<BankPOSListDto>> GetBankPOSListAsync(CancellationToken ct = default)
     {
-        const string sql = "[dbo].[GetBankPOSList] @StoreNo,@TextSearch,@BankCode,@Status,@Export,@PageSize,@PageNumber";
-        return (await QueryAsync<BankPOSListDto>(sql, new
+        // SP không có @Export; IsOnline/Status trả về text tiếng Việt (IIF), Counter/ngày đã
+        // Convert/Format sẵn thành chuỗi — map qua BankPOSListRow rồi convert sang kiểu UI cần.
+        const string sql = "[dbo].[GetBankPOSList] @StoreNo,@TextSearch,@BankCode,@Status,@PageSize,@PageNumber";
+        var rows = await QueryAsync<BankPOSListRow>(sql, new
         {
             StoreNo    = string.Empty,
             TextSearch = string.Empty,
             BankCode   = string.Empty,
             Status     = string.Empty,
-            Export     = 2,
             PageSize   = 9999,
             PageNumber = 0
-        }, commandTimeout: 60, ct: ct)).ToList();
+        }, commandTimeout: 60, ct: ct);
+
+        return rows.Select(r => new BankPOSListDto
+        {
+            BankPOSCode    = r.BankPOSCode,
+            BankPOSName    = r.BankPOSName,
+            BankCode       = r.BankCode,
+            StoreNo        = r.StoreNo,
+            StoreName      = r.StoreName,
+            POSNo          = r.POSNo,
+            POSTerminal    = r.POSTerminal,
+            AccessKey      = r.AccessKey,
+            PartnerId      = r.PartnerId,
+            IsOnline       = r.IsOnline == "Có",
+            Status         = r.Status == "Đang được sử dụng" ? 1 : 0,
+            StatusText     = r.Status,
+            Counter        = r.Counter,
+            CreatedDateStr = r.CreatedDateStr,
+            CreatedUser    = r.CreatedUser,
+            UpdatedDateStr = r.UpdatedDateStr,
+            UpdatedUser    = r.UpdatedUser
+        }).ToList();
+    }
+
+    // Khớp đúng cột SP [dbo].[GetBankPOSList] trả về — không dùng trực tiếp BankPOSListDto vì
+    // IsOnline/Status là text tiếng Việt (IIF) và Counter/ngày đã format sẵn thành chuỗi.
+    private sealed class BankPOSListRow
+    {
+        public string  BankPOSCode    { get; set; } = string.Empty;
+        public string? BankPOSName    { get; set; }
+        public string? BankCode       { get; set; }
+        public string? StoreNo        { get; set; }
+        public string? StoreName      { get; set; }
+        public string? POSNo          { get; set; }
+        public string? POSTerminal    { get; set; }
+        public string? AccessKey      { get; set; }
+        public string? PartnerId      { get; set; }
+        public string  IsOnline       { get; set; } = string.Empty;
+        public string? Status         { get; set; }
+        public string? Counter        { get; set; }
+        public string? CreatedDateStr { get; set; }
+        public string? CreatedUser    { get; set; }
+        public string? UpdatedDateStr { get; set; }
+        public string? UpdatedUser    { get; set; }
     }
 
     public async Task<(bool success, bool duplicateCode)> SaveBankPOSAsync(
@@ -491,11 +535,11 @@ public sealed class CentralMDRepository(
     {
         if (dto.IsNew)
         {
-            const string checkSql = "SELECT COUNT(1) FROM dbo.POSTerminalBanks (NOLOCK) WHERE BankPOSCode = @BankPOSCode;";
+            const string checkSql = "SELECT COUNT(1) FROM dbo.POSTerminalBank (NOLOCK) WHERE BankPOSCode = @BankPOSCode;";
             var exists = await QueryFirstOrDefaultAsync<int>(checkSql, new { dto.BankPOSCode }, ct: ct);
             if (exists > 0) return (false, true);
 
-            const string sql = @"INSERT INTO dbo.POSTerminalBanks
+            const string sql = @"INSERT INTO dbo.POSTerminalBank
                                      (BankPOSCode, BankPOSName, BankCode, StoreNo, StoreNoFull,
                                       POSNo, POSTerminal, AccessKey, PartnerId,
                                       IsOnline, Status, Counter, CreatedDate, CreatedUser)
@@ -517,7 +561,7 @@ public sealed class CentralMDRepository(
         }
         else
         {
-            const string sql = @"UPDATE dbo.POSTerminalBanks
+            const string sql = @"UPDATE dbo.POSTerminalBank
                                  SET    BankPOSName  = @BankPOSName,
                                         BankCode     = @BankCode,
                                         POSNo        = @POSNo,
@@ -546,7 +590,7 @@ public sealed class CentralMDRepository(
 
     public async Task<bool> DeleteBankPOSAsync(string bankPOSCode, CancellationToken ct = default)
     {
-        const string sql = "DELETE FROM dbo.POSTerminalBanks WHERE BankPOSCode = @bankPOSCode;";
+        const string sql = "DELETE FROM dbo.POSTerminalBank WHERE BankPOSCode = @bankPOSCode;";
         try
         {
             var rows = await ExecuteAsync(sql, new { bankPOSCode }, ct: ct);
@@ -560,7 +604,7 @@ public sealed class CentralMDRepository(
         var cached = await redis.StringGetAsync<List<BankDropdownDto>>(KeyBankList);
         if (cached?.Count > 0) return cached;
 
-        const string sql = "SELECT BankCode, BankName FROM dbo.Banks (NOLOCK) ORDER BY BankCode;";
+        const string sql = "SELECT BankCode, BankName FROM dbo.Bank (NOLOCK) ORDER BY BankCode;";
         var data = (await QueryAsync<BankDropdownDto>(sql, ct: ct)).ToList();
         if (data.Count > 0)
             redis.StringSet(KeyBankList, data, ttlSeconds: 43200);
@@ -843,7 +887,7 @@ ELSE
         if (cached?.Count > 0) return cached;
 
         // Tên cột (Code, Description) cần xác nhận với DBA nếu bảng dùng tên khác.
-        const string sql = "SELECT Code, Description FROM dbo.POSVATCode (NOLOCK) ORDER BY Code;";
+        const string sql = "SELECT VATCode AS Code, Description FROM dbo.POSVATCode (NOLOCK) ORDER BY Code;";
         var data = (await QueryAsync<PosVatCodeDto>(sql, ct: ct)).ToList();
         if (data.Count > 0)
             redis.StringSet(KeyPosVatCodes, data, ttlSeconds: 43200);

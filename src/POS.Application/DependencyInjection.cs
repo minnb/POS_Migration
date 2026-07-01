@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using POS.Application.Features.Common;
+using POS.Application.Features.CouponVoucher;
 using POS.Application.Features.DataSync;
 using POS.Application.Features.Gift;
 using POS.Application.Features.Partner;
@@ -25,6 +26,9 @@ public static class DependencyInjection
         services.AddScoped<ISAPService, SAPService>();
         services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<ISpecialComboService, SpecialComboService>();
+        services.AddScoped<ICouponService, CouponService>();
+        services.AddScoped<IVoucherService, VoucherService>();
+        services.AddScoped<IVoucherPublishedService, VoucherPublishedService>();
         return services;
     }
 }

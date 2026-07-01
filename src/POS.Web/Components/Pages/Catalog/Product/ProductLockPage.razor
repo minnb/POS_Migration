@@ -282,11 +282,22 @@ else
         _filter.PageNumber = state.Page;
         try
         {
-            var (items, total) = await MdRepo.GetProductLockListAsync(_filter, ct);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+            var (items, total) = await MdRepo.GetProductLockListAsync(_filter, cts.Token);
             return new TableData<ProductLockItemDto> { Items = items, TotalItems = total };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // MudTable tự hủy vì có request mới hơn — giữ hành vi cũ, im lặng
+            return new TableData<ProductLockItemDto> { Items = [], TotalItems = 0 };
         }
         catch (OperationCanceledException)
         {
+            // Timeout nội bộ 30s — DB/connection treo, không phải bị MudTable hủy
+            _errorMsg = "Tìm kiếm quá thời gian chờ (30s). Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("ProductLockPage.Reload",
+                new TimeoutException("GetProductLockListAsync vượt quá 30s — không rõ nguyên nhân phía DB."));
             return new TableData<ProductLockItemDto> { Items = [], TotalItems = 0 };
         }
         catch (Exception ex)

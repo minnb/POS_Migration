@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  Task Scheduler definition cho POS.Worker (chay lien tuc, giu song).
+  Import:  schtasks /Create /TN "POS.Worker" /XML "D:\POS\Worker\POS.Worker.Task.xml" /F
+  Neu thu muc publish khac D:\POS\Worker: sua <Command> + <WorkingDirectory> ben duoi.
+  Chay duoi tai khoan SYSTEM (S-1-5-18). Doi <UserId> neu muon dung service account rieng.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>POS.Worker - nap sale tu RabbitMQ + import file .zip. Long-running, restart-on-failure.</Description>
+    <URI>\POS.Worker</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+    <RestartOnFailure>
+      <Interval>PT1M</Interval>
+      <Count>999</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>D:\POS\Worker\run-worker.bat</Command>
+      <WorkingDirectory>D:\POS\Worker</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>

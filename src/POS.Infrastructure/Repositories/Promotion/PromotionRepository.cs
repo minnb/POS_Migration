@@ -128,25 +128,31 @@ public sealed class PromotionRepository(
                     ISNULL(TRY_CONVERT(int, LIMITNR),0) AS VoucherLimitNumber
             FROM    dbo.SetupPromotionHEADER (NOLOCK) WHERE BBYNR = @bbynr;
 
-            SELECT  CASE WHEN BUYTYPE='MGP' THEN 1 ELSE 0 END AS LineType,
-                    ISNULL(MAT_NR,'') AS No, ISNULL(MATGROUP,'') AS GroupCode, '' AS Description,
-                    ISNULL(MEINH,'') AS UnitOfMeasure,
-                    ISNULL(TRY_CONVERT(decimal(18,3), MAT_QUAN),0) AS Quantity,
-                    ISNULL(ScaleType,'C') AS ScaleType
-            FROM    dbo.SetupPromotionBUY (NOLOCK) WHERE BBYNR = @bbynr ORDER BY ID;
+            SELECT  CASE WHEN b.BUYTYPE='MGP' THEN 1 ELSE 0 END AS LineType,
+                    ISNULL(b.MAT_NR,'') AS No, ISNULL(b.MATGROUP,'') AS GroupCode,
+                    ISNULL(i.Description,'') AS Description,
+                    ISNULL(b.MEINH,'') AS UnitOfMeasure,
+                    ISNULL(TRY_CONVERT(decimal(18,3), b.MAT_QUAN),0) AS Quantity,
+                    ISNULL(b.ScaleType,'C') AS ScaleType
+            FROM    dbo.SetupPromotionBUY (NOLOCK) b
+            LEFT JOIN dbo.Item (NOLOCK) i ON i.No = b.MAT_NR
+            WHERE   b.BBYNR = @bbynr ORDER BY b.ID;
 
-            SELECT  CASE WHEN GETTYPE='MGP' THEN 1 ELSE 0 END AS LineType,
-                    ISNULL(MATERIALCODE,'') AS No, ISNULL(MATGROUP,'') AS GroupCode, '' AS Description,
-                    ISNULL(MEINH,'') AS UnitOfMeasure,
-                    ISNULL(TRY_CONVERT(decimal(18,3), QTY),0) AS Quantity,
-                    ISNULL(SCALETYPE,'C') AS ScaleType,
-                    CASE DISTYPE WHEN '%' THEN 0 WHEN 'R' THEN 1 WHEN 'P' THEN 2 ELSE 0 END AS DiscountType,
-                    ISNULL(TRY_CONVERT(decimal(18,3), CASE WHEN DISTYPE='%' THEN BBYPER ELSE BBYVAL END),0) AS DiscountValue
-            FROM    dbo.SetupPromotionGET (NOLOCK) WHERE BBYNR = @bbynr ORDER BY ID;
+            SELECT  CASE WHEN g.GETTYPE='MGP' THEN 1 ELSE 0 END AS LineType,
+                    ISNULL(g.MATERIALCODE,'') AS No, ISNULL(g.MATGROUP,'') AS GroupCode,
+                    ISNULL(i.Description,'') AS Description,
+                    ISNULL(g.MEINH,'') AS UnitOfMeasure,
+                    ISNULL(TRY_CONVERT(decimal(18,3), g.QTY),0) AS Quantity,
+                    ISNULL(g.SCALETYPE,'C') AS ScaleType,
+                    CASE g.DISTYPE WHEN '%' THEN 0 WHEN 'R' THEN 1 WHEN 'P' THEN 2 ELSE 0 END AS DiscountType,
+                    ISNULL(TRY_CONVERT(decimal(18,3), CASE WHEN g.DISTYPE='%' THEN g.BBYPER ELSE g.BBYVAL END),0) AS DiscountValue
+            FROM    dbo.SetupPromotionGET (NOLOCK) g
+            LEFT JOIN dbo.Item (NOLOCK) i ON i.No = g.MATERIALCODE
+            WHERE   g.BBYNR = @bbynr ORDER BY g.ID;
 
             SELECT  DISTINCT s.SITEGROUPCODE AS SiteGroupCode, ISNULL(g.GroupName,'') AS GroupName
             FROM    dbo.SetupPromotionSITE (NOLOCK) s
-            LEFT JOIN dbo.SetupGroupSites (NOLOCK) g ON g.GroupCode = s.SITEGROUPCODE
+            LEFT JOIN dbo.SetupGroupSite (NOLOCK) g ON g.GroupCode = s.SITEGROUPCODE
             WHERE   s.BBYNR = @bbynr;";
 
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
@@ -296,7 +302,8 @@ public sealed class PromotionRepository(
         if (cached?.Count > 0) return cached;
 
         const string sql = @"SELECT [GroupCode] AS SiteGroupCode, ISNULL([GroupName],'') AS GroupName
-                             FROM   dbo.SetupGroupSites (NOLOCK)
+                             FROM   dbo.SetupGroupSite (NOLOCK)
+                             WHERE  [Status] = 1
                              ORDER  BY [GroupCode]";
         var data = (await QueryAsync<OfferSiteLineDto>(sql, ct: ct)).ToList();
         if (data.Count > 0)
@@ -316,7 +323,7 @@ public sealed class PromotionRepository(
         if (codes.Count == 0) return table;
 
         const string sql = @"SELECT [GroupCode] AS GroupCode, ISNULL([ListStore],'') AS ListStore
-                             FROM   dbo.SetupGroupSites (NOLOCK)
+                             FROM   dbo.SetupGroupSite (NOLOCK)
                              WHERE  [GroupCode] IN @codes";
         var groups = (await QueryAsync<SiteGroupRow>(sql, new { codes }, ct: ct)).ToList();
 

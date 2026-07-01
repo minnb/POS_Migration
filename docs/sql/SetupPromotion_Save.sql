@@ -135,16 +135,41 @@ BEGIN
         END
         ELSE
         BEGIN
-            INSERT INTO dbo.SetupPromotionHEADER
-                (BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
-                 ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
-                 PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
-                 VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR)
-            VALUES
-                (@BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
-                 @VcSt, @VcEn, '', '', '', '', '', '', '', '', '',
-                 @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
-                 @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber);
+            -- Cột ID trên bảng legacy có thể là IDENTITY hoặc không tùy môi trường (DEV/UAT/PROD) —
+            -- kiểm tra động qua sys.columns thay vì giả định cứng, tránh lỗi "Cannot insert NULL into ID".
+            DECLARE @idIsIdentity bit = ISNULL(
+                (SELECT is_identity FROM sys.columns
+                 WHERE object_id = OBJECT_ID(N'dbo.SetupPromotionHEADER') AND name = N'ID'), 0);
+
+            IF (@idIsIdentity = 1)
+            BEGIN
+                INSERT INTO dbo.SetupPromotionHEADER
+                    (BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
+                     ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
+                     PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
+                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR)
+                VALUES
+                    (@BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
+                     @VcSt, @VcEn, '', '', '', '', '', '', '', '', '',
+                     @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
+                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber);
+            END
+            ELSE
+            BEGIN
+                DECLARE @newId int =
+                    (SELECT ISNULL(MAX(ID), 0) + 1 FROM dbo.SetupPromotionHEADER WITH (UPDLOCK, HOLDLOCK));
+
+                INSERT INTO dbo.SetupPromotionHEADER
+                    (ID, BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
+                     ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
+                     PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
+                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR)
+                VALUES
+                    (@newId, @BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
+                     @VcSt, @VcEn, '', '', '', '', '', '', '', '', '',
+                     @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
+                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber);
+            END
         END
 
         -- 4) BUY: replace

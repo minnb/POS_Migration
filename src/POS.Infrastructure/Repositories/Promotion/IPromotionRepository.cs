@@ -49,7 +49,7 @@ public interface IPromotionRepository
     /// <summary>Lookup sản phẩm (dbo.Item) cho dòng Buy/Get — top 50 theo keyword.</summary>
     Task<List<ItemOptionDto>> SearchItemsAsync(string keyword, CancellationToken ct = default);
 
-    /// <summary>Dropdown nhóm cửa hàng (dbo.SetupGroupSites), cache Redis 12h.</summary>
+    /// <summary>Dropdown nhóm cửa hàng (dbo.SetupGroupSite), cache Redis 12h.</summary>
     Task<List<OfferSiteLineDto>> GetSiteGroupOptionsAsync(CancellationToken ct = default);
 
     /// <summary>Dropdown hạng thẻ (dbo.OptionData, Caption='MEMBERCODETYPE'), cache Redis 12h.</summary>

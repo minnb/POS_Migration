@@ -46,6 +46,9 @@ public static class DependencyInjection
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
         services.AddScoped<IPromotionRepository, PromotionRepository>();
         services.AddScoped<ISpecialComboRepository, SpecialComboRepository>();
+        services.AddScoped<ICouponRepository, CouponRepository>();
+        services.AddScoped<IVoucherRepository, VoucherRepository>();
+        services.AddScoped<IVoucherPublishedRepository, VoucherPublishedRepository>();
         services.AddScoped<IWincodeRepository, WincodeRepository>();
         services.AddScoped<ISAPVoucherRepository, SAPVoucherRepository>();
 
@@ -79,6 +82,12 @@ public static class DependencyInjection
         services.AddScoped<Repositories.Interfaces.ISyncRepository, Repositories.SyncRepository>();
         services.AddSingleton<IFileArchiveService, FileArchiveService>();
         services.AddSingleton<ISyncFileLock, SyncFileLock>();
+
+        // ── File import (PosFileImportWorker: .zip → .txt → insert DB) ────────
+        var fileImportOptions =
+            configuration.GetSection(FileImportOptions.SectionName).Get<FileImportOptions>()
+            ?? new FileImportOptions();
+        services.AddSingleton(Options.Create(fileImportOptions));
 
         // ── Logging ───────────────────────────────────────────────────────────
         // FileLogHelper nhận baseDirectory từ config, không inject IConfiguration trực tiếp.

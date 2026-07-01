@@ -159,7 +159,7 @@
         </MudTd>
         <MudTd DataLabel="Tên">@context.BankPOSName</MudTd>
         <MudTd DataLabel="Ngân hàng">@context.BankCode</MudTd>
-        <MudTd DataLabel="Cửa hàng">@context.StoreNo</MudTd>
+        <MudTd DataLabel="Cửa hàng">@(string.IsNullOrEmpty(context.StoreName) ? context.StoreNo : $"{context.StoreNo} – {context.StoreName}")</MudTd>
         <MudTd DataLabel="POSNo">@context.POSNo</MudTd>
         <MudTd DataLabel="Terminal ID">
             <MudText Typo="Typo.caption">@(context.POSTerminal ?? "—")</MudText>
@@ -228,15 +228,16 @@
         _loading  = true;
         _errorMsg = null;
         StateHasChanged();
+
+        // Chạy song song nhưng await riêng từng task — một nguồn lỗi (vd SP BankPOS
+        // thiếu ở môi trường DEV) không được kéo sập luôn dropdown Cửa hàng/Ngân hàng.
+        var itemsTask  = MdRepo.GetBankPOSListAsync();
+        var storesTask = MdRepo.GetStoreListAsync();
+        var banksTask  = MdRepo.GetBankListForDropdownAsync();
+
         try
         {
-            var itemsTask  = MdRepo.GetBankPOSListAsync();
-            var storesTask = MdRepo.GetStoreListAsync();
-            var banksTask  = MdRepo.GetBankListForDropdownAsync();
-            await Task.WhenAll(itemsTask, storesTask, banksTask);
-            _allItems = itemsTask.Result;
-            _stores   = storesTask.Result;
-            _banks    = banksTask.Result;
+            _allItems = await itemsTask;
             FileLogger.WriteLogs($"[BankPosPage.Load] {_currentActor}: {_allItems.Count} records, {_allItems.Count(x => x.IsOnline)} online");
         }
         catch (Exception ex)
@@ -244,11 +245,29 @@
             _errorMsg = "Không thể tải danh sách Máy POS Ngân hàng.";
             FileLogger.WriteExpLogs("BankPosPage.Load", ex);
         }
-        finally
+
+        try
         {
-            _loading = false;
-            ApplyFilter();
+            _stores = await storesTask;
         }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("BankPosPage.LoadStores", ex);
+            Snackbar.Add("Không tải được danh sách cửa hàng.", Severity.Warning);
+        }
+
+        try
+        {
+            _banks = await banksTask;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("BankPosPage.LoadBanks", ex);
+            Snackbar.Add("Không tải được danh sách ngân hàng.", Severity.Warning);
+        }
+
+        _loading = false;
+        ApplyFilter();
     }
 
     private void ApplyFilter()
@@ -380,7 +399,7 @@
 
         string[] headers =
         [
-            "Mã BankPOS", "Tên", "Ngân hàng", "Cửa hàng", "POSNo",
+            "Mã BankPOS", "Tên", "Ngân hàng", "Cửa hàng", "Tên cửa hàng", "POSNo",
             "Terminal ID", "Access Key", "Partner ID", "Online", "Status",
             "Counter", "Ngày tạo", "Người tạo", "Ngày sửa", "Người sửa"
         ];
@@ -401,17 +420,18 @@
             ws.Cell(row, 2).Value  = d.BankPOSName ?? string.Empty;
             ws.Cell(row, 3).Value  = d.BankCode    ?? string.Empty;
             ws.Cell(row, 4).Value  = d.StoreNo     ?? string.Empty;
-            ws.Cell(row, 5).Value  = d.POSNo       ?? string.Empty;
-            ws.Cell(row, 6).Value  = d.POSTerminal ?? string.Empty;
-            ws.Cell(row, 7).Value  = d.AccessKey   ?? string.Empty;
-            ws.Cell(row, 8).Value  = d.PartnerId   ?? string.Empty;
-            ws.Cell(row, 9).Value  = d.IsOnline ? "Online" : "Offline";
-            ws.Cell(row, 10).Value = d.Status;
-            ws.Cell(row, 11).Value = d.Counter?.ToString() ?? string.Empty;
-            ws.Cell(row, 12).Value = d.CreatedDate?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty;
-            ws.Cell(row, 13).Value = d.CreatedUser ?? string.Empty;
-            ws.Cell(row, 14).Value = d.UpdatedDate?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty;
-            ws.Cell(row, 15).Value = d.UpdatedUser ?? string.Empty;
+            ws.Cell(row, 5).Value  = d.StoreName   ?? string.Empty;
+            ws.Cell(row, 6).Value  = d.POSNo       ?? string.Empty;
+            ws.Cell(row, 7).Value  = d.POSTerminal ?? string.Empty;
+            ws.Cell(row, 8).Value  = d.AccessKey   ?? string.Empty;
+            ws.Cell(row, 9).Value  = d.PartnerId   ?? string.Empty;
+            ws.Cell(row, 10).Value = d.IsOnline ? "Online" : "Offline";
+            ws.Cell(row, 11).Value = d.StatusText ?? string.Empty;
+            ws.Cell(row, 12).Value = d.Counter ?? string.Empty;
+            ws.Cell(row, 13).Value = d.CreatedDateStr ?? string.Empty;
+            ws.Cell(row, 14).Value = d.CreatedUser ?? string.Empty;
+            ws.Cell(row, 15).Value = d.UpdatedDateStr ?? string.Empty;
+            ws.Cell(row, 16).Value = d.UpdatedUser ?? string.Empty;
         }
 
         ws.Columns().AdjustToContents();

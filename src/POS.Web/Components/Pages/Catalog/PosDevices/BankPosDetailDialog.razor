@@ -1,9 +1,11 @@
 @namespace POS.Web.Components.Pages.Catalog.PosDevices
 @using MudBlazor
 @using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Logging
 @using POS.Infrastructure.Repositories.Interfaces
 
 @inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
 
 <MudDialog>
     <TitleContent>
@@ -173,11 +175,31 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Await riêng từng task — một nguồn lỗi (vd bảng/SP thiếu) không được throw unhandled
+        // trong OnInitializedAsync, vì lỗi chưa bắt ở lifecycle method sẽ làm SẬP LUÔN circuit
+        // Blazor Server (không chỉ riêng dialog), khiến Lưu/Hủy không còn gọi được nữa.
         var storesTask = MdRepo.GetStoreListAsync();
         var banksTask  = MdRepo.GetBankListForDropdownAsync();
-        await Task.WhenAll(storesTask, banksTask);
-        _stores = storesTask.Result;
-        _banks  = banksTask.Result;
+
+        try
+        {
+            _stores = await storesTask;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("BankPosDetailDialog.LoadStores", ex);
+            _errorMsg = "Không tải được danh sách cửa hàng.";
+        }
+
+        try
+        {
+            _banks = await banksTask;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("BankPosDetailDialog.LoadBanks", ex);
+            _errorMsg = "Không tải được danh sách ngân hàng.";
+        }
 
         if (IsEdit && ExistingItem is not null)
         {

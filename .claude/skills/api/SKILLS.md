@@ -428,3 +428,64 @@ public sealed class PosApiKeyMiddleware(RequestDelegate next)
 - ⚠️ Fail-closed → mọi endpoint (trừ `/health`, `/swagger/*`) bắt buộc có header; rà soát script/monitor nội bộ trước khi deploy.
 
 > Ví dụ thực tế: `src/POS.Api/Middleware/PosApiKeyMiddleware.cs`
+
+---
+
+## Pattern: Xác minh tên bảng vật lý qua legacy EDMX trước khi viết raw SQL
+
+> Áp dụng khi: viết raw SQL/SP call mới nhắm vào bảng đã tồn tại từ legacy (migrate hoặc tái sử dụng).
+> Rút ra từ sự cố thực tế: `CentralMDRepository` dùng `dbo.POSTerminalBanks` và `dbo.Banks` (số nhiều)
+> — cả hai đều là tên **EF DbSet/EntitySet CSDL** (conceptual, số nhiều theo convention), KHÔNG PHẢI
+> tên bảng vật lý thật (`dbo.POSTerminalBank`, `dbo.Bank` — số ít). Query chạy thẳng vào production
+> DB thật sẽ throw `Invalid object name` — chỉ phát hiện lúc runtime, không phải lúc build.
+
+**Cách xác minh đúng — tra trong SSDL (Storage Schema) của EDMX, KHÔNG tra CSDL/DbSet:**
+```
+src/legacy/VCM.BLUEPOS.Data/EF/{Module}/{Context}.edmx
+  → tìm <EntitySet Name="{Ten}" EntityType="Self.{Ten}" Schema="dbo" store:Type="Tables" />
+    (nằm trong <Schema Namespace="...Model.Store" Provider="System.Data.SqlClient">, PHẦN SSDL)
+    → đây MỚI là tên bảng vật lý thật
+
+  ⚠️ KHÔNG tra <EntitySet Name="{TenSoNhieu}" EntityType="{Model}.{Ten}" /> trong phần CSDL
+     (Conceptual, phía dưới file) — đó là tên collection C#/DbSet, EF tự pluralize, có thể LỆCH
+     hoàn toàn với tên bảng thật.
+```
+
+**Checklist khi viết SQL/SP mới nhắm bảng cũ từ legacy:**
+1. Grep tên entity trong `src/legacy/*/EF/**/*.edmx` — tìm dòng `<EntitySet ... store:Type="Tables" />`
+2. Đối chiếu property/column list trong `<EntityType Name="...">` (phần SSDL, có `Type="nvarchar"` v.v. — không phải phần CSDL có `Type="String"`)
+3. Nếu có `<MappingFragment StoreEntitySet="{TenBangThat}">` — xác nhận lại 1 lần nữa tên bảng CSDL → SSDL khớp đúng
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`
+> (`GetBankPOSListAsync`/`SaveBankPOSAsync`/`DeleteBankPOSAsync` → `dbo.POSTerminalBank`;
+> `GetBankListForDropdownAsync` → `dbo.Bank`)
+
+---
+
+## Pattern: Map SP trả cột đã format/localize sẵn (khác kiểu bảng vật lý)
+
+> Áp dụng khi: gọi 1 SP có sẵn (không tự viết) mà SELECT convert cột sang dạng hiển thị
+> (vd `IIF(Status=1, N'Đang dùng', N'Không dùng')`, `Format(Date,'dd/MM/yyyy')`,
+> `Convert(varchar,Counter)`) — kiểu cột trả về KHÁC kiểu cột vật lý trong bảng, map thẳng
+> vào DTO dùng kiểu vật lý (bool/int/DateTime) sẽ làm Dapper throw lỗi cast ngay dòng đầu tiên.
+
+```csharp
+// Repository — KHÔNG map thẳng vào DTO public (BankPOSListDto), dùng row riêng khớp đúng
+// cột SP trả (text/string), rồi convert sang kiểu UI cần trong bước project.
+var rows = await QueryAsync<BankPOSListRow>(sql, param, ct: ct);
+return rows.Select(r => new BankPOSListDto
+{
+    IsOnline = r.IsOnline == "Có",                              // text tiếng Việt → bool
+    Status   = r.Status == "Đang được sử dụng" ? 1 : 0,          // text tiếng Việt → int (round-trip Save)
+    StatusText = r.Status,                                      // giữ nguyên text để hiển thị/export
+    Counter  = r.Counter,                                       // varchar sẵn — giữ string, không ép int
+}).ToList();
+
+private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /* ... khớp đúng tên+kiểu cột SP trả */ }
+```
+
+**Quan trọng:**
+- Giữ nguyên field kiểu "gốc" (vd `Status` int) trên DTO nếu còn nơi khác (form Edit/Save) cần round-trip đúng kiểu đó — chỉ thêm field mới (`StatusText`) cho phần hiển thị, KHÔNG đổi kiểu field đang được dùng để ghi ngược lại DB.
+- Dapper `QueryAsync<T>` không throw khi property DTO không có cột khớp (giữ default) — an toàn khi SP sau này thêm cột mới (vd thêm `PartnerId` vào SELECT) mà không cần sửa code map nếu đã khai báo sẵn field tương ứng.
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs` (`GetBankPOSListAsync` + `BankPOSListRow`)

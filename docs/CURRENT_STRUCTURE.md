@@ -122,6 +122,8 @@ src/
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
+│   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/Code…)
+│   │   ├── Voucher/SetupVoucherDtos.cs      ← 8.3/8.4 (VoucherList/Detail/Save + VoucherPublished lookup)
 │   │   ├── CXVoucher/CXVoucherDto.cs
 │   │   ├── DRW/UpdateStatusSfaffDiscountDto.cs
 │   │   ├── FileModel/FileModelDto.cs
@@ -281,6 +283,10 @@ src/
         │   └── IWincodeRepository.cs / WincodeRepository.cs
         ├── Sap/
         │   └── ISAPVoucherRepository.cs / SAPVoucherRepository.cs
+        ├── CouponVoucher/                  ← 8.1–8.4 (dùng chung bảng CpnVchBOM*)
+        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_*)
+        │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
+        │   └── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
         └── DataSync/
             └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync, Redis cache MD:SyncTableList) + SP2 stream (StreamTableToFilesAsync)
 ```
@@ -304,6 +310,9 @@ src/
 | `IMasterDataSyncService` | `MasterDataSyncService` | `POS.Application.Features.DataSync` | POS.Application |
 | `ISAPService` | `SAPService` | `POS.Application.Features.Sap` | POS.Application |
 | `IGiftService` | `GiftService` | `POS.Application.Features.Gift` | POS.Application |
+| `ICouponService` | `CouponService` | `POS.Application.Features.CouponVoucher` | POS.Application |
+| `IVoucherService` | `VoucherService` | `POS.Application.Features.CouponVoucher` | POS.Application |
+| `IVoucherPublishedService` | `VoucherPublishedService` | `POS.Application.Features.CouponVoucher` | POS.Application |
 
 ### POS.Infrastructure — Repositories
 
@@ -320,6 +329,9 @@ src/
 | `IOfferStaffRepository` | `OfferStaffRepository` | Loyalty/ | POS.Infrastructure |
 | `IWincodeRepository` | `WincodeRepository` | Loyalty/ | POS.Infrastructure |
 | `ISAPVoucherRepository` | `SAPVoucherRepository` | Sap/ | POS.Infrastructure |
+| `ICouponRepository` | `CouponRepository` | CouponVoucher/ | POS.Infrastructure |
+| `IVoucherRepository` | `VoucherRepository` | CouponVoucher/ | POS.Infrastructure |
+| `IVoucherPublishedRepository` | `VoucherPublishedRepository` | CouponVoucher/ | POS.Infrastructure |
 | `ISyncRepository` | `SyncRepository` | DataSync/ | POS.Infrastructure |
 | _(static, no interface)_ | `SecretProtector` | `POS.Infrastructure.Security` | POS.Infrastructure |
 
@@ -366,6 +378,9 @@ src/
 | `ISAPService` → `SAPService` | Scoped | SAP voucher/coupon |
 | `IGiftService` → `GiftService` | Scoped | Gift barcode |
 | `IMasterDataSyncService` → `MasterDataSyncService` | Scoped | Sinh zip master data + log download |
+| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel |
+| `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
+| `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 
@@ -385,6 +400,9 @@ src/
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
 | `ISAPVoucherRepository` → `SAPVoucherRepository` | Scoped | SAP voucher DB |
+| `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD) |
+| `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD) |
+| `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
 | `ISyncRepository` → `SyncRepository` | Scoped | SP1 GetSyncTables (Redis cache) + SP2 StreamTableToFiles |
 | `IFileArchiveService` → `FileArchiveService` | Singleton | ZipFile.CreateFromDirectory (compression level configurable) |
 | `ISyncFileLock` → `SyncFileLock` | Singleton | keyed SemaphoreSlim chống sinh zip trùng |

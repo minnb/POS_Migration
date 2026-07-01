@@ -65,6 +65,21 @@ public static class SerilogConfiguration
             .WriteTo.Console(
                 outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
 
+        // File sink (rolling theo ngày) — bật khi có Logging:FileLogDirectory.
+        // Console sink khi stdout bị redirect ra file (Task Scheduler) bị block-buffer → không flush;
+        // file sink dưới đây flush đều nên log luôn đọc được, độc lập với Elasticsearch.
+        var fileLogDir = configuration["Logging:FileLogDirectory"];
+        if (!string.IsNullOrWhiteSpace(fileLogDir))
+        {
+            loggerConfig.WriteTo.File(
+                path: Path.Combine(fileLogDir, "pos-.log"),      // → pos-yyyyMMdd.log
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14,
+                shared: true,                                    // nhiều instance ghi chung an toàn
+                flushToDiskInterval: TimeSpan.FromSeconds(1),
+                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+        }
+
         var nodes = esOptions.Nodes
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .Select(n => new Uri(n))

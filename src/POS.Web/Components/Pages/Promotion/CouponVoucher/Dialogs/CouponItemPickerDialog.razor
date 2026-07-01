@@ -1,0 +1,83 @@
+@using MudBlazor
+@using POS.Application.Features.CouponVoucher
+@using POS.Common.Dtos.SetupCoupon
+
+@inject ICouponService CouponService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Class="mr-2" Style="vertical-align:middle"/>
+            Thêm sản phẩm coupon
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" sm="5">
+                <MudTextField @bind-Value="_itemNo" Label="Mã sản phẩm"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudTextField @bind-Value="_itemName" Label="Tên sản phẩm"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+            </MudItem>
+            <MudItem xs="12" sm="2" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           OnClick="SearchAsync">Tìm</MudButton>
+            </MudItem>
+        </MudGrid>
+
+        <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+                  Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="CouponItemLineDto"
+                  MultiSelection="true" @bind-SelectedItems="_selected">
+            <HeaderContent>
+                <MudTh>Mã sản phẩm</MudTh>
+                <MudTh>Barcode</MudTh>
+                <MudTh>Tên sản phẩm</MudTh>
+                <MudTh>ĐVT</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Mã sản phẩm">@context.ItemNo</MudTd>
+                <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
+                <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
+                <MudTd DataLabel="ĐVT">@context.UOM</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4" Style="color:#9e9e9e">Không có sản phẩm khớp.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                               InfoFormat="{first_item}–{last_item} / {all_items}"
+                               RowsPerPageString="Số dòng/trang:"/>
+            </PagerContent>
+        </MudTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Select" Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Check">
+            Chọn (@_selected.Count)
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private MudTable<CouponItemLineDto> _table = null!;
+    private string? _itemNo;
+    private string? _itemName;
+    private HashSet<CouponItemLineDto> _selected = [];
+
+    private async Task<TableData<CouponItemLineDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        var (items, total) = await CouponService.SearchItemsAsync(_itemNo, _itemName, state.PageSize, state.Page, token);
+        return new TableData<CouponItemLineDto> { Items = items, TotalItems = total };
+    }
+
+    private async Task SearchAsync() => await _table.ReloadServerData();
+
+    private void Select() => MudDialog.Close(DialogResult.Ok(_selected.ToList()));
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,5 +1,8 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-06-30 (thêm Catalog section: ProductsPage 6.1+6.2+6.3, ProductLockPage 6.4 — migrate từ VCM.BLUEPOS)
+> Cập nhật: 2026-07-01 (UI polish PromotionSetupPage `/promotion/setup`: MudTabs icon+gạch chân active, MudCard gom nhóm cả 5 tab, tooltip/HelperText giải thích, validation trực quan `Required`/`RequiredError`, nút Lưu spinner khi `_saving`, combobox "Điều kiện" 160→240px — markup-only, giữ 100% @code; + tài liệu `docs/web/LOGIC_APPROVE_CTKM.md`)
+> Trước đó 2026-07-01 (Promotion/CouponVoucher: 8.1 Cài đặt Coupon + 8.2 Phát hành Coupon + 8.3 Danh mục Voucher (CRUD) + 8.4 Tra cứu Voucher phát hành — service 3 lớp, SP mới usp_SetupCoupon_*/usp_SetupVoucher_*, 8.4 reuse SP CentralSales)
+> Trước đó 2026-07-01 (Bug fix: sidebar accordion (I3) + active NavLink highlight (I4) sai logic; BankPosPage/BankPosDetailDialog — sai tên bảng vật lý + SP param + crash circuit khi lookup lỗi)
+> Trước đó 2026-06-30 (thêm Catalog section: ProductsPage 6.1+6.2+6.3, ProductLockPage 6.4 — migrate từ VCM.BLUEPOS)
 > Trước đó 2026-06-28 (Security hardening: config-driven HTTPS/cookie + RequireHttps, security headers/CSP, mã hóa credentials AES-256-GCM `enc:`, SQL Console mask+toggle, DetailedErrors off Prod)
 
 ---
@@ -37,8 +40,18 @@ src/POS.Web/
 │       ├── Catalog/
 │       │   └── Product/
 │       │       ├── ProductsPage.razor               ← /catalog/products — danh sách + thêm mới + xuất Excel
-│       │       ├── ProductDetailDialog.razor         ← form tạo SP mới (dynamic barcode rows)
-│       │       └── ProductLockPage.razor             ← /catalog/product-lock — khóa/mở khóa SP theo cửa hàng
+│       │       ├── ProductLockPage.razor             ← /catalog/product-lock — khóa/mở khóa SP theo cửa hàng
+│       │       └── Dialogs/ (ProductDetailDialog — form tạo SP mới, dynamic barcode rows)
+│       ├── Promotion/
+│       │   ├── Offers/
+│       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (editor 5 tab; UI polish MudCard+tooltip+validation trực quan)
+│       │   │   ├── SpecialComboPage.razor      ← /promotion/special-combo — Special Combo
+│       │   │   └── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live)
+│       │   └── CouponVoucher/
+│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list+xóa / phát hành Auto·Import·nâng cao)
+│       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export)
+│       │       ├── VouchersPublishedPage.razor                       ← 8.4 Tra cứu Voucher phát hành (CentralSales per-store)
+│       │       └── Dialogs/ (CouponItemPickerDialog, CouponAdvancedDialog, VoucherFormDialog, VoucherItemPickerDialog)
 │       └── Store/
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
 │           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)
@@ -165,7 +178,7 @@ src/POS.Web/
 | J3 | migration_dashboard_audit_log.sql – bảng DashboardAuditLog + 3 index | Auth/migration_dashboard_audit_log.sql | ⚠️ | Script idempotent — **PHẢI CHẠY trên RPOSMasterData trước deploy**; chưa chạy → log fail silently |
 | J4 | audit-logging.md – rule audit CRUD chuẩn hóa cho toàn dự án | .claude/skills/web/audit-logging.md | ✅ | Pattern: snapshot oldValue từ item đã có, await LogAsync sau DB success, dialog trả DTO, checklist 12 mục |
 | K1 | ProductsPage – /catalog/products + OpsAndAbove | Pages/Catalog/Product/ProductsPage.razor | ✅ | Danh sách SP/Barcode — SP GetProductList server-side paging; filter (mã/tên/barcode/thuế suất); nút Thêm mới + dialog tạo SP; Export Excel (ClosedXML); pos-page-header. Migrate 6.1+6.2+6.3 |
-| K2 | ProductDetailDialog – form tạo sản phẩm mới | Pages/Catalog/Product/ProductDetailDialog.razor | ✅ | 8 field (ItemName/Full/UoM/SalesUoM/FamilyCode/TaxCode/Blocked/BlockedVINID) + dynamic barcode table; INSERT dbo.Item + dbo.Barcode trong transaction; auto ItemNo (Max+1). Edit button disabled pending UPDATE route |
+| K2 | ProductDetailDialog – form tạo sản phẩm mới | Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor | ✅ | 8 field (ItemName/Full/UoM/SalesUoM/FamilyCode/TaxCode/Blocked/BlockedVINID) + dynamic barcode table; INSERT dbo.Item + dbo.Barcode trong transaction; auto ItemNo (Max+1). Edit button disabled pending UPDATE route |
 | K3 | ProductLockPage – /catalog/product-lock + OpsAndAbove | Pages/Catalog/Product/ProductLockPage.razor | ✅ | Khóa/mở khóa SP theo cửa hàng — StoreNo bắt buộc; MudTable server-side + MultiSelection + chip màu; toggle đơn + bulk action; MudMessageBox @ref confirm; UPSERT dbo.ItemBlock. Migrate 6.4 (Central mode) |
 | J5 | IKibanaService → IFileLogHelper — migration toàn POS.Web | 24 .razor + 3 .cs (PendingUpdate, SqlConsoleService, DbAuditLogger) | ✅ | LogInfo → WriteLogs(`[{fn}] {entity}: {msg}`); LogException có ex → WriteExpLogs; LogException không có ex → WriteLogs(`[EXCEPTION][{fn}] msg`) |
 | J6 | Audit log UsersPage (CREATE/UPDATE/LOCK/UNLOCK) + PosMapPage (UPDATE PosTerminal, chained dialog) | UsersPage.razor / UserFormDialog.razor / PosMapPage.razor / PosTerminalEditDialog.razor / PosTerminalDetailDialog.razor / PosTerminalSavePayload.cs (mới) | ✅ | UserFormDialog trả DTO đầy đủ (PasswordHash masked); DetailDialog forward result.Data!; PosMapPage capture oldJson trước dialog |

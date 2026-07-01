@@ -108,10 +108,31 @@
 
 | # | Chức năng | Route | Độ phức tạp | Trạng thái |
 |---|-----------|-------|-------------|------------|
-| 8.1 | Cài đặt Coupon | `GET /SetupCoupon/SetupCoupon` | Trung bình | ⏳ TODO |
-| 8.2 | Phát hành Coupon | `POST /SetupCoupon/SaveIssueCoupon` | Cao | ⏳ TODO |
-| 8.3 | Danh mục Voucher | `GET /Voucher/VoucherList` | Trung bình | ⏳ TODO |
-| 8.4 | Tra cứu Voucher Phát hành | `GET /Voucher/VoucherPublished` | Trung bình | ⏳ TODO |
+| 8.1 | Cài đặt Coupon | `GET /SetupCoupon/SetupCoupon` | Trung bình | ✅ DONE |
+| 8.2 | Phát hành Coupon | `POST /SetupCoupon/SaveIssueCoupon` | Cao | ✅ DONE |
+| 8.3 | Danh mục Voucher | `GET /Voucher/VoucherList` | Trung bình | ✅ DONE |
+| 8.4 | Tra cứu Voucher Phát hành | `GET /Voucher/VoucherPublished` | Trung bình | ✅ DONE |
+
+> **8.3 + 8.4 ✅ DONE** — POS.Web `/promotion/vouchers` (8.3: list + filter + Full CRUD qua dialog + item picker +
+> Export Excel) và `/promotion/vouchers-published` (8.4: chọn cửa hàng bắt buộc → tra cứu CentralSales per-store +
+> filter + Export). Service 3 lớp `IVoucherService`/`IVoucherPublishedService` (POS.Api tái dùng được).
+> - **8.3 dùng CHUNG bảng `CpnVchBOMHeader`/`CpnVchBOMLine` với Coupon** — phân tách bằng `NOT EXISTS CpnVchBOMIssueRule`.
+>   SP mới: `docs/sql/SetupVoucher_Read.sql`, `SetupVoucher_Save.sql` (TVP), `SetupVoucher_Delete.sql` (ROLLOUT §D4).
+> - ⚠️ **Logic quan trọng đã port đúng:** (a) `IsCheckItem` NGƯỢC nghĩa coupon — voucher `true`=tổng bill (no line),
+>   `false`=theo sản phẩm; (b) ItemNo voucher = **số thuần** seed `70000001` (SP chỉ MAX trên ItemNo thuần số,
+>   bỏ mã coupon 'C...' → tránh lỗi CAST của legacy); (c) serial (CouponCode) bắt buộc duy nhất (SP kiểm, trả Ok=false).
+> - **8.4 tái dùng SP có sẵn `[dbo].[GetTransCpnVchIssueList]`** trên CentralSales (routed per-store qua
+>   `StoreRoutedConnectionFactory`); item picker tái dùng `GetProductListAsync`.
+> - **Hoãn:** màn Line-CRUD riêng của legacy (thay bằng replace-on-save trong form); Resend-SAP (8.4).
+
+> **8.1 + 8.2 ✅ DONE** — POS.Web `/promotion/coupons` (list + filter mã/tên/cách phát hành/hiệu lực, chip trạng thái,
+> xóa khi QtyCoupon==0) và `/promotion/coupons/issue` (form phát hành Auto/Import Excel + item picker + cài đặt nâng cao
+> + tab mã coupon; sửa qua `?id=`). Service 3 lớp `ICouponRepository` → `ICouponService` (POS.Api tái dùng được);
+> tái dùng `ICentralMDRepository.GetProductListAsync` (6.1) cho item picker. Sinh mã Auto ở tầng Application.
+> - **⚠️ Legacy dùng EF LINQ, KHÔNG có SP** (INVENTORY ghi `sp_SetupCoupon_Get` là sai). SP mới cần chạy trên
+>   RPOSMasterData: `docs/sql/SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupCoupon_Delete.sql` (xem ROLLOUT §D3).
+> - Bảng: `CpnVchBOMIssueRule`, `CpnVchBOMHeader`, `CpnVchBOMCodeIssue`, `CpnVchBOMLine`, `CpnVchBOMStore`.
+> - **Hoãn:** file mẫu Excel sinh tối giản (1 cột `CodeCoupon`) thay vì lấy mẫu từ bảng `ExcelExampleCoupon`.
 
 ---
 

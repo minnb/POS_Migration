@@ -1,0 +1,103 @@
+@using MudBlazor
+@using POS.Common.Dtos.SetupCoupon
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" Style="vertical-align:middle"/>
+            Cài đặt nâng cao
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_model.UOM" Label="Đơn vị tính"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var u in Uoms)
+                    {
+                        <MudSelectItem T="string" Value="@u.Value">@u.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.CpnVchType" Label="Loại coupon (CpnVchType)"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"/>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_model.DiscountType" Label="Kiểu giảm giá"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="int" Value="1">Discount Percent (%)</MudSelectItem>
+                    <MudSelectItem T="int" Value="2">Discount Amount (VNĐ)</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="_model.DiscountValue" Label="Giá trị giảm giá" Min="0"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="_model.MaxValue" Label="Giảm tối đa (VNĐ)" Min="0"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="_model.LimitQty" Label="Giới hạn số lượng" Min="0"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="_model.LimitQtyUsed" Label="Số lần sử dụng" Min="0"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true"/>
+            </MudItem>
+            <MudItem xs="12" Class="d-flex flex-wrap gap-4 align-center">
+                <MudCheckBox @bind-Value="_model.IsMultiUsed" Label="Sử dụng nhiều lần" Color="Color.Primary" Dense="true"/>
+                <MudCheckBox @bind-Value="_model.IsCheckAPI" Label="Check API" Color="Color.Primary" Dense="true"/>
+                <MudCheckBox @bind-Value="_model.Blocked" Label="Khóa (Blocked)" Color="Color.Error" Dense="true"/>
+            </MudItem>
+        </MudGrid>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save">Lưu</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public CouponAdvancedSaveRequest Model { get; set; } = new();
+    [Parameter] public List<CouponOptionDto> Uoms { get; set; } = [];
+
+    private CouponAdvancedSaveRequest _model = new();
+    private string? _errorMsg;
+
+    protected override void OnParametersSet()
+    {
+        // clone để hủy không ảnh hưởng model gốc
+        _model = new CouponAdvancedSaveRequest
+        {
+            ItemNo = Model.ItemNo, Description = Model.Description, ArticleType = Model.ArticleType,
+            UOM = Model.UOM, IssueType = Model.IssueType, CpnVchType = Model.CpnVchType,
+            DiscountType = Model.DiscountType == 0 ? 1 : Model.DiscountType, DiscountValue = Model.DiscountValue,
+            MaxValue = Model.MaxValue, StartingDateStr = Model.StartingDateStr, EndingDateStr = Model.EndingDateStr,
+            Blocked = Model.Blocked, IsMultiUsed = Model.IsMultiUsed, IsCheckAPI = Model.IsCheckAPI,
+            LimitQty = Model.LimitQty, LimitQtyUsed = Model.LimitQtyUsed,
+            SaleType = Model.SaleType, StoreGroupCode = Model.StoreGroupCode
+        };
+    }
+
+    private void Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.UOM)) { _errorMsg = "Vui lòng chọn đơn vị tính"; return; }
+        if (_model.DiscountValue <= 0) { _errorMsg = "Vui lòng nhập giá trị giảm giá"; return; }
+        if (_model.DiscountType == 1 && _model.DiscountValue > 100) { _errorMsg = "Giá trị phần trăm giảm giá không lớn hơn 100"; return; }
+        if (_model.IsMultiUsed && _model.LimitQtyUsed == 0) { _errorMsg = "Vui lòng nhập số lần sử dụng"; return; }
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
