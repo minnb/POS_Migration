@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
         services.AddScoped<IPromotionRepository, PromotionRepository>();
+        services.AddScoped<IPriceRepository, PriceRepository>();
         services.AddScoped<ISpecialComboRepository, SpecialComboRepository>();
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IVoucherRepository, VoucherRepository>();

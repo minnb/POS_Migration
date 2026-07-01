@@ -140,9 +140,25 @@
 
 | # | Chức năng | Route | Độ phức tạp | Trạng thái |
 |---|-----------|-------|-------------|------------|
-| 9.1 | Danh mục Bảng giá | `GET /Price/PriceList` | Cao | ⏳ TODO |
+| 9.1 | Danh mục Bảng giá | `GET /Price/PriceList` | Cao | ✅ DONE |
 | 9.2 | Tạo/Cập nhật Bảng giá | `GET /Price/CreatePriceList` | Cao | ⏳ TODO |
-| 9.3 | Setup Giá (Bulk Import) | `GET /SetupPrice/SetupPrice` | Cao | ⏳ TODO |
+| 9.3 | Setup Giá (Bulk Import) | `GET /SetupPrice/SetupPrice` | Cao | ✅ DONE |
+
+> **9.1 + 9.3 ✅ DONE** — POS.Web `/catalog/prices` (9.1: list + filter mã/tên/barcode/site + "Còn hiệu lực" +
+> server-side paging + Export Excel) và `/catalog/price-setup` (9.3 streamlined: chọn Hình thức bán + cửa hàng →
+> import Excel validate + lưới preview sửa inline + thêm dòng qua item picker → Lưu + audit log). Service 3 lớp
+> `IPriceRepository` → `IPriceService` (POS.Api tái dùng được). DTO `POS.Common/Dtos/Price/`.
+> - **9.1 tái dùng SP có sẵn** `[dbo].[GetSalesPriceList]` + `[dbo].[GetSalesPriceList_Export]` (Dapper).
+> - **9.3 SP mới** `docs/sql/SetupSalePrice_Save.sql`: 2 TVP (`SetupSalePriceImportTVP` cho validate,
+>   `SetupSalePriceLineTVP` cho lưu) + `usp_SetupSalePrice_Save` — INSERT Pkey mới (Counter=MAX+1, defaults
+>   VND/VAT/disc) + **ủy quyền `[dbo].[Setup_SalePrice_Get_ALL]` (SP legacy đã proven)** cho Pkey đã tồn tại.
+>   ⚠️ Phải apply script này trên RPOSMasterData trước khi dùng (`Setup_SalePrice_Get_ALL` phải tồn tại sẵn).
+> - **⚠️ Bảo toàn 100% validate của `SetupPriceController.SaveItemPrice`**: thiếu ItemNo/UOM, sai định dạng ngày,
+>   trùng (ItemNo+UOM), giá ≤ 0, TỪ>ĐẾN, TỪ/ĐẾN < hôm nay. **Pkey = `{SalesType}-{ItemNo}-{UOM}-{SalesCode}`**;
+>   `SalesCode` = StoreNo đã chọn hoặc `ALL`. Validate import port nguyên query LEFT JOIN Item/ItemUnitOfMeasure/Barcodes.
+> - Excel: ClosedXML (thay Spire.Xls/EPPlus legacy). Bảng: `SalesPrice`, `Barcodes`, `Item`, `ItemUnitOfMeasure`.
+> - **Hoãn:** 9.2 (form tạo/sửa đơn lẻ), quản lý StorePriceGroup, paste-from-Excel, danh sách giá inline edit/delete
+>   (dùng chung 9.1); SalesCode theo Region/Channel (hiện chỉ Store/ALL).
 
 ---
 

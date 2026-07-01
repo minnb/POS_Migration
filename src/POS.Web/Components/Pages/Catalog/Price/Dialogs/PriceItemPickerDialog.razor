@@ -1,0 +1,78 @@
+@using MudBlazor
+@using POS.Application.Features.Price
+@using POS.Common.Dtos.Promotion
+@using POS.Infrastructure.Logging
+
+@inject IPriceService PriceService
+@inject IFileLogHelper FileLogger
+
+<MudDialog>
+    <DialogContent>
+        <div class="d-flex align-center gap-2 mb-3 flex-wrap">
+            <MudTextField @bind-Value="_keyword" Label="Tìm theo mã / tên sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true"
+                          OnKeyDown="OnKeyDown" Class="flex-grow-1"/>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search" OnClick="SearchAsync">Tìm</MudButton>
+        </div>
+
+        <MudTable Items="@_results" Dense="true" Hover="true" Striped="true" FixedHeader="true"
+                  Height="360px" Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true"
+                  MultiSelection="true" @bind-SelectedItems="_selected" T="ItemOptionDto" Loading="_loading">
+            <HeaderContent>
+                <MudTh>Mã sản phẩm</MudTh>
+                <MudTh>Tên sản phẩm</MudTh>
+                <MudTh>ĐVT</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Mã sản phẩm">@context.No</MudTd>
+                <MudTd DataLabel="Tên sản phẩm">@context.Description</MudTd>
+                <MudTd DataLabel="ĐVT">@context.Uom</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4" Style="color:#9e9e9e">Nhập từ khóa và bấm Tìm.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="_selected.Count == 0" OnClick="Confirm">
+            Thêm (@_selected.Count)
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string _keyword = string.Empty;
+    private List<ItemOptionDto> _results = [];
+    private HashSet<ItemOptionDto> _selected = [];
+    private bool _loading;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter") await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _loading = true;
+        try
+        {
+            _results = await PriceService.SearchItemsAsync(_keyword);
+            _selected = [];
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceItemPickerDialog.Search", ex);
+            _results = [];
+        }
+        finally { _loading = false; }
+    }
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(_selected.ToList()));
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -3,16 +3,418 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @using MudBlazor
+@using Newtonsoft.Json
+@using POS.Application.Features.Price
+@using POS.Common.Dtos.Price
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.Promotion
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+@using POS.Web.Components.Pages.Catalog.Price.Dialogs
+@using POS.Web.Services
+@using ClosedXML.Excel
+
+@inject IPriceService PriceService
+@inject ICentralMDRepository MdRepo
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
+@inject IFileLogHelper FileLogger
+@inject IJSRuntime JS
 
 <PageTitle>Setup giá (Bulk Import) – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.UploadFile" Class="mr-2" Style="vertical-align:middle"/>
-    Setup giá (Bulk Import)
-</MudText>
+@* ── Header ─────────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.UploadFile" Class="mr-2" Style="vertical-align:middle"/>
+        Setup giá (Bulk Import)
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Success" Class="pos-page-header-btn"
+               StartIcon="@Icons.Material.Filled.Save"
+               Disabled="_saving || _rows.Count == 0" OnClick="SaveAsync">
+        @(_saving ? "Đang lưu..." : "Lưu bảng giá")
+    </MudButton>
+</div>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+}
+else
+{
+    @if (_errorMsg != null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+    }
+
+    @* ── Ngữ cảnh + import ──────────────────────────────────────────────── *@
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect @bind-Value="_salesType" Label="Hình thức bán hàng *"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var s in _lookup.SalesTypes)
+                    {
+                        <MudSelectItem T="string" Value="@s.Value">@s.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudAutocomplete T="StoreDto" @bind-Value="_selectedStore"
+                                 Label="Cửa hàng áp dụng" Placeholder="Tất cả (ALL)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true" MinCharacters="0" MaxItems="50"
+                                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Store"/>
+            </MudItem>
+            <MudItem xs="12" sm="8" md="4" Class="d-flex align-center gap-2 flex-wrap">
+                <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.UploadFile">
+                            @(_importFile?.Name ?? "Chọn file Excel")
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+                <MudButton Variant="Variant.Filled" Color="Color.Info"
+                           StartIcon="@Icons.Material.Filled.PlaylistAddCheck"
+                           Disabled="_importFile == null || _validating" OnClick="LoadImportAsync">
+                    @(_validating ? "Đang nạp..." : "Nạp vào bảng giá")
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
+                    File mẫu
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Toolbar lưới ───────────────────────────────────────────────────── *@
+    <div class="d-flex align-center gap-2 mb-2 flex-wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Add" OnClick="OpenItemPickerAsync">Thêm dòng</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.DeleteSweep"
+                   Disabled="_rows.Count == 0" OnClick="ClearRows">Xóa toàn bộ</MudButton>
+        <MudSpacer/>
+        @if (_rows.Count > 0)
+        {
+            <div class="d-flex gap-2 flex-wrap">
+                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">Tổng: @_rows.Count</MudChip>
+                @if (_errorCount > 0)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled">Lỗi: @_errorCount</MudChip>
+                }
+            </div>
+        }
+    </div>
+
+    @* ── Lưới preview / khai báo ────────────────────────────────────────── *@
+    <MudTable Items="@_rows" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm"
+              Elevation="2" HorizontalScrollbar="true" T="PriceEditRow"
+              RowStyleFunc="@RowStyle">
+        <HeaderContent>
+            <MudTh Style="width:48px">STT</MudTh>
+            <MudTh>Mã sản phẩm</MudTh>
+            <MudTh>Barcode</MudTh>
+            <MudTh>Tên sản phẩm</MudTh>
+            <MudTh>ĐVT</MudTh>
+            <MudTh Style="width:150px">Giá bán *</MudTh>
+            <MudTh Style="width:160px">Từ ngày *</MudTh>
+            <MudTh Style="width:160px">Đến ngày *</MudTh>
+            <MudTh>Ghi chú</MudTh>
+            <MudTh Style="width:48px"></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="STT">@(_rows.IndexOf(context) + 1)</MudTd>
+            <MudTd DataLabel="Mã sản phẩm"><b>@context.ItemNo</b></MudTd>
+            <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
+            <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
+            <MudTd DataLabel="ĐVT">@context.UOM</MudTd>
+            <MudTd DataLabel="Giá bán">
+                <MudTextField @bind-Value="context.UnitPrice" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              InputMode="InputMode.numeric" Immediate="true"/>
+            </MudTd>
+            <MudTd DataLabel="Từ ngày">
+                <MudDatePicker @bind-Date="context.StartDate" DateFormat="dd/MM/yyyy" AutoClose="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"/>
+            </MudTd>
+            <MudTd DataLabel="Đến ngày">
+                <MudDatePicker @bind-Date="context.EndDate" DateFormat="dd/MM/yyyy" AutoClose="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"/>
+            </MudTd>
+            <MudTd DataLabel="Ghi chú">
+                @if (context.HasError)
+                {
+                    <MudTooltip Text="@context.Error">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                 Icon="@Icons.Material.Filled.Error">Lỗi</MudChip>
+                    </MudTooltip>
+                }
+            </MudTd>
+            <MudTd DataLabel="">
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => _rows.Remove(context))"/>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                <MudText Typo="Typo.body2">Chưa có dòng nào. Import Excel hoặc bấm "Thêm dòng".</MudText>
+            </div>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private PriceSetupLookupDto _lookup = new();
+    private string _salesType = string.Empty;
+    private List<StoreDto> _allStores = [];
+    private StoreDto? _selectedStore;
+
+    private readonly List<PriceEditRow> _rows = [];
+    private IBrowserFile? _importFile;
+    private int _errorCount;
+
+    private bool _loading = true;
+    private bool _saving;
+    private bool _validating;
+    private string? _errorMsg;
+    private string _currentActor = "unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+
+        // Nguồn độc lập → tách try/catch (tránh 1 lỗi kéo sập nguồn còn lại / circuit).
+        try { _lookup = await PriceService.GetSetupLookupAsync(); }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không tải được Hình thức bán hàng.";
+            FileLogger.WriteExpLogs("PriceSetupPage.LoadLookup", ex);
+        }
+
+        try { _allStores = await MdRepo.GetStoreListAsync(); }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Không tải được danh sách cửa hàng (mặc định áp dụng ALL).", Severity.Warning);
+            FileLogger.WriteExpLogs("PriceSetupPage.LoadStores", ex);
+        }
+
+        _loading = false;
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    // ── Import Excel ─────────────────────────────────────────────────────────
+    private async Task LoadImportAsync()
+    {
+        if (_importFile == null) return;
+        _validating = true;
+        try
+        {
+            var raw = await ReadImportFileAsync(_importFile);
+            if (raw.Count == 0)
+            {
+                Snackbar.Add("File không có dòng dữ liệu nào.", Severity.Warning);
+                return;
+            }
+
+            var results = await PriceService.ValidateImportAsync(raw);
+            foreach (var v in results)
+            {
+                _rows.Add(new PriceEditRow
+                {
+                    ItemNo   = v.ItemNo ?? string.Empty,
+                    Barcode  = v.Barcode ?? string.Empty,
+                    ItemName = v.Text ?? string.Empty,
+                    UOM      = v.Uom ?? string.Empty,
+                    UnitPrice = v.UnitPrice ?? string.Empty,
+                    StartDate = ParseDmy(v.StartingDate),
+                    EndDate   = ParseDmy(v.EndingDate),
+                    Error     = string.IsNullOrWhiteSpace(v.ErrorMessage) ? null : v.ErrorMessage
+                });
+            }
+            RecalcErrors();
+            _importFile = null;
+            Snackbar.Add(_errorCount > 0
+                ? $"Đã nạp {results.Count} dòng, có {_errorCount} dòng lỗi — vui lòng kiểm tra."
+                : $"Đã nạp {results.Count} dòng hợp lệ.",
+                _errorCount > 0 ? Severity.Warning : Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceSetupPage.LoadImport", ex);
+            Snackbar.Add("Không đọc/validate được file Excel. Kiểm tra đúng định dạng file mẫu.", Severity.Error);
+        }
+        finally { _validating = false; }
+    }
+
+    private static async Task<List<PriceImportRow>> ReadImportFileAsync(IBrowserFile file)
+    {
+        using var ms = new MemoryStream();
+        await file.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024).CopyToAsync(ms);
+        ms.Position = 0;
+        using var wb = new XLWorkbook(ms);
+        var ws = wb.Worksheet(1);
+        var rows = new List<PriceImportRow>();
+        var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+        for (var r = 2; r <= last; r++)   // bỏ header dòng 1
+        {
+            if (ws.Row(r).IsEmpty()) continue;
+            rows.Add(new PriceImportRow
+            {
+                ItemNo       = ws.Cell(r, 1).GetString().Trim(),
+                Barcode      = ws.Cell(r, 2).GetString().Trim(),
+                Uom          = ws.Cell(r, 3).GetString().Trim(),
+                UnitPrice    = ws.Cell(r, 4).GetString().Trim(),
+                StartingDate = CellDate(ws.Cell(r, 5)),
+                EndingDate   = CellDate(ws.Cell(r, 6))
+            });
+        }
+        return rows;
+    }
+
+    private static string CellDate(IXLCell c)
+        => c.DataType == XLDataType.DateTime && c.TryGetValue<DateTime>(out var dt)
+            ? dt.ToString("dd/MM/yyyy")
+            : c.GetString().Trim();
+
+    private async Task DownloadTemplateAsync()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("DataImport");
+        string[] headers = ["ItemNo", "Barcode", "UOM", "UnitPrice", "StartingDate", "EndingDate"];
+        for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+        ws.Row(1).Style.Font.Bold = true;
+        ws.Cell(2, 1).Value = "65000165";
+        ws.Cell(2, 3).Value = "GOI";
+        ws.Cell(2, 4).Value = 20000;
+        ws.Cell(2, 5).Value = DateTime.Today.ToString("dd/MM/yyyy");
+        ws.Cell(2, 6).Value = DateTime.Today.AddMonths(1).ToString("dd/MM/yyyy");
+        ws.Columns().AdjustToContents();
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        await JS.SaveAsFileAsync($"FileMauBangGia_{DateTime.Now:yyyyMMddHHmmss}.xlsx", ms.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    // ── Thêm dòng thủ công (item picker) ──────────────────────────────────────
+    private async Task OpenItemPickerAsync()
+    {
+        var dialog = await DialogService.ShowAsync<PriceItemPickerDialog>("Thêm sản phẩm",
+            new DialogParameters(),
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true, BackdropClick = false });
+        var res = await dialog.Result;
+        if (res is { Canceled: false } && res.Data is List<ItemOptionDto> picked)
+        {
+            foreach (var p in picked)
+                _rows.Add(new PriceEditRow
+                {
+                    ItemNo = p.No,
+                    ItemName = $"{p.No}-{p.Description}",
+                    UOM = p.Uom,
+                    UnitPrice = string.Empty,
+                    StartDate = DateTime.Today,
+                    EndDate = DateTime.Today
+                });
+            RecalcErrors();
+        }
+    }
+
+    private void ClearRows()
+    {
+        _rows.Clear();
+        _errorCount = 0;
+    }
+
+    // ── Lưu ───────────────────────────────────────────────────────────────────
+    private async Task SaveAsync()
+    {
+        if (_rows.Count == 0) { Snackbar.Add("Chưa có dòng bảng giá nào.", Severity.Warning); return; }
+        if (string.IsNullOrWhiteSpace(_salesType)) { Snackbar.Add("Vui lòng chọn Hình thức bán hàng.", Severity.Warning); return; }
+        if (_errorCount > 0) { Snackbar.Add($"Còn {_errorCount} dòng lỗi. Vui lòng xóa/sửa trước khi lưu.", Severity.Warning); return; }
+
+        var context = new PriceSetupContext
+        {
+            SalesType = _salesType,
+            SalesCode = _selectedStore?.StoreNo ?? "ALL"
+        };
+        var rows = _rows.Select(r => new PriceSaveRow
+        {
+            ItemNo = r.ItemNo,
+            Barcode = r.Barcode,
+            UOM = r.UOM,
+            UnitPrice = r.UnitPrice,
+            StartDate = r.StartDate?.ToString("dd/MM/yyyy") ?? string.Empty,
+            EndDate = r.EndDate?.ToString("dd/MM/yyyy") ?? string.Empty
+        }).ToList();
+
+        _saving = true;
+        try
+        {
+            var result = await PriceService.SaveAsync(context, rows, _currentActor);
+            if (!result.Ok)
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+                return;
+            }
+
+            await AuditLogger.LogAsync(_currentActor, "CREATE", "SalesPrice",
+                $"{context.SalesType}/{context.SalesCode} ({rows.Count} dòng)",
+                oldValueJson: null, newValueJson: JsonConvert.SerializeObject(rows));
+
+            Snackbar.Add(result.Message, Severity.Success);
+            ClearRows();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceSetupPage.Save", ex);
+            Snackbar.Add("Lưu bảng giá thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+        finally { _saving = false; }
+    }
+
+    private void RecalcErrors() => _errorCount = _rows.Count(r => r.HasError);
+
+    private static string RowStyle(PriceEditRow row, int _)
+        => row.HasError ? "background-color:#fdecea" : string.Empty;
+
+    private static DateTime? ParseDmy(string? dmy)
+        => DateTime.TryParseExact(dmy, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    private sealed class PriceEditRow
+    {
+        public string ItemNo { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
+        public string ItemName { get; set; } = string.Empty;
+        public string UOM { get; set; } = string.Empty;
+        public string UnitPrice { get; set; } = string.Empty;
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? Error { get; set; }
+        public bool HasError => !string.IsNullOrWhiteSpace(Error);
+    }
+}

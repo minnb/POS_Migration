@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IGiftService, GiftService>();
         services.AddScoped<ISAPService, SAPService>();
         services.AddScoped<IPromotionService, PromotionService>();
+        services.AddScoped<Features.Price.IPriceService, Features.Price.PriceService>();
         services.AddScoped<ISpecialComboService, SpecialComboService>();
         services.AddScoped<ICouponService, CouponService>();
         services.AddScoped<IVoucherService, VoucherService>();

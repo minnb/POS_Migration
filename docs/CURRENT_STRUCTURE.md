@@ -1,6 +1,6 @@
 # CURRENT_STRUCTURE.md — Bản đồ hiện trạng POS Migration (.NET 10)
 
-> Generated: 2026-06-15 | **Synced: 2026-06-28** (reorg theo domain + security hardening) | Branch: main
+> Generated: 2026-06-15 | **Synced: 2026-07-01** (thêm MỤC G — chữ ký Helpers POS.Common) | Branch: dev
 > Projects thực tế: `POS.Api`, `POS.Application`, `POS.Common`, `POS.Infrastructure`, `POS.Worker`
 > (Note: task đề cập VCM.POSBLUE.* nhưng project đã được đổi tên sang POS.* khi khởi tạo solution mới)
 >
@@ -287,6 +287,8 @@ src/
         │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_*)
         │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
         │   └── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
+        ├── Price/                          ← 9.1/9.3 Bảng giá (CentralMD)
+        │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save
         └── DataSync/
             └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync, Redis cache MD:SyncTableList) + SP2 stream (StreamTableToFilesAsync)
 ```
@@ -313,6 +315,7 @@ src/
 | `ICouponService` | `CouponService` | `POS.Application.Features.CouponVoucher` | POS.Application |
 | `IVoucherService` | `VoucherService` | `POS.Application.Features.CouponVoucher` | POS.Application |
 | `IVoucherPublishedService` | `VoucherPublishedService` | `POS.Application.Features.CouponVoucher` | POS.Application |
+| `IPriceService` | `PriceService` | `POS.Application.Features.Price` | POS.Application |
 
 ### POS.Infrastructure — Repositories
 
@@ -332,6 +335,7 @@ src/
 | `ICouponRepository` | `CouponRepository` | CouponVoucher/ | POS.Infrastructure |
 | `IVoucherRepository` | `VoucherRepository` | CouponVoucher/ | POS.Infrastructure |
 | `IVoucherPublishedRepository` | `VoucherPublishedRepository` | CouponVoucher/ | POS.Infrastructure |
+| `IPriceRepository` | `PriceRepository` | Price/ | POS.Infrastructure |
 | `ISyncRepository` | `SyncRepository` | DataSync/ | POS.Infrastructure |
 | _(static, no interface)_ | `SecretProtector` | `POS.Infrastructure.Security` | POS.Infrastructure |
 
@@ -381,6 +385,7 @@ src/
 | `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
+| `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey |
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 
@@ -403,6 +408,7 @@ src/
 | `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD) |
 | `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD) |
 | `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
+| `IPriceRepository` → `PriceRepository` | Scoped | 9.1/9.3 Bảng giá (CentralMD) |
 | `ISyncRepository` → `SyncRepository` | Scoped | SP1 GetSyncTables (Redis cache) + SP2 StreamTableToFiles |
 | `IFileArchiveService` → `FileArchiveService` | Singleton | ZipFile.CreateFromDirectory (compression level configurable) |
 | `ISyncFileLock` → `SyncFileLock` | Singleton | keyed SemaphoreSlim chống sinh zip trùng |
@@ -1112,6 +1118,87 @@ _(So sánh với `docs/PROJECT_INVENTORY.md` — cấu trúc cũ .NET Framework 
 | `ConvertHelper` (API_Common) | Chưa migrate | Trung bình |
 | `EncryptionHelper` (API_Common) | Chưa migrate | Trung bình |
 | `RateLimitMiddleware` | Chưa migrate (rate limit 100 req/min per IP) | Thấp |
+
+---
+
+## MỤC G — Helpers dùng chung (`POS.Common/Helpers`): chữ ký method
+
+> Tất cả là **static** trừ `FileLogHelper` (có `IFileLogHelper`, inject qua DI). Namespace `POS.Common.Helpers`.
+> **Đọc mục này TRƯỚC khi viết helper mới** — nhiều tiện ích chuỗi/ngày/SĐT đã có sẵn.
+> Helper cũ chưa migrate: xem mục "Helpers chưa có trong Common mới" bên dưới.
+
+### `DateTimeHelper` (static)
+```csharp
+bool TryParseToDateTime(string input, string inputFormat, out DateTime dateTime)
+string? ConvertToIsoFormat(string inputDateTimeString, string inputFormat, string outputFormat)
+DateTime StringToDateTime(string dateTimeString, string format)      // parse fail → 1900-01-01
+DateTime ConvertStrToDate(string input, string format)               // ParseExact (ném lỗi nếu sai)
+TimeSpan GetExpiryTimeLastMonth()
+long GetTotalSecondMidnight(int numberDate = 1)
+long GetSecondsUntilMidnight()
+DateTimeOffset GetMidnightOffset()
+TimeSpan GetTimeUntilHourInTomorrow(int hour)
+TimeSpan GetTimeUntilMidnight()
+string GetNullableString(this DateTime? time)                        // extension; null → "NULL"
+string UnixTimestampString(int seconds = 0)
+int GetMinuteElapsed(DateTime fromDateTime, DateTime toDateTime)
+```
+
+### `StringHelper` (static)
+```csharp
+JObject? StringToJObject(string json)                                // Newtonsoft JObject.Parse, lỗi → null
+string Uppering(string str)
+string RandomRequestID(string posNo, bool isRandom = false)          // posNo + unixTs [+ 2 số random]
+string InitRandomString(string prefix)
+string CreateKeyRedis(string appCode, string key)                    // "{appCode}:{key}"
+string ReplaceString(string str, string oldValue, string newValue)
+string FormatNumberString(int value)                                 // "N0"
+string FormatDate_yyyyMMdd(string date)
+bool ValidatePhoneNumber(string phoneNumber)                         // len 9–11, bắt đầu '0', toàn số
+string Left(string input, int count)
+string Right(string input, int count)
+string FormartDate(string strDate, char fromChar, char toChar, string formatDate)
+string IsNull(string str, string strDefault = "")
+string[] ConverStringToArray(string str, char c)
+string ConvertArrayToString(string[] arr, char c)
+string ObjectToStringLowercase(object obj)                           // JSON camelCase (Newtonsoft)
+T? StringToObject<T>(string json)                                    // JsonConvert.DeserializeObject
+```
+
+### `FormatHelper` (static)
+```csharp
+DateTime FormatDateTime(DateTime? dateTime)                          // null → DateTime.MinValue
+string PhoneNumberWithCountryCode(string phoneNumber)                // → "84" + Right(9)
+string PhoneNumberVietNam(string phoneNumber)                        // 84/+84 → "0…"
+string CustomerCapillary(string member, string storeNo)             // "{member}-{storeNo}"
+string GetTitleGender(string gender)                                 // Male→"CHỊ", Female→"ANH", else "OTHER"
+string GetCharGender(string gender)                                  // Male→"M", Female→"F", else "O"
+```
+
+### `HostHelper` (static) — thông tin host/máy (Windows)
+```csharp
+int GetTotalCpuCores()
+long GetTotalRamMB()                                                 // P/Invoke GlobalMemoryStatusEx
+decimal GetMemoryUsageMB()
+decimal GetCpuUsage()
+string GetDateFileDll(string dllPath)
+string GetIpAddress()                                                // IPv4 đầu tiên; fallback hostname
+string GetServerName()                                               // Dns.GetHostName(); fallback "BLUEPOS"
+```
+
+### `ResponseHelper` (static)
+```csharp
+ResultResponse Response(HttpStatusCode status, string message, object? data, string technical = "")
+```
+
+### `FileLogHelper : IFileLogHelper` (POS.Common.Helpers)
+```csharp
+ctor FileLogHelper(string logDirectory)                              // ghi log_{yyyy-MM-dd}.txt, nuốt lỗi
+void WriteLogs(string context, string message)
+void WriteExpLogs(string context, Exception ex)
+```
+> ⚠️ **Trùng tên, KHÁC signature:** có 2 `IFileLogHelper`. Bản DI dùng toàn app là
+> `POS.Infrastructure.Logging.IFileLogHelper` (`WriteLogs(string message)` / `WriteExpLogs(string function, Exception ex)` — xem MỤC E). Khi inject `IFileLogHelper` hãy xác nhận đang dùng namespace nào.
 
 ---
 

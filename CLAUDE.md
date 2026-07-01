@@ -8,6 +8,37 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 > phát triển mới**, **KHÔNG còn migrate** từ source cũ (`POS.Backend`). Hợp đồng JSON với
 > 5.000 máy POS vẫn giữ nguyên cho các endpoint hiện hữu.
 
+## 📚 Bản đồ bộ nhớ & Quy tắc đọc-trước-khi-tạo — BẮT BUỘC
+
+> **Nguồn sự thật duy nhất về cấu trúc dùng chung** (DTOs / Services / Repositories / Helpers)
+> là `docs/CURRENT_STRUCTURE.md`. Đọc nó TRƯỚC khi tạo bất kỳ artefact dùng chung nào để **tránh
+> trùng lặp**. KHÔNG tạo file registry song song (vd `docs/architecture/*`) — sẽ lệch bản đồ.
+
+### Mục lục tài liệu kiến trúc (đọc theo nhu cầu)
+
+| Khi cần… | Đọc file | Nội dung |
+|---|---|---|
+| Tra DTO / Service / Repository / Helper đã có + **chữ ký method** + bảng DI | **`docs/CURRENT_STRUCTURE.md`** | Bản đồ bộ nhớ chính — cây `POS.Common/Dtos`, mọi interface + method signature, DI registration, danh sách Helpers |
+| Tra nguồn legacy (.NET 4.6) khi migrate 1 chức năng | `docs/PROJECT_INVENTORY.md` + `_migration/INVENTORY.md` | Inventory `VCM.BLUEPOS.*` — chỉ đọc đúng mục của chức năng |
+| Kiểm tra contract JSON với 5.000 POS | `docs/API_CONTRACT.md` + `tests/POS.ContractTests/` | Tên field response đã khoá |
+| Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) | Quy trình thêm DTO vào `POS.Common` |
+| Trạng thái / lịch sử POS.Web | `docs/WEB_STATUS.md`, `docs/CHANGELOG.md` | — |
+
+### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
+
+1. **TRƯỚC khi tạo DTO / Service / Repository / Helper mới** → mở `docs/CURRENT_STRUCTURE.md`,
+   tìm ở mục tương ứng (MỤC A cây DTO, MỤC B interface, MỤC D/E chữ ký method, MỤC C DI).
+2. **Đã tồn tại** (dù khác tên) → **TÁI DÙNG**, KHÔNG tạo bản trùng. Cần bổ sung → thêm method
+   vào interface đã có.
+3. **Chưa có** → tạo theo đúng quy ước layer bên dưới, rồi **cập nhật `docs/CURRENT_STRUCTURE.md`
+   trong CÙNG commit** (thêm dòng vào cây/bảng tương ứng — chỉ tên class + property/field chính +
+   chữ ký + project chứa nó, **KHÔNG chép nguyên code**). Dùng skill `/task-done` để cập nhật doc.
+4. **Không chắc** một DTO/Service đã tồn tại chưa → tìm trong `docs/CURRENT_STRUCTURE.md` trước,
+   sau đó Grep codebase; **KHÔNG** đoán rồi tạo mới.
+
+> Giữ `docs/CURRENT_STRUCTURE.md` đồng bộ với code là **một phần của định nghĩa "xong"** cho mọi
+> task thêm/sửa artefact dùng chung. Doc lệch = lần sau AI tạo trùng.
+
 ## Cấu trúc Solution (Clean Architecture)
 
 ```

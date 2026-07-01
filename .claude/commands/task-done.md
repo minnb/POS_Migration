@@ -35,7 +35,7 @@ Quét các file đã thay đổi trong session:
 | `src/POS.Common/` | `common` |
 
 - Xác định loại thay đổi:
-  - Thêm file mới (Controller, Service, Repository, Component, Page, DTO)
+  - Thêm file mới (Controller, Service, Repository, Component, Page, DTO, Helper)
   - Thêm pattern/standard mới (cách xử lý, cách inject, cách viết)
   - Fix bug
   - Refactor
@@ -144,7 +144,7 @@ Nếu có pattern mới → thêm vào **cuối section phù hợp** trong skill
 ### Bước 4 — Cập nhật CURRENT_STRUCTURE.md nếu có file mới
 
 **Chỉ chạy** nếu có file mới được tạo (Controller, Service, Repository,
-Interface, Component, Page, DTO).
+Interface, Component, Page, DTO, Helper).
 
 Đọc `docs/CURRENT_STRUCTURE.md` và cập nhật đúng mục:
 
@@ -152,8 +152,11 @@ Interface, Component, Page, DTO).
 - **Mục B** (Interface & Implementation) → thêm interface/class mới
 - **Mục C** (DI Registration) → nếu có đăng ký DI mới
 - **Mục D/E** (Repository/Service methods) → nếu có method mới
+- **Mục F** (DTOs & Models có sẵn) → nếu có **DTO/model mới**: ghi tên class + các **field/property chính** (schema) + project chứa nó
+- **Mục G** (Helpers `POS.Common/Helpers`) → nếu có **helper mới**, hoặc thêm method vào helper đã có: ghi **chữ ký method**
 
-> Không viết lại cả file — chỉ thêm/sửa đúng dòng liên quan.
+> **Chỉ ghi schema/chữ ký — KHÔNG chép nguyên code.** Mục đích là "bản đồ để tái dùng", không phải bản sao source.
+> Không viết lại cả file — chỉ thêm/sửa đúng dòng liên quan. Nếu mục (F/G) chưa tồn tại trong file → tạo mục đó rồi thêm.
 
 ---
 
@@ -229,4 +232,4 @@ Session sau nhớ: {1 câu từ "Lưu ý cho session sau"}
 - SKILLS.md **chỉ** cập nhật khi có pattern thực sự mới — không thêm vì task "có vẻ quan trọng"
 - appsettings sync: **chỉ THÊM key mới**, KHÔNG ghi đè key đã có trong UAT/Production — tránh mất giá trị thật
 - Không commit hay push — chỉ cập nhật file tài liệu local
-- Nếu `docs/CURRENT_STRUCTURE.md` chưa tồn tại → bỏ qua bước 3, ghi chú vào CHANGELOG
+- Nếu `docs/CURRENT_STRUCTURE.md` chưa tồn tại → bỏ qua bước 4, ghi chú vào CHANGELOG

@@ -1,5 +1,6 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-01 (UI polish PromotionSetupPage `/promotion/setup`: MudTabs icon+gạch chân active, MudCard gom nhóm cả 5 tab, tooltip/HelperText giải thích, validation trực quan `Required`/`RequiredError`, nút Lưu spinner khi `_saving`, combobox "Điều kiện" 160→240px — markup-only, giữ 100% @code; + tài liệu `docs/web/LOGIC_APPROVE_CTKM.md`)
+> Cập nhật: 2026-07-01 (Catalog/Price: 9.1 Danh mục Bảng giá `/catalog/prices` (list + filter + Export, reuse SP GetSalesPriceList*) + 9.3 Setup giá Bulk Import `/catalog/price-setup` (import Excel validate + lưới preview sửa inline + item picker + Lưu + audit; SP mới usp_SetupSalePrice_Save TVP, ủy quyền Setup_SalePrice_Get_ALL) — service 3 lớp IPriceService)
+> Trước đó 2026-07-01 (UI polish PromotionSetupPage `/promotion/setup`: MudTabs icon+gạch chân active, MudCard gom nhóm cả 5 tab, tooltip/HelperText giải thích, validation trực quan `Required`/`RequiredError`, nút Lưu spinner khi `_saving`, combobox "Điều kiện" 160→240px — markup-only, giữ 100% @code; + tài liệu `docs/web/LOGIC_APPROVE_CTKM.md`)
 > Trước đó 2026-07-01 (Promotion/CouponVoucher: 8.1 Cài đặt Coupon + 8.2 Phát hành Coupon + 8.3 Danh mục Voucher (CRUD) + 8.4 Tra cứu Voucher phát hành — service 3 lớp, SP mới usp_SetupCoupon_*/usp_SetupVoucher_*, 8.4 reuse SP CentralSales)
 > Trước đó 2026-07-01 (Bug fix: sidebar accordion (I3) + active NavLink highlight (I4) sai logic; BankPosPage/BankPosDetailDialog — sai tên bảng vật lý + SP param + crash circuit khi lookup lỗi)
 > Trước đó 2026-06-30 (thêm Catalog section: ProductsPage 6.1+6.2+6.3, ProductLockPage 6.4 — migrate từ VCM.BLUEPOS)
@@ -42,6 +43,10 @@ src/POS.Web/
 │       │       ├── ProductsPage.razor               ← /catalog/products — danh sách + thêm mới + xuất Excel
 │       │       ├── ProductLockPage.razor             ← /catalog/product-lock — khóa/mở khóa SP theo cửa hàng
 │       │       └── Dialogs/ (ProductDetailDialog — form tạo SP mới, dynamic barcode rows)
+│       │   └── Price/
+│       │       ├── PricesPage.razor                   ← /catalog/prices — 9.1 Danh mục Bảng giá (list + filter + Export)
+│       │       ├── PriceSetupPage.razor               ← /catalog/price-setup — 9.3 Setup giá Bulk Import (import Excel + lưới preview)
+│       │       └── Dialogs/ (PriceItemPickerDialog — tìm & chọn SP thêm dòng)
 │       ├── Promotion/
 │       │   ├── Offers/
 │       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (editor 5 tab; UI polish MudCard+tooltip+validation trực quan)
@@ -182,17 +187,20 @@ src/POS.Web/
 | K3 | ProductLockPage – /catalog/product-lock + OpsAndAbove | Pages/Catalog/Product/ProductLockPage.razor | ✅ | Khóa/mở khóa SP theo cửa hàng — StoreNo bắt buộc; MudTable server-side + MultiSelection + chip màu; toggle đơn + bulk action; MudMessageBox @ref confirm; UPSERT dbo.ItemBlock. Migrate 6.4 (Central mode) |
 | J5 | IKibanaService → IFileLogHelper — migration toàn POS.Web | 24 .razor + 3 .cs (PendingUpdate, SqlConsoleService, DbAuditLogger) | ✅ | LogInfo → WriteLogs(`[{fn}] {entity}: {msg}`); LogException có ex → WriteExpLogs; LogException không có ex → WriteLogs(`[EXCEPTION][{fn}] msg`) |
 | J6 | Audit log UsersPage (CREATE/UPDATE/LOCK/UNLOCK) + PosMapPage (UPDATE PosTerminal, chained dialog) | UsersPage.razor / UserFormDialog.razor / PosMapPage.razor / PosTerminalEditDialog.razor / PosTerminalDetailDialog.razor / PosTerminalSavePayload.cs (mới) | ✅ | UserFormDialog trả DTO đầy đủ (PasswordHash masked); DetailDialog forward result.Data!; PosMapPage capture oldJson trước dialog |
-| H1 | Build pass (0 error, 3 warning pre-existing MUD0002) | — | ✅ | `dotnet build POS.Web` → Build succeeded. 3 Warning(s) MUD0002 Title pre-existing (VoidsPage + TransactionsPage ×2). 0 Error(s). |
+| K4 | PricesPage – /catalog/prices + OpsAndAbove | Pages/Catalog/Price/PricesPage.razor | ✅ | 9.1 Danh mục Bảng giá — reuse SP `GetSalesPriceList`/`_Export` (Dapper server-side paging); filter mã/tên/barcode/site + "Còn hiệu lực"; Export Excel (ClosedXML); pos-page-header. Migrate 9.1 |
+| K5 | PriceSetupPage + PriceItemPickerDialog – /catalog/price-setup + OpsAndAbove | Pages/Catalog/Price/PriceSetupPage.razor + Dialogs/PriceItemPickerDialog.razor | ✅ | 9.3 Setup giá (streamlined) — chọn Hình thức bán + cửa hàng → import Excel (MudFileUpload+ClosedXML) → ValidateImportAsync → lưới preview MudTable sửa inline (giá/ngày) + RowStyleFunc highlight lỗi + item picker thêm dòng → Lưu (block khi còn lỗi) + audit log. SP mới `usp_SetupSalePrice_Save` (TVP, ủy quyền Setup_SalePrice_Get_ALL). Migrate 9.3 |
+| H1 | Build pass (0 error, 14 warning pre-existing) | — | ✅ | `dotnet build POS.Web` → Build succeeded. 0 Error(s). ContractTests 23/23 pass (DI validation xanh). |
 
 ---
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **90 / 92 hạng mục**
+- ✅ Hoàn thành: **92 / 94 hạng mục**
 - ⚠️ Có vấn đề: **2 hạng mục** (B9 — SQL seed hash placeholder; J3 — migration chưa chạy trên DB)
 - ❌ Còn thiếu: **0 hạng mục**
 
-> +3 hạng mục mới (session 2026-06-30): K1 (ProductsPage 6.1+6.2+6.3), K2 (ProductDetailDialog), K3 (ProductLockPage 6.4).
+> +2 hạng mục mới (session 2026-07-01): K4 (PricesPage 9.1), K5 (PriceSetupPage 9.3 + PriceItemPickerDialog). ⚠️ SP `docs/sql/SetupSalePrice_Save.sql` phải chạy trên RPOSMasterData trước khi dùng 9.3.
+> +3 hạng mục (session 2026-06-30): K1 (ProductsPage 6.1+6.2+6.3), K2 (ProductDetailDialog), K3 (ProductLockPage 6.4).
 > Previous +2 (session 2026-06-28 Phase1+2): J5, J6. Previous +5: G24, J1-J4. Previous: S1-S7, G16-G23, I1-I12.
 
 ---

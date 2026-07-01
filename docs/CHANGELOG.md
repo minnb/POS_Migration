@@ -6,6 +6,32 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-01] Migrate 9.1 Danh mục Bảng giá + 9.3 Setup Giá (Bulk Import)
+
+**Layer:** POS.Web + POS.Application + POS.Infrastructure + POS.Common
+**Loại:** Feature (migrate VCM.BLUEPOS PriceController/SetupPriceController)
+
+**Thay đổi:**
+- `src/POS.Common/Dtos/Price/PriceListDto.cs`, `PriceSetupDto.cs` (mới): DTO list/filter/import/save/context/result (Newtonsoft).
+- `src/POS.Infrastructure/Repositories/Price/IPriceRepository.cs` + `PriceRepository.cs` (mới): reuse SP `GetSalesPriceList`/`_Export` (9.1); `ValidateImportAsync` (TVP inline LEFT JOIN Item/ItemUnitOfMeasure/Barcodes) + `SaveAsync` (SP `usp_SetupSalePrice_Save`, TVP).
+- `src/POS.Application/Features/Price/IPriceService.cs` + `PriceService.cs` (mới): **port 100% validate `SetupPriceController.SaveItemPrice`** + build Pkey `{SalesType}-{ItemNo}-{UOM}-{SalesCode}`.
+- `src/POS.Web/Components/Pages/Catalog/Price/PricesPage.razor` (9.1: list server-side + filter + Export) + `PriceSetupPage.razor` (9.3 streamlined: import Excel + lưới preview sửa inline + item picker + Lưu + audit) + `Dialogs/PriceItemPickerDialog.razor`.
+- `src/POS.{Application,Infrastructure}/DependencyInjection.cs`: đăng ký `IPriceService`/`IPriceRepository`.
+- `docs/sql/SetupSalePrice_Save.sql` (mới): 2 TVP (`SetupSalePriceImportTVP`, `SetupSalePriceLineTVP`) + `usp_SetupSalePrice_Save`.
+- `_migration/PROGRESS.md`: 9.1 + 9.3 → ✅ DONE.
+
+**Pattern mới:** Bulk import Excel → lưới preview validate + sửa inline → đã cập nhật `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:**
+- ⚠️ **PHẢI chạy `docs/sql/SetupSalePrice_Save.sql` trên RPOSMasterData** trước khi dùng 9.3. SP mới ủy quyền phần update cho SP legacy `[dbo].[Setup_SalePrice_Get_ALL]` (phải tồn tại sẵn) — chỉ tự INSERT Pkey mới (Counter=MAX+1, defaults VND/VAT/disc/MinQty=1/VariantCode='').
+- **Pkey của 9.3 (SetupPrice) = `{SalesType}-{ItemNo}-{UOM}-{SalesCode}`** — KHÁC 9.2 (PriceController: `{ItemNo}-{UOM}-{SalesCode}-{StartDate:yyyyMMdd}`). Đừng nhầm khi làm 9.2.
+- Tên bảng vật lý CentralMD: `SalesPrice` (số ít), `Barcodes` (số nhiều), `Item`, `ItemUnitOfMeasure`.
+- SalesCode hiện chỉ Store/ALL (bỏ Region/Channel). 9.2 + StorePriceGroup + inline edit/delete = còn TODO.
+
+**appsettings sync:** không thay đổi appsettings.
+
+---
+
 ## [2026-07-01] UI polish + tài liệu luồng Duyệt — Cài đặt CTKM (PromotionSetupPage)
 
 **Layer:** POS.Web

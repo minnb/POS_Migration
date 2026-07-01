@@ -3,16 +3,225 @@
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using MudBlazor
+@using POS.Application.Features.Price
+@using POS.Common.Dtos.Price
+@using POS.Infrastructure.Logging
 @using POS.Web.Auth
+@using POS.Web.Services
+@using ClosedXML.Excel
+
+@inject IPriceService PriceService
+@inject ISnackbar Snackbar
+@inject IFileLogHelper FileLogger
+@inject IJSRuntime JS
 
 <PageTitle>Bảng giá – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.PriceChange" Class="mr-2" Style="vertical-align:middle"/>
-    Bảng giá
-</MudText>
+@* ── Header ─────────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.PriceChange" Class="mr-2" Style="vertical-align:middle"/>
+        Danh mục Bảng giá
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-page-header-btn"
+               StartIcon="@Icons.Material.Filled.FileDownload"
+               Disabled="_exporting" OnClick="ExportExcelAsync">
+        @(_exporting ? "Đang xuất..." : "Xuất Excel")
+    </MudButton>
+</div>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Filter bar ──────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.ItemNo" Label="Mã sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          OnKeyDown="OnFilterKeyDown"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filter.ItemName" Label="Tên sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          OnKeyDown="OnFilterKeyDown"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.Barcode" Label="Barcode"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          OnKeyDown="OnFilterKeyDown"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_filter.SalesCode" Label="ST/CH (Site/Vùng giá)"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          OnKeyDown="OnFilterKeyDown"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="1" Class="d-flex align-center">
+            <MudCheckBox @bind-Value="_filter.OnlyActive" Label="Còn hiệu lực"
+                         Color="Color.Primary" Dense="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Price table (server-side) ───────────────────────────────────────────── *@
+<MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="PriceListItemDto">
+    <HeaderContent>
+        <MudTh Style="width:48px">STT</MudTh>
+        <MudTh>Barcode</MudTh>
+        <MudTh>Vùng giá</MudTh>
+        <MudTh>Site</MudTh>
+        <MudTh>Mã sản phẩm</MudTh>
+        <MudTh>Mã SP (PLG)</MudTh>
+        <MudTh>Tên sản phẩm</MudTh>
+        <MudTh>ĐVT</MudTh>
+        <MudTh Style="text-align:right">Giá bán</MudTh>
+        <MudTh>Ngày bắt đầu HL</MudTh>
+        <MudTh>Ngày hết HL</MudTh>
+        <MudTh>Năm hết HL</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+        <MudTd DataLabel="Barcode">@context.BarcodeNo</MudTd>
+        <MudTd DataLabel="Vùng giá">@context.SalesCode</MudTd>
+        <MudTd DataLabel="Site">@context.SiteNo</MudTd>
+        <MudTd DataLabel="Mã sản phẩm"><b>@context.ItemNo</b></MudTd>
+        <MudTd DataLabel="Mã SP (PLG)">@context.ItemNo_PLG</MudTd>
+        <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
+        <MudTd DataLabel="ĐVT">@context.UnitOfMeasureCode</MudTd>
+        <MudTd DataLabel="Giá bán" Style="text-align:right">@context.UnitPrice</MudTd>
+        <MudTd DataLabel="Ngày bắt đầu HL">@context.StartingDateStr</MudTd>
+        <MudTd DataLabel="Ngày hết HL">@context.EndingDateStr</MudTd>
+        <MudTd DataLabel="Năm hết HL">@context.EndingYearStr</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+            <MudText Typo="Typo.body2">Không có bảng giá khớp bộ lọc.</MudText>
+        </div>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<PriceListItemDto> _table = null!;
+    private readonly PriceListFilter _filter = new() { OnlyActive = true, PageSize = 10 };
+
+    private List<PriceListItemDto> _rows = [];
+    private int _offset;
+    private bool _exporting;
+    private string? _errorMsg;
+
+    private async Task<TableData<PriceListItemDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        _filter.PageNumber = state.Page;
+        _filter.PageSize   = state.PageSize;
+        _offset            = state.Page * state.PageSize;
+        try
+        {
+            var (items, total) = await PriceService.GetPriceListAsync(_filter, token);
+            _rows = items;
+            _errorMsg = null;
+            return new TableData<PriceListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh mục bảng giá. (Kiểm tra SP [GetSalesPriceList] trên CentralMD)";
+            FileLogger.WriteExpLogs("PricesPage.Load", ex);
+            _rows = [];
+            return new TableData<PriceListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task OnFilterKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter") await SearchAsync();
+    }
+
+    private async Task SearchAsync() => await _table.ReloadServerData();
+
+    private async Task ClearFilterAsync()
+    {
+        _filter.ItemNo     = null;
+        _filter.ItemName   = null;
+        _filter.Barcode    = null;
+        _filter.SalesCode  = null;
+        _filter.OnlyActive = true;
+        await _table.ReloadServerData();
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var data = await PriceService.ExportPriceListAsync(_filter);
+            var bytes = BuildXlsx(data);
+            await JS.SaveAsFileAsync($"DanhMucBangGia_{DateTime.Now:yyyyMMddHHmmss}.xlsx", bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Snackbar.Add($"Đã xuất {data.Count} dòng bảng giá.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PricesPage.Export", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally { _exporting = false; }
+    }
+
+    private static byte[] BuildXlsx(IReadOnlyList<PriceListItemDto> data)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("BangGia");
+        string[] headers =
+        [
+            "STT", "Barcode", "Vùng giá", "Site", "Mã sản phẩm", "Mã SP (PLG)", "Tên sản phẩm",
+            "ĐVT", "Giá bán", "Ngày bắt đầu HL", "Ngày hết HL", "Năm hết HL"
+        ];
+        for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+        ws.Row(1).Style.Font.Bold = true;
+
+        var r = 2;
+        var stt = 1;
+        foreach (var e in data)
+        {
+            ws.Cell(r, 1).Value  = stt++;
+            ws.Cell(r, 2).Value  = e.BarcodeNo;
+            ws.Cell(r, 3).Value  = e.SalesCode;
+            ws.Cell(r, 4).Value  = e.SiteNo;
+            ws.Cell(r, 5).Value  = e.ItemNo;
+            ws.Cell(r, 6).Value  = e.ItemNo_PLG;
+            ws.Cell(r, 7).Value  = e.ItemName;
+            ws.Cell(r, 8).Value  = e.UnitOfMeasureCode;
+            ws.Cell(r, 9).Value  = e.UnitPrice;
+            ws.Cell(r, 10).Value = e.StartingDateStr;
+            ws.Cell(r, 11).Value = e.EndingDateStr;
+            ws.Cell(r, 12).Value = e.EndingYearStr;
+            r++;
+        }
+        ws.Columns().AdjustToContents();
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+}
