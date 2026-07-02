@@ -1,0 +1,222 @@
+@namespace POS.Web.Components.Pages.Catalog.Organization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+
+@inject ICentralMDRepository MdRepo
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" Style="vertical-align:middle"/>
+            Thêm nhân viên
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.StaffCode"
+                                  Label="Mã nhân viên"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập mã nhân viên"
+                                  Validation="@((Func<string?, Task<string?>>)ValidateStaffCode)"
+                                  Immediate="true"
+                                  MaxLength="50"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.StaffName"
+                                  Label="Tên nhân viên"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập tên nhân viên"
+                                  Immediate="true"
+                                  MaxLength="50"/>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudAutocomplete T="string" @bind-Value="_model.StoreNo"
+                                     Label="Cửa hàng"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     SearchFunc="SearchStoreAsync"
+                                     ToStringFunc="@StoreToString"
+                                     Clearable="true" MaxItems="50"
+                                     Required="true"
+                                     RequiredError="Vui lòng chọn cửa hàng"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.EmploymentType" Label="Nhóm loại"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem Value="0">Nhân viên</MudSelectItem>
+                        <MudSelectItem Value="1">Quản lý</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.PermissionGroup" Label="Nhóm quyền"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem Value="@("LOCAL")">LOCAL</MudSelectItem>
+                        <MudSelectItem Value="@("AD")">AD</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.VoidTransaction" Label="Quyền hủy bill"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem Value="0">Không được hủy</MudSelectItem>
+                        <MudSelectItem Value="1">Được hủy</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_model.Blocked" Label="Trạng thái"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem T="byte" Value="@((byte)0)">Đang hoạt động</MudSelectItem>
+                        <MudSelectItem T="byte" Value="@((byte)1)">Ngưng hoạt động</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.HomePhoneNo"
+                                  Label="Điện thoại"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Validation="@((Func<string?, string?>)ValidatePhone)"
+                                  Immediate="true"
+                                  MaxLength="30"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Password"
+                                  Label="Mật khẩu POS"
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập mật khẩu"
+                                  Validation="@((Func<string?, string?>)ValidatePassword)"
+                                  Immediate="true"
+                                  HelperText="Chỉ số, 4–8 ký tự"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                  OnAdornmentClick="@(() => _showPassword = !_showPassword)"/>
+                </MudItem>
+
+            </MudGrid>
+        </MudForm>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@_saving"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>Danh sách cửa hàng — page truyền _allStores vào, dialog không query lại.</summary>
+    [Parameter]
+    public List<StoreDto> Stores { get; set; } = [];
+
+    private readonly EmployeeCreateDto _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private bool _showPassword;
+    private string? _errorMsg;
+
+    private async Task<string?> ValidateStaffCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mã nhân viên";
+        if (value.Any(char.IsWhiteSpace)) return "Mã nhân viên không được chứa khoảng trắng";
+        if (value.Trim().Length > 50) return "Mã nhân viên tối đa 50 ký tự";
+        if (await MdRepo.StaffCodeExistsAsync(value.Trim())) return "Mã nhân viên đã tồn tại";
+        return null;
+    }
+
+    private static string? ValidatePassword(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mật khẩu";
+        if (value.Length < 4 || value.Length > 8 || !value.All(char.IsDigit))
+            return "Mật khẩu chỉ gồm số, 4–8 ký tự";
+        return null;
+    }
+
+    // TODO: extract to helper (POS.Common/Helpers)
+    private static string? ValidatePhone(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var phone = value.Trim();
+        if (phone.Length < 9 || phone.Length > 11 || !phone.All(char.IsDigit))
+            return "Điện thoại phải là số, 9–11 ký tự";
+        return null;
+    }
+
+    // ── Store autocomplete (rule §13: luôn .Take, không ResetValueOnEmptyText) ─
+    private Task<IEnumerable<string>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? Stores
+            : Stores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50).Select(s => s.StoreNo ?? string.Empty));
+    }
+
+    private string StoreToString(string? storeNo)
+    {
+        if (string.IsNullOrEmpty(storeNo)) return string.Empty;
+        var s = Stores.FirstOrDefault(x => x.StoreNo == storeNo);
+        return s == null ? storeNo : $"{s.StoreNo} – {s.Name}";
+    }
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            var ok = await MdRepo.CreateEmployeeAsync(_model);
+            if (ok)
+                MudDialog.Close(DialogResult.Ok(_model));
+            else
+                _errorMsg = "Lưu thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

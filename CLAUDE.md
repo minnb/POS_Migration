@@ -12,13 +12,18 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 
 > **Nguồn sự thật duy nhất về cấu trúc dùng chung** (DTOs / Services / Repositories / Helpers)
 > là `docs/CURRENT_STRUCTURE.md`. Đọc nó TRƯỚC khi tạo bất kỳ artefact dùng chung nào để **tránh
-> trùng lặp**. KHÔNG tạo file registry song song (vd `docs/architecture/*`) — sẽ lệch bản đồ.
+> trùng lặp**. KHÔNG tạo file registry song song khác cho DTO/Service/Repository (sẽ lệch bản đồ).
+> **Ngoại lệ đã chốt**: `docs/architecture/database-schema.md` là nguồn sự thật cho **schema DB**
+> (tên bảng/cột/kiểu dữ liệu/PK) — mục đích khác `CURRENT_STRUCTURE.md` (schema DB vs cấu trúc
+> code C#), không tạo thêm file khác cùng mục đích này.
 
 ### Mục lục tài liệu kiến trúc (đọc theo nhu cầu)
 
 | Khi cần… | Đọc file | Nội dung |
 |---|---|---|
 | Tra DTO / Service / Repository / Helper đã có + **chữ ký method** + bảng DI | **`docs/CURRENT_STRUCTURE.md`** | Bản đồ bộ nhớ chính — cây `POS.Common/Dtos`, mọi interface + method signature, DI registration, danh sách Helpers |
+| Viết query/SP/Repository đụng bảng DB `RPOSMasterData` (CentralMD) — tra **tên bảng/tên cột/kiểu dữ liệu/PK** | **`docs/architecture/database-schema.md`** | Bản đồ schema DB — toàn bộ bảng + cột + kiểu dữ liệu + PK/FK + danh sách stored procedure, sinh từ `docs/sql/database/CentralMD.sql` |
+| Tạo stored procedure mới cho `RPOSMasterData` | **`.claude/skills/database/SKILLS.md`** | Quy tắc đặt tên `usp_{Domain}_{Action}` + TVP, template SP, cách gọi từ Repository |
 | Tra nguồn legacy (.NET 4.6) khi migrate 1 chức năng | `docs/PROJECT_INVENTORY.md` + `_migration/INVENTORY.md` | Inventory `VCM.BLUEPOS.*` — chỉ đọc đúng mục của chức năng |
 | Kiểm tra contract JSON với 5.000 POS | `docs/API_CONTRACT.md` + `tests/POS.ContractTests/` | Tên field response đã khoá |
 | Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) | Quy trình thêm DTO vào `POS.Common` |
@@ -35,9 +40,16 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
    chữ ký + project chứa nó, **KHÔNG chép nguyên code**). Dùng skill `/task-done` để cập nhật doc.
 4. **Không chắc** một DTO/Service đã tồn tại chưa → tìm trong `docs/CURRENT_STRUCTURE.md` trước,
    sau đó Grep codebase; **KHÔNG** đoán rồi tạo mới.
+5. **TRƯỚC khi viết SQL query / stored procedure / Repository method đụng tới bảng trong
+   `RPOSMasterData` (CentralMD)** → mở `docs/architecture/database-schema.md`, lấy đúng tên
+   bảng/tên cột/kiểu dữ liệu/PK. **KHÔNG suy đoán tên cột.** Bảng cần dùng chưa có trong doc →
+   đọc `docs/sql/database/CentralMD.sql` (hoặc script mới nhất tương ứng), rồi bổ sung vào
+   `database-schema.md` trong cùng commit.
 
 > Giữ `docs/CURRENT_STRUCTURE.md` đồng bộ với code là **một phần của định nghĩa "xong"** cho mọi
-> task thêm/sửa artefact dùng chung. Doc lệch = lần sau AI tạo trùng.
+> task thêm/sửa artefact dùng chung. Doc lệch = lần sau AI tạo trùng. Tương tự, giữ
+> `docs/architecture/database-schema.md` đồng bộ với script DB là một phần của định nghĩa "xong"
+> cho mọi task thay đổi schema.
 
 ## Cấu trúc Solution (Clean Architecture)
 
@@ -268,6 +280,27 @@ return data;
 - Hai khuôn mẫu: **timer polling** (`PeriodicTimer`) và **message consumer** (RabbitMQ push, `prefetchCount: 1`, `autoAck: false`).
 - Serialize bằng **Newtonsoft.Json**; cập nhật `WorkerHealthState`; heartbeat → Redis key `Worker:Heartbeat:{Name}`.
 - Đăng ký mỗi worker mới: `builder.Services.AddHostedService<{Name}Worker>();` trong `Program.cs`.
+
+---
+
+## Quy tắc Stored Procedure — BẮT BUỘC khi tạo SP mới
+
+> **Chi tiết đầy đủ: `.claude/skills/database/SKILLS.md`** — đọc file này trước khi tạo
+> bất kỳ stored procedure mới nào cho `RPOSMasterData`, hoặc khi chuyển script Dapper
+> inline (INSERT/UPDATE) sang SP.
+
+### Nguyên tắc cốt lõi
+
+- **Tên SP mới BẮT BUỘC theo `dbo.usp_{Domain}_{Action}`** (vd `usp_Product_Save`,
+  `usp_SetupCoupon_SaveIssue`) — không dùng dạng tên khác cho SP mới tạo.
+- TVP đi kèm (nếu truyền list/child rows) đặt tên `dbo.{Name}TVP` (vd `ProductBarcodeTVP`).
+- Script SP mới lưu trong `docs/sql/{Domain}_{Action}.sql`, áp dụng **thủ công 1 lần**
+  trên `RPOSMasterData` — app không tự tạo SP.
+- SP ghi dữ liệu bắt buộc `SET XACT_ABORT ON` + `BEGIN TRY/CATCH` + `ROLLBACK TRANSACTION`
+  khi lỗi + `THROW` (không nuốt lỗi trong SP).
+- Gọi từ Repository qua `DynamicParameters` + `CommandType.StoredProcedure`, TVP qua
+  `AsTableValuedParameter("dbo.{Name}TVP")`, output param qua `ParameterDirection.Output`.
+- Tra đúng tên bảng/cột trong `docs/architecture/database-schema.md` trước khi viết SQL.
 
 ---
 

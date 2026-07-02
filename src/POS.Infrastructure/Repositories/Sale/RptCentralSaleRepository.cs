@@ -451,7 +451,7 @@ public sealed class RptCentralSaleRepository(
                         FromDate      = fromDate.Date,
                         ToDate        = toDate.Date,
                         PageSize      = Math.Max(1, pageSize),
-                        PageNumber    = Math.Max(0, pageNumber)
+                        PageNumber    = Math.Max(0, pageNumber) + 1   // SP @PageNumber là 1-based; caller (MudTable) truyền 0-based
                     },
                     commandType: CommandType.StoredProcedure,
                     commandTimeout: 300,

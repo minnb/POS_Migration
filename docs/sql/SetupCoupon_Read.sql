@@ -80,7 +80,7 @@ BEGIN
             CAST(ISNULL(a.Enabled, 0) AS bit) AS Enable,
             COUNT(*) OVER() AS Total
     FROM    dbo.CpnVchBOMCodeIssue a (NOLOCK)
-    WHERE   a.ItemNo = @ItemNo
+    WHERE   a.ItemNo = @ItemNo AND a.Source = 'COUPON'
     ORDER BY a.ID
     OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;
 END

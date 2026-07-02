@@ -15,8 +15,10 @@
 | O2 | File import worker (POS.Worker) | Tạo 3 thư mục inbox/error/_work + cấp quyền ghi + điền path `FileImport` | MEDIUM | [§O2](#o2--worker-nạp-sale-từ-file-zip-posworker) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
-| D3 | SP Setup Coupon (8.1/8.2) | Chạy 3 script SQL tạo SP + TVP trên CentralMD | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
+| D3 | SP Setup Coupon (8.1/8.2) | Chạy 4 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list) | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
 | D4 | SP Voucher (8.3) + reuse (8.4) | Chạy 3 script SQL tạo SP + TVP trên CentralMD; 8.4 tái dùng SP CentralSales | REQUIRED (cho `/promotion/vouchers`) | [§D4](#d4--stored-procedures-voucher-8384) |
+| D5 | SP Setup Giá (9.3) | Chạy script SQL tạo TVP + SP lưu bảng giá trên CentralMD | REQUIRED (cho `/catalog/price-setup`) | [§D5](#d5--stored-procedures-setup-giá-93) |
+| D6 | Gộp SAP Voucher vào CpnVchBOMCodeIssue | Chạy 5 script SQL (extend schema, 2 SP mới + TVP, migrate data, rename legacy) trên CentralMD, đúng thứ tự, có cửa sổ bảo trì. **+D6.1**: chạy thêm 4 script vá đồng bộ dữ liệu Coupon↔SAP Voucher (ItemNo hardening, SetupCoupon_Save/Voucher_Read/Voucher_Save bản mới) | CRITICAL (cho `api/sap/*`, 5.000 POS) | [§D6](#d6--gộp-sap-internal-voucher-vào-cpnvchbomcodeissue) |
 
 ---
 
@@ -283,15 +285,20 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 
 ## D3 — Stored Procedures Setup Coupon (8.1/8.2)
 
-> Trang `GET /promotion/coupons` (list + xóa) và `/promotion/coupons/issue` (phát hành + nâng cao) đọc/ghi
-> qua các SP dưới đây trên **CentralMD (RPOSMasterData)**. 5 bảng `CpnVchBOMIssueRule`, `CpnVchBOMHeader`,
+> Trang `GET /promotion/coupons` (danh sách master Coupon/Voucher — **read-only**) và
+> `/promotion/coupons/issue` (phát hành + nâng cao) đọc/ghi qua các SP dưới đây trên
+> **CentralMD (RPOSMasterData)**. 5 bảng `CpnVchBOMIssueRule`, `CpnVchBOMHeader`,
 > `CpnVchBOMCodeIssue`, `CpnVchBOMLine`, `CpnVchBOMStore` được xác nhận **đã có sẵn**.
 > ⚠️ Legacy dùng **EF LINQ trực tiếp** (không có SP) — các SP dưới đây là **mới**, viết lại cho .NET 10.
 
-- **BẮT BUỘC chạy 3 script** trên `RPOSMasterData` trước khi dùng trang:
-  - `docs/sql/SetupCoupon_Read.sql` — `usp_SetupCoupon_GetList` (list + paging, join IssueRule+Header, Status
-    theo Blocked/EndingDate), `usp_SetupCoupon_GetCodes` (mã coupon theo ItemNo), `usp_SetupCoupon_GetDetail`
-    (header+rule + danh sách sản phẩm — dùng khi sửa).
+- **BẮT BUỘC chạy 4 script** trên `RPOSMasterData` trước khi dùng trang:
+  - `docs/sql/CpnVchBOMHeader_GetList.sql` — `usp_CpnVchBOMHeader_GetList` (danh sách master
+    Coupon/Voucher: list **thẳng** `CpnVchBOMHeader`, KHÔNG join IssueRule, mọi ArticleType, filter
+    KeyWord/Type/Status, Status theo EndingDate). **Đây là SP mà trang `/promotion/coupons` dùng** (port
+    trung thực từ SP legacy `GetCpnVchBOMHeaderList`).
+  - `docs/sql/SetupCoupon_Read.sql` — `usp_SetupCoupon_GetList` (list join IssueRule+Header — nay chỉ giữ
+    cho khả năng tái dùng ở màn "Phát hành Coupon"/POS.Api, KHÔNG còn dùng ở trang list), `usp_SetupCoupon_GetCodes`
+    (mã coupon theo ItemNo), `usp_SetupCoupon_GetDetail` (header+rule + danh sách sản phẩm — dùng khi sửa ở issue page).
   - `docs/sql/SetupCoupon_Save.sql` — 2 TYPE TVP (`CouponCodeTVP`, `CouponLineTVP`) +
     `usp_SetupCoupon_CheckCodesExist` (check trùng mã) + `usp_SetupCoupon_SaveIssue` (upsert IssueRule+Header,
     insert Codes 1 lần, replace Lines/Stores, tự sinh ItemNo `C7...`, transaction) +
@@ -310,17 +317,117 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 > **NOT EXISTS CpnVchBOMIssueRule** (voucher = nhập serial thủ công; coupon = có sinh mã). Legacy dùng EF LINQ,
 > các SP dưới đây là **mới**.
 
-- **BẮT BUỘC chạy 3 script** trên `RPOSMasterData` trước khi dùng trang 8.3:
+- **BẮT BUỘC chạy 4 script** trên `RPOSMasterData` trước khi dùng trang 8.3:
   - `docs/sql/SetupVoucher_Read.sql` — `usp_SetupVoucher_GetList` (filter + paging, lọc NOT EXISTS IssueRule),
-    `usp_SetupVoucher_GetDetail` (header + sản phẩm áp dụng).
+    `usp_SetupVoucher_GetDetail` (header + sản phẩm áp dụng + `QuantityCode` = COUNT mã Source='VOUCHER').
+    **Chạy lại bản mới** (đã thêm cột `QuantityCode` cho trang Phát hành Voucher).
   - `docs/sql/SetupVoucher_Save.sql` — TVP `dbo.VoucherLineTVP` + `usp_SetupVoucher_Save` (upsert header + replace
     lines, transaction). **ItemNo voucher = số thuần seed 70000001** (bỏ qua mã coupon 'C...'). **Serial (CouponCode)
     bắt buộc duy nhất.** **IsCheckItem=1 → tổng bill (no lines); =0 → theo sản phẩm** (NGƯỢC nghĩa coupon).
-  - `docs/sql/SetupVoucher_Delete.sql` — `usp_SetupVoucher_Delete` (xóa header + lines).
+  - `docs/sql/SetupVoucher_SaveIssue.sql` — **MỚI (trang Phát hành Voucher), chạy lại bản mới nhất**:
+    `usp_SetupVoucher_SaveIssue` (upsert header + mint mã vào `CpnVchBOMCodeIssue` với `Source='VOUCHER'`,
+    **KHÔNG** ghi IssueRule → giữ tách khỏi Coupon; điền đủ field redeem `Status='SOLD'`/`Value`/`VoucherType`),
+    `usp_SetupVoucher_GetCodes` (list mã — **đã thêm cột `Status`/`AmountUsed`/`OrderUsed`** cho tab "Mã đã phát
+    hành"), `usp_SetupVoucher_CheckCodesExist` (check trùng mã toàn bảng). Tái dùng TVP `dbo.CouponCodeTVP`/
+    `dbo.VoucherLineTVP`.
+  - `docs/sql/SetupVoucher_Delete.sql` — **Chạy lại bản mới**: `usp_SetupVoucher_Delete` xóa cascade
+    `CpnVchBOMCodeIssue` (Source='VOUCHER') + `CpnVchBOMLine` + `CpnVchBOMHeader`; **chặn xóa** nếu có mã
+    `Status='RDM'` (đã sử dụng) → trả lỗi "Voucher đã được sử dụng" (khi đó dùng nút Xem để bật Blocked thay vì xóa).
+  - `docs/sql/SetupVoucher_UpdateBlocked.sql` — **MỚI**: `usp_SetupVoucher_UpdateBlocked` cập nhật riêng
+    field `Blocked` — trang Xem voucher (sau phát hành) chỉ còn cho phép khóa/mở khóa, mọi field khác readonly.
 - **8.4 KHÔNG cần SP mới** — tái dùng SP có sẵn **`[dbo].[GetTransCpnVchIssueList]` trên CentralSales**
   (đọc `TransCpnVchIssue`, routed per-store qua `StoreRoutedConnectionFactory`). Đảm bảo SP này tồn tại trên
   mọi server CentralSales. StoreNo là **bắt buộc**; `@Export=1` (paging) / `=2` (export). Resend-SAP: **HOÃN** (phase sau).
 - **Nếu chưa chạy** → trang báo lỗi khi tải/lưu; service nuốt lỗi, hiện snackbar/banner đỏ.
+
+---
+
+## D5 — Stored Procedures Setup Giá (9.3)
+
+> Trang `/catalog/price-setup` (POS.Web) validate import Excel + lưu bảng giá qua TVP + SP dưới đây
+> trên **CentralMD (RPOSMasterData)**. Port từ VCM.BLUEPOS `SetupPriceData.SaveSalesPrice`.
+
+- **BẮT BUỘC chạy 1 script** trên `RPOSMasterData` trước khi dùng trang:
+  - `docs/sql/SetupSalePrice_Save.sql` — 2 TYPE TVP (`SetupSalePriceImportTVP`, `SetupSalePriceLineTVP`) +
+    `dbo.usp_SetupSalePrice_Save` (INSERT Pkey mới + ủy quyền update Pkey đã tồn tại qua `Setup_SalePrice_Get_ALL`).
+- **⚠️ Schema `dbo.SalesPrice`**: SP INSERT đúng **15 cột** thực có của bảng — **KHÔNG** ghi `IsActive` /
+  `LastTimeUpdate` / `Id` (những cột này KHÔNG tồn tại trong schema hiện hành, khác EF model legacy .NET 4.6).
+  Nếu deploy proc cũ (còn `IsActive`/`LastTimeUpdate`) → lưu giá lỗi `Invalid column name`. **Chạy lại script này**
+  để cập nhật proc theo schema đúng.
+- **PHỤ THUỘC**: SP có sẵn **`[dbo].[Setup_SalePrice_Get_ALL]`** phải tồn tại trên `RPOSMasterData` (legacy dùng cho
+  update Pkey đã tồn tại) và cũng phải khớp schema 15 cột nói trên. `SalesType` là cột `[int]` → giá trị mã hình
+  thức bán hàng phải là số hợp lệ (SQL convert ngầm khi INSERT).
+- **Nếu chưa chạy / proc cũ** → trang báo lỗi khi lưu; service trả `Ok=0`, hiện snackbar đỏ.
+
+---
+
+## D6 — Gộp SAP Internal Voucher vào CpnVchBOMCodeIssue
+
+> `api/sap/*` (`SAPController`, 5.000 POS + SAP ERP) chuyển từ bảng `Internal_Voucher` sang dùng
+> CHUNG bảng `CpnVchBOMCodeIssue` với Setup Coupon (8.1/8.2), phân biệt bằng cột `Source`
+> (`'COUPON'` | `'SAP'`). Code đã đổi sang `IVoucherCodeRepository`/`VoucherCodeRepository` +
+> SP `usp_Voucher_*` — **JSON contract của `api/sap/*` KHÔNG đổi**, chỉ đổi tầng lưu trữ bên dưới.
+> ⚠️ Đây là thao tác trên **dữ liệu production thật** (voucher SAP đang lưu hành) — cần cửa sổ
+> bảo trì ngắn (Phase B rebuild bảng dùng `sp_rename`) và làm đúng thứ tự.
+
+**BẮT BUỘC chạy theo ĐÚNG thứ tự sau** trên `RPOSMasterData` (Dev/UAT trước, Production sau,
+khung giờ ít traffic SAP/POS):
+
+1. `docs/sql/CpnVchBOMCodeIssue_ExtendSchema.sql` — Phase A (thêm cột + `Source`), Phase B
+   (**rebuild bảng** để thêm `ID IDENTITY(1,1) PRIMARY KEY CLUSTERED` — trước đó bảng không có
+   PK, tự tính `MAX(ID)+ROW_NUMBER()`), Phase C (`UNIQUE FILTERED INDEX` trên `Code`). **Chạy
+   pre-check trùng `Code`** trước Phase C (query có sẵn trong comment script) — phải rỗng.
+2. `docs/sql/SetupCoupon_Save.sql` + `docs/sql/SetupCoupon_Read.sql` (bản đã cập nhật — bỏ tự
+   tính `ID`, thêm `Source='COUPON'`/filter `Source='COUPON'`) — **BẮT BUỘC chạy lại**, nếu quên
+   thì phát hành coupon mới sẽ lỗi insert vào cột đã đổi thành IDENTITY.
+3. `docs/sql/Voucher_Read.sql` — tạo `usp_Voucher_GetByCode`.
+4. `docs/sql/Voucher_Save.sql` — tạo TVP `dbo.VoucherRedeemTVP` + `usp_Voucher_Create` +
+   `usp_Voucher_Redeem`.
+5. `docs/sql/CpnVchBOMCodeIssue_MigrateFromInternalVoucher.sql` — di chuyển dữ liệu từ
+   `Internal_Voucher` (idempotent, `WHERE NOT EXISTS` — chạy lại an toàn). **Chạy 2 LẦN**: trước
+   khi deploy code mới, và **ngay sau khi deploy xong** (vét dữ liệu ghi bởi code cũ trong lúc
+   rolling deploy có khoảng chồng lấp giữa các instance POS.Api).
+   - Verify trước khi coi là xong: `COUNT(*)` của `Internal_Voucher` khớp
+     `COUNT(*) FROM CpnVchBOMCodeIssue WHERE Source='SAP'`; query "còn sót" (comment sẵn trong
+     script) phải trả về rỗng.
+
+**Sau khi deploy code + verify runtime ổn định** (smoke test `CreateNewVoucher`/`CheckVoucher`/
+`redeemCpnVch` trên vài voucher thật, theo dõi log lỗi):
+
+6. `docs/sql/Internal_Voucher_RenameLegacy.sql` — `sp_rename` bảng `Internal_Voucher` thành
+   `Internal_Voucher_Legacy`. ⚠️ **ĐIỂM KHÔNG THỂ QUAY LẠI DỄ DÀNG** — sau bước này, rollback code
+   về bản cũ sẽ lỗi cứng (bảng không còn tên cũ) thay vì âm thầm ghi nhầm dữ liệu; đây là lựa
+   chọn chủ đích (fail loud). Giữ `Internal_Voucher_Legacy` làm backup tạm.
+   - **TODO chưa chốt ngày**: lên lịch `DROP TABLE Internal_Voucher_Legacy` sau khi hệ thống ổn
+     định 2–4 tuần kể từ go-live (theo dõi riêng, không thuộc phạm vi đợt deploy code này).
+
+**Nếu chưa chạy đủ 5 script đầu trước khi deploy** → `api/sap/*` lỗi runtime (SP không tồn tại
+hoặc bảng thiếu cột) ngay khi POS/SAP gọi vào; **không** có fallback tự động về `Internal_Voucher`
+(code cũ đã xóa khỏi solution).
+
+### D6.1 — Vá lỗ hổng đồng bộ dữ liệu Coupon ↔ SAP Voucher (bổ sung sau go-live §D6)
+
+> Sau khi dùng thử §D6, phát hiện: (1) `usp_Voucher_Create` không ghi `ItemNo`; (2)
+> `usp_SetupCoupon_SaveIssue` chỉ ghi 7/22 cột khi insert mã coupon — thiếu toàn bộ field cần để
+> POS.Api check/redeem được; (3) `usp_Voucher_GetByCode`/`usp_Voucher_Redeem` chỉ nhận
+> `Source='SAP'`, chưa nhận diện được mã Coupon dù dùng chung bảng. Cả 3 đã được vá — cần chạy
+> lại **4 script sau, ĐÚNG THỨ TỰ**, trên cùng khung giờ bảo trì như §D6 (không đổi code
+> C#/không cần build lại POS.Api/POS.Web):
+
+1. `docs/sql/CpnVchBOMCodeIssue_ItemNoHardening.sql` — **PHẢI chạy đầu tiên**: mở rộng
+   `ItemNo` varchar(20)→varchar(50) (khớp width `ActicleNo`, tránh lỗi truncate khi SAP gửi
+   `Article_No` dài) + thêm index `IX_CpnVchBOMCodeIssue_ItemNo`.
+2. `docs/sql/SetupCoupon_Save.sql` (bản đã cập nhật lần 2) — insert mã Coupon nay điền đủ
+   `ActicleNo/ActicleType/Validity_From_Date/Expiry_Date/Voucher_Currency/CompanyCode/Status/
+   [Return]`, thêm UPDATE đồng bộ mọi lần Lưu (Section 3b) + UPDATE `Value/VoucherType` trong
+   `usp_SetupCoupon_SaveAdvanced` (Section 3c).
+3. `docs/sql/Voucher_Read.sql` (bản đã cập nhật) — `usp_Voucher_GetByCode` bỏ filter `Source`.
+4. `docs/sql/Voucher_Save.sql` (bản đã cập nhật) — `usp_Voucher_Create` thêm `ItemNo` + guard
+   trùng Code khác Source; `usp_Voucher_Redeem` bỏ filter `Source` + thêm `Enabled=0` khi redeem.
+
+Smoke test sau khi chạy: phát hành 1 coupon test qua POS.Web → `GET api/sap/CheckVoucher` với mã
+đó phải trả `200 OK` (trước đây 404) → `POST api/sap/winlife/redeemCpnVch` phải redeem thành
+công → coupon hiện "Locked" ở tab "Mã coupon đã phát hành" (POS.Web).
 
 ---
 

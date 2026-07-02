@@ -30,6 +30,21 @@ public class StoreListDto
     public bool    IsActive          => ClosingMethod == 0;
 }
 
+public class BranchDto
+{
+    public string No { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+}
+
+public class StoreCreateDto
+{
+    public string StoreNo { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? BranchNo { get; set; }
+    public int ClosingMethod { get; set; }
+}
+
 public class StoreSetup
 {
     public string? StoreNo { get; set; }

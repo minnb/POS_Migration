@@ -12,7 +12,7 @@
 
 | File | Đọc khi |
 |---|---|
-| **`.claude/skills/web/form-input.md`** | **Thiết kế form nhập liệu (MudCard section + MudGrid + validation trực quan)** |
+| **`.claude/skills/web/form-input.md`** | **Thiết kế form nhập liệu (MudCard section + MudGrid + validation trực quan); Placeholder vs HelperText; chế độ CHỈ XEM khi bản ghi khóa sau tạo + field ngoại lệ có nút Lưu điều kiện** |
 | `.claude/skills/web/filter-store.md` | Thêm combobox lọc cửa hàng vào page |
 | `.claude/skills/web/datatable.md` | Tạo bảng dữ liệu (MudTable) — client/server/dynamic |
 | `.claude/skills/web/charts.md` | Thêm biểu đồ Line/Bar (MudBlazor v9) |

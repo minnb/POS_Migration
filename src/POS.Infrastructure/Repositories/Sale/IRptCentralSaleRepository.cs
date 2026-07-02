@@ -65,9 +65,10 @@ public interface IRptCentralSaleRepository
         CancellationToken ct = default);
 
     // ── 15.5 Doanh thu theo Cửa hàng ─────────────────────────────────────────
-    // SP [dbo].[SP_SALES_BY_STORE_BUSSINESS_DATE] trên CentralSales.
+    // SP [dbo].[Rpt_ReportSalesByStore] trên CentralSales.
     // listStoreJson: JSON [{"SiteNo":"VIN001","SiteName":"..."},...].
-    // pageNumber: 0-based (hoặc 1-based — kiểm tra với SP). Total trong mỗi row = tổng records.
+    // pageNumber: 0-based (theo MudTable TableState.Page). SP dùng @PageNumber 1-based;
+    // repository tự +1 khi gọi SP. Total trong mỗi row = tổng records.
     Task<List<RevenueByStoreDto>> GetRevenueByStoreAsync(
         string listStoreJson, DateTime fromDate, DateTime toDate,
         int pageSize, int pageNumber,

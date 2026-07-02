@@ -26,6 +26,8 @@ public sealed class CentralMDRepository(
     private const string KeyStoreList         = "MD:StoreList";
     private const string KeyTenderTypeSetup   = "MD:TenderTypeSetup";
     private const string KeyBankList          = "MD:BankList";
+    private const string KeyBranchList        = "MD:BranchList";
+    private const string KeyCpnVchBOMHeader   = "MD:CpnVchBOMHeader";
 
     public async Task<MMLSchemeHeader?> GetMMLSchemeHeaderAsync(string code, CancellationToken ct = default)
     {
@@ -176,6 +178,20 @@ public sealed class CentralMDRepository(
         return data;
     }
 
+    public async Task<List<BranchDto>> GetBranchListAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<BranchDto>>(KeyBranchList);
+        if (cached?.Count > 0) return cached;
+
+        const string sql = @"SELECT No, Description
+                             FROM dbo.Branch (NOLOCK)
+                             ORDER BY No";
+        var data = (await QueryAsync<BranchDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyBranchList, data, ttlSeconds: 43200);
+        return data;
+    }
+
     public async Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default)
     {
         var cached = await redis.StringGetAsync<List<TenderTypeSetupDto>>(KeyTenderTypeSetup);
@@ -284,6 +300,23 @@ public sealed class CentralMDRepository(
         }
     }
 
+    public async Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(itemNo)) return false;
+
+        // Cache dương (positive-only): đã xác nhận tồn tại thì luôn tồn tại → không lo stale
+        // false-negative. Mã mới thêm vào CpnVchBOMHeader được nhận ngay ở lần query kế; mã không
+        // tồn tại (hiếm, chỉ khi request sai) luôn re-check DB.
+        var cached = redis.HashGet<bool?>(KeyCpnVchBOMHeader, itemNo);
+        if (cached == true) return true;
+
+        const string sql = "SELECT TOP 1 1 FROM dbo.CpnVchBOMHeader (NOLOCK) WHERE [ItemNo] = @itemNo;";
+        var exists = await QueryFirstOrDefaultAsync<int?>(sql, new { itemNo }, ct: ct) != null;
+        if (exists)
+            redis.HashSet(KeyCpnVchBOMHeader, itemNo, true, ttlSeconds: 43200); // 12h — static master data
+        return exists;
+    }
+
     public async Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
     {
         try
@@ -369,6 +402,55 @@ public sealed class CentralMDRepository(
         return (await QueryAsync<StoreListDto>(sql, ct: ct)).ToList();
     }
 
+    public async Task<bool> StoreCodeExistsAsync(string storeNo, CancellationToken ct = default)
+    {
+        const string sql = "SELECT COUNT(1) FROM dbo.Store (NOLOCK) WHERE No = @storeNo;";
+        var count = await QueryFirstOrDefaultAsync<int>(sql, new { storeNo = storeNo.Trim() }, ct: ct);
+        return count > 0;
+    }
+
+    public async Task<bool> CreateStoreAsync(StoreCreateDto dto, CancellationToken ct = default)
+    {
+        const string sql = @"INSERT INTO dbo.Store
+                                 (No, Name, Address, BranchNo, ClosingMethod,
+                                  LastDateModified, Counter, Pkey)
+                             VALUES
+                                 (@StoreNo, @Name, @Address, @BranchNo, @ClosingMethod,
+                                  GETDATE(),
+                                  (SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Store),
+                                  @StoreNo);";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new
+            {
+                StoreNo = dto.StoreNo.Trim(),
+                Name    = dto.Name.Trim(),
+                Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim(),
+                BranchNo = string.IsNullOrWhiteSpace(dto.BranchNo) ? null : dto.BranchNo.Trim(),
+                dto.ClosingMethod
+            }, ct: ct);
+            if (rows > 0) redis.Delete(KeyStoreList); // invalidate store picker cache
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> UpdateStoreClosingMethodAsync(string storeNo, int closingMethod, CancellationToken ct = default)
+    {
+        const string sql = @"UPDATE dbo.Store
+                             SET    ClosingMethod    = @closingMethod,
+                                    LastDateModified = GETDATE(),
+                                    Counter          = (SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Store)
+                             WHERE  No = @storeNo;";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new { storeNo = storeNo.Trim(), closingMethod }, ct: ct);
+            if (rows > 0) redis.Delete(KeyStoreList); // invalidate store picker cache (WHERE ClosingMethod = 0)
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
     // ── Danh mục Nhân viên (Staff) ───────────────────────────────────────────
 
     public async Task<(List<EmployeeListItemDto> Items, int Total)> GetEmployeeListAsync(
@@ -402,6 +484,64 @@ public sealed class CentralMDRepository(
             TypeGroup = string.IsNullOrWhiteSpace(filter.TypeGroup) ? "-1" : filter.TypeGroup.Trim(),
             Status    = string.IsNullOrWhiteSpace(filter.Status) ? "-1" : filter.Status.Trim()
         }, commandTimeout: 120, ct: ct)).ToList();
+    }
+
+    public async Task<bool> StaffCodeExistsAsync(string staffCode, CancellationToken ct = default)
+    {
+        const string sql = "SELECT COUNT(1) FROM dbo.Staff (NOLOCK) WHERE ID = @staffCode;";
+        var count = await QueryFirstOrDefaultAsync<int>(sql, new { staffCode = staffCode.Trim() }, ct: ct);
+        return count > 0;
+    }
+
+    public async Task<bool> CreateEmployeeAsync(EmployeeCreateDto dto, CancellationToken ct = default)
+    {
+        // Password plain text theo contract POS terminal (máy POS đọc trực tiếp cột này).
+        // Counter = MAX+1 toàn bảng — bắt buộc, POS sync incremental lọc WHERE Counter > N.
+        const string sql = @"INSERT INTO dbo.Staff
+                                 (ID, Password, StoreNo, VoidTransaction, FirstName, LastName,
+                                  EmploymentType, Blocked, PermissionGroup, HomePhoneNo,
+                                  LastDateModified, Counter, Pkey)
+                             VALUES
+                                 (@StaffCode, @Password, @StoreNo, @VoidTransaction, @StaffName, @StaffName,
+                                  @EmploymentType, @Blocked, @PermissionGroup, @HomePhoneNo,
+                                  GETDATE(),
+                                  (SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Staff),
+                                  @StaffCode);";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new
+            {
+                StaffCode = dto.StaffCode.Trim(),
+                dto.Password,
+                StoreNo   = dto.StoreNo.Trim(),
+                dto.VoidTransaction,
+                StaffName = dto.StaffName.Trim(),
+                dto.EmploymentType,
+                Blocked   = (int)dto.Blocked,
+                dto.PermissionGroup,
+                HomePhoneNo = string.IsNullOrWhiteSpace(dto.HomePhoneNo) ? null : dto.HomePhoneNo.Trim()
+            }, ct: ct);
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> ChangeEmployeePasswordAsync(string staffCode, string newPassword, CancellationToken ct = default)
+    {
+        // Theo legacy ChangePassWord: chỉ đổi khi đang hoạt động (Blocked = 0); Pkey = ID.
+        const string sql = @"UPDATE dbo.Staff
+                             SET    Password         = @newPassword,
+                                    LastDateModified = GETDATE(),
+                                    Counter          = (SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Staff),
+                                    Pkey             = ID
+                             WHERE  ID = @staffCode
+                               AND  (Blocked = 0 OR Blocked IS NULL);";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new { staffCode = staffCode.Trim(), newPassword = newPassword.Trim() }, ct: ct);
+            return rows > 0;
+        }
+        catch { return false; }
     }
 
     // ── POSDataSetup CRUD (Web admin UI) ─────────────────────────────────────
@@ -645,110 +785,34 @@ public sealed class CentralMDRepository(
     public async Task<(bool Success, string ItemNo, string Message)> CreateProductAsync(
         ProductCreateDto dto, CancellationToken ct = default)
     {
-        var itemNo    = string.Empty;
-        var message   = string.Empty;
-        var success   = false;
+        var p = new DynamicParameters();
+        p.Add("@ItemName", dto.ItemName);
+        p.Add("@ItemNameFull", dto.ItemNameFull);
+        p.Add("@BaseUnitOfMeasure", dto.BaseUnitOfMeasure);
+        p.Add("@SalesUnitOfMeasure", dto.SalesUnitOfMeasure);
+        p.Add("@ItemFamilyCode", dto.ItemFamilyCode);
+        p.Add("@TaxGroupCode", dto.TaxGroupCode == "-1" ? string.Empty : dto.TaxGroupCode);
+        p.Add("@Blocked", dto.Blocked);
+        p.Add("@BlockedVINID", dto.BlockedVINID);
+        p.Add("@Barcodes", BuildProductBarcodeTable(dto.Barcodes).AsTableValuedParameter("dbo.ProductBarcodeTVP"));
+        p.Add("@OutItemNo", dbType: DbType.String, direction: ParameterDirection.Output, size: 20);
 
-        await ExecuteInTransactionAsync(async (conn, tx) =>
-        {
-            // 1. Auto-generate ItemNo (Max+1, start 1000000001)
-            const string sqlNextNo = @"
-SELECT CAST(ISNULL(MAX(CAST(No AS BIGINT)), 1000000000) + 1 AS NVARCHAR(50))
-FROM dbo.Item (NOLOCK);";
-            itemNo = await conn.QueryFirstOrDefaultAsync<string>(
-                new CommandDefinition(sqlNextNo, transaction: tx,
-                    commandTimeout: 30, cancellationToken: ct)) ?? "1000000001";
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("dbo.usp_Product_Save", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
 
-            // 2. Max Counter cho Item
-            const string sqlItemCounter = "SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Item (NOLOCK);";
-            var itemCounter = await conn.QueryFirstOrDefaultAsync<int>(
-                new CommandDefinition(sqlItemCounter, transaction: tx,
-                    commandTimeout: 30, cancellationToken: ct));
+        var itemNo = p.Get<string>("@OutItemNo") ?? string.Empty;
+        return (true, itemNo, $"Thêm mới thành công. Mã sản phẩm: {itemNo}");
+    }
 
-            // 3. INSERT Item
-            const string sqlInsertItem = @"
-INSERT INTO dbo.Item
-(No, No2, Description, SearchDescription, LongDescription,
- BaseUnitOfMeasure, SalesUnitOfMeasure, TaxGroupCode,
- ItemFamilyCode, Blocked, BlockedVINID,
- PriceIncludesVAT, StatisticsGroup, CommissionGroup,
- UnitPrice, CostingMethod, UnitCost, StandardCost,
- VendorNo, VendorItemNo, MaximumInventory, ReorderQuantity,
- GrossWeight, NetWeight, UnitsPerParcel, UnitVolume,
- PreventNegativeInventory, MinimumOrderQuantity, MaximumOrderQuantity,
- SafetyStockQuantity, OrderMultiple,
- ManufacturerCode, ItemCategoryCode, ProductGroupCode,
- ServiceItemGroup, ItemTrackingCode, ProductionBOMNo,
- CommonItemNo, DivisionCode, KeyinginPrice, ZeroPriceValid,
- LastDateModified, Counter, Pkey)
-VALUES
-(@No, '', @Description, @SearchDescription, @LongDescription,
- @BaseUnitOfMeasure, @SalesUnitOfMeasure, @TaxGroupCode,
- @ItemFamilyCode, @Blocked, @BlockedVINID,
- 1, 0, 0,
- 0, 0, 0, 0,
- '', '', 0, 0,
- 0, 0, 0, 0,
- 0, 0, 0,
- 0, 0,
- '', '', '',
- '', '', '',
- '', '', 0, 0,
- @LastDateModified, @Counter, @No);";
-
-            var taxCode = dto.TaxGroupCode == "-1" ? string.Empty : dto.TaxGroupCode;
-            await conn.ExecuteAsync(
-                new CommandDefinition(sqlInsertItem, new
-                {
-                    No               = itemNo,
-                    Description      = dto.ItemName,
-                    SearchDescription = dto.ItemName,
-                    LongDescription  = dto.ItemNameFull,
-                    BaseUnitOfMeasure  = dto.BaseUnitOfMeasure,
-                    SalesUnitOfMeasure = dto.SalesUnitOfMeasure,
-                    TaxGroupCode     = taxCode,
-                    ItemFamilyCode   = dto.ItemFamilyCode,
-                    Blocked          = dto.Blocked,
-                    BlockedVINID     = dto.BlockedVINID,
-                    LastDateModified = DateTime.Now,
-                    Counter          = itemCounter
-                }, transaction: tx, commandTimeout: 30, cancellationToken: ct));
-
-            // 4. Max Counter cho Barcode (fetch 1 lần trước loop)
-            const string sqlBarcodeCounter = "SELECT ISNULL(MAX(Counter), 0) FROM dbo.Barcode (NOLOCK);";
-            var baseBarcodeCounter = await conn.QueryFirstOrDefaultAsync<int>(
-                new CommandDefinition(sqlBarcodeCounter, transaction: tx,
-                    commandTimeout: 30, cancellationToken: ct));
-
-            // 5. INSERT Barcodes
-            const string sqlInsertBarcode = @"
-INSERT INTO dbo.Barcode
-(BarcodeNo, ItemNo, UnitOfMeasureCode, ShowForItem, Description,
- Blocked, LastDateModified, VariantCode, DiscountPercent, Counter, Pkey)
-VALUES
-(@BarcodeNo, @ItemNo, @UnitOfMeasureCode, 0, '',
- 1, @LastDateModified, '', 0, @Counter, @BarcodeNo);";
-
-            var now = DateTime.Now;
-            for (var i = 0; i < dto.Barcodes.Count; i++)
-            {
-                var bc = dto.Barcodes[i];
-                await conn.ExecuteAsync(
-                    new CommandDefinition(sqlInsertBarcode, new
-                    {
-                        bc.BarcodeNo,
-                        ItemNo           = itemNo,
-                        bc.UnitOfMeasureCode,
-                        LastDateModified  = now,
-                        Counter          = baseBarcodeCounter + i + 1
-                    }, transaction: tx, commandTimeout: 30, cancellationToken: ct));
-            }
-
-            success = true;
-            message = $"Thêm mới thành công. Mã sản phẩm: {itemNo}";
-        }, ct: ct);
-
-        return (success, itemNo, message);
+    private static DataTable BuildProductBarcodeTable(IEnumerable<BarcodeRowDto> rows)
+    {
+        var t = new DataTable();
+        t.Columns.Add("BarcodeNo", typeof(string));
+        t.Columns.Add("UnitOfMeasureCode", typeof(string));
+        foreach (var r in rows)
+            t.Rows.Add(r.BarcodeNo, r.UnitOfMeasureCode);
+        return t;
     }
 
     // ── Product Lock — Khóa sản phẩm (migrate 6.4) ───────────────────────────
@@ -802,13 +866,13 @@ FETCH NEXT @PageSize ROWS ONLY;";
             .ToDictionary(x => x.No, x => x.SalesUnitOfMeasure ?? string.Empty);
 
         const string sqlUpsert = @"
-IF EXISTS (SELECT 1 FROM dbo.ItemBlock WHERE Pkey = @Pkey)
-    UPDATE dbo.ItemBlock
-    SET    Status = @Status, UpdatedDate = GETDATE(), Counter = Counter + 1
-    WHERE  Pkey = @Pkey
-ELSE
-    INSERT INTO dbo.ItemBlock (ItemNo, UnitOfMeasure, StoreNo, Status, UpdatedDate, Counter, Pkey)
-    VALUES (@ItemNo, @UnitOfMeasure, @StoreNo, @Status, GETDATE(), 1, @Pkey);";
+                        IF EXISTS (SELECT 1 FROM dbo.ItemBlock WHERE Pkey = @Pkey)
+                            UPDATE dbo.ItemBlock
+                            SET    Status = @Status, UpdatedDate = GETDATE(), Counter = Counter + 1
+                            WHERE  Pkey = @Pkey
+                        ELSE
+                            INSERT INTO dbo.ItemBlock (ItemNo, UnitOfMeasure, StoreNo, Status, UpdatedDate, Counter, Pkey)
+                            VALUES (@ItemNo, @UnitOfMeasure, @StoreNo, @Status, GETDATE(), 1, @Pkey);";
 
         await ExecuteInTransactionAsync(async (conn, tx) =>
         {

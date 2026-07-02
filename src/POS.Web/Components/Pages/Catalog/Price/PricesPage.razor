@@ -51,7 +51,7 @@
                           OnKeyDown="OnFilterKeyDown"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
-            <MudTextField @bind-Value="_filter.SalesCode" Label="ST/CH (Site/Vùng giá)"
+            <MudTextField @bind-Value="_filter.SalesCode" Label="ST/CH"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
                           OnKeyDown="OnFilterKeyDown"/>
         </MudItem>
@@ -84,13 +84,11 @@
         <MudTh>Vùng giá</MudTh>
         <MudTh>Site</MudTh>
         <MudTh>Mã sản phẩm</MudTh>
-        <MudTh>Mã SP (PLG)</MudTh>
-        <MudTh>Tên sản phẩm</MudTh>
+        <MudTh Style="width:100%">Tên sản phẩm</MudTh>
         <MudTh>ĐVT</MudTh>
         <MudTh Style="text-align:right">Giá bán</MudTh>
         <MudTh>Ngày bắt đầu HL</MudTh>
         <MudTh>Ngày hết HL</MudTh>
-        <MudTh>Năm hết HL</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
@@ -98,13 +96,11 @@
         <MudTd DataLabel="Vùng giá">@context.SalesCode</MudTd>
         <MudTd DataLabel="Site">@context.SiteNo</MudTd>
         <MudTd DataLabel="Mã sản phẩm"><b>@context.ItemNo</b></MudTd>
-        <MudTd DataLabel="Mã SP (PLG)">@context.ItemNo_PLG</MudTd>
         <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
         <MudTd DataLabel="ĐVT">@context.UnitOfMeasureCode</MudTd>
         <MudTd DataLabel="Giá bán" Style="text-align:right">@context.UnitPrice</MudTd>
         <MudTd DataLabel="Ngày bắt đầu HL">@context.StartingDateStr</MudTd>
         <MudTd DataLabel="Ngày hết HL">@context.EndingDateStr</MudTd>
-        <MudTd DataLabel="Năm hết HL">@context.EndingYearStr</MudTd>
     </RowTemplate>
     <NoRecordsContent>
         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">

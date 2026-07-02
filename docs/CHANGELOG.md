@@ -6,6 +6,228 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-02] Validate ActicleNo tồn tại trong CpnVchBOMHeader trước khi tạo Voucher SAP
+
+**Layer:** POS.Api (POS.Application + POS.Infrastructure)
+**Loại:** Feature + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Repositories/MasterData/ICentralMDRepository.cs`: thêm chữ ký
+  `Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = default)`.
+- `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`: implement với cache
+  Redis Hash `MD:CpnVchBOMHeader` (positive-only, TTL 12h) — point-lookup
+  `SELECT TOP 1 1 FROM dbo.CpnVchBOMHeader WHERE ItemNo=@itemNo`.
+- `src/POS.Application/Features/Sap/SAPService.cs`: inject thêm `ICentralMDRepository`; trong
+  `CreateNewVoucherAsync` validate **toàn bộ** `Article_No` (khác rỗng) TRƯỚC vòng lặp tạo —
+  mã không tồn tại → trả `400 "ActicleNo {x} không tồn tại"`, KHÔNG tạo phần tử nào (tránh
+  partial vì loop không có transaction). `Article_No` rỗng → bỏ qua (giữ hành vi cũ). Guard tự
+  áp cho cả `CreateReturnVoucher` (controller gọi lại `CreateNewVoucherAsync`).
+
+**Pattern mới:** Existence-check cache (positive-only) — validate master data trước khi ghi
+→ đã cập nhật `.claude/skills/cache/SKILLS.md` (Pattern 5).
+
+**Quyết định:** đối chiếu cột `CpnVchBOMHeader.ItemNo` (theo quy ước mirror
+`CpnVchBOMCodeIssue.ItemNo = ActicleNo`). Không đổi SP/DTO/contract, không tạo SQL mới.
+
+**Lưu ý cho session sau:** Khi cần validate "khóa tồn tại trong master" trước một write, dùng
+Pattern 5 (cache dương, không cache âm) — KHÔNG dùng Pattern 1. Nếu DBA thêm master mới cần dùng
+ngay trong <12h: `DEL MD:CpnVchBOMHeader`.
+
+---
+
+## [2026-07-02] Vá đồng bộ dữ liệu Coupon (POS.Web) ↔ SAP Voucher (POS.Api) trong CpnVchBOMCodeIssue
+
+**Layer:** Database (docs/sql)
+**Loại:** Bug fix (thiếu field khi ghi) + Feature (unify check/redeem 2 nguồn)
+
+**Vấn đề:**
+1. `usp_Voucher_Create` (POS.Api tạo voucher SAP) không ghi `ItemNo` — mất liên kết ItemNo↔ActicleNo.
+2. `usp_SetupCoupon_SaveIssue` (POS.Web phát hành coupon) chỉ ghi 7/22 cột nghiệp vụ khi insert
+   mã — thiếu `Status/Return/ActicleNo/ActicleType/Value/Voucher_Currency/Validity_From_Date/
+   Expiry_Date/CompanyCode/VoucherType`, khiến mã coupon KHÔNG thể redeem/check qua POS.Api.
+3. `usp_Voucher_GetByCode`/`usp_Voucher_Redeem` chỉ nhận `Source='SAP'` — POS.Api không nhận diện
+   được mã Coupon dù dùng chung bảng, trong khi POS.Web phát hành coupon cho khách dùng tại POS,
+   và POS dùng coupon/voucher qua chính POS.Api — 2 luồng cần liên thông thật sự.
+
+**Thay đổi:**
+- `docs/sql/CpnVchBOMCodeIssue_ItemNoHardening.sql` (**file mới**) — mở rộng
+  `CpnVchBOMCodeIssue.ItemNo` varchar(20)→varchar(50) (khớp width `ActicleNo`, tránh lỗi truncate
+  khi SAP gửi `Article_No` dài) + thêm index `IX_CpnVchBOMCodeIssue_ItemNo` (bảng chưa có index
+  nào trên cột này, cần thiết vì các UPDATE đồng bộ mới chạy trên mọi lần Lưu, không chỉ lần đầu).
+- `usp_Voucher_Create`: thêm `ItemNo = @ActicleNo` (mirror) vào INSERT; thêm guard `THROW` khi
+  `Code` trùng với 1 dòng ở Source khác (tránh vi phạm unique index bằng SqlException thô).
+- `usp_SetupCoupon_SaveIssue`: Section insert Codes (chạy lần đầu) nay ghi đủ
+  `ActicleNo(=ItemNo)/ActicleType/Validity_From_Date/Expiry_Date/Voucher_Currency('VND')/
+  CompanyCode('WCM')/Status('SOLD')/Return(0)`, thêm `AND Source='COUPON'` vào gate (tránh bị
+  "lừa" bởi ItemNo trùng của SAP). Thêm **Section 3b mới**: UPDATE không điều kiện (chạy mọi lần
+  Lưu, kể cả sửa coupon sau này) đồng bộ lại `ActicleType`/ngày hiệu lực — KHÔNG đụng
+  `Status/Return/Enabled` để không phá vỡ trạng thái đã redeem.
+- `usp_SetupCoupon_SaveAdvanced`: thêm UPDATE mới đồng bộ `Value`/`VoucherType` (từ
+  `@DiscountValue`/`@CpnVchType`) xuống `CpnVchBOMCodeIssue` — 2 field này chỉ có giá trị thật
+  sau khi SP này chạy (không phải tham số của `usp_SetupCoupon_SaveIssue`).
+- `usp_Voucher_GetByCode`/`usp_Voucher_Redeem`: bỏ hẳn filter `Source='SAP'` (`Code` đã unique
+  toàn bảng nên không còn nhập nhằng) — nhận diện và redeem được cả mã Coupon. Redeem thành công
+  nay thêm `Enabled=0` (hành vi MỚI, áp dụng cả 2 Source) — đồng bộ hiển thị "Locked" ở
+  `usp_SetupCoupon_GetCodes` (POS.Web). Thêm chặn `Value IS NULL` khi validate amount (đóng lỗ
+  hổng: coupon chưa chạy `SaveAdvancedAsync` có `Value` NULL → so sánh với NULL luôn UNKNOWN,
+  amount bất kỳ sẽ lọt qua nếu không chặn tường minh).
+- Không đổi C# — toàn bộ input đã là tham số sẵn có của các SP liên quan
+  (`CouponRepository.cs`, `VoucherCodeRepository.cs`, `SAPService.cs`, `SAPController.cs`).
+  Không DTO nào đổi field → contract test (`VoucherStatusResponse_locked`, `CouponCodeDto_locked`)
+  giữ nguyên, vẫn xanh.
+- `docs/architecture/database-schema.md`: cập nhật mô tả cột `CpnVchBOMCodeIssue` (nhiều field
+  nay dùng chung 2 Source thay vì chỉ SAP), 5 SP đã sửa hành vi. `docs/ROLLOUT.md` §D6.1: checklist
+  chạy 4 script theo đúng thứ tự (ItemNoHardening trước tiên).
+
+**Rủi ro đã rà soát nhưng KHÔNG sửa trong đợt này** (mức ưu tiên thấp, dead path hiện tại):
+`usp_SetupCoupon_GetDetail.QuantityCode`, `usp_SetupCoupon_GetList.QtyCoupon`,
+`usp_SetupCoupon_Delete` guard đều lọc `WHERE ItemNo=@ItemNo` không kèm `Source` — cùng loại rủi
+ro va chạm ItemNo giữa 2 nguồn (xác suất cực thấp); `GetList`/`Delete` hiện không được gọi từ
+trang `.razor` nào.
+
+**Lưu ý cho session sau:**
+- **CHƯA chạy SQL script nào trên DB thật** trong task này — xem `docs/ROLLOUT.md` §D6.1 để chạy
+  đúng thứ tự (bắt buộc `CpnVchBOMCodeIssue_ItemNoHardening.sql` trước tiên).
+- Nếu sau này `usp_SetupCoupon_GetList`/`usp_SetupCoupon_Delete` được wire lại vào UI, nhớ thêm
+  `AND Source='COUPON'` vào các query lọc `ItemNo` (xem mục rủi ro ở trên).
+
+## [2026-07-02] Fix bug IsCheckItem bị hard-code 0 khi tạo coupon mới (usp_SetupCoupon_SaveIssue)
+
+**Layer:** Database (docs/sql)
+**Loại:** Bug fix (production — đã xác nhận tồn tại trong bản deploy hiện tại qua `docs/sql/database/CentralMD.sql`)
+
+**Vấn đề:** User báo tích "Áp dụng theo danh sách sản phẩm" + chọn sản phẩm khi phát hành coupon
+mới nhưng lựa chọn không lưu được — sau khi trang tự reload, checkbox hiện lại **bỏ tích**.
+
+**Nguyên nhân:** `docs/sql/SetupCoupon_Save.sql` — nhánh INSERT tạo `CpnVchBOMHeader` (coupon
+mới) trong `usp_SetupCoupon_SaveIssue` hard-code cột `IsCheckItem = 0` thay vì dùng tham số
+`@IsCheckItem` truyền vào. Nhánh UPDATE (sửa coupon đã có) vẫn đúng (`SET IsCheckItem =
+@IsCheckItem`). `usp_SetupCoupon_SaveAdvanced` (chạy ngay sau `SaveIssueAsync` trong
+`CouponIssuePage.razor`) cũng không SET lại `IsCheckItem` → giá trị `0` bị "khóa cứng" vĩnh viễn
+cho coupon tạo mới, bất kể người dùng chọn gì trên UI.
+
+**Thay đổi:** `docs/sql/SetupCoupon_Save.sql` — đổi giá trị insert từ `0` → `@IsCheckItem` ở vị
+trí cột `IsCheckItem` trong `usp_SetupCoupon_SaveIssue` (nhánh tạo mới).
+
+**Lưu ý cho session sau:**
+- **BẮT BUỘC re-run `docs/sql/SetupCoupon_Save.sql` trên RPOSMasterData** để áp dụng fix (an
+  toàn — script có `DROP PROCEDURE IF EXISTS` trước mỗi `CREATE`).
+- Chưa xác nhận được liệu bug này có phải nguyên nhân DUY NHẤT khiến `CpnVchBOMLine` trống hay
+  không (Lines insert ở SP không phụ thuộc `IsCheckItem`, nên về lý thuyết vẫn ghi độc lập) —
+  cần theo dõi thêm sau khi user re-run script và test lại.
+
+## [2026-07-02] Gộp SAP Internal Voucher vào CpnVchBOMCodeIssue (bảng dùng chung Coupon+Voucher)
+
+**Layer:** POS.Infrastructure + POS.Application + POS.ContractTests
+**Loại:** Refactor (gộp bảng dùng chung) + Bug fix (thiếu PK/race condition khi tạo voucher)
+
+**Bối cảnh:** Phát hiện `CpnVchBOMCodeIssue` (POS.Web, Setup Coupon) và `Internal_Voucher`
+(POS.Api, SAP Voucher real-time) ban đầu tưởng là logic trùng lặp, nhưng phân tích sâu cho thấy
+đây là 2 tính năng khác nhau (Coupon = batch-generate, không có redeem trong solution; SAP
+Voucher = lifecycle tài chính đầy đủ `SOLD→RDM`). Quyết định (đã chốt với chủ dự án): mở rộng
+`CpnVchBOMCodeIssue` thành bảng DÙNG CHUNG cho cả 2 (cột discriminator `Source`), thay vì ép 2
+domain khác nhau vào chung 1 Repository/Service.
+
+**Thay đổi:**
+- **Schema `CpnVchBOMCodeIssue`** (`docs/sql/CpnVchBOMCodeIssue_ExtendSchema.sql`): thêm cột
+  `Source varchar(10) DEFAULT('COUPON')` (`'COUPON'`|`'SAP'`) + toàn bộ cột tài chính từ
+  `Internal_Voucher` (`Status, Return, ActicleNo, ActicleType, Value, Voucher_Currency,
+  Validity_From_Date, Expiry_Date, CompanyCode, Partner, IsEmployee, PhoneNumber, VoucherType,
+  AmountUsed, OrderUsed`); mở rộng `Code` varchar(20)→varchar(50). **Rebuild bảng** để thêm
+  `ID IDENTITY(1,1) PRIMARY KEY CLUSTERED` (trước đó KHÔNG có PK, tự tính
+  `MAX(ID)+ROW_NUMBER()` — rủi ro race condition khi có traffic SAP real-time) + `UNIQUE FILTERED
+  INDEX` trên `Code` (khóa nghiệp vụ thật, trước đó chỉ check ở tầng ứng dụng).
+- **SP mới** (`docs/sql/Voucher_Read.sql`, `docs/sql/Voucher_Save.sql`): `usp_Voucher_GetByCode`,
+  `usp_Voucher_Create` (idempotent, UPDLOCK/HOLDLOCK — fix race condition của code cũ: check-rồi-
+  insert là 2 round-trip riêng, không transaction), `usp_Voucher_Redeem` (TVP
+  `dbo.VoucherRedeemTVP`, giữ nguyên business rule + message tiếng Việt của
+  `SAPVoucherRepository.RedeemVouchersAsync` cũ). Thay raw SQL bằng SP theo đúng convention dự án.
+- **SP Coupon cập nhật** (`docs/sql/SetupCoupon_Save.sql`, `docs/sql/SetupCoupon_Read.sql`):
+  `usp_SetupCoupon_SaveIssue` bỏ tự tính `ID` (nay IDENTITY), thêm `Source='COUPON'`;
+  `usp_SetupCoupon_GetCodes` thêm filter `Source='COUPON'` (phòng thủ).
+- **Code mới**: `IVoucherCodeRepository`/`VoucherCodeRepository`
+  (`src/POS.Infrastructure/Repositories/CouponVoucher/`) — thay `ISAPVoucherRepository`/
+  `SAPVoucherRepository` (đã XÓA, cùng thư mục `Sap/` rỗng đã xóa). `SAPService` đổi constructor
+  dependency sang `IVoucherCodeRepository`; `CreateNewVoucherAsync` gộp check-tồn-tại + insert
+  thành 1 lệnh `CreateOrGetAsync` atomic (fix bug cũ: không check giá trị trả về `InsertAsync`).
+  **`ISAPService`/`SAPController`/DTO (`VoucherStatusResponse`, `CreateVoucherModel`,
+  `VoucherUpdateRequest`) giữ NGUYÊN 100%** — JSON contract với 5.000 POS không đổi.
+- **Migrate dữ liệu production**: `docs/sql/CpnVchBOMCodeIssue_MigrateFromInternalVoucher.sql`
+  (idempotent) di chuyển voucher SAP thật từ `Internal_Voucher` sang `CpnVchBOMCodeIssue`
+  (`Source='SAP'`). Sau go-live ổn định: `docs/sql/Internal_Voucher_RenameLegacy.sql` đổi tên
+  `Internal_Voucher` → `Internal_Voucher_Legacy` (giữ backup tạm, KHÔNG xóa ngay).
+- **Contract test mới**: `tests/POS.ContractTests/JsonFieldContractTests.cs` —
+  `VoucherStatusResponse_locked` (DTO này trước đó CHƯA có test khóa field — lỗ hổng guardrail có
+  sẵn, bổ sung vì task này động chạm trực tiếp tầng lưu trữ của DTO).
+- Cập nhật `docs/architecture/database-schema.md` (schema mới + 3 SP mới + đánh dấu
+  `Internal_Voucher` LEGACY), `docs/CURRENT_STRUCTURE.md` (xóa `ISAPVoucherRepository`, thêm
+  `IVoucherCodeRepository`), `docs/ROLLOUT.md` §D6 (checklist go-live theo đúng thứ tự script).
+
+**Pattern mới:**
+- **Bảng dùng chung + cột discriminator (`Source`)** cho 2 domain nghiệp vụ khác nhau nhưng cùng
+  bản chất "mã định danh + trạng thái" — thay vì ép chung 1 Repository/Service (vi phạm SRP) hoặc
+  giữ 2 bảng trùng lặp mãi mãi. Mỗi domain vẫn có Repository/Service riêng
+  (`ICouponRepository` vs `IVoucherCodeRepository`), chỉ dùng chung storage.
+- SP tạo mới **idempotent qua UPDLOCK/HOLDLOCK trong 1 transaction** (thay vì check-rồi-insert 2
+  round-trip riêng ở tầng C#) khi cần đảm bảo atomic dưới traffic real-time cao.
+
+**Lưu ý cho session sau:**
+- **CHƯA chạy SQL script nào trên DB thật** trong task này — theo convention dự án, SP/schema
+  áp dụng thủ công 1 lần trên `RPOSMasterData`. Xem `docs/ROLLOUT.md` §D6 để chạy đúng thứ tự
+  trước khi deploy code này lên môi trường có kết nối DB thật.
+- **TODO chưa chốt ngày**: lên lịch `DROP TABLE Internal_Voucher_Legacy` sau khi hệ thống ổn định
+  2-4 tuần kể từ go-live §D6 (không thuộc phạm vi task này).
+- Nếu cần domain "voucher/coupon" mới trong tương lai (vd đối tác khác), cân nhắc tái dùng cột
+  `Source` (thêm giá trị enum mới) thay vì tạo bảng riêng, nếu shape dữ liệu tương thích.
+
+## [2026-07-02] UI audit + gộp form CouponIssuePage (Phát hành Coupon)
+
+**Layer:** POS.Web + POS.Application
+**Loại:** Refactor (UI audit/gọn hóa form) + Bug fix + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Web/Components/Pages/Promotion/CouponVoucher/CouponIssuePage.razor`:
+  - Gộp toàn bộ field của `CouponAdvancedDialog` (UOM, CpnVchType, DiscountType/Value, MaxValue,
+    LimitQty/LimitQtyUsed, IsMultiUsed/IsCheckAPI/Blocked) xuống thẳng form chính — bind vào field
+    `_advanced` sẵn có. Nút "Cài đặt nâng cao" giữ nguyên code (`OpenAdvancedAsync` + dialog) nhưng
+    ẩn qua `_showAdvancedButton=false` (dead code có chủ đích, chưa thiết kế lại chỗ đặt).
+  - `SaveAsync()` nay gọi nối tiếp `SaveIssueAsync` → đồng bộ header vào `_advanced` →
+    `SaveAdvancedAsync`, mỗi bước tự audit-log riêng (`SetupCoupon` / `SetupCouponAdvanced`).
+  - Layout rút gọn qua nhiều vòng audit: 2 `MudCard` → 1 `MudCard` chia 6 nhóm `MudPaper Outlined`
+    bo viền → gộp còn 3 nhóm (Thông tin chung / Thời gian hiệu lực + Giới hạn sử dụng / Cấu hình
+    mã & giảm giá + Tùy chọn) → bỏ hẳn `MudCardHeader` (title+caption+tooltip) → bỏ `HelperText`
+    (hint ngắn gộp vào `Label`, hint dài bỏ hẳn) → tiêu đề mỗi nhóm con đổi sang kiểu "legend lồng
+    viền" (`position:absolute` đè lên viền trên `MudPaper`).
+  - `MudNumericField` đổi `Variant` theo kiểu dữ liệu C#: `int` (LenCode/CharOfNumber/CharPosition/
+    Quantity/LimitQty/LimitQtyUsed) → `Variant.Text`; `double` (DiscountValue/MaxValue) →
+    `Variant.Outlined` + `Step="0.1"`.
+- `src/POS.Application/Features/CouponVoucher/CouponService.cs`: `SaveAdvancedAsync` — rule
+  "Từ ngày không được nhỏ hơn hôm nay" chỉ áp dụng khi tạo mới (`ItemNo` rỗng), không áp khi sửa
+  coupon cũ (tránh chặn Lưu vô lý với coupon đang active có ngày bắt đầu trong quá khứ).
+- `.claude/skills/web/form-input.md`: thêm §1a (nhóm con bo viền trong 1 `MudCard` + tiêu đề kiểu
+  legend lồng viền) và §4a (`MudNumericField` Variant theo kiểu dữ liệu int/double) + anti-pattern
+  + dòng tham chiếu.
+
+**Pattern mới:**
+- Nhóm con bo viền (`MudPaper Outlined`) + tiêu đề "legend lồng viền" (`position:absolute` +
+  `background:var(--mud-palette-surface)`) thay cho tách nhiều `MudCard` khi các nhóm field cùng
+  1 entity — đã cập nhật `.claude/skills/web/form-input.md` §1a.
+- `MudNumericField` Variant theo kiểu dữ liệu C# (int→Text, double/decimal→Outlined+Step) — đã
+  cập nhật `.claude/skills/web/form-input.md` §4a.
+
+**Lưu ý cho session sau:**
+- `CouponAdvancedDialog.razor` + `OpenAdvancedAsync()` không còn được gọi từ UI nhưng vẫn tồn tại
+  trong code — nếu dọn dẹp sau này, nhớ đây là dead code có chủ đích, không phải sót lại do quên.
+- Nếu tạo `MudNumericField` mới ở trang khác: tra kiểu C# của property trước — `int` dùng
+  `Variant.Text`, `double`/`decimal` dùng `Variant.Outlined` + `Step` (khác chuẩn cũ "mọi input
+  luôn Outlined").
+- Rule ngày kiểu "chỉ chặn khi tạo mới, bỏ qua khi sửa" (`string.IsNullOrWhiteSpace(request.ItemNo)`)
+  là pattern hữu ích chung cho các validate liên quan ngày hiệu lực khi entity đã tồn tại.
+
+**appsettings sync:** không thay đổi appsettings.
+
+---
+
 ## [2026-07-01] Migrate 9.1 Danh mục Bảng giá + 9.3 Setup Giá (Bulk Import)
 
 **Layer:** POS.Web + POS.Application + POS.Infrastructure + POS.Common

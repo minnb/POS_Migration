@@ -1,0 +1,143 @@
+@namespace POS.Web.Components.Pages.Ops
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+
+@inject ICentralMDRepository MdRepo
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.AddBusiness" Class="mr-2" Style="vertical-align:middle"/>
+            Thêm cửa hàng
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+
+                @* ── Dòng 1: Mã cửa hàng + Chi nhánh ─────────────────────────── *@
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.StoreNo"
+                                  Label="Mã cửa hàng"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập mã cửa hàng"
+                                  Validation="@((Func<string?, Task<string?>>)ValidateStoreNo)"
+                                  Immediate="true"
+                                  MaxLength="10"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_model.BranchNo" Label="Chi nhánh"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               AnchorOrigin="Origin.BottomLeft" Clearable="true">
+                        @foreach (var b in Branches)
+                        {
+                            <MudSelectItem T="string" Value="@b.No">@b.Description</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                @* ── Dòng 2: Tên cửa hàng ─────────────────────────────────────── *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Name"
+                                  Label="Tên cửa hàng"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập tên cửa hàng"
+                                  Immediate="true"
+                                  MaxLength="150"/>
+                </MudItem>
+
+                @* ── Dòng 3: Địa chỉ ──────────────────────────────────────────── *@
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Address"
+                                  Label="Địa chỉ"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Immediate="true"
+                                  MaxLength="250"/>
+                </MudItem>
+
+                @* ── Dòng 4: Trạng thái (Đóng/mở cửa) ─────────────────────────── *@
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_model.ClosingMethod" Label="Trạng thái"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               AnchorOrigin="Origin.BottomLeft">
+                        <MudSelectItem Value="0">Đang hoạt động</MudSelectItem>
+                        <MudSelectItem Value="1">Đã đóng</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+            </MudGrid>
+        </MudForm>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@_saving"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public List<BranchDto> Branches { get; set; } = [];
+
+    private readonly StoreCreateDto _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+
+    private async Task<string?> ValidateStoreNo(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mã cửa hàng";
+        if (value.Any(char.IsWhiteSpace)) return "Mã cửa hàng không được chứa khoảng trắng";
+        if (value.Trim().Length > 10) return "Mã cửa hàng tối đa 10 ký tự";
+        if (await MdRepo.StoreCodeExistsAsync(value.Trim())) return "Mã cửa hàng đã tồn tại";
+        return null;
+    }
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            var ok = await MdRepo.CreateStoreAsync(_model);
+            if (ok)
+                MudDialog.Close(DialogResult.Ok(_model));
+            else
+                _errorMsg = "Lưu thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

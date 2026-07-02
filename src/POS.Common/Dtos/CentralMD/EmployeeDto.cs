@@ -41,3 +41,27 @@ public class EmployeeListFilter
     public int PageNumber { get; set; }
     public int PageSize { get; set; } = 20;
 }
+
+/// <summary>
+/// Payload tạo mới nhân viên POS (INSERT dbo.Staff). Password lưu plain text theo contract
+/// máy POS (terminal đọc trực tiếp cột Staff.Password để đăng nhập — KHÔNG hash).
+/// StaffName ghi vào cả FirstName + LastName (theo legacy CreateEmployeeList).
+/// </summary>
+public class EmployeeCreateDto
+{
+    /// <summary>Staff.ID (PK) — đồng thời ghi vào Pkey.</summary>
+    public string StaffCode { get; set; } = string.Empty;
+    public string StaffName { get; set; } = string.Empty;
+    public string StoreNo { get; set; } = string.Empty;
+    /// <summary>0 = không được hủy bill, 1 = được hủy.</summary>
+    public int VoidTransaction { get; set; }
+    /// <summary>0 = Nhân viên, 1 = Quản lý.</summary>
+    public int EmploymentType { get; set; }
+    /// <summary>LOCAL | AD.</summary>
+    public string PermissionGroup { get; set; } = "LOCAL";
+    /// <summary>0 = đang hoạt động, 1 = ngưng hoạt động.</summary>
+    public byte Blocked { get; set; }
+    public string? HomePhoneNo { get; set; }
+    /// <summary>PIN đăng nhập POS — chỉ số, 4–8 ký tự; mặc định 7777 (theo legacy).</summary>
+    public string Password { get; set; } = "7777";
+}

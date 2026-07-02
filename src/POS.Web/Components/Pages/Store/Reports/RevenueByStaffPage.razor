@@ -19,6 +19,7 @@
 @inject IRptCentralSaleRepository RptRepo
 @inject ICentralMDRepository MdRepo
 @inject IFileLogHelper FileLogger
+@inject IKibanaService KibanaService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -118,6 +119,7 @@
                            StartIcon="@Icons.Material.Filled.FileDownload"
                            OnClick="ExportExcelAsync" Disabled="@(_items.Count == 0 || _exporting)"
                            FullWidth="true">
+                    @if (_exporting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Excel
                 </MudButton>
             </MudStack>
@@ -150,7 +152,7 @@
         </div>
         <div style="flex:1 1 130px">
             <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #F57C00">
-                <MudText Typo="Typo.h5" Style="color:#F57C00">@_totalOrders.ToString("N0")</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Warning">@_totalOrders.ToString("N0")</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng hóa đơn</MudText>
             </MudPaper>
         </div>
@@ -265,6 +267,7 @@
         {
             _errorMsg = "Không thể tải danh sách cửa hàng.";
             FileLogger.WriteExpLogs("RevenueByStaffPage.Init", ex);
+            KibanaService.LogException("RevenueByStaffPage.Init", "", 0, "", ex.Message);
         }
         finally
         {
@@ -303,6 +306,11 @@
             Snackbar.Add("Vui lòng chọn khoảng ngày.", Severity.Warning);
             return;
         }
+        if (_fromDate.Value > _toDate.Value)
+        {
+            Snackbar.Add("Từ ngày không được lớn hơn Đến ngày.", Severity.Warning);
+            return;
+        }
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         _searching = true;
@@ -317,12 +325,15 @@
                 _cts.Token);
             _totalRevenue = _items.Sum(x => x.AmountTotal ?? 0m);
             _totalOrders  = _items.Sum(x => (long)(x.CountOrderTotal ?? 0));
+            KibanaService.LogInfo("RevenueByStaffPage.Search", storeNo,
+                $"Loaded {_items.Count} staff rows, {_fromDate:yyyy-MM-dd}..{_toDate:yyyy-MM-dd}");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _errorMsg = "Lỗi khi tải báo cáo. Vui lòng thử lại.";
             FileLogger.WriteExpLogs("RevenueByStaffPage.Search", ex);
+            KibanaService.LogException("RevenueByStaffPage.Search", "", 0, "", ex.Message);
         }
         finally
         {
@@ -332,7 +343,7 @@
 
     private void ClearFilter()
     {
-        _activePreset    = string.Empty;
+        _activePreset    = "Hôm nay";
         _filterStaffCode = string.Empty;
         _fromDate        = DateTime.Today;
         _toDate          = DateTime.Today;
@@ -399,6 +410,7 @@
         {
             Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
             FileLogger.WriteExpLogs("RevenueByStaffPage.Export", ex);
+            KibanaService.LogException("RevenueByStaffPage.Export", "", 0, "", ex.Message);
         }
         finally
         {

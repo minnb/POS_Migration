@@ -94,11 +94,88 @@ public sealed class VoucherService(
         return await repository.SaveAsync(request, actor, ct);
     }
 
+    public async Task<VoucherSaveResult> SaveIssueAsync(
+        VoucherIssueSaveRequest request, string actor, CancellationToken ct = default)
+    {
+        // ── Validate nghiệp vụ ──
+        if (string.IsNullOrWhiteSpace(request.ItemName))
+            return Fail("Vui lòng nhập tên voucher");
+        if (string.IsNullOrWhiteSpace(request.ArticleType))
+            return Fail("Vui lòng chọn loại voucher");
+        if (string.IsNullOrWhiteSpace(request.UnitOfMeasure))
+            return Fail("Vui lòng chọn đơn vị tính");
+
+        var start = ParseDmy(request.StartingDateStr);
+        var end = ParseDmy(request.EndingDateStr);
+        if (start == null) return Fail("Vui lòng chọn ngày bắt đầu");
+        if (end == null) return Fail("Vui lòng chọn ngày kết thúc");
+        if (start.Value.Date > end.Value.Date)
+            return Fail("TỪ NGÀY không lớn hơn ĐẾN NGÀY");
+
+        if (request.DiscountValue <= 0)
+            return Fail("Vui lòng nhập giá trị giảm giá");
+        if (request.DiscountType == 1 && request.DiscountValue > 100)
+            return Fail("Giá trị phần trăm giảm giá không lớn hơn 100");
+
+        // ⚠️ IsCheckItem voucher NGƯỢC coupon:
+        //   false = áp dụng THEO SẢN PHẨM → bắt buộc có danh sách.
+        //   true  = áp dụng TỔNG BILL → bỏ qua danh sách (SP tự xóa lines).
+        if (!request.IsCheckItem && request.Items.Count == 0)
+            return Fail("Vui lòng thêm sản phẩm áp dụng cho voucher");
+        if (request.IsCheckItem)
+            request.Items = [];
+
+        // Serial để trống → tự sinh ngẫu nhiên 13 ký tự (giống quy tắc sinh mã voucher).
+        if (string.IsNullOrWhiteSpace(request.Serial))
+            request.Serial = CouponVoucherCodeGenerator.GenerateRandomSerial(13);
+
+        // ── Sinh/validate mã (chỉ khi tạo mới hoặc chưa có mã trong DB) ──
+        var needCodes = string.IsNullOrWhiteSpace(request.ItemNo) || request.QuantityCodeInDB == 0;
+        List<string> codes = [];
+        if (needCodes)
+        {
+            string? err;
+            if (string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase))
+                (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
+                    request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);
+            else
+                (codes, err) = CouponVoucherCodeGenerator.ValidateImportCodes(request.ImportCodes);
+
+            if (err != null) return Fail(err);
+
+            var existing = (await repository.CheckCodesExistAsync(codes, ct)).Distinct().ToList();
+            if (existing.Count > 0)
+            {
+                var msg = string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase)
+                    ? $"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng chờ trong ít phút để tạo lại"
+                    : $"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng kiểm tra lại file Excel";
+                return Fail(msg);
+            }
+        }
+
+        try
+        {
+            var itemNo = await repository.SaveIssueAsync(request, codes, ct);
+            return new VoucherSaveResult { Ok = true, Message = $"Phát hành thành công voucher {itemNo}", ItemNo = itemNo };
+        }
+        catch (Exception ex)
+        {
+            return Fail(ex.Message);
+        }
+    }
+
+    public Task<(List<VoucherCodeDto> Items, int Total)> GetCodesAsync(
+        VoucherCodeFilter filter, CancellationToken ct = default)
+        => repository.GetCodesAsync(filter, ct);
+
     public async Task<(bool Ok, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default)
     {
         var (deleted, message) = await repository.DeleteAsync(itemNo, ct);
         return (deleted, message);
     }
+
+    public Task<VoucherSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default)
+        => repository.UpdateBlockedAsync(itemNo, blocked, ct);
 
     private static VoucherSaveResult Fail(string message) => new() { Ok = false, Message = message };
 

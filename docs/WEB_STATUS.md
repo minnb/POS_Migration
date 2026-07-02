@@ -1,5 +1,6 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-01 (Catalog/Price: 9.1 Danh mục Bảng giá `/catalog/prices` (list + filter + Export, reuse SP GetSalesPriceList*) + 9.3 Setup giá Bulk Import `/catalog/price-setup` (import Excel validate + lưới preview sửa inline + item picker + Lưu + audit; SP mới usp_SetupSalePrice_Save TVP, ủy quyền Setup_SalePrice_Get_ALL) — service 3 lớp IPriceService)
+> Cập nhật: 2026-07-02 (UI audit CouponIssuePage `/promotion/coupons/issue`: gộp toàn bộ field của `CouponAdvancedDialog` xuống form chính — nút "Cài đặt nâng cao" giữ code nhưng ẩn (`_showAdvancedButton=false`); `SaveAsync` gọi nối tiếp `SaveIssueAsync`→`SaveAdvancedAsync`; fix rule ngày `SaveAdvancedAsync` chỉ chặn "Từ ngày quá khứ" khi tạo mới; layout rút gọn dần từ 2 MudCard → 1 MudCard chia nhóm con `MudPaper Outlined` bo viền (Thông tin chung / Thời gian hiệu lực + Giới hạn / Cấu hình mã & giảm giá), bỏ `MudCardHeader`, bỏ `HelperText` (gộp hint ngắn vào Label), tiêu đề nhóm con kiểu legend lồng viền; `MudNumericField` đổi Variant theo kiểu dữ liệu (int→Text, double→Outlined+Step) — pattern mới, đã cập nhật `.claude/skills/web/form-input.md` §1a/§4a)
+> Trước đó 2026-07-01 (Catalog/Price: 9.1 Danh mục Bảng giá `/catalog/prices` (list + filter + Export, reuse SP GetSalesPriceList*) + 9.3 Setup giá Bulk Import `/catalog/price-setup` (import Excel validate + lưới preview sửa inline + item picker + Lưu + audit; SP mới usp_SetupSalePrice_Save TVP, ủy quyền Setup_SalePrice_Get_ALL) — service 3 lớp IPriceService)
 > Trước đó 2026-07-01 (UI polish PromotionSetupPage `/promotion/setup`: MudTabs icon+gạch chân active, MudCard gom nhóm cả 5 tab, tooltip/HelperText giải thích, validation trực quan `Required`/`RequiredError`, nút Lưu spinner khi `_saving`, combobox "Điều kiện" 160→240px — markup-only, giữ 100% @code; + tài liệu `docs/web/LOGIC_APPROVE_CTKM.md`)
 > Trước đó 2026-07-01 (Promotion/CouponVoucher: 8.1 Cài đặt Coupon + 8.2 Phát hành Coupon + 8.3 Danh mục Voucher (CRUD) + 8.4 Tra cứu Voucher phát hành — service 3 lớp, SP mới usp_SetupCoupon_*/usp_SetupVoucher_*, 8.4 reuse SP CentralSales)
 > Trước đó 2026-07-01 (Bug fix: sidebar accordion (I3) + active NavLink highlight (I4) sai logic; BankPosPage/BankPosDetailDialog — sai tên bảng vật lý + SP param + crash circuit khi lookup lỗi)
@@ -53,10 +54,11 @@ src/POS.Web/
 │       │   │   ├── SpecialComboPage.razor      ← /promotion/special-combo — Special Combo
 │       │   │   └── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live)
 │       │   └── CouponVoucher/
-│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list+xóa / phát hành Auto·Import·nâng cao)
+│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list+xóa / phát hành Auto·Import — 1 form gộp đủ field, không qua dialog nâng cao)
 │       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export)
 │       │       ├── VouchersPublishedPage.razor                       ← 8.4 Tra cứu Voucher phát hành (CentralSales per-store)
-│       │       └── Dialogs/ (CouponItemPickerDialog, CouponAdvancedDialog, VoucherFormDialog, VoucherItemPickerDialog)
+│       │       └── Dialogs/ (CouponItemPickerDialog, VoucherFormDialog, VoucherItemPickerDialog,
+│       │                      CouponAdvancedDialog — không còn dùng, giữ code cho thiết kế lại sau)
 │       └── Store/
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
 │           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)

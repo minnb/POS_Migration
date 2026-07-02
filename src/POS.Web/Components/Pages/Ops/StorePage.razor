@@ -4,6 +4,7 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
+@using Newtonsoft.Json
 @using POS.Common.Dtos.CentralMD
 @using POS.Infrastructure.Logging
 @using POS.Infrastructure.Repositories.Interfaces
@@ -12,14 +13,25 @@
 @inject ICentralMDRepository MdRepo
 @inject IFileLogHelper FileLogger
 @inject IDialogService DialogService
+@inject IAuditLogger AuditLogger
+@inject ISnackbar Snackbar
 
 <PageTitle>Cửa hàng – POS Dashboard</PageTitle>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Store" Class="mr-2" Style="vertical-align:middle"/>
-    Danh sách Cửa hàng
-</MudText>
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Store" Class="mr-2" Style="vertical-align:middle"/>
+        Danh sách Cửa hàng
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.AddBusiness"
+               OnClick="OpenCreateDialogAsync"
+               Class="pos-page-header-btn">
+        Thêm cửa hàng
+    </MudButton>
+</div>
 
 @* ── Loading bar ─────────────────────────────────────────────────────── *@
 @if (_loading && !_allItems.Any())
@@ -133,16 +145,60 @@
 </MudTable>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
     private List<StoreListDto> _allItems = [];
     private List<StoreListDto> _filtered = [];
     private bool    _loading;
     private string? _errorMsg;
     private string  _search       = string.Empty;
     private string  _statusFilter = "active";
+    private string  _currentActor = "unknown";
+    private List<BranchDto> _allBranches = [];
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+        try
+        {
+            _allBranches = await MdRepo.GetBranchListAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("StorePage.LoadBranches", ex);
+        }
         await LoadDataAsync();
+    }
+
+    // ── Thêm cửa hàng ─────────────────────────────────────────────────────
+    private async Task OpenCreateDialogAsync()
+    {
+        var parameters = new DialogParameters<StoreCreateDialog>
+        {
+            { x => x.Branches, _allBranches }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.Medium,
+            FullWidth        = true,
+            BackdropClick    = false
+        };
+        var dialog = await DialogService.ShowAsync<StoreCreateDialog>("Thêm cửa hàng", parameters, options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is StoreCreateDto saved)
+        {
+            await AuditLogger.LogAsync(_currentActor, "CREATE", "Store",
+                saved.StoreNo, oldValueJson: null,
+                newValueJson: JsonConvert.SerializeObject(saved));
+
+            Snackbar.Add($"Đã thêm cửa hàng \"{saved.StoreNo}\".", Severity.Success);
+            await LoadDataAsync();
+        }
     }
 
     private async Task LoadDataAsync()
@@ -196,10 +252,23 @@
     private async Task OnRowClick(TableRowClickEventArgs<StoreListDto> args)
     {
         if (args.Item is null) return;
-        await DialogService.ShowAsync<StoreDetailDialog>(
+        var oldClosingMethod = args.Item.ClosingMethod;
+        var dialog = await DialogService.ShowAsync<StoreDetailDialog>(
             $"Chi tiết: {args.Item.StoreNo} – {args.Item.Name}",
             new DialogParameters<StoreDetailDialog> { { x => x.Item, args.Item } },
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true,
                                 CloseButton = true, CloseOnEscapeKey = true });
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is int newClosingMethod)
+        {
+            await AuditLogger.LogAsync(_currentActor, "UPDATE", "Store",
+                args.Item.StoreNo,
+                oldValueJson: JsonConvert.SerializeObject(new { ClosingMethod = oldClosingMethod }),
+                newValueJson: JsonConvert.SerializeObject(new { ClosingMethod = newClosingMethod }));
+
+            Snackbar.Add($"Đã cập nhật trạng thái cửa hàng \"{args.Item.StoreNo}\".", Severity.Success);
+            await LoadDataAsync();
+        }
     }
 }

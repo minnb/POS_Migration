@@ -35,6 +35,44 @@ public sealed class CouponListItemDto
     [JsonIgnore] public int Total { get; set; }                 // COUNT(*) OVER() — chỉ nội bộ paging
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Danh sách master Coupon/Voucher (CpnVchBOMHeader) — trang /promotion/coupons.
+// Port từ SP legacy GetCpnVchBOMHeaderList (list thẳng Header, KHÔNG join IssueRule).
+// Khác với CouponListFilter/CouponListItemDto ở trên (màn "Phát hành Coupon").
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// <summary>Bộ lọc danh sách master Coupon/Voucher — khớp SP usp_CpnVchBOMHeader_GetList.</summary>
+public sealed class CouponHeaderListFilter
+{
+    public string? KeyWord     { get; set; }               // tìm trong ItemNo | CouponCode | ItemName
+    public string? ArticleType { get; set; }               // "" = tất cả; ZCPN | ZVCN | ZVCO | ZCOU
+    public string  Status      { get; set; } = "-1";        // "-1" tất cả | "0" còn hiệu lực | "1" hết hiệu lực
+    public int     PageSize    { get; set; } = 10;
+    public int     PageNumber  { get; set; }                // 0-based
+}
+
+/// <summary>1 dòng danh sách master Coupon/Voucher — khớp cột SP usp_CpnVchBOMHeader_GetList.</summary>
+public sealed class CouponHeaderListItemDto
+{
+    public string   ItemNo         { get; set; } = string.Empty;
+    public string   ItemName       { get; set; } = string.Empty;
+    public string   UnitOfMeasure  { get; set; } = string.Empty;
+    public string   ArticleType    { get; set; } = string.Empty;
+    public int      DiscountType   { get; set; }               // 1 = %, 2 = Amount (theo ArticleType)
+    public decimal  DiscountValue  { get; set; }
+    public decimal  MaxAmount      { get; set; }
+    public decimal  ValueOfVoucher { get; set; }
+    public DateTime StartingDate   { get; set; }
+    public DateTime EndingDate     { get; set; }
+    public bool     Blocked        { get; set; }
+    public string   CouponCode     { get; set; } = string.Empty;
+    public int      LimitQty       { get; set; }
+    public bool     IsCheckItem    { get; set; }               // 1 = theo sản phẩm; 0 = tổng bill
+    public long     Counter        { get; set; }
+    public string   Pkey           { get; set; } = string.Empty;
+    [JsonIgnore] public int Total  { get; set; }               // COUNT(*) OVER() — chỉ nội bộ paging
+}
+
 /// <summary>1 mã coupon con (tab "Danh sách phát hành").</summary>
 public sealed class CouponCodeDto
 {

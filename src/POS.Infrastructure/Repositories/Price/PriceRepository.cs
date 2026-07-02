@@ -18,8 +18,11 @@ public sealed class PriceRepository(CentralMDConnectionFactory connectionFactory
         PriceListFilter filter, CancellationToken ct = default)
     {
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        // Gọi SP bằng positional EXEC (tham số truyền theo ĐÚNG THỨ TỰ) — khớp legacy PriceData.GetPriceList.
+        // KHÔNG dùng CommandType.StoredProcedure (bind theo TÊN): [GetSalesPriceList] là SP có sẵn (legacy),
+        // tên tham số nội bộ KHÔNG đảm bảo trùng anon-object → bind theo tên sẽ ném lỗi "expects parameter…".
         var items = (await conn.QueryAsync<PriceListItemDto>(new CommandDefinition(
-            "[dbo].[GetSalesPriceList]",
+            "EXEC [dbo].[GetSalesPriceList] @ItemCode, @ItemName, @BarCode, @SalesCode, @isCheck, @PageSize, @PageNumber",
             new
             {
                 ItemCode   = (filter.ItemNo ?? string.Empty).Trim(),
@@ -30,7 +33,7 @@ public sealed class PriceRepository(CentralMDConnectionFactory connectionFactory
                 PageSize   = Math.Max(1, filter.PageSize),
                 PageNumber = Math.Max(0, filter.PageNumber)
             },
-            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct))).ToList();
+            commandTimeout: 120, cancellationToken: ct))).ToList();
 
         var total = items.Count > 0 ? items[0].Total : 0;
         return (items, total);
@@ -40,8 +43,9 @@ public sealed class PriceRepository(CentralMDConnectionFactory connectionFactory
         PriceListFilter filter, CancellationToken ct = default)
     {
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        // Positional EXEC — khớp legacy PriceData.ExportPriceList (xem ghi chú ở GetListAsync).
         return (await conn.QueryAsync<PriceListItemDto>(new CommandDefinition(
-            "[dbo].[GetSalesPriceList_Export]",
+            "EXEC [dbo].[GetSalesPriceList_Export] @ItemCode, @ItemName, @BarCode, @SalesCode, @isCheck",
             new
             {
                 ItemCode  = (filter.ItemNo ?? string.Empty).Trim(),
@@ -50,7 +54,7 @@ public sealed class PriceRepository(CentralMDConnectionFactory connectionFactory
                 SalesCode = (filter.SalesCode ?? string.Empty).Trim(),
                 isCheck   = filter.IsCheck
             },
-            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct))).ToList();
+            commandTimeout: 120, cancellationToken: ct))).ToList();
     }
 
     public async Task<List<PriceImportResultRow>> ValidateImportAsync(

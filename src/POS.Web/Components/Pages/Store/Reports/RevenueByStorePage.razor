@@ -109,6 +109,7 @@
                            OnClick="ExportExcelAsync"
                            Disabled="@(_totalItems == 0 || _exporting)"
                            FullWidth="true">
+                    @if (_exporting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Excel
                 </MudButton>
             </MudStack>
@@ -209,13 +210,14 @@
     <FooterContent>
         @if (_grand != null)
         {
-            <MudTFootRow>
-                <MudTd colspan="4" Style="font-weight:bold">Tổng tất cả</MudTd>
-                <MudTd Style="text-align:right;font-weight:bold">@(((long?)_grand.SumTotalOrder)?.ToString("N0") ?? "–")</MudTd>
-                <MudTd Style="text-align:right;font-weight:bold">@FormatVND((decimal)(_grand.SumTruocVAT ?? 0m))</MudTd>
-                <MudTd Style="text-align:right;font-weight:bold">@FormatVND((decimal)(_grand.SumVAT ?? 0m))</MudTd>
-                <MudTd Style="text-align:right;font-weight:bold">@FormatVND((decimal)(_grand.SumSauVAT ?? 0m))</MudTd>
-            </MudTFootRow>
+            <MudTd Style="font-weight:700"></MudTd>
+            <MudTd Style="font-weight:700"></MudTd>
+            <MudTd Style="font-weight:700">Tổng tất cả</MudTd>
+            <MudTd Style="font-weight:700"></MudTd>
+            <MudTd Style="text-align:right;font-weight:700">@(((long?)_grand.SumTotalOrder)?.ToString("N0") ?? "–")</MudTd>
+            <MudTd Style="text-align:right;font-weight:700">@FormatVND((decimal)(_grand.SumTruocVAT ?? 0m))</MudTd>
+            <MudTd Style="text-align:right;font-weight:700">@FormatVND((decimal)(_grand.SumVAT ?? 0m))</MudTd>
+            <MudTd Style="text-align:right;font-weight:700">@FormatVND((decimal)(_grand.SumSauVAT ?? 0m))</MudTd>
         }
     </FooterContent>
     <PagerContent>
@@ -334,6 +336,8 @@
             {
                 _grand      = rows[0];
                 _totalItems = _grand.Total ?? rows.Count;
+                for (var i = 0; i < rows.Count; i++)
+                    rows[i].ID = (state.Page * state.PageSize) + i + 1;
             }
             else
             {
@@ -400,6 +404,9 @@
                 listStoreJson,
                 _fromDate!.Value, _toDate!.Value,
                 1_000_000, 0);
+
+            for (var i = 0; i < allRows.Count; i++)
+                allRows[i].ID = i + 1;
 
             using var wb = new XLWorkbook();
             var ws = wb.Worksheets.Add("Doanh thu theo CH");

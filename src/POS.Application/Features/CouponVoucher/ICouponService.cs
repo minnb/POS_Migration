@@ -11,6 +11,10 @@ public interface ICouponService
     Task<(List<CouponListItemDto> Items, int Total)> GetListAsync(
         CouponListFilter filter, CancellationToken ct = default);
 
+    /// <summary>Danh sách master Coupon/Voucher (list thẳng CpnVchBOMHeader, mọi ArticleType) — trang /promotion/coupons.</summary>
+    Task<(List<CouponHeaderListItemDto> Items, int Total)> GetHeaderListAsync(
+        CouponHeaderListFilter filter, CancellationToken ct = default);
+
     Task<(List<CouponCodeDto> Items, int Total)> GetCodesAsync(
         CouponCodeFilter filter, CancellationToken ct = default);
 

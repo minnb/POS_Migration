@@ -47,7 +47,7 @@ public sealed class PromotionRepository(
         var cached = await redis.StringGetAsync<List<OptionItemDto>>(KeyOfferTypeOptions);
         if (cached?.Count > 0) return cached;
 
-        const string sql = @"SELECT [OfferType] AS Value, [OfferName] AS Text
+        const string sql = @"SELECT [OfferType] AS Value, [OfferType] + '-' + [OfferName] AS Text
                              FROM   dbo.OfferType (NOLOCK)
                              WHERE  ISNULL([Enabled], 0) = 1
                              ORDER  BY [OfferType]";

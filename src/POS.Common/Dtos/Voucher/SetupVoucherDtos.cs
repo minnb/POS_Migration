@@ -72,6 +72,13 @@ public sealed class VoucherDetailDto
     public bool    Blocked        { get; set; }
     public string  StartingDate   { get; set; } = string.Empty;  // dd/MM/yyyy
     public string  EndingDate     { get; set; } = string.Empty;  // dd/MM/yyyy
+    // Phát hành mã (issuance) — nạp lại form + khóa field sinh mã khi QuantityCode > 0.
+    public string  IssueType      { get; set; } = "Auto";        // "Auto" | "Import"
+    public string  Prefix         { get; set; } = string.Empty;
+    public int     LenCode        { get; set; }
+    public int     CharOfNumber   { get; set; }
+    public int     CharPosition   { get; set; }
+    public int     QuantityCode   { get; set; }                  // số mã đã phát sinh trong DB (Source='VOUCHER')
     public List<VoucherLineDto> Items { get; set; } = [];
 }
 
@@ -101,6 +108,60 @@ public sealed class VoucherSaveResult
     public bool   Ok      { get; set; }
     public string Message { get; set; } = string.Empty;
     public string ItemNo  { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request PHÁT HÀNH voucher (8.3 nâng cấp) — sinh N mã (Auto) hoặc import Excel → CpnVchBOMCodeIssue
+/// (Source='VOUCHER'). ItemNo rỗng = tạo mới. ImportCodes chỉ dùng khi IssueType="Import".
+///
+/// ⚠️ IsCheckItem voucher NGƯỢC coupon: true = TỔNG BILL (no lines); false = THEO SẢN PHẨM (có lines).
+/// </summary>
+public sealed class VoucherIssueSaveRequest
+{
+    public string  ItemNo          { get; set; } = string.Empty;  // rỗng = tạo mới
+    public string  Serial          { get; set; } = string.Empty;  // CouponCode — bắt buộc
+    public string  ItemName        { get; set; } = string.Empty;
+    public string  ArticleType     { get; set; } = string.Empty;
+    public string  UnitOfMeasure   { get; set; } = string.Empty;
+    public int     DiscountType    { get; set; } = 1;             // 1=%, 2=amount
+    public decimal DiscountValue   { get; set; }
+    public decimal ValueOfVoucher  { get; set; }
+    public decimal MaxAmount       { get; set; }
+    public int     LimitQty        { get; set; } = 99999999;
+    public bool    IsCheckItem     { get; set; }                  // true = tổng bill (no lines)
+    public bool    Blocked         { get; set; }
+    public string  StartingDateStr { get; set; } = string.Empty;  // dd/MM/yyyy
+    public string  EndingDateStr   { get; set; } = string.Empty;  // dd/MM/yyyy
+    // Phát hành mã
+    public string  IssueType       { get; set; } = "Auto";        // "Auto" | "Import"
+    public string  Prefix          { get; set; } = string.Empty;
+    public int     LenCode         { get; set; }
+    public int     CharOfNumber    { get; set; }
+    public int     CharPosition    { get; set; }
+    public int     Quantity        { get; set; }
+    public int     QuantityCodeInDB { get; set; }                 // số mã đã có (>0 → không sinh thêm)
+    public List<VoucherLineDto> Items       { get; set; } = [];
+    public List<string>         ImportCodes { get; set; } = [];
+}
+
+/// <summary>1 mã voucher con (tab "Mã đã phát hành") — khớp cột SP usp_SetupVoucher_GetCodes.</summary>
+public sealed class VoucherCodeDto
+{
+    public string  ItemNo      { get; set; } = string.Empty;
+    public string  Code        { get; set; } = string.Empty;
+    public bool    Enable      { get; set; }
+    public string  Status      { get; set; } = string.Empty;   // SOLD/RDM/EXP/AVL (CpnVchBOMCodeIssue.Status)
+    public decimal? AmountUsed { get; set; }                   // số tiền đã redeem (null nếu chưa dùng)
+    public string? OrderUsed   { get; set; }                   // OrderNo đã redeem (null nếu chưa dùng)
+    [JsonIgnore] public int Total { get; set; }
+}
+
+/// <summary>Bộ lọc mã voucher theo ItemNo (phân trang).</summary>
+public sealed class VoucherCodeFilter
+{
+    public string ItemNo     { get; set; } = string.Empty;
+    public int    PageSize   { get; set; } = 10;
+    public int    PageNumber { get; set; }
 }
 
 /// <summary>Dropdown form voucher (ArticleType, UOM).</summary>

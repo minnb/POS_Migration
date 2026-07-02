@@ -94,6 +94,7 @@ BEGIN
 
         DECLARE @cntRule   bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMIssueRule);
         DECLARE @cntHeader bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMHeader);
+        DECLARE @maxRuleId int    = (SELECT ISNULL(MAX(ID), 0)      FROM dbo.CpnVchBOMIssueRule);
 
         -- 1) IssueRule: upsert
         IF EXISTS (SELECT 1 FROM dbo.CpnVchBOMIssueRule WHERE ItemNo = @ItemNo)
@@ -107,9 +108,9 @@ BEGIN
         ELSE
         BEGIN
             INSERT INTO dbo.CpnVchBOMIssueRule
-                (ItemNo, Prefix, LenCode, IssueType, CharOfNumber, CharPosition, Counter, CreatedDate, Pkey)
+                (ID, ItemNo, Prefix, LenCode, IssueType, CharOfNumber, CharPosition, Counter, CreatedDate, Pkey)
             VALUES
-                (@ItemNo, @Prefix, @LenCode, @IssueType, @CharOfNumber, @CharPosition, @cntRule + 1, @now, @ItemNo);
+                (@maxRuleId + 1, @ItemNo, @Prefix, @LenCode, @IssueType, @CharOfNumber, @CharPosition, @cntRule + 1, @now, @ItemNo);
         END
 
         -- 2) Header: upsert
@@ -133,18 +134,51 @@ BEGIN
                 (@ItemNo, @Description, '', 0, 0, 0,
                  @StartingDate, @EndingDate, 0, @now, 0, '',
                  0, 1, 1, 0, @SaleType, @StoreGroupCode, @ItemNo,
-                 @ArticleType, '', @IssueType, 0, @cntHeader + 1);
+                 @ArticleType, '', @IssueType, @IsCheckItem, @cntHeader + 1);
         END
 
-        -- 3) Codes: chỉ insert khi chưa có mã nào cho ItemNo (parity legacy checkIssueCode==0)
-        IF NOT EXISTS (SELECT 1 FROM dbo.CpnVchBOMCodeIssue WHERE ItemNo = @ItemNo)
+        -- 3) Codes: chỉ insert khi chưa có mã nào cho ItemNo (parity legacy checkIssueCode==0).
+        --    ID nay là IDENTITY (bảng CpnVchBOMCodeIssue dùng chung với SAP Voucher, xem
+        --    CpnVchBOMCodeIssue_ExtendSchema.sql) — không tự tính ID nữa.
+        --    "AND Source = 'COUPON'" bắt buộc: sau khi SAP Voucher cũng có ItemNo (=ActicleNo,
+        --    xem usp_Voucher_Create), nếu thiếu điều kiện này, 1 ActicleNo SAP trùng chuỗi với
+        --    ItemNo coupon sẽ khiến IF NOT EXISTS bị "lừa" là đã có mã → bỏ qua vĩnh viễn việc
+        --    insert code cho coupon đó.
+        --    Điền đủ field dùng chung với SAP Voucher (ActicleNo=ItemNo mirror, ActicleType,
+        --    Validity_From_Date/Expiry_Date, Voucher_Currency/CompanyCode hardcode khớp SAP,
+        --    Status='SOLD' để tương thích vocabulary với usp_Voucher_Redeem) — để POS.Api
+        --    check/redeem được coupon phát hành từ POS.Web (xem usp_Voucher_GetByCode/Redeem).
+        IF NOT EXISTS (SELECT 1 FROM dbo.CpnVchBOMCodeIssue WHERE ItemNo = @ItemNo AND Source = 'COUPON')
         BEGIN
             DECLARE @cntCode bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMCodeIssue);
-            INSERT INTO dbo.CpnVchBOMCodeIssue (ItemNo, Code, Enabled, CreatedDate, Counter, Pkey)
-            SELECT @ItemNo, t.Code, 1, @now, @cntCode + 1, @ItemNo
+            INSERT INTO dbo.CpnVchBOMCodeIssue
+                (ItemNo, Code, Enabled, CreatedDate, Counter, Pkey, Source,
+                 ActicleNo, ActicleType, Validity_From_Date, Expiry_Date, Voucher_Currency,
+                 CompanyCode, Status, [Return])
+            SELECT @ItemNo, t.Code, 1, @now, @cntCode + 1, @ItemNo, 'COUPON',
+                   @ItemNo, @ArticleType, CONVERT(date, @StartingDate), CONVERT(date, @EndingDate),
+                   'VND', 'WCM', 'SOLD', 0
             FROM   @Codes t
             WHERE  ISNULL(t.Code, '') <> '';
         END
+
+        -- 3b) Đồng bộ lại field "chụp nhanh" theo Header mới nhất cho các mã ĐÃ tồn tại — chạy
+        --     MỌI LẦN gọi SP này (không điều kiện IF NOT EXISTS), vì Header (Section 2 ở trên)
+        --     có thể vừa đổi ArticleType/ngày hiệu lực ở lần Lưu sau (sửa coupon); Section 3 phía
+        --     trên chỉ chạy 1 lần nên không tự cập nhật lại các dòng đã insert từ trước.
+        --     TUYỆT ĐỐI KHÔNG set Status/[Return]/Enabled ở đây: nếu set, mỗi lần Admin chỉ sửa
+        --     Description/ArticleType/ngày (gọi lại SP này) sẽ vô tình reset Status='RDM'→'SOLD'
+        --     và Enabled=0→1 của các mã ĐÃ REDEEM qua POS.Api — phá vỡ cơ chế chống double-redeem.
+        --     BẮT BUỘC "AND Source = 'COUPON'": nếu thiếu, 1 dòng SAP trùng ItemNo sẽ bị ghi đè
+        --     ActicleType/ngày hiệu lực bằng dữ liệu của coupon — corrupt dữ liệu voucher SAP thật.
+        UPDATE dbo.CpnVchBOMCodeIssue
+        SET    ActicleNo          = @ItemNo,
+               ActicleType        = @ArticleType,
+               Validity_From_Date = CONVERT(date, @StartingDate),
+               Expiry_Date        = CONVERT(date, @EndingDate),
+               Voucher_Currency   = 'VND',
+               CompanyCode        = 'WCM'
+        WHERE  ItemNo = @ItemNo AND Source = 'COUPON';
 
         -- 4) Lines: replace
         DELETE FROM dbo.CpnVchBOMLine WHERE ItemNo = @ItemNo;
@@ -163,16 +197,18 @@ BEGIN
 
         -- 5) Stores: replace (ALL → 1 dòng; ngược lại bung theo StoreGroup)
         DELETE FROM dbo.CpnVchBOMStore WHERE ItemNo = @ItemNo;
-        DECLARE @cntStore bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMStore);
+        DECLARE @cntStore   bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMStore);
+        DECLARE @maxStoreId int    = (SELECT ISNULL(MAX(ID), 0)      FROM dbo.CpnVchBOMStore);
         IF @StoreGroupCode = 'ALL'
         BEGIN
-            INSERT INTO dbo.CpnVchBOMStore (ItemNo, StoreNo, Enabled, Counter, CreatedDate, Pkey)
-            VALUES (@ItemNo, 'ALL', 1, @cntStore + 1, @now, @ItemNo);
+            INSERT INTO dbo.CpnVchBOMStore (ID, ItemNo, StoreNo, Enabled, Counter, CreatedDate, Pkey)
+            VALUES (@maxStoreId + 1, @ItemNo, 'ALL', 1, @cntStore + 1, @now, @ItemNo);
         END
         ELSE
         BEGIN
-            INSERT INTO dbo.CpnVchBOMStore (ItemNo, StoreNo, Enabled, Counter, CreatedDate, Pkey)
-            SELECT @ItemNo, sg.StoreNo, 1, @cntStore + 1, @now, @ItemNo
+            INSERT INTO dbo.CpnVchBOMStore (ID, ItemNo, StoreNo, Enabled, Counter, CreatedDate, Pkey)
+            SELECT @maxStoreId + ROW_NUMBER() OVER (ORDER BY (SELECT 1)),
+                   @ItemNo, sg.StoreNo, 1, @cntStore + 1, @now, @ItemNo
             FROM   dbo.StoreGroup sg (NOLOCK)
             WHERE  sg.GroupCode = @StoreGroupCode;
         END
@@ -242,8 +278,11 @@ BEGIN
         IF EXISTS (SELECT 1 FROM dbo.CpnVchBOMIssueRule WHERE ItemNo = @ItemNo)
             UPDATE dbo.CpnVchBOMIssueRule SET IssueType = @IssueType, CreatedDate = @now WHERE ItemNo = @ItemNo;
         ELSE
-            INSERT INTO dbo.CpnVchBOMIssueRule (ItemNo, IssueType, Counter, CreatedDate, Pkey)
-            VALUES (@ItemNo, @IssueType, 0, @now, @ItemNo);
+        BEGIN
+            DECLARE @maxRuleId int = (SELECT ISNULL(MAX(ID), 0) FROM dbo.CpnVchBOMIssueRule);
+            INSERT INTO dbo.CpnVchBOMIssueRule (ID, ItemNo, IssueType, Counter, CreatedDate, Pkey)
+            VALUES (@maxRuleId + 1, @ItemNo, @IssueType, 0, @now, @ItemNo);
+        END
 
         -- Header: upsert field nâng cao
         IF EXISTS (SELECT 1 FROM dbo.CpnVchBOMHeader WHERE ItemNo = @ItemNo)
@@ -270,6 +309,16 @@ BEGIN
                  @LimitQty, @IsCheckAPI, @IsMultiUse, @LimitQtyUsed, @SaleType, @StoreGroupCode, @ItemNo,
                  @ArticleType, @CpnVchType, @IssueType, 0, @cntHeader + 1);
         END
+
+        -- Đồng bộ Value/VoucherType xuống mã đã phát hành của ItemNo — tại thời điểm
+        -- usp_SetupCoupon_SaveIssue chạy CHƯA có giá trị giảm giá thật (chỉ có sau khi Advanced
+        -- này chạy). Dùng thẳng @DiscountValue/@CpnVchType (đã kiểm tra: luôn bằng
+        -- DiscountValue/CpnVchType vừa upsert vào CpnVchBOMHeader ở trên) thay vì đọc lại Header
+        -- vừa ghi. Chạy không điều kiện — an toàn nếu ItemNo chưa có mã nào (0 dòng bị ảnh hưởng).
+        UPDATE dbo.CpnVchBOMCodeIssue
+        SET    Value       = CAST(@DiscountValue AS decimal(18,2)),
+               VoucherType = @CpnVchType
+        WHERE  ItemNo = @ItemNo AND Source = 'COUPON';
 
         COMMIT TRANSACTION;
     END TRY

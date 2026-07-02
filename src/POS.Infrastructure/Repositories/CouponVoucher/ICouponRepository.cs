@@ -7,9 +7,13 @@ namespace POS.Infrastructure.Repositories.Interfaces;
 /// </summary>
 public interface ICouponRepository
 {
-    /// <summary>SP usp_SetupCoupon_GetList — list + filter + paging (Total/row).</summary>
+    /// <summary>SP usp_SetupCoupon_GetList — list + filter + paging (Total/row). Màn "Phát hành Coupon" (join IssueRule).</summary>
     Task<(List<CouponListItemDto> Items, int Total)> GetListAsync(
         CouponListFilter filter, CancellationToken ct = default);
+
+    /// <summary>SP usp_CpnVchBOMHeader_GetList — danh sách master Coupon/Voucher (list thẳng Header, mọi ArticleType).</summary>
+    Task<(List<CouponHeaderListItemDto> Items, int Total)> GetHeaderListAsync(
+        CouponHeaderListFilter filter, CancellationToken ct = default);
 
     /// <summary>SP usp_SetupCoupon_GetCodes — mã coupon theo ItemNo (paging).</summary>
     Task<(List<CouponCodeDto> Items, int Total)> GetCodesAsync(

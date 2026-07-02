@@ -234,3 +234,40 @@ redis.StringSet(kpiKey, kpi, ttl);                   // luôn cache KPI từ RS1
 - Cache get/set bọc try riêng → Redis down vẫn fallback DB.
 
 > Ví dụ thực tế: `src/POS.Infrastructure/Repositories/RptCentralSaleRepository.cs` → `GetSaleByTimeAsync`
+
+---
+
+## Pattern 5: Existence-check cache (positive-only) — validate master data trước khi ghi
+
+> Áp dụng khi: cần validate 1 khóa (FK-logic) **tồn tại** trong bảng master trước một thao tác
+> ghi (vd `ActicleNo` phải có trong `CpnVchBOMHeader` trước khi tạo voucher). Cache kết quả để
+> không query DB mỗi request, nhưng **CHỈ cache kết quả dương** (tồn tại).
+
+```csharp
+private const string KeyCpnVchBOMHeader = "MD:CpnVchBOMHeader"; // Hash, field = itemNo, value = true
+
+public async Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = default)
+{
+    if (string.IsNullOrWhiteSpace(itemNo)) return false;
+
+    var cached = redis.HashGet<bool?>(KeyCpnVchBOMHeader, itemNo);   // miss → null
+    if (cached == true) return true;
+
+    const string sql = "SELECT TOP 1 1 FROM dbo.CpnVchBOMHeader (NOLOCK) WHERE [ItemNo] = @itemNo;";
+    var exists = await QueryFirstOrDefaultAsync<int?>(sql, new { itemNo }, ct: ct) != null;
+    if (exists) redis.HashSet(KeyCpnVchBOMHeader, itemNo, true, ttlSeconds: 43200); // CHỈ cache dương
+    return exists;
+}
+```
+
+**Nguyên tắc:**
+- **Chỉ cache dương** (không cache negative): đã tồn tại thì luôn tồn tại → không lo stale
+  false-negative; khóa mới thêm vào master được nhận ngay ở lần query kế; khóa sai (hiếm) luôn
+  re-check DB. KHÔNG dùng Pattern 1 (cache cả object) cho check tồn tại — thừa payload + cache âm
+  gây từ chối nhầm khi master vừa thêm.
+- Query DB dùng `SELECT TOP 1 1 ... WHERE key=@key` (point-lookup) + map `int?`, so `!= null`.
+- Redis lỗi → `HashGet` nuốt lỗi trả `default` (null) → tự fallback DB (không bao giờ chặn nhầm).
+
+> Ví dụ thực tế: `CentralMDRepository.CpnVchBOMHeaderExistsAsync` (gọi từ
+> `SAPService.CreateNewVoucherAsync` — validate toàn bộ `Article_No` TRƯỚC vòng lặp tạo để tránh
+> tạo dở dang khi batch có phần tử sai).

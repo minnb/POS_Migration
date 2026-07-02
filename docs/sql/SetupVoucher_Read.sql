@@ -97,7 +97,10 @@ BEGIN
             CAST(ISNULL(h.IsCheckItem, 0) AS bit) AS IsCheckItem,
             CASE WHEN h.Blocked = 1 THEN 1 ELSE 0 END AS Blocked,
             CONVERT(varchar(10), h.StartingDate, 103) AS StartingDate,
-            CONVERT(varchar(10), h.EndingDate,   103) AS EndingDate
+            CONVERT(varchar(10), h.EndingDate,   103) AS EndingDate,
+            -- Số mã đã phát hành (Source='VOUCHER') → khóa field sinh mã khi > 0 (xem VoucherIssuePage).
+            (SELECT COUNT(*) FROM dbo.CpnVchBOMCodeIssue c (NOLOCK)
+             WHERE c.ItemNo = h.ItemNo AND c.Source = 'VOUCHER') AS QuantityCode
     FROM    dbo.CpnVchBOMHeader h (NOLOCK)
     WHERE   h.ItemNo = @ItemNo;
 

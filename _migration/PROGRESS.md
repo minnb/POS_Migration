@@ -125,12 +125,17 @@
 >   `StoreRoutedConnectionFactory`); item picker tái dùng `GetProductListAsync`.
 > - **Hoãn:** màn Line-CRUD riêng của legacy (thay bằng replace-on-save trong form); Resend-SAP (8.4).
 
-> **8.1 + 8.2 ✅ DONE** — POS.Web `/promotion/coupons` (list + filter mã/tên/cách phát hành/hiệu lực, chip trạng thái,
-> xóa khi QtyCoupon==0) và `/promotion/coupons/issue` (form phát hành Auto/Import Excel + item picker + cài đặt nâng cao
-> + tab mã coupon; sửa qua `?id=`). Service 3 lớp `ICouponRepository` → `ICouponService` (POS.Api tái dùng được);
-> tái dùng `ICentralMDRepository.GetProductListAsync` (6.1) cho item picker. Sinh mã Auto ở tầng Application.
+> **8.1 + 8.2 ✅ DONE** — POS.Web `/promotion/coupons` và `/promotion/coupons/issue` (form phát hành Auto/Import Excel
+> + item picker + cài đặt nâng cao + tab mã coupon; sửa qua `?id=`). Service 3 lớp `ICouponRepository` → `ICouponService`
+> (POS.Api tái dùng được); tái dùng `ICentralMDRepository.GetProductListAsync` (6.1) cho item picker. Sinh mã Auto ở tầng Application.
+> - **🔄 Cập nhật list `/promotion/coupons` (theo yêu cầu):** danh sách đổi sang **master Coupon/Voucher** theo SP legacy
+>   `GetCpnVchBOMHeaderList` — list **thẳng** `CpnVchBOMHeader` (KHÔNG join IssueRule), **mọi ArticleType**, filter
+>   Từ khóa/Loại/Hiệu lực, **read-only** (bỏ Sửa/Xóa trên dòng). SP mới `docs/sql/CpnVchBOMHeader_GetList.sql`
+>   (`usp_CpnVchBOMHeader_GetList`) + DTO `CouponHeaderListItemDto`/`CouponHeaderListFilter` +
+>   `ICouponService/ICouponRepository.GetHeaderListAsync`. (Trước đó list dùng `usp_SetupCoupon_GetList` join IssueRule —
+>   nay chỉ giữ cho issue page/POS.Api.)
 > - **⚠️ Legacy dùng EF LINQ, KHÔNG có SP** (INVENTORY ghi `sp_SetupCoupon_Get` là sai). SP mới cần chạy trên
->   RPOSMasterData: `docs/sql/SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupCoupon_Delete.sql` (xem ROLLOUT §D3).
+>   RPOSMasterData: `docs/sql/CpnVchBOMHeader_GetList.sql`, `SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupCoupon_Delete.sql` (xem ROLLOUT §D3).
 > - Bảng: `CpnVchBOMIssueRule`, `CpnVchBOMHeader`, `CpnVchBOMCodeIssue`, `CpnVchBOMLine`, `CpnVchBOMStore`.
 > - **Hoãn:** file mẫu Excel sinh tối giản (1 cột `CodeCoupon`) thay vì lấy mẫu từ bảng `ExcelExampleCoupon`.
 

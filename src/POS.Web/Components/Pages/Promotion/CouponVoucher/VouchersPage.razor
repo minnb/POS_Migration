@@ -19,6 +19,7 @@
 @inject ISnackbar Snackbar
 @inject IAuditLogger AuditLogger
 @inject IFileLogHelper FileLogger
+@inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <PageTitle>Danh mục Voucher – POS Dashboard</PageTitle>
@@ -37,7 +38,7 @@
         </MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn"
-                   OnClick="@(() => OpenFormAsync(null))">Thêm mới</MudButton>
+                   OnClick="@(() => Nav.NavigateTo("/promotion/vouchers/issue"))">Phát hành Voucher</MudButton>
     </div>
 </div>
 
@@ -95,11 +96,9 @@
           Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="VoucherListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>
-        <MudTh>Serial</MudTh>
         <MudTh>Mã</MudTh>
         <MudTh>Tên voucher/coupon</MudTh>
         <MudTh>Loại</MudTh>
-        <MudTh>ĐVT</MudTh>
         <MudTh Style="text-align:right">Giá trị</MudTh>
         <MudTh>Giảm giá</MudTh>
         <MudTh Style="text-align:right">Giá trị tối đa</MudTh>
@@ -111,11 +110,9 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
-        <MudTd DataLabel="Serial"><b>@context.SerialNo</b></MudTd>
         <MudTd DataLabel="Mã">@context.ItemNo</MudTd>
         <MudTd DataLabel="Tên voucher/coupon">@context.ItemName</MudTd>
         <MudTd DataLabel="Loại">@context.ArticleType</MudTd>
-        <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
         <MudTd DataLabel="Giá trị" Style="text-align:right">@context.ValueOfVoucher.ToString("#,##0.##")</MudTd>
         <MudTd DataLabel="Giảm giá">@DiscountText(context)</MudTd>
         <MudTd DataLabel="Giá trị tối đa" Style="text-align:right">@context.MaxAmount.ToString("#,##0.##")</MudTd>
@@ -134,9 +131,9 @@
         <MudTd DataLabel="Từ ngày">@context.StartingDate</MudTd>
         <MudTd DataLabel="Đến ngày">@context.EndingDate</MudTd>
         <MudTd DataLabel="" Style="text-align:right">
-            <MudTooltip Text="Sửa">
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
-                               OnClick="@(() => OpenFormAsync(context))"/>
+            <MudTooltip Text="Xem">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Info"
+                               OnClick="@(() => Nav.NavigateTo($"/promotion/vouchers/issue?id={context.ItemNo}"))"/>
             </MudTooltip>
             <MudTooltip Text="Xóa">
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
@@ -219,30 +216,6 @@
         _filter.ArticleType = null;
         _filter.Status      = "-1";
         await _table.ReloadServerData();
-    }
-
-    private async Task OpenFormAsync(VoucherListItemDto? item)
-    {
-        var oldJson = item is null ? null : JsonConvert.SerializeObject(item);
-        var parameters = new DialogParameters<VoucherFormDialog>
-        {
-            { x => x.Lookup, _lookup },
-            { x => x.ExistingItemNo, item?.ItemNo },
-            { x => x.Actor, _currentActor }
-        };
-        var dialog = await DialogService.ShowAsync<VoucherFormDialog>(
-            item is null ? "Thêm Voucher/Coupon" : $"Sửa: {item.ItemNo}", parameters,
-            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true, BackdropClick = false });
-
-        var result = await dialog.Result;
-        if (result is { Canceled: false } && result.Data is VoucherSaveRequest saved)
-        {
-            await AuditLogger.LogAsync(_currentActor, item is null ? "CREATE" : "UPDATE", "SetupVoucher",
-                saved.ItemNo, oldValueJson: oldJson, newValueJson: JsonConvert.SerializeObject(saved));
-            Snackbar.Add(item is null ? $"Đã thêm voucher {saved.ItemNo}." : $"Đã cập nhật {saved.ItemNo}.",
-                Severity.Success);
-            await _table.ReloadServerData();
-        }
     }
 
     private async Task ConfirmDeleteAsync(VoucherListItemDto item)

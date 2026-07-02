@@ -6,10 +6,25 @@ using POS.Infrastructure.Repositories.Interfaces;
 
 namespace POS.Application.Features.Sap;
 
-public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISAPService
+public sealed class SAPService(
+    IVoucherCodeRepository voucherCodeRepository,
+    ICentralMDRepository centralMDRepository) : ISAPService
 {
     public async Task<ResultResponse> CreateNewVoucherAsync(List<CreateVoucherModel> model, CancellationToken ct = default)
     {
+        // Validate ActicleNo tồn tại trong CpnVchBOMHeader (bỏ qua khi Article_No rỗng — giữ hành vi cũ).
+        // Kiểm tra toàn bộ TRƯỚC khi tạo để tránh tạo dở dang (loop tạo không có transaction).
+        foreach (var item in model)
+        {
+            if (string.IsNullOrWhiteSpace(item.Article_No)) continue;
+            if (!await centralMDRepository.CpnVchBOMHeaderExistsAsync(item.Article_No, ct))
+                return new ResultResponse
+                {
+                    Status  = HttpStatusCode.BadRequest,
+                    Message = $"ActicleNo {item.Article_No} không tồn tại"
+                };
+        }
+
         var results = new List<VoucherStatusResponse>();
         foreach (var item in model)
         {
@@ -33,16 +48,8 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
                 VoucherType = item.VoucherType,
             };
 
-            var existing = await sapVoucherRepository.GetByVoucherNumberAsync(item.VoucherNumber, ct);
-            if (existing != null)
-            {
-                results.Add(existing);
-            }
-            else
-            {
-                await sapVoucherRepository.InsertAsync(mapped, ct);
-                results.Add(mapped);
-            }
+            var created = await voucherCodeRepository.CreateOrGetAsync(mapped, ct);
+            results.Add(created);
         }
 
         return new ResultResponse
@@ -55,7 +62,7 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
 
     public async Task<ResultResponse> CheckVoucherAsync(string voucherNumber, CancellationToken ct = default)
     {
-        var data = await sapVoucherRepository.GetByVoucherNumberAsync(voucherNumber, ct);
+        var data = await voucherCodeRepository.GetByCodeAsync(voucherNumber, ct);
         if (data != null)
         {
             if (data.Status == "RDM")
@@ -97,7 +104,7 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
             .Select(x => (x.voucherNumber, x.value))
             .ToList();
 
-        var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(
+        var (success, message, results) = await voucherCodeRepository.RedeemAsync(
             serials, model.OrderNo, ct: ct);
 
         if (!success)
@@ -112,7 +119,7 @@ public sealed class SAPService(ISAPVoucherRepository sapVoucherRepository) : ISA
         var serials = model.Select(x => (x.VoucherNumber, AmountRedeem: 0d)).ToList();
         var orderNo = model[0].OrderNo;
 
-        var (success, message, results) = await sapVoucherRepository.RedeemVouchersAsync(
+        var (success, message, results) = await voucherCodeRepository.RedeemAsync(
             serials, orderNo, requiredVoucherType: "BNMH", ct);
 
         if (!success)

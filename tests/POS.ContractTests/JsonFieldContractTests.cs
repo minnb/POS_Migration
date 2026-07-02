@@ -3,6 +3,7 @@ using POS.Common.Dtos.Loyalty;
 using POS.Common.Dtos.POS.Gift;
 using POS.Common.Dtos.SetupCoupon;
 using POS.Common.Dtos.Voucher;
+using POS.Common.Dtos.Vouchers;
 
 namespace POS.ContractTests;
 
@@ -73,10 +74,23 @@ public class JsonFieldContractTests
             "StartingDate", "EndingDate", "LastDateModified", "Status");
 
     [Fact]
+    public void VoucherCodeDto_locked()
+        => AssertFields(typeof(VoucherCodeDto),
+            "ItemNo", "Code", "Enable", "Status", "AmountUsed", "OrderUsed");
+
+    [Fact]
     public void VoucherPublishedItemDto_locked()
         => AssertFields(typeof(VoucherPublishedItemDto),
             "StoreNo", "PosNo", "BonusBuy", "SerialNo", "OrderNo", "ArticleNo", "ItemName",
             "ApplyType", "Status", "VoucherValue", "MaxAmount", "MaxQtyUse", "MaxQuantityIssue",
             "TranDateStr", "IsOffline", "IsSend", "IsCheckItem", "VoucherType",
             "FromDateStr", "EnDateStr", "CreatedDateStr");
+
+    // ── SAP Internal Voucher (api/sap/*, 5.000 POS + SAP ERP) ──────────────
+    [Fact]
+    public void VoucherStatusResponse_locked()
+        => AssertFields(typeof(VoucherStatusResponse),
+            "Status", "Return", "ActicleNo", "ActicleType", "VoucherNumber", "Value",
+            "Voucher_Currency", "Validity_From_Date", "Expiry_Date", "CompanyCode", "Partner",
+            "IsEmployee", "PhoneNumber", "VoucherType", "AmountUsed", "OrderUsed");
 }

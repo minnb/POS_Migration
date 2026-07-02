@@ -4,26 +4,22 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
-@using Newtonsoft.Json
 @using POS.Application.Features.CouponVoucher
 @using POS.Common.Dtos.SetupCoupon
 @using POS.Infrastructure.Logging
 @using POS.Web.Auth
 
 @inject ICouponService CouponService
-@inject IDialogService DialogService
-@inject ISnackbar Snackbar
-@inject IAuditLogger AuditLogger
 @inject IFileLogHelper FileLogger
 @inject NavigationManager Nav
 
-<PageTitle>Cài đặt Coupon – POS Dashboard</PageTitle>
+<PageTitle>Danh sách Coupon / Voucher – POS Dashboard</PageTitle>
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
     <MudText Typo="Typo.h5" Class="pos-page-header-title">
         <MudIcon Icon="@Icons.Material.Filled.ConfirmationNumber" Class="mr-2" Style="vertical-align:middle"/>
-        Cài đặt Coupon
+        Danh sách Coupon / Voucher
     </MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
@@ -36,28 +32,26 @@
 @* ── Filter bar ──────────────────────────────────────────────────────────── *@
 <MudPaper Elevation="1" Class="pa-4 mb-4">
     <MudGrid Spacing="2">
-        <MudItem xs="12" sm="6" md="3">
-            <MudTextField @bind-Value="_filter.ItemNo" Label="Mã phát hành"
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.KeyWord" Label="Từ khóa (mã / tên / mã coupon)"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudTextField @bind-Value="_filter.Description" Label="Tên phát hành"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="2">
-            <MudSelect @bind-Value="_filter.IssueType" Label="Cách phát hành"
+            <MudSelect @bind-Value="_filter.ArticleType" Label="Loại"
                        Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Auto")">Tự động tạo mã</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Import")">Import excel</MudSelectItem>
+                <MudSelectItem T="string" Value="@("ZCPN")">Coupon</MudSelectItem>
+                <MudSelectItem T="string" Value="@("ZVCN")">Voucher</MudSelectItem>
+                <MudSelectItem T="string" Value="@("ZVCO")">Voucher (cũ)</MudSelectItem>
+                <MudSelectItem T="string" Value="@("ZCOU")">Coupon (cũ)</MudSelectItem>
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="6" md="2">
+        <MudItem xs="12" sm="6" md="3">
             <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
                        Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
-                <MudSelectItem T="string" Value="@("1")">Hiệu lực</MudSelectItem>
-                <MudSelectItem T="string" Value="@("0")">Hết hiệu lực</MudSelectItem>
+                <MudSelectItem T="string" Value="@("0")">Còn hiệu lực</MudSelectItem>
+                <MudSelectItem T="string" Value="@("1")">Hết hiệu lực</MudSelectItem>
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
@@ -76,56 +70,57 @@
     <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
 }
 
-@* ── Coupon table (server-side) ──────────────────────────────────────────── *@
+@* ── Coupon/Voucher master table (server-side, read-only) ─────────────────── *@
 <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
-          Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="CouponListItemDto">
+          Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="CouponHeaderListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>
-        <MudTh>Mã phát hành</MudTh>
-        <MudTh>Mô tả</MudTh>
-        <MudTh>Cách phát hành</MudTh>
-        <MudTh>Tiền tố</MudTh>
-        <MudTh Style="text-align:right">Kích thước mã</MudTh>
-        <MudTh Style="text-align:right">Số chữ cái</MudTh>
-        <MudTh Style="text-align:right">Vị trí đứng</MudTh>
-        <MudTh Style="text-align:right">Số lượng</MudTh>
+        <MudTh Style="width:80px; text-align:center">Thao tác</MudTh>
+        <MudTh>Mã</MudTh>
+        <MudTh>Tên</MudTh>
+        <MudTh>Loại</MudTh>
+        <MudTh>Loại giảm</MudTh>
+        <MudTh Style="text-align:right">Giá trị giảm</MudTh>
+        <MudTh Style="text-align:right">SL tối đa</MudTh>
+        <MudTh>Tổng bill</MudTh>
+        <MudTh>Từ ngày</MudTh>
+        <MudTh>Đến ngày</MudTh>
         <MudTh>Hiệu lực</MudTh>
-        <MudTh Style="text-align:right; width:90px"></MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
-        <MudTd DataLabel="Mã phát hành"><b>@context.ItemNo</b></MudTd>
-        <MudTd DataLabel="Mô tả">@context.Description</MudTd>
-        <MudTd DataLabel="Cách phát hành">@IssueTypeText(context.IssueType)</MudTd>
-        <MudTd DataLabel="Tiền tố">@context.Prefix</MudTd>
-        <MudTd DataLabel="Kích thước mã" Style="text-align:right">@context.LenCode</MudTd>
-        <MudTd DataLabel="Số chữ cái" Style="text-align:right">@context.CharOfNumber</MudTd>
-        <MudTd DataLabel="Vị trí đứng" Style="text-align:right">@context.CharPosition</MudTd>
-        <MudTd DataLabel="Số lượng" Style="text-align:right">@context.QtyCoupon.ToString("#,##0")</MudTd>
-        <MudTd DataLabel="Hiệu lực">
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                     Color="@(context.Status ? Color.Success : Color.Error)">
-                @(context.Status ? "Hiệu lực" : "Hết hiệu lực")
-            </MudChip>
-        </MudTd>
-        <MudTd DataLabel="" Style="text-align:right">
-            <MudTooltip Text="Sửa">
-                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
-                               OnClick="@(() => Nav.NavigateTo($"/promotion/coupons/issue?id={context.ItemNo}"))"/>
+        <MudTd DataLabel="Thao tác" Style="text-align:center">
+            <MudTooltip Text="Xem chi tiết">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => Nav.NavigateTo($"/promotion/coupons/issue?id={context.ItemNo}&mode=view"))"/>
             </MudTooltip>
-            @if (context.QtyCoupon == 0)
-            {
-                <MudTooltip Text="Xóa">
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                   OnClick="@(() => ConfirmDeleteAsync(context))"/>
-                </MudTooltip>
-            }
+        </MudTd>
+        <MudTd DataLabel="Mã"><b>@context.ItemNo</b></MudTd>
+        <MudTd DataLabel="Tên">@context.ItemName</MudTd>
+        <MudTd DataLabel="Loại">@context.ArticleType</MudTd>
+        <MudTd DataLabel="Loại giảm">@DiscountTypeText(context.ArticleType, context.DiscountType)</MudTd>
+        <MudTd DataLabel="Giá trị giảm" Style="text-align:right">@context.DiscountValue.ToString("#,##0")</MudTd>
+        <MudTd DataLabel="SL tối đa" Style="text-align:right">@context.LimitQty.ToString("#,##0")</MudTd>
+        <MudTd DataLabel="Tổng bill">@(context.IsCheckItem ? "Không" : "Có")</MudTd>
+        <MudTd DataLabel="Từ ngày">@context.StartingDate.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="Đến ngày">@context.EndingDate.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="Hiệu lực">
+            <div class="d-flex flex-wrap gap-1">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                         Color="@(context.EndingDate.Date >= DateTime.Today ? Color.Success : Color.Error)">
+                    @(context.EndingDate.Date >= DateTime.Today ? "Còn hiệu lực" : "Hết hiệu lực")
+                </MudChip>
+                @if (context.Blocked)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning">Blocked</MudChip>
+                }
+            </div>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>
         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
             <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
-            <MudText Typo="Typo.body2">Không có coupon khớp bộ lọc.</MudText>
+            <MudText Typo="Typo.body2">Không có coupon/voucher khớp bộ lọc.</MudText>
         </div>
     </NoRecordsContent>
     <LoadingContent>
@@ -139,41 +134,31 @@
 </MudTable>
 
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthState { get; set; } = null!;
+    private MudTable<CouponHeaderListItemDto> _table = null!;
+    private readonly CouponHeaderListFilter _filter = new() { Status = "0", PageSize = 10 };
 
-    private MudTable<CouponListItemDto> _table = null!;
-    private readonly CouponListFilter _filter = new() { Status = "-1", PageSize = 10 };
-
-    private List<CouponListItemDto> _rows = [];
+    private List<CouponHeaderListItemDto> _rows = [];
     private int _offset;
     private string? _errorMsg;
-    private string _currentActor = "unknown";
 
-    protected override async Task OnInitializedAsync()
-    {
-        var state = await AuthState;
-        _currentActor = state.User.Identity?.Name ?? "unknown";
-    }
-
-    private async Task<TableData<CouponListItemDto>> LoadServerData(TableState state, CancellationToken token)
+    private async Task<TableData<CouponHeaderListItemDto>> LoadServerData(TableState state, CancellationToken token)
     {
         _filter.PageNumber = state.Page;
         _filter.PageSize   = state.PageSize;
         _offset            = state.Page * state.PageSize;
         try
         {
-            var (items, total) = await CouponService.GetListAsync(_filter, token);
+            var (items, total) = await CouponService.GetHeaderListAsync(_filter, token);
             _rows = items;
             _errorMsg = null;
-            return new TableData<CouponListItemDto> { Items = items, TotalItems = total };
+            return new TableData<CouponHeaderListItemDto> { Items = items, TotalItems = total };
         }
         catch (Exception ex)
         {
-            _errorMsg = "Không thể tải danh sách coupon. (Kiểm tra SP usp_SetupCoupon_* đã deploy chưa)";
+            _errorMsg = "Không thể tải danh sách Coupon/Voucher. (Kiểm tra SP usp_CpnVchBOMHeader_GetList đã deploy chưa)";
             FileLogger.WriteExpLogs("CouponsPage.Load", ex);
             _rows = [];
-            return new TableData<CouponListItemDto> { Items = [], TotalItems = 0 };
+            return new TableData<CouponHeaderListItemDto> { Items = [], TotalItems = 0 };
         }
     }
 
@@ -181,54 +166,17 @@
 
     private async Task ClearFilterAsync()
     {
-        _filter.ItemNo      = null;
-        _filter.Description = null;
-        _filter.IssueType   = null;
-        _filter.Status      = "-1";
+        _filter.KeyWord     = null;
+        _filter.ArticleType = null;
+        _filter.Status      = "0";
         await _table.ReloadServerData();
     }
 
-    private async Task ConfirmDeleteAsync(CouponListItemDto item)
+    // Loại giảm hiển thị: ZCOU/ZCPN (coupon) → %/Amount theo DiscountType; ZVCN/ZVCO (voucher) → Amount.
+    private static string DiscountTypeText(string articleType, int discountType) => articleType switch
     {
-        var parameters = new DialogParameters
-        {
-            ["Message"]    = $"Bạn có chắc chắn xóa mã phát hành \"{item.ItemNo}\" này không?",
-            ["YesText"]    = "Xóa",
-            ["CancelText"] = "Hủy"
-        };
-        var dialog = await DialogService.ShowAsync<MudMessageBox>(
-            "Xác nhận xóa", parameters,
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-
-        var result = await dialog.Result;
-        if (result is null or { Canceled: true }) return;
-
-        try
-        {
-            var (ok, message) = await CouponService.DeleteAsync(item.ItemNo);
-            if (ok)
-            {
-                await AuditLogger.LogAsync(_currentActor, "DELETE", "SetupCoupon",
-                    item.ItemNo, oldValueJson: JsonConvert.SerializeObject(item), newValueJson: null);
-                Snackbar.Add($"Đã xóa coupon \"{item.ItemNo}\".", Severity.Info);
-                await _table.ReloadServerData();
-            }
-            else
-            {
-                Snackbar.Add(string.IsNullOrEmpty(message) ? "Xóa thất bại." : message, Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            FileLogger.WriteExpLogs("CouponsPage.Delete", ex);
-            Snackbar.Add("Xóa thất bại. Vui lòng thử lại.", Severity.Error);
-        }
-    }
-
-    private static string IssueTypeText(string? issueType) => issueType switch
-    {
-        "Auto"   => "Tự động tạo mã",
-        "Import" => "Import excel",
-        _        => issueType ?? string.Empty
+        "ZCOU" or "ZCPN" => discountType == 1 ? "%" : "Amount",
+        "ZVCN" or "ZVCO" => "Amount",
+        _                => string.Empty
     };
 }

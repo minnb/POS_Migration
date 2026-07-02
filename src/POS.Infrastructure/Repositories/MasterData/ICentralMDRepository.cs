@@ -23,6 +23,9 @@ public interface ICentralMDRepository
     /// <summary>Danh sách cửa hàng (StoreNo + Name) từ bảng Store, cache Redis 12h. Dùng cho UI store picker.</summary>
     Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default);
 
+    /// <summary>Danh sách chi nhánh (No + Description) từ bảng Branch, cache Redis 12h. Dùng cho combobox Chi nhánh.</summary>
+    Task<List<BranchDto>> GetBranchListAsync(CancellationToken ct = default);
+
     /// <summary>Danh mục hình thức thanh toán (Code + Description) từ TenderTypeSetup, cache Redis 12h.
     /// Dùng để resolve tên HTTT cho báo cáo thanh toán.</summary>
     Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default);
@@ -47,6 +50,9 @@ public interface ICentralMDRepository
     /// <summary>EXISTS CpnVchBOMLine theo ItemNo + Barcode.</summary>
     Task<bool> CheckCouponLineAsync(string itemNo, string barCode, CancellationToken ct = default);
 
+    /// <summary>True nếu ItemNo tồn tại trong CpnVchBOMHeader (master Coupon/Voucher). Cache Redis Hash MD:CpnVchBOMHeader (positive-only).</summary>
+    Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = default);
+
     /// <summary>INSERT SignalStore. Lỗi → false (parity cũ).</summary>
     Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default);
 
@@ -67,6 +73,21 @@ public interface ICentralMDRepository
     /// <summary>Toàn bộ danh sách cửa hàng (kể cả đã đóng) dùng cho trang quản trị Store.</summary>
     Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default);
 
+    /// <summary>EXISTS dbo.Store theo No (mã cửa hàng) — check trùng trước khi tạo mới.</summary>
+    Task<bool> StoreCodeExistsAsync(string storeNo, CancellationToken ct = default);
+
+    /// <summary>
+    /// INSERT dbo.Store — tạo mới cửa hàng. Counter = MAX(Counter)+1 toàn bảng (bắt buộc để POS
+    /// sync incremental nhận thay đổi), Pkey = No, LastDateModified = GETDATE(). Trả false nếu lỗi/trùng PK.
+    /// </summary>
+    Task<bool> CreateStoreAsync(StoreCreateDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// UPDATE dbo.Store SET ClosingMethod — đổi trạng thái đóng/mở cửa hàng. Counter = MAX(Counter)+1
+    /// (bắt buộc để POS sync incremental nhận thay đổi), LastDateModified = GETDATE(). Trả false nếu lỗi/không tìm thấy.
+    /// </summary>
+    Task<bool> UpdateStoreClosingMethodAsync(string storeNo, int closingMethod, CancellationToken ct = default);
+
     // ── Danh mục Nhân viên (Staff) — migrate từ legacy MasterData/EmployeeList ─
 
     /// <summary>
@@ -82,6 +103,23 @@ public interface ICentralMDRepository
     /// </summary>
     Task<List<EmployeeListItemDto>> ExportEmployeeListAsync(
         EmployeeListFilter filter, CancellationToken ct = default);
+
+    /// <summary>EXISTS dbo.Staff theo ID (mã NV) — check trùng trước khi tạo mới.</summary>
+    Task<bool> StaffCodeExistsAsync(string staffCode, CancellationToken ct = default);
+
+    /// <summary>
+    /// INSERT dbo.Staff — tạo mới nhân viên POS. Password lưu plain text (contract POS terminal).
+    /// Counter = MAX(Counter)+1 toàn bảng (bắt buộc để POS sync incremental nhận thay đổi),
+    /// Pkey = StaffCode, LastDateModified = GETDATE(). Trả false nếu lỗi/trùng PK.
+    /// </summary>
+    Task<bool> CreateEmployeeAsync(EmployeeCreateDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// UPDATE dbo.Staff SET Password — đổi mật khẩu đăng nhập POS. Chỉ áp dụng khi nhân viên
+    /// đang hoạt động (Blocked = 0/NULL, theo legacy ChangePassWord). Counter = MAX+1 để POS
+    /// sync nhận thay đổi. Trả false nếu không tìm thấy hoặc đã ngưng hoạt động.
+    /// </summary>
+    Task<bool> ChangeEmployeePasswordAsync(string staffCode, string newPassword, CancellationToken ct = default);
 
     // ── POSDataSetup CRUD (Web admin UI) ─────────────────────────────────────
 

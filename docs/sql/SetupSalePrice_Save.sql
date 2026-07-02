@@ -10,15 +10,21 @@
    HÀNH VI (giữ nguyên legacy):
      - Chỉ xét các Pkey có YEAR(EndingDate) <> 7777 (bỏ qua bản ghi đánh dấu xóa).
      - Pkey CHƯA tồn tại  → INSERT mới, Counter = MAX(Counter còn hiệu lực)+1 (rỗng → 1),
-       IsActive=1, LastTimeUpdate=GETDATE(), defaults: CurrencyCode='VND', PriceIncludesVAT=1,
-       AllowInvoiceDisc=1, AllowLineDisc=1, MinimumQuantity=1, VariantCode=''.
+       defaults: CurrencyCode='VND', PriceIncludesVAT=1, AllowInvoiceDisc=1, AllowLineDisc=1,
+       MinimumQuantity=1, VariantCode=''.
      - Pkey ĐÃ tồn tại   → gọi SP có sẵn [dbo].[Setup_SalePrice_Get_ALL] @Json (đã proven trên
        production) với JSON [{Pkey, FromDate 'yyyy-MM-dd', ToDate, UnitPrice}] — GIỮ NGUYÊN logic update legacy.
 
    Trả 1 row (Ok bit, Message). Lỗi → Ok=0 + ERROR_MESSAGE(), KHÔNG throw ra ngoài.
 
+   ⚠️ SCHEMA (đối chiếu DDL hiện hành dbo.SalesPrice): bảng CHỈ có 15 cột — KHÔNG có
+      IsActive / LastTimeUpdate / Id (khác EF model legacy .NET 4.6). INSERT vì vậy chỉ ghi
+      15 cột thực có; "đánh dấu xóa" dựa hoàn toàn vào EndingDate (YEAR = 7777) + Counter,
+      KHÔNG dùng IsActive. SalesType là cột [int] → giá trị SalesType (chuỗi mã) được SQL
+      Server convert ngầm khi INSERT; đảm bảo mã hình thức bán hàng là số hợp lệ.
+
    ⚠️ PHỤ THUỘC: SP [dbo].[Setup_SalePrice_Get_ALL] phải tồn tại sẵn trên RPOSMasterData
-      (đang dùng bởi hệ thống legacy). CHẠY 1 LẦN trên RPOSMasterData.
+      (đang dùng bởi hệ thống legacy) và cũng phải khớp schema 15 cột nói trên. CHẠY 1 LẦN trên RPOSMasterData.
    ============================================================================ */
 USE [RPOSMasterData];
 GO
@@ -72,15 +78,15 @@ BEGIN
             ISNULL((SELECT MAX(Counter) FROM dbo.SalesPrice WITH (UPDLOCK, HOLDLOCK)
                     WHERE YEAR(EndingDate) <> 7777), 0) + 1;
 
-        /* 3a) INSERT các Pkey CHƯA tồn tại */
+        /* 3a) INSERT các Pkey CHƯA tồn tại — chỉ 15 cột thực có của dbo.SalesPrice */
         INSERT dbo.SalesPrice
             (ItemNo, SalesCode, StartingDate, CurrencyCode, UnitOfMeasureCode, UnitPrice,
              PriceIncludesVAT, AllowInvoiceDisc, SalesType, MinimumQuantity, EndingDate,
-             VariantCode, AllowLineDisc, IsActive, LastTimeUpdate, Counter, Pkey)
+             VariantCode, AllowLineDisc, Counter, Pkey)
         SELECT
             L.ItemNo, L.SalesCode, L.StartingDate, N'VND', L.UnitOfMeasureCode, L.UnitPrice,
             1, 1, L.SalesType, 1, L.EndingDate,
-            N'', 1, 1, GETDATE(), @maxCounter, L.Pkey
+            N'', 1, @maxCounter, L.Pkey
         FROM @Lines L
         WHERE NOT EXISTS (
             SELECT 1 FROM dbo.SalesPrice SP

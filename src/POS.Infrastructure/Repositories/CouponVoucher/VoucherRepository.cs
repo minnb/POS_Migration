@@ -81,6 +81,80 @@ public sealed class VoucherRepository(CentralMDConnectionFactory connectionFacto
         return row ?? new VoucherSaveResult { Ok = false, Message = "Lưu voucher thất bại" };
     }
 
+    public async Task<string> SaveIssueAsync(
+        VoucherIssueSaveRequest request, IReadOnlyList<string> codes, CancellationToken ct = default)
+    {
+        var start = ParseDmy(request.StartingDateStr);
+        var end = ParseDmy(request.EndingDateStr);
+
+        var p = new DynamicParameters();
+        p.Add("@ItemNo", (request.ItemNo ?? string.Empty).Trim());
+        p.Add("@Serial", (request.Serial ?? string.Empty).Trim());
+        p.Add("@ItemName", request.ItemName ?? string.Empty);
+        p.Add("@ArticleType", request.ArticleType ?? string.Empty);
+        p.Add("@UnitOfMeasure", request.UnitOfMeasure ?? string.Empty);
+        p.Add("@DiscountType", request.DiscountType);
+        p.Add("@DiscountValue", request.DiscountValue);
+        p.Add("@ValueOfVoucher", request.ValueOfVoucher);
+        p.Add("@MaxAmount", request.MaxAmount);
+        p.Add("@LimitQty", request.LimitQty);
+        p.Add("@IsCheckItem", request.IsCheckItem);
+        p.Add("@Blocked", request.Blocked);
+        p.Add("@StartingDate", start);
+        p.Add("@EndingDate", end);
+        p.Add("@Codes", BuildCodeTable(codes).AsTableValuedParameter("dbo.CouponCodeTVP"));
+        p.Add("@Lines", BuildLineTable(request.Items).AsTableValuedParameter("dbo.VoucherLineTVP"));
+        p.Add("@OutItemNo", dbType: DbType.String, direction: ParameterDirection.Output, size: 20);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("dbo.usp_SetupVoucher_SaveIssue", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
+        return p.Get<string>("@OutItemNo") ?? string.Empty;
+    }
+
+    public async Task<(List<VoucherCodeDto> Items, int Total)> GetCodesAsync(
+        VoucherCodeFilter filter, CancellationToken ct = default)
+    {
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var items = (await conn.QueryAsync<VoucherCodeDto>(new CommandDefinition(
+            "dbo.usp_SetupVoucher_GetCodes",
+            new
+            {
+                ItemNo     = (filter.ItemNo ?? string.Empty).Trim(),
+                PageSize   = Math.Max(1, filter.PageSize),
+                PageNumber = Math.Max(0, filter.PageNumber)
+            },
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct))).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<List<string>> CheckCodesExistAsync(IEnumerable<string> codes, CancellationToken ct = default)
+    {
+        var table = BuildCodeTable(codes);
+        if (table.Rows.Count == 0) return [];
+
+        var p = new DynamicParameters();
+        p.Add("@Codes", table.AsTableValuedParameter("dbo.CouponCodeTVP"));
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var exist = await conn.QueryAsync<string>(new CommandDefinition(
+            "dbo.usp_SetupVoucher_CheckCodesExist", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+        return exist.ToList();
+    }
+
+    public async Task<VoucherSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default)
+    {
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var row = await conn.QueryFirstOrDefaultAsync<VoucherSaveResult>(new CommandDefinition(
+            "dbo.usp_SetupVoucher_UpdateBlocked", new { ItemNo = itemNo, Blocked = blocked },
+            commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
+        if (row != null) row.ItemNo = itemNo;
+        return row ?? new VoucherSaveResult { Ok = false, Message = "Cập nhật khóa voucher thất bại", ItemNo = itemNo };
+    }
+
     public async Task<(bool Deleted, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default)
     {
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
@@ -91,6 +165,16 @@ public sealed class VoucherRepository(CentralMDConnectionFactory connectionFacto
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+    private static DataTable BuildCodeTable(IEnumerable<string> codes)
+    {
+        var t = new DataTable();
+        t.Columns.Add("Code", typeof(string));
+        foreach (var c in codes)
+            if (!string.IsNullOrWhiteSpace(c))
+                t.Rows.Add(c.Trim());
+        return t;
+    }
+
     private static DataTable BuildLineTable(IEnumerable<VoucherLineDto> rows)
     {
         var t = new DataTable();

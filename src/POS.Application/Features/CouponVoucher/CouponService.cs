@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using POS.Common.Dtos.CentralMD;
 using POS.Common.Dtos.SetupCoupon;
 using POS.Infrastructure.Repositories.Interfaces;
@@ -8,19 +7,20 @@ namespace POS.Application.Features.CouponVoucher;
 
 /// <summary>
 /// 8.1/8.2 Setup Coupon — port từ VCM.BLUEPOS SetupCouponController + SetupCouponData.
-/// Sinh mã Auto & validate ở tầng này (business); persistence qua ICouponRepository (SP).
-/// Item picker tái dùng ICentralMDRepository.GetProductListAsync (migrate 6.1).
+/// Sinh mã Auto &amp; validate ở tầng này (business, qua <see cref="CouponVoucherCodeGenerator"/>);
+/// persistence qua ICouponRepository (SP). Item picker tái dùng ICentralMDRepository.GetProductListAsync (migrate 6.1).
 /// </summary>
-public sealed partial class CouponService(
+public sealed class CouponService(
     ICouponRepository repository,
     ICentralMDRepository centralMDRepository) : ICouponService
 {
-    private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private const string Numbers = "0123456789";
-
     public Task<(List<CouponListItemDto> Items, int Total)> GetListAsync(
         CouponListFilter filter, CancellationToken ct = default)
         => repository.GetListAsync(filter, ct);
+
+    public Task<(List<CouponHeaderListItemDto> Items, int Total)> GetHeaderListAsync(
+        CouponHeaderListFilter filter, CancellationToken ct = default)
+        => repository.GetHeaderListAsync(filter, ct);
 
     public Task<(List<CouponCodeDto> Items, int Total)> GetCodesAsync(
         CouponCodeFilter filter, CancellationToken ct = default)
@@ -72,9 +72,10 @@ public sealed partial class CouponService(
         {
             string? err;
             if (string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase))
-                (codes, err) = GenerateAutoCodes(request);
+                (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
+                    request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);
             else
-                (codes, err) = ValidateImportCodes(request.ImportCodes);
+                (codes, err) = CouponVoucherCodeGenerator.ValidateImportCodes(request.ImportCodes);
 
             if (err != null) return Fail(err);
 
@@ -111,7 +112,7 @@ public sealed partial class CouponService(
     {
         var start = ParseDmy(request.StartingDateStr);
         var end = ParseDmy(request.EndingDateStr);
-        if (start.Date < DateTime.Now.Date)
+        if (string.IsNullOrWhiteSpace(request.ItemNo) && start.Date < DateTime.Now.Date)
             return Fail("TỪ NGÀY không được nhỏ hơn ngày hiện tại");
         if (start.Date > end.Date)
             return Fail("TỪ NGÀY không lớn hơn ĐẾN NGÀY");
@@ -141,92 +142,9 @@ public sealed partial class CouponService(
         return (deleted, message);
     }
 
-    // ── Sinh mã Auto (port controller SaveIssueCoupon nhánh "Auto") ─────────────
-    // Port: thay Thread.Sleep(1) legacy bằng offset theo index để mã duy nhất, không block thread.
-    private static (List<string> Codes, string? Error) GenerateAutoCodes(CouponIssueSaveRequest r)
-    {
-        if (r.Quantity <= 0)
-            return ([], "Vui lòng nhập số lượng phát hành");
-        if (r.LenCode < 5 || r.LenCode > 20)
-            return ([], "Kích thước mã từ 5->20 ký tự");
-
-        var prefix = (r.Prefix ?? string.Empty).Trim().ToUpperInvariant();
-        if (r.LenCode + prefix.Length + r.CharOfNumber > 20)
-            return ([], "Tổng ký tự coupon đã vượt hơn 20");
-
-        var rnd = new Random();
-        var list = new List<string>(r.Quantity);
-        var set = new HashSet<string>(StringComparer.Ordinal);
-        var baseUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-        for (var i = 0; i < r.Quantity; i++)
-        {
-            var codeChar = r.CharOfNumber > 0 ? RandomString(Alphabet, r.CharOfNumber, rnd) : string.Empty;
-
-            var lenNumber = r.LenCode;
-            var timeUnix = (baseUnix + i).ToString(CultureInfo.InvariantCulture);
-
-            var lengthCodeUnix = lenNumber;
-            var codeBlance = string.Empty;
-            if (timeUnix.Length < lenNumber)
-            {
-                lengthCodeUnix = timeUnix.Length;
-                codeBlance = RandomString(Numbers, lenNumber - timeUnix.Length, rnd);
-            }
-
-            var codeNumberFirst = codeBlance + timeUnix.Substring(timeUnix.Length - lengthCodeUnix, lengthCodeUnix);
-
-            var code = codeNumberFirst;
-            if (r.CharOfNumber > 0)
-            {
-                var pos = Math.Min(Math.Max(r.CharPosition, 0), code.Length);
-                code = code.Insert(pos, codeChar);
-            }
-
-            var codeValue = prefix + code;
-            if (!set.Add(codeValue))
-                return ([], "Hiện tại hệ thống generate coupon trùng nhau, vui lòng chờ trong ít phút để tạo lại");
-            list.Add(codeValue);
-        }
-
-        return (list, null);
-    }
-
-    // ── Validate mã Import từ Excel (port controller nhánh "Import") ────────────
-    private static (List<string> Codes, string? Error) ValidateImportCodes(List<string> importCodes)
-    {
-        var codes = importCodes ?? [];
-        if (codes.Count == 0)
-            return ([], "Vui lòng kiểm tra file Excel, không có mã coupon");
-        if (codes.Any(string.IsNullOrWhiteSpace))
-            return ([], "Vui lòng kiểm tra cột CodeCoupon, có giá trị trống");
-
-        var trimmed = codes.Select(c => c.Trim()).ToList();
-
-        var invalid = trimmed.Where(c => !CodeRegex().IsMatch(c)).ToList();
-        if (invalid.Count > 0)
-            return ([], $"Có {invalid.Count} mã coupon trong file excel có ký tự đặc biệt ({string.Join(",", invalid)})");
-
-        var tooLong = trimmed.Where(c => c.Length > 20).ToList();
-        if (tooLong.Count > 0)
-            return ([], $"Có {tooLong.Count} mã coupon trong file excel vượt quá 20 ký tự ({string.Join(",", tooLong)})");
-
-        var dup = trimmed.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-        if (dup.Count > 0)
-            return ([], $"File excel có giá trị trùng ({string.Join(",", dup)}), Vui lòng kiểm tra lại");
-
-        return (trimmed, null);
-    }
-
-    private static string RandomString(string source, int length, Random rnd)
-        => new(Enumerable.Range(0, length).Select(_ => source[rnd.Next(source.Length)]).ToArray());
-
     private static DateTime ParseDmy(string? dmy)
         => DateTime.TryParseExact(dmy, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
             ? d : new DateTime(1900, 1, 1);
 
     private static CouponSaveResult Fail(string message) => new() { Ok = false, Message = message };
-
-    [GeneratedRegex(@"^[0-9\-_A-Za-z]*$")]
-    private static partial Regex CodeRegex();
 }

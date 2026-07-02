@@ -86,25 +86,28 @@
           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferHeaderListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>
+        <MudTh Style="width:64px">Action</MudTh>
         <MudTh>Bonus Buy</MudTh>
         <MudTh>Promotion No</MudTh>
-        <MudTh>Tên CTKM</MudTh>
-        <MudTh>Loại CTKM</MudTh>
-        <MudTh>Hình thức bán</MudTh>
+        <MudTh Style="white-space:normal">Tên CTKM</MudTh>
+        <MudTh>OfferType</MudTh>
         <MudTh>Trạng thái</MudTh>
         <MudTh>Từ ngày</MudTh>
         <MudTh>Đến ngày</MudTh>
-        <MudTh>Local Site Group</MudTh>
+        <MudTh>SiteGroup</MudTh>
         <MudTh Style="text-align:right">LimitQty</MudTh>
         <MudTh>Ngày cập nhật</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+        <MudTd DataLabel="Action">
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Primary"
+                           Title="Xem chi tiết"/>
+        </MudTd>
         <MudTd DataLabel="Bonus Buy"><b>@context.BonusbuyNo</b></MudTd>
         <MudTd DataLabel="Promotion No">@context.PromotionNo</MudTd>
-        <MudTd DataLabel="Tên CTKM">@context.Description</MudTd>
-        <MudTd DataLabel="Loại CTKM">@context.OfferType</MudTd>
-        <MudTd DataLabel="Hình thức bán">@context.SalesTypeName</MudTd>
+        <MudTd DataLabel="Tên CTKM" Style="white-space:normal">@context.Description</MudTd>
+        <MudTd DataLabel="OfferType">@context.OfferType</MudTd>
         <MudTd DataLabel="Trạng thái">
             <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
                      Color="@(IsActive(context.Status) ? Color.Success : Color.Error)">
@@ -113,10 +116,14 @@
         </MudTd>
         <MudTd DataLabel="Từ ngày">@context.StartingDate</MudTd>
         <MudTd DataLabel="Đến ngày">@context.EndingDate</MudTd>
-        <MudTd DataLabel="Local Site Group">@context.LocalSiteGroup</MudTd>
+        <MudTd DataLabel="SiteGroup">@context.LocalSiteGroup</MudTd>
         <MudTd DataLabel="LimitQty" Style="text-align:right">@context.LimitQty.ToString("#,##0.##")</MudTd>
         <MudTd DataLabel="Ngày cập nhật">
-            <MudText Typo="Typo.caption">@context.LastDateModified</MudText>
+            <MudText Typo="Typo.caption">
+                @(DateTime.TryParse(context.LastDateModified, out var lastModified)
+                    ? lastModified.ToString("yyyy-MM-dd HH:mm")
+                    : context.LastDateModified)
+            </MudText>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>

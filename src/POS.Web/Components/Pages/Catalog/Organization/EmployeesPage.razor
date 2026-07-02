@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
 @using MudBlazor
+@using Newtonsoft.Json
 @using POS.Common.Dtos.CentralMD
 @using POS.Infrastructure.Logging
 @using POS.Infrastructure.Repositories.Interfaces
@@ -15,15 +16,26 @@
 @inject ICentralMDRepository MdRepo
 @inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IAuditLogger AuditLogger
 @inject IJSRuntime JS
 
 <PageTitle>Danh mục Nhân viên – POS Dashboard</PageTitle>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Badge" Class="mr-2" Style="vertical-align:middle"/>
-    Danh mục Nhân viên
-</MudText>
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Badge" Class="mr-2" Style="vertical-align:middle"/>
+        Danh mục Nhân viên
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="OpenCreateDialogAsync"
+               Class="pos-page-header-btn">
+        Thêm nhân viên
+    </MudButton>
+</div>
 
 @* ── Filter bar ──────────────────────────────────────────────────────── *@
 <MudPaper Elevation="1" Class="pa-4 mb-4">
@@ -98,6 +110,7 @@
         <MudTh>Tên cửa hàng</MudTh>
         <MudTh>Điện thoại</MudTh>
         <MudTh>Ngày cập nhật</MudTh>
+        <MudTh Style="text-align:center; width:80px">Thao tác</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
@@ -118,6 +131,15 @@
         <MudTd DataLabel="Ngày cập nhật">
             <MudText Typo="Typo.caption">@context.LastDateModifiedStr</MudText>
         </MudTd>
+        <MudTd DataLabel="Thao tác" Style="text-align:center">
+            @if (IsActive(context.Status))
+            {
+                <MudTooltip Text="Đổi mật khẩu POS">
+                    <MudIconButton Icon="@Icons.Material.Filled.Key" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="@(() => OpenChangePasswordDialogAsync(context))"/>
+                </MudTooltip>
+            }
+        </MudTd>
     </RowTemplate>
     <NoRecordsContent>
         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
@@ -126,7 +148,10 @@
         </div>
     </NoRecordsContent>
     <LoadingContent>
-        <MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText>
+        <div class="d-flex align-center justify-center gap-2 pa-4">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
+            <MudText>Đang tải...</MudText>
+        </div>
     </LoadingContent>
     <PagerContent>
         <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
@@ -136,6 +161,9 @@
 </MudTable>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
     private MudTable<EmployeeListItemDto> _table = null!;
     private readonly EmployeeListFilter _filter = new() { TypeGroup = "-1", Status = "-1", PageSize = 20 };
 
@@ -143,11 +171,14 @@
     private int _offset;
     private bool _exporting;
     private string? _errorMsg;
+    private string _currentActor = "unknown";
 
     private List<StoreDto> _allStores = [];
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
         try
         {
             _allStores = await MdRepo.GetStoreListAsync();
@@ -155,6 +186,75 @@
         catch (Exception ex)
         {
             FileLogger.WriteExpLogs("EmployeesPage.LoadStores", ex);
+        }
+    }
+
+    // ── Thêm nhân viên ───────────────────────────────────────────────────
+    private async Task OpenCreateDialogAsync()
+    {
+        var parameters = new DialogParameters<EmployeeFormDialog>
+        {
+            { x => x.Stores, _allStores }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.Small,
+            FullWidth        = true,
+            BackdropClick    = false
+        };
+        var dialog = await DialogService.ShowAsync<EmployeeFormDialog>("Thêm nhân viên", parameters, options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is EmployeeCreateDto saved)
+        {
+            // Audit CREATE — mask password (audit-logging.md: không ghi credential vào log)
+            await AuditLogger.LogAsync(_currentActor, "CREATE", "Staff",
+                saved.StaffCode,
+                oldValueJson: null,
+                newValueJson: JsonConvert.SerializeObject(new
+                {
+                    saved.StaffCode, saved.StaffName, saved.StoreNo, saved.EmploymentType,
+                    saved.PermissionGroup, saved.VoidTransaction, saved.Blocked,
+                    saved.HomePhoneNo, Password = "***"
+                }));
+
+            Snackbar.Add($"Đã thêm nhân viên \"{saved.StaffCode}\".", Severity.Success);
+            await _table.ReloadServerData();
+        }
+    }
+
+    // ── Đổi mật khẩu POS ─────────────────────────────────────────────────
+    private async Task OpenChangePasswordDialogAsync(EmployeeListItemDto item)
+    {
+        var parameters = new DialogParameters<EmployeeChangePasswordDialog>
+        {
+            { x => x.StaffCode, item.StaffCode },
+            { x => x.StaffName, item.FirstName }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.ExtraSmall,
+            FullWidth        = true,
+            BackdropClick    = false
+        };
+        var dialog = await DialogService.ShowAsync<EmployeeChangePasswordDialog>(
+            "Đổi mật khẩu POS", parameters, options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            // Audit — không serialize password thật (mask theo audit-logging.md)
+            await AuditLogger.LogAsync(_currentActor, "CHANGE_POS_PASSWORD", "Staff",
+                item.StaffCode,
+                oldValueJson: JsonConvert.SerializeObject(new { Password = "***" }),
+                newValueJson: JsonConvert.SerializeObject(new { Password = "***" }));
+
+            Snackbar.Add($"Đã đổi mật khẩu POS cho \"{item.StaffCode}\".", Severity.Success);
+            await _table.ReloadServerData(); // refresh Ngày cập nhật
         }
     }
 

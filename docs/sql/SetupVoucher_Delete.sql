@@ -1,8 +1,11 @@
 /* ============================================================================
    8.3 Danh mục Voucher — SP xóa — RPOSMasterData
    Port từ VCM.BLUEPOS VoucherData.DeleteVoucherHeaderList (EF: xóa header).
-   Dọn kèm CpnVchBOMLine để không mồ côi. Trả (Deleted bit, Message).
-   CHẠY 1 LẦN trên RPOSMasterData.
+   Xóa cascade CpnVchBOMHeader + CpnVchBOMLine + CpnVchBOMCodeIssue (Source='VOUCHER').
+   Chặn xóa nếu có BẤT KỲ mã (Source='VOUCHER') đã Status='RDM' (đã redeem qua POS.Api) —
+   trả Deleted=0 kèm thông báo nghiệp vụ; muốn khóa voucher đã dùng thì vào trang Xem
+   (/promotion/vouchers/issue?id=...) bật "Khóa (Blocked)" thay vì xóa.
+   Trả (Deleted bit, Message). CHẠY 1 LẦN trên RPOSMasterData.
    ============================================================================ */
 USE [RPOSMasterData];
 GO
@@ -26,10 +29,18 @@ BEGIN
         RETURN;
     END
 
+    IF EXISTS (SELECT 1 FROM dbo.CpnVchBOMCodeIssue
+               WHERE ItemNo = @ItemNo AND Source = 'VOUCHER' AND Status = 'RDM')
+    BEGIN
+        SELECT CAST(0 AS bit) AS Deleted, N'Voucher đã được sử dụng' AS [Message];
+        RETURN;
+    END
+
     BEGIN TRY
         BEGIN TRANSACTION;
-        DELETE FROM dbo.CpnVchBOMLine   WHERE ItemNo = @ItemNo;
-        DELETE FROM dbo.CpnVchBOMHeader WHERE ItemNo = @ItemNo;
+        DELETE FROM dbo.CpnVchBOMCodeIssue WHERE ItemNo = @ItemNo AND Source = 'VOUCHER';
+        DELETE FROM dbo.CpnVchBOMLine      WHERE ItemNo = @ItemNo;
+        DELETE FROM dbo.CpnVchBOMHeader    WHERE ItemNo = @ItemNo;
         COMMIT TRANSACTION;
         SELECT CAST(1 AS bit) AS Deleted, N'Xóa thành công' AS [Message];
     END TRY

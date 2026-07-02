@@ -20,5 +20,14 @@ public interface IVoucherService
 
     Task<VoucherSaveResult> SaveAsync(VoucherSaveRequest request, string actor, CancellationToken ct = default);
 
+    /// <summary>Phát hành voucher: validate + sinh/validate mã (Auto/Import) + check trùng DB + lưu.</summary>
+    Task<VoucherSaveResult> SaveIssueAsync(VoucherIssueSaveRequest request, string actor, CancellationToken ct = default);
+
+    /// <summary>Danh sách mã voucher đã phát hành (tab "Mã đã phát hành").</summary>
+    Task<(List<VoucherCodeDto> Items, int Total)> GetCodesAsync(VoucherCodeFilter filter, CancellationToken ct = default);
+
     Task<(bool Ok, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default);
+
+    /// <summary>Cập nhật RIÊNG trạng thái khóa (Blocked) — dùng ở trang Xem voucher sau khi đã phát hành.</summary>
+    Task<VoucherSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default);
 }

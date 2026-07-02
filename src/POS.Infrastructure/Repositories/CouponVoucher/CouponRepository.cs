@@ -35,6 +35,26 @@ public sealed class CouponRepository(CentralMDConnectionFactory connectionFactor
         return (items, total);
     }
 
+    public async Task<(List<CouponHeaderListItemDto> Items, int Total)> GetHeaderListAsync(
+        CouponHeaderListFilter filter, CancellationToken ct = default)
+    {
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var items = (await conn.QueryAsync<CouponHeaderListItemDto>(new CommandDefinition(
+            "dbo.usp_CpnVchBOMHeader_GetList",
+            new
+            {
+                KeyWord    = (filter.KeyWord ?? string.Empty).Trim(),
+                Type       = (filter.ArticleType ?? string.Empty).Trim(),
+                Status     = string.IsNullOrWhiteSpace(filter.Status) ? "-1" : filter.Status.Trim(),
+                PageSize   = Math.Max(1, filter.PageSize),
+                PageNumber = Math.Max(0, filter.PageNumber)
+            },
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct))).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
     public async Task<(List<CouponCodeDto> Items, int Total)> GetCodesAsync(
         CouponCodeFilter filter, CancellationToken ct = default)
     {

@@ -114,6 +114,7 @@ src/
 │   │   │   │                      CpnVchBOMHeaderDto, CpnVchBOMLineDto, ItemDto, ItemPointsMemberDto,
 │   │   │   │                      LoyaltyRateDto, MMLSchemeHeader, MMLSchemeItem, MMLSchemeResponse,
 │   │   │   │                      MMLSchemeRequest, MMLSchemeItemsRequest)
+│   │   │   ├── EmployeeDto.cs   (EmployeeListItemDto, EmployeeListFilter, EmployeeCreateDto)        ← 5.1 Danh mục NV + tạo mới/đổi mật khẩu POS
 │   │   │   ├── ProductListDto.cs (ProductListItemDto, ProductListFilter, PosVatCodeDto)             ← 6.1
 │   │   │   ├── ProductCreateDto.cs (ProductCreateDto, BarcodeRowDto, ArticleTypeDto, UnitOfMeasureDto) ← 6.2
 │   │   │   └── ProductLockDto.cs (ProductLockItemDto, ProductLockFilter, ProductLockSaveDto)        ← 6.4
@@ -122,7 +123,7 @@ src/
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
-│   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/Code…)
+│   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
 │   │   ├── Voucher/SetupVoucherDtos.cs      ← 8.3/8.4 (VoucherList/Detail/Save + VoucherPublished lookup)
 │   │   ├── CXVoucher/CXVoucherDto.cs
 │   │   ├── DRW/UpdateStatusSfaffDiscountDto.cs
@@ -281,12 +282,11 @@ src/
         │   ├── ILoyaltyRepository.cs / LoyaltyRepository.cs
         │   ├── IOfferStaffRepository.cs / OfferStaffRepository.cs
         │   └── IWincodeRepository.cs / WincodeRepository.cs
-        ├── Sap/
-        │   └── ISAPVoucherRepository.cs / SAPVoucherRepository.cs
-        ├── CouponVoucher/                  ← 8.1–8.4 (dùng chung bảng CpnVchBOM*)
-        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_*)
+        ├── CouponVoucher/                  ← 8.1–8.4 + SAP Voucher (dùng chung bảng CpnVchBOMCodeIssue, cột Source)
+        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_* + GetHeaderListAsync→usp_CpnVchBOMHeader_GetList cho master list, Source='COUPON')
         │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
-        │   └── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
+        │   ├── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
+        │   └── IVoucherCodeRepository.cs / VoucherCodeRepository.cs         ← SAP Internal Voucher real-time (CentralMD, SP usp_Voucher_*, CpnVchBOMCodeIssue Source='SAP'; thay ISAPVoucherRepository/bảng Internal_Voucher cũ, nay LEGACY)
         ├── Price/                          ← 9.1/9.3 Bảng giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save
         └── DataSync/
@@ -331,7 +331,7 @@ src/
 | `ILoyaltyRepository` | `LoyaltyRepository` | Loyalty/ | POS.Infrastructure |
 | `IOfferStaffRepository` | `OfferStaffRepository` | Loyalty/ | POS.Infrastructure |
 | `IWincodeRepository` | `WincodeRepository` | Loyalty/ | POS.Infrastructure |
-| `ISAPVoucherRepository` | `SAPVoucherRepository` | Sap/ | POS.Infrastructure |
+| `IVoucherCodeRepository` | `VoucherCodeRepository` | CouponVoucher/ | POS.Infrastructure |
 | `ICouponRepository` | `CouponRepository` | CouponVoucher/ | POS.Infrastructure |
 | `IVoucherRepository` | `VoucherRepository` | CouponVoucher/ | POS.Infrastructure |
 | `IVoucherPublishedRepository` | `VoucherPublishedRepository` | CouponVoucher/ | POS.Infrastructure |
@@ -382,7 +382,7 @@ src/
 | `ISAPService` → `SAPService` | Scoped | SAP voucher/coupon |
 | `IGiftService` → `GiftService` | Scoped | Gift barcode |
 | `IMasterDataSyncService` → `MasterDataSyncService` | Scoped | Sinh zip master data + log download |
-| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel |
+| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher) |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey |
@@ -404,7 +404,7 @@ src/
 | `ILoyaltyRepository` → `LoyaltyRepository` | Scoped | Loyalty DB |
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
-| `ISAPVoucherRepository` → `SAPVoucherRepository` | Scoped | SAP voucher DB |
+| `IVoucherCodeRepository` → `VoucherCodeRepository` | Scoped | SAP voucher real-time (CpnVchBOMCodeIssue, Source='SAP') |
 | `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD) |
 | `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD) |
 | `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
@@ -465,17 +465,22 @@ Task<SysWebApiDto?> GetSysWebApiAsync(string appCode, CancellationToken ct = def
 Task<List<POSDataSetupModel>?> GetPOSDataSetupAsync(CancellationToken ct = default)          // cache Redis 12h
 Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default)            // cache Redis 12h
 Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default)                         // StoreNo+Name, cache MD:StoreList 12h — store picker UI
+Task<List<BranchDto>> GetBranchListAsync(CancellationToken ct = default)                       // No+Description, cache MD:BranchList 12h — combobox Chi nhánh
 Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model, CancellationToken ct = default)
 Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress, CancellationToken ct = default)
 Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = default)          // không cache
 Task<List<POSVersionModel>?> GetPOSVersionAsync(CancellationToken ct = default)
 Task<bool> CheckCouponLineAsync(string itemNo, string barCode, CancellationToken ct = default)
+Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = default)   // cache Redis Hash MD:CpnVchBOMHeader (positive-only)
 Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
 // ── Web admin: danh sách POS monitor / terminal ──
 Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default)
 Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default)
 Task<bool> UpdatePosTerminalAsync(string posNo, string ipAddress, bool? status, string? billNoseri, string updatedBy, CancellationToken ct = default)
 Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default)
+Task<bool> StoreCodeExistsAsync(string storeNo, CancellationToken ct = default)                 // check trùng mã CH
+Task<bool> CreateStoreAsync(StoreCreateDto dto, CancellationToken ct = default)                  // INSERT dbo.Store, invalidate MD:StoreList
+Task<bool> UpdateStoreClosingMethodAsync(string storeNo, int closingMethod, CancellationToken ct = default)  // đổi trạng thái đóng/mở, invalidate MD:StoreList
 Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default)
 // ── POSDataSetup CRUD (Web admin UI) — invalidate Redis MD:POSDataSetup sau mỗi write ──
 Task<List<POSDataSetupAdminDto>> GetPOSDataSetupAdminListAsync(CancellationToken ct = default)
@@ -483,6 +488,12 @@ Task<POSDataSetupAdminDto?> GetPOSDataSetupByCodeAsync(string code, Cancellation
 Task<(bool success, bool duplicateCode)> InsertPOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)
 Task<bool> UpdatePOSDataSetupAsync(POSDataSetupAdminDto dto, CancellationToken ct = default)    // KHÔNG đụng Counter/Pkey
 Task<bool> DeletePOSDataSetupAsync(string code, CancellationToken ct = default)
+// ── Danh mục Nhân viên — dbo.Staff (migrate 5.1 + create/change password) ──
+Task<(List<EmployeeListItemDto> Items, int Total)> GetEmployeeListAsync(EmployeeListFilter filter, CancellationToken ct = default)   // SP GetEmployeeList, paging server-side
+Task<List<EmployeeListItemDto>> ExportEmployeeListAsync(EmployeeListFilter filter, CancellationToken ct = default)                  // SP GetEmployeeList_Export
+Task<bool> StaffCodeExistsAsync(string staffCode, CancellationToken ct = default)                                                   // check trùng mã NV
+Task<bool> CreateEmployeeAsync(EmployeeCreateDto dto, CancellationToken ct = default)          // INSERT Staff — Password plain text (contract POS), Counter=MAX+1, Pkey=StaffCode
+Task<bool> ChangeEmployeePasswordAsync(string staffCode, string newPassword, CancellationToken ct = default)  // UPDATE Password, chỉ khi Blocked=0/NULL, Counter=MAX+1
 // ── BankPOS (migrate 5.5) ──
 Task<List<BankPOSListDto>> GetBankPOSListAsync(CancellationToken ct = default)
 Task<(bool success, bool duplicateCode)> SaveBankPOSAsync(BankPOSSaveDto dto, string actor, CancellationToken ct = default)
@@ -576,7 +587,7 @@ Task<Tuple<bool, string>> InsertWincodeCustomerAsync(WinLife_UpdatePromotions_PO
 > Application services = `POS.Application.Features.{Common|Partner|DataSync|Sap|Gift}`;
 > AppServices = `POS.Infrastructure.AppServices.{Partner|DataSync}`.
 > **Service mới chưa liệt kê chữ ký ở đây** (xem code): `ISAPService` (`Features.Sap`), `IGiftService` (`Features.Gift`);
-> Repositories mới (Mục D): `ISAPVoucherRepository`, `IRptCentralSaleRepository`, `IRptReportSaleDetailRepository`.
+> Repositories mới (Mục D): `IVoucherCodeRepository`, `IRptCentralSaleRepository`, `IRptReportSaleDetailRepository`.
 
 ### Application Services
 
@@ -814,6 +825,8 @@ IDbConnection CreateOpenConnection()
 | Class | File | Các field chính |
 |-------|------|----------------|
 | `StoreDto` | CentralMDDto.cs | `StoreNo`, `No`, `Name`, `Address`, `TaxCode`, `ConnectionString`, ... |
+| `BranchDto` | CentralMDDto.cs | `No`, `Description` — dbo.Branch, dùng cho combobox Chi nhánh |
+| `StoreCreateDto` | CentralMDDto.cs | `StoreNo`, `Name`, `Address`, `BranchNo`, `ClosingMethod` — payload tạo mới cửa hàng (StorePage) |
 | `StoreSetup` | CentralMDDto.cs | `StoreNo`, `Code`, `Value`, `Status` |
 | `SysWebApiConfig` | CentralMDDto.cs | `Code`, `Name`, `Prefix`, `ConnectionString`, `Blocked`, ... |
 | `StoreSetConfig` | CentralMDDto.cs | extends SysWebApiConfig + `StoreNo` |
@@ -1050,7 +1063,7 @@ _(So sánh với `docs/PROJECT_INVENTORY.md` — cấu trúc cũ .NET Framework 
 | `WinLifeController` | ❌ Chưa migrate | WinLifeService | Trung bình — WinLife program |
 | `WinpayController` | ❌ Chưa migrate | WinpayService | Trung bình — Winpay partner |
 | `PLGController` | ❌ Chưa migrate | PLGBLO, PLGData | Thấp — PLG vouchers |
-| `SAPController` | ✅ Đã migrate | ISAPService, ISAPVoucherRepository | SAP Internal Voucher |
+| `SAPController` | ✅ Đã migrate | ISAPService, IVoucherCodeRepository | SAP Internal Voucher (nay lưu vào CpnVchBOMCodeIssue Source='SAP', không còn bảng Internal_Voucher) |
 | `QueueController` | ❌ Chưa migrate | RabbitMQService | Thấp — manual queue ops |
 | `SettingController` | ❌ Chưa migrate | MemoryCacheService (reload cache) | Thấp — admin ops |
 | `ValidateController` | ❌ Chưa migrate | CommonBLO (ValidateTransaction, InvoiceCreated) | **Cao** — VAT/tax validation |
