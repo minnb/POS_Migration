@@ -281,6 +281,8 @@ else
             _salesType = _lookup.SalesTypes.FirstOrDefault(s =>
                              s.Text.Contains("Tại chỗ", StringComparison.OrdinalIgnoreCase))?.Value
                          ?? _lookup.SalesTypes.FirstOrDefault()?.Value ?? string.Empty;
+            // Mặc định Nhóm giá = "ALL".
+            _priceGroup = "ALL";
         }
         catch (Exception ex)
         {
@@ -551,7 +553,7 @@ else
         catch (Exception ex)
         {
             FileLogger.WriteExpLogs("PriceSetupPage.Save", ex);
-            Snackbar.Add("Lưu bảng giá thất bại. Vui lòng thử lại.", Severity.Error);
+            Snackbar.Add($"Lưu bảng giá thất bại: {ex.Message}", Severity.Error);
         }
         finally { _saving = false; }
     }

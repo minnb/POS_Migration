@@ -127,8 +127,10 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         var cached = await redis.StringGetAsync<List<PriceOptionDto>>(KeyPriceGroupOptions);
         if (cached?.Count > 0) return cached;
 
+        // Text hiển thị = "PriceGroupCode - PriceGroupName" (nếu thiếu tên → chỉ Code).
         const string sql = @"SELECT DISTINCT [PriceGroupCode] AS Value,
-                                    ISNULL([PriceGroupName], [PriceGroupCode]) AS Text
+                                    CASE WHEN ISNULL([PriceGroupName], '') = '' THEN [PriceGroupCode]
+                                         ELSE [PriceGroupCode] + N' - ' + [PriceGroupName] END AS Text
                              FROM   dbo.StorePriceGroup (NOLOCK)
                              WHERE  ISNULL([PriceGroupCode], '') <> ''
                              ORDER  BY Text";

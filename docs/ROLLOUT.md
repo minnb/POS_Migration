@@ -416,6 +416,10 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 - **BẮT BUỘC chạy 1 script** trên `RPOSMasterData` trước khi dùng trang:
   - `docs/sql/SetupSalePrice_Save.sql` — 2 TYPE TVP (`SetupSalePriceImportTVP`, `SetupSalePriceLineTVP`) +
     `dbo.usp_SetupSalePrice_Save` (INSERT Pkey mới + ủy quyền update Pkey đã tồn tại qua `Setup_SalePrice_Get_ALL`).
+- **⚠️ 2026-07-03 — CHẠY LẠI script này** (fix lỗi 266 *"Transaction count ... mismatching BEGIN and COMMIT"*
+  khi Lưu bảng giá với Pkey đã tồn tại): `usp_SetupSalePrice_Save` nay **COMMIT phần INSERT TRƯỚC** rồi mới
+  `EXEC Setup_SalePrice_Get_ALL` **NGOÀI transaction** (SP legacy tự quản transaction; nếu lồng trong `BEGIN TRAN`
+  của ta sẽ lệch `@@TRANCOUNT`). Không re-apply → tiếp tục lỗi "Lưu bảng giá thất bại".
 - **⚠️ Schema `dbo.SalesPrice`**: SP INSERT đúng **15 cột** thực có của bảng — **KHÔNG** ghi `IsActive` /
   `LastTimeUpdate` / `Id` (những cột này KHÔNG tồn tại trong schema hiện hành, khác EF model legacy .NET 4.6).
   Nếu deploy proc cũ (còn `IsActive`/`LastTimeUpdate`) → lưu giá lỗi `Invalid column name`. **Chạy lại script này**

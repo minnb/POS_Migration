@@ -70,29 +70,9 @@ CREATE PROCEDURE dbo.usp_SetupSalePrice_Save
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     BEGIN TRY
-        BEGIN TRAN;
-
-        /* Counter mới = MAX(Counter còn hiệu lực) + 1 (rỗng → 1) — giống legacy maxCounter+1 */
-        DECLARE @maxCounter bigint =
-            ISNULL((SELECT MAX(Counter) FROM dbo.SalesPrice WITH (UPDLOCK, HOLDLOCK)
-                    WHERE YEAR(EndingDate) <> 7777), 0) + 1;
-
-        /* 3a) INSERT các Pkey CHƯA tồn tại — chỉ 15 cột thực có của dbo.SalesPrice */
-        INSERT dbo.SalesPrice
-            (ItemNo, SalesCode, StartingDate, CurrencyCode, UnitOfMeasureCode, UnitPrice,
-             PriceIncludesVAT, AllowInvoiceDisc, SalesType, MinimumQuantity, EndingDate,
-             VariantCode, AllowLineDisc, Counter, Pkey)
-        SELECT
-            L.ItemNo, L.SalesCode, L.StartingDate, N'VND', L.UnitOfMeasureCode, L.UnitPrice,
-            1, 1, L.SalesType, 1, L.EndingDate,
-            N'', 1, @maxCounter, L.Pkey
-        FROM @Lines L
-        WHERE NOT EXISTS (
-            SELECT 1 FROM dbo.SalesPrice SP
-            WHERE SP.Pkey = L.Pkey AND YEAR(SP.EndingDate) <> 7777);
-
-        /* 3b) Pkey ĐÃ tồn tại → ủy quyền SP update legacy qua JSON */
+        /* Chuẩn bị JSON cho nhánh update legacy TRƯỚC (đọc, không ghi) */
         DECLARE @Json nvarchar(max) =
         (
             SELECT
@@ -107,10 +87,36 @@ BEGIN
             FOR JSON PATH
         );
 
+        /* 3a) INSERT các Pkey CHƯA tồn tại — transaction RIÊNG, COMMIT ngay.
+               KHÔNG bao lời gọi SP legacy trong transaction này (SP legacy tự quản
+               transaction của nó — nếu lồng nhau, ROLLBACK/COMMIT của nó làm lệch
+               @@TRANCOUNT và gây lỗi 266 "mismatching BEGIN and COMMIT"). */
+        BEGIN TRAN;
+
+            DECLARE @maxCounter bigint =
+                ISNULL((SELECT MAX(Counter) FROM dbo.SalesPrice WITH (UPDLOCK, HOLDLOCK)
+                        WHERE YEAR(EndingDate) <> 7777), 0) + 1;
+
+            INSERT dbo.SalesPrice
+                (ItemNo, SalesCode, StartingDate, CurrencyCode, UnitOfMeasureCode, UnitPrice,
+                 PriceIncludesVAT, AllowInvoiceDisc, SalesType, MinimumQuantity, EndingDate,
+                 VariantCode, AllowLineDisc, Counter, Pkey)
+            SELECT
+                L.ItemNo, L.SalesCode, L.StartingDate, N'VND', L.UnitOfMeasureCode, L.UnitPrice,
+                1, 1, L.SalesType, 1, L.EndingDate,
+                N'', 1, @maxCounter, L.Pkey
+            FROM @Lines L
+            WHERE NOT EXISTS (
+                SELECT 1 FROM dbo.SalesPrice SP
+                WHERE SP.Pkey = L.Pkey AND YEAR(SP.EndingDate) <> 7777);
+
+        COMMIT;   -- đóng transaction của mình TRƯỚC khi gọi SP legacy
+
+        /* 3b) Pkey ĐÃ tồn tại → ủy quyền SP update legacy (chạy NGOÀI transaction —
+               SP legacy tự BEGIN/COMMIT/ROLLBACK, không còn nesting với ta) */
         IF @Json IS NOT NULL AND LEN(@Json) > 0
             EXEC dbo.Setup_SalePrice_Get_ALL @Json = @Json;
 
-        COMMIT;
         SELECT CAST(1 AS bit) AS Ok, N'Cập nhật thành công bảng giá' AS Message;
     END TRY
     BEGIN CATCH
