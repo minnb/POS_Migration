@@ -377,3 +377,14 @@
         min-height: 40px !important;
     }
 }
+
+/* ── Hiệu ứng dòng đang đẩy dữ liệu đầu ngày (PosMapPage SyncData) ───────
+   Pulse nhẹ nền dòng để báo "đang xử lý file" — spinner trong nút là tín hiệu chính. */
+@keyframes pos-row-sync-pulse {
+    0%   { background-color: #fff8e1; }
+    50%  { background-color: #ffecb3; }
+    100% { background-color: #fff8e1; }
+}
+.pos-row-syncing td {
+    animation: pos-row-sync-pulse 1.2s ease-in-out infinite;
+}

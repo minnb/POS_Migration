@@ -26,6 +26,29 @@ public interface ICentralMDRepository
     /// <summary>Danh sách chi nhánh (No + Description) từ bảng Branch, cache Redis 12h. Dùng cho combobox Chi nhánh.</summary>
     Task<List<BranchDto>> GetBranchListAsync(CancellationToken ct = default);
 
+    // ── Danh mục Chi nhánh / Tỉnh-Thành (Branch) — trang catalog/provinces ───
+
+    /// <summary>Toàn bộ danh sách chi nhánh (No, Description, Address, VATRegistrationNo) dùng cho trang quản trị. Không cache.</summary>
+    Task<List<BranchAdminDto>> GetBranchAdminListAsync(CancellationToken ct = default);
+
+    /// <summary>EXISTS dbo.Branch theo No (mã chi nhánh) — check trùng trước khi tạo mới.</summary>
+    Task<bool> BranchCodeExistsAsync(string branchNo, CancellationToken ct = default);
+
+    /// <summary>
+    /// INSERT dbo.Branch — tạo mới chi nhánh. Các cột NOT NULL còn lại ngoài form (PhoneNo, FaxNo,
+    /// BankAccountNo, BankName, BankAddress, BankAcountName, VietnameseDescription, VietnameseAddress,
+    /// UrlElecInvoice) được điền chuỗi rỗng. Counter = MAX(Counter)+1 toàn bảng (để POS sync incremental
+    /// nhận thay đổi), Pkey = No. Trả false nếu lỗi/trùng PK. Invalidate MD:BranchList sau khi tạo.
+    /// </summary>
+    Task<bool> CreateBranchAsync(BranchCreateDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// UPDATE dbo.Branch SET Description, Address, VATRegistrationNo theo No. Counter = MAX(Counter)+1
+    /// (để POS sync incremental nhận thay đổi). Trả false nếu lỗi/không tìm thấy. Invalidate MD:BranchList
+    /// sau khi update (Description thay đổi ảnh hưởng combobox Chi nhánh).
+    /// </summary>
+    Task<bool> UpdateBranchInfoAsync(string branchNo, string description, string? address, string? vatRegistrationNo, CancellationToken ct = default);
+
     /// <summary>Danh mục hình thức thanh toán (Code + Description) từ TenderTypeSetup, cache Redis 12h.
     /// Dùng để resolve tên HTTT cho báo cáo thanh toán.</summary>
     Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default);

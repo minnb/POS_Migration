@@ -28,4 +28,10 @@ public interface IPriceRepository
     /// Trả (Ok, Message).
     /// </summary>
     Task<PriceSaveResult> SaveAsync(IReadOnlyList<PriceSaveLine> lines, string actor, CancellationToken ct = default);
+
+    /// <summary>Dropdown Nhóm giá — DISTINCT dbo.StorePriceGroup (PriceGroupCode/PriceGroupName), cache Redis 12h.</summary>
+    Task<List<PriceOptionDto>> GetPriceGroupOptionsAsync(CancellationToken ct = default);
+
+    /// <summary>Danh sách ĐVT của 1 item — dbo.ItemUnitOfMeasure.Code (cho dropdown ĐVT inline).</summary>
+    Task<List<string>> GetItemUomsAsync(string itemNo, CancellationToken ct = default);
 }

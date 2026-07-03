@@ -7,7 +7,7 @@ namespace POS.Infrastructure.Security;
 /// <summary>
 /// Mã hóa/giải mã chuỗi bí mật (password trong appsettings) bằng AES-256-GCM.
 /// Token có dạng <c>enc:</c> + base64(<c>nonce(12) || tag(16) || ciphertext</c>).
-/// Khóa = 32 byte, truyền dạng base64 (env <c>POSWEB_SECRET_KEY</c>).
+/// Khóa = 32 byte, truyền dạng base64 (env <c>POS_SECRET_KEY</c>, dùng chung cho POS.Api + POS.Web).
 /// Cross-platform (chạy được trong Docker Linux) — KHÔNG dùng DPAPI.
 /// </summary>
 public static class SecretProtector
@@ -25,7 +25,7 @@ public static class SecretProtector
     public static bool HasToken(string? value)
         => value != null && value.Contains(Prefix, StringComparison.Ordinal);
 
-    /// <summary>Sinh khóa AES-256 mới (base64) để đặt vào env POSWEB_SECRET_KEY.</summary>
+    /// <summary>Sinh khóa AES-256 mới (base64) để đặt vào env POS_SECRET_KEY.</summary>
     public static string GenerateKey()
         => Convert.ToBase64String(RandomNumberGenerator.GetBytes(KeySize));
 
@@ -80,14 +80,14 @@ public static class SecretProtector
     private static byte[] ParseKey(string base64Key)
     {
         if (string.IsNullOrWhiteSpace(base64Key))
-            throw new CryptographicException("Thiếu khóa giải mã (env POSWEB_SECRET_KEY).");
+            throw new CryptographicException("Thiếu khóa giải mã (env POS_SECRET_KEY).");
 
         byte[] key;
         try { key = Convert.FromBase64String(base64Key.Trim()); }
-        catch (FormatException) { throw new CryptographicException("POSWEB_SECRET_KEY không phải base64 hợp lệ."); }
+        catch (FormatException) { throw new CryptographicException("POS_SECRET_KEY không phải base64 hợp lệ."); }
 
         if (key.Length != KeySize)
-            throw new CryptographicException($"POSWEB_SECRET_KEY phải là {KeySize} byte (base64). Hiện tại: {key.Length} byte.");
+            throw new CryptographicException($"POS_SECRET_KEY phải là {KeySize} byte (base64). Hiện tại: {key.Length} byte.");
         return key;
     }
 }

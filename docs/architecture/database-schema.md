@@ -120,10 +120,13 @@ CreatedDate   datetime        NULL
 ```
 
 ### StorePriceGroup
-PK: (none)
+PK: (none). `PriceGroupCode` = giá trị `SalesCode` khi lưu giá (9.3 Setup Giá — SP list join
+`SalesPrice.SalesCode = StorePriceGroup.PriceGroupCode`). Dropdown "Nhóm giá" =
+`SELECT DISTINCT PriceGroupCode, PriceGroupName`.
 ```
 Store                 nvarchar(10)   NOT NULL
 PriceGroupCode        nvarchar(30)   NOT NULL
+PriceGroupName        nvarchar(...)  NULL      -- tên hiển thị nhóm giá (bổ sung 2026-07)
 Type                  int            NOT NULL
 Priority              int            NOT NULL
 ReplicationCounter    int            NOT NULL
@@ -2534,9 +2537,8 @@ FOREIGN KEY([AppCode]) REFERENCES [dbo].[SysWebApi] ([AppCode])
 ## Stored Procedures
 
 > Toàn bộ SP dưới đây định nghĩa trong `docs/sql/database/CentralMD.sql`. Chỉ ghi **tên + tham
-> số + mục đích + bảng chính liên quan** — xem file gốc để lấy full body khi cần port sang
-> Repository (Dapper) theo pattern async/`IConfiguration` ở mục "Migrate VCM.BLUEPOS" của
-> CLAUDE.md.
+> số + mục đích + bảng chính liên quan** — xem file gốc để lấy full body khi cần gọi từ
+> Repository (Dapper, async + `IConfiguration`, xem quy tắc Repository trong `CLAUDE.md`).
 
 ### GetBankPOSList
 ```

@@ -7,12 +7,13 @@
 
 | # | Hạng mục | Việc cần làm khi go-live | Mức | Mục chi tiết |
 |---|---|---|---|---|
-| C4 | Mã hóa credentials | Tạo khóa → `.env` → mã hóa → thay `enc:...` trong Production.json | CRITICAL | [§C4](#c4--mã-hóa-credentials-trong-appsettings) |
+| C4 | Mã hóa credentials | Tạo khóa → `.env` → mã hóa → thay `enc:...` trong Production.json (POS.Api **+** POS.Web) | CRITICAL | [§C4](#c4--mã-hóa-credentials-trong-appsettings) |
 | C1 | HTTPS + Cookie.Secure | Có TLS → đặt `Security:RequireHttps=true` | CRITICAL (khi ra internet) | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | H2 | AllowedHosts | Đặt domain dashboard thật thay cho `"*"` | HIGH | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | H1 | SQL Console | Cân nhắc `Security:EnableSqlConsole=false` | HIGH | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | O1 | Master data sync (POS.Api) | Đảm bảo `FtpRootPath` ghi được + tinh chỉnh `MasterDataSync` | MEDIUM | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
 | O2 | File import worker (POS.Worker) | Tạo 3 thư mục inbox/error/_work + cấp quyền ghi + điền path `FileImport` | MEDIUM | [§O2](#o2--worker-nạp-sale-từ-file-zip-posworker) |
+| O3 | Nút SyncData trên POS.Web (`/catalog/pos-setup`) | Đặt `FtpRootPath` của **POS.Web** = ĐÚNG thư mục vật lý POS.Api phục vụ (chung share/volume) | MEDIUM | [§O3](#o3--nút-syncdata-đẩy-dữ-liệu-đầu-ngày-posweb) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 4 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list) | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
@@ -25,20 +26,27 @@
 ## C4 — Mã hóa credentials trong appsettings
 
 > Mã hóa password DB/RabbitMQ trong `appsettings.Production.json` bằng AES-256-GCM.
-> Cơ chế đã build sẵn (`SecretProtector` + hook giải mã trong `Program.cs` + trang `/admin/encrypt-secret`).
+> Cơ chế đã build sẵn (`SecretProtector` + hook giải mã trong `Program.cs` + trang `/admin/encrypt-secret`
+> của POS.Web) — **áp dụng cho CẢ POS.Api và POS.Web**, dùng chung 1 khóa `POS_SECRET_KEY`.
 > Việc rollout do **người vận hành** thực hiện vì cần khóa bí mật — Claude không giữ khóa, không thay password thật.
 
 ---
 
 ## Nguyên tắc an toàn (đọc trước)
 
-- **Chỉ mã hóa `src/POS.Web/appsettings.Production.json`** — KHÔNG mã hóa `appsettings.json` (base).
+- **Mã hóa CẢ HAI file `appsettings.Production.json`** — `src/POS.Api/appsettings.Production.json` VÀ
+  `src/POS.Web/appsettings.Production.json` (2 project dùng chung nhiều credential giống nhau: SQL `sa`,
+  EInvoice, RabbitMQ). **KHÔNG** mã hóa `appsettings.json` (base) của bất kỳ project nào.
   Hook giải mã chạy ở **mọi môi trường**: nếu base có `enc:` mà máy Dev không set khóa → app **fail-fast, không khởi động**.
   Để base plaintext thì Dev chạy bình thường, không cần khóa.
 - **Khóa KHÔNG bao giờ vào git.** Khóa nằm ở `.env` (đã `.gitignore`) hoặc env của host.
   Ciphertext `enc:...` nằm trong `appsettings.Production.json` — an toàn để commit.
 - **Giữ khóa cẩn thận.** Mất khóa = không giải mã được → phải dán lại plaintext rồi mã hóa bằng khóa mới.
-- **Phạm vi:** hook chỉ wired trong **POS.Web**. POS.Api / POS.Worker (nếu dùng chung DB) vẫn plaintext — ngoài phạm vi bước này.
+- **Phạm vi:** hook wired trong **cả POS.Api và POS.Web** (`Program.cs` mỗi project), đọc chung env
+  `POS_SECRET_KEY`. **POS.Worker** vẫn plaintext — ngoài phạm vi bước này (chưa có hook).
+- **Lưu ý naming:** service `webapp` trong `docker-compose.yml` (root) thực chất build/chạy **POS.Api**
+  (tên service gây nhầm lẫn, giữ nguyên lịch sử) — không phải POS.Web. POS.Web không có trong compose
+  này, deploy riêng qua `docker run` (xem `docs/guide-deploy.md`).
 
 ---
 
@@ -52,31 +60,42 @@
   ```
 
 ### Bước 2 — Nạp khóa vào môi trường (CHƯA đụng appsettings)
+
+**Local/SIT (docker-compose.yml — chỉ có POS.Api + SQL Server):**
 - Tạo/sửa file `.env` ở thư mục chứa `docker-compose.yml`:
   ```
-  POSWEB_SECRET_KEY=<chuỗi-base64-32-byte-vừa-tạo>
+  POS_SECRET_KEY=<chuỗi-base64-32-byte-vừa-tạo>
   ```
-- `docker-compose.yml` đã có sẵn `POSWEB_SECRET_KEY: ${POSWEB_SECRET_KEY}` (service `webapp`) → tự đọc từ `.env`.
-- Khởi động lại app:
+- `docker-compose.yml` đã có sẵn `POS_SECRET_KEY: ${POS_SECRET_KEY}` (service `webapp` = POS.Api) → tự đọc từ `.env`.
+- Khởi động lại:
   ```bash
   docker compose up -d --build
   ```
   App vẫn chạy bình thường (chưa có `enc:` nào → hook no-op).
-- *(Dev/IIS Express: đặt biến môi trường `POSWEB_SECRET_KEY` cho tiến trình — nhưng Dev KHÔNG cần nếu không mã hóa base.)*
+
+**UAT/PROD thật (docker run riêng từng container, xem `docs/guide-deploy.md`):**
+- Cả 2 lệnh `docker run` (POS.Api §3.1 và POS.Web §3.2) đều cần thêm
+  `-e POS_SECRET_KEY="${POS_SECRET_KEY}"` — **cùng giá trị khóa** cho cả 2 container.
+- Chưa có `enc:` trong appsettings thì thêm biến này cũng vô hại (hook no-op).
+
+*(Dev/IIS Express: đặt biến môi trường `POS_SECRET_KEY` cho tiến trình — nhưng Dev KHÔNG cần nếu không mã hóa base.)*
 
 ### Bước 3 — Mã hóa từng password (app đang chạy + đã có khóa)
-Vào `/admin/encrypt-secret`, nhập lần lượt và bấm **Mã hóa**, copy chuỗi `enc:...`:
+Chỉ **POS.Web** có trang UI mã hóa — dùng trang này để sinh token cho **cả 2 file** (cùng khóa
+`POS_SECRET_KEY` → token tạo ở POS.Web giải mã đúng khi POS.Api đọc). Vào `/admin/encrypt-secret`,
+nhập lần lượt và bấm **Mã hóa**, copy chuỗi `enc:...`:
 
 | Plaintext | Dùng cho |
 |---|---|
-| `VnDevops@2026!` | 8 connection string dùng `sa` (CentralMD, Loyalty, StagingDB, Partner, IFSAP, CentralGeneral, CentralSale, CentralSaleTemplate) |
-| `Invoice@123456` | connection string `EInvoice` |
-| `Msn@2024` | RabbitMQ Password |
+| `VnDevops@2026!` | 8 connection string dùng `sa` (CentralMD, Loyalty, StagingDB, Partner, IFSAP, CentralGeneral, CentralSale, CentralSaleTemplate) — **lặp lại ở cả POS.Api và POS.Web** |
+| `Invoice@123456` | connection string `EInvoice` — **cả 2 file** |
+| `Msn@2024` | RabbitMQ Password — **cả 2 file** |
 
 > Mỗi lần bấm cho ra ciphertext **khác nhau** (nonce ngẫu nhiên) nhưng đều giải mã về đúng plaintext →
-> có thể mã hóa 1 lần rồi **dán cùng 1 token cho các chuỗi cùng password**.
+> mã hóa 1 lần cho mỗi plaintext, rồi **dán cùng 1 token vào mọi chỗ có password đó, ở cả 2 file**.
 
 ### Bước 4 — Thay vào `appsettings.Production.json` (chỉ thay phần password)
+Áp dụng cho **cả `src/POS.Api/appsettings.Production.json` và `src/POS.Web/appsettings.Production.json`**:
 - **Connection string:** chỉ đổi đoạn `Password=...`, giữ nguyên phần còn lại:
   ```
   ...;User ID=sa;Password=enc:AAAA....;MultipleActiveResultSets=True;...
@@ -85,24 +104,28 @@ Vào `/admin/encrypt-secret`, nhập lần lượt và bấm **Mã hóa**, copy 
   ```json
   "Password": "enc:BBBB....",
   ```
-- Làm tương tự cho cả 9 connection string + RabbitMQ. **Không** đụng `User ID`, host, catalog.
+- Làm tương tự cho cả 9 connection string + RabbitMQ **trong mỗi file** (2 file × 9 conn string + RabbitMQ).
+  **Không** đụng `User ID`, host, catalog.
 
 ### Bước 5 — Khởi động lại & xác minh
 ```bash
 docker compose up -d
 ```
-- ✅ App lên, đăng nhập + dashboard có dữ liệu → DB/RabbitMQ kết nối OK (đã giải mã đúng).
-- 🔒 **Test fail-safe:** tạm xóa `POSWEB_SECRET_KEY` khỏi `.env` rồi restart → app **phải báo lỗi khởi động rõ ràng**
-  (`"Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu ... POSWEB_SECRET_KEY"`). Đặt khóa lại → chạy bình thường.
+(hoặc `docker run` lại từng container theo `docs/guide-deploy.md` nếu deploy UAT/PROD thật)
+- ✅ POS.Api: `curl http://127.0.0.1:5001/health` → `"healthy"` (DB/Redis/RabbitMQ kết nối OK sau giải mã).
+- ✅ POS.Web: app lên, đăng nhập + dashboard có dữ liệu → DB/RabbitMQ kết nối OK.
+- 🔒 **Test fail-safe (cả 2 service):** tạm xóa `POS_SECRET_KEY` khỏi `.env`/container env rồi restart →
+  app **phải báo lỗi khởi động rõ ràng** (`"Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu ... POS_SECRET_KEY"`).
+  Đặt khóa lại → chạy bình thường.
 
 ---
 
 ## Lưu ý vận hành
 
-- **Commit:** `appsettings.Production.json` (chứa `enc:...`) commit được; `.env` thì KHÔNG (đã ignore).
+- **Commit:** `appsettings.Production.json` (chứa `enc:...`, cả 2 project) commit được; `.env` thì KHÔNG (đã ignore).
   Sau rollout, file Production không còn password thật.
-- **Đổi khóa (rotation):** phải mã hóa lại tất cả token bằng khóa mới rồi thay đồng loạt.
-- **Đổi password DB thật:** nhớ mã hóa lại token tương ứng.
+- **Đổi khóa (rotation):** phải mã hóa lại tất cả token bằng khóa mới rồi thay đồng loạt **ở cả 2 file**.
+- **Đổi password DB thật:** nhớ mã hóa lại token tương ứng, cập nhật **cả 2 file**.
 - ⚠️ **Tách bạch:** bước này chỉ bịt việc *lộ password trong file*. Nó **không** thay cho việc cần **HTTPS** (C1)
   khi app ra internet — vẫn cần TLS + `Security:RequireHttps=true` trước khi go-live công khai.
 
@@ -183,15 +206,16 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   trong từng process — atomic `File.Move(overwrite)` đảm bảo không hỏng file, xấu nhất là sinh trùng (chấp nhận được).
 - **SHA-256 companion file**: sau khi sinh zip thành công, API tự tạo `{zipName}.sha256` cùng thư mục.
   Ops verify bằng `sha256sum {file}.zip` và so sánh với nội dung `.sha256`. File này cũng bị xóa cùng zip khi cleanup.
-- **Production Ubuntu + nginx** — thay giá trị trong `appsettings.Production.json`:
-  ```json
-  "AppSettings": {
-    "FtpRootPath": "/opt/posapi/ftpbluepos",
-    "FolderShare": "/opt/posapi/ftpbluepos",
-    "FolderShareAPIBluePOS": "",
-    "FolderShareUpdSource": "/opt/posapi/ftpbluepos/upgrade"
-  }
-  ```
+- **Production Ubuntu + nginx** — **KHÔNG** đổi `FtpRootPath` trong `appsettings.Production.json`, giữ
+  nguyên `/app/ftpbluepos` (đúng sẵn). Thư mục thật nằm trên host Ubuntu, gắn vào container qua **bind
+  mount** (`docker run -v` / `docker-compose.yml`), tạo + cấp quyền bằng `deploy/linux/setup-pos-dirs.sh`
+  — chi tiết đầy đủ (path, quyền, kiểm tra) xem **`docs/deploy/ubuntu-guide.md`**. Tóm tắt path host:
+  `/srv/pos/ftpbluepos` (PROD, SIT) / `/srv/pos/uat/ftpbluepos` (UAT — chạy chung host với PROD nên phải
+  khác path, xem `docs/guide-deploy.md` §3.1).
+  Nếu sau này cần bật `FolderShare` (nhánh `typeSync != ALL` trong `GetFileFromFTP`, đang tắt) hoặc
+  `FolderShareUpdSource` (upgrade-tool distribution, đang tắt) — cả 2 key đọc path **tuyệt đối, thô**,
+  KHÔNG qua `MapFtpPath` — phải đặt bằng path **container-side** nằm trong root đã mount, ví dụ
+  `/app/ftpbluepos/upgrade`, KHÔNG phải path phía host.
   nginx cần tăng timeout (sinh zip lần đầu có thể 15–30s):
   ```nginx
   location /api/posblue/GetFileFromFTP { proxy_read_timeout 120s; }
@@ -204,24 +228,65 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 
 ---
 
+## O3 — Nút SyncData "Đẩy dữ liệu đầu ngày" (POS.Web)
+
+> Trang `/catalog/pos-setup` ([PosMapPage.razor](../src/POS.Web/Components/Pages/Ops/PosMapPage.razor)) có cột
+> **Action → nút Sync** cho IT Ops chủ động sinh file master data đầu ngày cho 1 máy POS. Gọi **trực tiếp qua DI**
+> (`ISyncDataPosService.PushStartOfDayDataAsync`) → tái dùng nguyên `IMasterDataSyncService.EnsureMasterDataFileAsync`
+> (KHÔNG đổi logic sinh file txt/zip của POS.Api). Sinh zip full-data (`TypeSync=ALL`, tên `{site}_ALL_{terminal}_{yyyyMMdd}.zip`)
+> đặt vào ĐÚNG thư mục POS.Api tạo/đọc khi máy POS request `CHANGE` (bám `MapFtpPath` như controller):
+> `{AppSettings:FtpRootPath}\SyncDataPos\POS\CHANGE\{siteCode}\{posTerminal}`.
+
+- **BẮT BUỘC (điểm quan trọng nhất)**: file sinh trên **filesystem của host POS.Web**, nhưng máy POS tải qua endpoint
+  `DowloadFileStream` của **POS.Api**. Vì vậy `AppSettings:FtpRootPath` của **POS.Web phải trỏ tới ĐÚNG thư mục vật lý
+  mà POS.Api đang phục vụ** — chung UNC share (Windows) hoặc chung bind-mount/volume (Docker).
+  Nếu 2 app không chia sẻ thư mục này → file sinh ra máy POS **không thấy để tải**.
+  (Thư mục đích dựng qua `MapFtpPath` = `FtpRootPath` + `SyncDataPos\POS\CHANGE\{site}\{terminal}` — KHÔNG dùng `FolderShare`.)
+- **Hiện trạng cần sửa khi go-live**:
+  - DEV (`appsettings.json`): `POS.Web:FtpRootPath` = `D:\ROOT\FTPBLUEPOS` — đã khớp POS.Api.
+  - UAT/PROD (`appsettings.UAT.json` / `appsettings.Production.json` của POS.Web): `FtpRootPath` đang **rỗng**
+    → phải điền path chỉ đến chung thư mục POS.Api phục vụ. Với Docker, POS.Web phải mount **cùng volume** `ftpbluepos`
+    của POS.Api và đặt path container-side tương ứng (vd `/app/ftpbluepos`).
+- **Idempotent theo ngày**: bấm lại trong cùng ngày trả nhanh zip đã có (không sinh lại). Sang ngày mới tự sinh lại
+  (`DateInZipName=true`).
+- **Không cần** cấu hình SysWebApi/X-API (vì gọi trực tiếp, không qua HTTP).
+- **Quyền ghi**: user chạy POS.Web phải ghi được vào thư mục share; và 2 SP `[SyncTable_Get]` + `[SyncGetDataByTable]`
+  (đã nêu ở O1) phải tồn tại trên CentralMD (POS.Web dùng chung connection CentralMD).
+
+---
+
 ## O2 — Worker nạp sale từ file .zip (POS.Worker)
 
 > `PosFileImportWorker` là **đường nạp sale thứ hai** (song song với `PosSalesConsumerWorker` đọc RabbitMQ).
 > Worker quét `InboxFolder`, gặp `.zip` thì giải nén ra các `.txt` (mỗi file = 1 `KafkaMessageDto`) và insert DB
 > qua đúng luồng `ICentralSaleRepository.InInsertToTableByJson` (source = `FILE` để truy vết trong `DataRawJson`).
 
-- **Tạo 3 thư mục** (theo path đã cấu hình) trên host chạy POS.Worker + **cấp quyền ghi** cho service account:
+- **Docker (SIT/UAT/PROD)**: `InboxFolder`/`ErrorFolder`/`WorkFolder` nằm **lồng bên trong** cùng bind
+  mount `ftpbluepos` dùng chung với POS.Api (KHÔNG phải volume `/app/fileimport` riêng như trước đây) —
+  xem `docs/deploy/ubuntu-guide.md` để biết đầy đủ path/quyền/setup. `deploy/linux/setup-pos-dirs.sh` tạo
+  sẵn `SyncDataPos/Sale/{Kafka,BackupFiles,error,_work}` + cấp quyền, không cần tạo tay.
+- **Dev/bare-metal (Windows)**: 3 thư mục theo path cấu hình trong `appsettings.json` — worker tự tạo khi
+  chạy, chỉ cần ổ đĩa tồn tại + tài khoản chạy có quyền ghi (xem `deploy/windows/README.md`).
   - `InboxFolder` — nơi hệ thống nguồn đặt file `.zip` cần nạp.
   - `ErrorFolder` — worker move zip **xử lý thất bại** vào đây (giữ để retry/audit thủ công; worker **không** tự quét lại).
-  - `WorkFolder` — thư mục temp giải nén (rỗng → mặc định `{InboxFolder}/_work`). Được dọn sau mỗi file.
-  - Docker (UAT/PROD): mount volume cho `/app/fileimport/{inbox,error,_work}`.
-- **Section `"FileImport"`** trong `appsettings` từng môi trường (giá trị mặc định chạy được, chỉ chỉnh path là bắt buộc):
+  - `WorkFolder` — thư mục temp giải nén. Được dọn sau mỗi file (cả khi thành công lẫn thất bại).
+- ⚠️ **Docker (SIT/UAT/PROD) — xung đột đã biết, chấp nhận có chủ đích**: `InboxFolder` trỏ vào
+  `SyncDataPos/Sale/Kafka` — **đúng folder mà `UploadFileSale` (POS.Api) đã và đang ghi file vào**, rồi
+  tự xử lý ngay (in-process, đẩy Kafka). `PosFileImportWorker` giờ CŨNG poll folder này (chu kỳ 30s,
+  insert thẳng DB, bỏ qua Kafka). Trong điều kiện bình thường `UploadFileSale` xử lý gần như ngay lập
+  tức nên hầu như luôn "thắng" trước khi Worker kịp thấy file; Worker chủ yếu chỉ chạm tới file khi
+  Kafka-push đã lỗi (trường hợp `RetryProcessSales` vốn dùng để retry thủ công) — nếu file đó không đúng
+  định dạng `.txt`/`Type_PosNo_TransactionId.txt`, Worker sẽ move nó sang `SyncDataPos/Sale/error/` thay
+  vì để `RetryProcessSales` xử lý. **Theo dõi `SyncDataPos/Sale/error/` định kỳ** — mỗi file ở đây là 1
+  giao dịch sale chưa được xử lý bởi bất kỳ luồng nào, cần đối soát thủ công, KHÔNG tự động xóa.
+- **Section `"FileImport"`** trong `appsettings` (Docker UAT/Production — giá trị giống hệt nhau ở 2 file,
+  khác biệt UAT/PROD nằm ở host path bind-mount, không nằm ở giá trị container-side này):
   ```json
   "FileImport": {
     "Enabled": true,
-    "InboxFolder": "D:\\ROOT\\FILEIMPORT\\inbox",
-    "ErrorFolder": "D:\\ROOT\\FILEIMPORT\\error",
-    "WorkFolder": "D:\\ROOT\\FILEIMPORT\\_work",
+    "InboxFolder": "/app/ftpbluepos/SyncDataPos/Sale/Kafka",
+    "ErrorFolder": "/app/ftpbluepos/SyncDataPos/Sale/error",
+    "WorkFolder": "/app/ftpbluepos/SyncDataPos/Sale/_work",
     "FileFilter": "*.zip",
     "PollIntervalSeconds": 30,
     "StableSeconds": 10,
@@ -229,6 +294,7 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
     "Source": "FILE"
   }
   ```
+  (`appsettings.json` base — dev Windows — vẫn giữ path `D:\ROOT\FILEIMPORT\...` cũ, không liên quan Docker.)
   - `Enabled`: đặt `false` để tắt worker (worker idle, không quét).
   - `StableSeconds`: bỏ qua zip mới ghi trong N giây (tránh nhận file đang upload dở). Tăng nếu nguồn ghi file chậm.
   - `PollIntervalSeconds`: chu kỳ quét; `MaxFilesPerCycle`: số zip xử lý tối đa mỗi vòng.
@@ -436,7 +502,8 @@ công → coupon hiện "Locked" ở tab "Mã coupon đã phát hành" (POS.Web)
 | Thành phần | Vị trí |
 |---|---|
 | Mã hóa/giải mã AES-256-GCM | `src/POS.Infrastructure/Security/SecretProtector.cs` |
-| Hook giải mã `enc:` lúc khởi động | `src/POS.Web/Program.cs` (ngay sau `CreateBuilder`) |
-| Trang tạo khóa / mã hóa | `src/POS.Web/Components/Pages/Admin/EncryptSecretPage.razor` (`/admin/encrypt-secret`, SystemAdmin) |
-| Truyền khóa qua container | `docker-compose.yml` → `POSWEB_SECRET_KEY: ${POSWEB_SECRET_KEY}` (lấy từ `.env`) |
+| Hook giải mã `enc:` lúc khởi động | `src/POS.Api/Program.cs` **và** `src/POS.Web/Program.cs` (ngay sau `CreateBuilder`, trước `AddInfrastructure`) |
+| Trang tạo khóa / mã hóa | `src/POS.Web/Components/Pages/Admin/EncryptSecretPage.razor` (`/admin/encrypt-secret`, SystemAdmin) — dùng chung cho token của cả 2 project |
+| Truyền khóa qua container (local/SIT) | `docker-compose.yml` → `POS_SECRET_KEY: ${POS_SECRET_KEY}` (service `webapp` = POS.Api, lấy từ `.env`) |
+| Truyền khóa qua container (UAT/PROD) | `docker run -e POS_SECRET_KEY=...` cho cả POS.Api và POS.Web (xem `docs/guide-deploy.md`) |
 | Mẫu file env | `.env.example` |

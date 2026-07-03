@@ -20,7 +20,7 @@
 | `.claude/skills/web/theming.md` | Sửa màu/theme toàn app |
 | `.claude/skills/web/deployment.md` | Deploy production (Docker / nginx) |
 | **`.claude/skills/web/audit-logging.md`** | **Tạo/sửa page có thao tác Create/Update/Delete** |
-| **`.claude/skills/web/ui-migrate-legacy.md`** | **Làm đẹp UI trang migrate từ legacy — chỉ sửa markup, giữ `@code`** |
+| **`.claude/skills/web/ui-polish-standard.md`** | **Làm đẹp/đồng bộ UI trang đã có — chỉ sửa markup, giữ `@code`** |
 
 ---
 
@@ -507,6 +507,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | `Store` | `[No]` | `StoreNo` |
 | `Store` | `[ClosingMethod]` | `Status` |
 | `POSTerminal` | `[No]` | `PosNo` |
+| `Branch` | `[No]` | `BranchNo` |
 
 ### Ví dụ đúng
 
@@ -538,6 +539,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | `DataRawLogPage.razor` | `DataRawJsonLogDto` | CrtDate, DataType, Flag, ErrorMessage |
 | `PosMapPage.razor` | `PosTerminalListDto` | IsOnline, PosNo, StoreNo, IPAddress, StyleProfile, BluePosVersion, Status, DateTimePos |
 | `StorePage.razor` | `StoreListDto` | StoreNo, Name, Address, BranchNo, Status, LastDateModified |
+| `ProvincesPage.razor` | `BranchAdminDto` | BranchNo, Description, Address, VATRegistrationNo |
 | `UsersPage.razor` | `DashboardUser` | Id, Username, FullName, Role, IsActive |
 | `AuditPage.razor` | `AuditRecord` | Id, Actor, Database, Status, RowsAffected, HasWhere, SqlText, ElapsedMs, ExecutedAt, DecidedAt |
 
@@ -901,3 +903,37 @@ private void UpdateExpanded(string uri)
 - Cờ `Security:EnableSqlConsole` (mặc định true) gate **cả service lẫn page** (defense-in-depth): service trả lỗi/throw, page hiện alert + disable. Nên đặt `false` ở Production expose internet.
 
 > Ví dụ thực tế: `src/POS.Web/Services/SqlConsoleService.cs` (`MaskSecrets`, `IsEnabled`), `Components/Pages/Admin/SqlConsolePage.razor`
+
+---
+
+## Pattern: POS.Web kích hoạt tác vụ server-side của POS.Api qua DI (không HTTP)
+> Áp dụng khi: page POS.Web cần chạy 1 tác vụ vốn thuộc POS.Api (sinh file master data, xử lý file…).
+> Luật dự án: **KHÔNG** gọi HTTP sang POS.Api — inject thẳng Application service (đã đăng ký chung qua
+> `AddApplication()`/`AddInfrastructure()`) và gọi method. Bọc glue vào 1 method Application dùng chung,
+> KHÔNG nhồi logic vào `.razor`.
+
+```csharp
+// Application: method mới delegate service sinh file có sẵn của POS.Api (KHÔNG chép/đổi logic sinh file)
+public async Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)
+{
+    // BẮT BUỘC bám ĐÚNG cách controller dựng đường dẫn đích — dùng MapFtpPath, KHÔNG tự Path.Combine(FolderShare,...)
+    var folderFile = $"{siteCode}/{posTerminal}";
+    const string pathSync = "SyncDataPos/POS/CHANGE";
+    var targetDir = MapFtpPath($"{pathSync}/{folderFile}");     // = FtpRootPath\SyncDataPos\POS\CHANGE\{site}\{terminal}
+    var req = new GetMasterDataFileRequest { SiteCode = siteCode, PosTerminal = posTerminal,
+        FolderFile = folderFile, PathSync = pathSync, TypeSync = "ALL", TargetDir = targetDir };
+    return await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);   // tái dùng nguyên
+}
+```
+
+- **UI**: nút trong cột Action → `MudMessageBox` confirm → `_syncing` HashSet (theo key row) đổi nút thành
+  `MudProgressCircular` + `RowClassFunc` pulse nền; bọc nút trong `<div @onclick:stopPropagation="true">` nếu
+  row có `OnRowClick`. Ghi `IAuditLogger.LogAsync(actor,"SYNC",entity,key,null,detailJson)` **khi thành công**.
+- **Anti-pattern (bug thực tế)**: tự dựng đường dẫn FTP bằng `Path.Combine(configuration["AppSettings:FolderShare"],...)`
+  → sai gốc + thiếu segment (`SyncDataPos\POS`) so với `SyncDataPosController.GetFileFromFTP`. Luôn tra controller
+  để lấy đúng `pathSync`/`MapFtpPath`, vì file phải nằm đúng nơi POS tạo/đọc + khớp URL download.
+- **Rollout**: file sinh trên host POS.Web nhưng POS tải qua POS.Api → POS.Web `AppSettings:FtpRootPath` phải trỏ
+  **chung thư mục vật lý** POS.Api phục vụ (UNC share / cùng volume Docker). Xem `docs/ROLLOUT.md` §O3.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Ops/PosMapPage.razor` (`SyncDataAsync`),
+> `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`PushStartOfDayDataAsync`)

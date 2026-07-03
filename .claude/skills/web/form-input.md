@@ -6,7 +6,7 @@
 > **Nguồn mẫu chuẩn:** tab "Thông tin chung" của
 > `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`.
 >
-> Liên quan: [`ui-migrate-legacy.md §8`](ui-migrate-legacy.md) (polish markup-only),
+> Liên quan: [`ui-polish-standard.md §8`](ui-polish-standard.md) (polish markup-only),
 > [`audit-logging.md`](audit-logging.md) (bắt buộc khi form có Create/Update/Delete),
 > [`datatable.md`](datatable.md) (bảng dữ liệu / dòng con dạng grid).
 
@@ -226,7 +226,7 @@ raw HTML). Thêm `Class="mt-1"` cho `MudGrid` bên trong để field không dín
 </MudPaper>
 ```
 
-> MudBlazor v9 **không có** prop `Loading` cho `MudButton` — render spinner theo cờ `_saving` (xem `ui-migrate-legacy.md §8`).
+> MudBlazor v9 **không có** prop `Loading` cho `MudButton` — render spinner theo cờ `_saving` (xem `ui-polish-standard.md §8`).
 
 > **Ngoại lệ hợp lệ — trang full-page (không phải dialog/tab con):** nút Lưu đặt trong
 > `div.pos-page-header` (`pos-page-header-btn`), cạnh nút "Danh sách"/"Quay lại" — KHÔNG cần thêm
@@ -379,5 +379,5 @@ private async Task SaveExceptionFieldAsync()
 | Dialog form (trả DTO đầy đủ cho audit) | `src/POS.Web/Components/Pages/Ops/Dialogs/PosDataSetupFormDialog.razor` |
 | Nhóm con bo viền trong 1 MudCard + MudNumericField Variant theo kiểu dữ liệu (§4a) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/CouponIssuePage.razor` |
 | Placeholder vs HelperText (§4b), Chế độ CHỈ XEM + field ngoại lệ có nút Lưu điều kiện (§9, §10) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/VoucherIssuePage.razor` |
-| Polish markup-only (tooltip/validation/loading) | `.claude/skills/web/ui-migrate-legacy.md` §8 |
+| Polish markup-only (tooltip/validation/loading) | `.claude/skills/web/ui-polish-standard.md` §8 |
 | Audit CRUD sau khi lưu | `.claude/skills/web/audit-logging.md` |

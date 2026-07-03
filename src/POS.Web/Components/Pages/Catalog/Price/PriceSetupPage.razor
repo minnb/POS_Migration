@@ -10,35 +10,42 @@
 @using Newtonsoft.Json
 @using POS.Application.Features.Price
 @using POS.Common.Dtos.Price
-@using POS.Common.Dtos.CentralMD
 @using POS.Common.Dtos.Promotion
 @using POS.Infrastructure.Logging
-@using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
-@using POS.Web.Components.Pages.Catalog.Price.Dialogs
 @using POS.Web.Services
 @using ClosedXML.Excel
 
 @inject IPriceService PriceService
-@inject ICentralMDRepository MdRepo
-@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IAuditLogger AuditLogger
 @inject IFileLogHelper FileLogger
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
-<PageTitle>Setup giá (Bulk Import) – POS Dashboard</PageTitle>
+<PageTitle>Setup giá – POS Dashboard</PageTitle>
+
+<style>
+    /* Lưới setup giá: thu nhỏ chữ để text/date/select hiện đầy đủ, dòng gọn hơn */
+    .pos-price-grid td { padding-top: 3px; padding-bottom: 3px; vertical-align: middle; }
+    .pos-price-grid .mud-input-control { font-size: .8125rem; }
+    .pos-price-grid input,
+    .pos-price-grid .mud-input-slot,
+    .pos-price-grid .mud-select .mud-select-input { font-size: .8125rem; }
+    .pos-price-grid .mud-input.mud-input-dense .mud-input-slot { min-height: 30px; }
+    .pos-price-grid .mud-input-adornment .mud-icon-root { font-size: 1rem; }
+</style>
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
     <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.UploadFile" Class="mr-2" Style="vertical-align:middle"/>
-        Setup giá (Bulk Import)
+        <MudIcon Icon="@Icons.Material.Filled.Sell" Class="mr-2" Style="vertical-align:middle"/>
+        Setup giá
     </MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Success" Class="pos-page-header-btn"
-               StartIcon="@Icons.Material.Filled.Save"
-               Disabled="_saving || _rows.Count == 0" OnClick="SaveAsync">
-        @(_saving ? "Đang lưu..." : "Lưu bảng giá")
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-page-header-btn"
+               StartIcon="@Icons.Material.Filled.FormatListBulleted"
+               OnClick="@(() => Nav.NavigateTo("/catalog/prices"))">
+        Danh sách giá
     </MudButton>
 </div>
 
@@ -53,11 +60,20 @@ else
         <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
     }
 
-    @* ── Ngữ cảnh + import ──────────────────────────────────────────────── *@
+    @* ── Ngữ cảnh + khai báo / import ───────────────────────────────────── *@
     <MudPaper Elevation="1" Class="pa-4 mb-4">
         <MudGrid Spacing="2">
-            <MudItem xs="12" sm="6" md="3">
-                <MudSelect @bind-Value="_salesType" Label="Hình thức bán hàng *"
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="string" Value="_declType" ValueChanged="OnDeclTypeChangedAsync" Label="Loại khai báo"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var d in _lookup.DeclarationTypes)
+                    {
+                        <MudSelectItem T="string" Value="@d.Value">@d.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="string" @bind-Value="_salesType" Label="Hình thức bán hàng *"
                            Variant="Variant.Outlined" Margin="Margin.Dense">
                     @foreach (var s in _lookup.SalesTypes)
                     {
@@ -65,19 +81,31 @@ else
                     }
                 </MudSelect>
             </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="string" @bind-Value="_priceGroup" Label="Nhóm giá" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Placeholder="Tất cả (ALL)">
+                    @foreach (var g in _lookup.PriceGroups)
+                    {
+                        <MudSelectItem T="string" Value="@g.Value">@g.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
             <MudItem xs="12" sm="6" md="3">
-                <MudAutocomplete T="StoreDto" @bind-Value="_selectedStore"
-                                 Label="Cửa hàng áp dụng" Placeholder="Tất cả (ALL)"
-                                 Variant="Variant.Outlined" Margin="Margin.Dense"
-                                 SearchFunc="@SearchStoreAsync"
-                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
-                                 Clearable="true" MinCharacters="0" MaxItems="50"
-                                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Store"/>
+                <MudNumericField T="int" @bind-Value="_declareCount" Label="Số lượng khai báo"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="500"/>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.PlaylistAdd" OnClick="DeclareRows">
+                    Khai báo giá bán
+                </MudButton>
             </MudItem>
             <MudItem xs="12" sm="8" md="4" Class="d-flex align-center gap-2 flex-wrap">
                 <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
                     <ActivatorContent>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning"
                                    StartIcon="@Icons.Material.Filled.UploadFile">
                             @(_importFile?.Name ?? "Chọn file Excel")
                         </MudButton>
@@ -86,7 +114,7 @@ else
                 <MudButton Variant="Variant.Filled" Color="Color.Info"
                            StartIcon="@Icons.Material.Filled.PlaylistAddCheck"
                            Disabled="_importFile == null || _validating" OnClick="LoadImportAsync">
-                    @(_validating ? "Đang nạp..." : "Nạp vào bảng giá")
+                    @(_validating ? "Đang nạp..." : "Import giá bán")
                 </MudButton>
             </MudItem>
             <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
@@ -101,10 +129,10 @@ else
     @* ── Toolbar lưới ───────────────────────────────────────────────────── *@
     <div class="d-flex align-center gap-2 mb-2 flex-wrap">
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                   StartIcon="@Icons.Material.Filled.Add" OnClick="OpenItemPickerAsync">Thêm dòng</MudButton>
+                   StartIcon="@Icons.Material.Filled.Add" OnClick="AddBlankRow">Thêm dòng</MudButton>
         <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
-                   Disabled="_rows.Count == 0" OnClick="ClearRows">Xóa toàn bộ</MudButton>
+                   Disabled="_rows.Count == 0" OnClick="ClearRows">Xóa toàn bộ bảng giá</MudButton>
         <MudSpacer/>
         @if (_rows.Count > 0)
         {
@@ -118,28 +146,66 @@ else
         }
     </div>
 
-    @* ── Lưới preview / khai báo ────────────────────────────────────────── *@
+    @* ── Lưới khai báo / preview ────────────────────────────────────────── *@
     <MudTable Items="@_rows" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm"
               Elevation="2" HorizontalScrollbar="true" T="PriceEditRow"
-              RowStyleFunc="@RowStyle">
+              RowStyleFunc="@RowStyle" Class="pos-price-grid">
         <HeaderContent>
-            <MudTh Style="width:48px">STT</MudTh>
-            <MudTh>Mã sản phẩm</MudTh>
-            <MudTh>Barcode</MudTh>
-            <MudTh>Tên sản phẩm</MudTh>
-            <MudTh>ĐVT</MudTh>
-            <MudTh Style="width:150px">Giá bán *</MudTh>
-            <MudTh Style="width:160px">Từ ngày *</MudTh>
-            <MudTh Style="width:160px">Đến ngày *</MudTh>
-            <MudTh>Ghi chú</MudTh>
-            <MudTh Style="width:48px"></MudTh>
+            <MudTh Style="width:56px">STT</MudTh>
+            <MudTh Style="width:1%; white-space:nowrap">Nhóm giá</MudTh>
+            <MudTh Style="width:300px">Sản phẩm</MudTh>
+            @if (!IsBarcodeMode)
+            {
+                <MudTh Style="width:120px">Đơn vị tính</MudTh>
+            }
+            <MudTh Style="width:130px">Giá bán *</MudTh>
+            <MudTh Style="width:150px">Từ ngày *</MudTh>
+            <MudTh Style="width:150px">Đến ngày *</MudTh>
+            <MudTh Style="width:44px">#</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="STT">@(_rows.IndexOf(context) + 1)</MudTd>
-            <MudTd DataLabel="Mã sản phẩm"><b>@context.ItemNo</b></MudTd>
-            <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
-            <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
-            <MudTd DataLabel="ĐVT">@context.UOM</MudTd>
+            <MudTd DataLabel="STT">
+                <div class="d-flex align-center gap-1">
+                    <span>@(_rows.IndexOf(context) + 1)</span>
+                    @if (context.HasError)
+                    {
+                        <MudTooltip Text="@context.Error">
+                            <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small"/>
+                        </MudTooltip>
+                    }
+                </div>
+            </MudTd>
+            <MudTd DataLabel="Nhóm giá" Style="white-space:nowrap">@PriceGroupText</MudTd>
+            <MudTd DataLabel="Sản phẩm">
+                @if (IsBarcodeMode)
+                {
+                    <MudTextField @bind-Value="context.Barcode" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Nhập barcode" Immediate="false"
+                                  OnBlur="@(() => ResolveBarcodeAsync(context))"
+                                  HelperText="@context.ItemName" HelperTextOnFocus="false"/>
+                }
+                else
+                {
+                    <MudAutocomplete T="ItemOptionDto" Value="context.SelectedItem"
+                                     ValueChanged="@(i => OnItemSelectedAsync(context, i))"
+                                     SearchFunc="@SearchItemAsync" ToStringFunc="@ItemToString"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                     Placeholder="Chọn sản phẩm" Clearable="true"
+                                     MinCharacters="0" MaxItems="50"/>
+                }
+            </MudTd>
+            @if (!IsBarcodeMode)
+            {
+                <MudTd DataLabel="Đơn vị tính">
+                    <MudSelect T="string" @bind-Value="context.UOM" Variant="Variant.Outlined" Margin="Margin.Dense"
+                               Dense="true" Placeholder="Chọn UOM" Disabled="context.UomOptions.Count == 0">
+                        @foreach (var u in context.UomOptions)
+                        {
+                            <MudSelectItem T="string" Value="@u">@u</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudTd>
+            }
             <MudTd DataLabel="Giá bán">
                 <MudTextField @bind-Value="context.UnitPrice" Variant="Variant.Outlined" Margin="Margin.Dense"
                               InputMode="InputMode.numeric" Immediate="true"/>
@@ -152,16 +218,7 @@ else
                 <MudDatePicker @bind-Date="context.EndDate" DateFormat="dd/MM/yyyy" AutoClose="true"
                                Variant="Variant.Outlined" Margin="Margin.Dense"/>
             </MudTd>
-            <MudTd DataLabel="Ghi chú">
-                @if (context.HasError)
-                {
-                    <MudTooltip Text="@context.Error">
-                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
-                                 Icon="@Icons.Material.Filled.Error">Lỗi</MudChip>
-                    </MudTooltip>
-                }
-            </MudTd>
-            <MudTd DataLabel="">
+            <MudTd DataLabel="#">
                 <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
                                OnClick="@(() => _rows.Remove(context))"/>
             </MudTd>
@@ -169,10 +226,19 @@ else
         <NoRecordsContent>
             <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
                 <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
-                <MudText Typo="Typo.body2">Chưa có dòng nào. Import Excel hoặc bấm "Thêm dòng".</MudText>
+                <MudText Typo="Typo.body2">Chưa có dòng nào. Nhập "Số lượng khai báo" rồi bấm "Khai báo giá bán", hoặc Import Excel.</MudText>
             </div>
         </NoRecordsContent>
     </MudTable>
+
+    @* ── Action bar ─────────────────────────────────────────────────────── *@
+    <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="_saving || _rows.Count == 0" OnClick="SaveAsync">
+            @(_saving ? "Đang lưu..." : "Lưu bảng giá")
+        </MudButton>
+    </MudPaper>
 }
 
 @code {
@@ -180,9 +246,10 @@ else
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
     private PriceSetupLookupDto _lookup = new();
+    private string _declType = string.Empty;
     private string _salesType = string.Empty;
-    private List<StoreDto> _allStores = [];
-    private StoreDto? _selectedStore;
+    private string _priceGroup = string.Empty;
+    private int _declareCount = 10;
 
     private readonly List<PriceEditRow> _rows = [];
     private IBrowserFile? _importFile;
@@ -194,38 +261,141 @@ else
     private string? _errorMsg;
     private string _currentActor = "unknown";
 
+    private bool IsBarcodeMode => _declType == "BARCODE";
+
+    // Echo giá trị panel xuống từng dòng lưới (read-only).
+    private string PriceGroupText
+        => _lookup.PriceGroups.FirstOrDefault(g => g.Value == _priceGroup)?.Text
+           ?? (string.IsNullOrEmpty(_priceGroup) ? "ALL" : _priceGroup);
+
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthState;
         _currentActor = state.User.Identity?.Name ?? "unknown";
 
-        // Nguồn độc lập → tách try/catch (tránh 1 lỗi kéo sập nguồn còn lại / circuit).
-        try { _lookup = await PriceService.GetSetupLookupAsync(); }
-        catch (Exception ex)
+        try
         {
-            _errorMsg = "Không tải được Hình thức bán hàng.";
-            FileLogger.WriteExpLogs("PriceSetupPage.LoadLookup", ex);
+            _lookup = await PriceService.GetSetupLookupAsync();
+            _declType = _lookup.DeclarationTypes.FirstOrDefault()?.Value ?? string.Empty;
+            // Mặc định Hình thức bán hàng = "Tại chỗ" (fallback: option đầu tiên).
+            _salesType = _lookup.SalesTypes.FirstOrDefault(s =>
+                             s.Text.Contains("Tại chỗ", StringComparison.OrdinalIgnoreCase))?.Value
+                         ?? _lookup.SalesTypes.FirstOrDefault()?.Value ?? string.Empty;
         }
-
-        try { _allStores = await MdRepo.GetStoreListAsync(); }
         catch (Exception ex)
         {
-            Snackbar.Add("Không tải được danh sách cửa hàng (mặc định áp dụng ALL).", Severity.Warning);
-            FileLogger.WriteExpLogs("PriceSetupPage.LoadStores", ex);
+            _errorMsg = "Không tải được dữ liệu khai báo (Hình thức bán hàng / Nhóm giá).";
+            FileLogger.WriteExpLogs("PriceSetupPage.LoadLookup", ex);
         }
 
         _loading = false;
     }
 
-    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    // ── Chọn sản phẩm inline ──────────────────────────────────────────────────
+    private async Task<IEnumerable<ItemOptionDto>> SearchItemAsync(string value, CancellationToken ct)
     {
-        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
-            ? _allStores
-            : _allStores.Where(s =>
-                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
-        return Task.FromResult(matches.Take(50));
+        try
+        {
+            var items = await PriceService.SearchItemsAsync(value ?? string.Empty, ct);
+            return items.Take(50);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceSetupPage.SearchItem", ex);
+            return [];
+        }
     }
+
+    private static string ItemToString(ItemOptionDto? i)
+        => i == null ? string.Empty
+           : string.IsNullOrEmpty(i.Description) ? i.No : $"{i.No}-{i.Description}";
+
+    private async Task OnItemSelectedAsync(PriceEditRow row, ItemOptionDto? item)
+    {
+        row.SelectedItem = item;
+        row.ItemNo = item?.No ?? string.Empty;
+        row.ItemName = ItemToString(item);
+        row.UOM = string.Empty;
+        row.UomOptions = [];
+
+        if (item != null && !string.IsNullOrWhiteSpace(item.No))
+        {
+            try
+            {
+                row.UomOptions = await PriceService.GetItemUomsAsync(item.No);
+                if (row.UomOptions.Count == 0 && !string.IsNullOrWhiteSpace(item.Uom))
+                    row.UomOptions = [item.Uom];
+                row.UOM = row.UomOptions.FirstOrDefault() ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.WriteExpLogs("PriceSetupPage.LoadUoms", ex);
+            }
+        }
+    }
+
+    // ── Barcode: tra ItemNo/UOM (tái dùng ValidateImportAsync — nhánh barcode) ──
+    private async Task ResolveBarcodeAsync(PriceEditRow row)
+    {
+        var code = row.Barcode?.Trim() ?? string.Empty;
+        row.ItemNo = string.Empty;
+        row.UOM = string.Empty;
+        row.ItemName = string.Empty;
+        row.Error = null;
+
+        if (code.Length == 0) { RecalcErrors(); return; }
+
+        try
+        {
+            var res = await PriceService.ValidateImportAsync(new[] { new PriceImportRow { Barcode = code } });
+            var r = res.FirstOrDefault();
+            if (r == null || !string.IsNullOrWhiteSpace(r.ErrorMessage) || string.IsNullOrWhiteSpace(r.ItemNo))
+            {
+                row.Error = string.IsNullOrWhiteSpace(r?.ErrorMessage)
+                    ? $"Barcode {code} không tồn tại"
+                    : r.ErrorMessage;
+            }
+            else
+            {
+                row.ItemNo = r.ItemNo!;
+                row.UOM = r.Uom ?? string.Empty;
+                row.ItemName = r.Text ?? string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceSetupPage.ResolveBarcode", ex);
+            row.Error = "Không tra được barcode";
+        }
+        RecalcErrors();
+    }
+
+    // ── Đổi Loại khai báo → xóa dòng (barcode vs item+đvt không tương thích) ─────
+    private async Task OnDeclTypeChangedAsync(string val)
+    {
+        if (val == _declType) return;
+        if (_rows.Count > 0 &&
+            !await JS.InvokeAsync<bool>("confirm", "Đổi loại khai báo sẽ xóa các dòng đang nhập. Tiếp tục?"))
+            return;   // hủy: giữ _declType cũ → MudSelect tự revert (Value bound)
+
+        _declType = val;
+        ClearRows();
+    }
+
+    // ── Khai báo tay ──────────────────────────────────────────────────────────
+    private void AddBlankRow() => _rows.Add(NewBlankRow());
+
+    private void DeclareRows()
+    {
+        var n = Math.Clamp(_declareCount, 1, 500);
+        for (var i = 0; i < n; i++) _rows.Add(NewBlankRow());
+    }
+
+    private static PriceEditRow NewBlankRow() => new()
+    {
+        StartDate = DateTime.Today,
+        EndDate = new DateTime(9999, 12, 31)
+    };
 
     // ── Import Excel ─────────────────────────────────────────────────────────
     private async Task LoadImportAsync()
@@ -244,12 +414,16 @@ else
             var results = await PriceService.ValidateImportAsync(raw);
             foreach (var v in results)
             {
+                var itemNo = v.ItemNo ?? string.Empty;
+                var uom = v.Uom ?? string.Empty;
                 _rows.Add(new PriceEditRow
                 {
-                    ItemNo   = v.ItemNo ?? string.Empty,
+                    ItemNo   = itemNo,
                     Barcode  = v.Barcode ?? string.Empty,
                     ItemName = v.Text ?? string.Empty,
-                    UOM      = v.Uom ?? string.Empty,
+                    UOM      = uom,
+                    UomOptions = string.IsNullOrWhiteSpace(uom) ? [] : [uom],
+                    SelectedItem = BuildOption(itemNo, v.Text, uom),
                     UnitPrice = v.UnitPrice ?? string.Empty,
                     StartDate = ParseDmy(v.StartingDate),
                     EndDate   = ParseDmy(v.EndingDate),
@@ -269,6 +443,15 @@ else
             Snackbar.Add("Không đọc/validate được file Excel. Kiểm tra đúng định dạng file mẫu.", Severity.Error);
         }
         finally { _validating = false; }
+    }
+
+    private static ItemOptionDto? BuildOption(string itemNo, string? text, string uom)
+    {
+        if (string.IsNullOrWhiteSpace(itemNo)) return null;
+        var desc = text ?? string.Empty;
+        var prefix = itemNo + "-";
+        if (desc.StartsWith(prefix, StringComparison.Ordinal)) desc = desc[prefix.Length..];
+        return new ItemOptionDto { No = itemNo, Description = desc, Uom = uom };
     }
 
     private static async Task<List<PriceImportRow>> ReadImportFileAsync(IBrowserFile file)
@@ -320,29 +503,6 @@ else
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
-    // ── Thêm dòng thủ công (item picker) ──────────────────────────────────────
-    private async Task OpenItemPickerAsync()
-    {
-        var dialog = await DialogService.ShowAsync<PriceItemPickerDialog>("Thêm sản phẩm",
-            new DialogParameters(),
-            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true, BackdropClick = false });
-        var res = await dialog.Result;
-        if (res is { Canceled: false } && res.Data is List<ItemOptionDto> picked)
-        {
-            foreach (var p in picked)
-                _rows.Add(new PriceEditRow
-                {
-                    ItemNo = p.No,
-                    ItemName = $"{p.No}-{p.Description}",
-                    UOM = p.Uom,
-                    UnitPrice = string.Empty,
-                    StartDate = DateTime.Today,
-                    EndDate = DateTime.Today
-                });
-            RecalcErrors();
-        }
-    }
-
     private void ClearRows()
     {
         _rows.Clear();
@@ -359,7 +519,7 @@ else
         var context = new PriceSetupContext
         {
             SalesType = _salesType,
-            SalesCode = _selectedStore?.StoreNo ?? "ALL"
+            SalesCode = string.IsNullOrWhiteSpace(_priceGroup) ? "ALL" : _priceGroup
         };
         var rows = _rows.Select(r => new PriceSaveRow
         {
@@ -411,6 +571,8 @@ else
         public string Barcode { get; set; } = string.Empty;
         public string ItemName { get; set; } = string.Empty;
         public string UOM { get; set; } = string.Empty;
+        public List<string> UomOptions { get; set; } = [];
+        public ItemOptionDto? SelectedItem { get; set; }
         public string UnitPrice { get; set; } = string.Empty;
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }

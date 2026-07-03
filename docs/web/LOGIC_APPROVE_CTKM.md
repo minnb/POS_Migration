@@ -184,7 +184,7 @@ END
 > Transformation được thực thi bởi SP **`dbo.Setup_Promotion_Insert @BBY`** (SP nghiệp vụ có sẵn trong DB,
 > **không nằm trong source repo** — không reverse SP body ở đây). Bảng dưới mô tả **ánh xạ cột mức schema**
 > để đối chiếu khi bảo trì. Nguồn cột: [`SetupPromotion_Save.sql`](../sql/SetupPromotion_Save.sql) (bên nháp) và
-> entity legacy `src/legacy/VCM.BLUEPOS.Data/EF/Central/Offer*.cs` (bên LIVE).
+> `docs/architecture/database-schema.md` — bảng `Offer*` (bên LIVE).
 > **Nguồn chính thức của logic vẫn là SP `Setup_Promotion_Insert`.**
 
 **`SetupPromotionHEADER` → `OfferHeader`**

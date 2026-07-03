@@ -1,17 +1,17 @@
-# Skill: Redis Cache Pattern — thay thế IIS MemoryCache
+# Skill: Redis Cache Pattern
 
-> **Áp dụng khi:** migrate bất kỳ function nào gọi `_memoryCacheService.GetSysWebApi()`,
-> `_memoryCacheService.GetCache<T>()`, `_memoryCacheService.GetLoyaltyRateData()`,
-> hoặc bất kỳ phương thức nào đọc từ IIS MemoryCache trong dự án cũ.
+> **Áp dụng khi:** thêm cache cho bất kỳ master data / config nào đọc từ DB nhiều lần
+> (SysWebApi, stores, rates, card level...). Đọc file này TRƯỚC khi thêm chỗ nào dùng cache.
 
 ---
 
 ## Quy tắc cốt lõi
 
-**Dự án cũ** dùng IIS `MemoryCache` (in-process, reset khi recycle IIS).
-**Dự án mới** dùng **Redis StandAlone** (`IRedisService`) — cross-process, survive restart.
+Cache dùng **Redis StandAlone** (`IRedisService`) — cross-process, survive restart.
+**KHÔNG** dùng in-memory cache (IIS `MemoryCache`, `IMemoryCache`) cho dữ liệu chia sẻ giữa
+nhiều instance/process.
 
-> Mọi nơi dự án cũ đọc từ IIS MemoryCache → dự án mới PHẢI dùng Redis qua `IRedisService`.
+> Mọi master data từ DB cần đọc nhiều lần phải có Redis cache tương ứng qua `IRedisService`.
 
 ---
 
@@ -194,9 +194,9 @@ Khi thấy `_memoryCacheService.GetCache<T>("MemoryXxx")` trong code cũ:
 
 ---
 
-## Checklist khi migrate function dùng MemoryCacheService
+## Checklist khi thêm cache cho một loại data mới
 
-- [ ] Xác định `MemoryCacheConst` key → Redis key tương ứng (xem bảng trên)
+- [ ] Đặt tên Redis key theo convention (xem bảng trên)
 - [ ] Nếu method chưa có trong Repository interface → thêm vào `ICentralMDRepository` hoặc `ILoyaltyRepository`
 - [ ] Implement trong Repository theo Pattern 1 hoặc 2 (KHÔNG bỏ TTL)
 - [ ] AppService/Service inject Repository (KHÔNG inject IRedisService trực tiếp cho config data)

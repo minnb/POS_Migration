@@ -33,7 +33,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Giải mã credentials đã mã hóa (enc:...) — PHẢI trước AddInfrastructure ──
 // Quét mọi giá trị config chứa token "enc:" (vd Password trong connection string),
-// giải mã bằng AES-256-GCM với khóa từ env POSWEB_SECRET_KEY, rồi nạp đè in-memory.
+// giải mã bằng AES-256-GCM với khóa từ env POS_SECRET_KEY, rồi nạp đè in-memory.
 // Mọi consumer (GetConnectionString / GetSection<RabbitMQOptions>) tự nhận plaintext.
 // No-op khi không có token enc: → DEV/base plaintext vẫn chạy, không cần khóa.
 {
@@ -42,11 +42,11 @@ var builder = WebApplication.CreateBuilder(args);
         .ToList();
     if (encryptedEntries.Count > 0)
     {
-        var secretKey = Environment.GetEnvironmentVariable("POSWEB_SECRET_KEY");
+        var secretKey = Environment.GetEnvironmentVariable("POS_SECRET_KEY");
         if (string.IsNullOrWhiteSpace(secretKey))
             throw new InvalidOperationException(
-                "Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu biến môi trường POSWEB_SECRET_KEY. " +
-                "Đặt khóa AES base64 (32 byte) vào POSWEB_SECRET_KEY (tạo khóa tại /admin/encrypt-secret).");
+                "Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu biến môi trường POS_SECRET_KEY. " +
+                "Đặt khóa AES base64 (32 byte) vào POS_SECRET_KEY (tạo khóa tại /admin/encrypt-secret).");
 
         var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in encryptedEntries)

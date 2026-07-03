@@ -58,7 +58,8 @@ public sealed class MasterDataSyncService(
         GetMasterDataFileRequest req, CancellationToken ct = default)
     {
         var dateSuffix = _opt.DateInZipName ? $"_{DateTime.Now:yyyyMMdd}" : string.Empty;
-        var zipName = $"{req.SiteCode}_{req.TypeSync}_{req.PosTerminal}{dateSuffix}.zip";
+        var timeSuffix = _opt.DateInZipName ? $"_{DateTime.Now:HHmmssfff}" : string.Empty;
+        var zipName = $"{req.SiteCode}_{req.TypeSync}_{req.PosTerminal}{dateSuffix}_{timeSuffix}.zip";
         var zipPath = Path.Combine(req.TargetDir, zipName);
 
         // 1. File hợp lệ trong ngày đã có → trả ngay (R1: file cũ bị xóa trong IsTodayZipValid).
@@ -105,8 +106,10 @@ public sealed class MasterDataSyncService(
                 string FileNameFor(int batchNo) =>
                     $"{req.SiteCode}_{entry.Table.TableName}_{rnd}_{tableIndex}_{batchNo:D3}.txt";
 
-                // Batch đầu TRUNC-INSERT (truncate 1 lần), các batch sau INSERT (append) — chống mất dữ liệu khi tách file.
-                string ActionFor(int batchNo) => batchNo == 1 ? ActionTruncInsert : ActionInsert;
+                // SyncAction != null → dùng cho MỌI batch (Web Sync: "DELETE-INSERT").
+                // null → khuôn mặc định: batch đầu TRUNC-INSERT (truncate 1 lần), batch sau INSERT (append).
+                string ActionFor(int batchNo) =>
+                    req.SyncAction ?? (batchNo == 1 ? ActionTruncInsert : ActionInsert);
 
                 // @POSLastCounter = 0 khi typeSync=ALL hoặc IsFirstDataAll; ngược lại dùng POSLastCounter của bảng.
                 var counter = req.TypeSync == "ALL" || entry.Table.IsFirstDataAll ? 0L : entry.Table.POSLastCounter;

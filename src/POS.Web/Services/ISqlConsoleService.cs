@@ -5,7 +5,7 @@ public sealed record DbOption(string Key, string Catalog, string Display);
 public sealed record SqlValidation(
     bool Ok, string? Error, StatementKind Kind, bool UpdateHasWhere, string? ObjectName = null);
 
-public enum StatementKind { Select, Insert, Update, CreateProcedure, Invalid }
+public enum StatementKind { Select, Insert, Update, Delete, CreateProcedure, Invalid }
 
 public sealed class SqlQueryResult
 {

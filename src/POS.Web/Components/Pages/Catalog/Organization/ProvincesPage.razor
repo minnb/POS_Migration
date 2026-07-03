@@ -1,18 +1,203 @@
 @page "/catalog/provinces"
+@namespace POS.Web.Components.Pages.Catalog.Organization
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
+@using Newtonsoft.Json
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
 @using POS.Web.Auth
+
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject IDialogService DialogService
+@inject IAuditLogger AuditLogger
+@inject ISnackbar Snackbar
 
 <PageTitle>Danh mục Tỉnh/Thành – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
-    Danh mục Tỉnh/Thành
-</MudText>
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
+        Danh mục Tỉnh/Thành
+    </MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.AddLocationAlt"
+               OnClick="OpenCreateDialogAsync"
+               Class="pos-page-header-btn">
+        Thêm chi nhánh
+    </MudButton>
+</div>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-    Tính năng đang được phát triển.
-</MudAlert>
+@* ── Loading bar ─────────────────────────────────────────────────────── *@
+@if (_loading && !_allItems.Any())
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius:4px"/>
+}
+
+@* ── Filter bar ──────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pa-3 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12">
+            <MudTextField Value="_search" Immediate="true"
+                          ValueChanged="@((string v) => { _search = v; ApplyFilter(); })"
+                          Label="Tìm kiếm" Placeholder="Mã chi nhánh, Tên, Địa chỉ, Mã số thuế..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          OnClearButtonClick="@(() => { _search = string.Empty; ApplyFilter(); })"/>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Error ───────────────────────────────────────────────────────────── *@
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Branch list ─────────────────────────────────────────────────────── *@
+<MudTable Items="@_filtered" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Loading="@(_loading && !_allItems.Any())"
+          HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="BranchAdminDto"
+          RowStyle="cursor:pointer">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<BranchAdminDto, object>(x => x.No)">BranchNo</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BranchAdminDto, object>(x => x.Description)">Description</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BranchAdminDto, object>(x => x.Address ?? string.Empty)">Address</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<BranchAdminDto, object>(x => x.VATRegistrationNo ?? string.Empty)">VATRegistrationNo</MudTableSortLabel></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="BranchNo">@context.No</MudTd>
+        <MudTd DataLabel="Description">@context.Description</MudTd>
+        <MudTd DataLabel="Address">@(context.Address ?? "—")</MudTd>
+        <MudTd DataLabel="VATRegistrationNo">@(context.VATRegistrationNo ?? "—")</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+            <MudText Typo="Typo.body2">
+                @(_allItems.Any() ? "Không có kết quả khớp bộ lọc." : "Không có dữ liệu chi nhánh.")
+            </MudText>
+        </div>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private List<BranchAdminDto> _allItems = [];
+    private List<BranchAdminDto> _filtered = [];
+    private bool    _loading;
+    private string? _errorMsg;
+    private string  _search       = string.Empty;
+    private string  _currentActor = "unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+        await LoadDataAsync();
+    }
+
+    // ── Thêm chi nhánh ────────────────────────────────────────────────────
+    private async Task OpenCreateDialogAsync()
+    {
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.Medium,
+            FullWidth        = true,
+            BackdropClick    = false
+        };
+        var dialog = await DialogService.ShowAsync<BranchCreateDialog>("Thêm chi nhánh", options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is BranchCreateDto saved)
+        {
+            await AuditLogger.LogAsync(_currentActor, "CREATE", "Branch",
+                saved.No, oldValueJson: null,
+                newValueJson: JsonConvert.SerializeObject(saved));
+
+            Snackbar.Add($"Đã thêm chi nhánh \"{saved.No}\".", Severity.Success);
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            _allItems = await MdRepo.GetBranchAdminListAsync();
+            FileLogger.WriteLogs($"[ProvincesPage.Load] ops: Branches: {_allItems.Count} total");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh sách chi nhánh.";
+            FileLogger.WriteExpLogs("ProvincesPage.Load", ex);
+        }
+        finally
+        {
+            _loading = false;
+            ApplyFilter();
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = _allItems.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            var q = _search.Trim();
+            filtered = filtered.Where(x =>
+                x.No.Contains(q, StringComparison.OrdinalIgnoreCase)                              ||
+                x.Description.Contains(q, StringComparison.OrdinalIgnoreCase)                     ||
+                (x.Address?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)              ||
+                (x.VATRegistrationNo?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        _filtered = filtered.ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnRowClick(TableRowClickEventArgs<BranchAdminDto> args)
+    {
+        if (args.Item is null) return;
+        var oldSnapshot = new { args.Item.Description, args.Item.Address, args.Item.VATRegistrationNo };
+
+        var dialog = await DialogService.ShowAsync<BranchDetailDialog>(
+            $"Chi tiết: {args.Item.No} – {args.Item.Description}",
+            new DialogParameters<BranchDetailDialog> { { x => x.Item, args.Item } },
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true,
+                                CloseButton = true, CloseOnEscapeKey = true });
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false } && result.Data is BranchAdminDto saved)
+        {
+            await AuditLogger.LogAsync(_currentActor, "UPDATE", "Branch",
+                args.Item.No,
+                oldValueJson: JsonConvert.SerializeObject(oldSnapshot),
+                newValueJson: JsonConvert.SerializeObject(new { saved.Description, saved.Address, saved.VATRegistrationNo }));
+
+            Snackbar.Add($"Đã cập nhật chi nhánh \"{args.Item.No}\".", Severity.Success);
+            await LoadDataAsync();
+        }
+    }
+}

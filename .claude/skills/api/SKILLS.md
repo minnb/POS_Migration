@@ -307,8 +307,8 @@ SecretProtector.DecryptTokens(value, base64Key);   // thay MỌI "enc:..." trong
 // 2) Hook giải mã trong Program.cs — NGAY SAU CreateBuilder, TRƯỚC AddInfrastructure:
 var enc = builder.Configuration.AsEnumerable().Where(kv => SecretProtector.HasToken(kv.Value)).ToList();
 if (enc.Count > 0) {
-    var key = Environment.GetEnvironmentVariable("POSWEB_SECRET_KEY")
-              ?? throw new InvalidOperationException("Có enc:... nhưng thiếu POSWEB_SECRET_KEY"); // fail-fast
+    var key = Environment.GetEnvironmentVariable("POS_SECRET_KEY")
+              ?? throw new InvalidOperationException("Có enc:... nhưng thiếu POS_SECRET_KEY"); // fail-fast
     var ov = new Dictionary<string,string?>(StringComparer.OrdinalIgnoreCase);
     foreach (var kv in enc) ov[kv.Key] = SecretProtector.DecryptTokens(kv.Value!, key);
     builder.Configuration.AddInMemoryCollection(ov);   // mọi GetConnectionString/GetSection tự nhận plaintext
@@ -317,10 +317,16 @@ if (enc.Count > 0) {
 
 - **Không sửa từng factory** — giải mã ở tầng config nên `GetConnectionString` / `GetSection<RabbitMQOptions>` nhận plaintext tự động.
 - **No-op khi không có `enc:`** → môi trường chưa mã hóa (Dev) chạy bình thường, không cần khóa. **Fail-fast** nếu có `enc:` mà thiếu khóa.
-- Khóa qua env (`POSWEB_SECRET_KEY`), giá trị thật ở `.env` (gitignore) — KHÔNG commit khóa.
+- Khóa qua env (`POS_SECRET_KEY`), giá trị thật ở `.env` (gitignore) — KHÔNG commit khóa. Dùng CHUNG 1 khóa cho POS.Api và POS.Web.
 
 > **Anti-pattern:** ❌ mã hóa `appsettings.json` (base) → MỌI môi trường (kể cả Dev không có khóa) fail-fast. Chỉ mã hóa file môi trường (Production).
-> Ví dụ thực tế: `SecretProtector.cs`, `src/POS.Web/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`
+> Ví dụ thực tế: `SecretProtector.cs`, `src/POS.Api/Program.cs`, `src/POS.Web/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`; tra cứu nhanh: `docs/architecture/appsetting.md`
+
+> **Sinh key/token ngoài app đang chạy (không qua UI `/admin/encrypt-secret`):** `AesGcm` không có trong
+> .NET Framework → PowerShell 5.1 Windows không gọi được trực tiếp. Tạo project console tạm (net10.0)
+> với `ProjectReference` tới `POS.Infrastructure.csproj`, gọi thẳng `SecretProtector.GenerateKey()` /
+> `.Encrypt()` / `.Decrypt()` (verify round-trip ngay trong script trước khi dùng), `dotnet run`, rồi xóa
+> project tạm — đảm bảo byte-for-byte tương thích với code decrypt thật, không tự viết lại AES-GCM.
 
 ---
 
@@ -431,30 +437,20 @@ public sealed class PosApiKeyMiddleware(RequestDelegate next)
 
 ---
 
-## Pattern: Xác minh tên bảng vật lý qua legacy EDMX trước khi viết raw SQL
+## Pattern: Xác minh tên bảng vật lý trước khi viết raw SQL
 
-> Áp dụng khi: viết raw SQL/SP call mới nhắm vào bảng đã tồn tại từ legacy (migrate hoặc tái sử dụng).
-> Rút ra từ sự cố thực tế: `CentralMDRepository` dùng `dbo.POSTerminalBanks` và `dbo.Banks` (số nhiều)
-> — cả hai đều là tên **EF DbSet/EntitySet CSDL** (conceptual, số nhiều theo convention), KHÔNG PHẢI
-> tên bảng vật lý thật (`dbo.POSTerminalBank`, `dbo.Bank` — số ít). Query chạy thẳng vào production
-> DB thật sẽ throw `Invalid object name` — chỉ phát hiện lúc runtime, không phải lúc build.
+> Áp dụng khi: viết raw SQL/SP call mới nhắm vào bảng đã tồn tại trong `RPOSMasterData`.
+> Rút ra từ sự cố thực tế: `CentralMDRepository` từng dùng `dbo.POSTerminalBanks` và `dbo.Banks`
+> (số nhiều — suy đoán theo convention EF DbSet cũ), trong khi tên bảng vật lý thật là
+> `dbo.POSTerminalBank`, `dbo.Bank` (số ít). Query chạy thẳng vào production DB thật sẽ throw
+> `Invalid object name` — chỉ phát hiện lúc runtime, không phải lúc build.
 
-**Cách xác minh đúng — tra trong SSDL (Storage Schema) của EDMX, KHÔNG tra CSDL/DbSet:**
-```
-src/legacy/VCM.BLUEPOS.Data/EF/{Module}/{Context}.edmx
-  → tìm <EntitySet Name="{Ten}" EntityType="Self.{Ten}" Schema="dbo" store:Type="Tables" />
-    (nằm trong <Schema Namespace="...Model.Store" Provider="System.Data.SqlClient">, PHẦN SSDL)
-    → đây MỚI là tên bảng vật lý thật
-
-  ⚠️ KHÔNG tra <EntitySet Name="{TenSoNhieu}" EntityType="{Model}.{Ten}" /> trong phần CSDL
-     (Conceptual, phía dưới file) — đó là tên collection C#/DbSet, EF tự pluralize, có thể LỆCH
-     hoàn toàn với tên bảng thật.
-```
-
-**Checklist khi viết SQL/SP mới nhắm bảng cũ từ legacy:**
-1. Grep tên entity trong `src/legacy/*/EF/**/*.edmx` — tìm dòng `<EntitySet ... store:Type="Tables" />`
-2. Đối chiếu property/column list trong `<EntityType Name="...">` (phần SSDL, có `Type="nvarchar"` v.v. — không phải phần CSDL có `Type="String"`)
-3. Nếu có `<MappingFragment StoreEntitySet="{TenBangThat}">` — xác nhận lại 1 lần nữa tên bảng CSDL → SSDL khớp đúng
+**Cách xác minh đúng — tra `docs/architecture/database-schema.md` (nguồn sự thật schema DB
+theo quy tắc ở `CLAUDE.md`), KHÔNG suy đoán tên bảng theo convention số ít/số nhiều:**
+1. Mở `docs/architecture/database-schema.md`, tìm đúng tên bảng + cột + kiểu dữ liệu + PK.
+2. Bảng cần dùng chưa có trong doc → đọc `docs/sql/database/CentralMD.sql` (nguồn gốc sinh ra
+   `database-schema.md`) để lấy tên chính xác, rồi bổ sung vào `database-schema.md` cùng commit.
+3. **KHÔNG** tự thêm/bớt "s" theo thói quen đặt tên DbSet — luôn đối chiếu tên bảng vật lý thật.
 
 > Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`
 > (`GetBankPOSListAsync`/`SaveBankPOSAsync`/`DeleteBankPOSAsync` → `dbo.POSTerminalBank`;
@@ -489,3 +485,27 @@ private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /*
 - Dapper `QueryAsync<T>` không throw khi property DTO không có cột khớp (giữ default) — an toàn khi SP sau này thêm cột mới (vd thêm `PartnerId` vào SELECT) mà không cần sửa code map nếu đã khai báo sẵn field tương ứng.
 
 > Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs` (`GetBankPOSListAsync` + `BankPOSListRow`)
+
+---
+
+## Pattern: Xử lý đường dẫn file POS gửi (SyncDataPos) — luôn giải về FtpRootPath, dùng chung
+> Áp dụng khi: endpoint nhận `filePath`/`pathSync` từ máy POS (download/delete/list file trong FTPBLUEPOS).
+> Rút ra từ 2 bug thực tế trong `SyncDataPosController` (download OK nhưng delete/list lại rỗng/sai thư mục).
+
+- **POS gửi UNC Windows** (`\\ip\FTPBLUEPOS\...`) — trên **Linux Docker không resolve**. Dùng chung 1 helper
+  `ISyncDataPosService.ResolveFtpPhysicalPath(posPath)`: tách phần sau `FTPBLUEPOS` rồi `MapFtpPath` về
+  `FtpRootPath` local. Mọi endpoint (download/delete) phải map trước khi `File.Exists`/`Delete`; endpoint xóa
+  thêm **guard path-traversal** (`fullLocal.StartsWith(MapFtpPath(""))`).
+- **`pathSync` POS gửi đã chứa đủ `SyncDataPos/POS/{typeSync}`** → giải thư mục list/tạo qua
+  `MapFtpPath($"{pathSync}/{folderFile}")` cho MỌI typeSync (ALL/CHANGE) để listing khớp nơi file được tạo +
+  khớp UNC `PathFileIPServer` + URL download.
+- **Anti-pattern**: dùng `AppSettings:FolderShare` + tự ghép `\{typeSync}\` cho nhánh CHANGE → thiếu segment
+  `SyncDataPos\POS`, và hardcode `syncdatapos/pos` lowercase → **sai case trên Linux**. Đừng suy đoán path bằng
+  `FolderShare`; luôn bám `MapFtpPath` + `pathSync` từ query (đồng nhất với nhánh ALL).
+- **Tham số hoá hành vi theo caller qua request DTO, KHÔNG detect caller**: thêm field nullable vào DTO nội bộ
+  (vd `GetMasterDataFileRequest.SyncAction`) để override (Web Sync="DELETE-INSERT", null=mặc định TRUNC-INSERT→INSERT)
+  — DTO nội bộ nên không phá contract test.
+
+> Ví dụ thực tế: `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`ResolveFtpPhysicalPath`,
+> `GetFileFromServerApiAsync`, `PushStartOfDayDataAsync`), `src/POS.Api/Controllers/SyncDataPosController.cs`
+> (`DowloadFileStream`/`DeleteFileFromFTP`/`GetFileFromFTP`), `MasterDataSyncService.ActionFor`

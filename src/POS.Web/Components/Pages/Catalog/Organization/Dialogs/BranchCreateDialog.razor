@@ -1,0 +1,125 @@
+@namespace POS.Web.Components.Pages.Catalog.Organization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+
+@inject ICentralMDRepository MdRepo
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.AddLocationAlt" Class="mr-2" Style="vertical-align:middle"/>
+            Thêm chi nhánh
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.No"
+                                  Label="Mã chi nhánh"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập mã chi nhánh"
+                                  Validation="@((Func<string?, Task<string?>>)ValidateBranchNo)"
+                                  Immediate="true"
+                                  MaxLength="20"/>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.VATRegistrationNo"
+                                  Label="Mã số thuế"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Immediate="true"
+                                  MaxLength="30"/>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Description"
+                                  Label="Tên chi nhánh"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Required="true"
+                                  RequiredError="Vui lòng nhập tên chi nhánh"
+                                  Immediate="true"
+                                  MaxLength="225"/>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Address"
+                                  Label="Địa chỉ"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Immediate="true"
+                                  MaxLength="225"/>
+                </MudItem>
+
+            </MudGrid>
+        </MudForm>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@_saving"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private readonly BranchCreateDto _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+
+    private async Task<string?> ValidateBranchNo(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mã chi nhánh";
+        if (value.Any(char.IsWhiteSpace)) return "Mã chi nhánh không được chứa khoảng trắng";
+        if (value.Trim().Length > 20) return "Mã chi nhánh tối đa 20 ký tự";
+        if (await MdRepo.BranchCodeExistsAsync(value.Trim())) return "Mã chi nhánh đã tồn tại";
+        return null;
+    }
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            var ok = await MdRepo.CreateBranchAsync(_model);
+            if (ok)
+                MudDialog.Close(DialogResult.Ok(_model));
+            else
+                _errorMsg = "Lưu thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

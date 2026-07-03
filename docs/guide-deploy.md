@@ -37,6 +37,10 @@ Thay tất cả placeholder `<...>`:
 > PROD: `appsettings.Production.json` đã có sẵn giá trị thật — chỉ kiểm tra lại trước khi build.
 > Khi UAT/PROD ổn định: đặt `WebApp:EnableDetailedErrors = false` trong `appsettings.Production.json` (POS.Web) để không lộ stack trace.
 
+> 🔒 **Mã hóa credentials (C4)**: nếu `appsettings.{UAT|Production}.json` (POS.Api **và** POS.Web) chứa
+> token `enc:...` thay vì password thật, container **BẮT BUỘC** có env `POS_SECRET_KEY` (xem §3.1/§3.2 và
+> `docs/ROLLOUT.md` §C4) — thiếu khóa → app fail-fast lúc khởi động. Chưa mã hóa (còn plaintext) thì bỏ qua biến này.
+
 ---
 
 ## 3. Build & chạy container
@@ -51,13 +55,21 @@ docker build -t pos-api:uat -f Dockerfile .
 docker run -d --name pos-api-uat \
   -e ASPNETCORE_ENVIRONMENT=UAT \
   -e TZ=Asia/Ho_Chi_Minh \
+  -e POS_SECRET_KEY="${POS_SECRET_KEY}" \
   --add-host host.docker.internal:host-gateway \
   -p 5001:80 \
   -v $(pwd)/logs:/app/logs \
+  -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
   --restart unless-stopped \
   pos-api:uat
 ```
 > PROD: đổi `ASPNETCORE_ENVIRONMENT=Production`, tag `pos-api:prod`, tên container khác. Cổng host (`5001`) phải khớp `proxy_pass` trong nginx.
+> `-e POS_SECRET_KEY=...`: chỉ cần khi `appsettings.{UAT|Production}.json` có token `enc:...` (xem §C4 `docs/ROLLOUT.md`) — bỏ qua nếu file còn plaintext.
+> ⚠️ **PROD đổi path mount ftpbluepos**: dùng `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG có tiền tố
+> `uat`). UAT và PROD chạy `docker run` trên **CÙNG một host** này (khác port/tên container) — nếu dùng
+> chung 1 thư mục host, dữ liệu test UAT sẽ lẫn vào master-data/sale file PROD thật. Tạo + cấp quyền 2
+> thư mục này bằng `deploy/linux/setup-pos-dirs.sh` (xem `docs/deploy/ubuntu-guide.md`) TRƯỚC khi chạy
+> `docker run` lần đầu.
 
 ### 3.2. POS.Web
 
@@ -69,6 +81,7 @@ docker build -t pos-web:uat -f src/POS.Web/Dockerfile .
 docker run -d --name pos-web-uat \
   -e ASPNETCORE_ENVIRONMENT=UAT \
   -e TZ=Asia/Ho_Chi_Minh \
+  -e POS_SECRET_KEY="${POS_SECRET_KEY}" \
   --add-host host.docker.internal:host-gateway \
   -p 5002:8080 \
   -v $(pwd)/logs:/app/logs \
@@ -78,6 +91,7 @@ docker run -d --name pos-web-uat \
 ```
 > ⚠️ Volume `DataProtection-Keys` BẮT BUỘC giữ qua các lần rebuild — nếu mất key, cookie đăng nhập cũ vô hiệu (user phải login lại).
 > Cổng host (`5002`) phải khớp `proxy_pass` trong `nginx/pos-web.uat.conf`.
+> `-e POS_SECRET_KEY=...`: khóa AES giải mã `enc:...` — **cùng giá trị** với khóa dùng cho POS.Api (khóa dùng chung, xem §C4 `docs/ROLLOUT.md`). Bỏ qua nếu appsettings còn plaintext.
 
 ### 3.3. POS.Worker
 
@@ -91,9 +105,15 @@ docker run -d --name pos-worker-uat \
   -e TZ=Asia/Ho_Chi_Minh \
   --add-host host.docker.internal:host-gateway \
   -v $(pwd)/logs:/app/logs \
+  -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
   --restart unless-stopped \
   pos-worker:uat
 ```
+> PROD: đổi `DOTNET_ENVIRONMENT=Production`, tag `pos-worker:prod`, tên container khác — **và đổi path
+> mount** sang `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG tiền tố `uat`, lý do giống POS.Api ở §3.1
+> — UAT/PROD chạy chung host, không được dùng chung thư mục). `PosFileImportWorker` quét
+> `SyncDataPos/Sale/Kafka` bên trong thư mục này — đúng folder mà POS.Api (`UploadFileSale`) đang ghi
+> file sale vào, xem `docs/deploy/ubuntu-guide.md` để biết chi tiết + rủi ro đã biết của việc dùng chung.
 
 ---
 
@@ -198,6 +218,9 @@ docker run -d --name pos-web-uat ... pos-web:uat-prev   # chạy lại image cũ
 
 ```
 □ Điền hết placeholder <...> trong appsettings.{UAT|Production}.json
+□ Đã chạy deploy/linux/setup-pos-dirs.sh cho đúng môi trường (PROD: mặc định /srv/pos; UAT: /srv/pos/uat
+  — KHÔNG dùng chung, xem docs/deploy/ubuntu-guide.md)
+□ Nếu appsettings có token enc:... → set -e POS_SECRET_KEY=... khi docker run (POS.Api + POS.Web, cùng khóa)
 □ Build image đúng Dockerfile từng service
 □ Run với đúng biến môi trường (Api/Web: ASPNETCORE_ENVIRONMENT | Worker: DOTNET_ENVIRONMENT)
 □ POS.Web: mount volume DataProtection-Keys (giữ qua rebuild)

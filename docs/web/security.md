@@ -80,10 +80,10 @@ script-src 'self'; connect-src 'self'; frame-src 'self' blob:; form-action 'self
 ## 5. Credentials (C4)
 
 - ❌ KHÔNG hardcode credential mới (DB/RabbitMQ/API key) trong bất kỳ `appsettings*.json` nào.
-- Password trong `appsettings.Production.json` mã hóa bằng token `enc:` (AES-256-GCM) — giải mã runtime bằng khóa env `POSWEB_SECRET_KEY`.
+- Password trong `appsettings.Production.json` mã hóa bằng token `enc:` (AES-256-GCM) — giải mã runtime bằng khóa env `POS_SECRET_KEY` (dùng chung cho POS.Api và POS.Web).
 - Khóa **không bao giờ vào git** (đặt ở `.env`, đã `.gitignore`). Ciphertext `enc:` thì commit được.
 - Chỉ mã hóa file môi trường (Production), KHÔNG mã hóa `appsettings.json` base (sẽ buộc Dev cần khóa).
-- Tạo token tại trang `/admin/encrypt-secret` (SystemAdmin). Cơ chế: `src/POS.Infrastructure/Security/SecretProtector.cs` + hook trong `Program.cs`. Quy trình: `docs/ROLLOUT.md`.
+- Tạo token tại trang `/admin/encrypt-secret` (SystemAdmin, POS.Web). Cơ chế: `src/POS.Infrastructure/Security/SecretProtector.cs` + hook trong `Program.cs` của **cả POS.Api và POS.Web**. Quy trình: `docs/ROLLOUT.md`.
 
 ---
 

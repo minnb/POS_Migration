@@ -1,8 +1,8 @@
 # Skill: Background Worker — POS.Worker / Hosted Services
 
-> **Áp dụng khi:** migrate scheduled job, message consumer, hoặc bất kỳ tác vụ chạy nền nào
-> từ project cũ (Windows Service, IIS background task, scheduled SP, Kafka/RabbitMQ consumer)
-> sang `POS.Worker`. Đọc file này TRƯỚC khi tạo worker mới.
+> **Áp dụng khi:** tạo scheduled job, message consumer, hoặc bất kỳ tác vụ chạy nền nào
+> (timer polling, Kafka/RabbitMQ consumer...) trong `POS.Worker`. Đọc file này TRƯỚC khi
+> tạo worker mới.
 
 ---
 

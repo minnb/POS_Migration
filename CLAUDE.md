@@ -5,8 +5,10 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 - Solution: `POS.slnx`
 
 > **Greenfield**: dự án khởi đầu là bản port từ POS.API (.NET Framework 4.6) nhưng **nay
-> phát triển mới**, **KHÔNG còn migrate** từ source cũ (`POS.Backend`). Hợp đồng JSON với
-> 5.000 máy POS vẫn giữ nguyên cho các endpoint hiện hữu.
+> phát triển mới**, **KHÔNG còn migrate** từ source cũ. Mã nguồn legacy (`src/legacy/`,
+> `POS.Backend`, `VCM.BLUEPOS`) **đã bị xoá khỏi máy** — không còn để đối chiếu, không tạo lại
+> quy trình "đọc code cũ rồi port". Hợp đồng JSON với 5.000 máy POS vẫn giữ nguyên cho các
+> endpoint hiện hữu.
 
 ## 📚 Bản đồ bộ nhớ & Quy tắc đọc-trước-khi-tạo — BẮT BUỘC
 
@@ -24,9 +26,9 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 | Tra DTO / Service / Repository / Helper đã có + **chữ ký method** + bảng DI | **`docs/CURRENT_STRUCTURE.md`** | Bản đồ bộ nhớ chính — cây `POS.Common/Dtos`, mọi interface + method signature, DI registration, danh sách Helpers |
 | Viết query/SP/Repository đụng bảng DB `RPOSMasterData` (CentralMD) — tra **tên bảng/tên cột/kiểu dữ liệu/PK** | **`docs/architecture/database-schema.md`** | Bản đồ schema DB — toàn bộ bảng + cột + kiểu dữ liệu + PK/FK + danh sách stored procedure, sinh từ `docs/sql/database/CentralMD.sql` |
 | Tạo stored procedure mới cho `RPOSMasterData` | **`.claude/skills/database/SKILLS.md`** | Quy tắc đặt tên `usp_{Domain}_{Action}` + TVP, template SP, cách gọi từ Repository |
-| Tra nguồn legacy (.NET 4.6) khi migrate 1 chức năng | `docs/PROJECT_INVENTORY.md` + `_migration/INVENTORY.md` | Inventory `VCM.BLUEPOS.*` — chỉ đọc đúng mục của chức năng |
 | Kiểm tra contract JSON với 5.000 POS | `docs/API_CONTRACT.md` + `tests/POS.ContractTests/` | Tên field response đã khoá |
 | Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) | Quy trình thêm DTO vào `POS.Common` |
+| Tra quy tắc mã hóa credentials appsettings (`enc:` / `POS_SECRET_KEY`) | **`docs/architecture/appsetting.md`** | Dùng mã hóa hay plaintext (tự suy ra từ nội dung file), phạm vi áp dụng, anti-pattern |
 | Trạng thái / lịch sử POS.Web | `docs/WEB_STATUS.md`, `docs/CHANGELOG.md` | — |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
@@ -945,10 +947,10 @@ public async ValueTask DisposeAsync()
 
 ---
 
-### 13. UI Polish — Trang migrate từ Legacy (BẮT BUỘC đọc khi "làm đẹp UI")
+### 13. UI Polish — Chuẩn đồng bộ giao diện (BẮT BUỘC đọc khi "làm đẹp UI")
 
-> **Chi tiết đầy đủ: `.claude/skills/web/ui-migrate-legacy.md`** — đọc trước khi sửa markup
-> bất kỳ trang nào nhận yêu cầu "sync UI", "trông giống legacy", "làm đẹp".
+> **Chi tiết đầy đủ: `.claude/skills/web/ui-polish-standard.md`** — đọc trước khi sửa markup
+> bất kỳ trang nào nhận yêu cầu "sync UI", "đồng bộ giao diện", "làm đẹp".
 
 **Nguyên tắc cốt lõi:**
 
@@ -956,7 +958,7 @@ public async ValueTask DisposeAsync()
 - Màu chip dùng **ternary inline** tại `Color=` — không thêm helper vào `@code`.
 - `div.pos-page-header` **là chuẩn dự án** — KHÔNG đổi sang `MudStack Justify.SpaceBetween`.
 
-**4 pattern bắt buộc áp cho mọi trang migrate:**
+**4 pattern bắt buộc áp cho mọi trang cần polish UI:**
 
 | Pattern | Áp dụng khi |
 |---------|------------|
@@ -1173,59 +1175,6 @@ CSS global (`app.css`) đã tự xử lý trên `@media (max-width: 599.98px)`:
 - ❌ Gọi `AuditLogger.LogAsync` mà không `await`
 - ❌ Log trước khi xác nhận DB op thành công
 - ❌ Dialog trả `Ok(true)` — page không có newValue để log UPDATE/CREATE
-
----
-
-## Migrate VCM.BLUEPOS (legacy MVC) → POS.Web — BẮT BUỘC
-
-> Nguồn legacy: `src/legacy/` (VCM.BLUEPOS, .NET Framework 4.6, MVC).
-> Danh mục: `_migration/INVENTORY.md` — Tracking: `_migration/PROGRESS.md`.
-
-### 1. Đích đến
-Dashboard nội bộ **Blazor Server .NET 10 + MudBlazor 9.5.0**, render mode **global `InteractiveServer`**.
-Mọi quy ước UI/Auth/DI theo mục **POS.Web** ở trên.
-
-### 2. Quy ước port code
-- `System.Data.SqlClient` → **`Microsoft.Data.SqlClient`**.
-- Connection string: lấy qua **`IConfiguration`** (KHÔNG hardcode, KHÔNG dùng legacy `ConfigurationManager`).
-- Mọi DAL method **`async`** + **`await using`** (`SqlConnection`/`SqlCommand`/`SqlDataReader`), nhận `CancellationToken`.
-- Serialize **Newtonsoft.Json**; DTO đặt trong `POS.Common` (giữ contract field nếu tái dùng).
-- Business logic → `POS.Application`; I/O (DB/HTTP) → `POS.Infrastructure`.
-
-### 3. Bảng map `.cshtml` (MVC) → `.razor` (Blazor)
-
-| Legacy (MVC) | POS.Web (Blazor) |
-|---|---|
-| `Views/{Ctrl}/{Action}.cshtml` | `Components/Pages/{Section}/{Name}Page.razor` (`@page`, `@rendermode InteractiveServer`, `@attribute [Authorize]`) |
-| Partial view `_Xyz.cshtml` | child component `.razor` hoặc `<MudDialog>` |
-| `@model XyzViewModel` | DTO trong `POS.Common` + field trong `@code` |
-| Controller Action GET (mở view) | route `@page` + `OnInitializedAsync` |
-| Controller Action POST (ajax load) | method trong `@code` gọi Service/Repository qua DI |
-| `$.ajax` / jQuery DataTables | `<MudTable HorizontalScrollbar="true">` (client/server-side) |
-| `@Html.DropDownList` / select2 | `<MudSelect>` / `<MudAutocomplete>` (xem mục 13 POS.Web) |
-| `Html.BeginForm` + validation | `<MudForm>` + `@bind-Value` |
-| `ViewBag` / `TempData` | component state fields |
-| Export Excel (EPPlus/NPOI) | giữ lib, trả file qua download stream |
-| Rotativa PDF / in ấn | `// TODO: chọn lib PDF .NET 10` |
-| Auth Forms/AD/SSO | cookie + bridge token (POS.Web §2) |
-
-### 4. Checklist chuyển 1 chức năng
-```
-□ Mở _migration/INVENTORY.md, đọc ĐÚNG mục của chức năng → CHỈ đọc các file nó liệt kê
-□ Tạo DTO POS.Common/Dtos/{Domain}/ (Newtonsoft, [JsonProperty])
-□ Repository POS.Infrastructure/.../{Domain}/ — async + await using + Microsoft.Data.SqlClient + IConfiguration
-□ Service POS.Application/Features/{Domain}/ + đăng ký DI (DependencyInjection.cs)
-□ Page .razor Components/Pages/{Section}/ theo template chuẩn (responsive, flat, density)
-□ Row-level store filter cho StoreOperator nếu áp dụng
-□ Audit log (IAuditLogger) nếu có CRUD
-□ Build POS.Web + dotnet test (DI test + contract test xanh)
-□ Cập nhật _migration/PROGRESS.md: ⏳ TODO → ✅ DONE (kèm bảng Tổng kết)
-```
-
-### 5. RULE quan trọng — phạm vi đọc khi migrate
-> Khi port một chức năng: **CHỈ đọc các file được liệt kê trong mục INVENTORY của chức năng đó**
-> (Controller+Action, View, ViewModel, DAL/SP). **TUYỆT ĐỐI KHÔNG quét lại toàn bộ `src/legacy/`** —
-> tránh nhiễu ngữ cảnh và lãng phí. Thiếu file → bổ sung vào INVENTORY trước, rồi mới đọc.
 
 ---
 

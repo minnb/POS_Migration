@@ -84,6 +84,12 @@ public sealed class PriceSetupLookupDto
 {
     /// <summary>Hình thức bán hàng — dbo.SalesOrderType (IsActive=1).</summary>
     public List<PriceOptionDto> SalesTypes { get; set; } = [];
+
+    /// <summary>Nhóm giá — DISTINCT dbo.StorePriceGroup (PriceGroupCode/PriceGroupName). = SalesCode khi lưu.</summary>
+    public List<PriceOptionDto> PriceGroups { get; set; } = [];
+
+    /// <summary>Loại khai báo — cố định 1 giá trị "Theo ITEM + ĐVT" (chưa mở rộng logic).</summary>
+    public List<PriceOptionDto> DeclarationTypes { get; set; } = [];
 }
 
 /// <summary>Cặp value/text cho dropdown.</summary>

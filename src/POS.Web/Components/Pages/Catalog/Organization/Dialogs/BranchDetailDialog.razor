@@ -1,0 +1,158 @@
+@namespace POS.Web.Components.Pages.Catalog.Organization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+
+@inject ICentralMDRepository MdRepo
+
+<MudDialog>
+    <DialogContent>
+        <MudPaper Elevation="1" Class="pa-4">
+            @if (_editMode)
+            {
+                <MudForm @ref="_form" @bind-IsValid="_formValid">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Value="@Item.No" Label="Mã chi nhánh"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_editVatRegistrationNo"
+                                          Label="Mã số thuế"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Immediate="true" MaxLength="30"/>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_editDescription"
+                                          Label="Tên chi nhánh"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Required="true" RequiredError="Vui lòng nhập tên chi nhánh"
+                                          Immediate="true" MaxLength="225"/>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_editAddress"
+                                          Label="Địa chỉ"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Immediate="true" MaxLength="225"/>
+                        </MudItem>
+                    </MudGrid>
+                </MudForm>
+            }
+            else
+            {
+                <MudGrid Spacing="2">
+                    @Field("Mã chi nhánh", Item.No)
+                    @Field("Mã số thuế", Item.VATRegistrationNo)
+                    @Field("Tên chi nhánh", Item.Description)
+                    @Field("Địa chỉ", Item.Address)
+                </MudGrid>
+            }
+        </MudPaper>
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (_editMode)
+        {
+            <MudButton OnClick="CancelEdit" Variant="Variant.Text" Disabled="@_saving">Hủy</MudButton>
+            <MudButton OnClick="SaveAsync"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="@_saving"
+                       StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                }
+                Lưu
+            </MudButton>
+        }
+        else
+        {
+            <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Color="Color.Secondary">Đóng</MudButton>
+            <MudButton OnClick="StartEdit" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Edit">
+                Sửa
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public BranchAdminDto Item { get; set; } = null!;
+
+    private bool _editMode;
+    private bool _saving;
+    private bool _formValid;
+    private MudForm _form = null!;
+    private string? _errorMsg;
+
+    private string? _editDescription;
+    private string? _editAddress;
+    private string? _editVatRegistrationNo;
+
+    private void CloseDialog() => MudDialog.Close();
+
+    private void StartEdit()
+    {
+        _editDescription       = Item.Description;
+        _editAddress           = Item.Address;
+        _editVatRegistrationNo = Item.VATRegistrationNo;
+        _errorMsg = null;
+        _editMode = true;
+    }
+
+    private void CancelEdit()
+    {
+        _editMode = false;
+        _errorMsg = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            var ok = await MdRepo.UpdateBranchInfoAsync(
+                Item.No, _editDescription ?? string.Empty, _editAddress, _editVatRegistrationNo);
+            if (ok)
+            {
+                var saved = new BranchAdminDto
+                {
+                    No                = Item.No,
+                    Description       = _editDescription ?? string.Empty,
+                    Address           = _editAddress,
+                    VATRegistrationNo = _editVatRegistrationNo
+                };
+                MudDialog.Close(DialogResult.Ok(saved));
+            }
+            else
+            {
+                _errorMsg = "Cập nhật thất bại. Vui lòng thử lại.";
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private RenderFragment Field(string label, string? value) => __builder =>
+    {
+        <MudItem xs="12" sm="6">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
+            <MudText Typo="Typo.body2" Style="font-weight:500">
+                @(string.IsNullOrWhiteSpace(value) ? "—" : value)
+            </MudText>
+        </MudItem>
+    };
+}

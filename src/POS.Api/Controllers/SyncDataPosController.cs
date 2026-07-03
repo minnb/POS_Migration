@@ -69,20 +69,8 @@ public sealed class SyncDataPosController(
         [FromQuery] string? syncAPI,
         [FromQuery] string? typeSync)
     {
-        var requestPayload = JsonConvert.SerializeObject(new
-        {
-            path = Request.Path.Value,
-            query = Request.QueryString.Value,
-            headers = Request.Headers
-                       .Where(h => !h.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase)
-                                && !h.Key.Equals("Cookie", StringComparison.OrdinalIgnoreCase))
-                       .ToDictionary(h => h.Key, h => h.Value.ToString()),
-            clientIp = GetIpAddressClient(),
-            timestamp = DateTime.UtcNow
-        });
-        _ = Task.Run(() => fileLogHelper.WriteLogs($"[GetFileFromFTP] Request: {requestPayload}"));
+        LogRequest("GetFileFromFTP");
 
-        kibanaService.LogRequest($"GetFileFromFTP_{typeSync}", posTerminal, $"GetFileFromFTP: {requestPayload}");
         var ipServer = GetIpAddressClient();
         var listResult = new List<PathFileAPIModel>();
         try
@@ -123,14 +111,15 @@ public sealed class SyncDataPosController(
             }
             else // ChangeFirst hoặc Change
             {
-                var rootFolderShare = configuration["AppSettings:FolderShare"] ?? "";
+                // Dùng pathSync từ query (đã chứa "SyncDataPos/POS/{typeSync}") — KHÔNG dùng FolderShare
+                // để listing khớp nơi file được tạo (giống nhánh ALL).
                 if (syncAPI == "YES")
                 {
                     listResult = await syncDataPosService.GetFileFromServerApiAsync(
-                        rootFolderShare, folderFile ?? "", typeSync ?? "", syncAPI, ipServer);
+                        pathSync ?? "", folderFile ?? "", typeSync ?? "", syncAPI, ipServer);
                 }
                 kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", typeSync ?? "", 0, "",
-                    $"Path: {rootFolderShare}\\{typeSync}\\{folderFile} listFileResult:{JsonConvert.SerializeObject(listResult)}");
+                    $"Path: {pathSync}/{folderFile} listFileResult:{JsonConvert.SerializeObject(listResult)}");
                 return HttpResponseData(HttpStatusCode.OK, $"Response from IPServer {ipServer}", listResult);
             }
         }
@@ -150,6 +139,8 @@ public sealed class SyncDataPosController(
     {
         try
         {
+            LogRequest("UploadFileLogJob");
+
             var form = await Request.ReadFormAsync();
             foreach (var file in form.Files)
             {
@@ -191,6 +182,7 @@ public sealed class SyncDataPosController(
     {
         try
         {
+            LogRequest("process/sales/retry");
             var pathFile = syncDataPosService.MapFtpPath("SyncDataPos/Sale/Kafka");
             var pathFileBackup = syncDataPosService.MapFtpPath("SyncDataPos/Sale/BackupFiles");
             Directory.CreateDirectory(pathFileBackup);
@@ -223,6 +215,7 @@ public sealed class SyncDataPosController(
     [HttpPost("UploadFileSale")]
     public async Task<IActionResult> UploadFileSale()
     {
+        LogRequest("UploadFileSale");
         var ipServer = GetIpAddressClient();
         var lstFile = new List<string>();
         var pathFileBackup = syncDataPosService.MapFtpPath("SyncDataPos/Sale/BackupFiles");
@@ -273,6 +266,8 @@ public sealed class SyncDataPosController(
     {
         try
         {
+            LogRequest("DeleteFileFromAPI");
+
             // UrlServer ví dụ: SyncDataPos/POS/ALL/1535/153501 — relative dưới site root (như MapPath cũ)
             var combineLocal = $"{model.UrlServer}/{model.FileName}";
             var filePathDel = syncDataPosService.MapSitePath(combineLocal);
@@ -307,6 +302,7 @@ public sealed class SyncDataPosController(
     public IActionResult GetFileScriptFromFTP(
         [FromQuery] string? siteCode, [FromQuery] string? folderFile, [FromQuery] string? pathSync)
     {
+        LogRequest("GetFileScriptFromFTP");
         // Giữ nguyên behavior cũ: logic download đã bị comment trong code gốc — luôn trả list rỗng
         var listResult = new List<PathFileAPIModel>();
         try
@@ -326,6 +322,7 @@ public sealed class SyncDataPosController(
     public async Task<IActionResult> GetFileUpgradeToolFromFTP([FromQuery] string? pathSync)
     {
         // pathSync ví dụ: BluePosUpgrade/Upgrade/UpgradeTool
+        LogRequest("GetFileUpgradeToolFromFTP");
         var ipServer = GetIpServer();
         try
         {
@@ -350,6 +347,7 @@ public sealed class SyncDataPosController(
         [FromQuery] string? pathDisk, [FromQuery] string? filePath, [FromQuery] string? ipServer)
     {
         // Phần xóa remote qua shared folder đã bị comment trong code cũ — chỉ giữ phần xóa local
+        LogRequest("DeleteFileFromRemote");
         var ipServerHost = GetIpServer();
         try
         {
@@ -379,13 +377,26 @@ public sealed class SyncDataPosController(
         var ipServerHost = GetIpServer();
         try
         {
-            if (System.IO.File.Exists(filePath))
+            LogRequest("DeleteFileFromFTP");
+
+            // POS gửi filePath dạng UNC (\\ip\FTPBLUEPOS\...) — map về physical path local giống DowloadFileStream.
+            var localPath = Path.GetFullPath(syncDataPosService.ResolveFtpPhysicalPath(filePath));
+
+            // Path-traversal: chỉ cho xóa file nằm trong FtpRootPath.
+            var ftpRootDir = Path.GetFullPath(syncDataPosService.MapFtpPath(""));
+            if (!localPath.StartsWith(ftpRootDir, StringComparison.OrdinalIgnoreCase))
             {
-                System.IO.File.Delete(filePath);
+                fileLogHelper.WriteLogs($"DeleteFileFromFTP: path traversal blocked {filePath}");
+                return HttpResponseData(HttpStatusCode.BadRequest, "Đường dẫn file không hợp lệ", null);
+            }
+
+            if (System.IO.File.Exists(localPath))
+            {
+                System.IO.File.Delete(localPath);
                 return HttpResponseData(HttpStatusCode.OK, $"Delete file IPserver {ipServerHost} success", "");
             }
 
-            fileLogHelper.WriteLogs($"DeleteFileFromFTP: Không tồn tại file xóa {filePath}");
+            fileLogHelper.WriteLogs($"DeleteFileFromFTP: Không tồn tại file xóa {filePath} (local {localPath})");
             return HttpResponseData(HttpStatusCode.BadRequest,
                 $"Delete file IPserver {ipServerHost}:{filePath} fail, do không tồn tại file trên FTP", "");
         }
@@ -404,6 +415,8 @@ public sealed class SyncDataPosController(
     {
         try
         {
+            LogRequest("DeleteFileExist");
+
             if (model is { Count: > 0 })
                 await syncDataPosService.DeleteFileExistAsync(model, GetIpServer());
         }
@@ -423,19 +436,13 @@ public sealed class SyncDataPosController(
     {
         try
         {
+            LogRequest("DowloadFileStream");
+
             var st1 = Stopwatch.StartNew();
 
             // UNC path (\\ip\FTPBLUEPOS\...) từ POS không resolve được trên Linux Docker
-            // → tách relative path sau FTPBLUEPOS\ và map về physical path local
-            var localPath = filePath;
-            if (filePath != null && filePath.StartsWith(@"\\"))
-            {
-                const string ftpRoot = "FTPBLUEPOS";
-                var idx = filePath.IndexOf(ftpRoot, StringComparison.OrdinalIgnoreCase);
-                if (idx >= 0)
-                    localPath = syncDataPosService.MapFtpPath(
-                        filePath[(idx + ftpRoot.Length)..].Replace('\\', '/'));
-            }
+            // → map về physical path local (dùng chung với DeleteFileFromFTP).
+            var localPath = syncDataPosService.ResolveFtpPhysicalPath(filePath);
 
             // Path-traversal: chỉ cho tải file nằm trong FtpRootPath.
             var ftpRootDir = Path.GetFullPath(syncDataPosService.MapFtpPath(""));
@@ -497,6 +504,7 @@ public sealed class SyncDataPosController(
     [HttpGet("ListFile")]
     public IActionResult ListFile([FromQuery] string fullPath, [FromQuery] string extension)
     {
+        LogRequest("ListFile");
         var listResult = new List<ListFileNameModel>();
         try
         {
@@ -521,6 +529,7 @@ public sealed class SyncDataPosController(
     [HttpGet("RetryProcessDataRaw")]
     public async Task<IActionResult> GetRetryProcessDataRaw()
     {
+        LogRequest("RetryProcessDataRaw");
         return HttpResponseData(HttpStatusCode.OK, "Success", await dataRawService.RetryInsDataRawToDBAsync());
     }
 
@@ -537,4 +546,20 @@ public sealed class SyncDataPosController(
             Message = message,
             Data = data
         });
+
+    private void LogRequest(string function)
+    {
+        var requestPayload = JsonConvert.SerializeObject(new
+        {
+            path = Request.Path.Value,
+            query = Request.QueryString.Value,
+            headers = Request.Headers
+                      .Where(h => !h.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase)
+                               && !h.Key.Equals("Cookie", StringComparison.OrdinalIgnoreCase))
+                      .ToDictionary(h => h.Key, h => h.Value.ToString()),
+            clientIp = GetIpAddressClient(),
+            timestamp = DateTime.Now
+        });
+        _ = Task.Run(() => fileLogHelper.WriteLogs($"[{function}] Request: {requestPayload}"));
+    }
 }

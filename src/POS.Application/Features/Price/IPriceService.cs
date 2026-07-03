@@ -16,11 +16,14 @@ public interface IPriceService
     /// <summary>9.1 — toàn bộ dòng theo filter để xuất Excel.</summary>
     Task<List<PriceListItemDto>> ExportPriceListAsync(PriceListFilter filter, CancellationToken ct = default);
 
-    /// <summary>9.3 — lookup form (Hình thức bán hàng).</summary>
+    /// <summary>9.3 — lookup form (Hình thức bán hàng + Nhóm giá + Loại khai báo).</summary>
     Task<PriceSetupLookupDto> GetSetupLookupAsync(CancellationToken ct = default);
 
     /// <summary>9.3 — tìm sản phẩm cho item picker (theo mã/tên).</summary>
     Task<List<ItemOptionDto>> SearchItemsAsync(string keyword, CancellationToken ct = default);
+
+    /// <summary>9.3 — danh sách ĐVT của 1 item (cho dropdown ĐVT inline trên lưới khai báo tay).</summary>
+    Task<List<string>> GetItemUomsAsync(string itemNo, CancellationToken ct = default);
 
     /// <summary>9.3 — validate danh sách dòng import Excel (trả kèm ErrorMessage/row).</summary>
     Task<List<PriceImportResultRow>> ValidateImportAsync(

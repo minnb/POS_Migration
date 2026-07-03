@@ -1,11 +1,12 @@
-# API Contract — VCM.POSBLUE.API
+# API Contract — POS API (POS.Api)
 
-> **Mục đích:** Tài liệu "golden contract" — danh sách đầy đủ mọi route, HTTP verb, request schema, response schema, và external dependency của legacy API. Dùng làm checklist QA sau khi migrate sang .NET 10.
+> **Mục đích:** Tài liệu "golden contract" — danh sách đầy đủ mọi route, HTTP verb, request schema,
+> response schema, và external dependency mà **5.000 máy POS** đang phụ thuộc. Dùng làm checklist
+> QA mỗi khi thêm/sửa endpoint hiện hữu — tên field JSON trong tài liệu này **không được đổi**.
 >
-> **Nguồn:** Đọc trực tiếp từ source code `API_BLUEPOS\VCM.POSBLUE.API\Controllers\` (19 controller files).
->
-> **Ngày tạo:** 2026-06-08  
-> **Legacy stack:** .NET Framework 4.6.2 / ASP.NET WebAPI 2 / EF6 / Dapper
+> **Ngày tạo:** 2026-06-08 (chụp lại từ contract gốc .NET Framework 4.6.2/WebAPI 2 — stack nguồn đã
+> ngừng dùng, dự án nay là **POS.Api trên .NET 10**). Khi thêm endpoint mới, cập nhật tài liệu này
+> trong cùng commit.
 
 ---
 
@@ -666,20 +667,3 @@ GetPosNo()           → alias GetIpServer()
 | `AppCodeEnum.IsOfflineCapillary.ToString()` | Loyalty offline switch | Persistent |
 | `RedisConst.Redis_Key_GetFileFromFTP` | SOD file request queue | 10 phút |
 | `RedisConst.Redis_Key_WWW_ROP_V_PREFIX` | SAP — prefix voucher ROP | Cached |
-
----
-
-## 10. Notes cho Migration sang .NET 10
-
-1. **`HttpResponseMessage` → `IActionResult`**: Toàn bộ `Request.CreateResponse(...)` cần đổi thành `Ok(...)`, `BadRequest(...)`, `StatusCode(...)`.
-2. **`ApiController` → `ControllerBase [ApiController]`**: `ModelState.IsValid`, `ActionContext` vẫn dùng được; `ExceptionModels()` / `NewExceptionModels()` map thành `ValidationProblem()`.
-3. **`[RoutePrefix]` → `[Route]` trên class**: Cú pháp mới.
-4. **`[FromUri]`** (CapillaryController action endpoint) → `[FromQuery]`.
-5. **`HttpContext.Current`** (SyncDataPosController) → `IHttpContextAccessor`.
-6. **`HostingEnvironment.MapPath`** → `IWebHostEnvironment.ContentRootPath`.
-7. **Static singleton services** (LoyaltyController) → `services.AddSingleton<T>()` trong DI container.
-8. **`ConfigurationManager`** → `IConfiguration` injection.
-9. **SAP/Odoo SOAP WS** (PLG, SAP) → `dotnet-svcutil` để regenerate proxy từ WSDL.
-10. **`System.Web.Http`** → `Microsoft.AspNetCore.Mvc`.
-11. **`System.Web.Mvc.Controller`** (HomeController) → `Microsoft.AspNetCore.Mvc.Controller`.
-12. **Fire-and-forget `Task.Run(...)`** — giữ nguyên pattern nhưng cần xem xét `IHostedService` / `BackgroundService` cho production.

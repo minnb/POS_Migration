@@ -6,6 +6,13 @@
 #        sudo docker rm -f mssql_2019
 #   2. mkdir -p logs && sudo chown 1654:1654 logs
 #   3. sudo docker compose up -d --build
+#
+# QUAN TRỌNG — chuyển đổi MỘT LẦN từ named volume ftpbluepos_data sang bind mount thư mục host
+# thật (dễ cấp quyền/backup hơn) — xem hướng dẫn đầy đủ tại docs/deploy/ubuntu-guide.md:
+#   1. sudo docker compose stop webapp worker
+#   2. sudo ./deploy/linux/setup-pos-dirs.sh
+#   3. Di trú dữ liệu cũ từ named volume ftpbluepos_data sang /srv/pos/ftpbluepos (xem ubuntu-guide.md)
+#   4. sudo docker compose up -d --build
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
@@ -47,13 +54,18 @@ services:
       ASPNETCORE_ENVIRONMENT: Production # dùng appsettings.Production.json
       DOTNET_gcServer: "0" # Workstation GC — hợp máy 2 vCPU / ít RAM
       # Khóa AES giải mã credentials enc:... trong appsettings (xem .env / .env.example).
-      # Giá trị THẬT đặt trong .env (đã .gitignore) — KHÔNG hardcode ở đây.
-      POSWEB_SECRET_KEY: ${POSWEB_SECRET_KEY}
+      # Dùng CHUNG với POS.Web (cùng SecretProtector/AES key). Giá trị THẬT đặt trong .env
+      # (đã .gitignore) — KHÔNG hardcode ở đây.
+      POS_SECRET_KEY: ${POS_SECRET_KEY}
     volumes:
       # container chạy non-root APP_UID=1654 — không chown thư mục logs sẽ không ghi được file
       - ./logs:/app/logs
-      # Lưu file .zip SOD (CreateFileSODFakeAsync) — named volume để tránh permission issue
-      - ftpbluepos_data:/app/ftpbluepos
+      # Root sync file (SOD/master-data zip, sale upload, log upload, upgrade tool) — bind mount thư
+      # mục thật trên Ubuntu host (thay named volume ftpbluepos_data cũ) để ops truy cập trực tiếp
+      # qua shell (ls/scp/chmod) thay vì phải chui vào /var/lib/docker/volumes. Cùng thư mục này được
+      # mount vào CẢ service `worker` bên dưới (PosFileImportWorker dùng chung subfolder Sale/Kafka).
+      # Setup 1 lần trên host: deploy/linux/setup-pos-dirs.sh — xem docs/deploy/ubuntu-guide.md.
+      - /srv/pos/ftpbluepos:/app/ftpbluepos
       # Giữ key DataProtection qua các lần rebuild — tắt cảnh báo "Storing keys in a
       # directory that may not be persisted" lúc khởi động
       - dp-keys:/home/app/.aspnet/DataProtection-Keys
@@ -74,10 +86,12 @@ services:
       DOTNET_ENVIRONMENT: Production
     volumes:
       - ./logs:/app/logs
+      # CÙNG thư mục host với service `webapp` ở trên (không phải volume riêng) — PosFileImportWorker
+      # quét SyncDataPos/Sale/Kafka, đúng folder mà UploadFileSale (POS.Api) đang ghi file vào.
+      - /srv/pos/ftpbluepos:/app/ftpbluepos
     restart: unless-stopped
 
 volumes:
-  ftpbluepos_data:
   dp-keys:
   sql_data:
     # Dùng lại volume DATA CŨ của mssql_2019 (external — compose không tạo volume mới).

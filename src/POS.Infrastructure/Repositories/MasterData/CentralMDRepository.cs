@@ -192,6 +192,73 @@ public sealed class CentralMDRepository(
         return data;
     }
 
+    // ── Danh mục Chi nhánh / Tỉnh-Thành (Branch) ─────────────────────────────
+
+    public async Task<List<BranchAdminDto>> GetBranchAdminListAsync(CancellationToken ct = default)
+    {
+        const string sql = @"SELECT No, Description, Address, VATRegistrationNo
+                             FROM   dbo.Branch (NOLOCK)
+                             ORDER  BY No";
+        return (await QueryAsync<BranchAdminDto>(sql, ct: ct)).ToList();
+    }
+
+    public async Task<bool> BranchCodeExistsAsync(string branchNo, CancellationToken ct = default)
+    {
+        const string sql = "SELECT COUNT(1) FROM dbo.Branch (NOLOCK) WHERE No = @branchNo;";
+        var count = await QueryFirstOrDefaultAsync<int>(sql, new { branchNo = branchNo.Trim() }, ct: ct);
+        return count > 0;
+    }
+
+    public async Task<bool> CreateBranchAsync(BranchCreateDto dto, CancellationToken ct = default)
+    {
+        const string sql = @"INSERT INTO dbo.Branch
+                                 (No, Description, Address, VATRegistrationNo,
+                                  PhoneNo, FaxNo, BankAccountNo, BankName, BankAddress, BankAcountName,
+                                  VietnameseDescription, VietnameseAddress, UrlElecInvoice,
+                                  Counter, Pkey)
+                             VALUES
+                                 (@No, @Description, @Address, @VATRegistrationNo,
+                                  '', '', '', '', '', '',
+                                  '', '', '',
+                                  (SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Branch), @No);";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new
+            {
+                No                = dto.No.Trim(),
+                Description       = dto.Description.Trim(),
+                Address           = dto.Address?.Trim() ?? string.Empty,
+                VATRegistrationNo = dto.VATRegistrationNo?.Trim() ?? string.Empty
+            }, ct: ct);
+            if (rows > 0) redis.Delete(KeyBranchList); // invalidate combobox Chi nhánh cache
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> UpdateBranchInfoAsync(string branchNo, string description, string? address, string? vatRegistrationNo, CancellationToken ct = default)
+    {
+        const string sql = @"UPDATE dbo.Branch
+                             SET    Description       = @description,
+                                    Address           = @address,
+                                    VATRegistrationNo = @vatRegistrationNo,
+                                    Counter           = (SELECT ISNULL(MAX(Counter), 0) + 1 FROM dbo.Branch)
+                             WHERE  No = @branchNo;";
+        try
+        {
+            var rows = await ExecuteAsync(sql, new
+            {
+                branchNo          = branchNo.Trim(),
+                description       = description.Trim(),
+                address           = address?.Trim() ?? string.Empty,
+                vatRegistrationNo = vatRegistrationNo?.Trim() ?? string.Empty
+            }, ct: ct);
+            if (rows > 0) redis.Delete(KeyBranchList); // invalidate combobox Chi nhánh cache (Description đổi)
+            return rows > 0;
+        }
+        catch { return false; }
+    }
+
     public async Task<List<TenderTypeSetupDto>> GetTenderTypesAsync(CancellationToken ct = default)
     {
         var cached = await redis.StringGetAsync<List<TenderTypeSetupDto>>(KeyTenderTypeSetup);

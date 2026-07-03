@@ -5,6 +5,7 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
+@using POS.Application.Features.DataSync
 @using POS.Common.Dtos.Ops
 @using POS.Infrastructure.Logging
 @using POS.Infrastructure.Repositories.Interfaces
@@ -12,6 +13,7 @@
 @using Newtonsoft.Json
 
 @inject ICentralMDRepository MdRepo
+@inject ISyncDataPosService SyncService
 @inject IFileLogHelper FileLogger
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -140,13 +142,23 @@
     <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
 }
 
+@* ── Confirm đẩy dữ liệu đầu ngày ─────────────────────────────────────── *@
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Sync">Đẩy dữ liệu</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @* ── POS list ────────────────────────────────────────────────────────── *@
 <MudTable Items="@_filtered" Dense="true" Hover="true" Striped="true"
           Breakpoint="Breakpoint.Sm" Loading="@(_loading && !_allItems.Any())"
           HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="PosTerminalListDto"
-          RowStyle="cursor:pointer">
+          RowStyleFunc="@RowStyleFunc" RowClassFunc="@RowClassFunc">
     <HeaderContent>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsOnline ? 0 : 1)">IsOnline</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center">Action</MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.No)">PosNo</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.StoreNo)">StoreNo</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IPAddress ?? string.Empty)">IPAddress</MudTableSortLabel></MudTh>
@@ -162,6 +174,23 @@
                      Variant="Variant.Filled">
                 @(context.IsOnline ? "● Online" : "● Offline")
             </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Action" Style="text-align:center">
+            @* stopPropagation: chặn click nút kích hoạt OnRowClick (mở dialog chi tiết) *@
+            <div @onclick:stopPropagation="true">
+                @if (_syncing.Contains(context.No))
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
+                }
+                else
+                {
+                    <MudTooltip Text="Đẩy dữ liệu đầu ngày cho máy POS">
+                        <MudIconButton Icon="@Icons.Material.Filled.Sync" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => SyncDataAsync(context))"/>
+                    </MudTooltip>
+                }
+            </div>
         </MudTd>
         <MudTd DataLabel="PosNo">@context.No</MudTd>
         <MudTd DataLabel="StoreNo">@context.StoreNo</MudTd>
@@ -222,6 +251,11 @@
     private int     _autoRefreshSec = 120;
     private DateTime? _lastLoaded;
     private PeriodicTimer? _timer;
+
+    // Track POS đang đẩy dữ liệu (sống độc lập _allItems → auto-refresh reload vẫn giữ trạng thái)
+    private readonly HashSet<string> _syncing = new();
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -305,6 +339,46 @@
             await AuditLogger.LogAsync(_currentActor, "UPDATE", "PosTerminal", args.Item.No, oldJson, newJson);
             Snackbar.Add($"POS {args.Item.No} đã được cập nhật.", Severity.Success);
             await LoadDataAsync();
+        }
+    }
+
+    // Giữ con trỏ pointer như cũ (nền do class pos-row-syncing xử lý khi đang đẩy dữ liệu)
+    private string RowStyleFunc(PosTerminalListDto item, int index) => "cursor:pointer;";
+
+    // Pulse nhẹ dòng đang xử lý (keyframe pos-row-syncing trong app.css)
+    private string RowClassFunc(PosTerminalListDto item, int index)
+        => _syncing.Contains(item.No) ? "pos-row-syncing" : string.Empty;
+
+    private async Task SyncDataAsync(PosTerminalListDto pos)
+    {
+        _confirmMsg = $"Xác nhận đẩy dữ liệu đầu ngày cho máy POS {pos.No}?";
+        if (await _confirmBox!.ShowAsync() != true) return;
+
+        _syncing.Add(pos.No);
+        StateHasChanged();
+        try
+        {
+            var r = await SyncService.PushStartOfDayDataAsync(pos.StoreNo, pos.No);
+            if (r.Success)
+            {
+                Snackbar.Add($"Đã đẩy dữ liệu đầu ngày cho POS {pos.No} (file {r.FileName}).", Severity.Success);
+                await AuditLogger.LogAsync(_currentActor, "SYNC", "PosTerminal", pos.No, null,
+                    JsonConvert.SerializeObject(new { pos.StoreNo, pos.No, r.FileName, r.TableCount }));
+            }
+            else
+            {
+                Snackbar.Add($"Đẩy dữ liệu thất bại: {r.Message}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Không thể đẩy dữ liệu đầu ngày cho máy POS này.", Severity.Error);
+            FileLogger.WriteExpLogs("PosMapPage.SyncData", ex);
+        }
+        finally
+        {
+            _syncing.Remove(pos.No);
+            StateHasChanged();
         }
     }
 

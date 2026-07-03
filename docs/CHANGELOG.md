@@ -6,6 +6,173 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-03] DataSync — fix đường dẫn UNC/CHANGE + Action envelope theo caller
+
+**Layer:** POS.Api + POS.Application + POS.Common
+
+**Loại:** Bug fix + Feature (tiếp nối nút Sync POSMap bên dưới)
+
+**Thay đổi:**
+- `SyncDataPosController.DeleteFileFromFTP`: POS gửi `filePath` UNC (`\\ip\FTPBLUEPOS\...`) → trước đây
+  `File.Exists` trên UNC thô, trên Linux/Docker không resolve → luôn "không tồn tại". Fix: map UNC→local qua
+  helper mới `ISyncDataPosService.ResolveFtpPhysicalPath` + guard path-traversal. `DowloadFileStream` refactor
+  dùng chung helper (bỏ khối map inline).
+- `SyncDataPosController.GetFileFromFTP` nhánh CHANGE: trước truyền `AppSettings:FolderShare` → list từ
+  `{FolderShare}\CHANGE\{folderFile}` (thiếu segment `SyncDataPos\POS`) → không thấy file. Fix: truyền `pathSync`
+  từ query; `GetFileFromServerApiAsync` bỏ special-case `if(typeSync=="ALL")`, **luôn** giải qua
+  `MapFtpPath($"{pathSync}/{folderFile}")` → listing/URL/UNC nhất quán với nơi file tạo, hết lỗi sai case
+  `syncdatapos/pos` trên Linux.
+- `MasterDataSyncService.ActionFor` + `GetMasterDataFileRequest.SyncAction` (field mới): Action envelope tách
+  theo caller — POS ALL giữ `TRUNC-INSERT`→`INSERT`; Web Sync (`PushStartOfDayDataAsync`) đặt `SyncAction="DELETE-INSERT"`
+  → **mọi batch** ghi `DELETE-INSERT`. KHÔNG đổi logic stream/zip, không đổi dữ liệu (web vẫn full data).
+
+**Pattern mới:** "Xử lý đường dẫn file POS gửi (SyncDataPos) — luôn giải về FtpRootPath, dùng chung" +
+tham số hoá hành vi theo caller qua field DTO nội bộ → đã cập nhật `.claude/skills/api/SKILLS.md`.
+
+**Lưu ý cho session sau:** với mọi endpoint nhận path từ POS, luôn map UNC→local bằng `ResolveFtpPhysicalPath`
+trước khi thao tác file; `pathSync` POS gửi đã đủ `SyncDataPos/POS/{typeSync}` nên dùng `MapFtpPath` (đừng ghép
+`FolderShare`). Muốn đổi hành vi theo caller → thêm field vào request DTO, đừng detect caller.
+
+---
+
+## [2026-07-03] PosMapPage `/catalog/pos-setup` — nút "Đẩy dữ liệu đầu ngày" cho máy POS
+
+**Layer:** POS.Web + POS.Application
+
+**Loại:** Feature + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Web/Components/Pages/Ops/PosMapPage.razor`: thêm cột **Action** (sau `IsOnline`) — nút Sync +
+  `MudMessageBox` confirm + spinner-trong-nút + pulse nền dòng (`_syncing` HashSet) + `@onclick:stopPropagation`
+  (chặn mở nhầm dialog chi tiết). Ghi **audit log** `SYNC`/`PosTerminal` khi thành công (qua `IAuditLogger`).
+- `src/POS.Application/Features/DataSync/ISyncDataPosService.cs` + `SyncDataPosService.cs`: thêm
+  `PushStartOfDayDataAsync(siteCode, posTerminal, ct)` — inject `IMasterDataSyncService`, **gọi trực tiếp qua DI**
+  (không HTTP sang POS.Api), tái dùng nguyên `EnsureMasterDataFileAsync` (`TypeSync=ALL` full data) — **KHÔNG đổi**
+  logic sinh file txt/zip.
+- `src/POS.Web/wwwroot/app.css`: keyframe `pos-row-syncing` (pulse nhẹ dòng đang xử lý).
+- `src/POS.Web/appsettings.json` (DEV): `FolderShare`/`FtpRootPath`/... khớp POS.Api (key đã tồn tại — không sync UAT/Prod).
+- `docs/ROLLOUT.md`: thêm **§O3** — yêu cầu POS.Web `FtpRootPath` trỏ chung thư mục POS.Api phục vụ (UAT/PROD đang rỗng).
+- `docs/CURRENT_STRUCTURE.md`: thêm chữ ký `PushStartOfDayDataAsync` vào `ISyncDataPosService`.
+
+**Bug đã fix trong task:** ban đầu dựng `TargetDir = Path.Combine(FolderShare, "CHANGE", ...)` → sai thư mục
+(`FTPBLUEPOS\CHANGE\...`). Sửa dùng `MapFtpPath("SyncDataPos/POS/CHANGE/{site}/{terminal}")` để **bám y hệt
+controller** (`FTPBLUEPOS\SyncDataPos\POS\CHANGE\{site}\{terminal}` — đúng nơi POS tạo/đọc + URL download).
+
+**Pattern mới:** POS.Web kích hoạt tác vụ server-side (sinh file) bằng cách **gọi trực tiếp Application service
+của POS.Api qua DI** thay vì HTTP; khi tái dùng phải **bám đúng convention path `MapFtpPath` của controller**,
+KHÔNG tự dựng path bằng `FolderShare` → đã cập nhật `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:** file sinh trên host POS.Web nhưng POS tải qua POS.Api → 2 app phải chung `FtpRootPath`
+(share/volume). Khi tái dùng logic file của POS.Api từ Web, luôn tra cách controller dựng `TargetDir` để khớp 100%.
+
+---
+
+## [2026-07-03] Thực thi rollout C4 — mã hóa xong appsettings.Production.json (POS.Api + POS.Web)
+
+**Layer:** POS.Api + POS.Web + Infra/docs
+
+**Loại:** Bảo mật (thực thi rollout — tiếp nối entry 2026-07-02 bên dưới)
+
+**Thay đổi:**
+- Sinh khóa `POS_SECRET_KEY` (AES-256, base64) bằng project console tạm (`ProjectReference` tới
+  `POS.Infrastructure.csproj`, gọi thẳng `SecretProtector.GenerateKey()`/`Encrypt()`, verify round-trip
+  `Decrypt()` trước khi dùng, rồi xóa project tạm) — tránh tự viết lại AES-GCM, đảm bảo tương thích
+  100% với code decrypt thật. Kỹ thuật này đã ghi vào `.claude/skills/api/SKILLS.md`.
+- `src/POS.Api/appsettings.Production.json` + `src/POS.Web/appsettings.Production.json`: thay toàn bộ
+  9 connection string (`Password=...`) + `RabbitMQ.Password` mỗi file bằng token `enc:...` — không còn
+  password thật dạng plaintext trong 2 file này.
+- `.env` (local, gitignored): thêm `POS_SECRET_KEY` để `docker compose up` dùng được ngay cho service
+  `webapp` (= POS.Api).
+- `docs/architecture/appsetting.md` (**file mới**): tài liệu tra cứu nhanh — bảng "dùng mã hóa hay
+  plaintext" (tự suy ra từ nội dung file, không phải 1 cờ cấu hình riêng), phạm vi áp dụng, anti-pattern,
+  link sang `docs/ROLLOUT.md`/`docs/guide-deploy.md`/SKILLS.md.
+- `CLAUDE.md`: thêm 1 dòng vào bảng "Mục lục tài liệu kiến trúc" trỏ tới `docs/architecture/appsetting.md`.
+- `docs/WEB_STATUS.md`: cập nhật dòng S5 — từ ⚠️ (chưa rollout) → ✅ (đã rollout Production).
+
+**Pattern mới:** Kỹ thuật sinh/mã hóa secret ngoài app đang chạy bằng project console tạm (xem
+`.claude/skills/api/SKILLS.md` — cuối section "Pattern: Mã hóa credentials trong appsettings").
+
+**Lưu ý cho session sau:** `appsettings.UAT.json` của cả 2 project **chưa** được mã hóa (ngoài phạm vi
+task này — chỉ làm Production theo yêu cầu). Trên server UAT/PROD thật, vẫn cần người vận hành tự đặt
+`POS_SECRET_KEY` (biến môi trường/`docker run -e`) — Claude không có quyền truy cập server đó. Khóa +
+3 password thật đã đi qua hội thoại này (người dùng đã xác nhận chấp nhận đánh đổi này) — nếu cần đảm
+bảo tuyệt đối "khóa chưa từng qua AI", rotate khóa sau qua `/admin/encrypt-secret`.
+
+---
+
+## [2026-07-02] Mở rộng mã hóa credentials (C4) sang POS.Api — đổi tên khóa chung POS_SECRET_KEY
+
+**Layer:** POS.Api + POS.Web + Infra/docs
+
+**Loại:** Bảo mật (chuẩn bị go-live Production)
+
+**Thay đổi:**
+- `src/POS.Api/Program.cs`: thêm hook giải mã token `enc:...` (AES-256-GCM qua `SecretProtector`),
+  NGAY SAU `CreateBuilder`, TRƯỚC `AddInfrastructure` — copy đúng pattern đã có ở `src/POS.Web/Program.cs`.
+  Trước đây cơ chế `SecretProtector` chỉ wired ở POS.Web; POS.Api đọc `appsettings.Production.json`
+  plaintext dù `docker-compose.yml` đã âm thầm truyền sẵn biến khóa vào container (không có code tiêu thụ).
+- Đổi tên biến môi trường khóa AES từ `POSWEB_SECRET_KEY` → **`POS_SECRET_KEY`** (dùng chung cho cả
+  2 project, không còn gắn riêng "Web") — cập nhật `src/POS.Web/Program.cs`,
+  `EncryptSecretPage.razor` (`/admin/encrypt-secret`), `SecretProtector.cs` (doc comment + thông báo lỗi),
+  `docker-compose.yml`, `.env.example`.
+- `docs/guide-deploy.md`: thêm `-e POS_SECRET_KEY=...` vào ví dụ `docker run` của cả POS.Api (§3.1)
+  và POS.Web (§3.2) + ghi chú ở checklist.
+- `docs/ROLLOUT.md` §C4: viết lại — phạm vi rollout nay là **CẢ HAI** `appsettings.Production.json`
+  (POS.Api + POS.Web), cùng 1 khóa, token sinh ở trang `/admin/encrypt-secret` (POS.Web) dùng được cho
+  cả 2 file vì cùng plaintext + cùng khóa. Thêm ghi chú naming: service `webapp` trong `docker-compose.yml`
+  (root) thực chất là POS.Api, không phải POS.Web.
+- `.claude/skills/api/SKILLS.md`, `docs/web/security.md`, `docs/WEB_STATUS.md`: đồng bộ tên biến +
+  phạm vi 2 project trong phần mô tả pattern/security.
+
+**Pattern mới:** Không có pattern kỹ thuật mới — tái dùng nguyên `SecretProtector` đã có, chỉ nhân rộng
+hook sang project thứ 2 và đổi tên biến môi trường cho đúng phạm vi dùng chung.
+
+**Lưu ý cho session sau:** Thực thi mã hóa Production thật (Bước 1-5 `docs/ROLLOUT.md` §C4) vẫn là việc
+của **người vận hành** — Claude không giữ khóa, không tự thay password thật. Tại thời điểm này,
+`appsettings.Production.json` của cả POS.Api và POS.Web **vẫn còn plaintext** (password thật) —
+cơ chế code đã sẵn sàng cho cả 2 project, chỉ còn chờ ops chạy rollout. `POS.Worker` vẫn ngoài phạm vi
+(chưa có hook, vẫn plaintext). Đã verify: `dotnet build` (0 lỗi) + `dotnet test tests/POS.ContractTests`.
+
+---
+
+## [2026-07-02] Dọn sạch docs tham chiếu legacy/migrate — source code legacy đã xóa khỏi máy
+
+**Layer:** Docs (`.claude/skills/`, `docs/`, `CLAUDE.md`, `README.md`) — không đụng code
+
+**Loại:** Refactor tài liệu
+
+**Thay đổi:**
+- Xóa hẳn `_migration/INVENTORY.md`, `_migration/PROGRESS.md`, `docs/PROJECT_INVENTORY.md` —
+  100% nội dung là inventory/tracking source legacy (.NET Framework 4.6.2, VCM.BLUEPOS) đã bị
+  xóa khỏi máy, không còn đối chiếu được.
+- Đổi tên `.claude/skills/web/ui-migrate-legacy.md` → `.claude/skills/web/ui-polish-standard.md`
+  (giữ nguyên nội dung kỹ thuật — pattern chip màu, empty-state, action bar, MudCard polish —
+  chỉ bỏ khung "trang migrate từ legacy" vì không còn phân biệt trang cũ/mới).
+- `CLAUDE.md`: bỏ hẳn mục "Migrate VCM.BLUEPOS → POS.Web" (5 mục con), bỏ hàng inventory legacy
+  trong bảng doc-map, cập nhật §13 POS.Web trỏ sang `ui-polish-standard.md`.
+- `docs/CURRENT_STRUCTURE.md`: bỏ "MỤC H — Những gì chưa có" (bảng Controllers/Services/BLO/
+  Helpers "chưa migrate" đối chiếu inventory đã xóa) + số liệu thống kê liên quan.
+- `docs/API_CONTRACT.md`: bỏ mục 10 "Notes cho Migration sang .NET 10" (đã hoàn thành từ lâu).
+- `.claude/skills/api/SKILLS.md`: pattern "xác minh tên bảng qua legacy EDMX"
+  (`src/legacy/*/EF/**/*.edmx`) → thay bằng tra `docs/architecture/database-schema.md`.
+- `.claude/skills/cache/SKILLS.md`, `.claude/skills/worker/SKILLS.md`: bỏ khung "migrate từ
+  project cũ/IIS MemoryCache", giữ nguyên toàn bộ quy tắc kỹ thuật (Redis pattern, Worker pattern).
+- `docs/architecture/database-schema.md`, `docs/web/LOGIC_APPROVE_CTKM.md`: sửa cross-reference
+  trỏ tới mục/file đã xóa.
+- `README.md`: viết lại hoàn toàn — bản cũ mô tả sai kiến trúc (POS.API/POS.Domain/POS.Shared),
+  sót lại từ giai đoạn lên kế hoạch ban đầu, còn trỏ tới `POS.Backend`/`analyze-legacy.md`.
+- **Cố ý giữ nguyên**: `docs/CHANGELOG.md`, `docs/WEB_STATUS.md` — entry cũ có chữ "migrate"/
+  "Legacy" là ghi chép lịch sử tại thời điểm đó (đã có ghi chú "giữ nguyên để tra cứu" ở đầu file).
+
+**Pattern mới:** Không có — đây là dọn dẹp docs theo yêu cầu trực tiếp, không phát sinh pattern code mới.
+
+**Lưu ý cho session sau:** `src/legacy/`, `_migration/`, `docs/PROJECT_INVENTORY.md` **không còn
+tồn tại** — đừng đề xuất đọc/grep các đường dẫn này nữa. Khi cần tra tên bảng/cột DB dùng
+`docs/architecture/database-schema.md`; khi cần tra cấu trúc code hiện có dùng
+`docs/CURRENT_STRUCTURE.md`. Đã verify: `dotnet build` (0 lỗi) + `dotnet test tests/POS.ContractTests` (25/25 pass).
+
+---
+
 ## [2026-07-02] Validate ActicleNo tồn tại trong CpnVchBOMHeader trước khi tạo Voucher SAP
 
 **Layer:** POS.Api (POS.Application + POS.Infrastructure)

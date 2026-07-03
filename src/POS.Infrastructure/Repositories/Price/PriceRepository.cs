@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using POS.Common.Dtos.Price;
 using POS.Infrastructure.Database;
+using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
 
 namespace POS.Infrastructure.Repositories;
@@ -10,9 +11,13 @@ namespace POS.Infrastructure.Repositories;
 /// 9.1 Danh mục Bảng giá + 9.3 Setup Giá — DB RPOSMasterData (CentralMD).
 /// Port từ VCM.BLUEPOS PriceData/SetupPriceData. Read qua SP có sẵn; validate/save qua TVP + SP mới.
 /// </summary>
-public sealed class PriceRepository(CentralMDConnectionFactory connectionFactory)
+public sealed class PriceRepository(
+    CentralMDConnectionFactory connectionFactory,
+    IRedisService redis)
     : BaseRepository(connectionFactory), IPriceRepository
 {
+    private const string KeyPriceGroupOptions = "MD:PriceGroupOptions";
+
     // PageSize lớn để lấy toàn bộ theo filter khi export (SP legacy không paging cho export).
     public async Task<(List<PriceListItemDto> Items, int Total)> GetListAsync(
         PriceListFilter filter, CancellationToken ct = default)
@@ -115,6 +120,33 @@ WHERE ISNULL(I.Barcode, '') <> ''";
             "dbo.usp_SetupSalePrice_Save", p,
             commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
         return row ?? new PriceSaveResult { Ok = false, Message = "Lưu bảng giá thất bại" };
+    }
+
+    public async Task<List<PriceOptionDto>> GetPriceGroupOptionsAsync(CancellationToken ct = default)
+    {
+        var cached = await redis.StringGetAsync<List<PriceOptionDto>>(KeyPriceGroupOptions);
+        if (cached?.Count > 0) return cached;
+
+        const string sql = @"SELECT DISTINCT [PriceGroupCode] AS Value,
+                                    ISNULL([PriceGroupName], [PriceGroupCode]) AS Text
+                             FROM   dbo.StorePriceGroup (NOLOCK)
+                             WHERE  ISNULL([PriceGroupCode], '') <> ''
+                             ORDER  BY Text";
+        var data = (await QueryAsync<PriceOptionDto>(sql, ct: ct)).ToList();
+        if (data.Count > 0)
+            redis.StringSet(KeyPriceGroupOptions, data, ttlSeconds: 43200);
+        return data;
+    }
+
+    public async Task<List<string>> GetItemUomsAsync(string itemNo, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(itemNo)) return [];
+
+        const string sql = @"SELECT [Code]
+                             FROM   dbo.ItemUnitOfMeasure (NOLOCK)
+                             WHERE  [ItemNo] = @itemNo
+                             ORDER  BY [Code]";
+        return (await QueryAsync<string>(sql, new { itemNo = itemNo.Trim() }, ct: ct)).ToList();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+using POS.Common.Dtos.DataSync;
 using POS.Common.Dtos.FileModel;
 
 namespace POS.Application.Features.DataSync;
@@ -47,4 +48,19 @@ public interface ISyncDataPosService
 
     /// <summary>Xóa file trên local server hoặc shared folder của server khác (credentials AppSettings:RemoteSvrUser/Pass).</summary>
     Task DeleteFileExistAsync(List<PathFileAPIModel> model, string ipServerHost);
+
+    /// <summary>
+    /// Chuyển đường dẫn POS gửi (UNC Windows \\ip\FTPBLUEPOS\... ) → physical path local dưới FtpRootPath
+    /// (dùng chung cho DowloadFileStream + DeleteFileFromFTP). Không phải UNC dưới FTPBLUEPOS → trả nguyên giá trị.
+    /// </summary>
+    string ResolveFtpPhysicalPath(string? posPath);
+
+    /// <summary>
+    /// Đẩy/sinh file master data đầu ngày cho 1 máy POS (dùng cho nút SyncData trên POS.Web).
+    /// Sinh full data (TypeSync=ALL, POSLastCounter=0) qua <see cref="IMasterDataSyncService.EnsureMasterDataFileAsync"/>
+    /// nhưng đặt zip vào thư mục CHANGE (nơi máy POS đọc khi gọi typeSync=CHANGE): {AppSettings:FolderShare}\CHANGE\{siteCode}\{posTerminal}.
+    /// Idempotent theo ngày (zip hôm nay đã có → trả ngay). KHÔNG đổi logic sinh file txt/zip của POS.Api — chỉ orchestrate.
+    /// </summary>
+    Task<GetMasterDataFileResult> PushStartOfDayDataAsync(
+        string siteCode, string posTerminal, CancellationToken ct = default);
 }

@@ -36,6 +36,22 @@ public class BranchDto
     public string Description { get; set; } = string.Empty;
 }
 
+public class BranchAdminDto
+{
+    public string No { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? VATRegistrationNo { get; set; }
+}
+
+public class BranchCreateDto
+{
+    public string No { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? VATRegistrationNo { get; set; }
+}
+
 public class StoreCreateDto
 {
     public string StoreNo { get; set; } = string.Empty;

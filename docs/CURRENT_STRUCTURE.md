@@ -120,7 +120,7 @@ src/
 │   │   │   └── ProductLockDto.cs (ProductLockItemDto, ProductLockFilter, ProductLockSaveDto)        ← 6.4
 │   │   ├── DataSync/
 │   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName)
-│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir
+│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, SyncAction? (override Action mọi batch: Web Sync="DELETE-INSERT", null=TRUNC-INSERT→INSERT)
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
 │   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
@@ -433,7 +433,7 @@ src/
 | Controllers + Newtonsoft.Json | — | DefaultContractResolver (PascalCase), NullValueHandling.Ignore, DateTimeZoneHandling.Local |
 | `ValidateModelFilter` (global) | — | Thay ModelStateInvalidFilter mặc định |
 | `ApiBehaviorOptions.SuppressModelStateInvalidFilter = true` | — | Cho phép ValidateModelFilter kiểm soát hoàn toàn |
-| `MemoryCache` | Singleton | Không dùng cho biz logic (chỉ còn trong code cũ chưa migrate) |
+| `MemoryCache` | Singleton | Đã đăng ký, chưa wire vào biz logic (xem TODO trong `BasicAuthHandler.cs`) |
 | Authentication `"BasicAuth"` → `BasicAuthHandler` | — | Chỉ áp dụng route api/v2/... |
 | `PosApiKeyMiddleware` (`UsePosApiKeyAuth`) | — | Sau Serilog, trước UseAuthentication. Validate X-API (MD5 vs POSDataSetup[X-API]); fail-closed — miễn `/health` + `/swagger/*` |
 | `HttpClient` (generic factory) | — | `IHttpClientFactory` |
@@ -466,6 +466,10 @@ Task<List<POSDataSetupModel>?> GetPOSDataSetupAsync(CancellationToken ct = defau
 Task<List<StoreSetConfig>?> GetStoreSetConfigAsync(CancellationToken ct = default)            // cache Redis 12h
 Task<List<StoreDto>> GetStoreListAsync(CancellationToken ct = default)                         // StoreNo+Name, cache MD:StoreList 12h — store picker UI
 Task<List<BranchDto>> GetBranchListAsync(CancellationToken ct = default)                       // No+Description, cache MD:BranchList 12h — combobox Chi nhánh
+Task<List<BranchAdminDto>> GetBranchAdminListAsync(CancellationToken ct = default)             // No+Description+Address+VATRegistrationNo, không cache — ProvincesPage
+Task<bool> BranchCodeExistsAsync(string branchNo, CancellationToken ct = default)              // check trùng mã chi nhánh
+Task<bool> CreateBranchAsync(BranchCreateDto dto, CancellationToken ct = default)              // INSERT dbo.Branch, invalidate MD:BranchList
+Task<bool> UpdateBranchInfoAsync(string branchNo, string description, string? address, string? vatRegistrationNo, CancellationToken ct = default)  // UPDATE Description/Address/VATRegistrationNo, invalidate MD:BranchList
 Task<POSMonitorInsertResponse?> POSMonitorInsertAsync(POSMonitorInsertRequest model, CancellationToken ct = default)
 Task<PosTerminalModel?> CheckIPaddressPosAsync(string ipAddress, CancellationToken ct = default)
 Task<List<POSDataSetupModel>?> GetDataSetupListAsync(CancellationToken ct = default)          // không cache
@@ -670,6 +674,8 @@ void DequeueSodRequest(string fullKey)
 Task UploadFileLogToFtpAsync(string pathFileApi, string pathFtpServer, CancellationToken ct = default)
 Task<List<PathFileAPIModel>> DownloadFileUpgradeToolShareFolderAsync(string ipServer, CancellationToken ct = default)
 Task DeleteFileExistAsync(List<PathFileAPIModel> model, string ipServerHost)
+Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)  // POS.Web nút SyncData: sinh zip full-data ALL vào {FtpRootPath}\SyncDataPos\POS\CHANGE\{site}\{terminal} (MapFtpPath, bám controller); delegate IMasterDataSyncService.EnsureMasterDataFileAsync (không đổi logic sinh file)
+string ResolveFtpPhysicalPath(string? posPath)  // UNC POS gửi (\\ip\FTPBLUEPOS\...) → physical path local dưới FtpRootPath; dùng chung DowloadFileStream + DeleteFileFromFTP
 ```
 
 #### `IHealthCheckService` (`POS.Application.Interfaces`)
@@ -826,6 +832,8 @@ IDbConnection CreateOpenConnection()
 |-------|------|----------------|
 | `StoreDto` | CentralMDDto.cs | `StoreNo`, `No`, `Name`, `Address`, `TaxCode`, `ConnectionString`, ... |
 | `BranchDto` | CentralMDDto.cs | `No`, `Description` — dbo.Branch, dùng cho combobox Chi nhánh |
+| `BranchAdminDto` | CentralMDDto.cs | `No`, `Description`, `Address`, `VATRegistrationNo` — dbo.Branch, dùng cho DataTable ProvincesPage |
+| `BranchCreateDto` | CentralMDDto.cs | `No`, `Description`, `Address`, `VATRegistrationNo` — payload tạo mới chi nhánh (ProvincesPage) |
 | `StoreCreateDto` | CentralMDDto.cs | `StoreNo`, `Name`, `Address`, `BranchNo`, `ClosingMethod` — payload tạo mới cửa hàng (StorePage) |
 | `StoreSetup` | CentralMDDto.cs | `StoreNo`, `Code`, `Value`, `Status` |
 | `SysWebApiConfig` | CentralMDDto.cs | `Code`, `Name`, `Prefix`, `ConnectionString`, `Blocked`, ... |
@@ -1046,99 +1054,10 @@ _(Nguồn: `src/POS.Api/appsettings.json` — giá trị nhạy cảm đã ẩn)
 
 ---
 
-## MỤC H — Những gì CHƯA có / còn thiếu
-
-_(So sánh với `docs/PROJECT_INVENTORY.md` — cấu trúc cũ .NET Framework 4.6)_
-
-### Controllers chưa migrate
-
-| Controller cũ | Status | Phụ thuộc cần tạo | Mức cần thiết |
-|---------------|--------|-------------------|---------------|
-| `CapillaryController` | ❌ Chưa migrate | LoyaltyService (Capillary), CouponCapillaryService, MemberPointsService | **Cao** — loyalty Capillary |
-| `GiftController` | ❌ Chưa migrate | POSGiftService (IPOSGiftService), MMLSchemeService, WinXService | **Cao** — gift barcode |
-| `OfferController` | ❌ Chưa migrate | MemberBusinessService, OfferEmployeeService, ProgramPointsService, WincodeService | **Cao** — staff discount, loyalty offer |
-| `VoucherController` | ❌ Chưa migrate | VinIDBLO, CX config (CXUrl/CXUser/CXPass) | Trung bình — CX voucher |
-| `VoucherTopUpVinIDController` | ❌ Chưa migrate | VinID top-up integration | Trung bình — VinID topup |
-| `WinCareController` | ❌ Chưa migrate | WinCareService, WinCustomerService | Trung bình — WinCare partner |
-| `WinLifeController` | ❌ Chưa migrate | WinLifeService | Trung bình — WinLife program |
-| `WinpayController` | ❌ Chưa migrate | WinpayService | Trung bình — Winpay partner |
-| `PLGController` | ❌ Chưa migrate | PLGBLO, PLGData | Thấp — PLG vouchers |
-| `SAPController` | ✅ Đã migrate | ISAPService, IVoucherCodeRepository | SAP Internal Voucher (nay lưu vào CpnVchBOMCodeIssue Source='SAP', không còn bảng Internal_Voucher) |
-| `QueueController` | ❌ Chưa migrate | RabbitMQService | Thấp — manual queue ops |
-| `SettingController` | ❌ Chưa migrate | MemoryCacheService (reload cache) | Thấp — admin ops |
-| `ValidateController` | ❌ Chưa migrate | CommonBLO (ValidateTransaction, InvoiceCreated) | **Cao** — VAT/tax validation |
-| `HomeController` | ➡ Replaced | — | Replaced bởi `/health` endpoint trong Program.cs |
-
-### Services / AppServices chưa migrate
-
-| Class cũ | Lý do chưa có | Mức cần thiết |
-|----------|--------------|---------------|
-| `LoyaltyService` (Capillary) | Phụ thuộc Capillary API, cần CapillaryService | **Cao** |
-| `CouponCapillaryService` | Phụ thuộc CapillaryService | **Cao** |
-| `LoyaltyOfflineService` | Offline loyalty fallback | Trung bình |
-| `LoyaltyCapillaryService` | Capillary-specific | Trung bình |
-| `CapillaryService` (API_Common) | HTTP client Capillary, cần migrate | **Cao** |
-| `MMLSchemeService` | MML scheme lookup (dùng cho GiftController) | **Cao** |
-| `MemberBusinessService` | Member business rules | **Cao** |
-| `MemberPointsService` | Member points calc | **Cao** |
-| `OfferEmployeeService` | Staff offer service (wrapper WincodeRepository) | **Cao** |
-| `ProgramPointsService` | Loyalty program points | **Cao** |
-| `WincodeService` | WinCode/WinLife (repository đã có, service wrapper chưa có) | **Cao** |
-| `POSGiftService` | Gift barcode validation (IPOSGiftService) | **Cao** |
-| `OneUService` | OneU partner HTTP client | Trung bình |
-| `WinpayService` | Winpay partner HTTP client | Trung bình |
-| `WinXService` | WinX partner HTTP client | Trung bình |
-| `AQuaService` | AQua partner HTTP client | Thấp |
-| `WinsoreService` | Winsore/TCB HTTP client | Thấp |
-| `IssueVoucherService` | Issue voucher DB | Trung bình |
-| `ROPVoucherService` | ROP voucher DB | Trung bình |
-| `WinCareService` | WinCare HTTP client | Trung bình |
-| `WinCustomerService` | WinCustomer HTTP client | Trung bình |
-| `WinLifeService` | WinLife HTTP client | Trung bình |
-
-### Business Logic (BLO) chưa migrate
-
-| Class cũ | Lý do chưa có | Mức cần thiết |
-|----------|--------------|---------------|
-| `CommonBLO` (phần ValidateTransaction, InvoiceCreated) | Cần migrate cho ValidateController | **Cao** |
-| `VinIDBLO` | VinID voucher/reward logic (1 phần đã merge vào CommonController.SendCodeReward) | Trung bình |
-| `LoginBLO` | Auth logic (đã thay bằng BasicAuth scheme) | Thấp |
-| `MenuBLO` | Menu data — không còn endpoint | Thấp |
-| `SalaryBLO` | Salary module — xác định có cần không | Thấp |
-| `PLGBLO` | PLG voucher BLO | Thấp |
-| `SAPBLO` | SAP integration | Thấp |
-
-### Repositories / DB Access chưa migrate
-
-| Class cũ | Lý do chưa có | Mức cần thiết |
-|----------|--------------|---------------|
-| `POSGiftInfoRepository` | Gift info lookup (dùng bởi POSGiftService) | **Cao** |
-| `CentralGeneralContainer` (EF) | Chuyển sang Dapper/ADO.NET (cần implement) | **Cao** |
-| `PLGContextContainer` (EF) | PLG DB access | Thấp |
-| `KIOSContainer` (EF) | KIOS DB access | Trung bình (KIOS endpoints trong CommonController đã có) |
-
-### Helpers chưa có trong Common mới
-
-| Helper cũ | Trạng thái | Mức cần thiết |
-|-----------|-----------|---------------|
-| `NumberHelper.IsPhoneNumber` | Inline trực tiếp trong Controller (TODO comment) | Thấp |
-| `LoyaltyHelper` (static) | Chưa migrate | Trung bình |
-| `UrboxHelper` (static) | Chưa migrate (logic inline trong AppService) | Thấp |
-| `CapillaryHelper` (static) | Chưa migrate | Trung bình |
-| `VINIDHelper` (static) | Chưa migrate | Thấp |
-| `NotifyConfigHelper` | Chưa migrate (cần Redis thay MemoryCacheService) | Thấp |
-| `OpsMonitoringHelper` | Chưa migrate (RabbitMQ ops logging) | Trung bình |
-| `ConvertHelper` (API_Common) | Chưa migrate | Trung bình |
-| `EncryptionHelper` (API_Common) | Chưa migrate | Trung bình |
-| `RateLimitMiddleware` | Chưa migrate (rate limit 100 req/min per IP) | Thấp |
-
----
-
 ## MỤC G — Helpers dùng chung (`POS.Common/Helpers`): chữ ký method
 
 > Tất cả là **static** trừ `FileLogHelper` (có `IFileLogHelper`, inject qua DI). Namespace `POS.Common.Helpers`.
 > **Đọc mục này TRƯỚC khi viết helper mới** — nhiều tiện ích chuỗi/ngày/SĐT đã có sẵn.
-> Helper cũ chưa migrate: xem mục "Helpers chưa có trong Common mới" bên dưới.
 
 ### `DateTimeHelper` (static)
 ```csharp
@@ -1230,15 +1149,9 @@ void WriteExpLogs(string context, Exception ex)
   - Application Services: 8
   - Infrastructure AppServices: 4
 
-- **Tổng số Controller đã migrate:** 5
+- **Tổng số Controller hiện có:** 5
   (`BaseController`, `CommonController`, `LoyaltyController` [chỉ AkaChain], `PaymentController` [GotIT+Urbox], `SyncDataPosController`, `KafkaController`)
 
 - **Tổng số DTO file đã có:** 79 file trong `POS.Common/Dtos/` (113 file .cs tổng cộng trong POS.Common)
 
 - **Tổng số Enum đã có:** 25
-
-- **Tổng số Controller cũ chưa migrate:** 13 / 19
-
-- **Tổng số Service/BLO cũ chưa migrate:** ~23
-
-- **Tổng số class chưa migrate (ước tính):** ~36 class chính (không kể sub-class và helpers)

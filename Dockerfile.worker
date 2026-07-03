@@ -17,6 +17,10 @@ ENV TZ=Asia/Ho_Chi_Minh
 RUN mkdir -p /app/logs \
     && chown app:app /app/logs
 
+# Thư mục ftpbluepos dùng chung với POS.Api (bind mount thật sẽ đè lên khi chạy compose/docker run —
+# dòng này chỉ đảm bảo quyền đúng nếu lỡ chạy container thiếu mount, vd test cục bộ).
+RUN mkdir -p /app/ftpbluepos && chown app:app /app/ftpbluepos
+
 USER $APP_UID
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "POS.Worker.dll"]

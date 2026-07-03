@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using POS.Common.Const;
+using POS.Common.Dtos.DataSync;
 using POS.Common.Dtos.FileModel;
 using POS.Common.Helpers;
 using POS.Infrastructure.Files;
@@ -26,7 +27,8 @@ public sealed class SyncDataPosService(
     IFtpFileTransfer ftpFileTransfer,
     IKibanaService kibanaService,
     IFileLogHelper fileLogHelper,
-    IConfiguration configuration) : ISyncDataPosService
+    IConfiguration configuration,
+    IMasterDataSyncService masterDataSyncService) : ISyncDataPosService
 {
     private const string FtpRootName = "FTPBLUEPOS";
 
@@ -48,6 +50,16 @@ public sealed class SyncDataPosService(
         return Path.Combine(siteRoot, normalized);
     }
 
+    public string ResolveFtpPhysicalPath(string? posPath)
+    {
+        // UNC (\\ip\FTPBLUEPOS\...) từ POS không resolve được trên Linux Docker
+        // → tách relative path sau FTPBLUEPOS\ và map về physical path local (FtpRootPath).
+        if (string.IsNullOrEmpty(posPath) || !posPath.StartsWith(@"\\")) return posPath ?? "";
+        var idx = posPath.IndexOf(FtpRootName, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return posPath;
+        return MapFtpPath(posPath[(idx + FtpRootName.Length)..].Replace('\\', '/'));
+    }
+
     public async Task<string?> GetPosDataSetupValueAsync(string code, CancellationToken ct = default)
     {
         var dataSetup = await centralMDRepository.GetPOSDataSetupAsync(ct);
@@ -67,24 +79,19 @@ public sealed class SyncDataPosService(
             var linkApiDown = await GetPosDataSetupValueAsync("LINKAPI_DOWN", ct) ?? "";
             var folderShareAPIBluePOS = configuration["AppSettings:FolderShareAPIBluePOS"] ?? "";
 
-            var pathFile = $@"{pathSync}\{typeSync}\{folderFile}";
-            var pathFileIPServer = $@"{pathSync}\{typeSync}\{folderFile.Replace("/", @"\")}";
-            var folderAPI = pathFile;
-            var networkPathDisc = pathSync;
-            var filePath = $"{linkApiDown}{FtpRootName}/syncdatapos/pos/{typeSync}/{folderFile}";
+            // dev-qas-uat: dùng share folder config thay IP server (nếu có)
+            if (!string.IsNullOrEmpty(folderShareAPIBluePOS))
+                ipServer = folderShareAPIBluePOS;
 
-            if (typeSync == "ALL")
-            {
-                // dev-qas-uat: dùng share folder config thay IP server
-                if (!string.IsNullOrEmpty(folderShareAPIBluePOS))
-                    ipServer = folderShareAPIBluePOS;
-
-                pathFile = MapFtpPath($"{pathSync}/{folderFile}");
-                filePath = $"{linkApiDown}{FtpRootName}/{pathSync}/{folderFile}";
-                pathFileIPServer = $@"\\{ipServer}\{FtpRootName}\{pathSync.Replace("/", @"\")}\{folderFile.Replace("/", @"\")}";
-                networkPathDisc = $@"\\{ipServer}\{FtpRootName}";
-                folderAPI = pathFileIPServer;
-            }
+            // pathSync từ query đã chứa đủ "SyncDataPos/POS/{typeSync}" → giải qua MapFtpPath cho MỌI typeSync
+            // (ALL/CHANGE): khớp nơi file được tạo + URL download + UNC PathFileIPServer mà
+            // DowloadFileStream/DeleteFileFromFTP resolve. Trước đây nhánh CHANGE dùng FolderShare + tự ghép
+            // {typeSync} → thiếu segment SyncDataPos/POS nên không tìm thấy file.
+            var pathFile = MapFtpPath($"{pathSync}/{folderFile}");
+            var filePath = $"{linkApiDown}{FtpRootName}/{pathSync}/{folderFile}";
+            var pathFileIPServer = $@"\\{ipServer}\{FtpRootName}\{pathSync.Replace("/", @"\")}\{folderFile.Replace("/", @"\")}";
+            var networkPathDisc = $@"\\{ipServer}\{FtpRootName}";
+            var folderAPI = pathFileIPServer;
 
             var getFilesZip = Directory.GetFiles(pathFile)
                 .Select(Path.GetFileName)
@@ -256,6 +263,35 @@ public sealed class SyncDataPosService(
             }
         }
         return Task.CompletedTask;
+    }
+
+    public async Task<GetMasterDataFileResult> PushStartOfDayDataAsync(
+        string siteCode, string posTerminal, CancellationToken ct = default)
+    {
+        // Bám y hệt SyncDataPosController.GetFileFromFTP: pathFile = MapFtpPath($"{pathSync}/{folderFile}").
+        // → {FtpRootPath}\SyncDataPos\POS\CHANGE\{site}\{terminal} (đúng thư mục máy POS tạo/đọc + URL download).
+        // KHÔNG dùng FolderShare (sai gốc + thiếu segment SyncDataPos\POS).
+        var folderFile = $"{siteCode}/{posTerminal}";
+        const string pathSync = "SyncDataPos/POS/CHANGE";
+        var targetDir = MapFtpPath($"{pathSync}/{folderFile}");
+        Directory.CreateDirectory(targetDir);
+
+        var req = new GetMasterDataFileRequest
+        {
+            SiteCode = siteCode,
+            PosTerminal = posTerminal,
+            FolderFile = folderFile,
+            PathSync = pathSync,
+            TypeSync = "ALL",          // full data (POSLastCounter=0) + zip đặt tên _ALL_
+            SyncAction = "DELETE-INSERT", // Web Sync: mọi batch ghi Action = DELETE-INSERT (khác POS ALL = TRUNC-INSERT)
+            TargetDir = targetDir
+        };
+
+        // Tái dùng nguyên logic sinh file txt/zip hiện có của POS.Api — KHÔNG sửa đổi.
+        var result = await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);
+        kibanaService.LogResponse("PushStartOfDayData", posTerminal, 0, "",
+            $"EnsureMasterDataFile {result.Success} ({result.Message}), {result.TableCount} tables, siteCode {siteCode}, dir {targetDir}");
+        return result;
     }
 
     // Port từ CheckDeleteFileOld cũ — loại file cũ hơn 2 ngày khỏi danh sách + xóa khỏi disk

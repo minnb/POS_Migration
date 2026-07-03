@@ -29,8 +29,8 @@
 }
 
 <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
-    Cho phép <strong>SELECT</strong>, <strong>INSERT</strong>, <strong>UPDATE</strong> và
-    <strong>CREATE/ALTER PROCEDURE</strong>.
+    Cho phép <strong>SELECT</strong>, <strong>INSERT</strong>, <strong>UPDATE</strong>,
+    <strong>DELETE</strong> và <strong>CREATE/ALTER PROCEDURE</strong>.
     Lệnh ghi chạy trong <strong>transaction</strong> — bạn xem kết quả rồi quyết định
     <strong>Commit</strong> hoặc <strong>Rollback</strong>.
 </MudAlert>
@@ -121,10 +121,11 @@
             Transaction đang mở — chưa áp dụng vào database
         </MudText>
 
-        @if (_pending.Kind == StatementKind.Update && !_pending.HasWhere)
+        @if ((_pending.Kind == StatementKind.Update || _pending.Kind == StatementKind.Delete) && !_pending.HasWhere)
         {
             <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
-                Lệnh UPDATE <strong>không có mệnh đề WHERE</strong> — sẽ ảnh hưởng toàn bộ bảng!
+                Lệnh @(_pending.Kind == StatementKind.Delete ? "DELETE" : "UPDATE")
+                <strong>không có mệnh đề WHERE</strong> — sẽ ảnh hưởng toàn bộ bảng!
             </MudAlert>
         }
 
@@ -138,7 +139,12 @@
             else
             {
                 <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
-                    @_pending.RowsAffected dòng sẽ bị @(_pending.Kind == StatementKind.Insert ? "thêm" : "thay đổi")
+                    @_pending.RowsAffected dòng sẽ bị @(_pending.Kind switch
+                    {
+                        StatementKind.Insert => "thêm",
+                        StatementKind.Delete => "xóa",
+                        _ => "thay đổi"
+                    })
                 </MudChip>
             }
             <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined">

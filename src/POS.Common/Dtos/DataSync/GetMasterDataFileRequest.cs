@@ -13,4 +13,10 @@ public sealed class GetMasterDataFileRequest
 
     /// <summary>Thư mục vật lý đích (đã map qua MapFtpPath: FtpRootPath/pathSync/folderFile).</summary>
     public string TargetDir { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Action ghi vào envelope cho MỌI batch (override khuôn mặc định TRUNC-INSERT→INSERT).
+    /// null = mặc định (POS ALL: batch1 TRUNC-INSERT, batch sau INSERT). Web Sync đặt "DELETE-INSERT".
+    /// </summary>
+    public string? SyncAction { get; set; }
 }

@@ -74,6 +74,7 @@ public sealed class SqlConsoleService(
 
         var hasInsert = false;
         var hasUpdate = false;
+        var hasDelete = false;
         var hasProc = false;
         var hasWhere = true;
         string? procName = null;
@@ -90,6 +91,11 @@ public sealed class SqlConsoleService(
                 case UpdateStatement upd:
                     hasUpdate = true;
                     if (upd.UpdateSpecification.WhereClause is null)
+                        hasWhere = false;
+                    break;
+                case DeleteStatement del:
+                    hasDelete = true;
+                    if (del.DeleteSpecification.WhereClause is null)
                         hasWhere = false;
                     break;
                 case CreateProcedureStatement cp:
@@ -109,19 +115,20 @@ public sealed class SqlConsoleService(
                         .Replace("Statement", "", StringComparison.Ordinal)
                         .ToUpperInvariant();
                     return new SqlValidation(false,
-                        $"Chỉ cho phép SELECT, INSERT, UPDATE và CREATE/ALTER PROCEDURE. Phát hiện lệnh không được phép: {stmtName}.",
+                        $"Chỉ cho phép SELECT, INSERT, UPDATE, DELETE và CREATE/ALTER PROCEDURE. Phát hiện lệnh không được phép: {stmtName}.",
                         StatementKind.Invalid, false);
             }
         }
 
         // Proc DDL phải đứng riêng — không trộn với DML/SELECT trong cùng lần chạy.
-        if (hasProc && (hasInsert || hasUpdate || statements.Count > 1))
+        if (hasProc && (hasInsert || hasUpdate || hasDelete || statements.Count > 1))
             return new SqlValidation(false,
                 "CREATE/ALTER PROCEDURE phải chạy riêng, không trộn với câu lệnh khác.",
                 StatementKind.Invalid, false);
 
-        var kind = hasProc ? StatementKind.CreateProcedure
+        var kind = hasProc   ? StatementKind.CreateProcedure
                  : hasUpdate ? StatementKind.Update
+                 : hasDelete ? StatementKind.Delete
                  : hasInsert ? StatementKind.Insert
                  : StatementKind.Select;
         return new SqlValidation(true, null, kind, hasWhere, procName);

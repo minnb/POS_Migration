@@ -24,17 +24,27 @@ public sealed class PriceService(
     public async Task<PriceSetupLookupDto> GetSetupLookupAsync(CancellationToken ct = default)
     {
         var salesTypes = await promotionRepository.GetSalesOrderTypeOptionsAsync(ct);
+        var priceGroups = await repository.GetPriceGroupOptionsAsync(ct);
         return new PriceSetupLookupDto
         {
             SalesTypes = salesTypes
                 .Where(s => !string.IsNullOrWhiteSpace(s.Value))
                 .Select(s => new PriceOptionDto { Value = s.Value, Text = string.IsNullOrWhiteSpace(s.Text) ? s.Value : s.Text })
-                .ToList()
+                .ToList(),
+            PriceGroups = priceGroups,
+            DeclarationTypes =
+            [
+                new PriceOptionDto { Value = "ITEM_UOM", Text = "Theo ITEM + ĐVT" },
+                new PriceOptionDto { Value = "BARCODE",  Text = "Theo barcode" }
+            ]
         };
     }
 
     public Task<List<ItemOptionDto>> SearchItemsAsync(string keyword, CancellationToken ct = default)
         => promotionRepository.SearchItemsAsync(keyword ?? string.Empty, ct);
+
+    public Task<List<string>> GetItemUomsAsync(string itemNo, CancellationToken ct = default)
+        => repository.GetItemUomsAsync(itemNo ?? string.Empty, ct);
 
     public Task<List<PriceImportResultRow>> ValidateImportAsync(
         IReadOnlyList<PriceImportRow> rows, CancellationToken ct = default)
