@@ -84,6 +84,7 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 | Tra quy tắc mã hóa credentials appsettings (`enc:` / `POS_SECRET_KEY`) | **`docs/architecture/appsetting.md`** | Dùng mã hóa hay plaintext (tự suy ra từ nội dung file), phạm vi áp dụng, anti-pattern |
 | Trạng thái / lịch sử POS.Web | `docs/WEB_STATUS.md`, `docs/CHANGELOG.md` | — |
 | Port chức năng từ `src/legacy/` (VCM.BLUEPOS) — tra layer cũ tương ứng layer nào ở dự án mới | **`docs/migrations/MIGRATION_MAP.md`** | Khảo sát kiến trúc cũ, convention dự án mới, bảng ánh xạ cũ→mới, danh sách điểm KHÔNG map 1-1 cần quyết định |
+| Viết file phân tích nghiệp vụ trước khi port (`FEATURE_{Name}_ANALYSIS.md`) — template + checklist | **`.claude/skills/migration/SKILLS.md`** | Template chuẩn, khi nào cần viết, checklist hoàn thành + cập nhật `docs/migrations/STATUS.md` |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
 
