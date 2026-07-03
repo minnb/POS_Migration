@@ -1,0 +1,953 @@
+﻿@using VCM.BLUEPOS.Model.Employee;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+    ViewBag.Title = "Danh sách nhân viên";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<StoreModel>;
+}
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Master Data</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh sách nhân viên</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+   
+        <div class="d-flex align-items-center">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <button type="button" id="btn-add-new-employee" class="btn btn-primary font-weight-bold"><i class="la la-plus-circle"></i>Thêm mới</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportEmployeeList", "MasterData", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-store-no" name="StoreNo">
+                                            @if (listStore != null && listStore.Count() > 0)
+                                            {
+                                                if (listStore.Count == 1)
+                                                {
+                                                    <option value="@listStore.FirstOrDefault().StoreNo" data-array="@listStore.FirstOrDefault().ValueJson">@listStore.FirstOrDefault().StoreNo - @listStore.FirstOrDefault().StoreName</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="" selected>Tất cả</option>
+                                                    foreach (var item in listStore)
+                                                    {
+                                                        var storeName = string.IsNullOrEmpty(item.StoreName) ? item.StoreNo : item.StoreName;
+                                                        <option value="@item.StoreNo" data-array="@item.ValueJson">@item.StoreNo - @storeName</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Nhóm loại<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-type-group" name="TypeGroup">
+                                            <option value="-1" selected>Tất cả</option>
+                                            <option value="0">Nhân viên</option>
+                                            <option value="1">Quản lý</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-status-active" name="StatusActive">
+                                            <option value="-1" selected>Tất cả</option>
+                                            <option value="0">Đang hoạt động</option>
+                                            <option value="1">Ngưng hoạt động</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Mã nhân viên</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control pull-right" id="txt-staff-code" name="StaffCode" placeholder="Nhập mã nhân viên"/>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Tên nhân viên</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control pull-right" id="txt-staff-name" name="StaffName" placeholder="Nhập tên nhân viên" />
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12" style="margin-top: 25px;">
+                                    <button type="button" id="btn-search-employee" class="btn btn-primary"><i class="fa fa-search"></i>Tìm</button>
+                                    <button type="button" id="btn-export-excel-employee" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+
+                        <table id="tbl-employee-list" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>#</th>
+                                    <th>STT</th>
+                                    <th>Mã nhân viên</th>
+                                    <th>Tên nhân viên</th>
+                                    <th>Mật khẩu</th>
+                                    <th>Quyền hủy bill</th>
+                                    <th>Nhóm loại</th>
+                                    <th>Nhóm quyền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Mã cửa hàng</th>
+                                    <th>Tên cửa hàng</th>
+                                    <th>Điện thoại</th>
+                                    <th>Ngày cập nhật</th>
+                                    <th>Counter</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-create-employee" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-employee">Thêm mới thông tin nhân viên</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-create-employee-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-9 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important;">Mã nhân viên<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-create-staff-code" name="StaffCode" placeholder="Nhập mã nhân viên" />
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12" >
+                                        <div class="form-group">
+                                            <div class="input-group">
+                                                <button type="button" id="btn-check-user" class="btn btn-warning" style="margin-top: 25px; text-align:center;color:#fff;"><i class="fa fa-search" style="color:#fff;"></i><span>Kiểm tra</span></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Tên nhân viên<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-create-staff-name" name="StaffName"  disabled/>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mật khẩu <strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-create-pass-word" name="PassWord" value="7777" disabled/>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-create-store-no" name="StoreNo">
+                                                @if (listStore != null && listStore.Count() > 0)
+                                                {
+                                                    if (listStore.Count == 1)
+                                                    {
+                                                        <option value="@listStore.FirstOrDefault().StoreNo" data-array="@listStore.FirstOrDefault().ValueJson">@listStore.FirstOrDefault().StoreNo - @listStore.FirstOrDefault().StoreName</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="" selected>--- Chọn ---</option>
+                                                        foreach (var item in listStore)
+                                                        {
+                                                            var storeName = string.IsNullOrEmpty(item.StoreName) ? item.StoreNo : item.StoreName;
+                                                            <option value="@item.StoreNo" data-array="@item.ValueJson">@item.StoreNo - @storeName</option>
+                                                        }
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Nhóm loại<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-create-type-group" name="TypeGroup">
+                                                <option value="0" selected>Nhân viên</option>
+                                                <option value="1">Quản lý</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Nhóm quyền<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" id="sel-create-permision-group" name="PermisionGroup" disabled>
+                                                    <option value="LOCAL" selected>LOCAL</option>
+                                                    <option value="AD">AD</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Quyền hủy bill<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" id="sel-create-delete-bill" name="DeleteBill">
+                                                    <option value="0" selected>Không được phép hủy</option>
+                                                    <option value="1">Được phép hủy</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" id="sel-create-status-active" name="StatusActive">
+                                                    <option value="0" selected>Đang hoạt động</option>
+                                                    <option value="1">Ngưng hoạt động</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-save-create-employee" class="btn btn-bg-primary" style="color:#fff"><i class="fa fa-save" style="color:#fff"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-update-employee" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-employee">Cập nhật thông tin nhân viên</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-employee-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mã nhân viên</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-update-staff-code" name="StaffCode" disabled />
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-8 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Tên nhân viên<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-update-staff-name" name="StaffName" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">                                  
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-update-store-no" name="StoreNo">
+                                                @if (listStore != null && listStore.Count() > 0)
+                                                {
+                                                    if (listStore.Count == 1)
+                                                    {
+                                                        <option value="@listStore.FirstOrDefault().StoreNo" data-array="@listStore.FirstOrDefault().ValueJson">@listStore.FirstOrDefault().StoreNo - @listStore.FirstOrDefault().StoreName</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        foreach (var item in listStore)
+                                                        {
+                                                            var storeName = string.IsNullOrEmpty(item.StoreName) ? item.StoreNo : item.StoreName;
+                                                            <option value="@item.StoreNo" data-array="@item.ValueJson">@item.StoreNo - @storeName</option>
+                                                        }
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mật khẩu<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-update-pass-word" name="PassWord" />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Nhóm loại<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-update-type-group" name="TypeGroup">
+                                                <option value="0" selected>Nhân viên</option>
+                                                <option value="1">Quản lý</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Nhóm quyền<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-update-permision-group" name="PermisionGroup" disabled>
+                                                <option value="LOCAL" selected>LOCAL</option>
+                                                <option value="AD">AD</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Quyền hủy bill<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-update-delete-bill" name="DeleteBill">
+                                                <option value="0" selected>Không được phép hủy</option>
+                                                <option value="1">Được phép hủy</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" id="sel-update-status-active" name="StatusActive">
+                                                <option value="0" selected>Đang hoạt động</option>
+                                                <option value="1">Ngưng hoạt động</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Số điện thoại</label>
+                                        <div class="form-group">
+                                            <input type="number" class="form-control pull-right" id="txt-update-phone-no" name="PhoneNo" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-save-update-employee" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        function CreateEmployeeList() {
+            //debugger
+            var _staffCode = $('#txt-create-staff-code').val();
+            var _staffName = $('#txt-create-staff-name').val();
+            var _passWord = $('#txt-create-pass-word').val();
+            var _storeNo = $('#sel-create-store-no').val();
+            var _typeGroup = $('#sel-create-type-group').val();
+            var _permision = $('#sel-create-permision-group').val();
+            var _deleteVoice = $('#sel-create-delete-bill').val();
+            var _status = $('#sel-create-status-active').val();
+
+            if (_staffName == null || _staffName == "") {
+                toastr.error("Nhập tên nhân viên");
+                return;
+            }
+            if (_passWord == null || _passWord == "") {
+                toastr.error("Nhập mật khẩu");
+                return;
+            }
+            if (_storeNo == null || _storeNo == "") {
+                toastr.error("Chọn ST/CH");
+                return;
+            }
+            if (_typeGroup == null || _typeGroup == "") {
+                toastr.error("Chọn nhóm loại");
+                return;
+            }
+            if (_permision == null || _permision == "") {
+                toastr.error("Chọn nhóm quyền");
+                return;
+            }
+            if (_deleteVoice == null || _deleteVoice == "") {
+                toastr.error("Chọn quyền hủy bill");
+                return;
+            }
+            if (_status == null || _status == "") {
+                toastr.error("Chọn trạng thái");
+                return;
+            }
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CreateEmployeeList", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    StaffCode: _staffCode,
+                    FirstName: _staffName,
+                    LastName: _staffName,
+                    PassWord: _passWord,
+                    StoreNo: _storeNo,
+                    VoidTransaction: _deleteVoice,
+                    TypeGroup: _typeGroup,
+                    PermissionGroup: _permision,
+                    Status: _status
+                },
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) 
+                    {
+                        toastr.success(data.Message);
+                        $('#modal-create-employee').modal("hide");
+
+                        $('#txt-staff-code').val(data.Item1);
+                        $('#txt-staff-name').val(data.Item2);
+                        $('#sel-status-active').val(data.Item3);
+                        $('#btn-search-employee').trigger('click');
+
+                        $('#txt-staff-code').val('');
+                        $('#txt-staff-name').val('');
+                    }
+                    else if (data.Status == 2) // loi
+                    {
+                         toastr.warning(data.Message);
+                    }
+                    else
+                    {
+                         toastr.error(data.Message);
+                         $('#btn-save-create-employee').attr('disabled', true);
+                    }
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function UpdateEmployeeList() {
+            //debugger
+            var _staffCode = $('#txt-update-staff-code').val();
+            var _staffName = $('#txt-update-staff-name').val();
+            var _passWord = $('#txt-update-pass-word').val();
+            var _storeNo = $('#sel-update-store-no').val();
+            var _typeGroup = $('#sel-update-type-group').val();
+            var _permision = $('#sel-update-permision-group').val();
+            var _deleteVoice = $('#sel-update-delete-bill').val();
+            var _status = $('#sel-update-status-active').val();
+            var _phoneNo = $('#txt-update-phone-no').val();
+
+            if (_staffName == null || _staffName == "") {
+                toastr.error("Nhập tên nhân viên");
+                return;
+            }
+            if (_passWord == null || _passWord == "") {
+                toastr.error("Nhập mật khẩu");
+                return;
+            }
+            if (_storeNo == null || _storeNo == "") {
+                toastr.error("Chọn ST/CH");
+                return;
+            }
+            if (_typeGroup == null || _typeGroup == "") {
+                toastr.error("Chọn nhóm loại");
+                return;
+            }
+            if (_permision == null || _permision == "") {
+                toastr.error("Chọn nhóm quyền");
+                return;
+            }
+            if (_deleteVoice == null || _deleteVoice == "") {
+                toastr.error("Chọn quyền hủy bill");
+                return;
+            }
+            if (_status == null || _status == "") {
+                toastr.error("Chọn trạng thái");
+                return;
+            }
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("UpdateEmployeeList", "MasterData")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    StaffCode: _staffCode,
+                    FirstName: _staffName,
+                    LastName: _staffName,
+                    PassWord: _passWord,
+                    StoreNo: _storeNo,
+                    VoidTransaction: _deleteVoice,
+                    TypeGroup: _typeGroup,
+                    PermissionGroup: _permision,
+                    Status: _status,
+                    HomePhoneNo: _phoneNo
+                },
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.IsStatus == 1)   // Thành công
+                    {
+                        toastr.success(data.Message);
+                        $('#txt-staff-code').val(data.Item1);
+                        $('#btn-search-employee').trigger('click');
+                        $('#modal-update-employee').modal("hide");
+                    }
+                    else
+                    {
+                        toastr.warning(data.Message);
+                        $('#modal-update-employee').modal("show");
+                    }                    
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function ClearText() {
+            $('#txt-create-staff-code').val('');
+            $('#txt-create-staff-name').val('');
+            $('#txt-create-pass-word').val('');
+        }
+
+    $(document).ready(function () {
+        $(".select2").select2();
+
+        $('#btn-check-user').on('click', function () {
+                var _staffCode = $('#txt-create-staff-code').val();
+                loading.showloading();
+                $.ajax({
+                    url: '@Url.Action("CheckStaffCode", "MasterData")',
+                    type: "POST",
+                    dataType: "json",
+                    data: { StaffCode: _staffCode },
+                    success: function (data) {
+                        loading.hideloading();
+                        if (data.Status) // da ton tai ma nhan vien
+                        {
+                            toastr.error(data.Message);
+                            $('#txt-create-staff-name').attr('disabled', true);
+                            $('#txt-create-pass-word').attr('disabled', true);
+                            $('#btn-save-create-employee').attr('disabled', true);
+                        }
+                        else
+                        {
+                            $('#txt-create-staff-name').attr('disabled', false);
+                            $('#txt-create-staff-name').focus();
+                            $('#txt-create-pass-word').attr('disabled', false);
+                            $('#txt-create-staff-code').val(data.StaffCode);
+                            $('#txt-create-pass-word').val(data.FirstName);
+                            $('#btn-save-create-employee').attr('disabled', false);
+                        }
+                    },
+                    error: function (data) {
+                        loading.hideloading();
+                        $('#btn-save-create-employee').attr('disabled', true);
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+            });
+
+            $('#btn-add-new-employee').on('click', function () {
+                ClearText();
+                $('#modal-create-employee').modal({ "backdrop": "static" });
+            });
+
+            $('#btn-save-create-employee').on("click", function () {
+                CreateEmployeeList();
+            });
+
+            $('#btn-save-update-employee').on("click", function () {
+                UpdateEmployeeList();
+            });
+
+        table = $('#tbl-employee-list').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    //
+                    $(".btn-editor-employee").click(function () {
+                        //debugger
+                        var _staffCode = $(this).attr("data-staff-code");
+                        $('#txt-update-staff-code').val(_staffCode);
+
+                        var _staffName = $(this).parents('tr').find('td:nth-child(4)').find('span:nth-child(1)').html();
+                        $('#txt-update-staff-name').val(_staffName);
+
+                        var _passWord = $(this).parents('tr').find('td:nth-child(5)').find('span:nth-child(1)').html();
+                        $('#txt-update-pass-word').val(_passWord);
+
+                        var _deleteBill = $(this).parents('tr').find('td:nth-child(6)').find('span:nth-child(1)').html();
+                        var _deletevoice = "";
+                        if (_deleteBill == "Được phép hủy") {
+                            _deletevoice = "1";
+                        }
+                        else if (_deleteBill == "Không được phép hủy") {
+                            _deletevoice = "0";
+                        }
+                        $('#sel-update-delete-bill').val(_deletevoice).trigger('change');
+
+                        var _typeGroup = $(this).parents('tr').find('td:nth-child(7)').find('span:nth-child(1)').html();
+                        if (_typeGroup == "Nhân viên") {
+                            _typeGroup = 0;
+                        }
+                        else if (_typeGroup == "Quản lý") {
+                            _typeGroup = 1;
+                        }
+                        $('#sel-update-type-group').val(_typeGroup).trigger('change');
+
+                        var _permision = $(this).parents('tr').find('td:nth-child(8)').find('span:nth-child(1)').html();
+                        if (_permision == "LOCAL") {
+                            _permision = "LOCAL";
+                        }
+                        else if (_permision == "AD") {
+                            _permision = "AD";
+                        }
+                        $('#sel-update-permision-group').val(_permision).trigger('change');
+
+                        var statusStaff = $(this).parents('tr').find('td:nth-child(9)').find('span:nth-child(1)').html();
+                        var _status = "";
+                        if (statusStaff == "Đang hoạt động") {
+                            _status = "0";
+                        }
+                        else {
+                            _status = "1";
+                        }
+                        $('#sel-update-status-active').val(_status).trigger("change");
+
+                        var _storeNo = $(this).parents('tr').find('td:nth-child(10)').find('span:nth-child(1)').html();
+                        $('#sel-update-store-no').val(_storeNo).trigger('change');
+   
+                        var _phoneNo = $(this).parents('tr').find('td:nth-child(12)').find('span:nth-child(1)').html();
+                        $('#txt-update-phone-no').val(_phoneNo);
+
+                        $('#modal-update-employee').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+
+                    });
+
+                    $('.btn-delete-employee').click(function () {
+                        var _staffCode = $(this).attr("data-staff-code");
+                        $.confirm({
+                            backgroundDismiss: true,
+                            escapeKey: true,
+                            icon: 'fa fa-warning',
+                            type: 'red',
+                            typeAnimated: true,
+                            title: 'Thông báo',
+                            content: 'Bạn có chắc chắn muốn xóa không?',
+                            buttons: {
+                                "CÓ": {
+                                    btnClass: 'btn btn-default',
+                                    keys: ['ctrl'],
+                                    action: function () {
+                                        loading.showloading();
+                                        $.ajax({
+                                            url: '@Url.Action("DeleteEmployeeList", "MasterData")',
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: { StaffCode: _staffCode},
+                                            success: function (data) {
+                                                if (data.Status == 1)
+                                                {
+                                                    toastr.success(data.Message); 
+                                                }
+                                                else if (data.Status == 2)
+                                                {
+                                                    toastr.warning(data.Message);
+                                                }
+                                                else
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+
+                                                $('#btn-search-employee').trigger('click');
+                                                loading.hideloading();
+                                            },
+
+                                            error: function () {
+                                                toastr.error("Lỗi hệ thống");
+                                                loading.hideloading();
+                                            }
+
+                                        });
+                                    }
+                                },
+                                "KHÔNG": {
+                                    btnClass: 'btn-default',
+                                    action: function () { }
+                                }
+                            }
+                        });
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,         
+                serverSide: true,           
+                filter: false,             
+                orderMulti: false,          
+                info: false,   
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("GetEmployeeList", "MasterData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StaffCode = $('#txt-staff-code').val();
+                        d.StaffName = $('#txt-staff-name').val();
+                        d.StoreNo = $('#sel-store-no').val();
+                        d.TypeGroup = $('#sel-type-group').val();
+                        d.Status = $('#sel-status-active').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        render: function (data, type, row) {
+                            var _staffCode = row.StaffCode;
+                            var html ="";
+                            html += '<a type="button" class="btn btn-icon btn-light-warning btn-editor-employee"  data-staff-code ="' + _staffCode + '"  data-toggle="tooltip" data-placement="left" title="Cập nhật"  style="color:#ffffff;text-align:center;"><i class="la la-edit"></i><span class="pulse-ring"></span></a>';
+                            html += '<a type="button" class="btn btn-icon btn-light-danger btn-delete-employee"  data-staff-code ="' + _staffCode + '"  data-toggle="tooltip" data-placement="left" title="Xóa"  style="margin-left: 3px; color:#ffffff;text-align:center;"><i class="la la-close"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "StaffCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.StaffCode + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "FirstName",
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400; text-align:left">' + row.FirstName + '</span>';
+                        }
+                    },
+
+  
+                    {
+                        data: "Password",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.Password + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "VoidTransaction",    // Quyen huy bill
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var _deleteBill = row.VoidTransaction;
+                            if (_deleteBill == "Được phép hủy") {
+                                return '<span style="display: block; font-weight: 400;">' + row.VoidTransaction + '</span>';
+                            } else if (_deleteBill == "Không được phép hủy") {
+                                return '<span style="display: block; font-weight: 700;color:#FFAB05;">' + row.VoidTransaction + '</span>';
+                            }
+                            
+                        }
+                    },
+
+                    {
+                        data: "TypeGroup",          // Nhom loai
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.TypeGroup + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "PermissionGroup",     // Nhom quyen
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.PermissionGroup + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "Status",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            //debugger
+                            var _status = row.Status;
+                            if (_status == "Đang hoạt động") {
+                                return '<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">Đang hoạt động</span>';
+                            }
+                            else if (_status == "Ngưng hoạt động") {
+                                return '<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">Ngưng hoạt động</span>';
+                            }
+                        }
+                    }, 
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:700;">' + row.StoreNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "StoreName",
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:400; text-align:left;">' + row.StoreName + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "HomePhoneNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:400;">' + row.HomePhoneNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "LastDateModifiedStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:400;">' + row.LastDateModifiedStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "Counter",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display:block;font-weight:400;">' + row.Counter + '</span>';
+                        }
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+                });
+
+            $("#tbl-employee-list tbody").on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search-employee").on("click", function (e) {
+                table.draw();
+            });
+
+            $("#btn-export-excel-employee").on("click", function (e) {
+                $('#frm-export-excel').submit();
+            });
+
+
+    });
+
+    </script>
+}
+
+
+
+

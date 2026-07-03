@@ -1,0 +1,368 @@
+﻿<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+    <div class="row">
+        <div class="col-lg-2 col-md-2 col-sm-6 col-xs-12">
+            <label class="font-weight-bold">Mã SP</label>
+            <div class="form-group">
+                <input type="text" class="form-control pull-right changeKey" style="width:100%;" id="txtListItemNo" name="ItemNo" />
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-xs-12">
+            <label class="font-weight-bold">Barcode</label>
+            <div class="form-group">
+                <input type="text" class="form-control pull-right changeKey" style="width:100%;" id="txtListBarcode" name="BarCode" />
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+            <label class="font-weight-bold">Tên SP</label>
+            <div class="form-group">
+                <input type="text" class="form-control pull-right changeKey" style="width:100%;" id="txtListItemName" name="ItemName" />
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12">
+            <div class="form-group">
+                <label class="font-weight-bold">Hiệu lực</label>
+                <div class="input-group">
+                    <select class="form-control select2" style="width:100%;" id="slListHL" name="ListHL">
+                        <option value="">Tất cả</option>
+                        <option value="1">Hiệu lực</option>
+                        <option value="0">Hết hiệu lực</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-xs-12" style="margin-top:27px;">
+            <button type="button" id="btnSearch" class="btn btn-primary"><i class="fa fa-search"></i> Tìm kiếm</button>
+        </div>
+    </div>
+</div>
+<div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;"></div>
+<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+    <table id="tblListPrice" class="table table-striped table-bordered table-hover">
+        <thead>
+            <tr class="text-center" style="text-transform:uppercase">
+                <th style="vertical-align:middle">STT</th>
+                <th style="vertical-align:middle">Nhóm giá</th>
+                <th style="vertical-align:middle">Hình thức bán hàng</th>
+                <th style="vertical-align:middle">Mã sản phẩm</th>
+                <th style="vertical-align:middle">Mã Barcode</th>
+                <th style="vertical-align:middle">Tên sản phẩm</th>
+                <th style="vertical-align:middle">Đơn vị tính</th>
+                <th style="vertical-align:middle">Giá bán</th>
+                <th style="vertical-align:middle">Ngày hiệu lực</th>
+                <th style="vertical-align:middle">Ngày hết hiệu lực</th>
+                <th style="vertical-align:middle">Counter</th>
+                <th style="vertical-align:middle">Pkey</th>
+                <th style="vertical-align:middle">#</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+
+<div class="modal fade" id="modalEditPrice" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" style="border:1px solid #ffd800">
+            <div class="modal-header" style="background-color:#cfac07 !important">
+                <h5 class="modal-title">CẬP NHẬT GIÁ</h5>
+                <button type="button" class="close closeEditPrice" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card card-custom">
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label style="font-weight:bold">Giá cũ</label>
+                            <input type="text" id="txtPriceOld" disabled class="form-control money" />
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight:bold" for="txtPriceNew" class="text-bold">Giá mới <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control money" id="txtPriceNew" placeholder="0" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold closeEditPrice"><i class="la la-close"></i>Close</button>
+                <button type="button" id="btnSaveUpdatePrice" class="btn btn-primary font-weight-bold"> <i class="la la-save"></i> Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div style="display:none">
+    <input type="hidden" id="hdIdPrice" value="0" />
+</div>
+<script type="text/javascript">
+    var tableListPrice;
+
+    $(document).ready(function () {
+        $('.money').mask('000,000,000', {
+            placeholder: "0",
+            reverse: true,
+            rightAlign: true
+        });
+        $(".select2").select2();
+        tableListPrice = $('#tblListPrice').DataTable({
+            dom: '<"top"iflp<"clear">>rt',
+            destroy: true,
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false,              // for show progress bar
+            serverSide: true,               // for process server side
+            filter: true,                   // this is for disable filter (search box)
+            orderMulti: false,              // for disable multiple column at once
+            autoWidth: true,
+            ordering: false,
+            displayLength: 10,
+            searching: false,
+            lengthChange: false,
+            ajax: {
+                url: 'SetupPrice/_ListPriceLoad',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    //debugger
+                    d.Barcode = $('#txtListBarcode').val();
+                    d.ItemNo = $('#txtListItemNo').val();
+                    d.ItemName = $('#txtListItemName').val();
+                    d.Status = $("#slListHL").val();
+                    d.SalesCode = "";
+                }
+            },
+            drawCallback: function (settings) {
+                $(".editPrice").click(function () {
+                    var id = $(this).attr("data-id");
+                    var priceOld = parseFloat($(this).attr("data-price")).toLocaleString("en");
+                    $("#txtPriceOld").val(priceOld);
+                    //$("#txtPriceNew").placeholder(0);
+                    $("#hdIdPrice").val(id);
+                    $("#txtPriceNew").val('');
+                    $('#modalEditPrice').modal({
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+
+                    $('#modalEditPrice').on('shown.bs.modal', function () {
+                        $('#txtPriceNew').focus();
+                    });
+                });
+
+                $(".deletePrice").click(function () {
+                    var id = $(this).attr("data-id");
+                    DeletePrice(id);
+                });
+            },
+            createdRow: function (row, data, dataIndex) {
+                $(row).attr('id', "rowRecord" + data.Id);
+            },
+            columns: [
+                {
+                    data: "ItemNo",
+                    className: 'text-center',
+                    render: function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+                {
+                    data: "SalesCode",
+                    className: 'text-center'
+                },
+                {
+                    data: "SalesType",
+                    className: 'text-center'
+                },
+                {
+                    data: "ItemNo",
+                    className: 'text-center'
+                },
+                {
+                    data: "BarcodeNo",
+                    className: 'text-center'
+                },
+                {
+                    data: "ItemName"
+                },
+                {
+                    data: "UnitOfMeasureCode",
+                    className: 'text-center'
+                },
+                {
+                    data: "UnitPrice",
+                    className: 'text-center',
+                    render: function (data, type, full, meta) {
+                        if (full.UnitPrice != null) {
+                            return "<strong style='color:Blue' class='priceUnit" + full.Id + "'>" + parseFloat(full.UnitPrice).toLocaleString("en") + "</strong>";
+                        }
+                        else
+                            return "<strong style='color:Blue' class='priceUnit" + full.Id + "'></strong>";
+                    }
+                },
+
+                {
+                    data: "StartingDate",
+                    className: 'text-center',
+                    render: function (data, type, full, meta) {
+                        if (full.StartingDate != null) {
+                            return moment(full.StartingDate).format("DD/MM/YYYY");
+                        }
+                        else
+                            return "";
+                    }
+                },
+
+                {
+                    data: "EndingDate",
+                    className: 'text-center',
+                    render: function (data, type, full, meta) {
+                        if (full.EndingDate != null) {
+                            return moment(full.EndingDate).format("DD/MM/YYYY");
+                        }
+                        else
+                            return "";
+                    }
+                },
+
+                {
+                    data: "Counter",
+                    className: 'text-center'
+                },
+
+                {
+                    data: "Pkey"
+                },
+                {
+                    data: "Pkey",
+                    render: function (data, type, full, meta) {
+                        var html = "";
+                        html += "<a title=\"Sửa giá\" data-pkey='" + full.Pkey + "' data-id='" + full.Id + "' data-price='" + full.UnitPrice + "' class=\"btn btn-icon btn-light-primary editPrice\"><i class=\"la la-edit\"></i><span class=\"pulse-ring\"></span></a>";
+                        html += "<a title=\"Xóa giá\" style=\"margin-left:5px\" data-pkey='" + full.Pkey + "' data-id='" + full.Id + "' class=\"btn btn-icon btn-light-danger deletePrice\"><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+
+                        return html;
+                    },
+                    className: 'text-center'
+                }
+            ]
+        }).on('processing.dt', function (e, settings, processing) {
+
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+
+        });
+
+        $(".closeEditPrice").click(function () {
+            //debugger
+            $('#modalEditPrice').modal('hide');
+
+            $('#modalEditPrice').on('hidden.bs.modal', function () {
+                $('body').addClass('modal-open');
+            })
+
+            //var checkModal = $('body').find('.modal.show').length;
+            //if ($('body').find('.modal.show').length) {
+            //    $('body').addClass('modal-open');
+            //}
+        });
+
+        $("#btnSaveUpdatePrice").click(function () {
+            var id = $("#hdIdPrice").val();
+            var priceNew = $("#txtPriceNew").val().replace(/\,/g, '');
+            if (priceNew == "" || priceNew == "0") {
+                toastr.error("Vui lòng nhập giá");
+                return;
+            }
+            var fromData = new FormData();
+            fromData.append('Id', id);
+            fromData.append('UnitPrice', priceNew);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdatePrice", "SetupPrice")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 200) {
+                        toastr.success(data.Message);
+                        $(".priceUnit" + id).html(parseFloat(priceNew).toLocaleString("en"));
+                        $('#modalEditPrice').modal('hide');
+                        $('#modalEditPrice').on('hidden.bs.modal', function () {
+                            $('body').addClass('modal-open');
+                        })
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function () {
+                }
+            });
+        });
+      
+        $("#btnSearch").click(function () {
+            tableListPrice.draw();
+        });
+
+        $('.changeKey').keydown(function (e) {
+            var key = e.keyCode || e.which;
+            if ((key == 13 || key == 9) && $(this).val() != "") {
+                tableListPrice.draw();
+            }
+        });
+    });
+
+    function DeletePrice(ID) {
+        var thongbao = "Bạn có chắc chắn xóa dòng này không?";
+        $.confirm({
+            backgroundDismiss: false,
+            escapeKey: true,
+            icon: 'fa fa-warning',
+            type: 'red',
+            typeAnimated: true,
+            title: 'Thông báo',
+            content: thongbao,
+            buttons: {
+                "CÓ": {
+                    btnClass: 'btn btn-default',
+                    keys: ['ctrl'],
+                    action: function () {
+                        //debugger
+                        var fromData = new FormData();
+                        fromData.append('Id', ID);
+                        $.ajax({
+                            type: "POST",
+                            url: '@Url.Action("DeletePrice", "SetupPrice")',
+                            data: fromData,
+                            contentType: "application/json",
+                            dataType: "json",
+                            contentType: false,
+                            processData: false,
+                            success: function (data) {
+                                if (data.Status == 200) {
+                                    toastr.success(data.Message);
+                                    tableListPrice.draw();
+                                }
+                                else {
+                                    toastr.error(data.Message);
+                                }
+                            },
+                            error: function () {
+                            }
+                        });
+                    }
+                },
+                "KHÔNG": {
+                    btnClass: 'btn-default',
+                    action: function () { }
+                }
+            }
+        });
+    }
+</script>

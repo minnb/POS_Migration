@@ -1,0 +1,683 @@
+﻿@using Newtonsoft.Json;
+@using System.Web.Configuration;
+@using VCM.BLUEPOS.Models;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.Partner;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.MCH;
+
+@{
+    ViewBag.Title = "Cập nhật sản phẩm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listStoreHead = ViewBag.ListStoreHead as List<Shopee_Restaurant_Model>;
+    var listNganhHang = (List<VCM.BLUEPOS.Model.Partner.OptionModel>)ViewBag.ListCategory;
+    var listPicture = ViewBag.ListPicture as List<PictureResponseModel>;
+
+    var model = Model as UpdateViewItemListNowFoodModel;
+    var listItem = model.ListItem;
+    var totalPage = Model.TotalPageNumber;
+
+    string pageCurrent = HttpContext.Current.Request.RequestContext.RouteData.Values["page"] == null ? "1" : HttpContext.Current.Request.RequestContext.RouteData.Values["page"].ToString();
+    int pageCR = int.Parse(pageCurrent);
+    var totalRow = Model.TotalRow;
+    var pageSize = Model.PageSize;
+    var displayRow = $"{pageCR}-{pageSize}/{totalRow} sản phẩm";
+
+    if (totalRow <= pageSize)
+    {
+        displayRow = $"{totalRow} sản phẩm";
+    }
+    if (pageCR > 1 && totalRow > pageSize)
+    {
+        displayRow = $"{(pageCR * pageSize + 1) - pageSize}-{(pageCR * pageSize > totalRow ? totalRow : pageCR * pageSize)} /{totalRow} sản phẩm";
+    }
+
+    var textsearch = Html.Raw(Model.Keyword);
+    string urlImg = WebConfigurationManager.AppSettings["urlImg"];
+    string urlImg_Create = WebConfigurationManager.AppSettings["urlImg"];
+    var imgBase64 = ViewBag.ImagesBase64;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đối tác</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Cập nhật sản phẩm</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="example-preview" style="background-color:#fff;margin-left:-15px;margin-right:-15px;">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link classTab active" id="tab-item-list-now-food-lock" data-toggle="tab" href="#itemlistnowfoodlock">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Cập nhật sản phẩm (API)
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="tab-content mt-5" id="myTabContent">
+
+            <!-- Call API: Danh sách sản phẩm theo Store để cập nhật, Realtime -->
+
+            <div class="tab-pane show active" id="itemlistnowfoodlock" role="tabpanel" aria-labelledby="tab-item-list-now-food-lock">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("ApiItemListNowFoodByUpdate", "Partner", FormMethod.Post, new { @id = "frm-item-list-now-food-update" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác <strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-create-partner" name="Partner">
+                                                    <option value="" selected>--- Chọn ---</option>
+                                                    <option value="NOF">Now Food</option>
+                                                    <option value="GRF">Grab Food</option>
+                                                    <option value="BEF">Be Food</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important">Cửa hàng<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                                    <option value="" selected disabled>--- Chọn ---</option>
+                                                    @if (listStoreHead != null && listStoreHead.Count() > 0)
+                                                    {
+                                                        foreach (var item in listStoreHead)
+                                                        {
+                                                            <option value="@item.partner_restaurant_id - @item.restaurant_id" data-storename="@item.name">@item.partner_restaurant_id - @item.name</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:600 !important">Từ khóa</label>
+                                            <input type="text" class="form-control pull-right" id="txt-text-search" name="TextSearch" placeholder="Nhập mã sản phẩm (mã sap); tên sản phẩm" />
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-primary" id="btn-search-item-list" name="btnSearch"><i class="fa fa-search"></i>Tìm</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                            <div class="card card-custom">
+                                <div class="card-body">
+                                    <div class="row" style="min-height:150px;" id="div-update-view-item-list-now-food-lock"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal: Cập nhật chi tiết sản phẩm -->
+
+<div class="modal fade" id="modal-update-view-detail-item-now-food" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-update-title-item" style="text-transform:uppercase">Cập nhật sản phẩm</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-view-detail-item-now-food-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row" style="padding-top:5px;">
+                                    <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                        <div class="form-group">
+                                            <label style="padding-top:5px;font-weight:600 !important;">Mã cửa hàng</label>
+                                            <input type="text" class="form-control pull-right" id="txt-update-store-no-header" name="StoreNoHeader" disabled />
+                                        </div>
+                                    </div>
+
+                                    <input type="hidden" id="update-restaurant-id" name="RestaurantID" />
+                                    <input type="hidden" id="update-partner-restaurant-id" name="PartnerRestaurantID" />
+                                    
+                                    <div class="col-lg-8 col-md-8 col-sm-8 col-xl-8">
+                                        <div class="form-group">
+                                            <label style="padding-top:5px;font-weight:600 !important;">Tên cửa hàng</label>
+                                            <input type="text" class="form-control pull-right" id="txt-update-store-no-header-name" name="StoreNoHeaderName" disabled />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                        <label style="padding-top:5px;font-weight:600 !important;">Mã sản phẩm (SAP)</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-update-item-no-sap" name="ItemNo" disabled />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-8 col-md-8 col-sm-12 col-xs-12">
+                                        <label style="padding-top:5px;font-weight:600 !important;">Tên sản phẩm</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-update-item-name" name="ItemName" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row" style="padding-top:5px;">
+                                    <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                        <label style="padding-top:5px;font-weight:600 !important;">Ngành hàng</label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" style="width:100%;" id="sel-update-partner-dish-group-id" name="UpdatePartnerDishGroupId">
+                                                @if (listNganhHang != null && listNganhHang.Count > 0)
+                                                {
+                                                    <option value="" selected>--- Chọn ---</option>
+                                                    foreach (var item in listNganhHang)
+                                                    {
+                                                        <option value="@item.Value">@item.Value - @item.Text</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                        <label style="padding-top:5px;font-weight:600 !important;">Giá</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" id="txt-update-price" name="UpdatePrice" />
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-4 col-xl-4">
+                                        <label style="padding-top:5px;font-weight:600 !important;">Trạng thái</label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" style="width:100%;" id="sel-update-status-lock" name="StatusLock" disabled>
+                                                <option value="1" selected>Active</option>
+                                                <option value="3">Deactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" id="txt-update-group-name-temp" name="UpdateGroupNameTemp" />
+            <input type="hidden" id="txt-update-partner-dish-id-temp" name="UpdatePartnerDishIdTemp" />
+            <input type="hidden" id="txt-update-partner-dish-id-temp-v1" name="UpdatePartnerDishIdTempV1" />
+            <input type="hidden" id="txt-update-partner-dish-id-temp-v2" name="UpdatePartnerDishIdTempV2" />
+            <input type="hidden" id="txt-update-picture-id-temp" name="PartnerPictureIdTemp" />
+            <input type="hidden" id="txt-update-price-temp" name="PriceTemp" />
+
+            <div class="modal-footer">
+                <button type="button" id="btn-save-update-item-no-lock" class="btn btn-bg-primary" style="color:#fff"><i class="fa fa-save" style="color:#fff"></i>Lưu lại</button>
+                <button type="button" id="btn-close-modal" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var keyword = $("#hdd-txt-key-word").val();
+
+        function UpdateItemNoByNowFood() {
+            //debugger
+            var restaurant_id = $('#update-restaurant-id').val();                   // StoreNo trên NowFood
+            var partner_restaurant_id = $("#txt-update-store-no-header").val();     // StoreNo trên SAP
+            var partner_dish_id = $("#txt-update-partner-dish-id-temp").val();
+            var name = $("#txt-update-item-name").val();
+            var partner_dish_group_id = $("#sel-update-partner-dish-group-id").val();
+            var price = $("#txt-update-price").val();
+            var picture_id = $("#txt-update-picture-id-temp").val();
+
+            if (name == null || name == "") {
+                toastr.error("Vui lòng nhập tên sản phẩm");
+                return;
+            }
+
+            if (partner_dish_group_id == null || partner_dish_group_id == "") {
+                toastr.error("Vui lòng chọn ngành hàng");
+                return;
+            }
+           
+            if (price < 0) {
+                toastr.error("Giá bán phải là kiểu số dương (>0). Vui lòng kiểm tra lại");
+                return;
+            }
+
+            var check = $.isNumeric(price);
+            if (check == false) {
+                toastr.error("Giá bán phải là kiểu số dương (>0). Vui lòng kiểm tra lại");
+                return;
+            }
+
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('restaurant_id', restaurant_id);
+            fromData.append('partner_restaurant_id', partner_restaurant_id);
+            fromData.append('partner_dish_id', partner_dish_id);                // Mã sản phẩm SAP
+            fromData.append('name', name);                                      // Tên sản phẩm
+            fromData.append('partner_dish_group_id', partner_dish_group_id);    // Mã ngành hàng
+            fromData.append('price', price);
+            fromData.append('picture_id', picture_id);
+
+            $.ajax({
+                url: '@Url.Action("_UpdateDetailItemNoByNowFood", "Partner")',
+                type: "POST",
+                data: fromData,
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Data.meta.code == 200) {
+                        toastr.success("Cập nhật thành công");
+                        $("#txt-text-search").val('');
+                        $("#btn-search-item-list").trigger('click');
+
+                        $('#modal-update-view-detail-item-now-food').modal("hide");
+                        var NameStr = name;
+                        $("#lbName" + partner_dish_id).html(NameStr);
+
+                        var PriceStr = price;
+                        $("#lbPrice" + partner_dish_id).html(PriceStr);
+                        $('#txt-update-price-temp').val(PriceStr);                        // De hien thi lai tren popup khi chua call lai api
+                        $('#txt-update-partner-dish-id-temp-v1').val(partner_dish_id);    // Cai biên nay dung de dk so sanh hien thi cho input gia ban
+                        $('#txt-update-partner-dish-id-temp-v2').val(partner_dish_id);    // Dung de uncheckbox khi chon sang item khac
+
+                        if (partner_dish_group_id == "1") {
+                            groupStr = "1-Trà";
+                        }
+                        else if (partner_dish_group_id == "214") {
+                            groupStr = "214-Cafe";
+                        }
+                        else if (partner_dish_group_id == "216") {
+                            groupStr = "216-Bánh nóng";
+                        }
+                        else {
+                            groupStr = "Khác";
+                        }
+                        $("#lbGroup" + partner_dish_id).html(groupStr);
+                        Cleare_Text();
+                    }
+                    else
+                    {
+                        toastr.error('Có lỗi xảy ra. Vui lòng kiểm tra lại');
+                        $('#modal-update-view-detail-item-now-food').modal("hide");
+                    }                    
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+    function LoadItemListNowFoodByUpdate(storeNo, itemNo, textSearch) {
+        //debugger
+        loading.showloading();
+        var fromData = new FormData();
+        fromData.append('StoreNo', storeNo);
+        fromData.append('ItemNo', itemNo);
+        fromData.append('TextSearch', textSearch);
+
+        $.ajax({     
+                url: '@Url.Action("ApiItemListNowFoodByUpdate", "Partner")',
+                type: "POST",
+                data: fromData,
+                dataType: "json",
+                contentType: false,
+                processData: false,               
+                success: function (response)
+                {
+                    //debugger
+                    var html = ''; 
+                    if (response.length != null) {
+                        for (var i = 0; i < response.length; i++)
+                        {
+                            //debugger
+                            html += '<div class=\"col-xl-3 col-lg-4 col-md-6 col-sm-12\">';
+                            html += '<div class=\"card card-custom gutter-b card-stretch\" style=\"border:1px solid #d5d2d2\">';
+                            html += '<div class=\"card-body\">';
+                            html += '<div>';
+
+                            var picture_id = "";
+                            if (response[i].picture == null)
+                            {
+                                picture_id = "";
+                            }
+                            else
+                            {
+                                picture_id = response[i].picture.id;
+                            }
+
+                            var partner_dish_group_id = "-1";
+                            if (response[i].partner_dish_group_id == null || response[i].partner_dish_group_id == "") {
+                                partner_dish_group_id = "-1"; // = null
+                            } 
+                            else
+                            {
+                                partner_dish_group_id = response[i].partner_dish_group_id;
+                            }
+                           
+                            var _partner_dish_id = response[i].partner_dish_id;
+
+                            html += '<div style=\"cursor:pointer\" class=\"d-flex align-items-center btn-view-detail-item\" data-item-no="' + response[i].dish_id + '"  data-item-no-sap="' + response[i].partner_dish_id + '"  data-item-name="' + response[i].name + '"  onclick=\"ViewDetailByUpdate(' + _partner_dish_id + ',' + partner_dish_group_id + ',' + response[i].price + ',' + response[i].is_active + ',' + picture_id + ')\">';
+                            html += '<div class=\"flex-shrink-0 mr-4 mt-lg-0\">';
+                            html += '<div class=\"symbol symbol-lg-75\" style=\"padding-left: 10px;\">';
+
+                            if (response[i].picture == null)
+                            {
+                                var ulrUploadImage = "~/Uploads/imgs/placeholder.png";
+                                html += '<img src="' + ulrUploadImage +'" />';
+                            }
+                            else
+                            {
+                                var imagesBase64 = response[i].picture.url;
+                                html += '<img src="' + imagesBase64 + '" />';
+                            }
+
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class=\"d-flex flex-column\" style=\"font-family:Roboto ,Unicode Support Noto, sans-serif\">';
+                            html += '<a class=\"text-dark font-weight-bold text-hover-primary mb-0\"><span id = "lbName' + response[i].partner_dish_id + '">' + response[i].name + '</a>';
+                            html += '<span class=\"text-muted font-weight-bold\">No: ' + response[i].dish_id + '</span>';
+                            html += '<span class=\"text-muted font-weight-bold\">Sap: ' + response[i].partner_dish_id + '</span>';
+                            html += '<span class=\"text-muted font-weight-bold\">Giá: <span id = "lbPrice' + response[i].partner_dish_id + '">' + response[i].price + ' </span></span>';
+
+                            var partner_dish_group_id = response[i].partner_dish_group_id;
+
+                            //GetGroupName(partner_dish_group_id);
+                            //var partner_dish_group_name = $('#txt-update-group-name-temp').val();
+
+                            var partner_dish_group_name = "";
+                            if (partner_dish_group_id == "1")
+                            {
+                                partner_dish_group_name = "1-Trà";
+                            }
+                            else if (partner_dish_group_id == "214")
+                            {
+                                partner_dish_group_name = "214-Cafe";
+                            }
+                            else if (partner_dish_group_id == "216")
+                            {
+                                partner_dish_group_name = "216-Bánh nóng";
+                            }
+                            else
+                            {
+                                partner_dish_group_name = "Khác";
+                            }
+                            html += '<span class=\"text-muted font-weight-bold\">Ngành hàng: <span id = "lbGroup' + response[i].partner_dish_id + '">' + partner_dish_group_name + '</span></span>';
+
+                            if (response[i].is_active == false)
+                            {
+                                var isActiveStr = "Deactive";
+                                html += '<span class=\"text-muted font-weight-bold\">Trạng thái: <span id="lbStatus' + response[i].partner_dish_id+ '" style=\"color:#ff0000;font-weight-bold\">' + isActiveStr + '</span></span>';
+                            }
+                            else if (response[i].is_active == true)
+                            {
+                                var isActiveStr = "Active";
+                                html += '<span class=\"text-muted font-weight-bold\">Trạng thái: <span id="lbStatus' + response[i].partner_dish_id + '" style=\"color:#06b65c;font-weight-bold\">' + isActiveStr + '</span></span>';
+                            }
+
+                            html += '<span class=\"text-muted font-weight-bold\">PictureId: ' + picture_id + ' </span>';
+                            html += '</div>';                            
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                    }
+                    else
+                    {
+                        html += '<div class="alert-cutom alert-warning" style="font-weight: 400; text-align: center;">';
+                        html += '<span>Không có dữ liệu</span>';
+                        html += '</div>';
+                    }
+
+                    $('#div-update-view-item-list-now-food-lock').html(html);
+                    loading.hideloading();
+
+                },
+                error: function (event)
+                {
+                    loading.hideloading();
+                }
+            });
+        }
+
+
+    function ViewDetailByUpdate(partner_dish_id, partner_dish_group_id, pirce, is_active, picture_id) {
+            //debugger
+            var storeNo = $("#sel-store-no").val();
+            if (storeNo == null) {
+                return;
+                }
+
+            var partner_restaurant_id = storeNo.split('-')[0];
+            var restaurant_id = storeNo.split('-')[1];
+
+            $('#update-restaurant-id').val(restaurant_id);
+            $('#update-partner-restaurant-id').val(partner_restaurant_id);
+
+            $('#txt-update-partner-dish-id-temp').val(partner_dish_id);
+            $('#txt-update-item-no-sap').val(partner_dish_id);
+
+            $('#txt-update-picture-id-temp').val(picture_id);
+            $('#txt-update-price').val(pirce);
+
+            var partner_dish_id_temp_v1 = $('#txt-update-partner-dish-id-temp-v1').val();
+            var priceTemp = $('#txt-update-price-temp').val();
+            if (priceTemp == "")
+            {
+                $('#txt-update-price').val(pirce);
+            }
+            else
+            {
+                if (pirce != priceTemp)
+                {
+                    if (partner_dish_id_temp_v1 == partner_dish_id) {
+                        $('#txt-update-price').val(priceTemp);
+                    }
+                    else {
+                        $('#txt-update-price').val(pirce);
+                    } 
+                }
+                else {
+                    $('#txt-update-price').val(pirce);
+                }
+            }
+
+            var status = 1;
+            if (is_active == true) {
+                status = 1; // Active
+            }
+            else
+            {
+                status = 3; // Deactive
+            }
+
+            var _partner_dish_group_id = "";
+
+            if (partner_dish_group_id == "1") {
+                _partner_dish_group_id = 1;
+            }
+            else if (partner_dish_group_id == "214") {
+                _partner_dish_group_id = 214;
+            }
+            else if (partner_dish_group_id == "216") {
+                _partner_dish_group_id = 216;
+            }
+            else if (partner_dish_group_id == "" || partner_dish_group_id == null || partner_dish_group_id == "-1") {
+                _partner_dish_group_id = "";
+            }
+
+            LoadDetailItemNowFoodByUpdate(restaurant_id, partner_restaurant_id, partner_dish_id, _partner_dish_group_id, status, picture_id);
+
+    };
+
+
+    function LoadDetailItemNowFoodByUpdate(restaurant_id, partner_restaurant_id, partner_dish_id, partner_dish_group_id, status) {
+        //debugger
+
+        $('#txt-update-store-no-header').val(partner_restaurant_id);
+        var storeName = $("#sel-store-no").select2().find(":selected").data("storename");
+        $('#txt-update-store-no-header-name').val(storeName);
+
+        $('#txt-update-item-no-sap').val(partner_dish_id);
+        $('#sel-update-status-lock').val(status).trigger('change');
+
+        $('#sel-update-partner-dish-group-id').val(partner_dish_group_id).trigger('change');
+        GetItemName(partner_dish_id, partner_restaurant_id);
+
+        $('#modal-update-view-detail-item-now-food').modal({
+            backdrop: 'static',
+            keyboard: false
+        });
+
+    }
+
+    function GetItemName(partner_dish_id, partner_restaurant_id) {
+        //debugger
+        $.ajax({
+            url: '@Url.Action("GetItemNameByNowFood", "Partner")',
+            type: "POST",
+            dataType: "json",
+            data: {
+                partner_dish_id: partner_dish_id,
+                partner_restaurant_id: partner_restaurant_id
+            },
+            success: function (data) {
+                //debugger
+                $('#txt-update-item-name').val(data);
+            },
+            error: function (data) {
+                toastr.error('Lỗi hệ thống');
+            }
+        });
+
+    }
+
+    
+    function GetGroupName(partner_dish_group_id) {
+        //debugger
+        $.ajax({
+            url: '@Url.Action("GetGroupName", "Partner")',
+            type: "POST",
+            dataType: "json",
+            data: {partner_dish_group_id: partner_dish_group_id},
+            success: function (data) {
+                $('#txt-update-group-name-temp').val(data);
+            },
+            error: function (data) {
+                toastr.error('Lỗi hệ thống');
+            }
+        });
+    }
+    
+    function Cleare_Text() {
+        $('#txt-update-item-name').val('');
+        $('#sel-update-partner-dish-group-id').trigger('changge');
+    };
+
+
+    $(document).ready(function () {
+        $(".select2").select2();
+        var kt_img_item_lock = new KTImageInput('kt_img_item_lock');
+
+        $('#txt-text-search').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $("#btn-save-update-item-no-lock").on("click", function (e) {
+            UpdateItemNoByNowFood();
+        });
+
+        $("#btn-search-item-list").on('click', function (e) {
+            //debugger
+            var storeNoStr = $("#sel-store-no").val();
+            if (storeNoStr == null || storeNoStr == "") {
+                toastr.error('Chọn ST/CH');
+                return;
+            }
+
+            var storeNo1 = storeNoStr.split('-')[0];
+            var storeNo = storeNo1.trim();
+            var itemNo = $("#txt-text-search").val();
+            var textSearch = $("#txt-text-search").val();
+
+            LoadItemListNowFoodByUpdate(storeNo, itemNo, textSearch);
+
+        });
+
+    });
+</script>
+
+}
+
+
+<style>
+    .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+        color: #5E6278;
+        background-color: #ffffff;
+        border-color: #2c48c5 #E4E6EF #ffffff;
+    }
+
+    .nav-tabs {
+        border-bottom: 1px solid #0c713d;
+    }
+</style>
+
+

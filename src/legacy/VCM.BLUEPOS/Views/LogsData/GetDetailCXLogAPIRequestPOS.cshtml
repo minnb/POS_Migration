@@ -1,0 +1,34 @@
+﻿@using Newtonsoft.Json;
+@using VCM.BLUEPOS.Data.LogsData;
+@using VCM.BLUEPOS.Model;
+@using VCM.BLUEPOS.Model.LogsData.LoyaltyCXLogAPIModel;
+
+@model List<DetailLoyaltyCXLogAPIRequestPOSModel>
+
+@{
+    //var count = 1;
+}
+
+@if (Model != null && Model.Count > 0)
+{
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+            <div class="form-group">
+                <textarea rows="10" id="detail-requset-xml" class="form-control">
+                    @{ 
+                        foreach (var item in Model)
+                        {
+                           @item.RequestPOS
+                        }
+                    }
+                </textarea>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+
+
+

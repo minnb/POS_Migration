@@ -1,0 +1,63 @@
+﻿@using VCM.BLUEPOS.Model.Common;
+
+@{
+    var model = Model as List<SQLServerModel>;
+    if (model != null && model.Count > 0)
+    {
+        var firstIP = model.FirstOrDefault().IPServer;
+        <div class="row">
+            <div class="col-2">
+                <ul class="nav flex-column nav-pills">
+                    @foreach (var item in model)
+                    {
+                        var ipServer = item.IPServer;
+                        var ipSvrR = item.IPServer.Replace(".", "");
+
+                        <li class="nav-item mb-2 clickSvrAgent" style="background-color:#bde1cf" data-ipserver="@ipServer">
+                            <a class="nav-link" id="tabAgent_@ipSvrR" data-toggle="tab" href="#content_@ipSvrR">
+                                <span class="nav-icon">
+                                    <i class="fas fa-arrow-alt-circle-right" style="color:#FFFFFF;font-weight:bold"></i>
+                                </span>
+                                <span class="nav-text" style="color:#FFFFFF;font-weight:bold">@ipServer</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <div class="col-10">
+                <div class="tab-content" id="myTabContent5">
+                    <div class="tab-pane fade active show" id="contentTabAgent" role="tabpanel" aria-labelledby="tabContent">
+                        <strong style="color:#0094ff;font-weight:bold;font-size: 25px;">Vui lòng click vào server IP để để hiển thị JOB AGENT</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $(".clickSvrAgent").on("click", function () {
+                $("#contentTabAgent").html("");
+                var ipServer = $(this).attr("data-ipserver");
+                loading.showloading();
+                $.ajax({
+                    type: "GET",
+                    url: "/Home/_ViewJobAgentSQL?ipserver=" + ipServer + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#contentTabAgent").html(result);
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            });
+        });
+    </script>
+}
+

@@ -1,0 +1,69 @@
+﻿
+@{
+    Layout = null;
+}
+
+@using VCM.BLUEPOS.Model.Report;
+@using VCM.BLUEPOS.Helpers;
+@model List<SaleOdooModel>
+
+<!DOCTYPE html>
+<html lang="en" manifest="">
+<head>
+    <title>Chi tiết đơn hàng</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" href="/Content/img/favicon.ico" type="image/x-icon">
+
+
+    @{
+
+
+    }
+</head>
+<body class="">
+    <div class="wrapper">
+        <div class="content-wrapper" style="">
+            <section class="content">
+                <div class="container-fluid">
+
+                    <div style="width:100%;clear:both">
+                        @foreach (var item in Model)
+                        {
+
+                            var barCodeBase64 = string.Empty;
+                            var qrcode = string.Empty;
+                            try
+                            {
+                                barCodeBase64 = Utils.ZenCode128(item.BarcodeNo);
+                            }
+                            catch (Exception)
+                            {
+                            }
+
+                            <div style="float:left;width:32%;margin-right:10px;margin-bottom:10px;text-align:center;border:dotted 1px #808080">
+                                <div style="text-align:center;width:100%;clear:both;margin-top:10px;margin-left:10px">
+                                    <img src="data:image/png;base64,@barCodeBase64" style="" alt="" />
+                                </div>
+                                <span class="float-left" style="text-align:left;margin-left:10px;">
+                                    Barcode: <strong>@item.BarcodeNo </strong><br />
+                                    Số lượng: <strong>@item.Quantity</strong> <br />
+                                    Đơn giá: <strong> @string.Format("{0:###,###}", item.UnitPrice)</strong><br />
+                                    Giảm giá: <strong> @string.Format("{0:###,###}", item.Discount)</strong><br />
+                                    Thành tiền: <strong> @string.Format("{0:###,###}", item.Amount)</strong>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+    </div>
+    @*@Styles.Render("~/Content/css")*@
+    <link href="~/Content/themekeen/css/style.bundle.css" rel="stylesheet" />
+    @*<link href="~/Content/themekeen/plugins/global/plugins.bundle.css" rel="stylesheet" />*@
+</body>
+
+</html>

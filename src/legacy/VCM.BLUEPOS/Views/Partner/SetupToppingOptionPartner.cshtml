@@ -1,0 +1,325 @@
+﻿@using Newtonsoft.Json;
+@using System.Web.Configuration;
+@using VCM.BLUEPOS.Models;
+@using VCM.BLUEPOS.Authen;
+@using VCM.BLUEPOS.Model.Partner.GrabFoodModel;
+@using VCM.BLUEPOS.Model.Store;
+
+@{
+    ViewBag.Title = "Tạo Topping";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listToppingGrab = ViewBag.ListToppingGrab as List<ToppingPartnerModel>;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đối tác</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Tạo Topping</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <!-- Tab -->
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="example-preview" style="background-color:#fff;margin-left:-15px;margin-right:-15px;">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link classTab active" id="tab-create-topping-list" data-toggle="tab" href="#add-topping-partner-list" aria-controls="profile">
+                            <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                Tạo Topping
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="tab-content mt-5" id="myTabContent">
+            <div class="tab-pane fade show active" id="tab-item-partner-list" role="tabpanel" aria-labelledby="tab-item-partner-list-v2">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch" style="border:1px solid #0c713d;width:100%">
+                            @using (Html.BeginForm("", "Partner", FormMethod.Post, new { @id = "frm-add-topping-partner" }))
+                            {
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                            <label class="font-weight-bold" style="font-weight:bold !important;">Đối tác<strong style="color:#ff0000"> (*)</strong></label>
+                                            <div class="input-group">
+                                                <select class="form-control select2" id="sel-partner-code" name="PartnerCode">
+                                                    <option value="GRABFOOD" selected>GrabFood</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-9 col-md-6 col-sm-12 col-xs-12" style="margin-top: 25px;">
+                                            <button type="button" class="btn btn-bg-success" style="color:#fff;" id="btn-view-item-list"><i class="la la-plus-circle" style="color:#fff;"></i>  Thêm Topping</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="card-body">
+                <table id="tbl-Topping-Grab" class="table table-bordered text-nowrap" style="background-color:#fff !important">
+                    <thead>
+                        <tr style="background-color:#09e9de !important;text-transform:uppercase">
+                            <th class="text-center" style="color:#000000 !important;font-weight:bold !important;">Mã sản phẩm</th>
+                            <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Tên sản phẩm</th>
+                            <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Đơn vị tính</th>
+                            <th class="text-center" style="color:#000000 !important;font-weight:bold !important">#</th>
+                        </tr>
+                    </thead>
+
+                    <tbody style="text-align:center">
+                        @if (listToppingGrab != null || listToppingGrab.Count > 0)
+                        {                            
+                            foreach (var tp in listToppingGrab)
+                            {
+                                <tr class="toppinggrab_@tp.Id">
+                                    <td>@tp.Id</td>
+                                    <td style=" text-align:left;">@tp.Name</td>
+                                    <td style=" text-align:center;">@tp.UOM</td>
+                                    <td style="text-align:center;vertical-align:middle">
+                                        <a title="Xóa" class="btn btn-icon btn-light-danger btn-topping-delete-grab" id="btn-topping-delete-grab"  data-item-no-grab="@tp.Id"  data-item-name-grab="@tp.Name" data-uom-grab="@tp.UOM"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-view-item-list-add-topping" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-view-item-title">Thêm topping</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupListItemToppingGrab"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Hủy</button>
+                <button type="button" class="btn btn-light-primary font-weight-bold btnSelectedItemToppingGrab"><i class="la la-check"></i>Lưu lại</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var keyword = $("#hdd-txt-key-word").val();
+
+        function CreateToppingPartner(jsonToppingGrab, partner, isFunc)
+        {
+            debugger
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CreateToppingPartner", "Partner")',
+                type: "POST",
+                dataType: "json",
+                data: {                    
+                    jsonToppingGrab: jsonToppingGrab,
+                    partner: partner,
+                    isFunc: isFunc
+                },
+                success: function (response) {
+                    debugger                    
+                    if (response.Status == 200) {
+                        toastr.success(response.Message);
+                        location.reload();
+                    }
+                    else {
+                        toastr.error(response.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function (data)
+                {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+        function SaveToppingPartner()
+        {
+            debugger
+            var partner = "GRABFOOD";
+            var arrayToppingGrab = [];
+            $('#tbl-Topping-Grab tbody tr').each(function (e) {
+                var itemTopping = {};
+                var itemNo = $(this).find('td:nth-child(1)').html();
+                var itemName = $(this).find('td:nth-child(2)').html();
+                var uom = $(this).find('td:nth-child(3)').html();
+                itemTopping['ItemNoRef'] = itemNo;
+                itemTopping['ItemNameRef'] = itemName;
+                itemTopping['UOMRef'] = uom;
+                arrayToppingGrab.push(itemTopping);
+            });
+            var jsonToppingGrab = arrayToppingGrab.length > 0 ? JSON.stringify(arrayToppingGrab) : "";
+            var isFunc = "Created";
+            CreateToppingPartner(jsonToppingGrab, partner, isFunc);
+        };
+
+        $(document).ready(function () {
+
+            $(".select2").select2();
+
+            $("#btn-view-item-list").on("click", function (e) {
+                //debugger
+                $.ajax({
+                    type: "GET",
+                    //url: "/Partner/_ViewItemListToppingPartner?itemNo=" + itemNo + "",
+                    url: "/Partner/_ViewItemListToppingPartner",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        //debugger
+                        $("#divPopupListItemToppingGrab").html(result);
+                        $('#modal-view-item-list-add-topping').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (ex) {
+                        loading.hideloading();
+                        toastr.error('Có lỗi xảy ra');
+                    }
+                });
+            });
+
+            // button Lưu
+
+            $(".btnSelectedItemToppingGrab").on("click", function (e) {
+                //debugger
+                arraySelectedItemGrab = [];
+                arrayNotSelectedItemGrab = [];
+                $('#tblSelectedItemToppingGrab tbody tr label input.chkItem:checkbox:checked').each(function (e) {
+                    //debugger
+                    var itemSelected = {};
+                    var itemNo = $(this).attr("data-itemno");
+                    var itemName = $(this).attr("data-description");
+                    var uom = $(this).attr("data-uom");
+                    itemSelected['ItemNo'] = itemNo;
+                    itemSelected['ItemName'] = itemName;
+                    itemSelected['UOM'] = uom;
+                    arraySelectedItemGrab.push(itemSelected);
+                });
+
+                if (arraySelectedItemGrab.length == 0) {
+                    toastr.error('Vui lòng chọn Topping cần thêm');
+                    return;
+                }
+
+                if (arraySelectedItemGrab.length > 0) {
+                    var html = "";
+                    $('#tbl-Topping-Grab tbody tr').each(function () {
+                        var itemNoCurrent = $(this).find('td:nth-child(1)').html();
+                        arraySelectedItemGrab = arraySelectedItemGrab.filter(item => item.ItemNo !== itemNoCurrent);
+                    });
+
+                    arraySelectedItemGrab.forEach((name, i) => {
+                        html += "<tr class=\"toppinggrab_" + name.ItemNo + "\">";
+                        html += "<td>" + name.ItemNo + "</td>";
+                        html += "<td style=\"text-align: left;\">" + name.ItemName + "</td>";
+                        html += "<td>" + name.UOM + "</td>";
+                        html += "<td>";
+                        html += "<a title=\"Xóa\" class=\"btn btn-icon btn-light-danger btn-topping-delete-grab\" data-item-no-grab=" + name.ItemNo + "><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                        html += "</td>";
+                        html += "</tr>";
+                    });
+
+                    $("#tbl-Topping-Grab tbody").html('');
+                    $("#tbl-Topping-Grab tbody").append(html);
+                    $('#modal-view-item-list-add-topping').modal('hide');
+                    SaveToppingPartner();
+                }
+
+            });
+
+
+            $(".btn-topping-delete-grab").on("click", function (e) {
+                debugger
+                var arrayToppingGrab = [];
+                var itemTopping = {};
+                var itemNo2 = $(this).attr("data-item-no-grab");
+                var itemName2 = $(this).attr("data-item-name-grab");
+                var uom2 = $(this).attr("data-uom-grab");
+                itemTopping['ItemNoRef'] = itemNo2;
+                itemTopping['ItemNameRef'] = itemName2;
+                itemTopping['UOMRef'] = uom2;
+                arrayToppingGrab.push(itemTopping);
+                $(".toppinggrab_" + itemNo2).remove();
+                
+                //var arrayToppingGrab = [];
+                //$('#tbl-Topping-Grab tbody tr').each(function (e) {
+                //    var itemTopping = {};
+                //    var itemNo = $(this).find('td:nth-child(1)').html();
+                //    var itemName = $(this).find('td:nth-child(2)').html();
+                //    var uom = $(this).find('td:nth-child(3)').html();
+                //    itemTopping['ItemNoRef'] = itemNo;
+                //    itemTopping['ItemNameRef'] = itemName;
+                //    itemTopping['UOMRef'] = uom;
+                //    arrayToppingGrab.push(itemTopping);    
+                //});
+
+                var jsonToppingGrab = arrayToppingGrab.length > 0 ? JSON.stringify(arrayToppingGrab) : "";
+                var isFunc = "Deleted";
+                CreateToppingPartner(jsonToppingGrab, "GRABFOOD", isFunc);
+
+            });
+
+        });
+
+    </script>
+}
+
+
+<style>
+    .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+        color: #5E6278;
+        background-color: #ffffff;
+        border-color: #2c48c5 #E4E6EF #ffffff;
+    }
+
+    .nav-tabs {
+        border-bottom: 1px solid #0c713d;
+    }
+</style>
+
+

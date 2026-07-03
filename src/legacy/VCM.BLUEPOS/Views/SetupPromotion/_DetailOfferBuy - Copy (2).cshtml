@@ -1,0 +1,639 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+
+    var model = Model as GetBBModel;
+    var modelHeader = model.GetOfferHearder;
+
+    var data = model.GetOfferBuy;// Model.GetOfferBuy as List<OfferBuyModel>;
+    var comboLineTypeBuy = ComboboxModel.ComboLineType();
+    var comboScaleTypeBuy = ComboboxModel.ComboScaleType();
+    var comboDiscountType = ComboboxModel.ComboDiscountType();
+
+
+
+    var offerNo = modelHeader.No;
+    var isSetupBuy = model.IsSetupBuy;
+    var conditionBuy = model.Condition;
+
+    var offerType = modelHeader.OfferType;
+    var isTotalBill = model.IsTotalBill;
+    var isSetupGet = model.IsSetupGet;
+
+    var buyLinkCart = modelHeader.BuyLinkCat == "O" ? "OR" : "AND";
+    var checkMinValue = modelHeader.CheckMinValue;
+    var totalMinValue = string.Format("{0:###,###}", modelHeader.TotalMinValue);
+
+    var readonlyMinValue = isTotalBill == false ? "readonly" : checkMinValue == "0" ? "readonly" : "";
+    var checkValue = checkMinValue == "1" ? "checked" : "";
+
+    List<string> listBuyLink = new List<string>(new string[] { "AND", "OR" });
+    var disableTotalBill = isTotalBill == false ? "disabled" : "";
+
+}
+<div class="row align-items-end mb-3">
+
+    <!-- Button -->
+    <div class="col-lg-3 col-md-4 col-sm-12 mb-2">
+        <button type="button"
+                class="btn btn-primary font-weight-bold w-50"
+                id="btnAppendTableBuyBuy"
+                onclick="AppendBuyTable()">
+            <i class="la la-plus-circle"></i> Thêm dòng (Ctrl + A)
+        </button>
+    </div>
+
+    <!-- Số lượng -->
+    <div class="col-lg-2 col-md-2 col-sm-6 mb-2">
+        <label class="font-weight-bold">Số lượng dòng</label>
+        <input type="number"
+               id="txt-Qty-Row"
+               value="10"
+               class="form-control"
+               style="max-width:90px;">
+    </div>
+
+    <!-- Điều kiện áp dụng -->
+    <div class="col-lg-4 col-md-4 col-sm-6 mb-2">
+        <label class="font-weight-bold">Điều kiện áp dụng</label>
+        <select class="form-control select2 w-100"
+                id="slDKApDungBuy">
+            @foreach (var item in listBuyLink)
+            {
+                var selected = item == buyLinkCart ? "selected" : "";
+                <option value="@item" @selected>@item</option>
+            }
+        </select>
+    </div>
+
+    <!-- Giá trị tối thiểu -->
+    <div class="col-lg-3 col-md-4 col-sm-12 mb-2">
+        <label class="font-weight-bold">Giá trị tổng tiền tối thiểu</label>
+
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">
+                    <label class="checkbox checkbox-inline" title="Giá trị tổng tiền tối thiểu">
+                        <input type="checkbox" checked="@isTotalBill" disabled="disabled" id="chkMinValue" @checkValue class="updateBuyHeader" />
+                        <span></span>
+                    </label>
+                </span>
+            </div>
+
+            <input type="text"
+                   id="txtTotalMinValue"
+                   value="@totalMinValue"
+                   class="form-control money" />
+
+            <div class="input-group-append">
+                <span class="input-group-text">VNĐ</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+<div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="card-body table-responsive">
+            <table  id="tableOfferBuy" class="table table-bordered table-hover">
+                <thead>
+                    <tr class="text-center">
+                        <th>Loại</th>
+                        <th>Barcode/Mã Nhóm SP</th>
+                        <th>Sản phẩm</th>
+                        <th>Đơn vị tính</th>
+                        <th>Số lượng</th>
+                        <th>Điều kiện áp dụng</th>
+                        <th>#</th>
+
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (data != null && data.Count > 0)
+                    {
+                        foreach (var item in data)
+                        {
+                            var tagTr = $"tr_{item.OfferNo}_{item.LineNo}";
+                            var clssItem = $"itemBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssHiddenItem = $"itemHiddenBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssDesc = $"descBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssUOM = $"uomBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssLineTypeBuy = $"selectLineTypeBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssDiscountType = $"selectDiscountType_{item.OfferNo}_{item.LineNo}";
+                            var clssDiscountValue = $"txtDiscountValue_{item.OfferNo}_{item.LineNo}";
+                            var clssScaleTypeBuy = $"selectScaleTypeBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssQuantity = $"txtQuantity_{item.OfferNo}_{item.LineNo}";
+                            var spanHtml = $"spanAction_{item.OfferNo}_{item.LineNo}";
+                            var placeHolder = item.LineType == 1 ? "groupCode" : "itemNo";
+
+                            var disableLineTypeBuy = !string.IsNullOrEmpty(item.No) ? "disabled" : "";
+                            var classHiddenLineTypeBuy = $"hiddenLineTypeBuy_{item.OfferNo}_{item.LineNo}";
+
+                            var quantity = string.Format("{0:###,###}", item.Quantity);
+
+                            <tr id="@tagTr">
+                                <td style="width:100px;vertical-align:middle">
+                                    <input type="hidden" class="form-control @classHiddenLineTypeBuy" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-LineTypeBuy="@item.LineType" data-groupcode="@item.BonusBuyNo" value="@item.LineType" />
+                                    <select @disableLineTypeBuy class="form-control eventGrid select2 @clssLineTypeBuy"
+                                            data-offerno="@item.OfferNo"
+                                            data-lineno="@item.LineNo"
+                                            @*data-LineTypeBuy="@item.LineType" *@
+                                            data-groupcode="@item.BonusBuyNo">
+                                        @foreach (var loai in comboLineTypeBuy)
+                                        {
+                                            var selected = loai.value == "" + item.LineType ? "selected" : "";
+                                            <option value="@loai.value" @selected>@loai.Display</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td style="min-width:150px;vertical-align:middle">
+                                    <input type="hidden" class="form-control @clssHiddenItem" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-groupcode="@item.BonusBuyNo" value="@item.No" />
+                                    <div class="input-group">
+                                        <input type="text" class="form-control @clssItem eventItemKeyPress" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-LineTypeBuy="@item.LineType" data-groupcode="@item.BonusBuyNo" placeholder="@placeHolder" name="No" value="@item.No" />
+                                        <div class="input-group-append eventPopup" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-LineTypeBuy="@item.LineType" data-groupcode="@item.BonusBuyNo"><span class="input-group-text"><i class="flaticon2-search-1 icon-md"></i></span></div>
+                                    </div>
+                                </td>
+                                <td style="vertical-align:middle">
+                                    <span class="@clssDesc">@item.Description</span>
+                                </td>
+
+                                <td style="vertical-align:middle;text-align:center"><span class="@clssUOM">@item.UnitOfMeasure</span></td>
+                                <td style="vertical-align:middle">
+                                    <input type="text" style="width:90px" class="form-control eventGrid @clssQuantity money" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-LineTypeBuy="@item.LineType" data-groupcode="@item.BonusBuyNo" value="@string.Format("{0:###,###}", item.Quantity)" />
+                                </td>
+                                <td style="width:100px;vertical-align:middle">
+                                    <select class="form-control select2 eventGrid @clssScaleTypeBuy"
+                                            data-offerno="@item.OfferNo"
+                                            data-lineno="@item.LineNo"
+                                            data-LineTypeBuy="@item.LineType"
+                                            data-groupcode="@item.BonusBuyNo">
+                                        @foreach (var loai in comboScaleTypeBuy)
+                                        {
+                                            var selected = loai.value == item.ScaleType ? "selected" : "";
+                                            <option value="@loai.value" @selected>@loai.Display</option>
+                                        }
+                                    </select>
+                                </td>
+                               
+                                <td style="vertical-align:middle;width:80px; text-align:center">
+                                    <span class="@spanHtml">
+                                        <a onclick="DeleteOfferBuy('@item.OfferNo',@item.LineNo,'@item.No',@item.LineType,'@item.BonusBuyNo')" title="Xóa" class="btn btn-icon btn-light-danger" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-no="@item.No"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalListItemSetup" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupListItem"></div>
+</div>
+
+<script type="text/javascript">
+    var offerNo = '@offerNo';
+    var offerType = '@offerType';
+
+    var isSetupGet = '@isSetupGet';
+    var isSetupBuy = '@isSetupBuy';
+    var isTotalBill = '@isTotalBill';
+    /*
+    $(document).on("keydown", function (e) {
+        if (e.ctrlKey && e.key.toLowerCase() === "a") {
+            e.preventDefault();
+            $("#btnAppendTableBuy").click();
+        }
+    });
+    */
+    $(document).ready(function () {
+        /*
+        $(".slItemBuy").each(function () {
+            var stt = $(this).data("stt");
+            initRow(stt);
+        });
+        */
+       
+       // $(".select2").select2();
+
+        if ($("#chkMinValue").prop('checked')) {
+            $('#txtTotalMinValue').prop('readonly', false);
+        }
+        else {
+            $('#txtTotalMinValue').prop('readonly', true);
+            $('#txtTotalMinValue').val("");
+        }
+
+        $('.money').mask('000,000,000', {
+            placeholder: "0",
+            reverse: true,
+            rightAlign: true
+        });
+
+      
+        $("#chkMinValue").on("change", function () {
+            if ($(this).prop('checked')) {
+                $('#txtTotalMinValue').prop('readonly', false);
+            }
+            else {
+                $('#txtTotalMinValue').prop('readonly', true);
+                $('#txtTotalMinValue').val("");
+            }
+        });
+        
+        $(".updateBuyHeader_bk").on("change", function () {
+            var conditionBuy = $("#slDKApDungBuy").val();
+            var chkMinValue = 0;
+            var totalMinValue = 0;
+            if ($("#chkMinValue").prop('checked')) {
+                chkMinValue = 1;
+                totalMinValue = $("#txtTotalMinValue").val().replace(/\,/g, '');
+            }
+            var fromData = new FormData();
+            fromData.append('OfferNo', offerNo);
+            fromData.append('BuyLinkCat', conditionBuy);
+            fromData.append('CheckMinValue', chkMinValue);
+            fromData.append('MinValue', totalMinValue);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("SetupHeaderBuy", "SetupPromotion")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 200) {
+                    }
+                    else {
+                        toastr.error(data.Message);
+                        $("#offBuy-tab").trigger("click");
+                    }
+
+                },
+                error: function () {
+                }
+            });
+        });
+    });
+
+    
+
+    $(document).on('change', '.LineTypeBuy', function () {
+        var data = $(this).select2('data');
+        var stt = $(this).data("stt");
+        var LineTypeBuyVal = data[0].id;
+        if (LineTypeBuyVal === "1") {//theo nhóm
+            $(".changebarcodeBuy_" + stt).val("");
+            setTimeout(function () {
+                $(".changebarcodeBuy_" + stt).attr("placeholder", "Nhập mã nhóm...");
+            }, 0);
+            $(".slchangeItemBuy_" + stt).val("");
+            $(".slchangeUomBuy_" + stt).val("");
+            $(".slchangeUomBuy_" + stt).prop("disabled",true);
+            $(".slchangeItemBuy_" + stt).prop("disabled", true);
+            $(".sGroupitemBuy_" + stt).show();
+        } else {// theo item
+            $(".changebarcodeBuy_" + stt).val("");
+            $(".slchangeUomBuy_" + stt).prop("disabled", false);
+            $(".slchangeItemBuy_" + stt).prop("disabled", false);
+            $(".sGroupitemBuy_" + stt).hide();
+            setTimeout(function () {
+                $(".changebarcodeBuy_" + stt).attr("placeholder", "Nhập barcode...");
+            }, 0);
+            //
+        }
+        console.log(data[0].id);   // value
+        console.log(data[0].text); // text
+        console.log("stt:" + stt); // text
+    });
+
+  
+    function getMaxLineNoBuy() {
+
+        var max = 0;
+        //debugger
+        $("#tableOfferBuy tbody tr._rowBuy").each(function () {
+            console.log($(this).html());
+            var lineno = parseInt($(this).find("[data-lineno]").first().attr("data-lineno")) || 0;
+
+            if (lineno > max) max = lineno;
+        });
+
+        return max;
+    }
+    function AppendBuyTable() {
+       
+        let startLineNo = getMaxLineNoBuy();
+        let iRow = parseInt($("#txt-Qty-Row").val(), 10) || 1;
+
+        let conditionBuy = $("#slDKApDungBuy").val();
+
+        loading.showloading();
+
+        // build list lineno
+        let linenos = [];
+        for (let i = 1; i <= iRow; i++) {
+            linenos.push(startLineNo + i);
+        }
+
+        let formData = new FormData();
+        formData.append('offerNo', offerNo);
+        formData.append('conditionBuy', conditionBuy);
+        formData.append('offerType', offerType);
+        formData.append('isTotalBill', isTotalBill);
+        formData.append('isSetupGet', isSetupGet);
+
+        // append array
+        linenos.forEach(x => formData.append('linenos', x));
+
+        $.ajax({
+            type: "POST",
+            url: '@Url.Action("_AppendOfferBuy", "SetupPromotion")',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                if (result.Status == 200) {
+                    $("#tableOfferBuy tbody").append(result.ViewPartial);
+
+                    // init từng row
+                    linenos.forEach(x => initRow(x));
+                } else {
+                    toastr.error(result.Message);
+                }
+                loading.hideloading();
+            },
+            error: function () {
+                loading.hideloading();
+            }
+        });
+    }
+    function initRow(stt) {
+        //$(".select2").select2();
+
+        var row = $(".bgSelectBuy_" + stt);
+
+       
+        row.find('.select2').select2({
+            width: '100%'
+        });
+        /*
+        row.find('.LineTypeBuy').each(function () {
+            if ($(this).hasClass("select2-hidden-accessible")) {
+                $(this).select2('destroy');
+            }
+        });
+        row.find('.LineTypeBuy').select2({ width: '100%' });
+        */
+        row.find('.slUomBuy').select2({
+            placeholder: "Chọn UOM",
+            width: '100%'
+        });
+        
+        row.find('.slItemBuy').select2({
+            placeholder: "Chọn sản phẩm",
+            minimumInputLength: 1,
+            language: {
+                searching: () => "Đang tải dữ liệu...",
+                noResults: () => "Không tìm thấy dữ liệu"
+            },
+            ajax: {
+                url: '/SetupPrice/SearchItem',
+                type: 'POST',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        keyword: params.term,
+                        page: params.page || 1
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+
+                    return {
+                        results: data.items,
+                        pagination: {
+                            more: (params.page * data.pageSize) < data.total
+                        }
+                    };
+                }
+            }
+        });
+
+        row.find('.money').mask('000,000,000', {
+            reverse: true
+        });
+    }
+    $(document).on("select2:select", ".slItemBuy", function (e) {
+        var stt = $(this).data("stt");
+        var data = e.params.data;
+
+        var itemNo = data.id;
+        var uom = data.uom;
+        if (!uom) return;
+
+        var uomList = uom.includes(",") ? uom.split(",") : [uom];
+
+        // FIX: ===
+        if (uomList.length === 1) {
+            var firstUom = uomList[0].trim();
+
+            if (isDuplicateItem(itemNo, firstUom, stt)) {
+                toastr.warning(`Sản phẩm [${itemNo} - ${firstUom}] đã tồn tại`);
+
+                $(this).val(null).trigger("change");
+                $(".slchangeUomBuy_" + stt).empty().trigger("change");
+                $(".changebarcodeBuy_" + stt).val("");
+                return;
+            }
+        }
+
+        var selectuom = $(".slchangeUomBuy_" + stt);
+        selectuom.empty();
+
+        uomList.forEach(function (iuom, i) {
+            var isSelected = i === 0;
+            var option = new Option(iuom.trim(), iuom.trim(), isSelected, isSelected);
+            selectuom.append(option);
+        });
+
+        $(".error_" + stt).text("");
+        selectuom.trigger('change');
+    });
+    $(document).on("click", ".removeItemBuy", function () {
+        var stt = $(this).data("stt");
+        $(".bgSelectBuy_" + stt).remove();
+    });
+
+
+    // 2. Sự kiện khi mất focus hoặc click chuột ra ngoài (Blur/Change)
+    $(document).on("change", ".barcodeBuy", function (e) {
+        debugger
+        var stt = $(this).data("stt");
+        var value = $(this).val();
+        var LineTypeBuyVal = $(".sLineTypeBuy_" + stt).val();
+        if (LineTypeBuyVal === "1") {
+            if (isDuplicatebarcodeBuy(value, stt)) {
+                // Ngăn chặn trình duyệt nhảy sang ô tiếp theo nếu là phím Tab
+                e.preventDefault();
+                toastr.warning("Mã đã tồn tại");
+                $(this).focus();
+                $(".changebarcodeBuy_" + stt).val("");
+            }
+        }
+    });
+
+    $(document).on("keydown", ".barcodeBuy", function (e) {
+        //debugger;
+        var stt = $(this).data("stt");
+        var value = $(this).val();
+        if (value === "") {
+            return;
+        }
+        var LineTypeBuyVal = $(".sLineTypeBuy_" + stt).val();
+        if (LineTypeBuyVal === "1") {
+            if ((e.key === "Enter" || e.key === "Tab") && value !== "") {
+                if (isDuplicatebarcodeBuy(value, stt)) {
+                    // Ngăn chặn trình duyệt nhảy sang ô tiếp theo nếu là phím Tab
+                    e.preventDefault();
+                    toastr.error("Mã " + value +"đã tồn tại");
+                    $(this).focus();
+                    $(".changebarcodeBuy_" + stt).val("");
+                }
+            }
+            return;
+        }
+
+        if ((e.key === "Enter" || e.key === "Tab") && value !== "") {
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetInfobarcodeBuy", "SetupPrice")',
+                data: { barcodeBuy: value },
+                success: function (response) {
+
+                    if (response.Status == 200) {
+                        var data = response.items;
+
+                        if (!data || data.length === 0) {
+                            toastr.error('Không tồn tại ' + value);
+                            $(".barcodeBuy[data-stt='" + stt + "']").val("");
+                            return;
+                        }
+
+                        if (isDuplicatebarcodeBuy(value, stt)) {
+                            toastr.warning("Mã " + value +" đã tồn tại");
+
+                            $(".slchangeItemBuy_" + stt).val(null).trigger("change");
+                            $(".slchangeUomBuy_" + stt).empty().trigger("change");
+                            $(".changebarcodeBuy_" + stt).val("");
+                            $(".barcodeBuy[data-stt='" + stt + "']").val("");
+                            return;
+                        }
+
+                        var item = data[0];
+
+                        // set UOM
+                        var selectuom = $(".slchangeUomBuy_" + stt);
+                        selectuom.empty();
+                        selectuom.append(new Option(item.uom, item.uom, true, true)).trigger('change');
+
+                        // set Item
+                        var select = $(".slchangeItemBuy_" + stt);
+                        select.append(new Option(item.text, item.id, true, true)).trigger('change');
+
+                        $(".error_" + stt).text("");
+                    }
+                    else {
+                       
+                        toastr.error(response.Message);
+                    }
+                }
+            });
+        }
+    });
+    function isDuplicateItem(itemNo, uom, currentStt) {
+        var isDup = false;
+
+        $(".slItemBuy").each(function () {
+            var stt = $(this).data("stt");
+            if (stt == currentStt) return;
+
+            var item = $(this).val();
+            var uomVal = $(".slchangeUomBuy_" + stt).val();
+
+            if (item == itemNo && uomVal == uom) {
+                isDup = true;
+                return false;
+            }
+        });
+
+        return isDup;
+    }
+    function isDuplicatebarcodeBuy(barcodeBuy, currentStt) {
+        var isDup = false;
+
+        $(".barcodeBuy").each(function () {
+            var stt = $(this).data("stt");
+            if (stt == currentStt) return;
+
+            var val = $(".changebarcodeBuy_" + stt).val();
+            if (val == barcodeBuy) {
+                isDup = true;
+                return false;
+            }
+        });
+
+        return isDup;
+    }
+
+
+    $(document).on("click", ".eventBuyPopup", function () {
+        //debugger
+        
+        var stt = $(this).data("stt");
+        var LineTypeBuyVal = $(".sLineTypeBuy_" + stt).val();
+        var codeBuy = $("#codeBuy_" + stt).val();
+        if (LineTypeBuyVal === "0") {//theo item
+            return;
+        } else {
+            var filter = /^([a-zA-Z\-0-9_]+)$/;
+            if (!filter.test(codeBuy)) {
+                toastr.error("Mã nhóm không có ký tự đăc biệt, không khoảng trắng hoặc không có dấu tiếng việt");
+                $("#codeBuy_" + stt).focus();
+                return;
+            }
+        }
+        loading.showloading();
+        //$("#divPopupListItem").html("");
+        /////////////////////////////////////////////////////
+        $.ajax({
+            type: "GET",
+            url: "/SetupPromotion/_ViewSetupGroupItemBuy?LineNo=" + stt + "&groupBuyCode=" + codeBuy ,
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#divPopupListItem").html(result);
+
+                $('#modalListItemSetup').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+
+            },
+            error: function (event) {
+
+            }
+        });
+        /////////////////////////////////////////////////////
+
+        loading.hideloading();
+    });
+
+
+</script>
+

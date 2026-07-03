@@ -1,0 +1,7 @@
+﻿@using VCM.BLUEPOS.Model.LogsData;
+@{
+    var model = Model as ViewLogFileSalePOSModel;
+    var fileName = model.FileName;
+    var readFile = model.ReadFile;
+}
+@readFile;

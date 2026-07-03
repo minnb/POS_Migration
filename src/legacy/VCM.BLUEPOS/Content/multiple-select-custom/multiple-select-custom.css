@@ -1,0 +1,454 @@
+﻿@media (max-width: 600px) {
+    .store-list-block {
+        position: relative;
+        width: 100%;
+    }
+}
+
+.img-custom-loader {
+    height: 40px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+.form-group-store-list {
+    position: relative;
+}
+/*mutil select*/
+.multiselect {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.multiselect-native-select .btn-group ul {
+    width: 100%;
+    max-height: 300px;
+    overflow: auto;
+}
+
+.multiselect-native-select {
+    display: block;
+}
+
+    .multiselect-native-select .btn-group {
+        width: 100%;
+    }
+
+        .multiselect-native-select .btn-group button {
+            width: 100%;
+            text-align: left;
+            background-color: #fff;
+        }
+
+    .multiselect-native-select .dropdown-menu {
+        margin-left: 0px !important;
+    }
+
+    .multiselect-native-select .btn-group button:hover {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+    }
+
+    .multiselect-native-select .btn-group button:focus {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+        box-shadow: none;
+        -webkit-box-shadow: none;
+    }
+
+    .multiselect-native-select .dropdown-toggle {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+        /*border: none !important;*/
+        box-shadow: none !important;
+        -webkit-box-shadow: none !important;
+    }
+
+    .multiselect-native-select .btn-group ul .multiselect-filter .input-group {
+        width: 99%;
+    }
+
+        .multiselect-native-select .btn-group ul .multiselect-filter .input-group input {
+            width: 100%;
+        }
+
+        .multiselect-native-select .btn-group ul .multiselect-filter .input-group span {
+            display: none;
+        }
+
+    .multiselect-native-select .btn-group ul li.active a {
+        background-color: rgb(31, 135, 175) !important;
+    }
+
+    .multiselect-native-select .btn-group button b {
+        float: right;
+        margin-top: 7px;
+    }
+
+
+    .multiselect-native-select .dropdown-toggle::after {
+        float: right !important;
+        margin-top: 10px !important;
+    }
+
+    .multiselect-native-select .btn-group ul li.active a {
+        display: block;
+        /*padding: 5px;*/
+        /*padding: 7px;*/
+        background-color: rgb(57 167 209) !important;
+        color: #ffffff;
+        min-height: 35px;
+        /*border: 5px;*/
+        border-radius: 5px;
+        margin: 2px;
+    }
+
+    .multiselect-native-select .btn-group ul {
+        width: 100%;
+        max-height: 350px;
+        overflow: auto;
+        /*height: 500px;*/
+    }
+
+.multiselect-container > li {
+    padding-bottom: 5px;
+}
+
+    .multiselect-container > li > a > label {
+        font-weight: 200 !important;
+        font-size: 13px !important;
+        padding: 3px 20px 3px 15px !important;
+        cursor: pointer;
+    }
+
+
+.multiselect {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.multiselect-native-select .btn-group ul {
+    width: 100%;
+    max-height: 300px;
+    overflow: auto;
+}
+
+.multiselect-native-select {
+    display: block;
+}
+
+    .multiselect-native-select .btn-group {
+        width: 100%;
+        height: calc(2.25rem + 2px);
+    }
+
+        .multiselect-native-select .btn-group button {
+            width: 100%;
+            text-align: left;
+            background-color: #fff;
+            font-size: 13px !important;
+            font-weight: 400;
+        }
+
+    .multiselect-native-select .dropdown-menu {
+        margin-left: 0px !important;
+    }
+
+    .multiselect-native-select .btn-group button:hover {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+    }
+
+    .multiselect-native-select .btn-group button:focus {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+        box-shadow: none;
+        -webkit-box-shadow: none;
+    }
+
+    .multiselect-native-select .dropdown-toggle {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+        box-shadow: none !important;
+        -webkit-box-shadow: none !important;
+    }
+
+    .multiselect-native-select .btn-group ul .multiselect-filter .input-group {
+        width: 99%;
+    }
+
+        .multiselect-native-select .btn-group ul .multiselect-filter .input-group input {
+            width: 100%;
+        }
+
+        .multiselect-native-select .btn-group ul .multiselect-filter .input-group span {
+            display: none;
+        }
+
+    .multiselect-native-select .btn-group ul li.active a {
+        background-color: rgb(31, 135, 175) !important;
+    }
+
+    .multiselect-native-select .btn-group button b {
+        float: right;
+        margin-top: 7px;
+    }
+
+.multiselect-container > li > a > label > input[type=checkbox] {
+    width: 20px;
+    height: 20px;
+}
+
+.multiselect-container > li > a {
+    color: inherit;
+    text-decoration: none;
+    padding: 0;
+}
+
+.multiselect-container > li {
+    padding: 0;
+}
+
+    .multiselect-container > li > a > label.checkbox > input {
+        position: relative;
+        padding-right: 5px;
+        bottom: -5px;
+    }
+
+.modal .multiselect-container.dropdown-menu.show {
+    transform: translate3d(0px, 0px, 0px) !important;
+    top: 38px !important;
+}
+
+.loadingSearch {
+    border-radius: 5px;
+    width: 95%;
+    position: absolute;
+    background-color: #b1abab4a;
+    text-align: center;
+    height: 300px;
+    z-index: 1030 !important;
+    margin: 0px;
+    display: none;
+}
+
+.search-multiselect-custom {
+    height: 35px;
+    margin: 2px;
+    border: none;
+    position: absolute;
+    width: calc(100% - 5px) !important;
+    z-index: 1003;
+    display: none;
+    outline: none;
+    padding-left: 15px !important;
+    width: auto;
+}
+
+.img-custom-loader {
+    height: 40px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.multiselect {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.multiselect-native-select .btn-group ul {
+    width: 100%;
+    max-height: 300px;
+    overflow: auto;
+}
+
+.multiselect-native-select {
+    display: block;
+}
+
+    .multiselect-native-select .btn-group {
+        width: 100%;
+        height: calc(2.25rem + 2px);
+    }
+
+        .multiselect-native-select .btn-group button {
+            width: 100%;
+            text-align: left !important;
+            background-color: #fff;
+            font-size: 13px !important;
+            font-weight: 400;
+        }
+
+    .multiselect-native-select .dropdown-menu {
+        margin-left: 0px !important;
+        width: 100% !important;
+    }
+
+    .multiselect-native-select .btn-group button:hover {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+    }
+
+    .multiselect-native-select .btn-group button:focus {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+        box-shadow: none;
+        -webkit-box-shadow: none;
+    }
+
+    .multiselect-native-select .dropdown-toggle {
+        background-color: #fff !important;
+        border-color: #ddd !important;
+        box-shadow: none !important;
+        -webkit-box-shadow: none !important;
+    }
+
+    .multiselect-native-select .btn-group ul .multiselect-filter .input-group {
+        width: 99%;
+    }
+
+        .multiselect-native-select .btn-group ul .multiselect-filter .input-group input {
+            width: 100%;
+        }
+
+        .multiselect-native-select .btn-group ul .multiselect-filter .input-group span {
+            display: none;
+        }
+
+    .multiselect-native-select .btn-group ul li.active a {
+        background-color: rgb(31, 135, 175) !important;
+    }
+
+    .multiselect-native-select .btn-group button b {
+        float: right;
+        margin-top: 7px;
+    }
+
+.user-role {
+    padding: 2px 5px;
+    background-color: #3593ca;
+    color: #ffffff;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.status-active {
+    color: #ffffff;
+    font-weight: 500;
+    padding: 2px 6px;
+    background-color: #00a65a;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.status-inactive {
+    color: #ffffff;
+    font-weight: 500;
+    padding: 2px 6px;
+    background-color: #dc3545;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.status-active-yellow {
+    color: #ffffff;
+    font-weight: 500;
+    padding: 2px 6px;
+    background-color: #fed116;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.status-active-blue {
+    color: #ffffff;
+    font-weight: 500;
+    padding: 2px 6px;
+    background-color: #007bff;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.btn-primary-sync-view {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #fff;
+    font-size: 12px;
+    box-shadow: none;
+}
+
+.btn-primary-custom {
+    background-color: #008cba;
+    border-color: #008cba;
+    color: #fff;
+    font-size: 12px;
+    height: calc(2.25rem + 2px);
+    padding: .375rem .75rem;
+}
+
+.btn-primary-detail-view {
+    background-color: #008cba;
+    border-color: #008cba;
+    color: #fff;
+    font-size: 12px;
+}
+
+.btn-primary-search {
+    background-color: #007bff;
+    border-color: #007bff;
+    /*box-shadow: none;*/
+    color: #fff;
+    font-size: 12px;
+    height: calc(2.25rem + 2px);
+    padding: .375rem .75rem;
+}
+
+.btn-warning-custom {
+    background-color: #f39c12;
+    border-color: #e08e0b;
+}
+
+.btn-warning-custom-check {
+    background-color: #f39c12;
+    border-color: #e08e0b;
+    color: #fff;
+    font-size: 12px;
+    height: calc(2.25rem + 2px);
+    padding: .375rem .75rem;
+}
+
+.btn-primary-editor {
+    background-color: #008cba;
+    border-color: #008cba;
+    color: #fff;
+    font-size: 12px;
+    /*height: calc(2.25rem + 2px);
+    padding: .375rem .75rem;*/
+}
+
+.btn-danger-editor {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+    box-shadow: none;
+}
+
+.btn:hover {
+    color: #fff;
+    text-decoration: none;
+    /*color: #212529;*/
+}
+
+.store-list-block {
+    position: relative;
+    width: calc(100% - 5px);
+}
+
+.multiselect-container{
+    width: 100% !important;
+}

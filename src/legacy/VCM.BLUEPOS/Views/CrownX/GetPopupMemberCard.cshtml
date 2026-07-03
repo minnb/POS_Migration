@@ -1,0 +1,72 @@
+﻿@using VCM.BLUEPOS.Model.CrownX;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@model List<POPupMemberCardModel>
+
+
+@if (Model != null && Model.Count > 0)
+{
+    <div class="card-body-sync">
+        <div class="row">
+            @{
+                foreach (var item in Model)
+                {
+                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                        <label>Số đơn hàng</label>
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="txt-modal-order-no" name="TxtModalOrderNo" value="@item.OrderNo" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                        <label>Tên khách hàng</label>
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="txt-modal-customer-name" name="TxtCustomerName" value="@item.CustomerName" disabled>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                        <label>Số điện thoại</label>
+                        <div class="form-group">
+                            <input type="text" class="form-control required" id="txt-modal-member-card-no" name="TxtModalMemberCardNo" value="@item.MemberCardNo" disabled>
+                        </div>
+                    </div>
+                }
+            }
+
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="row">
+            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                <label>Số đơn hàng</label>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="txt-modal-order-no" name="TxtModalOrderNo" value="">
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                <label>Tên khách hàng</label>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="txt-modal-customer-name" name="TxtCustomerName" value="">
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                <label>Số điện thoại</label>
+                <div class="form-group">
+                    <input type="text" class="form-control required" id="txt-modal-member-card-no" name="TxtModalMemberCardNo" value="">
+                </div>
+            </div>
+        </div>
+    </div>
+
+}
+
+
+
+

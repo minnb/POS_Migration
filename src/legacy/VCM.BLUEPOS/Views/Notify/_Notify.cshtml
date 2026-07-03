@@ -1,0 +1,10 @@
+﻿@using VCM.BLUEPOS.Model.Notify;
+@{
+    var model = Model as NotifyViewClientModel;
+    var noiDung = "";
+    if (model != null)
+    {
+        noiDung = model.Description;
+    }
+}
+@Html.Raw(noiDung)

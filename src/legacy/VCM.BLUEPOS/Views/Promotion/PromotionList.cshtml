@@ -1,0 +1,1861 @@
+﻿@using VCM.BLUEPOS.Model.Promotion;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+@using VCM.BLUEPOS.Model.SetupPromotion;
+
+@{
+    ViewBag.Title = "Danh mục khuyến mãi";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+    var listSetDB = ViewBag.SetDB as List<SQLServerModel>;
+    var lstPromotionType = ViewBag.ListPromotionType as List<OptionModel>;
+    var lstPromotionStatus = ViewBag.ListPromotionStatus as List<OptionModel>;
+    var model = Model as SetupMainModel;
+    var listSalesType = model.ListSalesType;
+    var listOfferType = model.ListOfferType;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Khuyến mãi</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh mục khuyến mãi</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcelGetOfferHeaderList", "Promotion", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Loại CTKM<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="promotion-type" name="PromotionType">
+                                            @if (listOfferType != null && listOfferType.Count > 0)
+                                            {
+                                                <option value="">Tất cả</option>
+                                                foreach (var item in listOfferType)
+                                                {
+                                                    var displaySelect = $"{item.OfferType1} : {item.OfferName}";
+                                                    <option value="@item.OfferType1" data-totalbill="@item.IsTotalBill" data-setupbuy="@item.IsSetupBuy" data-setupget="@item.IsSetupGet" data-voucher="@item.IsVoucher">@displaySelect</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Hình thức bán hàng<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-sales-type" name="SalesType">
+                                            @if (listSalesType != null && listSalesType.Count > 0)
+                                            {
+                                                <option value="" selected>Tất cả</option>
+                                                <option value="ALL">ALL</option>
+                                                foreach (var item in listSalesType)
+                                                {
+                                                    <option value="@item.Code">@item.Description</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="promotion-status" name="PromotionStatus">
+                                            <option value="">Tất cả</option>
+                                            <option value="0" selected>Có hiệu lực</option>
+                                            <option value="2">Hết hiệu lực</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Bonus Buy / Promotion No<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="text-search" name="TextSearch" placeholder="Nhập mã Bonus Buy / mã CTKM">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Mã sản phẩm</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="item-no" name="ItemNo" placeholder="Nhập mã sản phẩm">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Tên CTKM (Promotion Name)</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="promotion-name" name="PromotionName" placeholder="Nhập tên CTKM">
+                                    </div>
+                                </div>
+
+                                <input type="hidden" id="offer-no" value="">
+                                <input type="hidden" id="offer-type" value="">
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-primary" id="btn-search" style="color: #ffffff;cursor:pointer;"> <i class="fa fa-search"></i>Tìm kiếm</button>
+                                        <a class="btn btn-success" id="btn-export-excel" style="color: #ffffff;cursor:pointer;"> <i class="fa fa-file-excel"></i>Xuất Excel</a>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="card-scroll">
+                            <table id="tbl-promotion-offer-header" class="table table-bordered table-hover text-nowrap">
+                                <thead>
+                                    <tr class="text-center" style="text-transform:uppercase;">
+                                        <th>#</th>
+                                        <th>STT</th>
+                                        <th>Bonus Buy</th>
+                                        <th>Promotion No</th>
+                                        <th>Promotion Name</th>
+                                        <th>Loại CTKM</th>
+                                        <th>Hình thức bán hàng</th>
+                                        <th>Trạng thái</th>
+                                        <th>Hiệu lực từ ngày</th>
+                                        <th>Hiệu lực đến ngày</th>
+                                        <th>Local Site Group</th>
+                                        <th>LimitQty</th>
+                                        <th>Ngày cập nhật</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<!-- Modal Pop-Up: Chi tiet khuyen mai -->
+<div class="modal fade" id="modal-view-detail-promotion" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="lbl-tilte">Thông tin chi tiết khuyến mãi</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="example-preview">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link classTab active" href="#offer-header" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold">Offer Header</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link classTab" href="#offer-buy" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold">Offer Buy</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link classTab" href="#offer-benefits" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold">Offer Benefits</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link classTab" href="#offer-get" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold">Offer Get</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link classTab" href="#offer-site" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold">Offer Site</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link classTab" href="#offer-priority" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold">Offer Priority</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="tab-content">
+
+                            <!-- Tab: Offer Header -->
+                            <div class="active tab-pane" id="offer-header">
+                                <div class="card-body">
+                                    <table class="table table-bordered table-hover text-nowrap row-border order-column detail-offer-header-table" id="detail-offer-header-table">
+                                        <thead>
+                                            <tr style="text-align:center;">
+                                                <th>No</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                                <th>Status</th>
+                                                <th>Offer Type</th>
+                                                <th>Sales Type</th>
+                                                <th>Price Group</th>
+                                                <th>Rounding Method</th>
+                                                <th>Currency Code</th>
+                                                <th>Last Date Modified</th>
+                                                <th>Validation Period ID</th>
+                                                <th>Validation Description</th>
+                                                <th>Starting Date</th>
+                                                <th>Ending Date</th>
+                                                <th>Block Periodic Discount</th>
+                                                <th>Deal Price</th>
+                                                <th>Show Deal Lines</th>
+                                                <th>Sales Type Filter</th>
+                                                <th>Selection Type</th>
+                                                <th>Customer Disc Group</th>
+                                                <th>Member Value</th>
+                                                <th>Discount Tracking No</th>
+                                                <th>Coupon Code</th>
+                                                <th>Coupon Qty Needed</th>
+                                                <th>Member Type</th>
+                                                <th>Member Attribute</th>
+                                                <th>Member Attribute Value</th>
+                                                <th>Block Sales Commission</th>
+                                                <th>Block Manual Price Change</th>
+                                                <th>Block InfoCode Discount</th>
+                                                <th>Block Line Discount Offer</th>
+                                                <th>Block Total Discount Offer</th>
+                                                <th>Block Tender Type Discount</th>
+                                                <th>Block Member Points</th>
+                                                <th>Condition Buy</th>
+                                                <th>Member Only</th>
+                                                <th>Condition Get</th>
+                                                <th>No Series</th>
+                                                <th>From Time</th>
+                                                <th>To Time</th>
+                                                <th>Mon</th>
+                                                <th>Tue</th>
+                                                <th>Wed</th>
+                                                <th>Thu</th>
+                                                <th>Fri</th>
+                                                <th>Sat</th>
+                                                <th>Sun</th>
+                                                <th>Num Of Days</th>
+                                                <th>Day Of Week</th>
+                                                <th>Tender Type Code</th>
+                                                <th>Tender Type Value</th>
+                                                <th>Tender Type Offer Percent</th>
+                                                <th>Tender Type Offer Amount</th>
+                                                <th>Bank Code</th>
+                                                <th>Local Site Group</th>
+                                                <th>LimitQty</th>
+                                                <th>Voucher FromDate</th>
+                                                <th>Voucher ToDate</th>
+                                                <th>Voucher ValidDay</th>
+                                                <th>Voucher LimitNumber</th>
+                                                <th>PromotionNo</th>
+                                                <th>PriorityBBY</th>
+                                                <th>MinValue</th>
+                                                <th>Total Discount Type</th>
+                                                <th>Total Discount Value</th>
+                                                <th>IsVoucher</th>
+                                                <th>IsTotalBill</th>
+                                                <th>IsGift</th>
+                                                <th>MemberCode</th>
+                                                <th>DiscountAmountMax</th>
+                                                <th>IsFullPrice</th>
+                                                <th>Counter</th>
+                                                <th>Pkey</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                           
+                            <!-- Tab: Offer Buy -->
+                            <div class="tab-pane" id="offer-buy">
+                                <div class="card-body">
+                                    <div style="margin-top: -30px;">
+                                        <table class="table table-bordered table-hover text-nowrap detail-offer-buy-table" id="detail-offer-buy-table">
+                                            <thead>
+                                                <tr style="text-align:center;">
+                                                    <th>OfferNo</th>
+                                                    <th>LineNo</th>
+                                                    <th>LineType</th>
+                                                    <th>No</th>
+                                                    <th>Description</th>
+                                                    <th>UnitOfMeasure</th>
+                                                    <th>DiscountType</th>
+                                                    <th>DiscountValue</th>
+                                                    <th>Quantity</th>
+                                                    <th>Step</th>
+                                                    <th>BonusBuyNo</th>
+                                                    <th>LineGroup</th>
+                                                    <th>ScaleType</th>
+                                                    <th>Counter</th>
+                                                    <th>Pkey</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+
+                            <!-- Tab: Offer Benefits -->
+                            <div class="tab-pane" id="offer-benefits">
+                                <div class="card-body">
+                                    <div style="margin-top:-10px;">
+                                        <table class="table table-bordered table-hover text-nowrap row-border order-column detail-offer-benefits-table" id="detail-offer-benefits-table">
+                                            <thead>
+                                                <tr style="text-align:center;">
+                                                    <th>OfferNo</th>
+                                                    <th>LineNo</th>
+                                                    <th>Type</th>
+                                                    <th>No</th>
+                                                    <th>VariantCode</th>
+                                                    <th>Description</th>
+                                                    <th>ValueType</th>
+                                                    <th>Value</th>
+                                                    <th>StepAmount</th>
+                                                    <th>LineGroup</th>
+                                                    <th>Quantity</th>
+                                                    <th>UnitOfMeasure</th>
+                                                    <th>Counter</th>
+                                                    <th>Pkey</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>                                   
+                                </div>
+                            </div>
+                           
+
+                            <!-- Tab: Offer Get -->
+                            <div class="tab-pane" id="offer-get">
+                                <div class="card-body">
+                                    <div style="margin-top: -30px;">
+                                        <table class="table table-bordered table-hover text-nowrap row-border order-column detail-offer-get-table" id="detail-offer-get-table">
+                                            <thead>
+                                                <tr style="text-align:center;">
+                                                    <th>OfferNo</th>
+                                                    <th>LineNo</th>
+                                                    <th>LineType</th>
+                                                    <th>No</th>
+                                                    <th>Description</th>
+                                                    <th>UnitOfMeasure</th>
+                                                    <th>DiscountType</th>
+                                                    <th>DiscountValue</th>
+                                                    <th>Quantity</th>
+                                                    <th>Step</th>
+                                                    <th>BonusBuyNo</th>
+                                                    <th>LineGroup</th>
+                                                    <th>ScaleType</th>
+                                                    <th>Counter</th>
+                                                    <th>Pkey</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>                                 
+                                </div>
+                            </div>
+                        
+
+                            <!-- Tab: Offer Site -->
+                            <div class="tab-pane" id="offer-site">
+                                <div class="card-body">
+                                    <div style="margin-top: -30px;">
+                                        <table class="table table-bordered table-hover text-nowrap row-border order-column detail-offer-site-table" id="detail-offer-site-table">
+                                            <thead>
+                                                <tr style="text-align:center;">
+                                                    <th>OfferNo</th>
+                                                    <th>PriceGroupCode</th>
+                                                    <th>StoreNo</th>
+                                                    <th>Kênh</th>
+                                                    <th>Counter</th>
+                                                    <th>Pkey</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>                       
+                                </div>
+                            </div>
+                            
+
+                            <!-- Tab: Offer Priority -->
+                            <div class="tab-pane" id="offer-priority">
+                                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                    <div class="card-body">
+                                        <div style="margin-top: -10px;">
+                                            <table class="table table-bordered table-hover text-nowrap row-border order-column detail-offer-priotity-table" id="detail-offer-priotity-table">
+                                                <thead>
+                                                    <tr style="text-align:center;">
+                                                        <th>OfferType</th>
+                                                        <th>Priority</th>
+                                                        <th>IsMember</th>
+                                                        <th>IsDuplicate</th>
+                                                        <th>Counter</th>
+                                                        <th>Pkey</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <!-- /. Tab: Offer site -->
+
+                        </div>
+                    </div>
+                </div>               
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var table = "";
+        var table_detail_offer_header;
+        var table_detail_offer_buy;
+        var table_detail_offer_benefits;
+        var table_detail_offer_get;
+        var table_detail_offer_site;
+        var table_detail_offer_priority;
+
+        function ExportExcelByOfferBuy() {
+            var offerNo = $('#offer-no').val();
+            loading.showloading();
+            var req = new XMLHttpRequest();
+            var url = "/Promotion/ExportToExcel_PromotionOfferBuy?OfferNo=" + offerNo;
+            req.open("GET", url, true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                console.log(blob.size);
+                var link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                var d = new Date();
+                var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                link.download = "OfferBuyList_" + fileName + ".xlsx";
+                link.click();
+                loading.hideloading();
+            };
+            req.send();
+        }
+
+        function ExportExcelByOfferGet() {
+            var offerNo = $('#offer-no').val();
+            loading.showloading();
+            var req = new XMLHttpRequest();
+            var url = "/Promotion/ExportToExcel_PromotionOfferGet?OfferNo=" + offerNo;
+            req.open("GET", url, true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                console.log(blob.size);
+                var link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                var d = new Date();
+                var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                link.download = "OfferGetList_" + fileName + ".xlsx";
+                link.click();
+                loading.hideloading();
+            };
+            req.send();
+        }
+
+        function ExportExcelByOfferSite() {
+            var offerNo = $('#offer-no').val();
+            loading.showloading();
+            var req = new XMLHttpRequest();
+            var url = "/Promotion/ExportToExcel_PromotionOfferSite?OfferNo=" + offerNo;
+            req.open("GET", url, true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                console.log(blob.size);
+                var link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                var d = new Date();
+                var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                link.download = "OfferSiteList_" + fileName + ".xlsx";
+                link.click();
+                loading.hideloading();
+            };
+            req.send();
+        }
+
+        $(document).ready(function () {
+
+            $('.select2').select2();
+
+            // Chuyển chuỗi kí tự (string) sang đối tượng Date()
+            function parseDate(str) {
+                var mdy = str.split('/');
+                return new Date(mdy[2], mdy[1], mdy[0]);
+            }
+
+            $('.example-preview .nav-tabs li a').click(function () {
+                $("#detail-offer-header-table").DataTable().ajax.reload();
+                $("#detail-offer-buy-table").DataTable().ajax.reload();
+                $("#detail-offer-get-table").DataTable().ajax.reload();
+                $("#detail-offer-benefits-table").DataTable().ajax.reload();
+                $("#detail-offer-site-table").DataTable().ajax.reload();
+                $("#detail-offer-priotity-table").DataTable().ajax.reload();
+            });
+
+            $('#modal-view-detail-promotion').on('shown.bs.modal', function () {
+                $('.example-preview .nav-tabs li:first-child a').trigger('click');
+            })
+
+            table = $('#tbl-promotion-offer-header').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                drawCallback: function (settings) {
+                    // Xem chi tiet khuyen mai
+                    $(".btn-view-detail").click(function () {
+                        var _offerNo = $(this).attr("data-offerNo");
+                        var _offerType = $(this).attr("data-offerType");
+                        $('#offer-no').val(_offerNo);
+                        $('#offer-type').val(_offerType);
+
+                        $('#modal-view-detail-promotion').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              
+                serverSide: true,               
+                filter: false,                  
+                orderMulti: false,            
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                language: {
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    url: '@Url.Action("GetOfferHeaderList", "Promotion")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.TextSearch = $('#text-search').val();
+                        d.PromotionName = $('#promotion-name').val();
+                        d.PromotionStatus = $('#promotion-status').val();
+                        d.PromotionTypes = $('#promotion-type').val();
+                        d.ItemNo = $('#item-no').val();
+                        d.SalesType = $('#sel-sales-type').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        render: function (data, type, row) {
+                            var _offerNo = row.BonusbuyNo;
+                            var _offerType = row.OfferType;
+                            var html = '<a type="button" class=\"btn btn-icon btn-light-warning pulse pulse-warning btn-view-detail\" data-toggle="tooltip" data-placement="left" title="Xem chi tiết"  data-offerNo="' + _offerNo + '"  data-offerType="' + _offerType + '" style="color:#ffffff;text-align:center; margin-right:5px;"><i class=\"flaticon2-gear\"></i><span class=\"pulse-ring\"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "BonusbuyNo",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _BonusbuyNo = row.BonusbuyNo;
+                            var html = '<span style="padding-top:7px;display: block;font-weight:700;color:#0C713D;">' + _BonusbuyNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "PromotionNo",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _PromotionNo = row.PromotionNo;
+                            var html = '<span style="font-weight:700;padding-top:7px;display:block;">' + _PromotionNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Description",
+                        render: function (data, type, row) {
+                            var _promotionName = row.Description;
+                            var html = '<span style="font-weight:700;padding-top:7px;display:block;">' + _promotionName + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "OfferType",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _OfferType = row.OfferType;
+                            var html = '<span style="font-weight:700;padding-top:7px;display:block;">' + _OfferType + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "SalesTypeName",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _salesTypeName = row.SalesTypeName;
+                            var html = '<span style="padding-top:7px;display: block;font-weight:400;">' + _salesTypeName + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Status",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            //debugger
+                            var _status = row.Status;
+                            var html = "";
+                            if (_status == "Có hiệu lực") {
+                                html += '<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">' + _status + '</span>';
+                            }
+                            else {
+                                html += '<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">' + _status + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StartingDate",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _StartingDate = row.StartingDate;
+                            var html = '<span style="padding-top:7px;display: block;">' + _StartingDate + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "EndingDate",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _EndingDate = row.EndingDate;
+                            var html = '<span style="padding-top:7px;display: block;font-weight:700;">' + _EndingDate + '</span>';
+                            return html;
+                        }
+                    },
+
+                    //{
+                    //    className: "text-center",
+                    //    render: function (data, type, row) {
+                    //        var _VoucherFromDate = row.VoucherFromDate;
+                    //        var html = '<span style="padding-top:7px;display: block;">' + _VoucherFromDate + '</span>';
+                    //        return html;
+                    //    }
+                    //},
+
+                    //{
+                    //    className: "text-center",
+                    //    render: function (data, type, row) {
+                    //        var _VoucherToDate = row.VoucherToDate;
+                    //        var html = '<span style="padding-top:7px;display: block;">' + _VoucherToDate + '</span>';
+                    //        return html;
+                    //    }
+                    //},
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _LocalSiteGroup = row.LocalSiteGroup;
+                            var html = '<span style="padding-top:7px;display: block;">' + _LocalSiteGroup + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _LimitQty = row.LimitQty;
+                            var html = '<span style="padding-top:7px;display: block;">' + _LimitQty + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _LastDateModified = row.LastDateModified;
+                            var html = '<span style="padding-top:7px;display: block;font-weight:700;">' + _LastDateModified + '</span>';
+                            return html;
+                        }
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                $('#frm-export-excel').submit();
+            });
+
+            // Popup : Chi tiết khuyến mãi
+            table_detail_offer_header = $('.detail-offer-header-table').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: false,                  // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                language: {
+                    zeroRecords: "Không có dữ liệu",
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("GetDetailOfferHeaderList", "Promotion")',
+                    data: function (d) {
+                        d.OfferNo = $('#offer-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "OfferNo",
+                        render: function (data, type, row) {
+                            var _offerNo = row.OfferNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _offerNo +'</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Type",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Description",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Status",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "OfferType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "SalesType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "PriceGroup",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "RoundingMethod",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "CurrencyCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LastDateModified",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ValidationPeriodID",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ValidationDescription",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "StartingDate",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "EndingDate",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockPeriodicDiscount",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DealPrice",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ShowDealLines",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "SalesTypeFilter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "SelectionType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "CustomerDiscGroup",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MemberValue",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountTrackingNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "CouponCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "CouponQtyNeeded",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MemberType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MemberAttribute",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MemberAttributeValue",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockSalesCommission",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockManualPriceChange",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockInfoCodeDiscount",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockLineDiscountOffer",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockTotalDiscountOffer",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockTenderTypeDiscount",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BlockMemberPoints",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ConditionBuyStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MemberOnly",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ConditionGetStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "NoSeries",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "FromTime",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ToTime",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MonDay",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TueDay",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "WedDay",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ThuDay",
+                        className: "text-center" 
+                    },
+
+                    {
+                        data: "FriDay",
+                        className: "text-center"                  
+                    },
+
+                    {
+                        data: "SatDay",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "SunDay",
+                        className: "text-center"                       
+                    },
+ 
+                    {
+                        data: "NumOfDays",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DayOfWeek",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TenderTypeCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TenderTypeValue",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TenderTypeOfferPercent",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TenderTypeOfferAmount",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BankCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LocalSiteGroup",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LimitQty",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "VoucherFromDate",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "VoucherToDate",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "VoucherValidDay",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "VoucherLimitNumber",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "PromotionNo",
+                        render: function (data, type, row) {
+                            var _promotionNo = row.PromotionNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _promotionNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "PriorityBBY",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MinValue",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display: block;">' + parseFloat(row.MinValue).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "TotalDiscountType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TotalDiscountValue",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display: block;">' + parseFloat(row.TotalDiscountValue).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+                    
+                    {
+                        data: "IsVoucher",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "IsTotalBill",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "IsGift",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "MemberCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountAmountMax",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display: block;">' + parseFloat(row.DiscountAmountMax).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "IsFullPrice",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            table_detail_offer_buy = $('.detail-offer-buy-table').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                initComplete: function () {
+                    $('#detail-offer-buy-table-filter input').unbind();
+                    $('#detail-offer-buy-table-filter input').bind('keyup', function (e) {
+                        if (e.keyCode == 13) {
+                            table_detail_offer_buy.search(this.value).draw();
+                        }
+                    });
+                },
+
+                
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                searching: true,                // Show (search box)
+                orderMulti: false,              
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                lengthChange: false,
+                scrollY: true,
+                scrollX: true,
+
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'excel',
+                        text: "<span style='color:#fff;font-weight:400;font-size:13px;'>Export To Excel</span>",
+                        action: function (e, dt, node, config) {
+                            ExportExcelByOfferBuy();
+                        }
+                    }
+                    //'copy', 'csv', 'pdf', 'print'
+                ],
+
+                language: {                    
+                    search: "Tìm theo <b>Mã sản phẩm (No)</b> :",
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("GetDetailOfferBuyList", "Promotion")',
+                    data: function (d) {
+                        d.OfferNo = $('#offer-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "OfferNo",
+                        render: function (data, type, row) {
+                            var _offerNo = row.OfferNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _offerNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "LineNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LineType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "No",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Description",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "UnitOfMeasure",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountTypeStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountValue",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Quantity",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Step",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BonusBuyNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LineGroup",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ScaleTypeStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+            });
+
+            table_detail_offer_benefits = $('.detail-offer-benefits-table').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                language: {
+                    zeroRecords: "Không có dữ liệu",
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("GetDetailOfferBenefitsList", "Promotion")',
+                    data: function (d) {
+                        d.OfferNo = $('#offer-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "OfferNo",
+                        render: function (data, type, row) {
+                            var _offerNo = row.OfferNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _offerNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "LineNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Type",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "No",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "VariantCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Description",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ValueTypeStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Value",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "StepAmount",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LineGroup",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Quantity",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "UnitOfMeasure",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+            });
+
+            table_detail_offer_get = $('.detail-offer-get-table').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                initComplete: function () {
+                    $('#detail-offer-get-table-filter input').unbind();
+                    $('#detail-offer-get-table-filter input').bind('keyup', function (e) {
+                        if (e.keyCode == 13) {
+                            table_detail_offer_get.search(this.value).draw();
+                        }
+                    });
+                },
+
+                //dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                searching: true,                // Show (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                lengthChange: false,
+                scrollY: true,
+                scrollX: true,
+
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'excel',
+                        text: "<span style='color:#fff;font-weight:400;font-size:13px;'>Export To Excel</span>",
+                        action: function (e, dt, node, config) {
+                            ExportExcelByOfferGet();
+                        }
+                    }
+                    //'copy', 'csv', 'pdf', 'print'
+                ],
+
+                language: {
+                    search: "Tìm theo <b>Mã sản phẩm (No)</b> :",
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("GetDetailOfferGetList", "Promotion")',
+                    data: function (d) {
+                        d.OfferNo = $('#offer-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "OfferNo",
+                        render: function (data, type, row) {
+                            var _offerNo = row.OfferNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _offerNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "LineNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LineType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "No",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Description",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "UnitOfMeasure",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountTypeStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountValue",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Quantity",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Step",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "BonusBuyNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LineGroup",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ScaleType",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            table_detail_offer_site = $('.detail-offer-site-table').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                initComplete: function () {
+                    $('#detail-offer-site-table-filter input').unbind();
+                    $('#detail-offer-site-table-filter input').bind('keyup', function (e) {
+                        if (e.keyCode == 13) {
+                            table_detail_offer_site.search(this.value).draw();
+                        }
+                    });
+                },
+
+                //dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                searching: true,                // Show (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                lengthChange: false,
+                scrollY: true,
+                scrollX: true,
+
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'excel',
+                        text: "<span style='color:#fff;font-weight:400;font-size:13px;'>Export To Excel</span>",
+                        action: function (e, dt, node, config) {
+                            ExportExcelByOfferSite();
+                        }
+                    }
+                    //'copy', 'csv', 'pdf', 'print'
+                ],
+
+                language: {
+                    search: "Tìm theo <b>StoreNo</b> :",
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("GetDetailOfferSiteList", "Promotion")',
+                    data: function (d) {
+                        d.OfferNo = $('#offer-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "OfferNo",
+                        render: function (data, type, row) {
+                            var _offerNo = row.OfferNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _offerNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "PriceGroupCode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _storeNo = row.StoreNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _storeNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StyleProfile",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _styleProfile = row.StyleProfile;
+                            var html = "";
+                            if (_styleProfile == "VM") {
+                                html += '<span style="font-weight:400;display: block;text-align:center;">WinMart</span>';
+                            }
+                            else if (_styleProfile == "VMP") {
+                                html += '<span style="font-weight:400;display: block;text-align:center;">WinMart+</span>';
+                            }
+                            else if (_styleProfile == "FS") {
+                                html += '<span style="font-weight:400;display: block;text-align:center;">FlagShip</span>';
+                            }
+                            else if (_styleProfile == "KS") {
+                                html += '<span style="font-weight:400;display: block;text-align:center;">Kiosk</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            table_detail_offer_priority = $('.detail-offer-priotity-table').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: false,                  // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                language: {
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("GetDetailOfferPriorityList", "Promotion")',
+                    data: function (d) {
+                        d.OfferNo = $('#offer-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "OfferType",
+                        render: function (data, type, row) {
+                            var _offerNo = row.OfferNo;
+                            var html = '<span style="font-weight:700;display: block;text-align:center;">' + _offerNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Priority",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "IsMember",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "IsDuplicate",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+           
+    });
+
+    </script>
+}
+
+<style>
+    .btn.btn-secondary {
+        color: #fff;
+        background-color: #28a745;
+        border-color: #28a745;
+        position: absolute;
+        margin-left: 2px;
+        margin-top: 10px;
+        width: 120px;
+    }
+
+</style>
+
+
+

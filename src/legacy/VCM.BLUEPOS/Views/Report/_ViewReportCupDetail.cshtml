@@ -1,0 +1,294 @@
+﻿@using VCM.BLUEPOS.Model.Report
+@{
+    var model = Model as DetailCupRequest;
+    var storeNo = model.StoreNo;
+    var ngayKD = model.BussinessDate;
+    var shiftCode = model.ShiftNo;
+    var itemCup = model.ItemCup;
+    var size = model.Size;
+    var salesOrderType = model.SalesOrderType;
+}
+
+<div class="row">
+    <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12 mb-1">
+        <label style="font-weight:bold">Đơn hàng</label>
+        <div class="form-group">
+            <input type="text" class="form-control pull-right changeSearch" style="width:100%;" id="txtDetailOrderNo" name="DetailOrderNo" />
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-6 col-xs-12 mb-1">
+        <label style="font-weight:bold">Mã SP</label>
+        <div class="form-group">
+            <input type="text" class="form-control pull-right changeSearch" style="width:100%;" id="txtDetailItemNo" name="DetailItemNo" />
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-6 col-xs-12 mb-1">
+        <label style="font-weight:bold">Loại đơn hàng</label>
+        <div class="form-group">
+            <select class="form-control changeSearch select2" style="width:100%;" id="slHinhThu" name="HinhThuc">
+                <option value="">Tất cả</option>
+                <option value="0">Đơn hàng bán</option>
+                <option value="1">Đơn hàng trả</option>
+            </select>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12 mb-1">
+        <label style="font-weight:bold">Hình thức</label>
+        <div class="form-group">
+            <select class="form-control changeSearch select2" style="width:100%;" id="slOrderType" name="SalesOrderType">
+                <option value="">Tất cả</option>
+                @if (salesOrderType != null && salesOrderType.Count > 0)
+                {
+                    foreach (var item in salesOrderType)
+                    {
+                        <option value="@item.Value">@item.Text</option>
+                    }
+                }
+
+            </select>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-6 col-xs-12 mb-1" style="margin-top:25px">
+        <div class="form-group">
+            <button type="button" class="btn btn-success" id="btnExcelDetailCup"><i class="fa fa-file-excel"></i> Xuất excel </button>
+        </div>
+    </div>
+
+</div>
+<div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:10px;"></div>
+<div class="row table-responsive" style="height:450px">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+        <table class="table table-bordered table-striped text-nowrap" id="tblDataViewDetail">
+            <thead>
+                <tr style="text-align:center">
+                    @*<th style="vertical-align:middle">STT</th>*@
+                    <th style="vertical-align:middle">Hình thức</th>
+                    <th style="vertical-align:middle">Mã ĐH</th>
+                    <th style="vertical-align:middle">Mã SP</th>
+                    <th style="vertical-align:middle">Barcode</th>
+                    <th style="vertical-align:middle;">Tên SP</th>
+                    <th style="vertical-align:middle">ĐVT</th>
+                    <th style="vertical-align:middle">Số lượng</th>
+                    <th style="vertical-align:middle">Đơn giá</th>
+                    <th style="vertical-align:middle">Giảm giá</th>
+                    <th style="vertical-align:middle">Thành tiền<br /> trước thuế<br /> GTGT</th>
+                    <th style="vertical-align:middle">Thuế suất<br /> GTGT(%)</th>
+                    <th style="vertical-align:middle">Tiền thuế<br /> GTGT</th>
+                    <th style="vertical-align:middle">Thành tiền<br /> sau <br />thuế VAT</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    var tableOrder = "";  
+
+    var storeNo = '@storeNo';
+    var ngayKD = '@ngayKD';
+    var shiftCode = '@shiftCode';
+    var itemCup = '@itemCup';
+    var size = '@size';
+
+    $(document).ready(function () {
+        $(".select2").select2();
+        $("#detailBtnSearchHD").on("click", function (e) {
+            LoadInvoice();
+        });
+
+        $(".changeSearch").on("change", function (e) {
+            //alert('abc');
+            tableOrder.search(this.value).draw();
+        });
+
+        $("#btnExcelDetailCup").on("click", function (e) {       
+
+            var orderNo = $("#txtDetailOrderNo").val();
+            var salesOrderType = $("#slOrderType").val();
+            var saleIsReturn = $("#slHinhThu").val();
+            var itemNo = $("#txtDetailItemNo").val();
+
+            loading.showloading();
+            e.preventDefault();
+            var req = new XMLHttpRequest();
+            var url = "/Report/ReportExportDetailCup?storeNo=" + storeNo + "&ngayKD=" + ngayKD + "&shiftCode=" + shiftCode + "&itemCup=" + itemCup + "&size=" + size + "&orderNo=" + orderNo + "&salesOrderType=" + salesOrderType + "&saleIsReturn=" + saleIsReturn + "&itemNo=" + itemNo + "";
+            //var url = "/Invoice/ExportExcelInvoiceTmp?" + $(this).serialize();
+            req.open("GET", url, true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                console.log(blob.size);
+                var link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                var d = new Date();
+                var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                link.download = "DetailCup_" + fileName + ".xlsx";
+                link.click();
+                loading.hideloading();
+            };
+            req.send();
+        });
+
+        tableOrder = $('#tblDataViewDetail').DataTable({
+            dom: '<"top"iflp<"clear">>rt',
+            destroy: true,
+            paging: false,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false, // for show progress bar
+            serverSide: true, // for process server side
+            filter: true, // this is for disable filter (search box)
+            orderMulti: false, // for disable multiple column at once
+            autoWidth: true,
+            ordering: false,
+            displayLength: 100000,
+            searching: false,
+            info:false,
+            lengthChange: false,
+                ajax: {
+                    url: '@Url.Action("_ViewReportCupDetailLoad", "Report")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.OrderNo = $("#txtDetailOrderNo").val();
+                        d.SaleType = $("#slOrderType").val();
+                        d.SaleIsReturn = $("#slHinhThu").val();
+                        d.ItemNo = $("#txtDetailItemNo").val();
+
+                        d.StoreNo = storeNo;
+                        d.BussinessDate = ngayKD;
+                        d.ShiftCode = shiftCode;
+                        d.ItemCup = itemCup;
+                        d.Size = size;
+                    }
+                },
+            columns: [
+                    //{
+                    //    className: "text-center",
+                    //render: function (data, type, row, meta) {
+                    //    debugger
+                    //        var start = meta.settings._iDisplayStart;
+                    //        return meta.row + 1 + start;
+                    //    }
+                    //},
+                    {
+                    data: "SaleTypeName",
+                    render: function (data, type, row) {
+                        SaleTypeName = row.SaleTypeName;
+                        if (row.SalesIsReturn == "1") {
+                            var html = "<strong style='color:red'>" + SaleTypeName + "</strong>";
+                            return html;
+                        }
+                        else {
+                            return "" + SaleTypeName;
+                        }
+                    },
+                    },
+                    {
+                        data: "OrderNo",
+                        render: function (data, type, row) {
+                            OrderNo = row.OrderNo;
+                            if (row.SalesIsReturn == "1") {
+                                var html = "<strong style='color:red'>" + OrderNo + "</strong>";
+                                return html;
+                            }
+                            else {
+                                return "" + OrderNo;
+                            }
+                        },
+                    },
+                    {
+                        data: "ItemNo",
+                        render: function (data, type, row) {
+                            ItemNo = row.ItemNo;
+                            if (row.SalesIsReturn == "1") {
+                                var html = "<strong style='color:red'>" + ItemNo + "</strong>";
+                                return html;
+                            }
+                            else {
+                                return "" + ItemNo;
+                            }
+                        },
+                    }
+                    ,{
+                        data: "Barcode",
+                },
+                {
+                        data: "Description",
+                    },
+                    {
+                        data: "UnitOfMeasure",
+                    },
+                    {
+                        data: "QuantityCup",
+                        render: function (data, type, row) {
+                            if (row.SalesIsReturn =="1") {
+                                var html = "<strong style='color:red'>" + parseFloat(row.QuantityCup).toLocaleString('en') +"</strong>";
+                                return html;
+                            }
+                            else {
+                                var html = "<strong>" + parseFloat(row.QuantityCup).toLocaleString('en') + "</strong>";
+                                return html;
+                            }
+                        },
+                        className: 'text-center'
+                    },
+                    {
+                        data: "UnitPrice",
+                        render: function (data, type, row) {
+                            var html = "" + parseFloat(row.UnitPrice).toLocaleString('en');
+                            return html;
+                        },
+                        className: 'text-center'
+                    },
+                    {
+                        data: "DiscountAmount",
+                        render: function (data, type, row) {
+                            var html = "" + parseFloat(row.DiscountAmount).toLocaleString('en');
+                            return html;
+                        },
+                        className: 'text-center'
+                },
+                {
+                    data: "LineAmount",
+                    render: function (data, type, row) {
+                        var html = "" + (row.LineAmount == null ? "" : parseFloat(row.LineAmount).toLocaleString('en'));
+                        return html;
+                    },
+                    className: 'text-center'
+                }              
+                   ,
+                    {
+                        data: "VATCode",
+                        render: function (data, type, row) {
+                            var html = "" + (row.VATCode == null || row.VATCode == 0 ? "" : row.VATCode + "%");
+                            return html;
+                        },
+                        className: 'text-center'
+                    },
+                  
+                    {
+                        data: "VATAmount",
+                        render: function (data, type, row) {
+                            var html = "" + parseFloat(row.VATAmount).toLocaleString('en');
+                            return html;
+                        },
+                        className: 'text-center'
+                    },
+                {
+                    data: "Amount",
+                    render: function (data, type, row) {
+                        var html = "" + parseFloat(row.Amount).toLocaleString('en');
+                        return html;
+                    },
+                    className: 'text-center'
+                }
+                        
+                  
+                ]
+            });
+    });
+    
+</script>

@@ -1,0 +1,114 @@
+﻿
+<div class="modal fade" id="modal-update-view-item-grab-food" tabindex="-1" role="dialog" aria-hidden="false">
+    <div class="modal-dialog modal-dialog-scrollable modal-xl" role="dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-update-title-item" style="text-transform:uppercase;margin-left:15px;">GrabFood: Cập nhật sản phẩm</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-view-detail-item-grab-food-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                            <label style="font-weight:600 !important;">Mã sản phẩm</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="txt-update-item-no-by-grab-food" name="UpdateItemNo" disabled />
+                                            </div>
+                                        </div>
+
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                            <label style="font-weight:600 !important;">Tên sản phẩm</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="txt-update-item-name-by-grab-food" name="UpdateItemName" />
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                            <label style="font-weight:600 !important;">Ngành hàng</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="txt-update-name-category-by-grab-food" name="UpdateNameCategory">
+                                                    <option value="" selected>--- Chọn ---</option>
+                                                    @*@if (listcategoryGrabFood != null || listcategoryGrabFood.Count > 0)
+                                                    {
+                                                        foreach (var item in listcategoryGrabFood)
+                                                        {
+                                                            <option value="@item.Id">@item.Id - @item.Name</option>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="" selected>--- Chọn ---</option>
+                                                    }*@
+                                                </select>
+                                            </div>
+                                        </div>
+
+
+                                        <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12" id="div-upload-images-by-grab-food">
+                                            @{
+                                                var urlImg1 = "";
+                                                var isChangeImg1 = "";
+                                            }
+
+                                            <div class="image-input image-input-outline @isChangeImg1" id="kt_img_item_update_grab_food_1">
+                                                <img id="img-update-item-by-grab-food-1" src="picture" style="width:125px; height:125px; margin-left: 100px; background:#f3ecec" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top: -25px;">
+                                            <label style="padding-top:5px;font-weight:600 !important;">Giá bán</label>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="txt-update-price-by-grab-food" name="UpdatePrice" disabled />
+                                            </div>
+                                        </div>
+
+
+                                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top: -25px;">
+                                            <label style="padding-top:5px;font-weight:600 !important;">Trạng thái</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" id="txt-update-status-by-grab-food" name="UpdateStatus">
+                                                    <option value="AVAILABLE" selected>Active</option>
+                                                    <option value="UNAVAILABLE">Disable</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12" style="margin-top: -25px;">
+                                            <label class="font-weight-bold" style="font-weight:700 !important;padding-left:10px;">Nhập đường dẫn lưu file hình ảnh</label>
+                                            <div class="form-group">
+                                                <input type="text" style="width:100%;" class="form-control" id="txt-file-img-upload-grab-food" placeholder="Nhập đường dẫn lưu file hình sản phẩm..." />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row" id="div-info-option-item-grabfood"></div>
+                                    <div class="row">
+                                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                            <button type="button" id="btn-save-update-item-grab-food" class="btn btn-bg-success" style="color:#fff;width:100px;float:right"><i class="fa fa-save" style="color:#fff"></i>Lưu lại</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" id="picture-temp" />
+
+            <div class="modal-footer">
+                <button type="button" id="btn-close-modal" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>

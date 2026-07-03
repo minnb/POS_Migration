@@ -1,0 +1,266 @@
+﻿@using VCM.BLUEPOS.Model.SetupItem;
+@using Newtonsoft.Json;
+@using System.Web.Configuration
+
+@{
+    var model = Model as ViewSetupItemPartnerDetailModel;
+    var itemNo = model.ItemNo;
+    var inforItem = model.InforItem;
+
+    string  ItemNo = "",
+            ItemName = "",
+            StoreNo = "",
+            ItemGroup= "",
+            ItemGroupName = "",
+            SalesType = "",
+            Uom= "",
+            UnitPrice = "",
+            Size = "",
+            Blocked = "",
+            IsTopping = ""
+     ;
+
+    //string imgItem = "", imgBase64 = "";
+    //string isBlocked = "";
+    //string isVAT = "";
+    //string itemNo2 = "", itemParentCode = "", itemSize = "";
+    //string groupCode = "";
+
+    if (inforItem != null)
+    {
+        ItemNo = inforItem.ItemNo;
+        ItemName = inforItem.ItemName;
+        StoreNo = inforItem.StoreNo;
+        ItemGroup = inforItem.ItemGroup;
+        ItemGroupName = inforItem.ItemGroupName;
+        SalesType = inforItem.SalesType;
+        Uom = inforItem.Uom;
+        UnitPrice = Convert.ToString(inforItem.UnitPrice);
+        Size = inforItem.Size;
+        Blocked = Convert.ToString(inforItem.Blocked);
+        IsTopping = Convert.ToString(inforItem.IsTopping);
+
+        //itemName2 = infoItem.SearchDescription;
+        //itemFamilyCode = infoItem.ItemFamilyCode;
+        //itemUOM = infoItem.BaseUnitOfMeasure;
+        //itemTAX = infoItem.TaxGroupCode;
+        //isBlocked = infoItem.Blocked == 0 ? "" : "checked";
+        //isVAT = infoItem.IsVAT == true ? "checked" : "";
+        //itemParentCode = infoItem.ParentCode;
+        //itemSize = infoItem.Size;
+        //groupCode = infoItem.GroupCode;
+        //imgItem = infoItem.ImageName;
+        //imgBase64 = infoItem.ImageBase64;
+
+    }
+
+    //isVAT = infoItem == null ? "checked" : (infoItem.IsVAT == true ? "checked" : "");
+    //var listUOM = model.ListUOM;
+    //var listJsonUOM = Html.Raw(JsonConvert.SerializeObject(listUOM));
+    //var listCombo = model.ListCombo;
+    //var listItemType = listCombo.Where(d => d.Type == "ItemType").ToList();
+    //var listTax = listCombo.Where(d => d.Type == "POSVAT").ToList();
+    //var listSize = listCombo.Where(d => d.Type == "SIZE").ToList();
+    //var listOption = listCombo.Where(d => d.Type == "Option").ToList();
+    //var listJsonOption = Html.Raw(JsonConvert.SerializeObject(listOption));
+
+    //var listBarcode = model.ListBarcode;
+    //var listItemExtra = model.ListItemExtra;
+    //var listItemTopping = listItemExtra.Where(d => d.Type == "Topping").ToList();
+    //var listItemCup = listItemExtra.Where(d => d.Type == "Cup").ToList();
+    //var listGroupItemRef = listItemCup.GroupBy(a => new { ItemNo = a.ItemNo, ItemNoRef = a.ItemNoRef, ItemNameRef = a.ItemNameRef, UnitOfMeasure = a.UnitOfMeasure, UnitOfMeasureRef = a.UnitOfMeasureRef, Description = a.Description }).Select(a => new GroupItemExtraModel
+    //{
+    //    ItemNo = a.Key.ItemNo,
+    //    ItemNoRef = a.Key.ItemNoRef,
+    //    ItemNameRef = a.Key.ItemNameRef,
+    //    UnitOfMeasure = a.Key.UnitOfMeasure,
+    //    UnitOfMeasureRef = a.Key.UnitOfMeasureRef,
+    //    Description = a.Key.Description,
+
+    //}).ToList();
+
+    //var listSalesTypeCup = listItemCup.Select(a => new { ItemNoRef = a.ItemNoRef, IsDefault = a.IsDefault, SalesTypeCode = a.SaleTypeCode, SalesTypeName = a.SaleTypeName }).ToList();
+
+    //var listItemOption = listItemExtra.Where(d => d.Type == "Option").ToList();
+    //var listItemDinhLuong = model.ListItemOption;
+
+    //var listPOSGroup = model.ListPOSGroup;
+
+    //var displayItemNo = infoItem == null ? "display:none" : "display:block";
+    //string urlImgServer = WebConfigurationManager.AppSettings["urlImg"];
+
+    //var disableCheckManual = infoItem == null ? "" : "disabled";
+
+}
+
+@*<div style="display:none">
+        <input type="hidden" value="@itemNo" id="hdtxtItemNo" />
+  </div>*@
+
+
+<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+    <div class="row">
+        <div class="col-lg-10 col-md-10 col-sm-10 col-xs-12">
+            <div class="row">
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Mã sản phẩm<strong style="color:#ff0000">(*)</strong></label>
+                        <div class="input-group">
+                            <input type="text" id="txt-item-no" class="form-control" value="@ItemNo" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Tên sản phẩm<strong style="color:#ff0000">(*)</strong></label>
+                        <div class="input-group">
+                            <input type="text" id="txt-item-name" class="form-control" value="@ItemName" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Tên ngành hàng</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-item-group-name" class="form-control" value="@ItemGroupName" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">ST/CH</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-store-no" class="form-control" value="@StoreNo" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Đơn vị tính</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-uom" class="form-control" value="@Uom" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Giá</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-unit-price" class="form-control" value="@UnitPrice" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Size</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-size" class="form-control" value="@Size" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">IsTopping</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-topping" class="form-control" value="@IsTopping" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                @*<div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="form-group">
+                        <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái</label>
+                        <div class="input-group">
+                            <input type="text" id="txt-blocked" class="form-control" value="@Blocked" disabled />
+                        </div>
+                    </div>
+                </div>*@
+
+                <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+                    <div class="input-group" style="margin-top:27px;">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">
+                                <label class="checkbox checkbox-inline" title="Trạng thái">
+                                    <input type="checkbox" @Blocked id="chkBlocked" class="chkBlocked" disabled />
+                                    <span></span>
+                                </label>
+                            </span>
+                        </div>
+                        <div class="input-group-append"><span class="input-group-text">Blocked</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-12" style="text-align:right">
+
+            @{
+                var urlImg = "/Uploads/imgs/placeholder.png";
+                var isChangeImg = "";
+
+                //if (!string.IsNullOrEmpty(imgItem))
+                //{
+                //    //urlImg = "data:image/jpeg;base64," + imgBase64;
+                //    urlImg = "data:image/jpeg;base64";
+                //    isChangeImg = "image-input-changed";
+                //}
+
+            }
+
+            <div class="image-input image-input-outline @isChangeImg" id="kt_img_item">
+                <div class="image-input-wrapper" style="background-image: url(@urlImg)"></div>
+
+                <label class="btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow" data-action="change" data-toggle="tooltip" title="" data-original-title="Change avatar">
+                    <i class="fa fa-pen icon-sm text-muted"></i>
+                    <input type="file" id="imgItem" name="imgItem" accept=".png, .jpg, .jpeg" />
+                    <input type="hidden" name="imgItem_remove" />
+                </label>
+
+                <span id="btnCancleImg" class="btn btn-xs btn-icon btn-circle btn-white btn-hover-text-primary btn-shadow" data-action="cancel" data-toggle="tooltip" title="Cancel avatar">
+                    <i class="ki ki-bold-close icon-xs text-muted"></i>
+                </span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@*<div class="modal fade" id="modalListItemOption" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">THÊM TÙY CHỌN</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="height: 600px;" id="divPopupListItemOption">
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Hủy</button>
+                <button type="button" class="btn btn-light-primary font-weight-bold btnSelectedItemOption"><i class="la la-check"></i>Chọn</button>
+            </div>
+        </div>
+    </div>
+</div>*@
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $(".select2").select2();
+        var kt_img_item = new KTImageInput('kt_img_item');
+        $("#btnCancleImg").on("click", function (e) {
+            $(".image-input-wrapper").css("background-image", 'url("/Uploads/imgs/placeholder.png"');
+        });
+    });
+</script>
+

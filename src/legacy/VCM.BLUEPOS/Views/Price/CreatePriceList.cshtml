@@ -1,0 +1,691 @@
+﻿@using VCM.BLUEPOS.Model.Price;
+@{
+    ViewBag.Title = "Khai báo giá";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<style>
+    input[type="date"]::-webkit-datetime-edit, input[type="date"]::-webkit-inner-spin-button, input[type="date"]::-webkit-clear-button {
+        color: #fff;
+        position: relative;
+    }
+
+    input[type="date"]::-webkit-datetime-edit-year-field {
+        position: absolute !important;
+        border-left: 1px solid #8c8c8c;
+        padding: 2px;
+        color: #000;
+        left: 56px;
+    }
+
+    input[type="date"]::-webkit-datetime-edit-month-field {
+        position: absolute !important;
+        border-left: 1px solid #8c8c8c;
+        padding: 2px;
+        color: #000;
+        left: 26px;
+    }
+
+
+    input[type="date"]::-webkit-datetime-edit-day-field {
+        position: absolute !important;
+        color: #000;
+        padding: 2px;
+        left: 4px;
+    }
+</style>
+
+<div class="d-flex flex-column-fluid" style="margin-top:10px;">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-6 col-md-6 col-sm-6 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 1 !important;">Kênh bán hàng</label>
+                                <div class="form-group">
+                                    <select id="sel-chanel-code" class="form-control select2">
+                                        <option value="10" selected>10 - VinMart+</option>
+                                        <option value="20">20 - VinMart</option>
+                                        <option value="60" disabled>60 - B2B</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 1 !important;">Loại</label>
+                                <div class="form-group">
+                                    <select id="sel-region-price" class="form-control select2">
+                                        <option value="-1" selected>Chọn loại...</option>
+                                        <option value="1">Site</option>
+                                        <option value="2">PriceList</option>
+                                        <option value="3" disabled>PriceGroup</option>
+                                        <option value="4">ALL</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 1 !important;">Mã site/Mã vùng giá</label>
+                                <div class="form-group">
+                                    <select id="sel-region-code" class="form-control select2">
+                                        <option value="" selected>Chọn mã site, mã vùng giá...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                <button type="button" id="btn-new-price-list" class="btn btn-primary"><i class="la la-plus-circle"></i> Thêm mới</button>
+                                <button type="button" id="btn-refesh" class="btn btn-bg-warning" style="color: #ffffff"><i class="la la-refresh" style="color:#ffffff"></i> Refesh</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                            <button type="button" id="btn-save-price-list" class="btn btn-hover-transparent-primary"><i class="la la-save"></i> Lưu bảng giá</button>
+                            <button type="button" id="delete-row" class="btn btn-hover-transparent-warning"><i class="fa fa-trash"></i> Xóa dòng</button>
+                        </div>
+                        <table id="tbl-price-table" class="table table-bordered table-hover">
+                            <thead>
+                                <tr class="text-center">
+                                    <th width="20px" style="padding-right: 10px;">
+                                        <input type="checkbox" class="cusor" name="CheckAll" id="check-all" data-toggle="tooltip" data-placement="top" title="Chọn tất cả">
+                                    </th>
+                                    <th style="text-align:center; padding-right: 10px;">STT</th>
+                                    <th style="text-align:center; padding-right: 10px;">Kênh bán hàng</th>
+                                    <th style="text-align:center; padding-right: 10px;">Mã site/Mã vùng giá</th>
+                                    <th style="text-align:center; padding-right: 10px;">Mã sản phẩm</th>
+                                    <th style="text-align:center; padding-right: 10px;"></th>
+                                    <th style="text-align:center; padding-right: 10px;">Đơn vị tính</th>
+                                    <th style="text-align:center; padding-right: 10px;">Giá bán</th>
+                                    <th style="text-align:center; padding-right: 10px;">Từ ngày</th>
+                                    <th style="text-align:center; padding-right: 10px;">Đến ngày</th>
+                                    <th style="text-align:center; padding-right: 10px;">#</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="modal-search-item" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-sticky-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Thông tin sản phẩm</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <input type="text" id="txt-id" class="form-control" value="" disabled />
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <input type="text" id="txt-search" class="form-control" value="" placeholder="Nhập mã sản phẩm..." />
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                        <button type="button" id="btn-search-item" class="btn btn-primary"> <i class="fa fa-search"></i> Tìm kiếm</button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">Mã sản phẩm</label>
+                    </div>
+
+                    <div class="col-lg-9 col-md-9 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <input type="text" id="txt-item-no" class="form-control" value="" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">Tên sản phẩm</label>
+                    </div>
+
+                    <div class="col-lg-9 col-md-9 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <input type="text" id="txt-item-name" class="form-control" value="" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">ĐVT</label>
+                    </div>
+                    <div class="col-lg-9 col-md-9 col-sm-12 col-xs-12">
+                        <div class="form-group">
+                            <select id="sl-unit" class="form-control select2"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <input type="text" hidden id="hdd-txt-id" />
+            <input type="text" hidden id="hdd-item-no" />
+            <input type="text" hidden id="hdd-unit" />
+            <div class="modal-footer">
+                <button type="button" id="btn-save-data-row" class="btn btn-primary font-weight-bold" disabled> <i class="la la-save"></i>Cập nhật</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        function GetValueChanelCode()
+        {
+            var result = $('#sel-chanel-code').val();
+            return result;
+        };
+
+        function GetValueRegionCode()
+        {
+            var result = $('#sel-region-code').val();
+            return result;
+        };
+
+        function GetUnit() {
+            var result = $('#sl-unit').val();
+            return result;
+        };
+
+        function ShowPopup(){
+            $("#modal-search-item").modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        };
+
+        function ClearText() {
+            $('#txt-search').val('');
+            $('#txt-item-no').val('');
+            $('#txt-item-name').val('');
+            $('#sl-unit').val('').trigger('change');
+            $('#btn-save-data-row').prop('disabled',true);
+        }
+
+        function RefreshDataTable()
+        {
+            window.location.reload();
+        };
+
+        function validateSelected() {
+            var result = false;
+            var checked = $('#tbl-price-table tbody tr').find('input[type="checkbox"]:checked').length;
+            if (checked > 0) {
+                result = true;
+            }
+            return result;
+        };
+
+        function validateDataRow() {
+            //debugger
+            var result = true;
+            var data = GetDataRowPriceList();
+            for (var i = 0; i < data.length; i++)
+            {
+                if (data[i].ItemNo == null || data[i].ItemNo == "")
+                {
+                    toastr.error('Nhập mã sản phẩm');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].ItemNo != "" || data[i].ItemNo.length > 0)
+                {
+                    var check = data[i].ItemNo.trim();
+                    if ((check == check / 1) == false) {
+                          toastr.error("Mã sản phẩm phải là ký tự số");
+                          result = false;
+                          return result;
+                    }
+
+                    if (data[i].ItemNo.length < 8) {
+                        toastr.error("Mã sản phẩm phải từ 8 ký tự số trở lên");
+                        result = false;
+                        return result;
+                    }
+                }
+
+                if (data[i].UOM == null || data[i].UOM.trim() == "")
+                {
+                    toastr.error('Nhập đơn vị tính');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].UOM != null || data[i].UOM.length > 0)
+                {
+                    var check = data[i].UOM.trim();
+                    if ((check == check / 1) == true) {
+                        toastr.error("Đơn vị tính phải là kiểu chuỗi");
+                        result = false;
+                        return result;
+                    }
+                }
+
+                if (data[i].UnitPrice == null || data[i].UnitPrice.trim() == "")
+                {
+                    toastr.error('Nhập giá bán');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].UnitPrice != null || data[i].UnitPrice.length > 0)
+                {
+                    var check = data[i].UnitPrice.trim();
+                    if ((check == check / 1) == false) {
+                        toastr.error("Giá bán phải là kiểu số");
+                        result = false;
+                        return result;
+                    }
+                }
+
+                if (data[i].StartDate > data[i].EndDate) {
+                    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày');
+                    result = false;
+                    return result;
+                }
+            }
+            return result;
+
+        };
+
+        function GetDataRowPriceList() {
+            //debugger
+            var data = [];
+            $('#tbl-price-table tbody').find('input[type="checkbox"]:checked').each(function () {
+                //debugger
+                var item = {};
+                var itemNo = $(this).parents('tr').find('td:nth-child(5) input').val();
+                if (itemNo != null && itemNo.trim() != "") {
+                    item['ID'] = $(this).parents('tr').find('td:nth-child(2)').html();
+                    item['ChanelCode'] = $(this).parents('tr').find('td:nth-child(3)').html();
+                    item['RegionCode'] = $(this).parents('tr').find('td:nth-child(4)').html();
+                    item['ItemNo'] = $(this).parents('tr').find('td:nth-child(5) input').val();
+                    item['UOM'] = $(this).parents('tr').find('td:nth-child(7) input').val();
+                    item['UnitPrice'] = $(this).parents('tr').find('td:nth-child(8) input').val();
+                    item['StartDate'] = $(this).parents('tr').find('td:nth-child(9) input').val();
+                    item['EndDate'] = $(this).parents('tr').find('td:nth-child(10) input').val();
+                    data.push(item);
+                }
+            });
+            return data;
+        };
+
+        function CreatePriceList() {
+            //debugger
+            var data = GetDataRowPriceList();
+            if (data == null || data.length == 0) {
+                toastr.error('Chọn các dòng có dữ liệu để lưu bảng giá');
+                return;
+            }
+            // Validate
+            var isCheck = validateDataRow();
+            if (isCheck == false)
+            {
+                return;
+            }
+
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("CreatePriceList", "Price")',
+                type: "POST",
+                dataType: "text",
+                data: { req: JSON.stringify(data) },
+                success: function (response) {
+                    //debugger
+                    loading.hideloading();
+                    var item = JSON.parse(response);
+                    if (item.Status = 1) {
+                        toastr.success(item.Message);
+                    }
+                    else if (item.Status = 2) {
+                        toastr.warning(item.Message);
+                    }
+                    else if (item.Status = 3) {
+                        toastr.warning(item.Message);
+                    }
+                    else if (item.Status = 4) {
+                        toastr.warning(item.Message);
+                    }
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+
+        };
+
+        function GetSearchProduct() {
+            //debugger
+            var itemNo = $('#txt-search').val();
+            var id = $('#hdd-txt-id').val();
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetSearchProduct", "Price")',
+                data: { ItemNo: itemNo },
+                dataType: "json",
+                success: function (data)
+                {
+                    if (!data.Status)    // Khong tim thay
+                    {
+                        toastr.error("Không tìm thấy sản phẩm này");
+                        $('#txt-id').val('');
+                        $('#txt-item-no').val('');
+                        $('#txt-item-name').val('');
+                        $('#btn-save-data-row').attr('disabled', true);
+                    }
+                    else
+                    {
+                        $('#txt-id').val(id);
+                        $('#txt-item-no').val(data.ItemNo);
+                        $('#txt-item-name').val(data.ItemName);
+
+                        $('#hdd-item-no').val(data.ItemNo);
+                        $('#btn-save-data-row').attr('disabled', false);
+                    }
+                },
+
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+
+                });
+        };
+
+        function GetUnitOfMeasure() {
+            //debugger
+            var itemNo = $('#txt-search').val();
+            var html = "<option value=\"\" selected disabled>Chọn đơn vị tính...</option>";
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetUnitOfMeasureCode", "Price")',
+                data: { ItemNo: itemNo },
+                dataType: "json",
+                success: function (data)
+                {
+                    if (data != null) {
+                        data.forEach((name, i) => {
+                            html += "<option value='" + name.Value + "'>" + name.Value + "</option>";
+                        });
+                        $('#sl-unit').html(html);
+                    }
+                },
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        };
+
+        function LoadComboRegionSite() {
+            //debugger
+            var chanelCode = $('#sel-chanel-code').val();
+            var regionPrice = $('#sel-region-price').val();
+            if (chanelCode == null || chanelCode == '') {
+                return;
+            }
+
+            if (regionPrice == null || regionPrice == '') {
+                return;
+            }
+
+            var html = "<option value=\"\" selected disabled>Vui lòng chọn...</option>";
+
+            if (regionPrice == "1")  // theo site
+            {
+                $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetComboSite", "Price")',
+                data: { ChanelCode: chanelCode },
+                dataType: "json",
+                success: function (data)
+                {
+                        if (data != null) {
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.Value + "'>" + name.Value + " - " + name.Text +"</option>";
+                            });
+                            $('#sel-region-code').html(html);
+                        }
+                },
+                error: function ()
+                {
+                        toastr.error('Lỗi hệ thống');
+                }
+
+                });
+            }
+            else if (regionPrice == "2") // theo PriceList
+            {
+                $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetComboRegion", "Price")',
+                //data: { },
+                dataType: "json",
+                success: function (data) {
+                        if (data != null) {
+                            data.forEach((name, i) => {
+                                html += "<option value='" + name.Value + "'>" + name.Value + " - " + name.Text +"</option>";
+                            });
+                            $('#sel-region-code').html(html);
+                        }
+                },
+
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+
+                });
+            }
+            else if (regionPrice == "3")
+            {
+            }
+            else if (regionPrice == "4") //ALL
+            {
+                var value = "ALL";
+                html += "<option value='" + value + "'>" + value + "</option>";
+                $('#sel-region-code').html(html);
+            }
+        };
+
+        function RowCount() {
+            var result = 0;
+            $('#tbl-price-table tbody').find('tr').each(function () {
+                //debugger
+                var stt = $(this).find('td:nth-child(2)').html();
+                var id = $('#hdd-txt-id').val(stt);
+                $('#txt-id').val(stt);
+                result = stt;
+                return result;
+            });
+            return result;
+        }
+
+        function ClearRow(row) {
+            var result = true;
+            $('#tbl-price-table tbody').find('tr').each(function () {
+                var id = $(this).find('td:nth-child(2)').html();
+                if (id > 0) {
+                    row.closest('tr').remove();
+                }
+                return result;
+            });
+        };
+
+
+    $(document).ready(function () {
+
+        LoadComboRegionSite();
+
+        $("#sel-region-price").on('change', function (e) {
+            LoadComboRegionSite();
+        });
+
+        $("#btn-refesh").on("click", function (e) {
+            RefreshDataTable();
+        });
+
+        $('#tbl-price-table').on('click', 'tr', function () {
+            var stt = $(this).find('td:nth-child(2)').html();
+            var id = $('#hdd-txt-id').val(stt);
+            $('#txt-id').val(stt);
+            return stt;
+        });
+
+        $("#check-all").change(function () {
+            if (this.checked) {
+                $('#tbl-price-table .check-item').prop('checked', true);
+            } else {
+                $('#tbl-price-table .check-item').prop('checked', false);
+            }
+        });
+
+        $("#btn-save-price-list").on("click", function (e) {
+            CreatePriceList();
+        });   
+
+        $("#btn-search-item").on("click", function (e) {
+            GetSearchProduct();
+            GetUnitOfMeasure();
+        });
+
+        //
+        $("#delete-row").click(function () {
+            $('#tbl-price-table tbody').find('input[type="checkbox"]:checked').each(function () {
+                if ($(this).is(":checked")) {
+                    $(this).parents("tr").remove();
+                }
+            });
+        });   
+
+        $("#btn-save-data-row").on("click", function (e) {
+            //debugger
+            var id = $('#hdd-txt-id').val();
+            var itemNo = $('#hdd-item-no').val();
+            var unit = GetUnit();
+
+            $('#tbl-price-table tbody tr').each(function () {
+                if (id == $(this).find('td:nth-child(2)').html()) {
+                    $(this).find('td:nth-child(5) input').val(itemNo);
+                    $(this).find('td:nth-child(7) input').val(unit);
+                }
+            });
+
+            ClearText();
+            $('#modal-search-item').modal('hide');
+
+        });   
+
+
+        $("#btn-new-price-list").click(function () {
+                //debugger
+                var chanelCode = GetValueChanelCode();
+                var regionCode = GetValueRegionCode();
+                if (regionCode == null) {
+                    regionCode = "";
+                }
+
+                var rowCount = RowCount();
+                var today = new Date();
+
+                if (rowCount > 0) {
+                    return;
+                }
+                else {
+                    for (var i = 1; i <= 10; i++) {
+                        var stt = 0 + i;
+                        var markup = '<tr>';
+                        markup += '<td style="text-align:center; padding-top: 20px;"><input type="checkbox" class="cusor check-item" name="CheckItem"></td>';
+                        markup += '<td style="text-align:center; padding-top: 20px;">' + stt + '</td>';
+                        markup += '<td style="text-align:center; padding-top: 20px;">' + chanelCode + '</td>';
+                        markup += '<td style="text-align:center; padding-top: 20px;">' + regionCode + '</td>';
+                        markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                        markup += '<td style="text-align:center;"><button type="button" class="btn btn-modal-search" onclick="ShowPopup()"><i class="fa fa-search" style="color:green"></i></button></td>';
+                        markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                        markup += '<td><input type="text" class="form-control mask  unit-price" style="text-align: center;" pattern="[0-9]*" data-politespace data-grouplength="3" data-delimiter=","  data-delimiter=","></td>';
+                        markup += '<td><input type="date" class="form-control" style="text-align: center;"></td>';
+                        markup += '<td><input type="date" class="form-control" style="text-align: center;"></td>';
+                        markup += '<td style="text-align:center;"><button type="button" class="btn btn-clear-text-row" onclick="ClearRow($(this))"  data-toggle="tooltip" data-placement="left" title="Xóa dòng"  style="text-align:center;font-size:11px;margin-right:2px;color:#ffffff;"><i class="fa fa-trash" style="color:red"></i></button></td>';
+                        markup += '</tr>';
+                        $("table tbody").append(markup);
+                    }
+                }
+            });
+
+
+            table = $('#tbl-price-table').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+
+                paging: false,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: false,              // for process server side
+                filter: false,                  // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                columns: []
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            $('#tbl-price-table tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+    });
+
+
+
+    </script>
+}
+
+

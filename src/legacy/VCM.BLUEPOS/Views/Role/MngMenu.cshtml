@@ -1,0 +1,412 @@
+﻿@using VCM.BLUEPOS.Model.Authen;
+@{
+    ViewBag.Title = "Quản lý menu";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listMenu = ViewBag.ListMenuCombo as List<MenuModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a>Hệ thống</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a>Quản lý menu</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-primary mr-2" data-toggle="modal" id="btnAddMenu"><i class="la la-plus-circle"></i> Thêm menu</button>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body" id="divListMenu"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalPopupMenu" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="titleModalMenu">CẬP NHẬT MENU</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-6 col-sm-6 col-xs-12">
+                            <div class="form-group">
+                                <label class="font-weight-bold">Tên menu</label>
+                                <input type="text" id="txtMenuName" class="form-control" value="" />
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                            <div class="form-group">
+                                <label class="font-weight-bold">Menu cha</label>
+                                <select id="slParentMenu" class="form-control select2" disabled data-placeholder="">
+                                    @if (listMenu != null && listMenu.Count > 0)
+                                    {
+                                        <option value="0">------------</option>
+                                        foreach (var item in listMenu)
+                                        {
+                                            <option value="@item.ID">@item.MenuName</option>
+
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                            <div class="form-group">
+                                <label class="font-weight-bold">Trạng thái</label>
+                                <select id="slStatus" class="form-control select2 select2-blue" data-placeholder="">
+                                    <option value="true">Hiệu lực</option>
+                                    <option value="false">Hết hiệu lực</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="clear:both;display:-webkit-box" id="displayAction">
+                        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                            <div class="form-group">
+                                <label class="font-weight-bold">Controller</label>
+                                <input type="text" id="txtController" class="form-control" value="" />
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                            <div class="form-group">
+                                <label class="font-weight-bold">Action</label>
+                                <input type="text" id="txtAction" class="form-control" value="" />
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+                <button type="button" class="btn btn-primary font-weight-bold" id="btnSaveMenu"><i class="fa fa fa-save"></i> Lưu menu</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<div style="display:none">
+    <input type="hidden" id="hdTypeMenu" value="0" />
+    <input type="hidden" id="hdID" value="0" />
+    <input type="hidden" id="hdInsertUpdate" value="" />
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            $(".select2").select2();
+
+            LoadDataMenu("", "", "");
+
+            $("#btnAddMenu").on("click", function (e) {
+                $("#displayAction").css("display", "none");
+                $("#slParentMenu").select2('val', [0]);
+
+                $("#slStatus").select2('val', ['true']);
+                $('#slStatus').prop('disabled', true);
+
+                $("#txtController").val("");
+                $("#txtAction").val("");
+                $("#txtMenuName").val("");
+
+                $("#titleModalMenu").html("THÊM MỚI MENU");
+                $("#hdInsertUpdate").val("Insert");
+                $("#hdID").val(0);
+
+                $('#modalPopupMenu').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            });
+
+            $("#btnSaveMenu").on("click", function (e) {
+                SaveMenu();
+            });
+
+        });
+
+        function LoadDataMenu(menuName, controller, action) {
+            $.ajax({
+                type: "GET",
+                url: "/Role/_ListMenu?menuName=" + menuName + "&controllerMenu=" + controller + "&actionMenu=" + action + "",
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    $("#divListMenu").html(result);
+                },
+                error: function (event) {
+                }
+            });
+        }
+
+
+
+        function ModalUpdateMenu(menuType, ID,insert_update) {//menuType:1,2,3... Cấp 1,2,3....
+
+            $("#hdTypeMenu").val(menuType);
+
+            if (insert_update == "Insert") {
+                $("#hdID").val(0);
+
+                $("#txtController").val("");
+                $("#txtAction").val("");
+                $("#txtMenuName").val("");
+
+                $("#slStatus").select2('val', ['true']);
+                $('#slStatus').prop('disabled', true);
+
+            }
+            else if (insert_update == "Update") {
+                $("#hdID").val(ID);
+                var fromDataUpd = new FormData();
+                fromDataUpd.append('ID', ID);
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetMenu", "Role")',
+                    data: fromDataUpd,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data.Status == 200) {
+                            //debugger
+                            var dataModel = data.Data;
+                            $("#txtController").val(dataModel.Controller);
+                            $("#txtAction").val(dataModel.Action);
+                            $("#txtMenuName").val(dataModel.MenuName);
+                            var status = dataModel.Status == true ? "true" : "false";
+                            $("#slStatus").select2('val', [status]);
+                            $('#slStatus').prop('disabled', false);
+                        }
+                    },
+                    error: function () {
+                    }
+                });
+            }
+
+            var titleModal = insert_update == "Insert" ? "THÊM MỚI MENU" : "CẬP NHẬT MENU";
+            $("#titleModalMenu").html(titleModal);
+
+            $("#hdInsertUpdate").val(insert_update);
+            $("#slParentMenu").select2('val', [ID]);
+
+            $("#displayAction").css("display", "-webkit-box");
+
+            $('#modalPopupMenu').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function DeleteMenu(menuType, ID) {
+            $.confirm({
+                backgroundDismiss: false,
+                escapeKey: true,
+                icon: 'fa fa-warning',
+                type: 'red',
+                typeAnimated: true,
+                title: 'Thông báo',
+                content: 'Bạn có chắc chắn xóa menu này không?',
+                buttons: {
+                    "CÓ": {
+                        btnClass: 'btn btn-default',
+                        keys: ['ctrl'],
+                        action: function () {
+                            var fromData = new FormData();
+                            fromData.append('typeMenu', menuType);
+                            fromData.append('ID', ID);
+                            $.ajax({
+                                type: "POST",
+                                url: '@Url.Action("DeleteMenu", "Role")',
+                                data: fromData,
+                                contentType: "application/json",
+                                dataType: "json",
+                                contentType: false,
+                                processData: false,
+                                success: function (data) {
+                                    if (data.Status == 200) {
+                                        //debugger
+                                        toastr.success("Xóa thành công menu");
+                                        $("#trMenu_" + ID).remove();
+                                        $(".trMenu_" + ID).remove();
+                                    }
+                                    else {
+                                        toastr.success(data.Message);
+                                    }
+                                },
+                                error: function () {
+                                }
+                            });
+                        }
+                    },
+                    "KHÔNG": {
+                        btnClass: 'btn-default',
+                        action: function () { }
+                    }
+                }
+            });
+        }
+
+        function SaveMenu() {
+            var ID = $("#hdID").val();
+            var insertUpdate = $("#hdInsertUpdate").val();
+            var parentMenu = $("#slParentMenu").val();
+            var status = $("#slStatus").val();
+            var menuName = $("#txtMenuName").val();
+            var controllerName = $("#txtController").val();
+            var actionName = $("#txtAction").val();
+
+            if (menuName == "" || menuName == null) {
+                toastr.error("Nhập tên menu");
+                return;
+            }
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('ID', ID);
+            fromData.append('ParentMenu', parentMenu);
+            fromData.append('MenuName', menuName);
+            fromData.append('Controller', controllerName);
+            fromData.append('Action', actionName);
+            fromData.append('Status', status);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateMenu", "Role")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data.Status == 200) {
+                        $('#modalPopupMenu').modal('hide');
+                        var dataModel = data.Data;
+                        if (parentMenu == 0) {
+                            toastr.success("Thêm mới menu thành công");
+                            $("#slParentMenu").append(new Option(menuName, dataModel.ID));
+                            LoadDataMenu("", "", "");
+                        }
+                        else {                           
+                            if (insertUpdate == "Insert") {
+                                if (dataModel != null) {
+                                    var typeMenu = $("#hdTypeMenu").val();
+                                    if (typeMenu == 1) {
+                                        var html = "<tr id='trMenu_" + dataModel.ID + "'>";
+                                        html += "<td style=\"vertical-align:middle\"><span id='updMenuName_" + dataModel.ID + "'>" + dataModel.MenuName + "</span></td>";
+                                        html += "<td style=\"vertical-align:middle\"><span id='updContrllerName_" + dataModel.ID + "'>" + (dataModel.Controller == null ? "" : dataModel.Controller) + "</span></td>";
+                                        html += "<td style=\"vertical-align:middle\"><span id='updActionName_" + dataModel.ID + "'>" + (dataModel.Action == null ? "" : dataModel.Action) + "</span></td>";
+
+                                        html += "<td style=\"text-align:center;vertical-align:middle\">";
+                                        html += "<p id='updStatus_" + dataModel.ID + "'>";
+                                        if (status == "true") {
+                                            html += "<span class=\"label label-lg font-weight-bold label-success label-inline\">Active</span>";
+                                        }
+                                        else {
+                                            html += "<span class=\"label label-lg font-weight-bold label-danger label-inline\">Locked</span>";
+                                        }
+                                        html += "</p>";
+                                        html += "</td>";
+                                        html += "<td style=\"text-align:center;vertical-align:middle\">";
+                                        html += "<a onclick=\"ModalUpdateMenu(2," + dataModel.ID + ",'Insert')\" title=\"Thêm\" class=\"btn btn-icon btn-light-primary\" style=\"margin-right:5px\"><i class=\"la la-plus-circle\"></i><span class=\"pulse-ring\"></span></a>";
+                                        html += "<a onclick=\"ModalUpdateMenu(2," + dataModel.ID + ",'Update')\" title=\"Sửa\" class=\"btn btn-icon btn-light-warning\"><i class=\"la la-edit\"></i><span class=\"pulse-ring\"></span></a>";
+                                        html += "<a onclick=\"DeleteMenu(2," + dataModel.ID +")\" title=\"Xóa\" class=\"btn btn-icon btn-light-danger\" style=\"margin-left:5px\"><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                                        html += "</td>";
+                                        html += "</tr>";
+                                        $("#tblDataMenu_" + parentMenu).append(html);
+                                    }
+                                    else if (typeMenu == 2) {
+
+                                        var html2 = "<tr id='trMenu_" + dataModel.ID + "' class='trMenu_" + dataModel.ParentMenu + "'>";
+                                        html2 += "<td style=\"vertical-align:middle\"><span id='updMenuName_" + dataModel.ID + "'>" + dataModel.MenuName + "</span></td>";
+                                        html2 += "<td style=\"vertical-align:middle\"><span id='updContrllerName_" + dataModel.ID + "'>" + (dataModel.Controller == null ? "" : dataModel.Controller) + "</span></td>";
+                                        html2 += "<td style=\"vertical-align:middle\"><span id='updActionName_" + dataModel.ID + "'>" + (dataModel.Action == null ? "" : dataModel.Action) + "</span></td>";
+
+                                        html2 += "<td style=\"text-align:center;vertical-align:middle\">";
+                                        html2 += "<p id='updStatus_" + dataModel.ID + "'>";
+                                        if (status == "true") {
+                                            html2 += "<span class=\"label label-lg font-weight-bold label-success label-inline\">Active</span>";
+                                        }
+                                        else {
+                                            html2 += "<span class=\"label label-lg font-weight-bold label-danger label-inline\">Locked</span>";
+                                        }
+                                        html2 += "</td>";
+                                        html2 += "<td style=\"text-align:center;vertical-align:middle\">";
+                                        html2 += "<a onclick=\"ModalUpdateMenu(3," + dataModel.ID + ",'Update')\" title=\"Sửa\" class=\"btn btn-icon btn-light-warning\"><i class=\"la la-edit\"></i><span class=\"pulse-ring\"></span></a>";
+                                        html2 += "<a onclick=\"DeleteMenu(3," + dataModel.ID + ")\" title=\"Xóa\" class=\"btn btn-icon btn-light-danger\" style=\"margin-left:5px\"><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                                        html2 += "</td>";
+
+                                        html2 += "</tr>";
+                                        $("#trMenu_" + parentMenu).after(html2);
+                                    }
+                                }
+                                $("#slParentMenu").append(new Option(menuName, dataModel.ID));
+                                toastr.success("Thêm mới menu thành công");
+                            }
+                            else { //Update
+
+                                $("#updMenuName_" + ID).html(menuName);
+                                $("#updContrllerName_" + ID).html(controllerName);
+                                $("#updActionName_" + ID).html(actionName);
+                                //$("#updStatus_" + ID).remove();
+
+                                var htmlStatus = "";
+                                if (status == "true") {
+                                    htmlStatus += "<span class=\"label label-lg font-weight-bold label-success label-inline\">Active</span>";
+                                }
+                                else {
+                                    htmlStatus += "<span class=\"label label-lg font-weight-bold label-danger label-inline\">Locked</span>";
+                                }
+                                $("#updStatus_" + ID).html(htmlStatus);
+
+                                toastr.success("Cập nhật menu thành công");
+                            }
+                        }
+                    }
+                    else {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+    </script>
+}
+

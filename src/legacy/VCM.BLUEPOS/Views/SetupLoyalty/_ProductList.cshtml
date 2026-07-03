@@ -1,0 +1,617 @@
+﻿@{
+    var fromDate = ViewBag.FromDate;
+    var toDate = ViewBag.ToDate;
+    var pointRedeem = ViewBag.PointRedeem;
+    var clubCode = ViewBag.ClubCode;
+}
+
+<div class="modal-body">
+<div class="example-preview">
+    <ul class="nav nav-tabs" role="tablist" id="tabs_gift_redeem">
+        <li class="nav-item">
+            <a class="nav-link classTab active" href="#list-item-no" data-toggle="tab" id="tab-item-list">
+                <span class="nav-icon"><i class="flaticon-gift"></i></span>
+                <span class="nav-text font-weight-bold" style="text-transform:uppercase;font-weight: 700;">Sản phẩm chưa khai báo tỷ lệ đổi quà</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link classTab" href="#list-gift-redeem" data-toggle="tab" id="tab-gift-redeem-list">
+                <span class="nav-icon"><i class="flaticon-gift"></i></span>
+                <span class="nav-text font-weight-bold" style="text-transform:uppercase;font-weight: 700;">Sản phẩm đã khai báo tỷ lệ đổi quà</span>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+<div class="card">
+    <div class="card-body">
+        <div class="tab-content">
+            <div class="active tab-pane" id="list-item-no">
+                <div class="card-body-custom">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="row">
+                            <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold">Từ khóa</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control" id="txt-text-search" name="TextSearch" placeholder="Nhập mã sản phẩm / tên sản phẩm...">
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                <button type="button" id="btn-search-item" class="btn btn-primary"><i class="fa fa-search"></i>Tìm kiếm</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;"></div>
+
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <table id="tbl-product-list" class="table table-bordered table-hover" style="width: 100%">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th width="3%">
+                                        <input type="checkbox" class="cusor" name="CheckAll" id="check-all-item-list" data-toggle="tooltip" data-placement="top" title="Chọn tất cả">
+                                    </th>
+                                    <th width="10%" style="vertical-align:middle">STT</th>
+                                    <th width="20%" style="vertical-align:middle">Mã sản phẩm</th>
+                                    <th width="52%" style="vertical-align:middle">Tên sản phẩm</th>
+                                    <th width="15%" style="vertical-align:middle">ĐVT</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+           
+            <div class="tab-pane" id="list-gift-redeem">
+                <div class="card-body-custom">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="row">
+                            <div class="col-lg-5 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold">Từ khóa</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control" id="txt-text-search-gift-redeem" name="TextSearchGiftRedeem" placeholder="Nhập mã sản phẩm / tên sản phẩm...">
+                                </div>
+                            </div>
+
+                            @*<div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold">Trạng thái</label>
+                                <div class="input-group">
+                                    <select class="form-control select2" id="sel-status-gift-redeem" name="StatusGiftRedeem">
+                                        <option value="">Tất cả</option>
+                                        <option value="1" selected>Có hiệu lực</option>
+                                        <option value="2">Chưa áp dụng</option>
+                                        <option value="0">Hết hiệu lực</option>
+                                    </select>
+                                </div>
+                            </div>*@
+
+                            <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                <button type="button" id="btn-search-item-gift-redeem" class="btn btn-primary"><i class="fa fa-search"></i>Tìm kiếm</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;"></div>
+
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <table id="tbl-list-item-gift-redeem" class="table table-bordered table-hover tbl-list-item-gift-redeem" style="width: 100%">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th width="3%">
+                                        <input type="checkbox" class="cusor" name="CheckAllGiftRedeem" id="check-all-item-gift-redeem-list" data-toggle="tooltip" data-placement="top" title="Chọn tất cả">
+                                    </th>
+                                    <th width="10%" style="vertical-align:middle">STT</th>
+                                    <th width="20%" style="vertical-align:middle">ID</th>
+                                    <th width="20%" style="vertical-align:middle">Mã sản phẩm</th>
+                                    <th width="52%" style="vertical-align:middle">Tên sản phẩm</th>
+                                    <th width="15%" style="vertical-align:middle">ĐVT</th>
+                                    <th width="15%" style="vertical-align:middle">Điểm quy đổi</th>
+                                    <th width="15%" style="vertical-align:middle">Hiệu lực từ ngày</th>
+                                    <th width="15%" style="vertical-align:middle">Hiệu lực đến ngày</th>
+                                    <th width="15%" style="vertical-align:middle">Pkey</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+</div>
+
+<!-- Footer -->
+<div class="modal-footer">
+    <button type="button" class="btn btn-skype" id="btn-modal-create-set-up-loyalty"><i class="la la-save"></i>Lưu lại</button>
+    <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal" id="btn-close-modal-create-set-up-loyalty"><i class="la la-close"></i>Đóng</button>
+</div>
+
+
+<script type="text/javascript">
+
+    var fromDate = '@fromDate';
+    var toDate = '@toDate';
+    var clubCode = '@clubCode';
+    var pointRedeem = '@pointRedeem';
+
+    function GetDataRowProductList() {
+
+        var data = [];
+
+        $('#tbl-product-list tbody').find('input[type="checkbox"]:checked').each(function () {
+            var item = {};
+            var _itemNo = $(this).parents('tr').find('td:nth-child(3)').find('span:nth-child(1)').html();
+            if (_itemNo != null && _itemNo != "") {
+                item['ItemNo'] = $(this).parents('tr').find('td:nth-child(3)').find('span:nth-child(1)').html();
+                data.push(item);
+            }
+        });
+
+        return data;
+    };
+
+    function CreateSetupLoyaltyTabItem() {
+        //debugger
+        var listItem = GetDataRowProductList();
+        if (listItem == null || listItem.length == 0) {
+            toastr.error('Không có thông tin để lưu. Vui lòng kiểm tra lại');
+            return;
+        }
+
+        var _pointRedeem = pointRedeem.replace(/\,/g, '');
+
+        loading.showloading();
+        $.ajax({
+            url: '@Url.Action("CreateSetupLoyalty", "SetupLoyalty")',
+            type: "POST",
+            dataType: "json",
+            data: {
+                FromDateStr: fromDate,
+                ToDateStr: toDate,
+                ClubCode: clubCode,
+                PointStr: _pointRedeem,
+                ItemNoStr: JSON.stringify(listItem)
+            },
+            success: function (data) {
+                //debugger
+                loading.hideloading();
+                if (data.Status == 1) {
+                    toastr.success(data.Message);
+                    $('#tbl-product-list').DataTable().ajax.reload();
+                    $('#check-all-item-list').prop('checked', false);
+                    $('#btn-search-setup-loyalty').trigger('click');
+                }
+                else if (data.Status == 2) {
+                    toastr.error(data.Message);
+                }
+                else if (data.Status == 3) {
+                    toastr.error(data.Message);
+                }
+                else if (data.Status == 4) {
+                    toastr.error(data.Message);
+                }
+            },
+            error: function (data) {
+                loading.hideloading();
+                toastr.error('Lỗi hệ thống');
+            }
+        });
+    }
+
+    function GetDataRowGiftRedeemList() {
+        var data = [];
+        $('#tbl-list-item-gift-redeem tbody').find('input[type="checkbox"]:checked').each(function () {
+            var item = {};
+            var _itemNo = $(this).parents('tr').find('td:nth-child(4)').find('span:nth-child(1)').html();
+            if (_itemNo != null && _itemNo != "") {
+                item['ItemNo'] = $(this).parents('tr').find('td:nth-child(4)').find('span:nth-child(1)').html();
+                item['FromDate'] = $(this).parents('tr').find('td:nth-child(8)').html();
+                item['ToDate'] = $(this).parents('tr').find('td:nth-child(9)').html();
+                item['Pkey'] = $(this).parents('tr').find('td:nth-child(10)').find('span:nth-child(1)').html();
+                data.push(item);
+            }
+        });
+
+        return data;
+    };
+
+
+    function CreateSetupLoyaltyTabGiftRedeem() {
+        //debugger
+        var listItem = GetDataRowGiftRedeemList();
+        if (listItem == null || listItem.length == 0) {
+            toastr.error('Không có thông tin để lưu. Vui lòng kiểm tra lại');
+            return;
+        }
+        var _pointRedeem = pointRedeem.replace(/\,/g, '');
+        loading.showloading();
+
+        $.ajax({
+            url: '@Url.Action("CreateSetupLoyaltyForTabGiftRedeem", "SetupLoyalty")',
+            type: "POST",
+            dataType: "json",
+            data: {
+                FromDateStr: fromDate,
+                ToDateStr: toDate,
+                PointStr: _pointRedeem,
+                ListItemStr: JSON.stringify(listItem)
+            },
+            success: function (data) {
+                //debugger
+                loading.hideloading();
+                if (data.Status == 1)
+                {
+                    toastr.success(data.Message);
+                    $('#tbl-list-item-gift-redeem').DataTable().ajax.reload();
+                    $('#check-pkey-gift-redeem').prop('checked', false);
+                    $('#btn-search-setup-loyalty').trigger('click');
+                }
+                else if (data.Status == 2)
+                {
+                    toastr.error(data.Message);
+                }
+                else if (data.Status == 3)
+                {
+                    toastr.error(data.Message);
+                }
+                else if (data.Status == 4)
+                {
+                    toastr.error(data.Message);
+                }
+            },
+            error: function (data) {
+                loading.hideloading();
+                toastr.error('Lỗi hệ thống');
+            }
+        });
+    }
+
+    activaTab('list-item-no');
+    function activaTab(tab) {
+        //debugger
+        var tab = "";
+        tab = $('.nav-tabs .nav-item a[href="#' + tab + '"]').tab('show');
+        return tab;
+    };
+
+
+    $(document).ready(function () {
+        var table_item_list = "";
+        var table_item_gift_redeem_list = "";
+        $(".select2").select2();
+
+        $('#check-all-item-list').change(function () {
+            if (this.checked) {
+                $('#tbl-product-list .check-item-no').prop('checked', true);
+            }
+            else {
+                $('#tbl-product-list .check-item-no').prop('checked', false);
+            }
+        });
+
+        $('#check-all-item-gift-redeem-list').change(function () {
+            if (this.checked) {
+                $('#tbl-list-item-gift-redeem .check-pkey-gift-redeem').prop('checked', true);
+            }
+            else {
+                $('#tbl-list-item-gift-redeem .check-pkey-gift-redeem').prop('checked', false);
+            }
+        });
+
+        $('.example-preview .nav-tabs li a').click(function () {
+            $("#tbl-product-list").DataTable().ajax.reload();
+            $("#tbl-list-item-gift-redeem").DataTable().ajax.reload();
+        });
+
+
+        $('#btn-modal-create-set-up-loyalty').on('click', function (e) {
+            debugger
+            var id = $('#tabs_gift_redeem').find('li a.active').attr('id')
+            if (id == "tab-item-list")
+            {
+                // TH: insert
+                CreateSetupLoyaltyTabItem();
+            }
+            else if (id == "tab-gift-redeem-list")
+            {
+                // TH: update
+                CreateSetupLoyaltyTabGiftRedeem();
+            }    
+        });
+
+        $("#btn-search-item").click(function () {
+            table_item_list.draw();
+        });
+
+        $("#btn-search-item-gift-redeem").click(function () {
+            table_item_gift_redeem_list.draw();
+        });
+
+        table_item_list = $('#tbl-product-list').DataTable({
+            select: {
+                style: 'single'
+            },
+
+            dom: '<"top"iflp<"clear">>rt',
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false,
+            serverSide: true,
+            filter: false,
+            orderMulti: false,
+            autoWidth: true,
+            ordering: false,
+            displayLength: 9,
+            searching: false,
+            lengthChange: false,
+
+            ajax: {
+                url: '@Url.Action("LoadProductList", "SetupLoyalty")',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    d.TextSearch = $('#txt-text-search').val();
+                }
+            },
+
+            columns: [
+                {
+                    data: "ItemNo",
+                    width: '3%',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var _itemNo = row.ItemNo;
+                        var html = '<td style="font-weight:400;text-align:center;padding-top:20px;"><input type="checkbox"  data-item-no="' + _itemNo + '"  class="cusor check-item-no"  name="CheckItemNo"></td>';
+                        return html;
+                    }
+                },
+
+                {
+                    data: "ID",
+                    width: '10%',
+                    className: 'text-center',
+                    render: function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+
+                {
+                    data: "ItemNo",
+                    width: '20%',
+                    className: 'text-center',
+                    render: function (data, type, row) {                   
+                        var html = '<span style="font-weight:700;">' + row.ItemNo + '</span>';
+                        return html;
+                    }
+                },
+
+                {
+                    data: "ItemName",
+                    width: '52%',
+                    className: 'text-left'
+                },
+
+                {
+                    data: "SalesUnitOfMeasure",
+                    width: '15%',
+                    className: 'text-center'
+                }
+            ]
+
+        }).on('processing.dt', function (e, settings, processing) {
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+        });
+
+        table_item_gift_redeem_list = $('#tbl-list-item-gift-redeem').DataTable({
+
+            select: {
+                style: 'single'
+            },
+
+            dom: '<"top"iflp<"clear">>rt',
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false,
+            serverSide: true,
+            filter: false,
+            orderMulti: false,
+            autoWidth: true,
+            ordering: false,
+            displayLength: 9,
+            searching: false,
+            lengthChange: false,
+
+            ajax: {
+                url: '@Url.Action("GetItemGiftRedeemList", "SetupLoyalty")',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    d.TextSearch = $('#txt-text-search-gift-redeem').val();
+                }
+            },
+
+            columns: [
+                {
+                    data: "ItemNo",
+                    width: '3%',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var _itemNo = row.ItemNo;
+                        var _pkey = row.Pkey;
+                        var html = '<td style="font-weight:400;text-align:center;padding-top:20px;"><input type="checkbox"  data-item-no="' + _itemNo + '"  data-pkey="' + _pkey + '"  class="cusor check-pkey-gift-redeem"  name="CheckPkeyGiftRedeem"></td>';
+                        return html;
+                    }
+                },
+
+                {
+                    data: "ID",
+                    width: '10%',
+                    className: 'text-center',
+                    render: function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+
+                {
+                    data: "ID",
+                    width: '10%',
+                    className: 'text-center'
+                },
+
+                {
+                    data: "ItemNo",
+                    width: '20%',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var html = '<span style="font-weight:700;">' + row.ItemNo + '</span>';
+                        return html;
+                    }
+                },
+
+                {
+                    data: "ItemName",
+                    width: '52%',
+                    className: 'text-left'
+                },
+
+                {
+                    data: "SalesUnitOfMeasure",
+                    width: '15%',
+                    className: 'text-center'
+                },
+
+                {
+                    data: "PointRedeem",
+                    width: '15%',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var html = '<span style="font-weight:400;">' + row.PointRedeem + '</span>';
+                        return html;
+                    }
+                },
+
+                {
+                    data: "FromDateStr",
+                    width: '15%',
+                    className: 'text-center'
+                },
+
+                {
+                    data: "ToDateStr",
+                    width: '15%',
+                    className: 'text-center'
+                },
+
+                {
+                    data: "Pkey",
+                    width: '15%',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var html = '<span style="font-weight:400;">' + row.Pkey + '</span>';
+                        return html;
+                    }
+                }
+            ]
+
+        }).on('processing.dt', function (e, settings, processing) {
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+        });
+
+    });
+
+
+</script>
+
+
+<style>
+    .btn.btn-icon {
+        display: -webkit-inline-box;
+        display: -ms-inline-flexbox;
+        display: inline-flex;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        padding: 0;
+        height: calc(0.5em + 1rem + 1.5px);
+        width: calc(0.5em + 1rem + 1.5px);
+    }
+
+    .hide_column {
+        display: none;
+    }
+
+    input[type=checkbox] {
+        position: relative;
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+    }
+
+    input[type=checkbox]:before {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 0;
+            left: 0;
+            /*background-color: #e9e9e9;*/
+    }
+
+    input[type=checkbox]:checked:before {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 0;
+            left: 0;
+            background-color: #1E80EF;
+    }
+
+    input[type=checkbox]:checked:after {
+            content: "";
+            display: block;
+            width: 8px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            -webkit-transform: rotate(45deg);
+            -ms-transform: rotate(45deg);
+            transform: rotate(45deg);
+            position: absolute;
+            top: 2px;
+            left: 6px;
+    }
+
+    .card-body-custom {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem !important;
+    }
+
+</style>
+
+

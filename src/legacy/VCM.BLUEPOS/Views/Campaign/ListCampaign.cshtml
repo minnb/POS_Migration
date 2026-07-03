@@ -1,0 +1,602 @@
+﻿@using VCM.BLUEPOS.Model.Common;
+@using VCM.BLUEPOS.Model.Campaign;
+
+@{
+    ViewBag.Title = "Quản lý CTKM";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listOfferType = ViewBag.ListOfferType as List<GetOfferTypeModel>;
+
+}
+
+
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đối tác</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Chương trình khuyến mãi</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    @using (Html.BeginForm("ExportExcelGetListCampaign", "Campaign", FormMethod.Get, new { @id = "frm-export-excel" }))
+    {
+        <input type="hidden" id="exportFromDate" name="FromDate" />
+        <input type="hidden" id="exportToDate" name="ToDate" />
+        <input type="hidden" id="exportMerchantID" name="MerchantID" />
+        <input type="hidden" id="exportSearchText" name="SearchText" />
+    }
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label style="font-weight:600 !important;">Loại dịch vụ</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="filter-merchantId" name="merchantId">
+                                        <option value="GRABFOOD" selected>GRABFOOD</option>
+                                        <option value="BEFOOD">BEFOOD</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            @*<div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important;">Từ ngày</label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-from-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-from-date" name="TxtFromDate" placeholder="Từ ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label style="font-weight:600 !important">Đến ngày</label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-to-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-to-date" name="TxtToDate" placeholder="Đến ngày">
+                                        </div>
+                                    </div>
+                                </div>*@
+
+                                <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Loại CTKM</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-offer-type" name="OfferType">
+                                            @if (listOfferType != null && listOfferType.Count > 0)
+                                            {
+                                                <option value="">Tất cả</option>
+                                                foreach (var item in listOfferType)
+                                                {
+                                                    var displaySelect = $"{item.OfferType} : {item.OfferName}";
+                                                    <option value="@item.OfferType">@displaySelect</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-status-campaign" name="StatusCampaign">
+                                            <option value="">Tất cả</option>
+                                            <option value="0" selected>Có hiệu lực</option>
+                                            <option value="1">Hết hiệu lực</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12 form-group mb-3">
+                                    <label for="filterSearchText" class="form-label required">Từ khóa</label>
+                                    <input type="text" class="form-control" id="filter-SearchText" name="filterSearchText" placeholder="Nhập mã CTKM hoặc cửa hàng">
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary" name="btnSearch"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-header justify-content-end align-items-center p-4">
+                        <button type="button" class="btn btn-success" title="Thêm hạn mức" id="create-button">
+                            <i class="fa fa-plus me-1"></i>Thêm mới
+                        </button>
+                    </div>
+                    <div class="card-body" style="overflow-x:auto">
+                        <table id="tbl-barcode-list" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr style="text-transform:uppercase;text-align:center;">
+                                    <th></th>
+                                    <th>Stt</th>
+                                    <th>Loại dịch vụ</th>
+                                    <th>Mã campaign</th>
+                                    <th>Mã offerNo SAP (nếu có)</th>
+                                    <th>Loại CTKM</th>
+                                    <th>Ngày giờ áp dụng</th>
+                                    <th>Ngày giờ hết hạn</th>
+                                    <th>Tên món</th>
+                                    <th>Diễn giải</th>
+                                    <th>Giá trị của combo</th>
+                                    <th>Số tiền giảm giá của combo</th>
+                                    <th>Tất cả Cửa hàng</th>
+                                    <th>Người tạo</th>
+                                    <th>Ngày giờ tạo</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr>
+                                    <td>
+                                        <button></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="modal-create-campaign" tabindex="-1" role="dialog" aria-hidden="false">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="dialog">
+        <div class="modal-content border-success">
+            <div class="modal-header text-white">
+                <h5 class="modal-title" id="addCampaignModalLabel">Thêm Mới Campaign Combo</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-create-campaign-body m-3">
+                    @Html.Partial("_CreateCampaign")
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn text-white" style="background-color: #0C713D" id="btn-save-create-campaign">Lưu Campaign</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-copy-campaign" tabindex="-1" aria-labelledby="addCampaignModalLabel" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-success">
+            <div class="modal-header text-white">
+                <h5 class="modal-title" id="addCampaignModalLabel">Copy Campaign - Mã <span id="copy-sub-text-title"></span></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-copy-campaign-body m-3">
+                    <input type="text" class="form-control" id="copy-objectID" hidden>
+                    <input type="text" class="form-control" id="copy-offerType" hidden>
+                    @Html.Partial("_CopyCampaign")
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn text-white" style="background-color: #0C713D" id="btn-save-copy-campaign">Lưu</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-view-campaign" tabindex="-1" aria-labelledby="addCampaignModalLabel" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-success">
+            <div class="modal-header text-white">
+                <h5 class="modal-title" id="addCampaignModalLabel">Chi tiết Campaign Combo</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-view-campaign-body m-3">
+                    <input type="text" class="form-control" id="view-objectID" hidden>
+                    @Html.Partial("_ViewCampaign")
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn text-white" style="background-color: #0C713D" id="btn-copy-view-campaign">Copy</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .me-2 {
+        margin-right: 5px;
+    }
+
+    .ms-2 {
+        margin-left: 5px;
+    }
+
+    .icon-action {
+        padding: 0 !important;
+    }
+</style>
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            $('#txt-from-date').val(moment().format('YYYY-MM-DD'));
+            $('#txt-from-date').datepicker(
+                {
+                    format: 'yyyy-mm-dd',
+                    autoUpdateInput: false,
+                    todayHighlight: true,
+                    singleDatePicker: true,
+                    autoclose: true
+                });
+
+            $('#txt-to-date').val(moment().format('YYYY-MM-DD'));
+            $('#txt-to-date').datepicker(
+                {
+                    format: 'yyyy-mm-dd',
+                    autoUpdateInput: false,
+                    todayHighlight: true,
+                    singleDatePicker: true,
+                    autoclose: true
+                });
+
+            function getDateStr(dateStr) {
+                var result = "";
+                if (dateStr != null || dateStr != "") {
+                    result = dateStr.split('-')[0] + "" + dateStr.split('-')[1] + "" + dateStr.split('-')[2];
+                }
+                else {
+                    result = "";
+                }
+                return result;
+            };
+
+            $('#create-button').on('click', function (e) {
+                $('#modal-create-campaign').modal('show');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                var data = {
+                    MerchantID: $('#filter-merchantId').val(),
+                    //FromDate: $('#txt-from-date').val(),
+                    //ToDate: $('#txt-to-date').val(),
+                    OfferType: $('#sel-offer-type').val(),
+                    Status: $('#sel-status-campaign').val(),
+                    SearchText: $('#filter-SearchText').val(),
+                };
+
+                $.ajax({
+                    //url: "/Campaign/GetListCampaign",
+                    url: "/Campaign/GetListCampaignV2",  // 21/08/2025,tungnt8
+                    type: "POST",
+                    data: data,
+                    success: function (response) {
+                        if (response.Meta.Code == 200) {
+                            $('#table-body').html('');
+                            $.each(response.Data, function (index, item) {
+                                var clsCssSyncBtn = "";
+
+                                if (item.EnableSyncToGrap == false || item.EnableSyncToGrap == "false") {
+                                    clsCssSyncBtn = "d-none";
+                                }
+
+                                var status = "";
+
+                                if (item.IsSyncToGrab == true || item.IsSyncToGrab == "true") {
+                                    status = "Đã đồng bộ lên GRAP";
+                                }
+                                else {
+                                    if (item.EnableSyncToGrap == false || item.EnableSyncToGrap == "false") {
+                                        status = "Chưa đồng bộ (Chờ ít phút)";
+                                    }
+                                    else {
+                                        status = "Chờ đồng bộ lên GRAP";
+                                    }
+                                }
+
+                                $('#table-body').append(`
+                                        <tr>
+                                            <td>
+                                                <button
+                                                        type="button"
+                                                        class="btn btn-primary btn-view-campaign btn-sm ms-2"
+                                                        data-object-id="${item.ObjectIDs}"
+                                                        data-bs-toggle="tooltip" data-bs-placement="right"
+                                                        title="Chi tiết"
+                                                        style="min-width:35px">
+                                                        <i class="fa fa-info-circle icon-action"></i>
+                                                </button>
+                                                <button
+                                                        type="button"
+                                                        class="btn btn-primary btn-sync-campaign btn-sm ms-2 ${clsCssSyncBtn}"
+                                                        style= "background-color: #a74d14; border-color: #a74d14;"
+                                                        data-object-id="${item.ObjectIDs}"
+                                                        data-bs-toggle="tooltip" data-bs-placement="right"
+                                                        title="Đồng bộ"
+                                                        style="min-width:35px">
+                                                        <i class="fa fa-upload icon-action"></i>
+                                                </button>
+                                                <button
+                                                        type="button"
+                                                        class="btn btn-success btn-copy-campaign btn-sm ms-2"
+                                                        data-object-id="${item.ObjectIDs}"
+                                                        data-offer-type="${item.OfferType}"
+                                                        data-bs-toggle="tooltip" data-bs-placement="right"
+                                                        title="Copy"
+                                                        style="min-width:35px">
+                                                        <i class="fa fa-clone icon-action"></i>
+                                                </button>
+                                            </td>
+                                            <td>${index + 1}</td>
+                                            <td>${item.MerchantID}</td>
+                                            <td>${item.ObjectIDs}</td>
+                                            <td>${item.OfferNo}</td>
+                                            <td>${item.OfferType}</td>
+                                            <td>${item.StartTime}</td>
+                                            <td>${item.EndTime}</td>
+                                            <td>${item.Name}</td>
+                                            <td>${item.Description}</td>
+                                            <td>${item.Price.toLocaleString('vi-VN')}</td>
+                                            <td>${item.Value.toLocaleString('vi-VN')}</td>
+                                            <td>${item.IsAllStoreStr}</td>
+                                            <td>${item.CrtUser}</td>
+                                            <td>${item.CrtDate}</td>
+                                            <td>${status}</td>
+                                        </tr>
+                                    `);
+                            });
+
+                            $('.btn-view-campaign').on('click', function () {
+                                var object_id = $(this).attr('data-object-id');
+                                $('#view-objectID').val(object_id);
+                                $('#modal-view-campaign').modal('show');
+                            });
+
+                            $('.btn-sync-campaign').on('click', function () {
+
+                                var divHTML = '<div id=\"div-date-sync-change\">'
+                                divHTML += '<div style=\"text-align:center;\">'
+                                divHTML += '<input type = \"checkbox\" class=\"form-control\" id =\"chk-date-sync-change\" name = \"ChkDateSyncChange\"  style=\"height:20px;width:20px;\">'
+                                divHTML += '<label style=\"margin-left: 25px;margin-top: -17px;float: left;\">Chọn thời gian (nếu muốn thay đổi)</label>'
+                                divHTML += '</div>'
+                                divHTML += '</div>'
+                                divHTML += '<div style=\"display:none;\" id=\"div-input-date-sync\">'
+                                divHTML += '<input type=\"datetime-local\" class=\"form-control\" id=\"txt-date-campaign_change\" name=\"DateCampaignChange\">'
+                                divHTML += '</div>';
+
+                                Swal.fire({
+                                    title: "Xác Nhận <br> Bạn có chắc chắn muốn đồng bộ không?",
+                                    type: "warning",
+                                    html: divHTML,
+                                    icon: "warning",
+                                    showCancelButton: true,
+                                    confirmButtonColor: "#3085d6",
+                                    cancelButtonColor: "#d33",
+                                    confirmButtonText: "Có",
+                                    cancelButtonText: "Không"
+
+                                    //input: "date",
+                                    //didOpen: () => {
+                                    //    const today = (new Date()).toISOString();
+                                    //    Swal.getInput().min = today.split("T")[0];
+                                    //}
+
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        var object_id = $(this).attr('data-object-id');
+                                        var date_campaign_change = $('#txt-date-campaign_change').val();
+                                        var date_campaign_sync = date_campaign_change.split("T")[0] + ' ' + date_campaign_change.split("T")[1]; // Vd: 2025-08-15 09:30
+
+                                        var today = getDateStr((new Date()).toISOString().split("T")[0]);
+                                        var date_campaign_check = getDateStr(date_campaign_change.split("T")[0]);
+
+                                        if (date_campaign_sync != null) {
+                                            if (date_campaign_check < today || date_campaign_check == today) {
+                                                toastr.error("Thời gian thay đổi phải lớn hơn thời gian hiện tại");
+                                                return;
+                                            }
+                                        }
+                                        else {
+                                            date_campaign_sync = "";
+                                        }
+
+                                        $.ajax({
+                                            url: "/Campaign/SyncCampaignV2",
+                                            type: "POST",
+                                            data: { objectId: object_id, date_campaign: date_campaign_sync },
+                                            success: function (response) {
+                                                if (response.Meta.Code == 200) {
+                                                    toastr.success(response.Meta.Message, { showMethod: "fadeIn", hideMethod: "fadeOut", timeOut: 2000 });
+                                                    $("#btn-search").trigger('click');
+                                                } else {
+                                                    toastr.error(response.Meta.Message);
+                                                }
+                                            },
+                                            error: function (xhr, status, error) {
+                                                toastr.error("Lỗi hệ thống !", "Error");
+                                            }
+                                        });
+                                    }
+                                });
+
+
+                                $('#chk-date-sync-change').on('click', function () {
+                                    //debugger
+                                    var check = $('#chk-date-sync-change').prop('checked');
+                                    if (check == false) {
+                                        $("#div-input-date-sync").hide();
+                                    } else {
+                                        $("#div-input-date-sync").show();
+                                    }
+                                });
+
+                                // ---- Code cũ Huy  ----
+
+                                //Swal.fire({
+                                //    title: "Xác nhận",
+                                //    text: "Bạn có chắc chắn muốn đồng bộ không?",
+                                //    icon: "warning",
+                                //    showCancelButton: true,
+                                //    confirmButtonColor: "#3085d6",
+                                //    cancelButtonColor: "#d33",
+                                //    confirmButtonText: "Có",
+                                //    cancelButtonText: "Không"
+                                //}).then((result) => {
+                                //    if (result.isConfirmed) {
+                                //        var object_id = $(this).attr('data-object-id');
+                                //        $.ajax({
+                                //            url: "/Campaign/SyncCampaign",
+                                //            type: "POST",
+                                //            data: { objectId: object_id },
+                                //            success: function (response) {
+                                //                if (response.Meta.Code == 200) {
+                                //                    toastr.success(response.Meta.Message, { showMethod: "fadeIn", hideMethod: "fadeOut", timeOut: 2000 });
+                                //                    $("#btn-search").trigger('click');
+                                //                } else {
+                                //                    toastr.error(response.Meta.Message);
+                                //                }
+                                //            },
+                                //            error: function (xhr, status, error) {
+                                //                toastr.error("Lỗi hệ thống !", "Error");
+                                //            }
+                                //        });
+                                //    }
+                                //});
+
+                            });
+
+                            $('.btn-copy-campaign').on('click', function () {
+                                var object_id = $(this).attr('data-object-id');
+                                var offerType = $(this).attr('data-offer-type');
+                                $('#copy-objectID').val(object_id);
+                                $('#copy-sub-text-title').text(object_id);
+                                $('#copy-offerType').val(offerType);
+                                $('#modal-copy-campaign').modal('show');
+                            });
+                        }
+                        else {
+                            $('#table-body').html('<tr class="row-data-empty-payslipDetails"><td class= "text-center py-4" colspan = "14">Không có dữ liệu</td></tr>');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        toastr.error("Lỗi hệ thống !", "Error");
+                    }
+                });
+            });
+
+            // event create modal
+            $('#modal-create-campaign').modal({
+                backdrop: 'static',
+                keyboard: false,
+                show: false,
+            });
+
+            $('#modal-create-campaign').on('shown.bs.modal', function () {
+                InitModalCreate();
+            });
+
+            $('#modal-create-campaign').on('hidden.bs.modal', function () {
+                ClearModalCreate();
+            });
+
+            // event copy modal
+            $('#modal-copy-campaign').modal({
+                backdrop: 'static',
+                keyboard: false,
+                show: false,
+            });
+
+            $('#modal-copy-campaign').on('shown.bs.modal', function () {
+                InitModalCopy();
+            });
+
+            $('#modal-copy-campaign').on('hidden.bs.modal', function () {
+                ClearModalCopy();
+            });
+
+            // event view modal
+            $('#modal-view-campaign').modal({
+                backdrop: 'static',
+                keyboard: false,
+                show: false,
+            });
+
+            $('#modal-view-campaign').on('shown.bs.modal', function () {
+                InitModalView();
+            });
+
+            $('#modal-view-campaign').on('hidden.bs.modal', function () {
+                console.log('Modal view đã đóng');
+                ClearModalView();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                $('#exportFromDate').val($('#txt-from-date').val());
+                $('#exportToDate').val($('#txt-to-date').val());
+                $('#exportMerchantID').val($('#filter-merchantId').val());
+                $('#exportSearchText').val($('#filter-SearchText').val());
+                $('#frm-export-excel').submit();
+            });
+
+            $("#btn-search").trigger('click');
+
+        });
+
+    </script>
+
+    @Html.Partial("_CreateCampaignScript");
+    @Html.Partial("_CopyCampaignScript");
+    @Html.Partial("_ViewCampaignScript");
+
+}

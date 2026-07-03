@@ -1,0 +1,146 @@
+﻿
+@{
+
+    Layout = null;
+}
+@using VCM.BLUEPOS.Model.StoreActivities;
+@model ViewDetailEndShiftModel
+
+<!DOCTYPE html>
+<html lang="en" manifest="">
+<head>
+    <title>Tổng hợp kết ca</title>
+    @Styles.Render("~/Content/css")
+    <style>
+        table > tbody > tr {
+            line-height: 12px !important;
+        }
+    </style>
+
+    @{
+
+        //Thông tin ca
+
+        var userName = Model.infoStaff.UserName;
+        var fullName = Model.infoStaff.FullName;
+
+        var siteName = "";
+        var staffName = "";
+        var shiftName = "";
+        var dateWork = "";
+        var timeEndShift = "";
+        var beginAmount = 0.0;
+        var qtyCoupon = 0;
+        var qtyVoucher = 0;
+        var dtShift = Model.lstInfoShift;
+        if (dtShift != null && dtShift.Count > 0)
+        {
+            var data = dtShift.FirstOrDefault();
+            siteName = data.StoreNo + " - " + data.StoreName;
+            shiftName = data.ShiftCode;
+            staffName = data.StaffCode + " - " + data.LastName;
+            dateWork = data.BussinessDate.Value.ToString("dd/MM/yyyy");
+            timeEndShift = data.CloseShiftDate == null ? "" : data.CloseShiftDate.Value.ToString("HH:mm:ss");
+            beginAmount = (double)data.BeginAmount;
+            qtyCoupon = (int)data.QuantityCoupon;
+            qtyVoucher = (int)data.QuantityVoucher;
+        }
+
+
+    }
+</head>
+<body>
+    <section class="content">
+        <div class="container-fluid">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1" style="font-family:Arial !important">
+
+                <!-- title row -->
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <span class="float-left">
+                            ID của người dùng: @userName
+                            <br />
+                            Tên người dùng: @fullName
+                        </span>
+                        <span class="float-right">
+                            Ngày giờ: @DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")
+                            <br />@*Trang 1/1*@
+                        </span>
+                    </div>
+                    <!-- /.col -->
+                </div>
+                <!-- info row -->
+                <div class="row" style="clear:both;padding-top:20px;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+
+                        <h3 class="text-center text-uppercase" style="font-size:20px;font-weight:bold;margin-bottom:20px;">Tổng hợp kiểm kê thu hộ</h3>
+                        <span class="float-left">
+                            <strong>Cửa hàng:</strong> @siteName <br />
+                            <strong>Nhân viên:</strong> @staffName
+                        </span>
+                        <span class="float-right">
+                            <strong>
+                                Ngày làm việc:
+                            </strong> @dateWork
+                            <br /><strong>
+                                Thời gian kết thúc ca:
+                            </strong> @timeEndShift
+                            <br /><strong>Ca làm việc:</strong> @shiftName
+                        </span>
+                    </div>
+                </div>
+
+                <div class="row" style="clear:both;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <span class="float-left">
+                            <strong>Loại đơn vị tiền</strong>
+                        </span>
+                    </div>
+                </div>
+                <div class="row" style="padding-left:40px;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+
+                        @{
+                            var dataCash = Model.lstMoneyCash;
+                            if (dataCash.Count > 0)
+                            {
+                                <table class="table table-borderless">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:120px">Mô tả</th>
+                                            <th class="text-right">Lượt</th>
+                                            <th class="text-right">Số tiền</th>
+
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in dataCash)
+                                        {
+                                            <tr>
+                                                <td class="text-right">@string.Format("{0:N0}", int.Parse(item.CashCode))</td>
+                                                <td class="text-right">@string.Format("{0:N0}", item.CashQuantity)</td>
+                                                <td class="text-right">@string.Format("{0:N0}", item.CashAmount)</td>
+                                            </tr>
+                                        }
+                                        @{var totalCash = string.Format("{0:N0}", dataCash.Sum(d => d.CashAmount));}
+                                        <tr style="font-weight:bold;border-top:dotted 1px #808080;">
+                                            <td colspan="2" style="padding-left:25px;font-weight:bold">Tổng cộng</td>
+                                            <td class="text-right">@totalCash</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                            }
+                        }
+
+                    </div>
+                    <!-- /.col -->
+                </div>
+
+            </div>
+        </div>
+
+    </section>
+
+</body>
+</html>

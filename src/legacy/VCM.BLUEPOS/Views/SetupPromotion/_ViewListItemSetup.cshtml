@@ -1,0 +1,182 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var model = Model as ViewItemRequestModel;
+    var offerNo = model.OfferNo;
+    var lineNo = model.LineNo;  
+
+    var offerType = model.OfferType;
+    var conditionBuy = model.Condition;
+    var tabOffer = model.TabOffer;
+    var isTotalBill = model.IsTotalBill;
+    var isSetupGet = model.IsSetupGet;
+}
+<div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="">DANH SÁCH SẢN PHẨM</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <i aria-hidden="true" class="ki ki-close"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                        <input type="text" id="viewItemNo" class="form-control eventChangeItem" placeholder="Mã sản phẩm" />
+                    </div>
+
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                        <input type="text" id="viewItemName" class="form-control eventChangeItem" placeholder="Tên sản phẩm" />
+                    </div>
+                    @*<div class="col-lg-2 col-md-2 col-sm-5 col-xs-12">
+                        <button type="button" id="viewbtnSearch" class="btn btn-primary"><i class="fa fa-search"></i> Tìm</button>
+                    </div>*@
+                </div>
+
+                <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:10px;"></div>
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <table id="viewtblData" class="table table-bordered table-hover">
+                            <thead>
+                                <tr class="text-center">
+                                    <th>STT</th>
+                                    <th>ITEMNO</th>
+                                    <th>ITEMNAME</th>
+                                    <th>UOM</th>
+                                    <th>#</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    $(".select2").select2();
+    var table = "";
+    var offerNo = '@offerNo';
+    var lineNo = '@lineNo';
+    var tabOffer = '@tabOffer';
+    var isTotalBill = '@isTotalBill';
+    var isSetupGet = '@isSetupGet';
+    var conditionBuy = '@conditionBuy';
+    var offerType = '@offerType';
+  
+    $(document).ready(function () {
+
+        $("#viewbtnSearch").on("click", function () { table.draw(); });
+        $(".eventChangeItem").on("change", function () {
+            table.draw();
+        });
+        table = $('#viewtblData').DataTable({
+            dom: '<"top"iflp<"clear">>rt',
+            destroy: true,
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false, // for show progress bar
+            serverSide: true, // for process server side
+            filter: true, // this is for disable filter (search box)
+            orderMulti: false, // for disable multiple column at once
+            autoWidth: true,
+            ordering: false,
+            displayLength: 5,
+            searching: false,
+            lengthChange: false,
+            ajax: {
+                url: '@Url.Action("ListItemSetup", "SetupPromotion")',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    d.No = $("#viewItemNo").val();
+                    d.Description = $("#viewItemName").val();
+                }
+            },
+            drawCallback: function (settings) {
+                $(".radioChkItem").click(function () {
+
+
+                    var itemNo = $(this).attr("data-itemno");
+                    var desc = $(this).attr("data-description");
+                    var uom = $(this).attr("data-uom");
+
+                    //$(".itemBuy_" + offerNo + "_" + lineNo).val(itemNo);
+                    //$(".descBuy_" + offerNo + "_" + lineNo).html(desc);
+                    //$(".uomBuy_" + offerNo + "_" + lineNo).html(uom);
+
+                    var itemHidden = $(".itemHiddenBuy_" + offerNo + "_" + lineNo).val();
+                    var lineTypeHidden = $(".hiddenLineType_" + offerNo + "_" + lineNo).val();
+                    var lineType = $(".selectLineType_" + offerNo + "_" + lineNo).val();
+
+                    //var discountType = $(".selectDiscountType_" + offerNo + "_" + lineNo).val();
+                    //var discountValue = $(".txtDiscountValue_" + offerNo + "_" + lineNo).val().replace(/\,/g, '');
+                    var quantity = $(".txtQuantity_" + offerNo + "_" + lineNo).val();
+                    var scale = $(".selectScaleType_" + offerNo + "_" + lineNo).val();
+
+                    //if (discountType == 0) {
+                    //    if (parseInt(discountValue) > 100) {
+                    //        toastr.error("Phần trăm giảm vui lòng không nhập lớn hơn 100");
+                    //        return;
+                    //    }
+                    //}
+
+                    InsertUpdateOfferBuy(offerNo, offerType, conditionBuy, lineNo, lineType, lineTypeHidden, itemNo, itemHidden, desc, uom, quantity, scale, isTotalBill, isSetupGet);
+
+                });
+            },
+            columns: [
+                {
+                    data: "No",
+                    "className": "text-center",
+                    "render": function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+                {
+                    data: "No",
+                    className: 'text-center'
+
+                },
+                {
+                    data: "Description"
+
+                },
+                {
+                    data: "UOM",
+                    className: 'text-center'
+
+                },
+                {
+                    data: "No",
+                    render: function (data, type, full, meta) {
+                        var html = "";
+                        html += "<label class=\"radio radio-lg radio-rounded\">";
+                        html += "<input type=\"radio\" data-itemno='" + full.No + "' data-description='" + full.Description + "' data-uom='" + full.UOM + "' class=\"radioChkItem\" name=\"radioItem\" />";
+                        html += "<span></span>";
+                        html += "</label>";
+                        return html;
+                    },
+                    className: 'text-center'
+                }
+
+            ]
+        }).on('processing.dt', function (e, settings, processing) {
+
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+
+        });
+    });
+</script>

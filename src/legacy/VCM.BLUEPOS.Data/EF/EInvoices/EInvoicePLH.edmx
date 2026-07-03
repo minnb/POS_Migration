@@ -1,0 +1,895 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+      <Schema Namespace="EInvoicePLHModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Branch">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="BranchNo" Type="varchar" MaxLength="50" />
+          <Property Name="BranchName" Type="nvarchar" MaxLength="500" />
+          <Property Name="Address" Type="nvarchar" MaxLength="500" />
+          <Property Name="CompTaxCode" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxAccName" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxAccPass" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxWSName" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxWSPass" Type="varchar" MaxLength="50" />
+          <Property Name="URL" Type="varchar" MaxLength="500" />
+          <Property Name="CreateDate" Type="datetime" />
+          <Property Name="LastUpdate" Type="datetime" />
+          <Property Name="BranchNoWCM" Type="varchar" MaxLength="20" />
+        </EntityType>
+        <EntityType Name="EODCreatedInvoice">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="BusinessDateCode" Type="varchar" MaxLength="50" />
+          <Property Name="BusinessDate" Type="date" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="20" />
+          <Property Name="Key" Type="varchar" MaxLength="50" />
+          <Property Name="DocumentNo" Type="varchar" MaxLength="50" />
+          <Property Name="IsCompleted" Type="bit" />
+          <Property Name="CreateDate" Type="datetime" />
+          <Property Name="UpdatedDate" Type="datetime" />
+          <Property Name="VATRate" Type="int" />
+          <Property Name="ObjID" Type="varchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="InvoiceHeaderEOD">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="DocumentNo" Type="varchar" MaxLength="50" />
+          <Property Name="Key" Type="varchar" MaxLength="50" />
+          <Property Name="Salt" Type="varchar" MaxLength="10" />
+          <Property Name="Type" Type="varchar" MaxLength="1" />
+          <Property Name="InvoicePattern" Type="varchar" MaxLength="20" />
+          <Property Name="SerialNo" Type="varchar" MaxLength="20" />
+          <Property Name="InvoiceNo" Type="varchar" MaxLength="8" />
+          <Property Name="OrderNo" Type="varchar" MaxLength="20" />
+          <Property Name="OrderDate" Type="date" />
+          <Property Name="CusCode" Type="varchar" MaxLength="50" />
+          <Property Name="CusName" Type="nvarchar" MaxLength="200" />
+          <Property Name="CusCom" Type="nvarchar" MaxLength="200" />
+          <Property Name="CusAddress" Type="nvarchar" MaxLength="300" />
+          <Property Name="CusPhone" Type="varchar" MaxLength="50" />
+          <Property Name="CusTaxCode" Type="varchar" MaxLength="50" />
+          <Property Name="PaymentMethod" Type="nvarchar" MaxLength="200" />
+          <Property Name="GrossValueNonTax" Type="float" Nullable="false" />
+          <Property Name="GrossValue" Type="float" Nullable="false" />
+          <Property Name="VatAmount0" Type="float" Nullable="false" />
+          <Property Name="GrossValue0" Type="float" Nullable="false" />
+          <Property Name="VatAmount5" Type="float" Nullable="false" />
+          <Property Name="GrossValue5" Type="float" Nullable="false" />
+          <Property Name="VatAmount10" Type="float" Nullable="false" />
+          <Property Name="GrossValue10" Type="float" Nullable="false" />
+          <Property Name="Total" Type="float" Nullable="false" />
+          <Property Name="VATRate" Type="float" Nullable="false" />
+          <Property Name="VATAmount" Type="float" Nullable="false" />
+          <Property Name="Amount" Type="float" Nullable="false" />
+          <Property Name="AmountInWords" Type="nvarchar" MaxLength="255" />
+          <Property Name="ArisingDate" Type="date" />
+          <Property Name="EmailDeliver" Type="varchar" MaxLength="100" />
+          <Property Name="SMSDeliver" Type="varchar" MaxLength="50" />
+          <Property Name="VinTich" Type="int" Nullable="false" />
+          <Property Name="VinTieu" Type="int" Nullable="false" />
+          <Property Name="VinTraLai" Type="nvarchar" MaxLength="250" />
+          <Property Name="Extra" Type="nvarchar" MaxLength="200" />
+          <Property Name="Extra1" Type="nvarchar" MaxLength="300" />
+          <Property Name="BusinessDate" Type="date" />
+          <Property Name="CusBankNo" Type="varchar" MaxLength="50" />
+          <Property Name="CusBankName" Type="nvarchar" MaxLength="200" />
+          <Property Name="Extra2" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra3" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra4" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra5" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra6" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra7" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra8" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra9" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra10" Type="nvarchar" MaxLength="300" />
+          <Property Name="TotalAmuontNonVAT" Type="float" Nullable="false" />
+          <Property Name="TotalAmuont0" Type="float" Nullable="false" />
+          <Property Name="TotalAmuont5" Type="float" Nullable="false" />
+          <Property Name="TotalAmuont10" Type="float" Nullable="false" />
+          <Property Name="ETaxAccName" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxAccPass" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxWName" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxWSPass" Type="varchar" MaxLength="50" />
+          <Property Name="BranchNo" Type="varchar" MaxLength="50" />
+          <Property Name="Fkey" Type="varchar" MaxLength="1000" />
+          <Property Name="FkeyListNext" Type="varchar" MaxLength="1000" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="50" />
+          <Property Name="IsCancel" Type="bit" />
+          <Property Name="InvoiceTypeNext" Type="varchar" MaxLength="10" />
+          <Property Name="Remark" Type="nvarchar" MaxLength="1000" />
+          <Property Name="InvoiceType" Type="varchar" MaxLength="10" />
+          <Property Name="InvoiceTypeName" Type="nvarchar" MaxLength="1000" />
+          <Property Name="IsEOD" Type="bit" />
+          <Property Name="SaltEncrypt" Type="varchar" MaxLength="100" />
+          <Property Name="CreateDate" Type="datetime" />
+          <Property Name="LastUpdate" Type="datetime" />
+          <Property Name="IsSigned" Type="bit" />
+          <Property Name="IsCreateXMLFile" Type="bit" />
+          <Property Name="IsUpload" Type="bit" />
+          <Property Name="Operator" Type="varchar" MaxLength="1" />
+          <Property Name="IsAllow" Type="bit" />
+          <Property Name="IsDelete" Type="bit" />
+          <Property Name="FileName" Type="varchar" MaxLength="1000" />
+          <Property Name="PublishLogID" Type="int" />
+          <Property Name="IsConvert" Type="bit" />
+          <Property Name="ConvertDate" Type="datetime" />
+          <Property Name="CancelDate" Type="datetime" />
+          <Property Name="NoseriCode" Type="varchar" MaxLength="50" />
+          <Property Name="VATNumber" Type="int" />
+          <Property Name="IsDummy" Type="bit" />
+          <Property Name="AppCode" Type="varchar" MaxLength="50" />
+          <Property Name="URL" Type="varchar" MaxLength="500" />
+          <Property Name="InvToken" Type="varchar" MaxLength="100" />
+          <Property Name="RefDocumentNo" Type="varchar" MaxLength="50" />
+          <Property Name="Result" Type="nvarchar" MaxLength="300" />
+          <Property Name="ObjectID" Type="varchar" MaxLength="50" />
+          <Property Name="VatAmount570" Type="float" />
+          <Property Name="GrossValue570" Type="float" />
+          <Property Name="VatAmount1070" Type="float" />
+          <Property Name="GrossValue1070" Type="float" />
+          <Property Name="VatAmount8" Type="float" />
+          <Property Name="GrossValue8" Type="float" />
+          <Property Name="TotalAmuont8" Type="float" />
+          <Property Name="status_received" Type="int" />
+          <Property Name="status_desc" Type="nvarchar" MaxLength="500" />
+        </EntityType>
+        <EntityType Name="InvoiceHeaderNormal">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="DocumentNo" Type="varchar" MaxLength="50" />
+          <Property Name="Key" Type="varchar" MaxLength="50" />
+          <Property Name="Salt" Type="varchar" MaxLength="10" />
+          <Property Name="Type" Type="varchar" MaxLength="1" />
+          <Property Name="InvoicePattern" Type="varchar" MaxLength="20" />
+          <Property Name="SerialNo" Type="varchar" MaxLength="20" />
+          <Property Name="InvoiceNo" Type="varchar" MaxLength="8" />
+          <Property Name="OrderNo" Type="varchar" MaxLength="20" />
+          <Property Name="OrderDate" Type="date" />
+          <Property Name="CusCode" Type="varchar" MaxLength="50" />
+          <Property Name="CusName" Type="nvarchar" MaxLength="200" />
+          <Property Name="CusCom" Type="nvarchar" MaxLength="200" />
+          <Property Name="CusAddress" Type="nvarchar" MaxLength="300" />
+          <Property Name="CusPhone" Type="varchar" MaxLength="50" />
+          <Property Name="CusTaxCode" Type="varchar" MaxLength="50" />
+          <Property Name="PaymentMethod" Type="nvarchar" MaxLength="200" />
+          <Property Name="GrossValueNonTax" Type="float" Nullable="false" />
+          <Property Name="GrossValue" Type="float" Nullable="false" />
+          <Property Name="VatAmount0" Type="float" Nullable="false" />
+          <Property Name="GrossValue0" Type="float" Nullable="false" />
+          <Property Name="VatAmount5" Type="float" Nullable="false" />
+          <Property Name="GrossValue5" Type="float" Nullable="false" />
+          <Property Name="VatAmount10" Type="float" Nullable="false" />
+          <Property Name="GrossValue10" Type="float" Nullable="false" />
+          <Property Name="Total" Type="float" Nullable="false" />
+          <Property Name="VATRate" Type="float" Nullable="false" />
+          <Property Name="VATAmount" Type="float" Nullable="false" />
+          <Property Name="Amount" Type="float" Nullable="false" />
+          <Property Name="AmountInWords" Type="nvarchar" MaxLength="255" />
+          <Property Name="ArisingDate" Type="date" />
+          <Property Name="EmailDeliver" Type="varchar" MaxLength="100" />
+          <Property Name="SMSDeliver" Type="varchar" MaxLength="50" />
+          <Property Name="VinTich" Type="int" Nullable="false" />
+          <Property Name="VinTieu" Type="int" Nullable="false" />
+          <Property Name="VinTraLai" Type="nvarchar" MaxLength="250" />
+          <Property Name="Extra" Type="nvarchar" MaxLength="200" />
+          <Property Name="Extra1" Type="nvarchar" MaxLength="300" />
+          <Property Name="BusinessDate" Type="date" />
+          <Property Name="CusBankNo" Type="varchar" MaxLength="50" />
+          <Property Name="CusBankName" Type="nvarchar" MaxLength="200" />
+          <Property Name="Extra2" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra3" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra4" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra5" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra6" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra7" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra8" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra9" Type="nvarchar" MaxLength="300" />
+          <Property Name="Extra10" Type="nvarchar" MaxLength="300" />
+          <Property Name="TotalAmuontNonVAT" Type="float" Nullable="false" />
+          <Property Name="TotalAmuont0" Type="float" Nullable="false" />
+          <Property Name="TotalAmuont5" Type="float" Nullable="false" />
+          <Property Name="TotalAmuont10" Type="float" Nullable="false" />
+          <Property Name="ETaxAccName" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxAccPass" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxWName" Type="varchar" MaxLength="50" />
+          <Property Name="ETaxWSPass" Type="varchar" MaxLength="50" />
+          <Property Name="BranchNo" Type="varchar" MaxLength="50" />
+          <Property Name="Fkey" Type="varchar" MaxLength="1000" />
+          <Property Name="FkeyListNext" Type="varchar" MaxLength="1000" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="50" />
+          <Property Name="IsCancel" Type="bit" />
+          <Property Name="InvoiceTypeNext" Type="varchar" MaxLength="10" />
+          <Property Name="Remark" Type="nvarchar" MaxLength="1000" />
+          <Property Name="InvoiceType" Type="varchar" MaxLength="10" />
+          <Property Name="InvoiceTypeName" Type="nvarchar" MaxLength="1000" />
+          <Property Name="IsEOD" Type="bit" />
+          <Property Name="SaltEncrypt" Type="varchar" MaxLength="100" />
+          <Property Name="CreateDate" Type="datetime" />
+          <Property Name="LastUpdate" Type="datetime" />
+          <Property Name="IsSigned" Type="bit" />
+          <Property Name="IsCreateXMLFile" Type="bit" />
+          <Property Name="IsUpload" Type="bit" />
+          <Property Name="Operator" Type="varchar" MaxLength="1" />
+          <Property Name="IsAllow" Type="bit" />
+          <Property Name="IsDelete" Type="bit" />
+          <Property Name="FileName" Type="varchar" MaxLength="1000" />
+          <Property Name="PublishLogID" Type="int" />
+          <Property Name="IsConvert" Type="bit" />
+          <Property Name="ConvertDate" Type="datetime" />
+          <Property Name="CancelDate" Type="datetime" />
+          <Property Name="NoseriCode" Type="varchar" MaxLength="50" />
+          <Property Name="VATNumber" Type="int" />
+          <Property Name="IsDummy" Type="bit" />
+          <Property Name="AppCode" Type="varchar" MaxLength="50" />
+          <Property Name="URL" Type="varchar" MaxLength="500" />
+          <Property Name="InvToken" Type="varchar" MaxLength="100" />
+          <Property Name="RefDocumentNo" Type="varchar" MaxLength="50" />
+          <Property Name="Result" Type="nvarchar" MaxLength="300" />
+          <Property Name="ObjectID" Type="varchar" MaxLength="50" />
+          <Property Name="VatAmount570" Type="float" />
+          <Property Name="GrossValue570" Type="float" />
+          <Property Name="VatAmount1070" Type="float" />
+          <Property Name="GrossValue1070" Type="float" />
+          <Property Name="VatAmount8" Type="float" />
+          <Property Name="GrossValue8" Type="float" />
+          <Property Name="TotalAmuont8" Type="float" />
+          <Property Name="status_received" Type="int" />
+          <Property Name="status_desc" Type="nvarchar" MaxLength="500" />
+        </EntityType>
+        <EntityType Name="StoreNoseriVAT">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="StoreNo" Type="varchar" MaxLength="50" />
+          <Property Name="ObjectID" Type="varchar" MaxLength="50" />
+          <Property Name="StoreName" Type="nvarchar" MaxLength="500" />
+          <Property Name="BranchNo" Type="varchar" MaxLength="50" />
+          <Property Name="NoseriCode" Type="varchar" MaxLength="50" />
+          <Property Name="InvoiceType" Type="varchar" MaxLength="10" />
+          <Property Name="CustNameDefault" Type="nvarchar" MaxLength="1000" />
+          <Property Name="Enabled" Type="bit" />
+          <Property Name="CreateDate" Type="datetime" />
+          <Property Name="LastUpdate" Type="datetime" />
+          <Property Name="Remark" Type="nvarchar" MaxLength="100" Nullable="false" />
+        </EntityType>
+        <EntityType Name="VatNumberFPT">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="CompTaxCode" Type="varchar" MaxLength="50" />
+          <Property Name="NoseriCode" Type="varchar" MaxLength="50" />
+          <Property Name="InvoicePattern" Type="varchar" MaxLength="20" />
+          <Property Name="SerialNo" Type="varchar" MaxLength="20" />
+          <Property Name="StartNumber" Type="varchar" MaxLength="8" />
+          <Property Name="EndNumber" Type="varchar" MaxLength="8" />
+          <Property Name="LastUsed" Type="varchar" MaxLength="8" />
+          <Property Name="Enabled" Type="bit" />
+          <Property Name="CreateDate" Type="datetime" />
+          <Property Name="LastUpdate" Type="datetime" />
+        </EntityType>
+        <EntityContainer Name="EInvoicePLHModelStoreContainer">
+          <EntitySet Name="Branch" EntityType="Self.Branch" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="EODCreatedInvoice" EntityType="Self.EODCreatedInvoice" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="InvoiceHeaderEOD" EntityType="Self.InvoiceHeaderEOD" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="InvoiceHeaderNormal" EntityType="Self.InvoiceHeaderNormal" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="StoreNoseriVAT" EntityType="Self.StoreNoseriVAT" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="VatNumberFPT" EntityType="Self.VatNumberFPT" Schema="dbo" store:Type="Tables" />
+        </EntityContainer>
+      </Schema>
+    </edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="EInvoicePLHModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="Branch">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="BranchNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="BranchName" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="Address" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="CompTaxCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxAccName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxAccPass" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxWSName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxWSPass" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="URL" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="CreateDate" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdate" Type="DateTime" Precision="3" />
+          <Property Name="BranchNoWCM" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="EODCreatedInvoice">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="BusinessDateCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="BusinessDate" Type="DateTime" Precision="0" />
+          <Property Name="StoreNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="Key" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="DocumentNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="IsCompleted" Type="Boolean" />
+          <Property Name="CreateDate" Type="DateTime" Precision="3" />
+          <Property Name="UpdatedDate" Type="DateTime" Precision="3" />
+          <Property Name="VATRate" Type="Int32" />
+          <Property Name="ObjID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+        </EntityType>
+        <EntityType Name="InvoiceHeaderEOD">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="DocumentNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Key" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Salt" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Type" Type="String" MaxLength="1" FixedLength="false" Unicode="false" />
+          <Property Name="InvoicePattern" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="SerialNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="InvoiceNo" Type="String" MaxLength="8" FixedLength="false" Unicode="false" />
+          <Property Name="OrderNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="OrderDate" Type="DateTime" Precision="0" />
+          <Property Name="CusCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CusName" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="CusCom" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="CusAddress" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="CusPhone" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CusTaxCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="PaymentMethod" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="GrossValueNonTax" Type="Double" Nullable="false" />
+          <Property Name="GrossValue" Type="Double" Nullable="false" />
+          <Property Name="VatAmount0" Type="Double" Nullable="false" />
+          <Property Name="GrossValue0" Type="Double" Nullable="false" />
+          <Property Name="VatAmount5" Type="Double" Nullable="false" />
+          <Property Name="GrossValue5" Type="Double" Nullable="false" />
+          <Property Name="VatAmount10" Type="Double" Nullable="false" />
+          <Property Name="GrossValue10" Type="Double" Nullable="false" />
+          <Property Name="Total" Type="Double" Nullable="false" />
+          <Property Name="VATRate" Type="Double" Nullable="false" />
+          <Property Name="VATAmount" Type="Double" Nullable="false" />
+          <Property Name="Amount" Type="Double" Nullable="false" />
+          <Property Name="AmountInWords" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="ArisingDate" Type="DateTime" Precision="0" />
+          <Property Name="EmailDeliver" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="SMSDeliver" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="VinTich" Type="Int32" Nullable="false" />
+          <Property Name="VinTieu" Type="Int32" Nullable="false" />
+          <Property Name="VinTraLai" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="Extra" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="Extra1" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="BusinessDate" Type="DateTime" Precision="0" />
+          <Property Name="CusBankNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CusBankName" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="Extra2" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra3" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra4" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra5" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra6" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra7" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra8" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra9" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra10" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="TotalAmuontNonVAT" Type="Double" Nullable="false" />
+          <Property Name="TotalAmuont0" Type="Double" Nullable="false" />
+          <Property Name="TotalAmuont5" Type="Double" Nullable="false" />
+          <Property Name="TotalAmuont10" Type="Double" Nullable="false" />
+          <Property Name="ETaxAccName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxAccPass" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxWName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxWSPass" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="BranchNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Fkey" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="FkeyListNext" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="StoreNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="IsCancel" Type="Boolean" />
+          <Property Name="InvoiceTypeNext" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Remark" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="InvoiceType" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="InvoiceTypeName" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="IsEOD" Type="Boolean" />
+          <Property Name="SaltEncrypt" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="CreateDate" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdate" Type="DateTime" Precision="3" />
+          <Property Name="IsSigned" Type="Boolean" />
+          <Property Name="IsCreateXMLFile" Type="Boolean" />
+          <Property Name="IsUpload" Type="Boolean" />
+          <Property Name="Operator" Type="String" MaxLength="1" FixedLength="false" Unicode="false" />
+          <Property Name="IsAllow" Type="Boolean" />
+          <Property Name="IsDelete" Type="Boolean" />
+          <Property Name="FileName" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="PublishLogID" Type="Int32" />
+          <Property Name="IsConvert" Type="Boolean" />
+          <Property Name="ConvertDate" Type="DateTime" Precision="3" />
+          <Property Name="CancelDate" Type="DateTime" Precision="3" />
+          <Property Name="NoseriCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="VATNumber" Type="Int32" />
+          <Property Name="IsDummy" Type="Boolean" />
+          <Property Name="AppCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="URL" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="InvToken" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="RefDocumentNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Result" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="ObjectID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="VatAmount570" Type="Double" />
+          <Property Name="GrossValue570" Type="Double" />
+          <Property Name="VatAmount1070" Type="Double" />
+          <Property Name="GrossValue1070" Type="Double" />
+          <Property Name="VatAmount8" Type="Double" />
+          <Property Name="GrossValue8" Type="Double" />
+          <Property Name="TotalAmuont8" Type="Double" />
+          <Property Name="status_received" Type="Int32" />
+          <Property Name="status_desc" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <EntityType Name="InvoiceHeaderNormal">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="DocumentNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Key" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Salt" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Type" Type="String" MaxLength="1" FixedLength="false" Unicode="false" />
+          <Property Name="InvoicePattern" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="SerialNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="InvoiceNo" Type="String" MaxLength="8" FixedLength="false" Unicode="false" />
+          <Property Name="OrderNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="OrderDate" Type="DateTime" Precision="0" />
+          <Property Name="CusCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CusName" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="CusCom" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="CusAddress" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="CusPhone" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CusTaxCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="PaymentMethod" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="GrossValueNonTax" Type="Double" Nullable="false" />
+          <Property Name="GrossValue" Type="Double" Nullable="false" />
+          <Property Name="VatAmount0" Type="Double" Nullable="false" />
+          <Property Name="GrossValue0" Type="Double" Nullable="false" />
+          <Property Name="VatAmount5" Type="Double" Nullable="false" />
+          <Property Name="GrossValue5" Type="Double" Nullable="false" />
+          <Property Name="VatAmount10" Type="Double" Nullable="false" />
+          <Property Name="GrossValue10" Type="Double" Nullable="false" />
+          <Property Name="Total" Type="Double" Nullable="false" />
+          <Property Name="VATRate" Type="Double" Nullable="false" />
+          <Property Name="VATAmount" Type="Double" Nullable="false" />
+          <Property Name="Amount" Type="Double" Nullable="false" />
+          <Property Name="AmountInWords" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="ArisingDate" Type="DateTime" Precision="0" />
+          <Property Name="EmailDeliver" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="SMSDeliver" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="VinTich" Type="Int32" Nullable="false" />
+          <Property Name="VinTieu" Type="Int32" Nullable="false" />
+          <Property Name="VinTraLai" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="Extra" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="Extra1" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="BusinessDate" Type="DateTime" Precision="0" />
+          <Property Name="CusBankNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="CusBankName" Type="String" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="Extra2" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra3" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra4" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra5" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra6" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra7" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra8" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra9" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Extra10" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="TotalAmuontNonVAT" Type="Double" Nullable="false" />
+          <Property Name="TotalAmuont0" Type="Double" Nullable="false" />
+          <Property Name="TotalAmuont5" Type="Double" Nullable="false" />
+          <Property Name="TotalAmuont10" Type="Double" Nullable="false" />
+          <Property Name="ETaxAccName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxAccPass" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxWName" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ETaxWSPass" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="BranchNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Fkey" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="FkeyListNext" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="StoreNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="IsCancel" Type="Boolean" />
+          <Property Name="InvoiceTypeNext" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="Remark" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="InvoiceType" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="InvoiceTypeName" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="IsEOD" Type="Boolean" />
+          <Property Name="SaltEncrypt" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="CreateDate" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdate" Type="DateTime" Precision="3" />
+          <Property Name="IsSigned" Type="Boolean" />
+          <Property Name="IsCreateXMLFile" Type="Boolean" />
+          <Property Name="IsUpload" Type="Boolean" />
+          <Property Name="Operator" Type="String" MaxLength="1" FixedLength="false" Unicode="false" />
+          <Property Name="IsAllow" Type="Boolean" />
+          <Property Name="IsDelete" Type="Boolean" />
+          <Property Name="FileName" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="PublishLogID" Type="Int32" />
+          <Property Name="IsConvert" Type="Boolean" />
+          <Property Name="ConvertDate" Type="DateTime" Precision="3" />
+          <Property Name="CancelDate" Type="DateTime" Precision="3" />
+          <Property Name="NoseriCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="VATNumber" Type="Int32" />
+          <Property Name="IsDummy" Type="Boolean" />
+          <Property Name="AppCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="URL" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="InvToken" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="RefDocumentNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="Result" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="ObjectID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="VatAmount570" Type="Double" />
+          <Property Name="GrossValue570" Type="Double" />
+          <Property Name="VatAmount1070" Type="Double" />
+          <Property Name="GrossValue1070" Type="Double" />
+          <Property Name="VatAmount8" Type="Double" />
+          <Property Name="GrossValue8" Type="Double" />
+          <Property Name="TotalAmuont8" Type="Double" />
+          <Property Name="status_received" Type="Int32" />
+          <Property Name="status_desc" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <EntityType Name="StoreNoseriVAT">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="StoreNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="ObjectID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="StoreName" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="BranchNo" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="NoseriCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="InvoiceType" Type="String" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="CustNameDefault" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="Enabled" Type="Boolean" />
+          <Property Name="CreateDate" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdate" Type="DateTime" Precision="3" />
+          <Property Name="Remark" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+        </EntityType>
+        <EntityType Name="VatNumberFPT">
+          <Key>
+            <PropertyRef Name="ID" />
+          </Key>
+          <Property Name="ID" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="CompTaxCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="NoseriCode" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="InvoicePattern" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="SerialNo" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="StartNumber" Type="String" MaxLength="8" FixedLength="false" Unicode="false" />
+          <Property Name="EndNumber" Type="String" MaxLength="8" FixedLength="false" Unicode="false" />
+          <Property Name="LastUsed" Type="String" MaxLength="8" FixedLength="false" Unicode="false" />
+          <Property Name="Enabled" Type="Boolean" />
+          <Property Name="CreateDate" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdate" Type="DateTime" Precision="3" />
+        </EntityType>
+        <EntityContainer Name="EInvoicePLHContainer" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Branches" EntityType="Self.Branch" />
+          <EntitySet Name="EODCreatedInvoices" EntityType="Self.EODCreatedInvoice" />
+          <EntitySet Name="InvoiceHeaderEODs" EntityType="Self.InvoiceHeaderEOD" />
+          <EntitySet Name="InvoiceHeaderNormals" EntityType="Self.InvoiceHeaderNormal" />
+          <EntitySet Name="StoreNoseriVATs" EntityType="Self.StoreNoseriVAT" />
+          <EntitySet Name="VatNumberFPTs" EntityType="Self.VatNumberFPT" />
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="EInvoicePLHModelStoreContainer" CdmEntityContainer="EInvoicePLHContainer">
+          <EntitySetMapping Name="Branches">
+            <EntityTypeMapping TypeName="EInvoicePLHModel.Branch">
+              <MappingFragment StoreEntitySet="Branch">
+                <ScalarProperty Name="ID" ColumnName="ID" />
+                <ScalarProperty Name="BranchNo" ColumnName="BranchNo" />
+                <ScalarProperty Name="BranchName" ColumnName="BranchName" />
+                <ScalarProperty Name="Address" ColumnName="Address" />
+                <ScalarProperty Name="CompTaxCode" ColumnName="CompTaxCode" />
+                <ScalarProperty Name="ETaxAccName" ColumnName="ETaxAccName" />
+                <ScalarProperty Name="ETaxAccPass" ColumnName="ETaxAccPass" />
+                <ScalarProperty Name="ETaxWSName" ColumnName="ETaxWSName" />
+                <ScalarProperty Name="ETaxWSPass" ColumnName="ETaxWSPass" />
+                <ScalarProperty Name="URL" ColumnName="URL" />
+                <ScalarProperty Name="CreateDate" ColumnName="CreateDate" />
+                <ScalarProperty Name="LastUpdate" ColumnName="LastUpdate" />
+                <ScalarProperty Name="BranchNoWCM" ColumnName="BranchNoWCM" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="EODCreatedInvoices">
+            <EntityTypeMapping TypeName="EInvoicePLHModel.EODCreatedInvoice">
+              <MappingFragment StoreEntitySet="EODCreatedInvoice">
+                <ScalarProperty Name="ID" ColumnName="ID" />
+                <ScalarProperty Name="BusinessDateCode" ColumnName="BusinessDateCode" />
+                <ScalarProperty Name="BusinessDate" ColumnName="BusinessDate" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="Key" ColumnName="Key" />
+                <ScalarProperty Name="DocumentNo" ColumnName="DocumentNo" />
+                <ScalarProperty Name="IsCompleted" ColumnName="IsCompleted" />
+                <ScalarProperty Name="CreateDate" ColumnName="CreateDate" />
+                <ScalarProperty Name="UpdatedDate" ColumnName="UpdatedDate" />
+                <ScalarProperty Name="VATRate" ColumnName="VATRate" />
+                <ScalarProperty Name="ObjID" ColumnName="ObjID" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="InvoiceHeaderEODs">
+            <EntityTypeMapping TypeName="EInvoicePLHModel.InvoiceHeaderEOD">
+              <MappingFragment StoreEntitySet="InvoiceHeaderEOD">
+                <ScalarProperty Name="ID" ColumnName="ID" />
+                <ScalarProperty Name="DocumentNo" ColumnName="DocumentNo" />
+                <ScalarProperty Name="Key" ColumnName="Key" />
+                <ScalarProperty Name="Salt" ColumnName="Salt" />
+                <ScalarProperty Name="Type" ColumnName="Type" />
+                <ScalarProperty Name="InvoicePattern" ColumnName="InvoicePattern" />
+                <ScalarProperty Name="SerialNo" ColumnName="SerialNo" />
+                <ScalarProperty Name="InvoiceNo" ColumnName="InvoiceNo" />
+                <ScalarProperty Name="OrderNo" ColumnName="OrderNo" />
+                <ScalarProperty Name="OrderDate" ColumnName="OrderDate" />
+                <ScalarProperty Name="CusCode" ColumnName="CusCode" />
+                <ScalarProperty Name="CusName" ColumnName="CusName" />
+                <ScalarProperty Name="CusCom" ColumnName="CusCom" />
+                <ScalarProperty Name="CusAddress" ColumnName="CusAddress" />
+                <ScalarProperty Name="CusPhone" ColumnName="CusPhone" />
+                <ScalarProperty Name="CusTaxCode" ColumnName="CusTaxCode" />
+                <ScalarProperty Name="PaymentMethod" ColumnName="PaymentMethod" />
+                <ScalarProperty Name="GrossValueNonTax" ColumnName="GrossValueNonTax" />
+                <ScalarProperty Name="GrossValue" ColumnName="GrossValue" />
+                <ScalarProperty Name="VatAmount0" ColumnName="VatAmount0" />
+                <ScalarProperty Name="GrossValue0" ColumnName="GrossValue0" />
+                <ScalarProperty Name="VatAmount5" ColumnName="VatAmount5" />
+                <ScalarProperty Name="GrossValue5" ColumnName="GrossValue5" />
+                <ScalarProperty Name="VatAmount10" ColumnName="VatAmount10" />
+                <ScalarProperty Name="GrossValue10" ColumnName="GrossValue10" />
+                <ScalarProperty Name="Total" ColumnName="Total" />
+                <ScalarProperty Name="VATRate" ColumnName="VATRate" />
+                <ScalarProperty Name="VATAmount" ColumnName="VATAmount" />
+                <ScalarProperty Name="Amount" ColumnName="Amount" />
+                <ScalarProperty Name="AmountInWords" ColumnName="AmountInWords" />
+                <ScalarProperty Name="ArisingDate" ColumnName="ArisingDate" />
+                <ScalarProperty Name="EmailDeliver" ColumnName="EmailDeliver" />
+                <ScalarProperty Name="SMSDeliver" ColumnName="SMSDeliver" />
+                <ScalarProperty Name="VinTich" ColumnName="VinTich" />
+                <ScalarProperty Name="VinTieu" ColumnName="VinTieu" />
+                <ScalarProperty Name="VinTraLai" ColumnName="VinTraLai" />
+                <ScalarProperty Name="Extra" ColumnName="Extra" />
+                <ScalarProperty Name="Extra1" ColumnName="Extra1" />
+                <ScalarProperty Name="BusinessDate" ColumnName="BusinessDate" />
+                <ScalarProperty Name="CusBankNo" ColumnName="CusBankNo" />
+                <ScalarProperty Name="CusBankName" ColumnName="CusBankName" />
+                <ScalarProperty Name="Extra2" ColumnName="Extra2" />
+                <ScalarProperty Name="Extra3" ColumnName="Extra3" />
+                <ScalarProperty Name="Extra4" ColumnName="Extra4" />
+                <ScalarProperty Name="Extra5" ColumnName="Extra5" />
+                <ScalarProperty Name="Extra6" ColumnName="Extra6" />
+                <ScalarProperty Name="Extra7" ColumnName="Extra7" />
+                <ScalarProperty Name="Extra8" ColumnName="Extra8" />
+                <ScalarProperty Name="Extra9" ColumnName="Extra9" />
+                <ScalarProperty Name="Extra10" ColumnName="Extra10" />
+                <ScalarProperty Name="TotalAmuontNonVAT" ColumnName="TotalAmuontNonVAT" />
+                <ScalarProperty Name="TotalAmuont0" ColumnName="TotalAmuont0" />
+                <ScalarProperty Name="TotalAmuont5" ColumnName="TotalAmuont5" />
+                <ScalarProperty Name="TotalAmuont10" ColumnName="TotalAmuont10" />
+                <ScalarProperty Name="ETaxAccName" ColumnName="ETaxAccName" />
+                <ScalarProperty Name="ETaxAccPass" ColumnName="ETaxAccPass" />
+                <ScalarProperty Name="ETaxWName" ColumnName="ETaxWName" />
+                <ScalarProperty Name="ETaxWSPass" ColumnName="ETaxWSPass" />
+                <ScalarProperty Name="BranchNo" ColumnName="BranchNo" />
+                <ScalarProperty Name="Fkey" ColumnName="Fkey" />
+                <ScalarProperty Name="FkeyListNext" ColumnName="FkeyListNext" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="IsCancel" ColumnName="IsCancel" />
+                <ScalarProperty Name="InvoiceTypeNext" ColumnName="InvoiceTypeNext" />
+                <ScalarProperty Name="Remark" ColumnName="Remark" />
+                <ScalarProperty Name="InvoiceType" ColumnName="InvoiceType" />
+                <ScalarProperty Name="InvoiceTypeName" ColumnName="InvoiceTypeName" />
+                <ScalarProperty Name="IsEOD" ColumnName="IsEOD" />
+                <ScalarProperty Name="SaltEncrypt" ColumnName="SaltEncrypt" />
+                <ScalarProperty Name="CreateDate" ColumnName="CreateDate" />
+                <ScalarProperty Name="LastUpdate" ColumnName="LastUpdate" />
+                <ScalarProperty Name="IsSigned" ColumnName="IsSigned" />
+                <ScalarProperty Name="IsCreateXMLFile" ColumnName="IsCreateXMLFile" />
+                <ScalarProperty Name="IsUpload" ColumnName="IsUpload" />
+                <ScalarProperty Name="Operator" ColumnName="Operator" />
+                <ScalarProperty Name="IsAllow" ColumnName="IsAllow" />
+                <ScalarProperty Name="IsDelete" ColumnName="IsDelete" />
+                <ScalarProperty Name="FileName" ColumnName="FileName" />
+                <ScalarProperty Name="PublishLogID" ColumnName="PublishLogID" />
+                <ScalarProperty Name="IsConvert" ColumnName="IsConvert" />
+                <ScalarProperty Name="ConvertDate" ColumnName="ConvertDate" />
+                <ScalarProperty Name="CancelDate" ColumnName="CancelDate" />
+                <ScalarProperty Name="NoseriCode" ColumnName="NoseriCode" />
+                <ScalarProperty Name="VATNumber" ColumnName="VATNumber" />
+                <ScalarProperty Name="IsDummy" ColumnName="IsDummy" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+                <ScalarProperty Name="URL" ColumnName="URL" />
+                <ScalarProperty Name="InvToken" ColumnName="InvToken" />
+                <ScalarProperty Name="RefDocumentNo" ColumnName="RefDocumentNo" />
+                <ScalarProperty Name="Result" ColumnName="Result" />
+                <ScalarProperty Name="ObjectID" ColumnName="ObjectID" />
+                <ScalarProperty Name="VatAmount570" ColumnName="VatAmount570" />
+                <ScalarProperty Name="GrossValue570" ColumnName="GrossValue570" />
+                <ScalarProperty Name="VatAmount1070" ColumnName="VatAmount1070" />
+                <ScalarProperty Name="GrossValue1070" ColumnName="GrossValue1070" />
+                <ScalarProperty Name="VatAmount8" ColumnName="VatAmount8" />
+                <ScalarProperty Name="GrossValue8" ColumnName="GrossValue8" />
+                <ScalarProperty Name="TotalAmuont8" ColumnName="TotalAmuont8" />
+                <ScalarProperty Name="status_received" ColumnName="status_received" />
+                <ScalarProperty Name="status_desc" ColumnName="status_desc" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="InvoiceHeaderNormals">
+            <EntityTypeMapping TypeName="EInvoicePLHModel.InvoiceHeaderNormal">
+              <MappingFragment StoreEntitySet="InvoiceHeaderNormal">
+                <ScalarProperty Name="ID" ColumnName="ID" />
+                <ScalarProperty Name="DocumentNo" ColumnName="DocumentNo" />
+                <ScalarProperty Name="Key" ColumnName="Key" />
+                <ScalarProperty Name="Salt" ColumnName="Salt" />
+                <ScalarProperty Name="Type" ColumnName="Type" />
+                <ScalarProperty Name="InvoicePattern" ColumnName="InvoicePattern" />
+                <ScalarProperty Name="SerialNo" ColumnName="SerialNo" />
+                <ScalarProperty Name="InvoiceNo" ColumnName="InvoiceNo" />
+                <ScalarProperty Name="OrderNo" ColumnName="OrderNo" />
+                <ScalarProperty Name="OrderDate" ColumnName="OrderDate" />
+                <ScalarProperty Name="CusCode" ColumnName="CusCode" />
+                <ScalarProperty Name="CusName" ColumnName="CusName" />
+                <ScalarProperty Name="CusCom" ColumnName="CusCom" />
+                <ScalarProperty Name="CusAddress" ColumnName="CusAddress" />
+                <ScalarProperty Name="CusPhone" ColumnName="CusPhone" />
+                <ScalarProperty Name="CusTaxCode" ColumnName="CusTaxCode" />
+                <ScalarProperty Name="PaymentMethod" ColumnName="PaymentMethod" />
+                <ScalarProperty Name="GrossValueNonTax" ColumnName="GrossValueNonTax" />
+                <ScalarProperty Name="GrossValue" ColumnName="GrossValue" />
+                <ScalarProperty Name="VatAmount0" ColumnName="VatAmount0" />
+                <ScalarProperty Name="GrossValue0" ColumnName="GrossValue0" />
+                <ScalarProperty Name="VatAmount5" ColumnName="VatAmount5" />
+                <ScalarProperty Name="GrossValue5" ColumnName="GrossValue5" />
+                <ScalarProperty Name="VatAmount10" ColumnName="VatAmount10" />
+                <ScalarProperty Name="GrossValue10" ColumnName="GrossValue10" />
+                <ScalarProperty Name="Total" ColumnName="Total" />
+                <ScalarProperty Name="VATRate" ColumnName="VATRate" />
+                <ScalarProperty Name="VATAmount" ColumnName="VATAmount" />
+                <ScalarProperty Name="Amount" ColumnName="Amount" />
+                <ScalarProperty Name="AmountInWords" ColumnName="AmountInWords" />
+                <ScalarProperty Name="ArisingDate" ColumnName="ArisingDate" />
+                <ScalarProperty Name="EmailDeliver" ColumnName="EmailDeliver" />
+                <ScalarProperty Name="SMSDeliver" ColumnName="SMSDeliver" />
+                <ScalarProperty Name="VinTich" ColumnName="VinTich" />
+                <ScalarProperty Name="VinTieu" ColumnName="VinTieu" />
+                <ScalarProperty Name="VinTraLai" ColumnName="VinTraLai" />
+                <ScalarProperty Name="Extra" ColumnName="Extra" />
+                <ScalarProperty Name="Extra1" ColumnName="Extra1" />
+                <ScalarProperty Name="BusinessDate" ColumnName="BusinessDate" />
+                <ScalarProperty Name="CusBankNo" ColumnName="CusBankNo" />
+                <ScalarProperty Name="CusBankName" ColumnName="CusBankName" />
+                <ScalarProperty Name="Extra2" ColumnName="Extra2" />
+                <ScalarProperty Name="Extra3" ColumnName="Extra3" />
+                <ScalarProperty Name="Extra4" ColumnName="Extra4" />
+                <ScalarProperty Name="Extra5" ColumnName="Extra5" />
+                <ScalarProperty Name="Extra6" ColumnName="Extra6" />
+                <ScalarProperty Name="Extra7" ColumnName="Extra7" />
+                <ScalarProperty Name="Extra8" ColumnName="Extra8" />
+                <ScalarProperty Name="Extra9" ColumnName="Extra9" />
+                <ScalarProperty Name="Extra10" ColumnName="Extra10" />
+                <ScalarProperty Name="TotalAmuontNonVAT" ColumnName="TotalAmuontNonVAT" />
+                <ScalarProperty Name="TotalAmuont0" ColumnName="TotalAmuont0" />
+                <ScalarProperty Name="TotalAmuont5" ColumnName="TotalAmuont5" />
+                <ScalarProperty Name="TotalAmuont10" ColumnName="TotalAmuont10" />
+                <ScalarProperty Name="ETaxAccName" ColumnName="ETaxAccName" />
+                <ScalarProperty Name="ETaxAccPass" ColumnName="ETaxAccPass" />
+                <ScalarProperty Name="ETaxWName" ColumnName="ETaxWName" />
+                <ScalarProperty Name="ETaxWSPass" ColumnName="ETaxWSPass" />
+                <ScalarProperty Name="BranchNo" ColumnName="BranchNo" />
+                <ScalarProperty Name="Fkey" ColumnName="Fkey" />
+                <ScalarProperty Name="FkeyListNext" ColumnName="FkeyListNext" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="IsCancel" ColumnName="IsCancel" />
+                <ScalarProperty Name="InvoiceTypeNext" ColumnName="InvoiceTypeNext" />
+                <ScalarProperty Name="Remark" ColumnName="Remark" />
+                <ScalarProperty Name="InvoiceType" ColumnName="InvoiceType" />
+                <ScalarProperty Name="InvoiceTypeName" ColumnName="InvoiceTypeName" />
+                <ScalarProperty Name="IsEOD" ColumnName="IsEOD" />
+                <ScalarProperty Name="SaltEncrypt" ColumnName="SaltEncrypt" />
+                <ScalarProperty Name="CreateDate" ColumnName="CreateDate" />
+                <ScalarProperty Name="LastUpdate" ColumnName="LastUpdate" />
+                <ScalarProperty Name="IsSigned" ColumnName="IsSigned" />
+                <ScalarProperty Name="IsCreateXMLFile" ColumnName="IsCreateXMLFile" />
+                <ScalarProperty Name="IsUpload" ColumnName="IsUpload" />
+                <ScalarProperty Name="Operator" ColumnName="Operator" />
+                <ScalarProperty Name="IsAllow" ColumnName="IsAllow" />
+                <ScalarProperty Name="IsDelete" ColumnName="IsDelete" />
+                <ScalarProperty Name="FileName" ColumnName="FileName" />
+                <ScalarProperty Name="PublishLogID" ColumnName="PublishLogID" />
+                <ScalarProperty Name="IsConvert" ColumnName="IsConvert" />
+                <ScalarProperty Name="ConvertDate" ColumnName="ConvertDate" />
+                <ScalarProperty Name="CancelDate" ColumnName="CancelDate" />
+                <ScalarProperty Name="NoseriCode" ColumnName="NoseriCode" />
+                <ScalarProperty Name="VATNumber" ColumnName="VATNumber" />
+                <ScalarProperty Name="IsDummy" ColumnName="IsDummy" />
+                <ScalarProperty Name="AppCode" ColumnName="AppCode" />
+                <ScalarProperty Name="URL" ColumnName="URL" />
+                <ScalarProperty Name="InvToken" ColumnName="InvToken" />
+                <ScalarProperty Name="RefDocumentNo" ColumnName="RefDocumentNo" />
+                <ScalarProperty Name="Result" ColumnName="Result" />
+                <ScalarProperty Name="ObjectID" ColumnName="ObjectID" />
+                <ScalarProperty Name="VatAmount570" ColumnName="VatAmount570" />
+                <ScalarProperty Name="GrossValue570" ColumnName="GrossValue570" />
+                <ScalarProperty Name="VatAmount1070" ColumnName="VatAmount1070" />
+                <ScalarProperty Name="GrossValue1070" ColumnName="GrossValue1070" />
+                <ScalarProperty Name="VatAmount8" ColumnName="VatAmount8" />
+                <ScalarProperty Name="GrossValue8" ColumnName="GrossValue8" />
+                <ScalarProperty Name="TotalAmuont8" ColumnName="TotalAmuont8" />
+                <ScalarProperty Name="status_received" ColumnName="status_received" />
+                <ScalarProperty Name="status_desc" ColumnName="status_desc" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="StoreNoseriVATs">
+            <EntityTypeMapping TypeName="EInvoicePLHModel.StoreNoseriVAT">
+              <MappingFragment StoreEntitySet="StoreNoseriVAT">
+                <ScalarProperty Name="ID" ColumnName="ID" />
+                <ScalarProperty Name="StoreNo" ColumnName="StoreNo" />
+                <ScalarProperty Name="ObjectID" ColumnName="ObjectID" />
+                <ScalarProperty Name="StoreName" ColumnName="StoreName" />
+                <ScalarProperty Name="BranchNo" ColumnName="BranchNo" />
+                <ScalarProperty Name="NoseriCode" ColumnName="NoseriCode" />
+                <ScalarProperty Name="InvoiceType" ColumnName="InvoiceType" />
+                <ScalarProperty Name="CustNameDefault" ColumnName="CustNameDefault" />
+                <ScalarProperty Name="Enabled" ColumnName="Enabled" />
+                <ScalarProperty Name="CreateDate" ColumnName="CreateDate" />
+                <ScalarProperty Name="LastUpdate" ColumnName="LastUpdate" />
+                <ScalarProperty Name="Remark" ColumnName="Remark" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="VatNumberFPTs">
+            <EntityTypeMapping TypeName="EInvoicePLHModel.VatNumberFPT">
+              <MappingFragment StoreEntitySet="VatNumberFPT">
+                <ScalarProperty Name="ID" ColumnName="ID" />
+                <ScalarProperty Name="CompTaxCode" ColumnName="CompTaxCode" />
+                <ScalarProperty Name="NoseriCode" ColumnName="NoseriCode" />
+                <ScalarProperty Name="InvoicePattern" ColumnName="InvoicePattern" />
+                <ScalarProperty Name="SerialNo" ColumnName="SerialNo" />
+                <ScalarProperty Name="StartNumber" ColumnName="StartNumber" />
+                <ScalarProperty Name="EndNumber" ColumnName="EndNumber" />
+                <ScalarProperty Name="LastUsed" ColumnName="LastUsed" />
+                <ScalarProperty Name="Enabled" ColumnName="Enabled" />
+                <ScalarProperty Name="CreateDate" ColumnName="CreateDate" />
+                <ScalarProperty Name="LastUpdate" ColumnName="LastUpdate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="true" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

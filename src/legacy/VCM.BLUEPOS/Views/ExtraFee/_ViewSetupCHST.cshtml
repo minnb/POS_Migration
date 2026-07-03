@@ -1,0 +1,234 @@
+﻿
+@using VCM.BLUEPOS.Model.Store;
+@{
+    var lstStore = Model as List<StorePartnerModel>;
+}
+<div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="titleModalMenu">CÀI ĐẶT NHÓM CỬA HÀNG</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <i aria-hidden="true" class="ki ki-close"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <nav class="w-100">
+                <div class="nav nav-tabs" id="setupGroupStore-tab" role="tablist">
+                    <a class="nav-item nav-link" id="setupGroupStore" data-toggle="tab" href="#groupStore-setup" role="tab" aria-controls="groupStore-setup" aria-selected="false">Cài đặt nhóm CH/ST</a>
+                    <a class="nav-item nav-link active" id="listGroupStore" data-toggle="tab" href="#groupStore-list" role="tab" aria-controls="groupStore-list" aria-selected="true">Danh sách nhóm CH/ST</a>
+
+                </div>
+            </nav>
+            <div class="tab-content p-3" id="nav-tabContent" style="width:100%">
+                <div class="tab-pane fade" id="groupStore-setup" role="tabpanel" aria-labelledby="groupStore-setup">
+                    <div class="row">
+                        <div class="col-sm-12" style="width:100%">
+                            <div class="row">
+                                @*<div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Mã nhóm</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtGroupCode" class="form-control" placeholder="Nhập mã nhóm" />
+
+                                        </div>
+                                    </div>
+                                </div>*@
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold">Tên nhóm CH/ST</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtGroupName" class="form-control" placeholder="Nhập tên nhóm" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Mã CH/ST</label>
+                                        <select id="slStore" class="form-control" multiple="multiple">
+                                            @if (lstStore != null && lstStore.Count() > 0)
+                                            {
+                                                foreach (var item in lstStore)
+                                                {
+                                                    var storeName = string.IsNullOrEmpty(item.SiteName) ? item.SiteNo : item.SiteNo + ":" + item.SiteName;
+                                                    <option value="@item.SiteNo">@storeName</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:10px;"></div>
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                    <div class="form-group">
+                                        <textarea class="form-control" rows="8" placeholder="Nhập list store cách nhau dấu ; hoặc dấu , hoặc khoảng trắng (1535;1561 2018,1560....)" id="txtListStore"></textarea>
+
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                    <button type="button" class="btn btn-primary font-weight-bold" id="btnSaveSetupCHST"><i class="fa fa fa-save"></i> Lưu</button>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade show active" id="groupStore-list" role="tabpanel" aria-labelledby="groupStore-list">
+                    <div class="row">
+                        <div class="col-sm-12" id="loadGroupStore" style="width:100%">
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Close</button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#slStore').fSelect({
+            placeholder: 'Chọn mã CH/ST',
+            numDisplayed: 1,
+            overflowText: '{n} CH/ST được chọn',
+            searchText: 'Tìm kiếm....',
+            noResultsText: 'Không tìm thấy CH/ST',
+            showSearch: true,
+            optionFormatter: false,
+            isSelectAll: true
+        });
+
+        $("#listGroupStore").on("click", function () {
+            LoadGroupSite();
+        });
+
+        LoadGroupSite();
+
+        $("#btnSaveSetupCHST").on("click", function () {
+
+                SaveSetupStore();
+
+        });
+    });
+
+    function LoadGroupSite() {
+        $.ajax({
+            type: "GET",
+            url: "/ExtraFee/_ViewDataGroupSite",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                $("#loadGroupStore").html(result);
+            },
+            error: function (event) {
+
+            }
+        });
+    }
+
+    function SaveSetupStore() {
+        debugger
+        //var listStore = $('#slStore').val() == "" ? "" : JSON.stringify($('#slStore').val());
+        var groupCode = $("#txtGroupCode").val();
+        var groupName = $("#txtGroupName").val();
+        var arrayStore = [];
+        var isAllStore = $('.fs-label-wrap').attr('data-selectall');
+        if (isAllStore == 1) {
+            $("#txtListStore").val('')
+        }
+        else {
+            debugger
+            isAllStore = 0;
+            var listStoreArray = $('#slStore').val()
+            var listStoreInArea = $("#txtListStore").val();
+            if (listStoreInArea == "") {
+                $("#txtListStore").val(listStoreArray.join(";"));
+            }
+            else {
+                debugger
+               // var arrayStore = [];
+                $('.fs-option').removeClass('selected');
+                $.each(listStoreInArea.split(/\;*\n*\b\,*\ */), function (i, e) {
+                    debugger
+                    $(".fs-option[data-value='" + e + "']").toggleClass('selected');
+                    arrayStore.push(e);
+                });
+
+                $("#slStore").val(arrayStore);
+                $("#slStore").fSelect('reloadDropdownLabel');
+            }
+        }
+
+        var listStoreFinal = $('#slStore').val() == "" ? "" : JSON.stringify($('#slStore').val());
+
+        if (arrayStore.length > 0 && isAllStore == 0) {
+            debugger
+            listStoreFinal = JSON.stringify(arrayStore);
+        }
+
+        if (listStoreFinal == "" || listStoreFinal == "[]") {
+            toastr.error("Vui lòng chọn CH/ST để thêm vào group");
+            return;
+        }
+
+        //var listStoreFinal = $('#slStore').val();
+
+        //if (groupCode == "") {
+        //    toastr.error("Vui lòng nhập group code");
+        //    return;
+        //}
+        if (groupName == "") {
+            toastr.error("Vui lòng nhập group name");
+            return;
+        }
+        //var filter = /^([a-zA-Z\-0-9_]+)$/;
+        //if (!filter.test(groupCode)) {
+        //    toastr.error("Mã nhóm không có ký tự đăc biệt, không khoảng trắng hoặc không có dấu tiếng việt");
+        //    return;
+        //}
+
+        loading.showloading();
+
+        var fromData = new FormData();
+        //fromData.append('GroupCode', groupCode);
+        fromData.append('GroupName', groupName);
+        fromData.append('ListStore', listStoreFinal);
+        fromData.append('IsAllStore', isAllStore);
+
+        $.ajax({
+            type: "POST",
+            url: '@Url.Action("SetupGroupCode", "ExtraFee")',
+            data: fromData,
+            contentType: "application/json",
+            dataType: "json",
+            contentType: false,
+            processData: false,
+            success: function (data) {
+                debugger
+                if (data.Status == 200) {
+                    var resultData = data.Data;
+                    toastr.success(data.Message);       
+                    $("#txtStoreGroup").val(resultData.StoreGroup);
+                    $("#modalSetupCHST").modal('hide');
+                }
+                else {
+                    toastr.error(data.Message);
+                }
+                loading.hideloading();
+            },
+            error: function () {
+                loading.hideloading();
+            }
+        });
+    }    
+
+</script>

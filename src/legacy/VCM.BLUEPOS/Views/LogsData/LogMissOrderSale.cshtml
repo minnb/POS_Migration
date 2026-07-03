@@ -1,0 +1,318 @@
+﻿@using VCM.BLUEPOS.Model.Common;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.LogsData;
+
+@{
+    ViewBag.Title = "Log thiếu đơn hàng bán";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+
+}
+<script src="~/Content/jsonBeautiful/jquery-3.3.1.slim.min.js"></script>
+<script src="~/Content/jsonBeautiful/jquery.json-editor.min.js"></script>
+<style>
+    #detail-json {
+        border: 1px solid #000;
+        margin: 0;
+        padding: 10px 20px;
+    }
+</style>
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý Log</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Log Central Sales</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Log thiếu đơn hàng bán</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center"></div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("", "LogsData", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Từ ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-from-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-from-date" name="TxtFromDate" placeholder="Từ ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Đến ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-to-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-to-date" name="TxtToDate" placeholder="Đến ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                            @if (listStore != null && listStore.Count > 0)
+                                            {
+                                                if (listStore.Count == 1)
+                                                {
+                                                    <option value="@listStore.FirstOrDefault().SiteNo">@listStore.FirstOrDefault().SiteNo - @listStore.FirstOrDefault().SiteName</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="">Tất cả</option>
+                                                    foreach (var item in listStore)
+                                                    {
+                                                        <option value="@item.SiteNo">@item.SiteNo - @item.SiteName</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-log-miss-order-sale" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>STT</th>
+                                    <th>ST/CH</th>
+                                    <th>Ngày kinh doanh</th>
+                                    <th>Tổng số đơn hàng POS</th>
+                                    <th>Tổng số đơn hàng Central Sales</th>
+                                    <th>Người xác nhận</th>
+                                    <th>Ngày xác nhận</th>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            $('#txt-from-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-from-date').datepicker(
+                {
+                    format: 'dd/mm/yyyy',
+                    autoUpdateInput: false,
+                    todayHighlight: true,
+                    singleDatePicker: true,
+                    autoclose: true
+                });
+
+            $('#txt-to-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-to-date').datepicker(
+                {
+                    format: 'dd/mm/yyyy',
+                    autoUpdateInput: false,
+                    todayHighlight: true,
+                    singleDatePicker: true,
+                    autoclose: true
+            });
+
+            table = $('#tbl-log-miss-order-sale').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: true,               // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                deferLoading: 0,
+
+                ajax: {
+                    url: '@Url.Action("LoadLogMissOrderSale", "LogsData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.StoreNo = $("#sel-store-no").val();
+                        d.FromDate = $("#txt-from-date").val();
+                        d.ToDate = $("#txt-to-date").val();
+                    }
+                },
+
+                columns: [
+                    {
+                        className: "text-center",
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.StoreNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "FormatBussinessDate",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.FormatBussinessDate + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "TotalSalePOS",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var TotalSalePOS = row.TotalSalePOS;
+                            var html = '<span style="display: block; font-weight: 700;">' + parseFloat(TotalSalePOS).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "TotalSaleServer",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var TotalSaleServer = row.TotalSaleServer;
+                            var html = '<span style="display: block; font-weight: 700;">' + parseFloat(TotalSaleServer).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreatedUser",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<span style="display: block; font-weight: 700;">' + row.CreatedUser + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "FormatCreatedDate",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.FormatCreatedDate + '</span>';
+                        }
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            });
+        })
+
+    </script>
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+
+    #toast-container > .toast-success {
+        background-image: none;
+        background-color: #e9e9e9;
+        color: black;
+    }
+
+    #toast-container > .toast-error {
+        background-image: none;
+        background-color: #e9e9e9;
+        color: red;
+    }
+
+    #toast-container > .toast-warning {
+        background-image: none;
+        /*background-color: #FCF8E3;*/
+        background-color: #e9e9e9;
+        /*color: #996D3B;*/
+        color: red;
+    }
+</style>
+
+
+
+

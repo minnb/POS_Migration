@@ -1,0 +1,594 @@
+﻿@using VCM.BLUEPOS.Model.SetupExtraFee
+@{
+    var model = Model as ViewSetupExtraFeeModel;
+    var infoExtraFee = model.InfoHeader;
+    var listSalesType = model.ListOrderType;
+    var listSalesTypeByCode = model.ListExtraFeeOrderTypeByCode;
+    var listExtraFeeLineNganhHang = model.ListExtraFeeLineNganhHang;
+    var listExtraFeeLineCombo = model.ListExtraFeeLineCombo;
+    var listPosGroup = model.ListPOSGroup;
+    string code = "", name = "";
+    var fromDate = "";
+    var toDate = "";
+    var storeGroup = "";
+    if (infoExtraFee != null)
+    {
+        code = infoExtraFee.Code;
+        name = infoExtraFee.Name;
+        storeGroup = infoExtraFee.StoreGroup;
+        fromDate = infoExtraFee.FromDate == null ? "" : infoExtraFee.FromDate.Value.ToString("dd/MM/yyyy");
+        toDate = infoExtraFee.ToDate == null ? "" : infoExtraFee.ToDate.Value.ToString("dd/MM/yyyy");
+    }
+}
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+            <div class="card card-custom">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Mã phụ thu</label>
+                                        <div class="input-group">
+                                            <input type="text" id="hdtxtCode" class="form-control" disabled value="@code" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Tên phụ thu</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtName" class="form-control" value="@name" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Hình thức bán<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group" style="width:100%">
+                                            <select class="form-control" id="slSalesType" multiple="multiple">
+                                                @if (listSalesType != null && listSalesType.Count > 0)
+                                                {
+                                                    foreach (var item in listSalesType)
+                                                    {
+                                                        var selected = "";
+                                                        var checkExists = listSalesTypeByCode.Any(d => d.SalesOrderType == item.Code);
+                                                        if (checkExists)
+                                                        {
+                                                            selected = "selected";
+                                                        }
+                                                        <option @selected value="@item.Code">@item.SalesOrderType</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Từ ngày<strong style="color:#ff0000">(*)</strong></label>
+
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control float-right" value="@fromDate" id="fromDate" name="FromDate">
+                                        </div>
+
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label style="font-weight:bold">Đến ngày<strong style="color:#ff0000">(*)</strong></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control float-right" value="@toDate" id="toDate" name="ToDate">
+                                        </div>
+
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold" style="font-weight:bold !important">Nhóm CH/ST</label>
+                                        <div class="input-group">
+                                            <input type="text" id="txtStoreGroup" class="form-control" disabled value="@storeGroup" />
+                                            <div class="input-group-prepend btnSearchStoreGroup" style="cursor:pointer;">
+                                                <span class="input-group-text">
+                                                    <i class="fa fa-search"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:5px;"></div>
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link classTab active" id="listItem-tab" data-toggle="tab" href="#listItem">
+
+                                        <span class="nav-text font-weight-bold" style="font-weight:bold !important">
+                                            Ngành hàng
+                                        </span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link classTab" id="listCoupon-tab" data-toggle="tab" href="#listCoupon" aria-controls="profile">
+                                        <span class="nav-text font-weight-bold" style="font-weight:bold !important">Combo</span>
+                                    </a>
+                                </li>
+
+                            </ul>
+                            <div class="tab-content mt-5" id="myTabContent">
+                                <div class="tab-pane fade show active" id="listItem" role="tabpanel" aria-labelledby="listItem-tab">
+                                    <div class="card card-custom">
+                                        <div class="card-header flex-wrap" style="background-color:#eaeaf0">
+                                            <div class="card-title">
+                                                <h3 class="card-label">
+                                                    <i class="fas fa-barcode"></i>
+                                                    Danh sách ngành hàng
+                                                </h3>
+                                            </div>
+
+                                            <div class="card-toolbar">
+                                                <a style="cursor:pointer" class="btn btn-primary font-weight-bolder btnAddPosGroup">
+                                                    <i class="la la-plus-circle"></i>
+                                                    Thêm ngành hàng
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <table id="tblNganhHang" class="table table-bordered text-nowrap">
+                                                <thead>
+                                                    <tr style="background-color:#eaeaf0 !important">
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Mã ngành hàng</th>
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Tên ngành hàng</th>
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Phụ thu(%)</th>
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">#</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @if (listExtraFeeLineNganhHang != null && listExtraFeeLineNganhHang.Count > 0)
+                                                    {
+                                                        var listParentCode = listExtraFeeLineNganhHang.GroupBy(d => new { d.ParentCode }).Select(a => new { ParentCode = a.Key.ParentCode }).ToList();
+                                                        if (listParentCode.Count > 0)
+                                                        {
+                                                            foreach (var parent in listParentCode)
+                                                            {
+                                                                var parentName = listPosGroup.FirstOrDefault(d => d.GroupCode == parent.ParentCode).Description;
+                                                                <tr class="appendParent_@parent.ParentCode" style="background-color:#f8f9f4">
+                                                                    <td colspan="4" style="font-weight:bold">@parentName</td>
+                                                                </tr>
+                                                                var listType = listExtraFeeLineNganhHang.Where(d => d.ParentCode == parent.ParentCode).ToList();
+                                                                foreach (var item in listType)
+                                                                {
+                                                                    <tr class="dataNganhHang append_@parent.ParentCode nganhHang_@item.No">
+                                                                        <td style="vertical-align:middle;text-align:center">@item.No</td>
+                                                                        <td style="vertical-align:middle">@item.GroupName</td>
+                                                                        <td style="vertical-align:middle;text-align:center">@item.ExtraFeeValue</td>
+                                                                        <td style="vertical-align:middle;text-align:center"><a title="Xóa" class="btn btn-icon btn-light-danger btnNganhHangDelete" data-groupcode="@item.No"><i class="la la-close"></i><span class="pulse-ring"></span></a></td>
+                                                                    </tr>
+                                                                }
+                                                            }
+                                                        }
+
+                                                    }
+                                                </tbody>
+                                            </table>
+
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="listCoupon" role="tabpanel" aria-labelledby="listCoupon-tab">
+                                    <div class="card card-custom">
+                                        <div class="card-header flex-wrap" style="background-color:#eaeaf0">
+                                            <div class="card-title">
+                                                <h3 class="card-label">
+                                                    <i class="fas fa-barcode"></i>
+                                                    Danh sách combo
+                                                </h3>
+                                            </div>
+
+                                            <div class="card-toolbar">
+                                                <a style="cursor:pointer" class="btn btn-primary font-weight-bolder btnAddCombo">
+                                                    <i class="la la-plus-circle"></i>
+                                                    Thêm combo
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <table id="tblCombo" class="table table-bordered table-hover">
+                                                <thead>
+                                                    <tr style="background-color:#eaeaf0 !important">
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Mã CTKM</th>
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Tên CTKM</th>
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">Phụ thu(%)</th>
+                                                        <th class="text-center" style="color:#000000 !important;font-weight:bold !important">#</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody style="text-align:left">
+                                                    @if (listExtraFeeLineCombo != null && listExtraFeeLineCombo.Count > 0)
+                                                    {
+                                                        foreach (var item in listExtraFeeLineCombo)
+                                                        {
+                                                            <tr class="Combo_@item.No">
+                                                                <td class="text-center" style="vertical-align:middle">@item.No</td>
+                                                                <td style="vertical-align:middle">@item.GroupName</td>
+                                                                <td class="text-center" style="vertical-align:middle">@item.ExtraFeeValue</td>
+                                                                <td class="text-center" style="vertical-align:middle"><a title="Xóa" class="btn btn-icon btn-light-danger btnComboDelete" data-offerno="@item.No"><i class="la la-close"></i><span class="pulse-ring"></span></a></td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalSetupCHST" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupSetupCHST"></div>
+</div>
+
+<div class="modal fade" id="modalNganhHang" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">THÊM NGÀNH HÀNG</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupNganhHang">
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Hủy</button>
+                <button type="button" class="btn btn-light-primary font-weight-bold btnSelectedNganhHang"><i class="la la-check"></i>Chọn</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCombo" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">THÊM COMBO</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="divPopupCombo">
+
+            </div>
+            <div class="modal-footer">
+
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Hủy</button>
+
+                <button type="button" class="btn btn-light-primary font-weight-bold btnSelectedCombo"><i class="la la-check"></i>Chọn</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $(".select2").select2();
+        $('#slSalesType').fSelect({
+            placeholder: 'Chọn hình thức bán hàng',
+            numDisplayed: 1,
+            overflowText: '{n} Hình thức bán hàng được chọn',
+            searchText: 'Tìm kiếm....',
+            noResultsText: 'Không tìm thấy...',
+            showSearch: true,
+            optionFormatter: false,
+            isSelectAll: true
+        });
+       // $('#fromDate').val(moment().format('DD/MM/YYYY'));
+        $('#fromDate').datepicker({
+            format: 'dd/mm/yyyy',
+            autoUpdateInput: false,
+            todayHighlight: true,
+            singleDatePicker: true,
+            autoclose: true
+        });
+       // $('#toDate').val(moment().format('DD/MM/YYYY'));
+        $('#toDate').datepicker({
+            format: 'dd/mm/yyyy',
+            autoUpdateInput: false,
+            todayHighlight: true,
+            singleDatePicker: true,
+            autoclose: true
+        });
+        $(".btnSearchStoreGroup").on("click", function () {
+            ViewSetupCHST();
+        });
+
+        $(".btnAddPosGroup").on("click", function () {
+            var arrayNganhHang = [];
+            $('#tblNganhHang tbody tr.dataNganhHang').each(function () {
+                var itemNganhHang = {};
+                var groupCode = $(this).find('td:nth-child(1)').html();
+                var extraFeeValue = $(this).find('td:nth-child(3)').html();
+
+                itemNganhHang['No'] = groupCode;
+                itemNganhHang['ExtraFeeValue'] = extraFeeValue;
+                arrayNganhHang.push(itemNganhHang);
+            });
+            loading.showloading();
+            var jsonNganhHangSelect = arrayNganhHang.length > 0 ? JSON.stringify(arrayNganhHang) : "";
+            var fromData = new FormData();
+            fromData.append('JsonNganhHangSelected', jsonNganhHangSelect);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("_ViewNganhHang", "ExtraFee")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    debugger
+                    if (result.Status == 200) {
+                        var viewHtml = result.ViewPartial;
+                        $("#divPopupNganhHang").html(viewHtml);
+
+                        $('#modalNganhHang').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    }
+                    else {
+                        toastr.error(result.Message);
+                    }
+
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+
+        });
+        $(".btnSelectedNganhHang").on("click", function () {
+            debugger
+            var extraFeeValue = $("#txtExtraFeeValue").val();
+            if (extraFeeValue == "" || extraFeeValue == "0") {
+                toastr.error("Vui lòng nhập % giá trị phụ thu");
+                return;
+            }
+            if (parseInt(extraFeeValue) > 100) {
+                toastr.error("Giá trị % phụ thu không lớn hơn 100");
+                return;
+            }
+            var arraySelectedItem = [];
+            $('#tblSelectedNganhHang tbody tr label input.chkNganhHang:checkbox:checked').each(function (e) {
+                debugger
+                var itemSelected = {};
+                var groupCode = $(this).attr("data-groupcode");
+                var groupName = $(this).attr("data-groupname");
+                var parentCode = $(this).attr("data-parentcode");
+                var parentName = $(this).attr("data-parentname");
+
+                itemSelected['GroupCode'] = groupCode;
+                itemSelected['GroupName'] = groupName;
+                itemSelected['ParentCode'] = parentCode;
+                itemSelected['ParentName'] = parentName;
+                itemSelected['ExtraFeeValue'] = extraFeeValue;
+                arraySelectedItem.push(itemSelected);
+            });
+            if (arraySelectedItem.length > 0) {
+
+                //$("#tblNganhHang tbody").empty();
+                $('#tblNganhHang tbody tr').each(function () {
+
+                    var groupCodeCurrent = $(this).find('td:nth-child(1)').html();
+                    arraySelectedItem = arraySelectedItem.filter(item => item.GroupCode !== groupCodeCurrent);
+
+                });
+
+                arraySelectedItem.forEach((name, i) => {
+
+                    var html = "";
+                    debugger
+                    var cla = $(".appendParent_" + name.ParentCode + "").length;
+                    if ($(".appendParent_" + name.ParentCode + "").length <= 0) {
+                        var htmlParent = "";
+                        htmlParent += "<tr class=\"appendParent_" + name.ParentCode + "\" style=\"background-color:#f8f9f4\">";
+                        htmlParent += "<td colspan=4 style=\"font-weight:bold\">" + name.ParentName + "</td>";
+                        htmlParent += "</tr>";
+                        $("#tblNganhHang tbody").append(htmlParent);
+                    }
+
+                    html += "<tr class=\"dataNganhHang append_" + name.ParentCode + "  nganhHang_" + name.GroupCode + "\">";
+                    html += "<td style=\"vertical-align:middle;text-align:center\">" + name.GroupCode + "</td>";
+                    html += "<td style=\"vertical-align:middle\">" + name.GroupName + "</td>";
+                    html += "<td style=\"vertical-align:middle;text-align:center\">" + name.ExtraFeeValue + "</td>";
+                    html += "<td style=\"vertical-align:middle;text-align:center\">";
+                    html += "<a title=\"Xóa\" class=\"btn btn-icon btn-light-danger btnNganhHangDelete\" data-groupcode=" + name.GroupCode + "><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                    html += "</td>";
+                    html += "</tr>";
+
+                    //$("#tblNganhHang tbody tr.append_" + name.ParentCode + ":last").after(html);
+
+                    $("#tblNganhHang tbody tr.appendParent_" + name.ParentCode + "").after(html);
+
+                });
+
+                $('#modalNganhHang').modal('hide');
+
+                $(".btnNganhHangDelete").on("click", function (e) {
+                    var groupCode = $(this).attr("data-groupcode");
+                    $(".nganhHang_" + groupCode).remove();
+                });
+            }
+            else {
+                toastr.error("Vui lòng chọn ngành hàng");
+                return;
+            }
+        });
+        $(".btnNganhHangDelete").on("click", function (e) {
+            var groupCode = $(this).attr("data-groupcode");
+            $(".nganhHang_" + groupCode).remove();
+        });
+
+        $(".btnAddCombo").on("click", function (e) {
+
+            var arrayCombo = [];
+            $('#tblCombo tbody tr').each(function () {
+                var itemCombo = {};
+                var no = $(this).find('td:nth-child(1)').html();
+                var extraFeeValue = $(this).find('td:nth-child(3)').html();
+
+                itemCombo['No'] = no;
+                itemCombo['ExtraFeeValue'] = extraFeeValue;
+                arrayCombo.push(itemCombo);
+            });
+            loading.showloading();
+            var jsonComboSelect = arrayCombo.length > 0 ? JSON.stringify(arrayCombo) : "";
+            var fromData = new FormData();
+            fromData.append('JsonComboSelected', jsonComboSelect);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("_ViewCombo", "ExtraFee")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    debugger
+                    if (result.Status == 200) {
+                        var viewHtml = result.ViewPartial;
+                        $("#divPopupCombo").html(viewHtml);
+                        $('#modalCombo').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    }
+                    else {
+                        toastr.error(result.Message);
+                    }
+
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        });
+
+        $(".btnSelectedCombo").on("click", function (e) {
+            var extraFeeValue = $("#txtComboExtraFeeValue").val();
+            if (extraFeeValue == "" || extraFeeValue == "0") {
+                toastr.error("Vui lòng nhập % giá trị phụ thu");
+                return;
+            }
+            if (parseInt(extraFeeValue) > 100) {
+                toastr.error("Giá trị % phụ thu không lớn hơn 100");
+                return;
+            }
+
+            var arraySelectedCombo = [];
+            $('#tblOfferHeader tbody tr label input.chkOffer:checkbox:checked').each(function (e) {
+                debugger
+                var itemSelected = {};
+                var offerNo = $(this).attr("data-offerno");
+                var offerName = $(this).attr("data-offername");
+
+                itemSelected['OfferNo'] = offerNo;
+                itemSelected['OfferName'] = offerName;
+                itemSelected['ExtraFeeValue'] = extraFeeValue;
+                arraySelectedCombo.push(itemSelected);
+            });
+
+            if (arraySelectedCombo.length == 0) {
+                toastr.error('Vui lòng chọn phụ thu combo');
+                return;
+            }
+
+            if (arraySelectedCombo.length > 0) {
+                var html = "";
+
+                $('#tblCombo tbody tr').each(function () {
+                    debugger
+                    var offerNoCurrent = $(this).find('td:nth-child(1)').html();
+                    arraySelectedCombo = arraySelectedCombo.filter(item => item.OfferNo !== offerNoCurrent);
+                    //removeElement(arraySelectedItem, itemNoCurrent);
+
+                    //people = people.filter(function (returnableObjects) {
+                    //    return [returnableObjects.age](returnableObjects.age) < 21
+                    //});
+
+                });
+
+                arraySelectedCombo.forEach((name, i) => {
+                    html += "<tr class=\"Combo_" + name.OfferNo + "\">";
+                    html += "<td class=\"text-center\" style=\"vertical-align:middle\">" + name.OfferNo + "</td>";
+                    html += "<td style=\"vertical-align:middle\">" + name.OfferName + "</td>";
+                    html += "<td class=\"text-center\" style=\"vertical-align:middle\">" + name.ExtraFeeValue + "</td>";
+                    html += "<td class=\"text-center\" style=\"vertical-align:middle\">";
+                    html += "<a title=\"Xóa\" class=\"btn btn-icon btn-light-danger btnComboDelete\" data-offerno=" + name.OfferNo + "><i class=\"la la-close\"></i><span class=\"pulse-ring\"></span></a>";
+                    html += "</td>";
+                    html += "</tr>";
+                });
+
+                $("#tblCombo tbody").append(html);
+                $('#modalCombo').modal('hide');
+
+                $(".btnComboDelete").on("click", function (e) {
+                    var offerNo = $(this).attr("data-offerno");
+                    $(".Combo_" + offerNo).remove();
+                });
+            }
+        });
+
+        $(".btnComboDelete").on("click", function (e) {
+            var offerNo = $(this).attr("data-offerno");
+            $(".Combo_" + offerNo).remove();
+        });
+    });
+
+    function ViewSetupCHST() {
+        loading.showloading();
+        $.ajax({
+            type: "GET",
+            url: "/ExtraFee/_ViewSetupCHST?offerNo=11",
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            success: function (result) {
+                loading.hideloading();
+                $("#divPopupSetupCHST").html(result);
+
+                $('#modalSetupCHST').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            },
+            error: function (event) {
+                loading.hideloading();
+            }
+        });
+    }
+</script>

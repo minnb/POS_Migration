@@ -1,0 +1,79 @@
+﻿@using VCM.BLUEPOS.Model.Home;
+
+@{
+    var model = Model as ViewCheckListDailyModel;
+    var listCheckUser = model.CheckList;
+    var listUser = model.ListUserCheck;
+    var listChecked = model.ListUserChecked;
+
+    if (listCheckUser != null && listCheckUser.Count > 0)
+    {
+        var stt = 1;
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                @if (listUser != null && listUser.Count > 0)
+                {
+                    <div class="row">
+                        @{
+                            var stt2 = 1;
+                            var countCheckList = listCheckUser.Count;
+                            var listUserCheck = listUser.GroupBy(a => new { UserCheck = a.UserCheck }).Select(a => new UserCheckModel { UserCheck = a.Key.UserCheck, CountCheck = a.Count() }).ToList();
+                            <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2" style="color:blue;font-weight:bold;">User hôm nay đã kiểm tra:</div>
+                            <div class="col-lg-9 col-md-9 col-sm-9 col-xs-9">
+                                @foreach (var item in listUserCheck)
+                                {
+                                    var countCheck = item.CountCheck;
+                                    var message = listCheckUser.Count > countCheck ? $"-Thiếu {listCheckUser.Count - countCheck} đầu việc, vui lòng kiểm tra lại" : "";
+                                    <strong style="color:blue">@stt2.@item.UserCheck <strong style="color:red">@message</strong></strong><br />
+                                    stt2++;
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+            </div>
+
+        </div>
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <table class="table table-bordered" id="tblCheckList" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th style='text-align:center;'>STT</th>
+                            <th style='text-align:center;'>Công việc</th>
+                            <th style='text-align:center;'>Thời gian</th>
+                            <th style='text-align:center;'>Owner</th>
+                            <th style='text-align:center;'>Cách check</th>
+                            <th style='text-align:center;'>Thực hiện</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in listCheckUser)
+                        {
+                            var checkBox =listChecked.FirstOrDefault(d=>d.CheckListID==item.ID) != null ? "checked" : "";
+                            var disbleCheck = listChecked.FirstOrDefault(d => d.CheckListID == item.ID) != null ? "disabled" : "";
+                            <tr>
+                                <td style='text-align:center;'>@stt</td>
+                                <td>@item.CheckListName</td>
+                                <td style='text-align:center;'>@item.TimeCheck</td>
+                                <td style='text-align:center;'>@item.OwnerCheck</td>
+                                <td>@item.Note</td>
+                                <td style='text-align:center;'>
+                                    <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                        <label class="checkbox checkbox-lg">
+                                            <input type="checkbox" @checkBox name="CheckList" @disbleCheck value="@item.ID">
+                                            <span></span>
+                                        </label>
+                                    </div>
+                                </td>
+
+                            </tr>
+                            stt += 1;
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}

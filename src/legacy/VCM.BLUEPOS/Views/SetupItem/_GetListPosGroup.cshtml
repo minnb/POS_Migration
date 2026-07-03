@@ -1,0 +1,82 @@
+﻿
+@using VCM.BLUEPOS.Model.SetupItem;
+
+@{
+    /**/
+
+    var lstPosGroup = Model as List<POSGroupModel>;
+}
+<style>
+    .row-add-new {
+        cursor: pointer
+    }
+</style>
+
+@if (lstPosGroup != null && lstPosGroup.Count() > 0)
+{
+    <div class="accordion accordion-toggle-arrow" id="accordionExample4">
+        @{var lst1 = lstPosGroup.Where(d => d.ParentCode == null || d.ParentCode == "").OrderBy(d => d.Seq).ToList();
+            var stt = 1;
+            foreach (var item in lst1)
+            {
+                var showContent = stt == 1 ? "show" : "";
+                var stt2 = 1;
+                var list2 = lstPosGroup.Where(d => d.ParentCode == item.GroupCode).OrderBy(d => d.Seq).ToList();
+
+                <div class="card">
+                    <div class="card-header">
+                        <div onclick="EditParentPosGroup(@item.Id)" style="float: left; padding: 1rem 0rem !important; margin-left: 10px">
+                            <i class="la la-edit font-size-h1 color-success" title="Chỉnh sửa danh mục" style="color:#ff6a00"></i>
+                        </div>
+
+                        <div class="card-title font-size-h3" data-toggle="collapse" data-target="#collapseOne_@stt">
+                            @item.Description &nbsp; &nbsp;
+                        </div>
+                    </div>
+
+                    <div id="collapseOne_@stt" class="collapse @showContent" data-parent="#accordionExample4">
+                        <div class="card-body">
+
+                            <table id="tblDataMenu_@item.Id" class="table table-bordered" style="width:100%;padding-left:30px;">
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="text-right">
+                                            <i class="la la-plus-circle color-success row-add-new" onclick="AddNew(@item.GroupCode, @list2.Count)" title="Thêm danh mục" style="color:#ff6a00;font-size:30px"></i>
+                                        </td>
+                                    </tr>
+                                    @{
+                                        foreach (var item2 in list2)
+                                        {
+                                            var status = item2.Status == 1 ? "Active" : "Deactive";
+                                            var badgeStatus = item2.Status == 1 ? "badge-success" : "badge-danger";
+                                            <tr id="trMenu_@item2.Id" class="trMenu_@item2.Id">
+                                                <td style="vertical-align:middle"><span id="groupCode_@item2.Id">@item2.GroupCode</span></td>
+                                                <td style="vertical-align:middle"><span id="description_@item2.Id">@item2.Description</span></td>
+                                                <td style="text-align: center; vertical-align: middle; width:150px"><span class="badge @badgeStatus" id="status_@item2.Id">@status</span></td>
+                                                <td id="" style="text-align: right; vertical-align: middle; width: 200px">
+                                                    <a onclick="EditPosGroup(@item2.Id)" title="Sửa" class="btn btn-icon btn-light-warning"><i class="la la-edit"></i><span class="pulse-ring"></span></a>
+                                                    <a onclick="UpdateListItem(@item2.GroupCode)" title="Sửa" class="btn btn-icon btn-light-primary"><i class="la la-list"></i><span class="pulse-ring"></span></a>
+                                                    @if (item2.Status == 1)
+                                                    {
+                                                        <a onclick="UpdateStatusPosGroup(@item2.Id,0)" title="Ngưng kích hoạt" class="btn btn-icon btn-light-danger"><i class="la la-lock"></i><span class="pulse-ring"></span></a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a onclick="UpdateStatusPosGroup(@item2.Id,1)" title="Kích hoạt" class="btn btn-icon btn-light-success"><i class="la la-lock-open"></i><span class="pulse-ring"></span></a>
+                                                    }
+                                                </td>
+                                            </tr>
+                                            stt2++;
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+
+                        </div>
+                    </div>
+                </div>
+                stt++;
+            }
+        }
+    </div>
+}

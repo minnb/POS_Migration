@@ -1,0 +1,349 @@
+﻿@using VCM.BLUEPOS.Model.Price;
+@{
+    ViewBag.Title = "Danh mục bảng giá";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">IT</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý giá</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh mục bảng giá</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportPriceList", "Price", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Mã sản phẩm</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control pull-right" style="width:100%;" id="txt-item-no" name="ItemNo" placeholder="Nhập mã sản phẩm/mã sản phẩm PLG"/>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Tên sản phẩm</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control pull-right" style="width:100%;" id="txt-item-name" name="ItemName" placeholder="Nhập tên sản phẩm"/>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Barcode</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control pull-right" style="width:100%;" id="txt-barcode" name="BarCode" placeholder="Nhập mã barcode"/>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control" id="site-code" name="SiteCode" placeholder="Nhập mã ST/CH">
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12" style="display: inline-block; padding-top: 37px;">
+                                    <input type="checkbox" id="chk-starting-date" style="height:25px; width:25px; cursor:pointer; padding-top: 5px; margin-left: 1px;">
+                                    <label for="chk-starting-date" style="font-size:12px; margin-top: 10px; font-family: Roboto,Arial,sans-serif; position: absolute; top: 35px; padding-left: 7px;">Còn hiệu lực</label>
+                                </div>
+
+                                <input type="hidden" id="item-no" name="ItemNo"/>
+                                <input type="hidden" id="unit-item" name="UnitItem"/>
+                                <input type="hidden" id="sales-code" name="SalesCode"/>
+                                <input type="hidden" id="hdIsCheck" name="IsCheck"/>
+
+                                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary" name="btnSearch"><i class="fa fa-search"></i> Tìm kiếm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i> Xuất Excel</button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-price-list" class="table table-bordered table-hover">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>STT</th>
+                                    <th>Barcode</th>
+                                    <th>Vùng giá</th>
+                                    <th>Site</th>
+                                    <th>Mã sản phẩm</th>
+                                    <th>Mã sản phẩm PLG</th>
+                                    <th>Tên sản phẩm</th>
+                                    <th>ĐVT</th>
+                                    <th>Giá bán</th>
+                                    <th>Ngày bắt đầu có hiệu lực</th>
+                                    <th>Ngày bắt đầu hết hiệu lực</th>
+                                    <th>Năm hết hiệu lực</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        $('#txt-item-no').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+        
+        $('#txt-item-name').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#txt-barcode').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#site-code').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+        $('#chk-starting-date').keypress(function (e) {
+            var key = e.which;
+            if (key == 13) {
+                $('button[name = btnSearch]').click();
+                return false;
+            }
+        });
+
+
+        $(document).ready(function () {
+            table = $('#tbl-price-list').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: true,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: true,               // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: true,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+
+                ajax: {
+                    url: '@Url.Action("GetPriceList", "Price")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.Barcode = $('#txt-barcode').val();
+                        d.ItemCode = $('#txt-item-no').val();
+                        d.ItemName = $('#txt-item-name').val();
+                        d.SiteCode = $('#site-code').val();
+                        var checkDate = $('#chk-starting-date').prop('checked');
+                        if (checkDate == true)
+                        {
+                            d.IsCheck = 1;
+                        } else
+                        {
+                            d.IsCheck = 0;
+                        }
+                    }
+                },
+
+                columns: [
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "BarcodeNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.BarcodeNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "SalesCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.SalesCode + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "SiteNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.SiteNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.ItemNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "ItemNo_PLG",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.ItemNo_PLG + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "ItemName",
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400; text-align:left">' + row.ItemName + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "UnitOfMeasureCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.UnitOfMeasureCode + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "UnitPrice",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.UnitPrice + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "StartingDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.StartingDateStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "EndingDateStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.EndingDateStr + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "EndingYearStr",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 400;">' + row.EndingYearStr + '</span>';
+                        }
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+                });
+
+            $('#tbl-price-list tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                var isCheck = "";
+                var checkDate = $('#chk-starting-date').prop('checked');
+                if (checkDate == true) {
+                    isCheck = 1;
+                } else {
+                    isCheck = 0;
+                }
+
+                $('#hdIsCheck').val(isCheck);
+                $('#frm-export-excel').submit();
+            })
+
+
+    });
+
+    </script>
+}
+
+
+
+

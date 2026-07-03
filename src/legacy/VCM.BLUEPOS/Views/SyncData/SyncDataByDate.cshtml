@@ -1,0 +1,236 @@
+﻿@using VCM.BLUEPOS.Model.SyncData;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+@using VCM.BLUEPOS.Model.Store;
+
+@{
+    ViewBag.Title = "Đồng bộ lại dữ liệu đầu ngày";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<StorePartnerModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý POS</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Đồng bộ lại dữ liệu đầu ngày</a>
+                    </li>
+                </ul>
+            </div>
+        </div>    
+
+    </div>
+</div>
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+
+        <div class="row">
+            <div class="col-lg-6 col-md-6 col-sm-6 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0px !important;">Mã CH/ST<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="slSiteNo" name="SiteNo">
+                                        @if (listStore != null && listStore.Count > 0)
+                                        {
+                                            if (listStore.Count == 1)
+                                            {
+                                                <option value="@listStore.FirstOrDefault().SiteNo">@listStore.FirstOrDefault().SiteNo - @listStore.FirstOrDefault().SiteName</option>
+                                            }
+                                            else
+                                            {
+                                                foreach (var item in listStore)
+                                                {
+                                                    <option value="@item.SiteNo">@item.SiteNo - @item.SiteName</option>
+                                                }
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12" style="">
+                                <label class="font-weight-bold" style="margin-bottom: 0px !important;">Máy POS</label>
+                                <div class="form-group">
+                                    <div id="divPosTerminal"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12" style="margin-top:17px;">
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-primary btn-search" style="" id="btnSearch"><i class="fa fa-sync"></i> Thực hiện</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="card-header">
+                            <h5 class="card-title">Kết quả</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="divPOSOK"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+
+        var table = "";
+        $('.select2').select2();
+
+        $(document).ready(function () {
+
+            LoadPOSByStore($("#slSiteNo").val());
+            $("#slSiteNo").on("change", function (e) {
+                LoadPOSByStore($("#slSiteNo").val());
+            });
+
+            $("#btnSearch").on("click", function (e) {
+                $.confirm({
+                    backgroundDismiss: false,
+                    escapeKey: true,
+                    icon: 'fa fa-warning',
+                    type: 'red',
+                    typeAnimated: true,
+                    title: 'Thông báo',
+                    content: 'Bạn có chắc chắn xóa bảng SyncDateLog để đồng bộ lại data hay không?',
+                    buttons: {
+                        "CÓ": {
+                            btnClass: 'btn btn-default',
+                            keys: ['ctrl'],
+                            action: function () {
+                                DeleteSynDateLog();
+                            }
+                        },
+                        "KHÔNG": {
+                            btnClass: 'btn-default',
+                            action: function () { }
+                        }
+                    }
+                });
+
+            });
+        });
+
+        function DeleteSynDateLog() {
+            var posID = $('#slMultiPOS').val();
+            //debugger
+            if (posID.length == 0) {
+                toastr.error("Chưa chọn máy POS");
+                return;
+            }
+
+            $('#loadPartialView').html('');
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('PosTerminal', posID);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("DeleteSynDateLog", "SyncData")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    if (data != null) {
+                        var countError = 0;
+                        var countOK = 0;
+                        var html = "<ul class=\"nav nav-pills flex-column\">";
+                        data.forEach((name, i) => {
+                            if (name.Item3 == false) {
+                                html += "<li class=\"nav-item active\">";
+                                html += "<a class=\"nav-link\">";
+                                html += "<i class=\"fas fa-address-card\"></i> " + name.Item1 + " (" + name.Item2 + ")";
+                                html += "<span class=\"badge bg-danger float-right\" style=\"color:#FFFFFF\">Fail</span>";
+                                html += "</a>";
+                                html += "</li>";
+                            }
+                            else {
+                                html += "<li class=\"nav-item active\">";
+                                html += "<a class=\"nav-link\">";
+                                html += "<i class=\"fas fa-address-card\"></i> " + name.Item1 + "";
+                                html += "<span class=\"badge bg-primary float-right\" style=\"color:#FFFFFF\" >OK</span>";
+                                html += "</a>";
+                                html += "</li>";
+                            }
+                        });
+                        html += "</ul>";
+                            $("#divPOSOK").html(html);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function LoadPOSByStore(storeNo) {
+            var html = '<select class="form-control select2" multiple="multiple" style="width: 100%;" id="slMultiPOS">';
+            var fromData = new FormData();
+            fromData.append('StoreNo', storeNo);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadIPAddressPOSByStoreNo", "Common")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data != null) {
+                        data.forEach((name, i) => {
+                            if (name.IpAddress != "") {
+                                html += "<option value=" + name.IpAddress + ">" + name.PosID + "-" + name.IpAddress + "</option>";
+                            }
+                        });
+
+                        html += '</select>';
+                        $("#divPosTerminal").html(html);
+
+                        $('#slMultiPOS').fSelect({
+                            placeholder: 'Chọn máy POS',
+                            overflowText: '{n} POS được chọn',
+                            searchText: 'Tìm kiếm....',
+                            noResultsText: 'Không tìm thấy máy POS',
+                            showSearch: true,
+                            optionFormatter: false,
+                            isSelectAll: true
+                        });
+                    }
+                },
+                error: function () {}
+            });
+        }
+    </script>
+}

@@ -4,11 +4,64 @@
 POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 - Solution: `POS.slnx`
 
-> **Greenfield**: dự án khởi đầu là bản port từ POS.API (.NET Framework 4.6) nhưng **nay
-> phát triển mới**, **KHÔNG còn migrate** từ source cũ. Mã nguồn legacy (`src/legacy/`,
-> `POS.Backend`, `VCM.BLUEPOS`) **đã bị xoá khỏi máy** — không còn để đối chiếu, không tạo lại
-> quy trình "đọc code cũ rồi port". Hợp đồng JSON với 5.000 máy POS vẫn giữ nguyên cho các
+> **Greenfield + Migration có chủ đích**: dự án khởi đầu là bản port từ POS.API (.NET Framework
+> 4.6) rồi chuyển sang phát triển mới, ngừng migrate, và xóa hẳn source cũ khỏi máy. Từ
+> **2026-07-03**, source cũ **VCM.BLUEPOS** (.NET Framework 4.6) được **tích hợp lại vào
+> `src/legacy/`** làm tài liệu tham chiếu **CHỈ ĐỌC** để port một số chức năng nghiệp vụ cụ thể
+> sang kiến trúc mới — xem mục **"Quy tắc Migration từ src/legacy/"** ngay bên dưới. Ngoài phạm
+> vi các task migration được giao rõ, mặc định vẫn code mới (greenfield), không tự ý "đọc code cũ
+> rồi port" khi không được yêu cầu. Hợp đồng JSON với 5.000 máy POS vẫn giữ nguyên cho các
 > endpoint hiện hữu.
+
+## Quy tắc Migration từ src/legacy/ (VCM.BLUEPOS) — BẮT BUỘC
+
+> Áp dụng cho MỌI task "port/migrate chức năng X từ code cũ". Đọc mục này TRƯỚC khi mở
+> `src/legacy/`. Không áp dụng cho công việc greenfield thông thường (không liên quan legacy).
+
+### Phạm vi & vị trí
+
+- Source cũ: **`src/legacy/`** — solution `VCM.BLUEPOS.sln` (.NET Framework 4.6.2), gồm
+  `VCM.BLUEPOS` (Web/API), `VCM.BLUEPOS.Business`, `VCM.BLUEPOS.Common`, `VCM.BLUEPOS.Data`,
+  `VCM.BLUEPOS.Model`.
+- **CHỈ ĐỌC — TUYỆT ĐỐI KHÔNG sửa/xóa/format lại file nào trong `src/legacy/`.**
+- `src/legacy/` **KHÔNG** được thêm vào `POS.slnx` — không phải project được build/deploy cùng
+  solution .NET 10, chỉ để Grep/Read đối chiếu logic nghiệp vụ.
+- **Bảng ánh xạ kiến trúc cũ → mới**: `docs/migrations/MIGRATION_MAP.md` — khảo sát đầy đủ
+  project/assembly, layering, DI, config, DB/SP, cross-cutting concern của `VCM.BLUEPOS`, bảng
+  ánh xạ từng loại thành phần sang layer mới, và danh sách các điểm KHÔNG map 1-1 cần quyết định
+  thủ công. **Đọc file này trước** khi định vị logic gốc cho bất kỳ task port nào — tránh khảo sát
+  lại từ đầu.
+
+### Quy trình port 1 chức năng
+
+1. **Định vị** logic gốc trong `src/legacy/` bằng Grep/Explore theo tên chức năng/route/SP —
+   đối chiếu `docs/migrations/MIGRATION_MAP.md` mục 3 (bảng ánh xạ) để biết layer đích tương ứng.
+2. **Đọc hiểu nghiệp vụ** (điều kiện, validation, side-effect, external call) — KHÔNG copy
+   nguyên cấu trúc class/namespace/tên biến của code cũ.
+3. **Thiết kế lại theo chuẩn dự án mới**: DTO ở `POS.Common/Dtos/{Domain}/`, Repository/AppService
+   ở `POS.Infrastructure/.../{Domain}/`, Service ở `POS.Application/Features/{Domain}/`,
+   Controller ở `POS.Api/Controllers/` (đúng "Khuôn thêm 1 nghiệp vụ mới" ở mục Greenfield bên
+   dưới). Vẫn áp dụng "Cổng chặn trùng lặp" — kiểm tra `docs/CURRENT_STRUCTURE.md` trước khi tạo
+   DTO/Service/Repository mới.
+4. **Trích dẫn nguồn gốc BẮT BUỘC**: mọi method/block logic port sang phải có comment 1 dòng
+   ngay phía trên chỉ rõ `file:dòng` gốc, ví dụ:
+   ```csharp
+   // Ported from src/legacy/VCM.BLUEPOS.Business/Services/OrderService.cs:142-168
+   ```
+   Áp dụng cho từng đoạn logic nghiệp vụ có ý nghĩa (không cần chú thích từng dòng vụn vặt).
+5. **UI (nếu port kèm màn hình)**: theo chuẩn POS.Web hiện hành (MudBlazor 9, `pos-page-header`,
+   MudTable `HorizontalScrollbar`, Density Standard, Flat UI Standard...) — KHÔNG bám theo markup
+   WebForms/ASPX/Razor cũ.
+6. Sau khi port xong: cập nhật `docs/CURRENT_STRUCTURE.md` cùng commit, chạy
+   `dotnet test tests/POS.ContractTests` phải xanh.
+
+### KHÔNG làm
+
+- ❌ Copy nguyên namespace/folder structure của `VCM.BLUEPOS` sang dự án mới.
+- ❌ Port method mà không trích dẫn `file:dòng` gốc trong comment.
+- ❌ Sửa/xóa file trong `src/legacy/` dưới bất kỳ lý do gì (kể cả "dọn code", thêm comment).
+- ❌ Thêm project trong `src/legacy/` vào `POS.slnx`.
+- ❌ Đổi tên field JSON response hiện hữu khi port (contract 5.000 POS bất biến).
 
 ## 📚 Bản đồ bộ nhớ & Quy tắc đọc-trước-khi-tạo — BẮT BUỘC
 
@@ -30,6 +83,7 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 | Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) | Quy trình thêm DTO vào `POS.Common` |
 | Tra quy tắc mã hóa credentials appsettings (`enc:` / `POS_SECRET_KEY`) | **`docs/architecture/appsetting.md`** | Dùng mã hóa hay plaintext (tự suy ra từ nội dung file), phạm vi áp dụng, anti-pattern |
 | Trạng thái / lịch sử POS.Web | `docs/WEB_STATUS.md`, `docs/CHANGELOG.md` | — |
+| Port chức năng từ `src/legacy/` (VCM.BLUEPOS) — tra layer cũ tương ứng layer nào ở dự án mới | **`docs/migrations/MIGRATION_MAP.md`** | Khảo sát kiến trúc cũ, convention dự án mới, bảng ánh xạ cũ→mới, danh sách điểm KHÔNG map 1-1 cần quyết định |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
 
@@ -411,8 +465,11 @@ cho Basic Auth). Ngoài DEV, test route bằng curl trực tiếp.
 
 ## Quy ước phát triển mới (Greenfield) — BẮT BUỘC
 
-> Dự án **không còn migrate** từ `POS.Backend` (.NET 4.6). Từ nay mọi nghiệp vụ là **code mới**.
-> Hợp đồng JSON với 5.000 máy POS **vẫn giữ nguyên** cho các endpoint hiện hữu.
+> Mặc định mọi nghiệp vụ là **code mới** — KHÔNG tự ý migrate từ `POS.Backend` (.NET 4.6) cũ
+> (source đã xóa khỏi máy). **Ngoại lệ**: các task port cụ thể từ `src/legacy/` (VCM.BLUEPOS)
+> theo mục **"Quy tắc Migration từ src/legacy/"** ở đầu file — chỉ áp dụng khi task yêu cầu rõ
+> "port/migrate từ code cũ". Hợp đồng JSON với 5.000 máy POS **vẫn giữ nguyên** cho các endpoint
+> hiện hữu.
 
 ### Tổ chức theo Feature (áp cho code mới)
 

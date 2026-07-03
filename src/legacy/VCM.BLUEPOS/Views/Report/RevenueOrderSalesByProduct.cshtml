@@ -1,0 +1,538 @@
+﻿@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Báo cáo doanh thu theo sản phẩm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listSetDB = ViewBag.SetDB as List<SQLServerModel>;
+    var listCategory = ViewBag.ListCategory as List<OptionModel>;    
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader" style="">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Báo cáo tổng hợp</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Báo cáo doanh thu theo sản phẩm</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_RevenueOrderSalesByProduct", "Report", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Từ ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-from-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-from-date" name="FromDate" placeholder="Từ ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Đến ngày<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-btn" for="txt-to-date">
+                                                    <span class="btn btn-default">
+                                                        <span class="glyphicon glyphicon-calendar">
+                                                            <i class="far fa-calendar-alt"></i>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-to-date" name="ToDate" placeholder="Đến ngày">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">Vùng Set<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-set-server" name="SetServer">
+                                            @if (listSetDB != null && listSetDB.Count > 0)
+                                            {
+                                                if (listSetDB.Count == 1)
+                                                {
+                                                    <option value="@listSetDB.FirstOrDefault().IPServer" data-serverread="@listSetDB.FirstOrDefault().IPServerRead">@listSetDB.FirstOrDefault().Description</option>
+                                                }
+                                                else
+                                                {
+                                                    foreach (var item in listSetDB)
+                                                    {
+                                                        <option value="@item.IPServer" data-serverread="@item.IPServerRead">@item.Description</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important;">ST/CH<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Ngành hàng<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-category-parent" name="Categroy">
+                                            @if (listCategory != null && listCategory.Count > 0)
+                                            {
+                                                if (listCategory.Count == 1)
+                                                {
+                                                    <option value="@listCategory.FirstOrDefault().Value">@listCategory.FirstOrDefault().Text</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="" selected>Tất cả</option>
+                                                    foreach (var item in listCategory)
+                                                    {
+                                                        <option value="@item.Value">@item.Text</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" class="btn btn-primary" id="btn-search"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                    <button type="button" class="btn btn-success" id="btn-export-excel"><i class="la fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-revenue-order-sales-by-product-list" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase;">
+                                    <th>STT</th>
+                                    <th>ST/CH</th>
+                                    <th>Tên ST/CH</th>
+                                    <th>Ngày/Tháng</th>
+                                    <th>Ngành hàng cha</th>
+                                    <th>Ngành hàng con</th>
+                                    <th>Số đơn hàng</th>
+                                    <th>Mã sản phẩm</th>
+                                    <th>Tên sản phẩm</th>
+                                    <th>Mã tham chiếu</th>
+                                    <th>Số lượng</th>
+                                    <th>Đơn giá</th>
+                                    <th>Tổng doanh thu</th>
+                                    <th>Giảm giá</th>
+                                    <th>Doanh thu sau giảm giá</th>
+                                    <th>Tiền thuế GTGT</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@section scripts {
+    <script type="text/javascript">
+        var table;
+
+        function getFromDate() {
+            var result = "";
+            var fromDate = $('#txt-from-date').val();
+            if (fromDate != null && fromDate != "") {
+                result = fromDate.split('/')[2] + "/" + fromDate.split('/')[1] + "/" + fromDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        }
+
+        function getToDate() {
+            var result = "";
+            var toDate = $('#txt-to-date').val();
+            if (toDate != null && toDate != "") {
+                result = toDate.split('/')[2] + "/" + toDate.split('/')[1] + "/" + toDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        }
+
+        function LoadComboxStoreByServer(ipServer) {
+            $("#sel-store-no").empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('IPServer', ipServer);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("LoadStoreBySetServerIP", "Common")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data != null) {
+                        if (data.length == 1) {
+                            var html = "<option value='" + data[0].SiteNo + "'>" + data[0].DisplayComboSite + "</option>";
+                            $('#sel-store-no').html(html);
+                        }
+                        else if (data.length > 1) {
+                            var html = "<option value=\"\" selected>Tất cả</option>";
+                            data.forEach((name, i) => {
+                                if (name.SiteNo != "") {
+                                    html += "<option value='" + name.SiteNo + "'>" + name.DisplayComboSite + "</option>";
+                                }
+                            });
+                            $('#sel-store-no').html(html);
+                        }
+                    }
+                    loading.hideloading();
+                },
+                error: function ()
+                {
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            $('#txt-from-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-from-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $('#txt-to-date').val(moment().format('DD/MM/YYYY'));
+            $('#txt-to-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            LoadComboxStoreByServer($("#sel-set-server").val());
+            $("#sel-set-server").on("change", function (e) {
+                LoadComboxStoreByServer($("#sel-set-server").val());
+            });
+
+            /*----------------------------------------------------------------*/
+
+            var groupColumn_0 = 1;              // group theo column thứ 1 (StoreNo)
+            var groupColumn_1 = 3;              // group theo column thứ 4 (Ngày/Tháng)
+            var groupColumn_2 = 4;              // group theo column thứ 5 (Ngành cha)
+            var groupColumn_3 = 12;             // group theo column thứ 12
+            var groupColumn_4 = 13;             // group theo column thứ 13
+            var groupColumn_5 = 14;             // group theo column thứ 14
+            var groupColumn_6 = 15;             // group theo column thứ 15
+
+            table = $('#tbl-revenue-order-sales-by-product-list').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+
+                ajax: {
+                    url: '@Url.Action("GetListRevenueOrderSalesByProduct", "Report")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.fromDate = getFromDate();
+                        d.toDate = getToDate();
+                        d.setServer = $('#sel-set-server').val();
+                        d.serverRead = $("#sel-set-server").select2().find(":selected").data("serverread");
+                        d.storeNo = $('#sel-store-no').val();
+                        d.category = $('#sel-category-parent').val();
+                    }
+                },
+
+                //columnDefs: [
+                //    {
+                //        /*  --- ẩn cột --- */
+                //        visible: false,
+                //        //targets: [groupColumn_0, groupColumn_1]
+                //        //targets: [groupColumn_0, groupColumn_1, groupColumn_3]
+                //    }
+                //],
+
+                order: [[groupColumn_0, 'asc'],[groupColumn_1, 'asc'],[groupColumn_2, 'asc'],[groupColumn_3, 'asc'],[groupColumn_4, 'asc'],[groupColumn_5, 'asc'],[groupColumn_6, 'asc']],
+                //order: [[groupColumn_2, 'asc']],
+
+                drawCallback: function (settings) {
+                    var api = this.api();
+                    var rows = api.rows({ page: 'current' }).nodes();
+                    var last = null;
+                    //api.column(groupColumn_0, { page: 'current' }).data().each(function (group, i) {
+                    api.column(groupColumn_2, { page: 'current' }).data().each(function (group, i) {
+                        if (last !== group) {
+                            var rowData = api.row(i).data();
+                            $(rows).eq(i).before(
+                                '<tr class="group">'
+                                //+ '<td colspan = "3" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:left;"> ' + group + " - " + rowData.StoreName + '</td>'
+                                + '<td colspan = "3" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:left;"> ' + rowData.StoreNo + " - " + rowData.StoreName + '</td>'
+                                + '<td colspan = "1" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:center;"> ' + rowData.OrderDateStr + '</td>'
+                                + '<td colspan = "1" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:center;"> ' + rowData.MCHName1 + '</td>'
+                                + '<td colspan = "7" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;"></td>'
+                                + '<td colspan = "1" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:right;">' + parseFloat(rowData.TotalAmountBeforeDiscount).toLocaleString('en') + '</td>'
+                                + '<td colspan = "1" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:right;">' + parseFloat(rowData.TotalDiscountAmount).toLocaleString('en') + '</td>'
+                                + '<td colspan = "1" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:right;">' + parseFloat(rowData.TotalPrepaymentAmountIncVAT).toLocaleString('en') + '</td>'
+                                + '<td colspan = "1" style = "background:#f2f2f2;font-weight:700;font-size:13px;color:#333333;text-align:right;">' + parseFloat(rowData.TotalVATAmount).toLocaleString('en') + '</td>'
+                                +'</tr>'
+                            );
+                            last = group;
+                        }
+                    });
+                },
+
+                columns: [
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",      
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;">' + row.StoreNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreName",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display:block;">' + row.StoreName + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "OrderDateStr",    // Ngày kinh doanh
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;font-weight:700;">' + row.OrderDateStr + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "MCHName1",      // Tên ngành hàng cha
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;font-weight:400;">' + row.MCHName1 + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "MCHName2",      // Tên ngành hàng con
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:left;font-weight:400;">' + row.MCHName2 + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "OrderNo",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;font-weight:700;color:#0c713d;">' + row.OrderNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",        // Mã sản phẩm
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;font-weight:700;">' + row.ItemNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Description",   // Tên sản phẩm
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:left;">' + row.Description + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ItemNoPLG",    // Mã tham chiếu = Mã sản phẩm Phúc Long
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;font-weight:700;">' + row.ItemNoPLG + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Quantity",   // Số lượng
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;font-weight:400;">' + parseFloat(row.Quantity).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "UnitPrice",  // Đơn giá
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:right;font-weight:400;">' + parseFloat(row.UnitPrice).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "AmountBeforeDiscount",  // Tổng doanh thu trước khi giảm giá
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:right;font-weight:400;">' + parseFloat(row.AmountBeforeDiscount).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "DiscountAmount",  // Giảm giá
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:right;font-weight:400;color:#db0b0b;">' + parseFloat(row.DiscountAmount).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "PrepaymentAmountIncVAT",  // Doanh thu sau giảm giá (thành tiền sau thuế)
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:right;font-weight:400;">' + parseFloat(row.PrepaymentAmountIncVAT).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "VATAmount",   // Tiền thuế VAT
+                        render: function (data, type, row) {
+                            var html = '<span style="display:block;text-align:right;font-weight:400;">' + parseFloat(row.VATAmount).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('#tbl-revenue-order-sales-by-product-list tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                var fromDate = getFromDate();
+                var toDate = getToDate();
+                if (fromDate > toDate) {
+                    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                    return;
+                }
+                table.draw();
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+                var fromDate = getFromDate();
+                var toDate = getToDate();
+                if (fromDate > toDate) {
+                    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                    return;
+                }
+                $('#hdFromDate').val(fromDate);
+                $('#hdToDate').val(toDate);
+                $('#frm-export-excel').submit();
+            });
+
+
+
+        });
+
+        
+
+    </script>
+}
+

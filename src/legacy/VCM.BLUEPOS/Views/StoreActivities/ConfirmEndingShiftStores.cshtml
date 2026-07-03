@@ -1,0 +1,1549 @@
+﻿@using VCM.BLUEPOS.Model.StoreActivities;
+@using VCM.BLUEPOS.Model.POS;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Common;
+
+@{
+    ViewBag.Title = "Xác nhận kết thúc ca";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listStore = ViewBag.ListStore as List<ArraySiteNoModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Vận hành</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Hoạt động cửa hàng</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Xác nhận kết thúc ca</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <div id="title-site" style="color:#1144b6;font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">ST/CH</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-store-no" name="StoreNo">
+                                        @if (listStore != null && listStore.Count > 0)
+                                        {
+                                            if (listStore.Count == 1)
+                                            {
+                                                <option value="@listStore.FirstOrDefault().SiteNo">@listStore.FirstOrDefault().SiteNo - @listStore.FirstOrDefault().SiteName</option>
+                                            }
+                                            else
+                                            {
+                                                foreach (var item in listStore)
+                                                {
+                                                    <option value="@item.SiteNo">@item.SiteNo - @item.SiteName</option>
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <option value="" selected disabled>Chọn mã ST/CH</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">User POS<strong style="color:#ff0000"> (*)</strong></label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-staff-code"></select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Loại giao dịch</label>
+                                <div class="input-group">
+                                    <select class="form-control select2" style="width:100%;" id="sel-type-trans">
+                                        <option value="WEB" selected>Bán hàng</option>
+                                        @*<option value="TH">Thu hộ</option>*@
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                <label style="font-size: 12px; font-weight: 700; font-family: Roboto,Arial,sans-serif; margin-bottom: 1 !important;">Ngày kinh doanh <strong id="strShiftNumber" style="color:#3045f2"></strong></label>
+                                <div class="input-group">
+                                    <input type="text" id="txt-business-date" disabled placeholder="" class="form-control">
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                <button type="button" class="btn btn-primary" onclick="EndShift()" id="btn-end-shift"><i class="fa fa-hourglass-end"></i>Xác nhận</button>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div card card-default>
+                        <div class="card-header" style="margin-top: 10px; margin-left: 10px;">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <div class="form-group" style="margin:0;">
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">
+                                                    <i class="far fa-calendar-alt"></i>
+                                                </span>
+                                            </div>
+                                            <input type="text" class="form-control float-right" id="txt-search-from-date" name="TuNgay" placeholder="Ngày kết thúc ca">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-search-staff-code"></select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <div class="input-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-search-type-trans">
+                                            <option value="WEB" selected>Bán hàng</option>
+                                            @*<option value="TH">Thu hộ</option>*@
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <button type="button" class="btn btn-warning" id="btnSearch" style="color: #ffffff;cursor:pointer;"> <i class="fa fa-search"></i> Tìm kiếm</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-body table-responsive">
+                        <table id="tbl-confirm-end-shift" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>User POS</th>
+                                    <th>Ngày kinh doanh</th>
+                                    <th>Loại giao dịch</th>
+                                    <th>Ca</th>
+                                    <th>Tiền đầu ca</th>
+                                    <th>Số phong bì</th>
+                                    <th>Số coupon</th>
+                                    <th>Số PMH</th>
+                                    <th class="text-center" style="min-width:100px;">#</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="modalShiftHeader">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px; font-weight:bold">KIỂM KÊ TIỀN MẶT ĐỂ KẾT THÚC CA</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:0.2rem !important">
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <table class="table-bordered" style="width:100%">
+                            <tbody>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">500.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeText keyBoard1" tabindex="1" data-money="500000" data-lineno="1000" id="txt1" name="Money"></td>
+
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">200.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard2" tabindex="2" data-money="200000" data-lineno="2000" id="txt2" name="Money">
+
+                                    </td>
+
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">100.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard3" tabindex="3" data-money="100000" data-lineno="3000" id="txt3" name="Money">
+
+                                    </td>
+
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">50.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard4" tabindex="4" data-money="50000" data-lineno="4000" id="txt4" name="Money">
+
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">20.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard5" tabindex="5" data-money="20000" data-lineno="5000" id="txt5" name="Money">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">10.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard6" tabindex="6" data-money="10000" data-lineno="6000" id="txt6" name="Money">
+
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">5.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard7" tabindex="7" data-money="5000" data-lineno="7000" id="txt7" name="Money">
+
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">2.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard8" tabindex="8" data-money="2000" data-lineno="8000" id="txt8" name="Money">
+
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">1.000</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard9" tabindex="9" data-money="1000" data-lineno="9000" id="txt9" name="Money">
+
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">500</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard10" tabindex="10" data-money="500" data-lineno="10000" id="txt10" name="Money">
+
+
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">200</td>
+                                    <td>
+                                        <input type="text" class="form-control Viewtxt changeText keyBoard11" tabindex="11" data-money="200" data-lineno="11000" id="txt11" name="Money">
+                                    </td>
+                                </tr>
+                               
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold;width:70px">Tổng cộng</td>
+                                    <td>
+                                        <input type="text" name="currency-field" id="txtTotal" disabled class="form-control Viewtxt" pattern="^\d{1,3}(,\d{3})*(\.\d+)?$" value="" data-type="currency">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <div class="col-lg-12 col-md-12 col-sm-6 col-xs-12 mb-1 text-right">
+                            <table class="table-bordered" style="width:100%">
+                                <tbody>
+                                    <tr>
+                                        <td style="vertical-align:middle;text-align:right;font-weight:bold;width:100px;">Tiền đầu ca</td>
+                                        <td>
+                                            <input type="text" class="form-control Viewtxt changeCommon keyBoard12" tabindex="12" id="txtTienLR" name="QtyCommon" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="vertical-align:middle;text-align:right;font-weight:bold">Số phong bì</td>
+                                        <td>
+                                            <input type="text" class="form-control Viewtxt changeCommon keyBoard13" tabindex="13" id="txtSoPB" name="QtyCommon" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="vertical-align:middle;text-align:right;font-weight:bold">Số Coupon</td>
+                                        <td>
+                                            <input type="text" class="form-control Viewtxt changeCommon keyBoard14" tabindex="14" id="txtSoCoupon" name="QtyCommon" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="vertical-align:middle;text-align:right;font-weight:bold">Số PMH</td>
+                                        <td>
+                                            <input type="text" class="form-control Viewtxt changeCommon keyBoard15" tabindex="15" id="txtPMH" name="QtyCommon" />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-lg-12 col-md-12 col-sm-6 col-xs-12 mb-1 text-right">
+                            <div id="showVirtualKeyboard"></div>
+                        </div>
+                        <div class="col-lg-12 col-md-12 col-sm-6 col-xs-12 mb-1 text-right">
+                            <div class="form-group" style="">
+                                <button type="button" class="btn btn-success btn-search" onclick="FinishShift()" id="btnFinishShift"><i class="fa fa-save"></i> Đồng ý</button>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<div class="modal fade" id="modalShiftHeaderTH" style="margin-top:0!important">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px; font-weight:bold">KIỂM KÊ TIỀN MẶT THU HỘ</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <table class="table-bordered" style="width:100%">
+                            <tbody>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">500.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH1" tabindex="1" id="txtTH1" data-money="500000" data-lineno="1000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">200.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH2" tabindex="2" id="txtTH2" data-money="200000" data-lineno="2000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">100.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH3" tabindex="3" id="txtTH3" data-money="100000" data-lineno="3000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">50.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH4" tabindex="4" id="txtTH4" data-money="50000" data-lineno="4000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">20.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH5" tabindex="5" id="txtTH5" data-money="20000" data-lineno="5000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">10.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH6" tabindex="6" id="txtTH6" data-money="10000" data-lineno="6000" name="MoneyTH" /></td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">5.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH7" tabindex="7" id="txtTH7" data-money="5000" data-lineno="7000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">2.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH8" tabindex="8" id="txtTH8" data-money="2000" data-lineno="8000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">1.000</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH9" tabindex="9" id="txtTH9" data-money="1000" data-lineno="9000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">500</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH10" tabindex="10" id="txtTH10" data-money="500" data-lineno="10000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">200</td>
+                                    <td><input type="text" class="form-control Viewtxt changeTextTH keyBoardTH11" tabindex="11" id="txtTH11" data-money="200" data-lineno="11000" name="MoneyTH" /></td>
+                                </tr>
+
+                                <tr>
+                                    <td style="vertical-align:middle;text-align:right;font-weight:bold">Total</td>
+                                    <td>
+                                        <input type="text" name="currency-field" id="txtTotalTH" disabled class="form-control Viewtxt" pattern="^\d{1,3}(,\d{3})*(\.\d+)?$" value="" data-type="currency" placeholder="0">
+
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <div class="col-lg-12 col-md-12 col-sm-6 col-xs-12 mb-1 text-right">
+                            <div id="showVirtualKeyboardTH"></div>
+                        </div>
+                        <div class="col-lg-12 col-md-12 col-sm-6 col-xs-12 mb-1 text-right">
+                            <div class="form-group" style="">
+                                <button type="button" class="btn btn-success btn-search" onclick="FinishTH()" id="btnFinishTH"><i class="fa fa-save"></i> Xác nhận</button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalListUserNotFinish">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px;font-weight:bold">DANH SÁCH USER CHƯA KẾT THÚC BÁN HÀNG</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                        <div id="listNotFinish"></div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalViewMoney">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px;font-weight:bold">CHI TIẾT KIỂM KÊ TIỀN MẶT</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+                        <div class="card card-default">
+                            <div class="card-body">
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="500000" id="Viewtxt1" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">500.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" style="width:231px" class="form-control Viewtxt" data-money="200000" id="Viewtxt2" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">200.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" style="width:231px" class="form-control Viewtxt" data-money="100000" id="Viewtxt3" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">100.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" style="width:231px" class="form-control Viewtxt" data-money="50000" id="Viewtxt4" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">50.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="20000" id="Viewtxt5" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">20.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="10000" id="Viewtxt6" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">10.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="5000" id="Viewtxt7" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">5.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="2000" id="Viewtxt8" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">2.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="1000" id="Viewtxt9" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">1.000</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="500" id="Viewtxt10" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">500</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control Viewtxt" data-money="200" id="Viewtxt11" name="ViewMoney" placeholder="0" readonly>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="font-weight:bold">200</span>
+                                    </div>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text" style="font-weight:bold">Tổng</span>
+                                    </div>
+                                    <input type="text" name="currency-field" id="ViewtxtTotal" style="text-align:center" disabled class="form-control Viewtxt" pattern="^\d{1,3}(,\d{3})*(\.\d+)?$" value="" data-type="currency" placeholder="0" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<input type="hidden" id="txthdShiftNumber" value="1" />
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            var date = new Date();
+            $('#txt-search-from-date').val(moment().format("DD/MM/YYYY"));
+            $('#txt-search-from-date').datepicker({
+                format: 'dd/mm/yyyy',
+                autoUpdateInput: false,
+                todayHighlight: true,
+                singleDatePicker: true,
+                autoclose: true
+            });
+
+            $("#btnSearch").on("click", function (e) {
+                table.search(this.value).draw();
+            });
+
+
+            $("#slPosTerminal").on("change", function (e) {
+                var posTerminal = $(this).val();
+                GetInfoPOSBusiness(posTerminal);
+            });
+
+            $(".changeText").on("change", function (e) {
+                LoadTextChange();
+            });
+            //$('.changeText').keypress(function (e) {
+            //
+            //    var key = e.which;
+            //    if (key == 13)  // the enter key code
+            //    {
+            //        LoadTextChange();
+            //        var tabIndex = $(this).attr("tabindex");
+            //        $('[tabindex=' + (tabIndex+1) + ']').focus();
+            //    }
+            //});
+
+
+            $(".changeText").on({
+                keyup: function () {
+                    formatCurrency($(this));
+                },
+                blur: function () {
+                    formatCurrency($(this), "blur");
+                },
+                keypress: function (e) {
+                    //
+                    //var key = e.which;
+                    //if (key == 13)  // the enter key code
+                    //{
+                    //    LoadTextChange();
+                    //    var tabIndex = $(this).attr("tabindex");
+                    //    $('[tabindex=' + (tabIndex + 1) + ']').focus();
+                    //}
+                }
+            });
+            $(".changeCommon").on({
+                keyup: function () {
+                    formatCurrency($(this));
+                },
+                blur: function () {
+                    formatCurrency($(this), "blur");
+                }
+            });
+
+            //$(".keyBoard1").on({
+            //    keyup: function () {
+            //        formatCurrency($(this));
+            //    },
+            //    blur: function () {
+            //        formatCurrency($(this), "blur");
+            //    }
+            //});
+
+            $('.Viewtxt').keyup(function (e) {
+
+                var code = e.keyCode || e.which;
+                if (code == '9') {//tab
+
+                    //var ind = $(this).attr("tabindex");
+                    var ind = $('.Viewtxt').index(this);
+                    ind++;
+                    $(".keyBoard" + ind).click();
+
+
+                }
+                else if (code == '13') {//Enter
+
+                    var ind = $(this).attr("tabindex");
+                    ind++;
+                    $(".keyBoard" + ind).focus();
+                    $(".keyBoard" + ind).click();
+                }
+            });
+
+            $(".keyBoard1").on("click", function (e) {
+                show_easy_numpad(1);
+                LoadTextChange();
+
+            });
+
+            $(".keyBoard2").on("click", function (e) {
+                show_easy_numpad(2);
+                LoadTextChange();
+            });
+            $(".keyBoard3").on("click", function (e) {
+                show_easy_numpad(3);
+                LoadTextChange();
+            });
+            $(".keyBoard4").on("click", function (e) {
+                show_easy_numpad(4);
+                LoadTextChange();
+            });
+            $(".keyBoard5").on("click", function (e) {
+                show_easy_numpad(5);
+                LoadTextChange();
+            });
+            $(".keyBoard6").on("click", function (e) {
+                show_easy_numpad(6);
+                LoadTextChange();
+            });
+            $(".keyBoard7").on("click", function (e) {
+                show_easy_numpad(7);
+                LoadTextChange();
+            });
+            $(".keyBoard8").on("click", function (e) {
+                show_easy_numpad(8);
+                LoadTextChange();
+            });
+            $(".keyBoard9").on("click", function (e) {
+                show_easy_numpad(9);
+                LoadTextChange();
+            });
+            $(".keyBoard10").on("click", function (e) {
+                show_easy_numpad(10);
+                LoadTextChange();
+            });
+            $(".keyBoard11").on("click", function (e) {
+                show_easy_numpad(11);
+                LoadTextChange();
+            });
+
+            $(".keyBoard12").on("click", function (e) {
+                show_easy_numpad(12);
+            });
+            $(".keyBoard13").on("click", function (e) {
+                show_easy_numpad(13);
+            });
+            $(".keyBoard14").on("click", function (e) {
+                show_easy_numpad(14);
+            });
+            $(".keyBoard15").on("click", function (e) {
+                show_easy_numpad(15);
+            });
+
+            //////////////////Thu HO/////////////////
+
+            //$(".changeTextTH").on("change", function (e) {
+            //    LoadTextChangeTH();
+            //});
+
+            $(".changeTextTH").on({
+                keyup: function (e) {
+                    formatCurrency($(this));
+                    var code = e.keyCode || e.which;
+                    if (code == '9') {//tab
+
+                        //var ind = $(this).attr("tabindex");
+                        var ind = $('.changeTextTH').index(this);
+                        ind++;
+                        $(".keyBoardTH" + ind).click();
+
+
+                    }
+                    else if (code == '13') {//Enter
+
+                        var ind = $(this).attr("tabindex");
+                        ind++;
+                        $(".keyBoardTH" + ind).focus();
+                        $(".keyBoardTH" + ind).click();
+                    }
+                },
+                blur: function () {
+                    formatCurrency($(this), "blur");
+                },
+                change: function (e) {
+                    LoadTextChangeTH();
+                }
+            });
+
+            //$('.Viewtxt').keyup(function (e) {
+            //
+            //    var code = e.keyCode || e.which;
+            //    if (code == '9') {//tab
+            //
+            //        //var ind = $(this).attr("tabindex");
+            //        var ind = $('.Viewtxt').index(this);
+            //        ind++;
+            //        $(".keyBoardTH" + ind).click();
+
+
+            //    }
+            //    else if (code == '13') {//Enter
+            //
+            //        var ind = $(this).attr("tabindex");
+            //        ind++;
+            //        $(".keyBoardTH" + ind).focus();
+            //        $(".keyBoardTH" + ind).click();
+            //    }
+            //});
+
+            $(".keyBoardTH1").on("click", function (e) {
+                show_easy_numpad_thuho(1);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH2").on("click", function (e) {
+                show_easy_numpad_thuho(2);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH3").on("click", function (e) {
+                show_easy_numpad_thuho(3);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH4").on("click", function (e) {
+                show_easy_numpad_thuho(4);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH5").on("click", function (e) {
+                show_easy_numpad_thuho(5);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH6").on("click", function (e) {
+                show_easy_numpad_thuho(6);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH7").on("click", function (e) {
+                show_easy_numpad_thuho(7);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH8").on("click", function (e) {
+                show_easy_numpad_thuho(8);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH9").on("click", function (e) {
+                show_easy_numpad_thuho(9);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH10").on("click", function (e) {
+                show_easy_numpad_thuho(10);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH11").on("click", function (e) {
+                show_easy_numpad_thuho(11);
+                LoadTextChangeTH();
+            });
+            $(".keyBoardTH12").on("click", function (e) {
+                show_easy_numpad_thuho(12);
+                LoadTextChangeTH();
+            });
+
+
+
+            $("#sel-store-no").on("change", function (e) {
+                LoadComboxStaffCode($(this).val());
+                LoadDataShiftEnd();
+                GetInfoPOSBusinessDate($(this).val());
+                var staffCode = $("#sel-staff-code").val();
+                GetShiftNumber($(this).val(), staffCode, $('#txt-search-from-date').val(), $("#sel-type-trans").val());
+
+            });
+
+            $("#sel-staff-code").on("change", function (e) {
+                var staffCode = $("#sel-staff-code").val();
+                var ngayKD = $("#txt-business-date").val();
+                GetShiftNumber($("#sel-store-no").val(), staffCode, ngayKD, $("#sel-type-trans").val());
+            });
+
+            $("#sel-type-trans").on("change", function (e) {
+                var staffCode = $("#sel-staff-code").val();
+                var ngayKD = $("#txt-business-date").val();
+                GetShiftNumber($("#sel-store-no").val(), staffCode, ngayKD, $("#sel-type-trans").val());
+
+            });
+
+            LoadComboxStaffCode($("#sel-store-no").val());
+            GetShiftNumber($("#sel-store-no").val(), $("#sel-staff-code").val(), $('#txt-search-from-date').val(), $("#sel-type-trans").val());
+            GetInfoPOSBusinessDate($("#sel-store-no").val());
+            LoadDataShiftEnd();
+
+        });
+
+        //----------- Function -----------
+
+        function LoadComboxStaffCode(storeNo) {
+            $("#sel-staff-code").empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', storeNo);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetComboxStaffList", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    var html1 = "";
+                    var html2 = "";
+                    html2 += "<option value=''>Tất cả</option>";
+                    if (data != null) {
+                        data.forEach((name, i) => {
+                            html1 += "<option value='" + name.UserPOS + "'>" + name.UserPOS + "</option>";
+                        });
+                        data.forEach((name, i) => {
+                            html2 += "<option value='" + name.UserPOS + "'>" + name.UserPOS + "</option>";
+                        });
+                    }
+                    $('#sel-staff-code').html(html1);
+                    $('#sel-search-staff-code').html(html2);
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+            });
+        }
+
+        function GetShiftNumber(siteCode, staffCode, bussinessDate, source) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('SiteNo', siteCode);
+            fromData.append('StaffCode', staffCode);
+            fromData.append('BusinessDate', bussinessDate);
+            fromData.append('Source', source);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetShiftNumber", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     loading.hideloading();
+                     $("#strShiftNumber").html(data.ShiftName);
+                     $("#txthdShiftNumber").val(data.ShiftNumber); 
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function GetInfoPOSBusinessDate(storeNo) {
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('StoreNo', storeNo);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("EndDateBusiness", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     if (data != null) {
+                         $("#txt-business-date").val(data.FormatBussinessDate);
+                     }
+                     else {
+                     }
+                    loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function LoadDataShiftEnd() {
+            table = $('#tbl-confirm-end-shift').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: true,               // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: true,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+
+                ajax: {
+                     url: '@Url.Action("LoadEndShift", "StoreActivities")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.BussinessDate = $("#txt-search-from-date").val();
+                        d.StoreNo = $("#sel-store-no").val();
+                        d.StaffCode = $("#sel-search-staff-code").val();
+                        d.Source = $("#sel-search-type-trans").val();
+                    }
+                },
+
+                columns: [
+
+                    {
+                        data: "StaffCode",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "FormatBussinessDate",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "Source",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            //debugger
+                            var _source = row.Source;
+                            var html = "";
+                            if (_source == "WEB") {
+                                html = '<span style="">Đơn hàng bán</span>';
+                            }
+                            else if (_source == "TH") {
+                                html = '<span style="">Thu hộ</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ShiftNumber",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "BeginAmount",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.BeginAmount > 0) {
+                                var BeginAmount = row.BeginAmount;
+                                html = '<span style="">' + parseFloat(BeginAmount).toLocaleString('en') + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "QuantityBox",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "QuantityCoupon",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "QuantityVoucher",
+                        className: 'text-center'
+                    },
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.Source == "WEB") {
+                                html = "<button id=\"btnViewShiftLine\" title=\"Xem chi tiết kiểm kê\" onclick=\"VMViewPDF('" + $("#sel-store-no").val() + "','" + row.StaffCode + "','" + $("#txt-search-from-date").val() + "','" + row.ShiftNumber + "')\" class=\"btn btn-default\" style=\"padding: .200rem .50rem;\"><i class=\"fa fa-search\" style=\"color: #c97104\"></i></button>";
+                            }
+                            //else if (row.Source == "TH") {
+                            //    html = "<button id=\"btnViewShiftLineTH\" title=\"Xem chi tiết kiểm kê\" onclick=\"VMViewPDFTH('" + $("#sel-store-no").val() + "','" + row.StaffCode + "','" + $("#txt-search-from-date").val() + "','" + row.ShiftNumber + "')\" class=\"btn btn-default\" style=\"padding: .200rem .50rem;\"><i class=\"fa fa-search\" style=\"color: #c97104\"></i></button>";
+                            //}
+                            return html;
+                        }
+                    }
+                ]
+            });
+        }
+
+
+//-------------------------------------------------------------------------------------------------------
+
+
+        function VMViewPDF(storeNo, staffCode, businessDate, shiftNum) {
+            //debugger
+            var url = '/StoreActivities/DetailEndShift?storeNo=' + storeNo + '&staffCode=' + staffCode + '&businessDate=' + businessDate + '&shiftCode=' + shiftNum;
+            window.open(url);
+        }
+
+        function VMViewPDFTH(storeNo, staffCode, businessDate, shiftNum) {
+            var url = '/StoreActivities/DetailEndShiftTH?storeNo=' + storeNo + '&staffCode=' + staffCode + '&businessDate=' + businessDate + '&shiftCode=' + shiftNum;
+            window.open(url);
+        }
+
+        function ViewShiftLine(ShiftCode) {
+            //debugger
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('ShiftCode', ShiftCode);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("ListShiftLine", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     loading.hideloading();
+                     for (var i = 1; i <= $("input[name=ViewMoney]").length; i++) {
+                         $("#Viewtxt" + i).val(0);
+                     }
+                     $("#ViewtxtTotal").val(0);
+                     if (data.length>0) {
+                         data.forEach((name, i) => {
+                             $("input[data-money=" + name.CashCode + "]").val(name.CashQuantity);
+                             formatCurrency($("input[data-money=" + name.CashCode + "]"));
+                         });
+                         const regex = /,/gi;
+                         var total = 0;
+                         for (var i = 1; i <= $("input[name=ViewMoney]").length; i++) {
+                             var qltMoney = $("#Viewtxt" + i).val();
+                             qltMoney = qltMoney.replace(regex, "");
+                             var money = $("#Viewtxt" + i).attr("data-money");
+                             if (qltMoney > 0)
+                                 total += qltMoney * money;
+                         }
+                         $("#ViewtxtTotal").val(total);
+                         formatCurrency($("#ViewtxtTotal"));
+                     }
+                },
+                error: function () {
+                }
+            });
+
+            $('#modalViewMoney').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function formatNumber(n) {
+            return n.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+        }
+
+        function formatCurrency(input, blur) {
+            // appends $ to value, validates decimal side
+            // and puts cursor back in right position.
+
+            // get input value
+            var input_val = input.val();
+
+            // don't validate empty input
+            if (input_val == "") { return; }
+
+            // original length
+            var original_len = input_val.length;
+
+            // initial caret position
+            var caret_pos = input.prop("selectionStart");
+
+            // check for decimal
+            if (input_val.indexOf(".") >= 0) {
+
+                // get position of first decimal
+                // this prevents multiple decimals from
+                // being entered
+                var decimal_pos = input_val.indexOf(".");
+
+                // split number by decimal point
+                var left_side = input_val.substring(0, decimal_pos);
+                var right_side = input_val.substring(decimal_pos);
+
+                // add commas to left side of number
+                left_side = formatNumber(left_side);
+
+                // validate right side
+                right_side = formatNumber(right_side);
+
+                // On blur make sure 2 numbers after decimal
+                if (blur == "blur") {
+                   // right_side += "00";
+                }
+
+                // Limit decimal to only 2 digits
+                right_side = right_side.substring(0, 2);
+
+                // join number by .
+                input_val =  left_side + "." + right_side;
+
+            } else {
+                // no decimal entered
+                // add commas to number
+                // remove all non-digits
+                input_val = formatNumber(input_val);
+                //input_val = "$" + input_val;
+
+                // final formatting
+                if (blur == "blur") {
+                  //  input_val += ".00";
+                }
+            }
+            // send updated string to input
+            input.val(input_val);
+
+            // put caret back in the right position
+            var updated_len = input_val.length;
+            caret_pos = updated_len - original_len + caret_pos;
+            input[0].setSelectionRange(caret_pos, caret_pos);
+        }
+
+
+        function ListStaffCode(siteCode) {
+            $("#sel-staff-code").empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('siteCode', siteCode);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetStaffList", "StoreActivities")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    var html = "";
+                    var html2 = "";
+                    html2 += "<option value=''>Tất cả</option>";
+                    if (data != null) {
+                        data.forEach((name, i) => {
+                            html += "<option value='" + name.UserPOS + "'>" + name.UserPOS + "</option>";
+                        });
+                        data.forEach((name, i) => {
+                            html2 += "<option value='" + name.UserPOS + "'>" + name.UserPOS + "</option>";
+                        });
+                    }
+                    $('#sel-staff-code').html(html);
+                    $('#sel-search-staff-code').html(html2);
+                    loading.hideloading();
+                },
+                error: function () {
+                    loading.hideloading();
+                }
+
+            });
+
+        }
+
+        function GetTerminal(siteCode) {
+            $("#slPosTerminal").empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('siteCode', siteCode);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetPosTerminal", "ActivityStores")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     if (data != null) {
+                         //$('#slPosTerminal').append("<option value=''>------------------Chọn---------------------</option>");
+                         data.forEach((name, i) => {
+                             $('#slPosTerminal').append("<option value='" + name.PosTerminalID + "'>" + name.PosTerminalID + "</option>");
+                         });
+                     }
+                     else {
+                     }
+                     loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+
+        }
+
+        function GetTerminalByUserPOS(siteCode,userPOS, dateBusiness) {
+            $("#slPosTerminal").empty();
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('SiteCode', siteCode);
+            fromData.append('UserPOS', userPOS);
+            fromData.append('DateBusiness', dateBusiness);
+             $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetPOSByUser", "ActivityStores")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                 success: function (data) {
+                     if (data != null) {
+                         //$('#slPosTerminal').append("<option value=''>------------------Chọn---------------------</option>");
+                         data.forEach((name, i) => {
+                             $('#slPosTerminal').append("<option value='" + name.PosTerminal + "'>" + name.PosTerminal + "</option>");
+                         });
+                     }
+                     else {
+
+                     }
+                     loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+
+        }
+
+        // Function: Xác nhận kết thúc ca
+        function EndShift() {
+            var siteNo = $("#sel-store-no").val();
+            var dateBusiness = $("#txt-business-date").val();
+            var staffCode = $("#sel-staff-code").val();
+            var typeTrans = $("#sel-type-trans").val();
+
+            if (siteNo == "" || siteNo.length == 0) {
+                toastr.error("Chọn mã ST/CH");
+                return;
+            }
+            if (staffCode == null || staffCode == "" || staffCode.length == 0) {
+                toastr.error("Không có User POS");
+                return;
+            }
+
+            if (dateBusiness == "" || dateBusiness.length == 0) {
+                toastr.error("Ngày kinh doanh chưa được khỏi tạo ở máy POS");
+                return;
+            }
+
+            if (typeTrans == "TH")
+            {
+                $('#modalShiftHeaderTH').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+
+                $('#modalShiftHeaderTH').on('shown.bs.modal', function () {
+                    $("#txtTH1").focus();
+                    show_easy_numpad_thuho(1);
+                })
+            }
+            else
+            {
+                loading.showloading();
+                var fromData = new FormData();
+                fromData.append('SiteNo', siteNo);
+                fromData.append('StaffCode', staffCode);
+                fromData.append('BusinessDate', dateBusiness);
+                fromData.append('ShiftCode', $("#txthdShiftNumber").val());
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("CheckFinishSale", "StoreActivities")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        $('#listNotFinish').html('');
+                        $("#showVirtualKeyboard").html(''); // đóng bàn phím ảo
+
+                        if (data != null) {
+                            if (data.Status == 0) {
+                                toastr.error(data.Message);
+                            }
+                            else if (data.Status == 2) {   //Danh sách User chưa kết thúc bán hàng
+                                var resultData = data.Data;
+                                if (resultData != null) {
+                                    var html = "";
+                                    html += "<table id=\"\" class=\"table table-bordered table-hover\" style=\"width:100%;\">";
+                                    html += "<thead>";
+                                    html += "<tr>";
+                                    html += "<th style=''>StoreNo</th>";
+                                    html += "<th style=''>TerminalPOS</th>";
+                                    html += "<th style=\"\">UserPOS</th>";
+                                    html += "<th style=''>Ngày kinh doanh</th>";
+                                    html += "<th style='text-align:center'>#</th>";
+
+                                    html += "</tr>";
+                                    html += "</thead>";
+                                    html += "</tbody>";
+                                    resultData.forEach((name, i) => {
+
+                                        html += "<tr id=\"\">";
+                                        html += "<td>" + name.StoreNo + "</td>";
+                                        html += "<td style=\"\">" + name.PosTerminal + "</td>";
+                                        html += "<td style=\"\">" + name.StaffCode + "</td>";
+                                        html += "<td style=\"\">" + name.FormatBussinessDate + "</td>";
+                                        html += "<td style=\"text-align:center\"><span class=\"badge bg-danger\">Chưa kết thúc</span></td>";
+                                        html += "</tr>";
+                                    });
+                                    html += "</tbody>";
+                                    html += "</table>";
+                                    $('#listNotFinish').html(html);
+                                }
+
+                                $('#modalListUserNotFinish').modal({
+                                    backdrop: 'static',
+                                    keyboard: false
+                                });
+                            }
+                            else if (data.Status == 1) {//Bước tiếp theo
+                                ResetShiftEnd();
+                                $('#modalShiftHeader').modal({
+                                    backdrop: 'static',
+                                    keyboard: false
+                                });
+
+                                $('#modalShiftHeader').on('shown.bs.modal', function () {
+                                    $("#txt1").focus();
+                                    show_easy_numpad(1);
+                                })
+                            }
+                        }
+                        else {
+                        }
+                        loading.hideloading();
+                    },
+                    error: function () {
+                        loading.hideloading();
+                    }
+                });
+
+            }
+        }
+
+
+        function FinishShift() {
+                var shiftLine = [];
+                const regex = /,/gi;
+                for (var i = 1; i <= $("input[name=Money]").length; i++) {
+                    var qltMoney = $("#txt" + i).val();
+                    qltMoney = qltMoney.replace(regex, "");
+                    var money = $("#txt" + i).attr("data-money");
+                    var lineNo = $("#txt" + i).attr("data-lineno");
+                    if (qltMoney > 0) {
+                        shiftLine.push({ LineNo: lineNo, CashCode: money, CashQuantity: qltMoney });
+                    }
+                }
+
+                var arrayData = JSON.stringify(shiftLine);
+                loading.showloading();
+                var siteNo = $("#sel-store-no").val();
+                var userPOS = $("#sel-staff-code").val();
+                var dateBusiness = $("#txt-business-date").val();
+                var posTerminal = "VM";
+                var moneyShift = $("#txtTienLR").val().replace(regex, "");
+                var quantityBox = $("#txtSoPB").val().replace(regex, "");
+                var quantityCoupon = $("#txtSoCoupon").val().replace(regex, "");
+                var quantityVoucher = $("#txtPMH").val().replace(regex, "");
+                var closeAmount = $("#txtTotal").val().replace(regex, "");
+
+                var fromData = new FormData();
+                fromData.append('StaffCode', userPOS);
+                fromData.append('SiteNo', siteNo);
+                fromData.append('PosTerminal', posTerminal);
+                fromData.append('BusinessDate', dateBusiness);
+                fromData.append('CloseAmount', closeAmount == "" ? 0 : closeAmount);
+
+                fromData.append('MoneyShift', moneyShift == "" ? 0 : moneyShift);
+                fromData.append('QuantityBox', quantityBox == "" ? 0 : quantityBox);
+                fromData.append('QuantityCoupon', quantityCoupon == "" ? 0 : quantityCoupon);
+                fromData.append('QuantityVoucher', quantityVoucher == "" ? 0 : quantityVoucher);
+                fromData.append('ArrayShiftLine', arrayData);
+
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("FinsishShift", "StoreActivities")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data.Status == 1) {
+                            LoadDataShiftEnd();
+                            ResetShiftEnd();
+                            toastr.success(data.Message);
+                            GetShiftNumber(siteNo, userPOS, dateBusiness, "WEB");
+                            $('#modalShiftHeader').modal('hide');
+                            var shiftNum = $('#txthdShiftNumber').val();
+                            var urlPDF = '/StoreActivities/DetailEndShift?storeNo=' + siteNo + '&staffCode=' + userPOS + '&businessDate=' + dateBusiness + '&shiftCode=' + shiftNum;
+                            window.open(urlPDF);
+                        }
+                        else {
+                            toastr.error(data.Message);
+                        }
+                        loading.hideloading();
+                    },
+                    error: function () {
+                        loading.hideloading();
+                    }
+                });
+        }
+
+
+        function ResetShiftEnd() {
+            for (var i = 1; i <= $("input[name=Money]").length; i++) {
+                $("#txt" + i).val('');
+            }
+            $("#txtTienLR").val('');
+            $("#txtSoPB").val('');
+            $("#txtSoCoupon").val('');
+            $("#txtPMH").val('');
+            $("#txtTotal").val('');
+        }
+
+
+        function FinishTH() {
+            var shiftLine = [];
+            const regex = /,/gi;
+            for (var i = 1; i <= $("input[name=MoneyTH]").length; i++) {
+                var qltMoney = $("#txtTH" + i).val();
+                qltMoney = qltMoney.replace(regex, "");
+                var money = $("#txtTH" + i).attr("data-money");
+                var lineNo = $("#txtTH" + i).attr("data-lineno");
+                if (qltMoney > 0) {
+                    shiftLine.push({ LineNo: lineNo, CashCode: money, CashQuantity: qltMoney });
+                }
+            }
+
+            var arrayData = JSON.stringify(shiftLine);
+            if (shiftLine.length == 0) {
+                $("#txtTH1").focus();
+                toastr.error("Vui lòng nhập số tiền cần kiểm kê");
+            }
+            else
+            {
+                loading.showloading();
+                var siteNo = $("#sel-store-no").val();
+                var userPOS = $("#sel-staff-code").val();
+                var dateBusiness = $("#txt-business-date").val();
+                var posTerminal = "TH";
+                var closeAmount = $("#txtTotalTH").val().replace(regex, "");
+                var fromData = new FormData();
+
+                fromData.append('StaffCode', userPOS);
+                fromData.append('SiteNo', siteNo);
+                fromData.append('PosTerminal', posTerminal);
+                fromData.append('BusinessDate', dateBusiness);
+                fromData.append('CloseAmount', closeAmount == "" ? 0 : closeAmount);
+                fromData.append('ArrayShiftLine', arrayData);
+
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("FinsishShiftTH", "StoreActivities")',
+                    data: fromData,
+                    contentType: "application/json",
+                    dataType: "json",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data.Status == 1) {
+                            LoadDataShiftEnd();
+                            ResetShiftEndTH();
+                            toastr.success(data.Message);
+                            GetShiftNumber(siteNo, userPOS, dateBusiness, "TH");
+                            $('#modalShiftHeaderTH').modal('hide');
+                            var shiftNum = $('#txthdShiftNumber').val();
+                            var urlPDF = '/StoreActivities/DetailEndShiftTH?storeNo=' + siteNo + '&staffCode=' + userPOS + '&businessDate=' + dateBusiness + '&shiftCode=' + shiftNum;
+                            window.open(urlPDF);
+                        }
+                        else {
+                            toastr.error(data.Message);
+                        }
+                        loading.hideloading();
+                    },
+                    error: function () {
+                        loading.hideloading();
+                    }
+                });
+            }
+        }
+
+        function ResetShiftEndTH() {
+            for (var i = 1; i <= $("input[name=MoneyTH]").length; i++) {
+                $("#txtTH" + i).val('');
+            }
+        }
+
+
+
+
+
+
+
+
+    </script>
+}

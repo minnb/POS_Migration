@@ -1,0 +1,212 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="PartnerPLHModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Shopee_update_order">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="order_code" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="update_type" Type="int" Nullable="false" />
+          <Property Name="restaurant_id" Type="int" />
+          <Property Name="pick_time" Type="nvarchar" MaxLength="50" />
+          <Property Name="status" Type="int" Nullable="false" />
+          <Property Name="merchant_note" Type="nvarchar" MaxLength="250" />
+          <Property Name="note_for_shipper" Type="nvarchar" MaxLength="250" />
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="20" />
+          <Property Name="serial" Type="varchar" MaxLength="50" />
+          <Property Name="crt_date" Type="datetime" Nullable="false" />
+          <Property Name="chg_date" Type="datetime" Nullable="false" />
+          <Property Name="update_flg" Type="varchar" MaxLength="1" Nullable="false" />
+          <Property Name="message" Type="nvarchar" MaxLength="1000" />
+          <Property Name="crt_user" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="raw_data" Type="nvarchar(max)" />
+        </EntityType>
+        <!--Errors Found During Generation:
+warning 6002: The table/view 'PartnerPLH.dbo.Shopee_update_order_backup' does not have a primary key defined. The key has been inferred and the definition was created as a read-only table/view.-->
+        <EntityType Name="Shopee_update_order_backup">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="order_code" />
+            <PropertyRef Name="update_type" />
+            <PropertyRef Name="status" />
+            <PropertyRef Name="crt_date" />
+            <PropertyRef Name="chg_date" />
+            <PropertyRef Name="update_flg" />
+            <PropertyRef Name="crt_user" />
+          </Key>
+          <Property Name="Id" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="order_code" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="update_type" Type="int" Nullable="false" />
+          <Property Name="restaurant_id" Type="int" />
+          <Property Name="pick_time" Type="nvarchar" MaxLength="50" />
+          <Property Name="status" Type="int" Nullable="false" />
+          <Property Name="merchant_note" Type="nvarchar" MaxLength="250" />
+          <Property Name="note_for_shipper" Type="nvarchar" MaxLength="250" />
+          <Property Name="partner_restaurant_id" Type="varchar" MaxLength="20" />
+          <Property Name="serial" Type="varchar" MaxLength="50" />
+          <Property Name="crt_date" Type="datetime" Nullable="false" />
+          <Property Name="chg_date" Type="datetime" Nullable="false" />
+          <Property Name="update_flg" Type="varchar" MaxLength="1" Nullable="false" />
+          <Property Name="message" Type="nvarchar" MaxLength="1000" />
+          <Property Name="crt_user" Type="varchar" MaxLength="20" Nullable="false" />
+          <Property Name="raw_data" Type="nvarchar(max)" />
+        </EntityType>
+        <EntityContainer Name="PartnerPLHModelStoreContainer">
+          <EntitySet Name="Shopee_update_order" EntityType="Self.Shopee_update_order" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Shopee_update_order_backup" EntityType="Self.Shopee_update_order_backup" store:Type="Tables" store:Schema="dbo">
+            <DefiningQuery>SELECT 
+    [Shopee_update_order_backup].[Id] AS [Id], 
+    [Shopee_update_order_backup].[order_code] AS [order_code], 
+    [Shopee_update_order_backup].[update_type] AS [update_type], 
+    [Shopee_update_order_backup].[restaurant_id] AS [restaurant_id], 
+    [Shopee_update_order_backup].[pick_time] AS [pick_time], 
+    [Shopee_update_order_backup].[status] AS [status], 
+    [Shopee_update_order_backup].[merchant_note] AS [merchant_note], 
+    [Shopee_update_order_backup].[note_for_shipper] AS [note_for_shipper], 
+    [Shopee_update_order_backup].[partner_restaurant_id] AS [partner_restaurant_id], 
+    [Shopee_update_order_backup].[serial] AS [serial], 
+    [Shopee_update_order_backup].[crt_date] AS [crt_date], 
+    [Shopee_update_order_backup].[chg_date] AS [chg_date], 
+    [Shopee_update_order_backup].[update_flg] AS [update_flg], 
+    [Shopee_update_order_backup].[message] AS [message], 
+    [Shopee_update_order_backup].[crt_user] AS [crt_user], 
+    [Shopee_update_order_backup].[raw_data] AS [raw_data]
+    FROM [dbo].[Shopee_update_order_backup] AS [Shopee_update_order_backup]</DefiningQuery>
+          </EntitySet>
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="PartnerPLHModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="Shopee_update_order">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="order_code" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="update_type" Type="Int32" Nullable="false" />
+          <Property Name="restaurant_id" Type="Int32" />
+          <Property Name="pick_time" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="status" Type="Int32" Nullable="false" />
+          <Property Name="merchant_note" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="note_for_shipper" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="serial" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="crt_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="chg_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="update_flg" Type="String" MaxLength="1" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="message" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="crt_user" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="raw_data" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <EntityType Name="Shopee_update_order_backup">
+          <Key>
+            <PropertyRef Name="Id" />
+            <PropertyRef Name="order_code" />
+            <PropertyRef Name="update_type" />
+            <PropertyRef Name="status" />
+            <PropertyRef Name="crt_date" />
+            <PropertyRef Name="chg_date" />
+            <PropertyRef Name="update_flg" />
+            <PropertyRef Name="crt_user" />
+          </Key>
+          <Property Name="Id" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="order_code" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="update_type" Type="Int32" Nullable="false" />
+          <Property Name="restaurant_id" Type="Int32" />
+          <Property Name="pick_time" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="status" Type="Int32" Nullable="false" />
+          <Property Name="merchant_note" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="note_for_shipper" Type="String" MaxLength="250" FixedLength="false" Unicode="true" />
+          <Property Name="partner_restaurant_id" Type="String" MaxLength="20" FixedLength="false" Unicode="false" />
+          <Property Name="serial" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
+          <Property Name="crt_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="chg_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="update_flg" Type="String" MaxLength="1" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="message" Type="String" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="crt_user" Type="String" MaxLength="20" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="raw_data" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <EntityContainer Name="PartnerPLHContainer" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Shopee_update_order" EntityType="Self.Shopee_update_order" />
+          <EntitySet Name="Shopee_update_order_backup" EntityType="Self.Shopee_update_order_backup" />
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="PartnerPLHModelStoreContainer" CdmEntityContainer="PartnerPLHContainer">
+          <EntitySetMapping Name="Shopee_update_order">
+            <EntityTypeMapping TypeName="PartnerPLHModel.Shopee_update_order">
+              <MappingFragment StoreEntitySet="Shopee_update_order">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="order_code" ColumnName="order_code" />
+                <ScalarProperty Name="update_type" ColumnName="update_type" />
+                <ScalarProperty Name="restaurant_id" ColumnName="restaurant_id" />
+                <ScalarProperty Name="pick_time" ColumnName="pick_time" />
+                <ScalarProperty Name="status" ColumnName="status" />
+                <ScalarProperty Name="merchant_note" ColumnName="merchant_note" />
+                <ScalarProperty Name="note_for_shipper" ColumnName="note_for_shipper" />
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="serial" ColumnName="serial" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+                <ScalarProperty Name="chg_date" ColumnName="chg_date" />
+                <ScalarProperty Name="update_flg" ColumnName="update_flg" />
+                <ScalarProperty Name="message" ColumnName="message" />
+                <ScalarProperty Name="crt_user" ColumnName="crt_user" />
+                <ScalarProperty Name="raw_data" ColumnName="raw_data" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Shopee_update_order_backup">
+            <EntityTypeMapping TypeName="PartnerPLHModel.Shopee_update_order_backup">
+              <MappingFragment StoreEntitySet="Shopee_update_order_backup">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="order_code" ColumnName="order_code" />
+                <ScalarProperty Name="update_type" ColumnName="update_type" />
+                <ScalarProperty Name="restaurant_id" ColumnName="restaurant_id" />
+                <ScalarProperty Name="pick_time" ColumnName="pick_time" />
+                <ScalarProperty Name="status" ColumnName="status" />
+                <ScalarProperty Name="merchant_note" ColumnName="merchant_note" />
+                <ScalarProperty Name="note_for_shipper" ColumnName="note_for_shipper" />
+                <ScalarProperty Name="partner_restaurant_id" ColumnName="partner_restaurant_id" />
+                <ScalarProperty Name="serial" ColumnName="serial" />
+                <ScalarProperty Name="crt_date" ColumnName="crt_date" />
+                <ScalarProperty Name="chg_date" ColumnName="chg_date" />
+                <ScalarProperty Name="update_flg" ColumnName="update_flg" />
+                <ScalarProperty Name="message" ColumnName="message" />
+                <ScalarProperty Name="crt_user" ColumnName="crt_user" />
+                <ScalarProperty Name="raw_data" ColumnName="raw_data" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="true" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

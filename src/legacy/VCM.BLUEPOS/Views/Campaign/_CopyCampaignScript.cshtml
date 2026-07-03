@@ -1,0 +1,130 @@
+﻿@{
+    Layout = null;
+}
+<script>
+    function formatState(state) {
+        if (!state.id) { return state.text; }
+        var $state = $(
+            '<span>' + state.id + '</span>'
+        );
+        return $state;
+    };
+
+    function InitModalCopy() {
+        $('#copy-startTime').val(moment().format('YYYY-MM-DD HH:mm:ss'));
+        $('#copy-startTime').daterangepicker({
+            singleDatePicker: true,
+            timePicker: true,
+            timePicker24Hour: true,
+            timePickerSeconds: true,
+            autoUpdateInput: true,
+            locale: {
+                format: 'YYYY-MM-DD HH:mm:ss'
+            }
+        });
+
+        $('#copy-endTime').val(moment().format('YYYY-MM-DD HH:mm:ss'));
+        $('#copy-endTime').daterangepicker({
+            singleDatePicker: true,
+            timePicker: true,
+            timePicker24Hour: true,
+            timePickerSeconds: true,
+            autoUpdateInput: true,
+            locale: {
+                format: 'YYYY-MM-DD HH:mm:ss'
+            }
+        });
+
+        //$('#copy-offerNo').select2({
+        //    minimumResultsForSearch: 0,
+        //    dropdownParent: $('#modal-copy-campaign'),
+        //    ajax: {
+        //        url: '/Campaign/GetListOfferNo/',
+        //        type: 'POST',
+        //        dataType: 'json',
+        //        global: false,
+        //        data: function (params) {
+        //            return {
+        //                SearchText: params.term,
+        //                PageIndex: params.page || 1,
+        //                PageSize: 50,
+        //                OfferType: $('#copy-offerType').val(),
+        //                StartDateStr: $('#copy-startTime').val(),
+        //                EndDateStr: $('#copy-endTime').val(),
+        //            };
+        //        },
+        //        processResults: function (data, params) {
+        //            params.page = params.page || 1;
+
+        //            var results = [];
+
+        //            var optionValue = $.map(data.Item1, function (item) {
+        //                return {
+        //                    text: item.Value + ' - ' + item.Name,
+        //                    id: item.Value,
+        //                };
+        //            });
+
+        //            results = results.concat(optionValue);
+
+        //            return {
+        //                results: results,
+        //                pagination: {
+        //                    more: params.page < Math.ceil(data.Item2 / 20)
+        //                }
+        //            };
+        //        },
+        //        cache: true
+        //    },
+        //}).on('select2:closing', function (event) {
+        //    $('#select2-copy-offerNo-results').empty();
+        //});
+    }
+
+    function ClearModalCopy() {
+        $('#copy-offerNo').val('');
+        $('#copy-objectID').val('');
+        $('#copy-offerType').val('');
+        $('#copy-sub-text-title').text('');
+    }
+
+    $(document).ready(function () {
+        $('#btn-save-copy-campaign').off('click');
+      
+        $('#btn-save-copy-campaign').on('click', function () {
+            var data = {
+                ObjectIDs: $('#copy-objectID').val(),
+                StartTime: $('#copy-startTime').val(),
+                EndTime: $('#copy-endTime').val(),
+                OfferNo: $('#copy-offerNo').val(),
+            };
+
+            var isValid = true;
+
+            if (data.OfferNo == '' || data.OfferNo == null) {
+                toastr.error("Vui lòng chọn Mã khuyến mãi");
+                isValid = false;
+            }
+
+            if (!isValid) return;
+
+            $.ajax({
+                url: "/Campaign/CopyCampaign",
+                type: "POST",
+                data: data,
+                success: function (response) {
+                    if (response.Meta.Code == 200) {
+                        toastr.success(response.Meta.Message, { showMethod: "fadeIn", hideMethod: "fadeOut", timeOut: 2000 });
+                        $('#modal-copy-campaign').modal('hide');
+                        $("#btn-search").trigger('click');
+                    } else {
+                        toastr.error(response.Meta.Message);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    toastr.error("Lỗi hệ thống !", "Error");
+                }
+            });
+        })
+    });
+</script>

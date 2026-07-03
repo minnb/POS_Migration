@@ -1,0 +1,388 @@
+﻿@{
+    Layout = null;
+}
+
+@using VCM.BLUEPOS.Model.StoreActivities;
+@model ViewDetailEndDateModel
+
+<!DOCTYPE html>
+<html lang="en" manifest="">
+<head>
+    <title>Tổng hợp kết thúc ngày</title>
+
+    @*@Styles.Render("~/Content/custom.css")
+        @Styles.Render("~/Content/confirm/jquery-confirm.min.css")
+        @Styles.Render("~/Content/themekeen/plugins/custom/fullcalendar/fullcalendar.bundle.css")
+        @Styles.Render("~/Content/themekeen/plugins/custom/datatables/datatables.bundle.css")*@
+
+    @*<link href="/Content/custom.css" rel="stylesheet" />
+        <link href="/Content/confirm/jquery-confirm.min.css" rel="stylesheet" />
+        <link href="/Content/themekeen/plugins/custom/fullcalendar/fullcalendar.bundle.css" rel="stylesheet" />
+        <link href="/Content/themekeen/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" />*@
+
+    <link href="/Content/custom.css" rel="stylesheet" />
+    <link href="/Content/themekeen/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" />
+    <link href="/Content/themekeen/plugins/global/plugins.bundle.css" rel="stylesheet" />
+    <link href="/Content/themekeen/custom/prismjs/prismjs.bundle.css" rel="stylesheet" />
+    <link href="/Content/themekeen/css/style.bundle.css" rel="stylesheet" />
+
+    <link href="@Url.Content("~/Content/custom.css")" rel="stylesheet" type="text/css" />
+    <link href="@Url.Content("~/Content/themekeen/plugins/custom/datatables/datatables.bundle.css")" rel="stylesheet" type="text/css" />
+    <link href="@Url.Content("~/Content/themekeen/plugins/global/plugins.bundle.css")" rel="stylesheet" type="text/css" />
+    <link href="@Url.Content("~/Content/themekeen/custom/prismjs/prismjs.bundle.css")" rel="stylesheet" type="text/css" />
+    <link href="@Url.Content("~/Content/themekeen/css/style.bundle.css")" rel="stylesheet" type="text/css" />
+
+
+    @*@Styles.Render("~/Content/css")*@
+    @*<link href="/Content/css" rel="stylesheet" />*@
+
+    <style>
+        table > tbody > tr {
+            line-height: 10px !important;
+        }
+    </style>
+
+    @{
+
+        // Doanh thu chiu thue
+        var dtCTKH = "0";
+        var dtCTSL = "0";
+        var dtCTAmount = "0";
+        var dtCT = Model.lstAmountVAT;
+        if (dtCT != null && dtCT.Count > 0)
+        {
+            dtCTKH = string.Format("{0:N0}", (double)dtCT.FirstOrDefault()?.CountCustomerVAT);
+            dtCTSL = string.Format("{0:N0}", (double)dtCT.FirstOrDefault()?.CountOrderNoVAT);
+            dtCTAmount = string.Format("{0:N0}", (double)dtCT.FirstOrDefault()?.AmountTenderedVAT);
+        }
+
+        // Doanh thu khong chiu thue
+        var dtKCTKH = "0";
+        var dtKCTSL = "0";
+        var dtKCTAmount = "0";
+        var dtKCT = Model.lstAmountNotVAT;
+        if (dtKCT != null && dtKCT.Count > 0)
+        {
+            dtKCTKH = string.Format("{0:N0}", (double)dtKCT.FirstOrDefault()?.CountCustomerNotVAT);
+            dtKCTSL = string.Format("{0:N0}", (double)dtKCT.FirstOrDefault()?.CountOrderNoNotVAT);
+            dtKCTAmount = string.Format("{0:N0}", (double)dtKCT.FirstOrDefault()?.AmountTenderedNotVAT);
+        }
+
+        // Chiet khau
+        var CommissionName = "";
+        var CommissionAmount = "0";
+        var ckAmount = Model.lstCommissionType;
+        if (ckAmount != null && ckAmount.Count > 0)
+        {
+            CommissionName = ckAmount.FirstOrDefault()?.TenderTypeName.ToString();
+            CommissionAmount = string.Format("{0:N0}", (double)ckAmount.FirstOrDefault()?.CommissionAmount);
+        }
+
+        // Tong cong chiet khau
+        var CommissionTotal = "0";
+        var ckTotal = Model.lstCommissionType;
+        if (ckTotal != null && ckTotal.Count > 0)
+        {
+            CommissionTotal = string.Format("{0:N0}", ckTotal.Sum(d => d.CommissionAmount));
+        }
+
+        // Trả lại chịu thuế
+        var tlCTKH = "0";
+        var tlCTSL = "0";
+        var tlCTAmount = "0";
+        var tlCT = Model.lstRefundAmountVAT;
+        if (tlCT != null && tlCT.Count > 0)
+        {
+            tlCTKH = string.Format("{0:N0}", (double)tlCT.FirstOrDefault()?.RefundCountCustomerVAT);
+            tlCTSL = string.Format("{0:N0}", (double)tlCT.FirstOrDefault()?.RefundCountOrderNoVAT);
+            tlCTAmount = string.Format("{0:N0}", (double)tlCT.FirstOrDefault()?.RefundAmountTenderedVAT);
+        }
+
+        // Trả lại không chịu thuế
+        var tlKCTKH = "0";
+        var tlKCTSL = "0";
+        var tlKCTAmount = "0";
+        var tlKCT = Model.lstRefundAmountNotVAT;
+        if (tlKCT != null && tlKCT.Count > 0)
+        {
+            tlKCTKH = string.Format("{0:N0}", (double)tlKCT.FirstOrDefault()?.RefundCountCustomerNotVAT);
+            tlKCTSL = string.Format("{0:N0}", (double)tlKCT.FirstOrDefault()?.RefundCountOrderNoNotVAT);
+            tlKCTAmount = string.Format("{0:N0}", (double)tlKCT.FirstOrDefault()?.RefundAmountTenderedNotVAT);
+        }
+
+        // Tổng cộng trả lại
+        var tlKHAmountKH = string.Format("{0:N0}", double.Parse(tlCTKH) + double.Parse(tlKCTKH));
+        var tlKHAmountSL = string.Format("{0:N0}", double.Parse(tlCTSL) + double.Parse(tlKCTSL));
+        var tlKHAmount = string.Format("{0:N0}", double.Parse(tlCTAmount) + double.Parse(tlKCTAmount));
+        var dtHHKH = string.Format("{0:N0}", double.Parse(dtCTKH) + double.Parse(dtKCTKH));
+        var dtHHSL = string.Format("{0:N0}", double.Parse(dtCTSL) + double.Parse(dtKCTSL));
+        var dtHHAmount = string.Format("{0:N0}", double.Parse(dtCTAmount) + double.Parse(dtKCTAmount));
+
+        // Doanh thu thuan
+        var dtThuan = string.Format("{0:N0}", double.Parse(dtHHAmount) + double.Parse(tlKHAmount) - double.Parse(CommissionTotal));
+
+        // Thanh toán
+        var ttTMHeThong = "0";
+
+        // Thông tin header
+        var userName = Model.infoStaff?.UserName;
+        var fullName = Model.infoStaff?.FullName;
+        var siteName = Model.infoStaff?.StoreName;
+        var dateWork = Model.infoStaff?.BusinessDate;
+        var phoneNo = Model.infoStaff?.PhoneNo;
+        var address = Model.infoStaff?.Address;
+
+        //============= PHẢI THU CXPOINT ===============
+
+        var receivablesCXPoint = "0";
+        var receivablesCXPointModel = Model.receivablesCXPoint;
+        if (receivablesCXPointModel != null)
+        {
+            if (receivablesCXPointModel.CXPointAmount != null)
+            {
+                receivablesCXPoint = string.Format("{0:N0}", receivablesCXPointModel.CXPointAmount);
+            }
+        }
+        var TongDTcoCXPoint = string.Format("{0:N0}", double.Parse(dtThuan) + double.Parse(receivablesCXPoint));
+
+        //============= Payoo/Cosmo ===============
+
+        var payooAmount = "0";
+        var payooModel = Model.payooAmount;
+        if (payooModel != null)
+        {
+            if (payooModel.PayooAmount != null)
+            {
+                payooAmount = string.Format("{0:N0}", payooModel.PayooAmount);
+            }
+        }
+    }
+</head>
+<body>
+    <section class="content">
+        <div class="container-fluid">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1" style="font-family:Arial !important">
+
+                <!-- title row -->
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <span class="float-left">
+                            ID của người dùng: @userName
+                            <br />
+                            Tên người dùng: @fullName
+                        </span>
+                        <span class="float-right">
+                            Ngày giờ: @DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")
+                            <br />@*Trang 1/1*@
+                        </span>
+                    </div>
+                    <!-- /.col -->
+                </div>
+                <!-- info row -->
+                <div class="row" style="clear:both;padding-top:20px;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <h3 class="text-center text-uppercase" style="font-size:20px;font-weight:bold;margin-bottom:20px;">Tổng hợp kết thúc ngày</h3>
+                        <div style='margin-top:10px;display:block;'>
+                            <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">Cửa hàng :  </span>@siteName</div>
+                            <div style='float: right;padding-top: 5px;'><span style="font-weight:700;">SĐT :  </span>@phoneNo</div><br />
+                        </div>
+                        <div style='margin-top:10px;display:block;'>
+                            <div style='float: left;padding-top: 5px;'><span style="font-weight:700;">Ngày làm việc :  </span>@dateWork</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row" style="clear:both;padding-top:20px;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <span class="float-left">
+                            <strong>Doanh thu</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="row" style="padding-left:40px;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <table class="table table-borderless">
+                            <thead>
+                                <tr>
+                                    <th>Số mô tả</th>
+                                    <th class="text-right">Lượt khách hàng</th>
+                                    <th class="text-right">Số lượng</th>
+                                    <th class="text-right">Số tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1. Doanh thu hàng hóa</td>
+                                    <td class="text-right">@dtHHKH</td>
+                                    <td class="text-right">@dtHHSL</td>
+                                    <td class="text-right">@dtHHAmount</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-left:40px;">* Doanh thu chịu thuế</td>
+                                    <td class="text-right"></td>
+                                    <td class="text-right">@dtCTSL</td>
+                                    <td class="text-right">@dtCTAmount</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-left:40px;">* Doanh thu không chịu thuế</td>
+                                    <td class="text-right"></td>
+                                    <td class="text-right">@dtKCTSL</td>
+                                    <td class="text-right">@dtKCTAmount</td>
+                                </tr>
+                                <tr>
+                                    <td>2. Chiết khấu</td>
+                                    <td class="text-right"></td>
+                                    <td class="text-right"></td>
+                                    <td class="text-right"></td>
+                                </tr>
+
+                                <!-- hien thi chi tiet chiet khau -->
+                                @{
+                                    var dataListCommission = Model.lstCommissionType;
+                                    if (dataListCommission != null && dataListCommission.Count > 0)
+                                    {
+                                        var stt = 1;
+                                        foreach (var item in dataListCommission)
+                                        {
+                                            <tr>
+                                                <td style="padding-left:25px;">@stt. @item.TenderTypeName</td>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="text-right">@string.Format("{0:N0}", item.CommissionAmount)</td>
+                                            </tr>
+                                            stt++;
+                                        }
+                                            @*<tr style="font-weight:bold;border-top:dotted 1px #808080;">
+                                                <td style="padding-left:25px;font-weight:bold">Tổng cộng</td>
+                                                <td style="padding-left:25px;font-weight:bold"></td>
+                                                <td style="padding-left:25px;font-weight:bold"></td>
+                                                <td class="text-right">@string.Format("{0:N0}", dataListCommission.Sum(d => d.CommissionAmount))</td>
+                                            </tr>*@
+                                    }
+                                }
+
+                                <tr>
+                                    <td>3. Doanh thu gộp</td>
+                                    <td class="text-right">@dtHHKH</td>
+                                    <td class="text-right">@dtHHSL</td>
+                                    <td class="text-right">@dtHHAmount</td>
+                                </tr>
+                                <tr>
+                                    <td>4. Trả lại hàng hóa</td>
+                                    <td class="text-right">@tlKHAmountKH</td>
+                                    <td class="text-right">@tlKHAmountSL</td>
+                                    <td class="text-right">@tlKHAmount</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-left:40px;">* Trả lại chịu thuế</td>
+                                    <td class="text-right">@tlCTKH</td>
+                                    <td class="text-right">@tlCTSL</td>
+                                    <td class="text-right">@tlCTAmount</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-left:40px;">* Trả lại không chịu thuế</td>
+                                    <td class="text-right">@tlKCTKH</td>
+                                    <td class="text-right">@tlKCTSL</td>
+                                    <td class="text-right">@tlKCTAmount</td>
+                                </tr>
+                                <tr>
+                                    <td>5. Trả lại chiết khấu</td>
+                                    <td class="text-right">0</td>
+                                    <td class="text-right">0</td>
+                                    <td class="text-right">0</td>
+                                </tr>
+                                <tr style="border-bottom:dotted 1px #808080;">
+                                    <td>6. Trả lại tổng cộng</td>
+                                    <td class="text-right">@tlKHAmountKH</td>
+                                    <td class="text-right">@tlKHAmountSL</td>
+                                    <td class="text-right">@tlKHAmount</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" style="padding-left:25px">Doanh thu thuần</td>
+                                    <td class="text-right">@dtThuan</td> <!-- da tru chiet khau -->
+                                </tr>
+                                @*<tr>
+                                        <td colspan="3" style="padding-left:25px">Phải trả VINID</td>
+                                        <td class="text-right">@saleVINID</td>
+                                </tr>
+                                <tr>
+                                        <td colspan="3" style="padding-left:25px;font-weight:bold">Tổng doanh thu</td>
+                                        <td class="text-right" style="font-weight:bold">@TongDTcoVINID</td>
+                                </tr>*@
+                                <tr>
+                                    <td colspan="3" style="padding-left:25px">Phải thu CX</td>
+                                    <td class="text-right">@receivablesCXPoint</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" style="padding-left:25px">Payoo/Cosmo</td>
+                                    <td class="text-right">@payooAmount</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" style="padding-left:25px;font-weight:bold">Tổng doanh thu</td>
+                                    <td class="text-right" style="font-weight:bold">@TongDTcoCXPoint</td>
+                                </tr>
+                                @*<tr>
+                                        <td style="padding-left:25px">Lượt khách hàng không ký gửi</td>
+                                        <td class="text-right">@dtHHKH</td>
+                                </tr>*@
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="row" style="clear:both;">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <span class="float-left">
+                            <strong>Thanh toán</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="row" style="padding-left:40px;clear:both;">
+                    @{
+                        var dataTT = Model.lstTenderType;
+                        if (dataTT != null && dataTT.Count > 0)
+                        {
+                            var stt = 1;
+                            ttTMHeThong = string.Format("{0:N0}", (double)dataTT.FirstOrDefault(d => d.Code == "CA00").AmountTendered);
+                            <table class="table table-borderless" style="clear:both;">
+                                <tr>
+                                    <th>Số mô tả</th>
+                                    <th>Số lượng</th> <!-- Thêm ngày: 08/12/2022-->
+                                    <th class="text-right">Số tiền</th>
+                                </tr>
+                                @foreach (var item in dataTT)
+                                {
+                                    <tr>
+                                        <td>@stt. @item.TenderTypeName</td>
+                                        <td>@string.Format("{0:N0}", item.SL_TenderType)</td>
+                                        <td class="text-right">@string.Format("{0:N0}", item.AmountTendered)</td>
+                                    </tr>
+                                    stt++;
+                                }
+                                    <tr style="font-weight:bold;border-top:dotted 1px #808080;">
+                                        <td style="padding-left:25px;font-weight:bold">Tổng cộng</td>
+                                        <td></td>
+                                        <td class="text-right">@string.Format("{0:N0}", dataTT.Sum(d => d.AmountTendered))</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding-left:25px">Chi trả vượt quá</td>
+                                        <td></td>
+                                        <td class="text-right">@string.Format("{0:N0}", dataTT.Sum(d => d.AmountTendered) - double.Parse(dtThuan))</td>
+                                    </tr>
+
+                                @*<tr>
+                                        <td style="padding-left:25px">Làm tròn tiền mặt</td>
+                                        <td class="text-right">0</td>
+                                    </tr>*@
+                            </table>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+</body>
+</html>
+

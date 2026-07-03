@@ -1,0 +1,907 @@
+﻿@using VCM.BLUEPOS.Model.Voucher;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Model.Store;
+
+@{
+    ViewBag.Title = "Danh mục Voucher / Coupon";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listVoucherType = (List<VoucherTypeModel>)ViewBag.ListVoucherType;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý Voucher</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Danh mục Voucher/Coupon</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_VoucherCouponList", "Voucher", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Loại<strong style="color:#ff0000"> (*)</strong></label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="sel-voucher-coupon-type" name="VoucherCouponType">
+                                            @if (listVoucherType != null && listVoucherType.Count > 0)
+                                            {
+                                                if (listVoucherType.Count == 1)
+                                                {
+                                                    <option value="@listVoucherType.FirstOrDefault().Value">@listVoucherType.FirstOrDefault().Text</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="" selected>Tất cả</option>
+                                                    foreach (var item in listVoucherType)
+                                                    {
+                                                        <option value="@item.Value">@item.Text</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-status-voucher-coupon" name="Status">
+                                            <option value="" selected>Tất cả</option>
+                                            <option value="0">Có hiệu lực</option>
+                                            <option value="1">Hết hiệu lực</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4 col-md-6 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Từ khóa</label>
+                                    <div class="form-group">
+                                        <input type="text" class="form-control pull-right" style="width:100%;" id="txt-text-search" name="TextSearch" placeholder="Nhập mã voucher / coupon / serial number..." />
+                                    </div>
+                                </div>
+
+                                <input type="hidden" id="txt-item-no" value="">
+
+                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary"><i class="fa fa-search"></i>Tìm</button>
+                                    <button type="button" id="btn-export-excel" class="btn btn-success"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                    <div class="card-body">
+                                        <table id="tbl-coupon-voucher-list" class="table table-bordered table-hover text-nowrap">
+                                            <thead>
+                                                <tr class="text-center" style="text-transform:uppercase;">
+                                                    <th>#</th>
+                                                    <th>STT</th>
+                                                    <th>Mã Voucher/Coupon</th>
+                                                    <th>Tên Voucher/Coupon</th>
+                                                    <th>SerialNumber</th>
+                                                    <th>Loại</th>
+                                                    <th>Loại giảm giá</th>
+                                                    <th>Trạng thái</th>
+                                                    <th>Loại thẻ áp dụng</th>
+                                                    <th>Hình thức bán hàng</th>
+                                                    <th>Áp dụng tổng bill</th>
+                                                    <th>ĐVT</th>
+                                                    <th>Giá trị giảm</th>
+                                                    <th>Giá trị Voucher/Coupon</th>
+                                                    <th>Từ ngày</th>
+                                                    <th>Đến ngày</th>
+                                                    <th>Ngày cập nhật</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-detail-voucher-coupon" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" style="font-size:13px;text-transform:uppercase" id="title-detail-voucher-coupon">CHI TIẾT VOUCHER / COUPON</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="example-preview">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link classTab active" href="#detail-voucher-coupon-header" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold" style="text-transform:uppercase;">Voucher / Coupon Header</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link classTab" href="#detail-voucher-coupon-line" data-toggle="tab">
+                                <span class="nav-icon">
+                                    <i class="flaticon-gift"></i>
+                                </span>
+                                <span class="nav-text font-weight-bold" style="text-transform:uppercase;">Voucher / Coupon Line</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <!-- Tab: Voucher / Coupon Header -->
+                                <div class="active tab-pane" id="detail-voucher-coupon-header">
+                                    <div class="card-body">
+                                        <table class="table table-bordered table-hover text-nowrap row-border  tbl-detail-voucher-coupon-header" id="tbl-detail-voucher-coupon-header">
+                                            <thead>
+                                                <tr style="text-align:center;text-transform:uppercase;">
+                                                    <th>Mã Voucher/Coupon</th>
+                                                    <th>Tên Voucher/Coupon</th>
+                                                    <th>Serial Number</th>
+                                                    <th>Loại</th>
+                                                    <th>Loại giảm giá</th>
+                                                    <th>Loại thẻ áp dụng</th>
+                                                    <th>Hình thức bán hàng</th>
+                                                    <th>Trạng thái</th>
+                                                    <th>ĐVT</th>
+                                                    <th>Giá trị giảm</th>
+                                                    <th>Giá trị nhỏ nhất</th>
+                                                    <th>Giá trị lớn nhất</th>
+                                                    <th>Giá trị Voucher / Coupon</th>
+                                                    <th>Limit Qty</th>
+                                                    <th>Apply Discount Type</th>
+                                                    <th>Tổng Bill</th> <!-- = IsCheckItem -->
+                                                    <th>Từ ngày</th>
+                                                    <th>Đến ngày</th>
+                                                    <th>Ngày cập nhật</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Tab: Voucher / Coupon Line -->
+
+                                <div class="tab-pane" id="detail-voucher-coupon-line">
+                                    <div class="card-body">
+                                        <div style="margin-top: -30px;">
+                                            <table class="table table-bordered table-hover text-nowrap tbl-detail-voucher-coupon-line" id="tbl-detail-voucher-coupon-line">
+                                                <thead>
+                                                    <tr style="text-align:center;text-transform:uppercase;">
+                                                        <th style="width: 100px;">STT</th>
+                                                        <th style="width: 300px;">Mã Voucher/Coupon</th>
+                                                        <th style="width: 100px;">LineNo</th>
+                                                        <th style="width: 200px;">Barcode</th>
+                                                        <th style="width: 200px;">Mã sản phẩm SAP</th>
+                                                        <th style="width: 200px;">Mã sản phẩm PLG</th>
+                                                        <th style="width: 300px;">Tên sản phẩm</th>
+                                                        <th style="width: 200px;">ĐVT</th>
+                                                        <th style="width: 50px;">Size</th>
+                                                        <th style="width: 100px;">TaxCode</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section scripts {
+
+    <script type="text/javascript">
+
+        var table = "";
+        var table_detail_voucher_coupon_header;
+        var table_detail_voucher_coupon_line;
+
+        function ExportExcel_CouponVoucherLineList() {
+            var offerNo = $('#txt-item-no').val();
+            loading.showloading();
+            var req = new XMLHttpRequest();
+            var url = "/Voucher/ExportExcel_DetailCouponVoucherLineList?OfferNo=" + offerNo;
+            req.open("GET", url, true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                console.log(blob.size);
+                var link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                var d = new Date();
+                var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                link.download = "VoucherCouponLineList_" + fileName + ".xlsx";
+                link.click();
+                loading.hideloading();
+            };
+            req.send();
+        }
+
+        $(document).ready(function () {
+
+            $(".select2").select2();
+
+            $('.example-preview .nav-tabs li a').click(function () {
+                $("#tbl-detail-voucher-coupon-header").DataTable().ajax.reload();
+                $("#tbl-detail-voucher-coupon-line").DataTable().ajax.reload();
+            });
+
+            $('#modal-detail-voucher-coupon').on('shown.bs.modal', function () {
+                $('.example-preview .nav-tabs li:first-child a').trigger('click');
+            })
+
+            table = $('#tbl-coupon-voucher-list').DataTable({
+                initComplete: function (settings, json) {
+                    $("#tbl-coupon-voucher-list").wrap("<div style='overflow:auto; width:100%;position:relative;'></div>");
+                },
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    $(".btn-view-detail").click(function () {
+                        //debugger
+                        var itemNo = $(this).attr("data-item-no");
+                        $('#txt-item-no').val(itemNo);
+
+                        $('#modal-detail-voucher-coupon').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                processing: false,               // for show progress bar
+                serverSide: true,                // for process server side
+                lengthChange: false,             // disable lenghthMenu
+                filter: false,                   // this is for disable filter (search box)
+                orderMulti: false,               // for disable multiple column at once
+                autoWidth: false,
+                searching: false,                // Show (search box)
+                ordering: false,
+                displayLength: 15,
+                scrollCollapse: false,
+                //scrollX: true,
+                language: {
+                    zeroRecords: "Không có dữ liệu"
+                },
+                ajax: {
+                    url: '@Url.Action("GetCouponVoucherList", "Voucher")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.VoucherType = $('#sel-voucher-coupon-type').val();
+                        d.Status = $('#sel-status-voucher-coupon').val();
+                        d.TextSearch = $('#txt-text-search').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        render: function (data, type, row) {
+                            var html = '<a type="button" class=\"btn btn-icon btn-light-warning pulse pulse-warning btn-view-detail\" data-toggle="tooltip" data-placement="left" title="Xem chi tiết"  data-item-no ="' + row.ItemNo + '"  style="color:#fff;text-align:center;margin-right:5px;"><i class=\"flaticon2-gear\"></i><span class=\"pulse-ring\"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",             // Mã Voucher/Coupon
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ItemNo == null || row.ItemNo == "") {
+                                html += '<span style="font-weight:700;display:block;text-align: left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700;display:block;text-align: left;">' + row.ItemNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ItemName",           // Tên voucher/coupon
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ItemName == null || row.ItemName == "") {
+                                html += '<span style="font-weight:400;display:block;text-align: left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align: left;">' + row.ItemName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CouponCode",           // Serial Number
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CouponCode == null || row.CouponCode == "") {
+                                html += '<span style="font-weight:700;display:block;text-align: left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:700;display:block;text-align: left;">' + row.CouponCode + '</span>';                               
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ArticleType",        // Loại voucher/coupon
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ArticleType == null || row.ArticleType == "") {
+                                html += '<span style="font-weight:400;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;">' + row.ArticleType + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "DiscountType",     // Loại giảm giá
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.DiscountType == null || row.DiscountType == "") {
+                                html += '<span style="font-weight:400;display: block;">' + "" + '</span>';
+                            } else {
+                                html += '<span style="font-weight:400;display: block;">' + row.DiscountType + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Blocked",            // Trang thai
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var Status = row.Blocked;
+                            var html = "";
+                            if (Status == "Có hiệu lực") {
+                                html += '<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">' + row.Blocked + '</span>';
+                            }
+                            else if (Status == "Hết hiệu lực") {
+                                html += '<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">' + row.Blocked + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CpnVchType",     // Loại thẻ áp dụng
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CpnVchType == null || row.CpnVchType == "") {
+                                html += '<span style="font-weight:400;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;">' + row.CpnVchType + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "SaleType",          // Hinh thuc ban hang
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.SaleType == null || row.SaleType == "") {
+                                html += '<span style="font-weight:400;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;">' + row.SaleType + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "TotalBill",      // Ap dung total bill
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display:block;color:#0C713D;">' + row.TotalBill + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "UnitOfMeasure",          // Đơn vị tinh
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.UnitOfMeasure == null || row.UnitOfMeasure == "") {
+                                html += '<span style="font-weight:400;display:block;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;">' + row.UnitOfMeasure + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "DiscountValue",          // Gia tri giam
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display:block;color: #0C713D;text-align: right;">' + parseFloat(row.DiscountValue).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+ 
+                    {
+                        data: "ValueOfVoucher",         // Giá trị voucher/coupon
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;color:#0C713D;text-align: right;">' + parseFloat(row.ValueOfVoucher).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StartingDateStr",        // Ngay bat dau co hieu luc
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StartingDateStr == null || row.StartingDateStr == "") {
+                                html += '<span style="font-weight:400;display:block;color:#0C713D;">' + "" + '</span>'; 
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;color:#0C713D;">' + row.StartingDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "EndingDateStr",        // Ngay bat dau ket thuc hieu luc
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.EndingDateStr == null || row.EndingDateStr == "") {
+                                html += '<span style="font-weight:400;display:block;color:#0C713D;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;color:#0C713D;">' + row.EndingDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "LastDateModified",  // Ngay cap nhat
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.LastDateModified == null || row.LastDateModified == "") {
+                                html += '<span style="font-weight:400;display:block;color:#0C713D;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;color:#0C713D;">' + row.LastDateModified + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+            });
+
+            $('#tbl-coupon-voucher-list tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+            $("#btn-search").on("click", function (e) {
+                table.draw();
+            })
+
+        })
+
+        $("#btn-export-excel").on("click", function (e) {
+            $('#frm-export-excel').submit();
+        });
+
+        // Xem chi tiet Voucher/Coupon Header
+
+        table_detail_voucher_coupon_header = $('#tbl-detail-voucher-coupon-header').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                     style: 'single'
+                },
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,    // for show progress bar
+                serverSide: true,     // for process server side
+                filter: false,        // this is for disable filter (search box)
+                orderMulti: false,    // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                language: {
+                    zeroRecords: "Không có dữ liệu",
+                },
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("DetailCouponVoucherHeaderList", "Voucher")',
+                    data: function (d) {
+                        d.ItemNo = $('#txt-item-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "ItemNo",     // Ma Voucher/Coupon
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;">' + row.ItemNo + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ItemName",    // Ten Voucher/Coupon
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display:block;text-align:left;">' + row.ItemName + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CouponCode",  // Serial Number
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;text-align:left;">' + row.CouponCode + '</span>';
+                            return html;
+                        }
+                    },
+           
+                    {
+                        data: "ArticleType",     // Loại coupon/voucher
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountType",    // Loai giam gia
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "CpnVchType",      // Loại thẻ áp dụng
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display:block;">' + row.CpnVchType + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "SaleType",       // Hinh thuc ban hang
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display:block;">' + row.SaleType + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Blocked",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var Status = row.Blocked;
+                            var html = "";
+                            if (Status == "Có hiệu lực") {
+                                html += '<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">' + row.Blocked + '</span>';
+                            }
+                            else if (Status == "Hết hiệu lực") {
+                                html += '<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">' + row.Blocked + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "UnitOfMeasure",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "DiscountValue",   // Gia tri giam
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;color:#0C713D;text-align: right;">' + parseFloat(row.DiscountValue).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "MinAmount",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;color:#0C713D;text-align: right;">' + parseFloat(row.MinAmount).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "MaxAmount",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;color:#0C713D;text-align: right;">' + parseFloat(row.MaxAmount).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ValueOfVoucher",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700;display:block;color:#0C713D;text-align: right;">' + parseFloat(row.ValueOfVoucher).toLocaleString('en') + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "LimitQty",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ApplyDiscountType", //29/05/2025,tungnt8
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TotalBill", // = IsCheckItem
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "StartingDateStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "EndingDateStr",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LastDateModified",
+                        className: "text-center"
+                    }
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+
+            });
+
+        // ----------------------
+
+        table_detail_voucher_coupon_line = $('#tbl-detail-voucher-coupon-line').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+                initComplete: function () {
+                    $('#tbl-detail-voucher-coupon-line input').unbind();
+                    $('#tbl-detail-voucher-coupon-line input').bind('keyup', function (e) {
+                        if (e.keyCode == 13) {
+                            table_detail_voucher_coupon_line.search(this.value).draw();
+                        }
+                    });
+                },
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,
+                serverSide: true,
+                filter: true,
+                orderMulti: false,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: true,      // Show (search box)
+                lengthChange: false,
+                scrollY: true,
+                scrollX: true,
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'excel',
+                        text: "<span style='color:#fff;font-weight:400;font-size:13px;'>Export To Excel</span>",
+                        action: function (e, dt, node, config) {
+                            ExportExcel_CouponVoucherLineList();
+                        }
+                    }
+                ],
+
+                language: {
+                    search: "Tìm theo <b>Mã sản phẩm SAP</b> :",
+                    zeroRecords: "Không có dữ liệu"
+                },
+
+                ajax: {
+                    url: '@Url.Action("DetailCouponVoucherLineList", "Voucher")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.ItemNo = $('#txt-item-no').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        className: "text-center",
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "LineNo",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Barcode",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "ApplyItemNoSAP",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:700; display: block;">' + row.ApplyItemNoSAP + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ApplyItemNoPLG",
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400;display: block;">' + row.ApplyItemNoPLG + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Description",
+                        render: function (data, type, row) {
+                            var html = '<span style="font-weight:400; display: block;text-align: left;">' + row.Description + '</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "UnitOfMeasure",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Size",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "TaxCode",
+                        className: "text-center"
+                    }
+                ]
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+    </script>
+
+}
+
+<style>
+    .btn.btn-secondary {
+        color: #fff;
+        background-color: #28a745;
+        border-color: #28a745;
+        position: absolute;
+        margin-left: 2px;
+        margin-top: 10px;
+        width: 120px;
+    }
+</style>
+
+
+

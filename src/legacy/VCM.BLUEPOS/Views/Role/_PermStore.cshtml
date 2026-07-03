@@ -1,0 +1,102 @@
+﻿@using VCM.BLUEPOS.Model.Authen;
+@{
+    var model = Model as PermStoreRequest;
+    var userName = model.UserName;
+
+    //var listStore = model.Item3 as List<ParamJsonStoreList>;
+    //var message = model.Item2;
+    //bool status = model.Item1;
+}
+
+<div class="row">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+        <label style="font-weight:bold">Mã cửa hàng</label>
+        <div class="form-group">
+            <input type="text" id="permtxtStoreNo" class="form-control changeEvent" placeholder="Nhập mã CH" />
+        </div>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+        <label style="font-weight:bold">Tên cửa hàng</label>
+        <div class="form-group">
+            <input type="text" id="permtxtStoreName" class="form-control changeEvent" placeholder="Nhập tên CH" />
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <table class="table table-bordered table-striped" id="tblDataStorePerm">
+            <thead>
+                <tr style="text-align:center;">
+                    <th>STT</th>
+                    <th>Mã cửa hàng</th>
+                    <th>Tên cửa hàng</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    var tableStorePerm = "";
+    var userNameJS = '@userName';
+    $(".changeEvent").on("change", function () {
+        tableStorePerm.draw();
+    });
+
+    $(document).ready(function () {
+        tableStorePerm = $('#tblDataStorePerm').DataTable({
+            dom: '<"top"iflp<"clear">>rt',
+            destroy: true,
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false,          // for show progress bar
+            serverSide: true,           // for process server side
+            filter: true,               // this is for disable filter (search box)
+            orderMulti: false,          // for disable multiple column at once
+            autoWidth: true,
+            ordering: false,
+            displayLength: 10,
+            searching: false,
+            lengthChange: false,
+            ajax: {
+                url: '@Url.Action("PermStoreLoad", "Role")',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    d.UserName = userNameJS;
+                    d.StoreNo = $("#permtxtStoreNo").val();
+                    d.StoreName = $("#permtxtStoreName").val();
+                }
+            },            
+            columns: [
+                {
+                    data: "SiteNo",
+                    className: "text-center",
+                    render: function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+                {
+                    data: "SiteNo",
+                    className: 'text-center'
+                },
+                {
+                    data: "SiteName"
+                }
+            ]
+        }).on('processing.dt', function (e, settings, processing) {
+
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+
+        });
+    });
+</script>

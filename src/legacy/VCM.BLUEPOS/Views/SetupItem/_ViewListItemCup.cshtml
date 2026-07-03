@@ -1,0 +1,173 @@
+﻿@using VCM.BLUEPOS.Model.SetupItem;
+@using VCM.BLUEPOS.Model.SetupPromotion;
+
+@{
+    var model = Model as ListItemSetupRequest;
+    var itemNoHeader = model.ItemNoHeader;
+    var listSalesType = model.ListSalesType;
+}
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="form-group">
+            <label style="font-weight:bold">Hình thức bán hàng</label>
+            <select id="slSalesType" class="form-control" multiple="multiple">
+                @if (listSalesType != null && listSalesType.Count() > 0)
+                {
+                    foreach (var item in listSalesType)
+                    {
+                        var vale = $"{item.Code}_{item.Description}";
+                        <option value="@vale">@item.Description</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+        <input type="text" id="viewItemNoCup" class="form-control eventChangeItemCup" placeholder="Mã sản phẩm" />
+    </div>
+
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+        <input type="text" id="viewItemNameCup" class="form-control eventChangeItemCup" placeholder="Tên sản phẩm" />
+    </div>
+
+</div>
+
+<div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:10px;"></div>
+
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <table id="tblSelectedItemCup" class="table table-bordered table-hover">
+            <thead>
+                <tr class="text-center">
+                    <th>STT</th>
+                    <th>Mã sản phẩm</th>
+                    <th>Mã tham chiếu</th>
+                    <th>Tên sản phẩm</th>
+                    <th>Đơn vị tính</th>
+                    <th>#</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+
+    $(".select2").select2();
+    var itemHeader = '@itemNoHeader';
+    var tableCup = "";
+    //var arraySelectedItem = [];
+
+    $(document).ready(function () {
+
+        $('#slSalesType').fSelect({
+            placeholder: 'Chọn hình thức bán hàng',
+            numDisplayed: 1,
+            overflowText: '{n} Hình thức bán hàng được chọn',
+            searchText: 'Tìm kiếm....',
+            noResultsText: 'Không tìm thấy...',
+            showSearch: true,
+            optionFormatter: false,
+            isSelectAll: true
+        });
+
+        $("#viewbtnSearch").on("click", function () { table.draw(); });
+
+        $(".eventChangeItemCup").on("change", function () {
+            tableCup.draw();
+        });
+
+        tableCup = $('#tblSelectedItemCup').DataTable({
+            dom: '<"top"iflp<"clear">>rt',
+            destroy: true,
+            paging: true,
+            pagingType: "simple_numbers",
+            responsive: true,
+            processing: false,      // for show progress bar
+            serverSide: true,       // for process server side
+            filter: true,           // this is for disable filter (search box)
+            orderMulti: false,      // for disable multiple column at once
+            autoWidth: true,
+            ordering: false,
+            displayLength: 100,
+            searching: false,
+            lengthChange: false,
+            ajax: {
+                url: '@Url.Action("LoadItemGroup", "SetupItem")',
+                type: "POST",
+                datatype: "json",
+                data: function (d) {
+                    d.ItemNo = $("#viewItemNoCup").val();
+                    d.ItemName = $("#viewItemNameCup").val();
+                    d.GroupCode = "Cup";
+                    d.ItemNoHeader = itemHeader;
+                }
+            },
+            drawCallback: function (settings) {
+                //$(".chkItem").click(function () {
+                //    var item = {};
+                //    var itemNo = $(this).attr("data-itemno");
+                //    var desc = $(this).attr("data-description");
+                //    var uom = $(this).attr("data-uom");
+
+                //    item["ItemNo"] = itemNo;
+                //    item["ItemName"] = desc;
+                //    item["UOM"] = uom;
+                //    arraySelectedItem.push(item);
+                //});
+            },
+            columns: [
+                {
+                    data: "ItemNo",
+                    className: "text-center",
+                    render: function (data, type, row, meta) {
+                        var start = meta.settings._iDisplayStart;
+                        return meta.row + 1 + start;
+                    }
+                },
+                {
+                    data: "ItemNo",
+                    className: 'text-center'
+                },
+                {
+                    data: "ItemNo2",
+                    className: 'text-center'
+                },
+                {
+                    data: "ItemName"
+                },
+                {
+                    data: "UOM",
+                    className: 'text-center'
+                },
+                {
+                    data: "ItemNo",
+                    render: function (data, type, full, meta) {
+                        var html = "";
+                        html += "<label class=\"checkbox checkbox-lg\">";
+                        html += "<input type=\"checkbox\" data-itemno='" + full.ItemNo + "' data-description='" + full.ItemName + "' data-uom='" + full.UOM + "' class=\"chkItem\" name=\"chkItem\" />";
+                        html += "<span></span>";
+                        html += "</label>";
+                        return html;
+                    },
+                    className: 'text-center'
+                }
+
+            ]
+        }).on('processing.dt', function (e, settings, processing) {
+
+            if (processing) {
+                loading.showloading();
+            } else {
+                loading.hideloading();
+            }
+
+        });
+    });
+</script>
+

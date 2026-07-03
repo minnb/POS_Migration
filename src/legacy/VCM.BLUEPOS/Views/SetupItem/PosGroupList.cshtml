@@ -1,0 +1,699 @@
+﻿@using VCM.BLUEPOS.Model.Product;
+@using VCM.BLUEPOS.Model.SetupItem;
+@{
+    ViewBag.Title = "Quản lý danh mục sản phẩm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listPosGroup = ViewBag.PosGroups as List<POSGroupModel>;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý sản phẩm</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý danh mục sản phẩm</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-primary mr-2" data-toggle="modal" onclick="AddNew(null);"><i class="la la-plus-circle"></i> Thêm danh mục</button>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" id="groupCodeGlobal" />
+<input type="hidden" id="isParent" />
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txt-item-name" name="ItemName" placeholder="Nhập tên danh mục .." />
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <button type="button" id="btn-search" class="btn btn-primary" name="btnSearch"><i class="fa fa-search"></i>Tìm kiếm</button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body" id="divPosGroup">
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="modalPopupAddNew" tabindex="-1" role="dialog" aria-labelledby="exampleModalSizeXl" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Thông tin danh mục sản phẩm</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card">
+                    <div class="card-body">
+                        <form id="form-pos-group">
+                            <input type="hidden" id="Id" class="form-control" value="0" />
+                            <div class="row">
+                                <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="margin-bottom: 0 !important;">Mã danh mục</label>
+                                    <div class="form-group">
+                                        <input type="text" id="GroupCode" class="form-control" value="" placeholder="Nhập mã danh mục" />
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="margin-bottom: 0 !important;">Tên danh mục</label>
+                                    <div class="form-group">
+                                        <input type="text" id="Description" class="form-control" value="" placeholder="Nhập tên danh mục" />
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="margin-bottom: 0 !important;">Số thứ tự</label>
+                                    <div class="form-group">
+                                        <input type="number" id="Seq" class="form-control" value="" placeholder="Nhập stt" />
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="margin-bottom: 0 !important;">Trạng thái</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="Status" name="Status">
+                                            <option value="1" selected>Hoạt động</option>
+                                            <option value="0">Ngưng hoạt động</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-7 col-md-7 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="margin-bottom: 0 !important;">Chọn danh mục cha</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" id="ParentCode" name="ParentCode">
+                                            <option value="0" selected>----- Danh mục cha -----</option>
+                                            @foreach (var item in listPosGroup)
+                                            {
+                                                <option value="@item.GroupCode">@item.GroupCode - @item.Description</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+                <button type="button" class="btn btn-light-primary font-weight-bold btnSelectedItemCup" onclick="SavePosGroup()"><i class="la la-check"></i>Lưu</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalListItem" tabindex="-1" role="dialog" aria-labelledby="exampleModalSizeXl" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Cập nhật sản phẩm thuộc danh mục</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mt-3 ml-3">Danh sách sản phẩm thuộc danh mục</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" style="width:100%;" id="searchTextGroup" name="searchTextGroup" placeholder="Nhập mã/tên sản phẩm" />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                        <button type="button" id="btn-search-group" class="btn btn-primary" name="btn-search-group"><i class="fa fa-search"></i></button>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                            <div class="card-body">
+                                                <table id="tbl-pos-group-item" class="table table-bordered table-hover">
+                                                    <thead>
+                                                        <tr class="text-center" style="text-transform:uppercase">
+                                                            <th>STT</th>
+                                                            <th>Mã sản phẩm</th>
+                                                            <th>Tên sản phẩm</th>
+                                                            <th>#</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="col-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mt-3 ml-3">Danh sách sản phẩm đang trống</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" style="width:100%;" id="searchTextItem" name="searchTextItem" placeholder="Nhập mã/tên sản phẩm" />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                        <button type="button" id="btn-search-item" class="btn btn-primary" name="btn-search-item"><i class="fa fa-search"></i></button>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                        <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                            <div class="card-body">
+                                                <table id="tbl-item-valid" class="table table-bordered table-hover">
+                                                    <thead>
+                                                        <tr class="text-center" style="text-transform:uppercase">
+                                                            <th>#</th>
+                                                            <th>STT</th>
+                                                            <th>Mã sản phẩm</th>
+                                                            <th>Tên sản phẩm</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts{
+
+    <script type="text/javascript">
+
+        var tableGroupItem = "";
+        var tableItemValid = "";
+        $(document).ready(function () {
+            LoadTablePosGroupItem();
+            LoadTableItemValid();
+
+            $('#searchTextGroup').keypress(function (e) {
+                var key = e.which;
+                if (key == 13)  // the enter key code
+                {
+                    tableGroupItem.draw();
+                }
+            });
+
+            $('#searchTextItem').keypress(function (e) {
+                var key = e.which;
+                if (key == 13)  // the enter key code
+                {
+                    tableItemValid.draw();
+                }
+            });
+        });
+
+        $("#btn-search").on("click", function (e) {
+            LoadDataMenu($("#txt-item-name").val());
+        });
+        LoadDataMenu("")
+        function LoadDataMenu(searchValue) {
+            $.ajax({
+                type: "GET",
+                url: "/SetupItem/_GetListPosGroup?searchValue=" + searchValue,
+                dataType: 'html',
+                contentType: false,
+                processData: false,
+                success: function (result) {
+                    $("#divPosGroup").html(result);
+                },
+                error: function (event) {
+
+                }
+            });
+        }
+
+        function AddNew(parentCode, seq) {
+            if (parentCode != null && parentCode > 0) {
+                $('#Seq').val(seq + 1);
+                $('#ParentCode').val(parentCode);
+                $('#ParentCode').trigger('change.select2');
+            }
+            $('#modalPopupAddNew').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function EditPosGroup(id) {
+            $.ajax({
+                type: "GET",
+                url: "/SetupItem/GetDetailPosGroup?id=" + id,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    $('#Id').val(data.Id);
+                    $('#isParent').val(false);
+                    $('#GroupCode').val(data.GroupCode);
+                    $('#GroupCode').prop('disabled', true);
+                    $('#Description').val(data.Description);
+                    $('#Seq').val(data.Seq);
+                    $('#ParentCode').val(data.ParentCode);
+                    $('#ParentCode').trigger('change.select2');
+                    $('#Status').val(data.Status);
+                    $('#Status').trigger('change.select2');
+                },
+                error: function () {
+                }
+            });
+            $('#modalPopupAddNew').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function EditParentPosGroup(id) {
+            $.ajax({
+                type: "GET",
+                url: "/SetupItem/GetDetailPosGroup?id=" + id,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    $('#Id').val(data.Id);
+                    $('#isParent').val(true);
+                    $('#GroupCode').val(data.GroupCode);
+                    $('#GroupCode').prop('disabled', true);
+                    $('#Description').val(data.Description);
+                    $('#Seq').val(data.Seq);
+                    $('#ParentCode').val(0);
+                    $('#ParentCode').trigger('change.select2');
+                    $('#Status').val(1);
+                    $('#Status').trigger('change.select2');
+                    $('#ParentCode').prop('disabled', true);
+                    $('#Status').prop('disabled', true);
+                },
+                error: function () {
+                }
+            });
+            $('#modalPopupAddNew').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function UpdateListItem(groupCode) {
+            $('#groupCodeGlobal').val(groupCode);
+            tableGroupItem.draw();
+            tableItemValid.draw();
+            $('#modalListItem').modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function SavePosGroup() {
+              var url = "";
+              var Id = $('#Id').val();
+              var isParent = $('#isParent').val();
+              var GroupCode = $('#GroupCode').val();
+              var Description = $('#Description').val();
+              var Seq = $('#Seq').val();
+              var ParentCode = $('#ParentCode').val();
+              var Status = $('#Status').val();
+
+              if (GroupCode == "" || GroupCode.length == 0) {
+                toastr.error("Chưa nhập mã danh mục");
+                return;
+                }
+              if (Description == "" || Description.length == 0) {
+                toastr.error("Chưa nhập tên danh mục");
+                return;
+              }
+            if (Seq == "" || Seq < 0) {
+                toastr.error("Số thứ tự phải > 0");
+                return;
+              }
+
+            loading.showloading();
+
+            var fromData = new FormData();
+            fromData.append('GroupCode', GroupCode);
+            fromData.append('Description', Description);
+            fromData.append('Seq', Seq);
+            fromData.append('ParentCode', ParentCode);
+            fromData.append('Status', Status);
+            fromData.append('isParent', isParent);
+            if (Id > 0) {
+                fromData.append('Id', Id);
+                url = '@Url.Action("UpdatePosGroup", "SetupItem")';
+            } else {
+                url = '@Url.Action("CreatePosGroup", "SetupItem")';
+            }
+            SaveDataPosGroup(url, fromData);
+        }
+
+        function SaveDataPosGroup(url, fromData) {
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#modalPopupAddNew').modal('hide');
+                        ResetForm();
+                        LoadDataMenu("");
+                    } else {
+                        toastr.error(data.Message);
+                    }
+                    loading.hideloading();
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function ResetForm() {
+            $('form#form-pos-group').trigger("reset");
+            $('#ParentCode').val(0);
+            $('#ParentCode').trigger('change.select2');
+            $('#Status').val(1);
+            $('#Status').trigger('change.select2');
+            $('#ParentCode').prop('disabled', false);
+            $('#Status').prop('disabled', false);
+            $('#GroupCode').prop('disabled', false);
+        }
+
+        $("#modalPopupAddNew").on("hidden.bs.modal", function () {
+            ResetForm();
+        });
+
+        function UpdateStatusPosGroup(id, status) {
+            var fromData = new FormData();
+            fromData.append('id', id);
+            fromData.append('status', status);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("UpdateStatusPosGroup", "SetupItem")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 1) {
+                        LoadDataMenu("");
+                        toastr.success(data.Message);
+                    } else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function LoadTablePosGroupItem() {
+                tableGroupItem = $('#tbl-pos-group-item').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: true,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: true,               // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: true,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                drawCallback: function () {
+                    $(".remove-group-item").click(function () {
+                        DeletePosGroupItem($(this).data("id"))
+                    });
+                },
+                ajax: {
+                    url: '@Url.Action("GetPosGroupItemByGroupCode", "SetupItem")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.GroupCode = $('#groupCodeGlobal').val();
+                        d.searchText = $('#searchTextGroup').val();
+                    }
+                },
+
+                columns: [
+
+                    {
+                        data: "GroupCode",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.ItemNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "ItemName",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.ItemName + '</span>';
+                        }
+                    },
+                    {
+                        data: "Id",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<a type="button" class="btn btn-icon btn-light-danger btn-editor-e-wallet remove-group-item" data-id="' + row.Id + '" data-toggle="tooltip" data-placement="left" title="Xóa khỏi danh sách"  style="color:#ffffff;text-align:center;"><i class="la la-arrow-right"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    }
+                ]
+
+            })
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            $("#btn-search-group").on("click", function (e) {
+                tableGroupItem.draw();
+            });
+
+        }
+
+        function LoadTableItemValid() {
+                tableItemValid = $('#tbl-item-valid').DataTable({
+                destroy: true,
+                deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: true,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: true,               // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: true,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                drawCallback: function () {
+                    $(".add-group-item").click(function () {
+                        AddPosGroupItem($(this).data("code"), $(this).data("no"))
+                    });
+                },
+                ajax: {
+                    url: '@Url.Action("GetPosGroupItemIsValid", "SetupItem")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.GroupCode = $('#groupCodeGlobal').val();
+                        d.searchText = $('#searchTextItem').val();
+                    }
+                },
+
+                columns: [
+
+                    {
+                        data: "Id",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<a type="button" class="btn btn-icon btn-light-success btn-editor-e-wallet add-group-item" data-code="' + row.GroupCode + '" data-no="' + row.ItemNo + '" data-toggle="tooltip" data-placement="left" title="Thêm vào danh sách"  style="color:#ffffff; text-align: center; "><i class="la la-arrow-left"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+                    {
+                        data: "GroupCode",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;">' + row.ItemNo + '</span>';
+                        }
+                    },
+
+                    {
+                        data: "ItemName",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            return '<span style="display: block; font-weight: 700;color:#0C713D;">' + row.ItemName + '</span>';
+                        }
+                    }
+                ]
+
+            })
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            $("#btn-search-item").on("click", function (e) {
+                tableItemValid.draw();
+            });
+
+        }
+
+        function AddPosGroupItem(groupCode,itemNo) {
+            var fromData = new FormData();
+            fromData.append('GroupCode', groupCode);
+            fromData.append('ItemNo', itemNo);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("CreatePosGroupItem", "SetupItem")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 1) {
+                        tableItemValid.draw();
+                        tableGroupItem.draw();
+                        toastr.success(data.Message);
+                    } else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function () {
+                }
+            });
+        };
+
+        function DeletePosGroupItem(id) {
+            var fromData = new FormData();
+            fromData.append('id', id);
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("DeletePosGroupItem", "SetupItem")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 1) {
+                        tableItemValid.draw();
+                        tableGroupItem.draw();
+                        toastr.success(data.Message);
+                    } else {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function () {
+                }
+            });
+        };
+
+    </script>
+}

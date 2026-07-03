@@ -1,0 +1,921 @@
+﻿@using VCM.BLUEPOS.Model.Loyalty;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+    ViewBag.Title = "Khai báo tỷ lệ tích tem đổi quà";
+    Layout = "~/Views/Shared/_Layout.cshtml";   
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Loyalty</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Khai báo tỷ lệ tích tem đổi quà</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-bg-warning" id="btn-import-excel"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Import danh sách</span></button>            
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("ExportExcel_MemberEarnItemList", "SetupLoyalty", FormMethod.Get, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                            <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                <div class="card card-custom">
+                                    <div class="card-body">
+                                        <div>
+                                            <div class="panel panel-default">
+                                                <div class="panel-body" style="margin-top: 10px;">
+                                                    <div class="row">
+
+                                                        @*<div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <div class="form-group">
+                                                                <label class="font-weight-bold" style="font-weight:bold !important">Từ ngày<strong style="color:#ff0000"></strong></label>
+                                                                <div class="input-group">
+                                                                    <div class="input-group-prepend">
+                                                                        <label class="input-group-btn" for="search-from-date">
+                                                                            <span class="btn btn-default">
+                                                                                <span class="glyphicon glyphicon-calendar">
+                                                                                    <i class="far fa-calendar-alt"></i>
+                                                                                </span>
+                                                                            </span>
+                                                                        </label>
+                                                                    </div>
+                                                                    <input type="text" class="form-control float-right" id="search-from-date" name="SearchFromDate">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <div class="form-group">
+                                                                <label class="font-weight-bold" style="font-weight:bold !important">Đến ngày<strong style="color:#ff0000"></strong></label>
+                                                                <div class="input-group">
+                                                                    <div class="input-group-prepend">
+                                                                        <label class="input-group-btn" for="search-to-date">
+                                                                            <span class="btn btn-default">
+                                                                                <span class="glyphicon glyphicon-calendar">
+                                                                                    <i class="far fa-calendar-alt"></i>
+                                                                                </span>
+                                                                            </span>
+                                                                        </label>
+                                                                    </div>
+                                                                    <input type="text" class="form-control float-right" id="search-to-date" name="SearchToDate">
+                                                                </div>
+                                                            </div>
+                                                        </div>*@
+
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái</label>
+                                                            <div class="form-group">
+                                                                <select class="form-control select2" id="sel-status" name="Status">
+                                                                    <option value="" selected>Tất cả</option>
+                                                                    <option value="0">Active</option>
+                                                                    <option value="1">Deactive</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <label class="font-weight-bold" style="font-weight:bold !important">Từ khóa</label>
+                                                            <div class="form-group">
+                                                                <input type="text" class="form-control" id="txt-text-search" name="TextSearch" placeholder="Nhập mã sản phẩm; tên sản phẩm">
+                                                            </div>
+                                                        </div>
+
+                                                        <input type="hidden" id="hdFromDate" name="FromDate" />
+                                                        <input type="hidden" id="hdToDate" name="ToDate" />
+                                                        <input type="hidden" id="hd-sel-by-search" name="Status" />
+                                                        <input type="hidden" id="hd-text-search" name="TextSearch" />
+
+                                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                                                            <div class="form-group" style="padding-top: 27px;">
+                                                                <button type="button" class="btn btn-primary" id="btn-search"><i class="la la-search"></i>Tìm</button>
+                                                                <button type="button" class="btn btn-success" id="btn-export-excel"><i class="fa fa-file-excel"></i>Xuất Excel</button>
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover text-nowrap" id="tbl-setup-member-earn-item-list">
+                                <thead>
+                                    <tr class="text-center" style="text-transform:uppercase">
+                                        <th style="text-align:center;width: 80px;">#</th>
+                                        <th style="text-align:center; padding-right: 10px;">STT</th>
+                                        <th>Mã sản phẩm</th>
+                                        <th>Tên sản phẩm</th>
+                                        <th>ĐVT</th>
+                                        <th>Size</th>
+                                        <th>Số lượng</th>
+                                        <th>Tỷ lệ tích tem</th>
+                                        <th>Trạng thái</th>
+                                        <th>Từ ngày</th>
+                                        <th>Đến ngày</th>
+                                        <th>Ngày tạo</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@*<div class="modal fade" id="modal-product-list" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DANH SÁCH SẢN PHẨM</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div id="div-popup-product-list"></div>
+        </div>
+    </div>
+</div>*@
+
+
+<div class="modal fade" id="modal-update-setup-member-earn-item" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-update-setup-loyalty">CẬP NHẬT TRẠNG THÁI</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="div-update-setup-loyalty">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                    <div class="row">
+
+                        <input type="text" hidden id="hdd-update-from-date" name="FromDate" />
+                        <input type="text" hidden id="hdd-update-to-date" name="ToDate" />
+                        <input type="text" hidden id="hdd-update-uom" name="UOM" />
+
+                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Mã sản phẩm</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="update-itemno" name="ItemNo" disabled>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Tên sản phẩm</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="update-item-name" name="ItemName" disabled>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Số lượng</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="update-sale-qty" name="UpdateSaleQty" min="0" step="1" pattern="/^-?\d+\.?\d*$/" onKeyPress="if(this.value.length == 9) return false;return isNumberKey(event);" value="0" disabled>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Tỷ lệ tích tem</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="update-stamps-qty" name="UpdateStampsQty" min="0" step="1" pattern="/^-?\d+\.?\d*$/" onKeyPress="if(this.value.length == 9) return false;return isNumberKey(event);" value="0">
+                            </div>
+                        </div>
+
+                        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                            <label class="font-weight-bold" style="font-weight:bold !important">Trạng thái<strong style="color:#ff0000"> (*)</strong></label>
+                            <div class="input-group">
+                                <select class="form-control select2" id="update-sel-blocked" name="UpdateBlocked">
+                                    <option value="0">Active</option>
+                                    <option value="1">Deactive</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="btn-save-update-setup-member-earn-item" class="btn btn-primary font-weight-bold"><i class="la la-save"></i>Lưu lại</button>
+                <button type="button" id="btn-close-modal-update-member-earn-item" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-import-excel-file" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">IMPORT FILE EXCEL: KHAI BÁO TỶ LỆ TÍCH TEM ĐỔI QUÀ</h3>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div id="div-popup-import-file-excel">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card bgi-no-repeat gutter-b card-stretch">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                            <div class="row">
+                                                <div class="col-lg-9 col-md-6 col-sm-12 col-xs-12">
+                                                    <div class="form-group">
+                                                        <label class="font-weight-bold" style="font-weight:bold !important">Chọn file excel</label>
+                                                        <div class="custom-file">
+                                                            <input type="file" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" id="browse-file-excel" class="inputfile inputfile-1" data-multiple-caption="{count} files selected" />
+                                                            <label id="selected-file" class="custom-file-label" for="browse-file-excel">Vui lòng chọn file excel</label>
+                                                        </div>
+                                                        <div style="margin-top:15px;">
+                                                            <span class="form-text" id="click-down-file-import-template" style="cursor:pointer; color:#3699FF"><i class="fas fa-cloud-download-alt" style="color:#3699FF"></i>&nbsp;&nbsp;Download file excel mẫu (chỉ import đúng định dạng file mẫu)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-3 col-md-6 col-sm-12 col-xs-12">
+                                                    <button type="button" class="btn btn-bg-success" id="btn-save-import-file-excel" style="color:#fff;cursor:pointer;font-size:13px;margin-top: 30px;"><i class="fas fa-file-import" style="color:#fff;"></i><span style="color:#fff;">Thực hiện</span></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+       
+        var table_setup_member_earn_item = "";
+        var table_item_import_list = "";
+
+        $(".mask").inputmask('Regex', { regex: "^[0-9]{1,6}(\\.\\d{1,2})?$" });
+
+        function getFromDate() {
+            var result = "";
+            var fromDate = $('#hdd-update-from-date').val();
+            if (fromDate != null && fromDate != "") {
+                result = fromDate.split('/')[2] + "-" + fromDate.split('/')[1] + "-" + fromDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        };
+
+        function getToDate() {
+            var result = "";
+            var toDate = $('#hdd-update-to-date').val();
+            if (toDate != null && toDate != "") {
+                result = toDate.split('/')[2] + "-" + toDate.split('/')[1] + "-" + toDate.split('/')[0];
+            }
+            else {
+                result = "";
+            }
+            return result;
+        };
+
+        function parseDate(str) {
+            var mdy = str.split('/');
+            return new Date(mdy[2], mdy[1], mdy[0]);
+        };
+
+        function isNumberKey(evt) {
+            var charCode = (evt.which) ? evt.which : evt.keyCode
+            return !(charCode > 31 && (charCode < 48 || charCode > 57));
+        }
+
+        function ImportExcelMemberEarnItem() {
+            loading.showloading();
+            var files = $('#browse-file-excel').get(0).files;
+            var fileData = new FormData();
+            fileData.append('ImportFile', files[0]);
+            $.ajax({
+                url: '/SetupLoyalty/ImportExcelMemberEarnItem',
+                data: fileData,
+                type: 'POST',
+                datatype: 'json',
+                contentType: false,
+                processData: false,
+                async: false,
+                success: function (data) {
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        $('#selected-file').empty();
+                        $('#sel-status').val('').trigger('change'); // Tat ca
+                        $('#btn-search').trigger('click');
+                        $('#modal-import-excel-file').modal('hide');
+                    }
+                    else {
+                        $('#browse-file-excel').val('');
+                        $('#selected-file').empty();
+                        toastr.error(data.Message);
+                        $('#browse-file-excel').val('');
+                    }
+                }
+            });
+        }
+
+        $("#click-down-file-import-template").click(function (e) {
+            loading.showloading();
+            e.preventDefault();
+            var req = new XMLHttpRequest();
+            var url = "/SetupLoyalty/DownloadTemplate_MemberEarnItem";
+            req.open("GET", url, true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                //debugger
+                var blob = req.response;
+                console.log(blob.size);
+                if (blob.size > 10) {
+                    var link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    var d = new Date();
+                    var fileName = d.getFullYear() + "" + (d.getMonth() + 1) + "" + d.getDate() + "" + d.getHours() + "" + d.getMinutes() + "" + d.getSeconds();
+                    link.download = "ImportMemberEarnItemTemplate_" + fileName + ".xlsx";
+                    link.click();
+                }
+                else {
+                    toastr.error("Excel không có dữ liệu, nên không xuất được");
+                }
+                loading.hideloading();
+            };
+            req.send();
+        });
+
+        function UpdateSetupMemberEarnItem() {
+                //debugger
+                var itemNo = $('#update-itemno').val();
+                var itemName = $('#update-item-name').val();
+                var uom = $('#hdd-update-uom').val();
+                //var fromDate = $('#hdd-update-from-date').val();
+                //var toDate = $('#hdd-update-to-date').val();
+                var blocked = $('#update-sel-blocked').val();
+                var saleQty = $('#update-sale-qty').val();
+                var stampsQty = $('#update-stamps-qty').val();
+
+                if (saleQty == 0 || saleQty == null) {
+                    toastr.error("Nhập số lượng");
+                    return;
+                }
+                if (stampsQty == 0 || stampsQty == null) {
+                    toastr.error("Nhập tỷ lệ tích tem");
+                    return;
+                }
+
+                var fromDate = getFromDate(); // yyyy-MM-dd
+                var toDate = getToDate();     // yyyy-MM-dd
+                loading.showloading();
+
+                $.ajax({
+                    url: '@Url.Action("UpdateSetupMemberEarnItem", "SetupLoyalty")',
+                    type: "POST",
+                    dataType: "json",
+                    data: {
+                        ItemNo: itemNo,
+                        ItemName: itemName,
+                        Uom: uom,
+                        FromDateStr: fromDate,
+                        ToDateStr: toDate,
+                        Blocked: blocked,
+                        SaleQty: saleQty,
+                        StampsQty: stampsQty
+                    },
+                    success: function (data) {
+                        //debugger
+                        loading.hideloading();
+                        if (data.Status == 1) {
+                            toastr.success(data.Message);
+                            $('#btn-search').trigger('click');
+                            $('#modal-update-setup-member-earn-item').modal('hide');
+                        }
+                        else
+                        {
+                            toastr.error(data.Message);
+                            $('#modal-update-setup-member-earn-item').modal('Show');
+                        }
+                    },
+                    error: function (data) {
+                        loading.hideloading();
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+        }
+
+
+        $(document).ready(function () {
+
+            $(".select2").select2();
+            $('.money').mask('000,000,000', {
+                placeholder: "0",
+                reverse: true,
+                rightAlign: true
+            });
+
+            //var date = new Date();
+            //$('#search-from-date').val(moment().subtract(180, "days").format("DD/MM/YYYY"));
+            //$('#search-from-date').val(moment().format('DD/MM/YYYY'));
+            //$('#search-from-date').datepicker(
+            //{
+            //    format: 'dd/mm/yyyy',
+            //    autoUpdateInput: false,
+            //    todayHighlight: true,
+            //    singleDatePicker: true,
+            //    autoclose: true
+            //});
+
+            //$('#search-to-date').val(moment().add(6, 'months').format("DD/MM/YYYY"));
+            //$('#search-to-date').val(moment().format('DD/MM/YYYY'));
+            //$('#search-to-date').datepicker(
+            //    {
+            //        format: 'dd/mm/yyyy',
+            //        autoUpdateInput: false,
+            //        todayHighlight: true,
+            //        singleDatePicker: true,
+            //        autoclose: true
+            //    });
+
+            $("#btn-save-update-setup-member-earn-item").on("click", function (e) {
+                UpdateSetupMemberEarnItem();
+            });
+
+            $("#btn-import-excel").on("click", function () {
+                $('#browse-file-excel').val('');
+                $('#modal-import-excel-file').modal({
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            });
+
+            $("#btn-save-import-file-excel").on("click", function (e) {
+                ImportExcelMemberEarnItem();
+            });
+
+            $("input[type='file']").change(function () {
+                $('#selected-file').text(this.value.replace(/C:\\fakepath\\/i, ''));
+            });
+
+            table_setup_member_earn_item = $('#tbl-setup-member-earn-item-list').DataTable({
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+
+                drawCallback: function (settings) {
+                    $('.btn-update-setup-member-earn-item').click(function () {
+                        //debugger
+                        var itemNo = $(this).attr("data-itemno");
+                        $('#update-itemno').val(itemNo);
+
+                        var itemName = $(this).attr("data-item-name");
+                        $('#update-item-name').val(itemName);
+
+                        var uom = $(this).attr("data-uom");
+                        $('#hdd-update-uom').val(uom);
+
+                        var saleQty = $(this).attr("data-saleqty");
+                        $('#update-sale-qty').val(saleQty);
+
+                        var stampsqty = $(this).attr("data-stampsqty");
+                        $('#update-stamps-qty').val(stampsqty);
+
+                        var _status = $(this).attr("data-blocked");
+                        var status = "";
+
+                        if (_status == "Active")
+                        {
+                            status = "0";
+                        }
+                        else if (_status == "Deactive")
+                        {
+                            status = "1";
+                        }
+                        $('#update-sel-blocked').val(status).trigger('change');
+
+                        var fromDate = $(this).attr("data-from-date");
+                        $('#hdd-update-from-date').val(fromDate);
+
+                        var toDate = $(this).attr("data-to-date");
+                        $('#hdd-update-to-date').val(toDate);
+
+                        var dateNow = new Date();
+                        var year = dateNow.getFullYear();
+                        var month = dateNow.getMonth() + 1;
+                        var day = dateNow.getDate();
+
+                        var paramDate = day + '/' + month + '/' + year;
+                        var getTimeNow = parseDate(paramDate).getTime();
+
+                        var dateFrom = parseDate(fromDate).getTime();
+                        var dateTo = parseDate(toDate).getTime();
+
+                        if (dateTo < getTimeNow) {
+                            $('#update-sel-blocked').attr('disabled', true);
+                            $('#btn-save-update-setup-member-earn-item').attr('disabled', true);
+                        }
+                        else if (dateTo > getTimeNow) {
+                            $('#update-sel-blocked').attr('disabled', false);
+                            $('#btn-save-update-setup-member-earn-item').attr('disabled', false);
+                        }
+                        else if (dateTo == getTimeNow) {
+                            $('#update-sel-blocked').attr('disabled', false);                
+                            $('#btn-save-update-setup-member-earn-item').attr('disabled', false);
+                        }
+
+                        $('#modal-update-setup-member-earn-item').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+
+                    });
+
+                    @*$('.btn-delete-member-earn-item').click(function () {
+                         //debugger
+                         var itemNo = $(this).attr("data-itemno");
+                         var uom = $(this).attr("data-uom");
+                         var size = $(this).attr("data-size");
+                         var status = $(this).attr("data-status");
+
+                         var _fromDate = $(this).attr("data-from-date");
+                         var _toDate = $(this).attr("data-to-date");
+                         var dateNow = new Date();
+                         var year = dateNow.getFullYear();
+                         var month = dateNow.getMonth() + 1;
+                         var day = dateNow.getDate();
+                         var paramDate = day + '/' + month + '/' + year;
+                         var getTimeNow = parseDate(paramDate).getTime();
+                         var dateFrom = parseDate(_fromDate).getTime();
+                         var dateTo = parseDate(_toDate).getTime();
+
+                         if (dateTo <= getTimeNow) {
+                             toastr.error('Không được phép xóa. Vì không thỏa điều kiện về thời gian hiệu lực (hoặc đã hết hiệu lực)');
+                             return;
+                         }
+
+                        $.confirm({
+                            backgroundDismiss: true,
+                            escapeKey: true,
+                            icon: 'fa fa-warning',
+                            type: 'red',
+                            typeAnimated: true,
+                            title: 'Thông báo',
+                            content: 'Bạn có chắc chắn muốn xóa thông tin này không?',
+
+                             buttons: {
+                                "CÓ": {
+                                    btnClass: 'btn btn-default',
+                                    keys: ['ctrl'],
+                                    action: function () {
+                                        loading.showloading();
+                                        $.ajax({
+                                            url: '@Url.Action("DeleteSetupMemberEarnItem", "SetupLoyalty")',
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: {
+                                                ItemNo: itemNo,
+                                                Uom: uom,
+                                                Size: size,
+                                                Blocked: status,
+                                                FromDateStr: _fromDate,
+                                                ToDateStr: _toDate
+                                            },
+                                            success: function (data) {
+                                                if (data.Status == 1)
+                                                {
+                                                    toastr.success(data.Message);
+                                                }
+                                                else if (data.Status == 2)
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                else
+                                                {
+                                                    toastr.error(data.Message);
+                                                }
+                                                $('#btn-search').trigger('click');
+                                                loading.hideloading();
+                                            },
+                                            error: function () {
+                                                loading.hideloading();
+                                                toastr.error("Lỗi hệ thống");
+                                            }
+                                        });
+                                    }
+                                },
+                                "KHÔNG": {
+                                    btnClass: 'btn-default',
+                                    action: function () { }
+                                }
+                            }
+                        });
+                    });*@
+
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,                
+                ajax: {
+                    type: "POST",
+                    url: '@Url.Action("SetupMemberEarnItemList", "SetupLoyalty")',
+                    data: function (d) {
+                        d.Status = $("#sel-status").val();
+                        d.TextSearch = $('#txt-text-search').val();
+                    }
+                },
+                columns: [
+                    {
+                        data: "ItemNo",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                                html += '<a type="button" class="btn btn-icon btn-light-warning btn-update-setup-member-earn-item"';
+                                html += 'data-itemno ="' + row.ItemNo + '"';
+                                html += 'data-item-name ="' + row.ItemName + '"';
+                                html += 'data-uom ="' + row.Uom + '"';
+                                html += 'data-size ="' + row.Size + '"';
+                                html += 'data-saleqty ="' + row.SaleQty + '"';
+                                html += 'data-stampsqty ="' + row.StampsQty + '"';
+                                html += 'data-from-date ="' + row.FromDateStr + '"';
+                                html += 'data-to-date ="' + row.ToDateStr + '"';
+                                html += 'data-blocked ="' + row.Blocked + '"';
+                                html += 'data-toggle="tooltip" /*data-placement="left"*/ title ="Cập nhật" style="color:#fff;text-align:center;" ><i class="la la-edit"></i> <span class="pulse-ring"></span></a>';
+                                //html += '<a type="button" class="btn btn-icon btn-light-danger btn-delete-member-earn-item" data-itemno ="' + row.ItemNo + '"  data-uom = "' + row.Uom + '" data-size = "' + row.Size + '" data-status = "' + row.Blocked + '" data-from-date = "' + row.FromDateStr + '" data-to-date = "' + row.ToDateStr + '" data-toggle="tooltip" data-placement="left" title="Xóa" style="margin-left:3px;color:#fff;text-align:center;"><i class="la la-close"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "ItemNo",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ItemNo == null || row.ItemNo == "") {
+                               html += '<span style="font-weight:600;display:block;text-align:center;color:#058EC2;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:600;display:block;text-align:center;color:#058EC2;">' + row.ItemNo + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+                    
+                    {
+                        data: "ItemName",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ItemName == null || row.ItemName == "") {
+                                html += '<span style="font-weight:600;display:block;text-align:left;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:600;display:block;text-align:left;">' + row.ItemName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Uom",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.Uom == null || row.Uom == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.Uom + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Size",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.Size == null || row.Size == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.Size + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "SaleQty",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.SaleQty == null || row.SaleQty == "") {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.SaleQty + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StampsQty",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.StampsQty == null || row.StampsQty == "")
+                            {
+                                html += '<span style="font-weight:700;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else
+                            {
+                                html += '<span style="font-weight:700;display:block;text-align:center;">' + row.StampsQty + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Blocked",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.Blocked == null || row.Blocked == "" || row.Blocked == "Deactive") {
+                                html += '<span style="font-weight:700;display:block;text-align:center;color:#dc3545;">' + row.Blocked + '</span>';
+                            }
+                            else { // Active
+                                html += '<span style="font-weight:700;display:block;text-align:center;color:#00a65a;">' + row.Blocked + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "FromDateStr",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.FromDateStr == null || row.FromDateStr == "")
+                            {
+                                html += '<span style="font-weight:700;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else
+                            {
+                                html += '<span style="font-weight:700;display:block;text-align:center;">' + row.FromDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "ToDateStr",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.ToDateStr == null || row.ToDateStr == "")
+                            {
+                                html += '<span style="font-weight:700;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else
+                            {
+                                html += '<span style="font-weight:700;display:block;text-align:center;">' + row.ToDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreateDateStr",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreateDateStr == null || row.CreateDateStr == "")
+                            {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + "" + '</span>';
+                            }
+                            else
+                            {
+                                html += '<span style="font-weight:400;display:block;text-align:center;">' + row.CreateDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            $('#btn-search').on('click', function (e) {
+                //var fromDate = getFromDate();
+                //var toDate = getToDate();
+                //if (fromDate > toDate) {
+                //    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                //    return;
+                //}
+
+                table_setup_member_earn_item.draw();
+
+            });
+
+            $("#btn-export-excel").on("click", function (e) {
+
+                //var fromDate = getFromDate();
+                //var toDate = getToDate();
+                //if (fromDate > toDate) {
+                //    toastr.error('Từ ngày phải nhỏ hơn hoặc bằng đến ngày. Vui lòng kiểm tra lại');
+                //    return;
+                //}
+                //$('#hdFromDate').val(fromDate);
+                //$('#hdToDate').val(toDate);
+
+                $('#frm-export-excel').submit();
+
+            });
+
+        });
+
+
+    </script>
+}
+
+<style>
+    .btn.btn-bg-secondary-custom {
+        background-color: #00A09D;
+        border-color: #00A09D;
+        box-shadow: none;
+        color: #ffffff;
+        font-weight: 500;
+    }
+</style>

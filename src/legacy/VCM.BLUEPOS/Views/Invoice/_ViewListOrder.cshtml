@@ -1,0 +1,128 @@
+﻿<div class="row">
+    <div class="col-lg-10 col-md-10 col-sm-10 col-xs-10 mb-1">
+        <div class="input-group">
+            <input type="text" id="searchtxtHoaDon" placeholder="Nhập hóa đơn bán hàng cần tìm" class="form-control">
+            <span class="input-group-append">
+                <button type="button" id="btnSearchHD" class="btn btn-primary" style="font-size:12px;">Tìm HĐ</button>
+            </span>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 mb-1">
+        <div class="form-group text-right">
+            <button type="button" class="btn btn-search" onclick="SelectOrder()" style="background-color:#16935d;color:#FFFFFF" id="btnSelect"><i class="la la-check" style="color:#FFFFFF"></i> Chọn</button>
+        </div>
+    </div>
+</div>
+<div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;margin-top:10px;"></div>
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 mb-1">
+        <table class="table table-bordered table-striped" id="tblData" style="width:100%">
+            <thead>
+                <tr style="background-color:#a7d0f9">
+                    <th>Hóa đơn</th>
+                    <th>Ngày hóa đơn</th>
+                    <th style="text-align:right">Tổng bill</th>
+                    <th style="text-align:center;width:90px;">#</th>
+
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script type="text/javascript">
+
+    var tableInvoice = "";
+
+    $(document).ready(function () {
+        $("#btnSearchHD").on("click", function (e) {
+            LoadInvoice();
+        });     
+        $("#searchtxtHoaDon").on("change", function (e) {
+            LoadInvoice();
+        });     
+        LoadInvoice();
+    });
+
+    function LoadInvoice() {
+        tableInvoice = $('#tblData').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: true,
+                processing: false,              // for show progress bar
+                serverSide: true,               // for process server side
+                filter: true,                   // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: true,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+
+                ajax: {
+                    url: '@Url.Action("LoadOrder", "Invoice")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.OrderNo = $("#searchtxtHoaDon").val();
+                        d.ListOrderSelect = $("#txtHoaDon").val();
+                        d.StoreNo = $("#slSiteNo").val();
+                    }
+                },
+
+                //columnDefs: [
+                //    { "visible": false, "targets": 12 }
+                //],
+
+                columns: [
+                    {
+                        data: "OrderNo"
+                    },
+                    {
+                        data: "OrderDateFormat"
+                    }
+                    ,{
+                        data: "PaymentFormat",
+                        className: 'text-right'
+
+                    },
+                    {
+                        data: "OrderNo",
+                        render: function (data, type, row) {
+                            //var html = "";
+                            //html += "<div class=\"icheck-success d-inline\">";
+                            //html += "    <input type=\"checkbox\" class=\"chkOrder\" id=\"chkOrder" + row.OrderNo + "\" value=" + row.OrderNo + ">";
+                            //html += "    <label for=\"chkOrder" + row.OrderNo + "\">";
+                            //html += "    </label>";
+                            //html += " </div>";
+                            //return html;
+                            var html = "";
+                            html += "<label class=\"checkbox checkbox-lg\">";
+                            html += "<input type=\"checkbox\" class=\"chkOrder\" name=\"chkOrder\" id=\"chkOrder" + row.OrderNo + "\" value=" + row.OrderNo + " />";
+                            html += "<span></span>";
+                            html += "</label>";
+                            return html;
+                        },
+                        className: 'text-center'
+                    }
+
+                ]
+            });
+    }
+    function SelectOrder() {
+        var arrOrder = [];
+        var lstOrder = "";
+        $('input.chkOrder:checkbox:checked').each(function () {
+            var sThisVal = $(this).val() + ";";
+            lstOrder += sThisVal;
+        });
+
+        $("#txtHoaDon").val($("#txtHoaDon").val() + lstOrder);
+        $('#modalListOrder').modal('hide');
+        ViewOrder();
+    }
+</script>

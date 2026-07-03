@@ -1,0 +1,363 @@
+﻿@using VCM.BLUEPOS.Model.POS;
+@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+@using VCM.BLUEPOS.Helpers;
+
+@{
+    ViewBag.Title = "Cập nhật POS Version";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var listIsUpdate = (List<OptionModel>)ViewBag.ListIsUpdate;
+    var listVersion = (List<OptionModel>)ViewBag.ListVersion;
+    var listSource = (List<OptionModel>)ViewBag.ListSource;
+    
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Master Data</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Cập nhật POS Version</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center"></div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-pos-version-list" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>STT</th>
+                                    <th>LastVersion</th>
+                                    <th>CurVersion</th>
+                                    <th>Source</th>
+                                    <th>IsUpdate</th>
+                                    <th>Folder</th>
+                                    <th>Counter</th>
+                                    <th>Pkey</th>
+                                    <th>#</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Pop up : Cập nhật thông tin version POS -->
+
+<div id="modal-update-pos-version" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-pos-set-up">Cập nhật thông tin POS version</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-update-pos-version-body">
+                <div class="row">
+                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">Source</label>
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="modal-update-source" name="Source" readonly>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">Folder</label>
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="modal-update-folder" name="Folder" readonly>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-5 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">Version</label>
+                        <div class="form-group">
+                            <input type="number" min="0" step="0.1" class="form-control" id="modal-update-last-version" name="LastVersion" value="">
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-4 col-sm-12 col-xs-12">
+                        <label class="font-weight-bold">IsUpload</label>
+                        <div class="form-group">
+                            <select class="form-control select2" id="modal-update-is-update" name="IsUpdate">
+                                @foreach (var item in listIsUpdate)
+                                {
+                                    if (item.Value == "false" || item.Value == "False")
+                                    {
+                                        <option value="@item.Text" selected> @item.Value</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@item.Text"> @item.Value</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btn-save-update-pos-version"><i class="fa fa-save"></i>Lưu lại</button>
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+
+        var table = "";
+
+        function UpdatePOSVersion() {
+
+            var lastversion = $('#modal-update-last-version').val();
+            var isupdate = $('#modal-update-is-update').val();
+            var source = $('#modal-update-source').val();
+            if (lastversion == null || lastversion.length == 0) {
+                toastr.warning('Nhập thông tin version');
+                return;
+            }
+            if (isupdate == null) {
+                toastr.warning('Chọn trạng thái');
+                return;
+            }
+            loading.showloading();
+            $.ajax({
+               url: '@Url.Action("UpdatePOSVersionList", "MasterData")',
+               type: "POST",
+               dataType: "json",
+               data: {
+                   LastVersion: lastversion,
+                   IsUpdate: isupdate,
+                   Source: source
+               },
+               success: function (data) {
+                    //debugger                
+                    loading.hideloading();
+                    if (data.Status == 1) {
+                        toastr.success(data.Message);
+                        table.draw();
+                        $('#modal-update-pos-version').modal('hide');
+                    }
+                    else if (data.Status == 2)
+                    {
+                        toastr.error(data.Message);
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+               },
+               error: function (data) {
+                        loading.hideloading();
+                        toastr.error('Lỗi hệ thống');
+               }
+              });
+        };
+
+
+        $(document).ready(function () {
+
+            $('.select2').select2();
+
+            if ('@Model.Status' == 'true' || '@Model.Status' == 'True')
+            {
+                toastr.success('@Model.Message');
+            }
+            else if ('@Model.Status' == 'false' || '@Model.Status' == 'False')
+            {
+                $('#modal-update-pos-version-tilte').modal({
+                    backdrop: "static"
+                });
+            }
+
+            $('.btn-editor-pos-version').on('click', function () {
+                $('#modal-update-pos-version').modal({
+                    backdrop: "static"
+                });
+            });
+
+            $('#btn-save-update-pos-version').on('click', function () {
+                UpdatePOSVersion();
+            });
+
+
+            table = $('#tbl-pos-version-list').DataTable({
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+
+                drawCallback: function (settings) {
+                    $(".btn-editor-pos-version").on("click", function () {
+                        var _lasversion = $(this).parents('tr').find('td:nth-child(2)').html();
+                        $('#modal-update-last-version').attr("min", _lasversion);
+                        $('#modal-update-last-version').val(_lasversion);
+
+                        var _isupdate = $(this).parents('tr').find('td:nth-child(5)').find('span').data('update');
+                        $('#modal-update-is-update').val(_isupdate.toString()).trigger("change");
+
+                        var _source = $(this).parents('tr').find('td:nth-child(4)').html();
+                        $('#modal-update-source').val(_source);
+
+                        var _folder = $(this).parents('tr').find('td:nth-child(6)').html();
+                        $('#modal-update-folder').val(_folder);
+
+                        $('#modal-update-pos-version').modal({
+                            backdrop: "static"
+                        });
+                    })
+
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: false,                // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                ajax: {
+                    url: '@Url.Action("GetPOSVersionList", "MasterData")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {}
+                },
+                columns: [
+                    {
+                        data: "ID",
+                        className: "text-center",
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "LastVersion",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "CurVersion",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Source",
+                        className: "text-center"
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var isUpdate = row.IsUpdate;
+                            var html = '<span data-update="' + isUpdate + '" style="display: block; color:red; font-weight:700;">Không</span>';
+                            if (isUpdate) {
+                                html = '<span data-update="' + isUpdate + '" style="display: block; font-weight:700;">Có</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "Folder",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Counter",
+                        className: "text-center"
+                    },
+
+                    {
+                        data: "Pkey",
+                        className: "text-center"
+                    },
+
+                    {
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            var _source = row.Source;
+                            var html = '<button class="btn btn-bg-secondary-custom btn-editor-pos-version" data-source ="' + _source + '"  style="color:#fff;text-align:center;font-size:13px;"><i class="fas fa-pencil-alt" style="color:#fff;"></i>Cập nhật</button>';
+                            return html;
+                        }
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('#tbl-pos-version-list tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+    });
+
+    </script>
+}
+
+
+<style>
+    .btn.btn-bg-secondary-custom {
+        background-color: #00A09D;
+        border-color: #00A09D;
+        box-shadow: none;
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+    .separator {
+        height: 0;
+        margin-top: 10px;
+    }
+</style>
+
+
+

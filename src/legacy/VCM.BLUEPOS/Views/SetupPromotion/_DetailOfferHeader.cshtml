@@ -1,0 +1,194 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+    var data = Model.GetOfferHearder as OfferHeaderModel;
+}
+
+<div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <table class="table table-bordered text-nowrap">
+            <thead>
+                <tr>
+                    <th class="text-center">Mã CTKM</th>
+                    <th class="text-center">Tên CTKM</th>
+                    <th class="text-center">Loại CTKM</th>
+                    <th class="text-center">Trạng thái</th>
+                    <th class="text-center">Từ giờ</th>
+                    <th class="text-center">Đến giờ</th>
+                    <th class="text-center">Mon</th>
+                    <th class="text-center">Tue</th>
+                    <th class="text-center">Wed</th>
+                    <th class="text-center">Thu</th>
+                    <th class="text-center">Fri</th>
+                    <th class="text-center">Sat</th>
+                    <th class="text-center">Sun</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (data != null /*&& !string.IsNullOrEmpty(data.No)*/)
+                {
+                    <tr>
+                        @{
+                            var trangthai = data.Status == 0 ? "<span class=\"badge\" style=\"color: #fff;background-color:#28a745;\">Activated</span>" : data.Status == 1 ? "<span class=\"badge\" style=\"color: #fff;background-color:#007bff;\">Planned</span>" : data.Status == 2 ? "<span class=\"badge\" style=\"color: #fff;background-color:#dc3545;\">Deactivated</span>" : "";
+
+                        }
+                        <td class="text-center" style="vertical-align:middle;width:150px;">@data.No</td>
+                        <td class="text-center" style="vertical-align:middle;">@data.Description</td>
+                        <td class="text-center" style="vertical-align:middle;">@data.OfferType</td>
+                        <td class="text-center" style="vertical-align:middle;width:100px;">@Html.Raw(trangthai)</td>
+                        <td class="text-center" style="vertical-align:middle;width:100px;">
+                            <input class="form-control form-control-lg time-input" type="text" id="TxtFromHour" placeholder="hh:mm" maxlength="5" style="vertical-align:middle;width:100px;" value="@data.FromTime" />
+                            <span></span>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:100px;">
+                            <input class="form-control form-control-lg time-input" type="text" id="TxtToHour" placeholder="hh:mm" maxlength="5" style="vertical-align:middle;width:100px;" value="@data.ToTime" />
+                            <span></span>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkMon = data.Mon == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrMon" @checkMon />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkTue = data.Tue == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrTue" @checkTue />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkWed = data.Wed == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrWed" @checkWed />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkThu = data.Thu == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrThu" @checkThu />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkFri = data.Fri == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrFri" @checkFri />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkSat = data.Sat == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrSat" @checkSat />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+                        <td class="text-center" style="vertical-align:middle;width:70px;">
+                            @{ var checkSun = data.Sun == 0 ? "" : "checked=checked";}
+                            <div class="icheck-warning d-inline" style="margin-bottom:0 !important">
+                                <label class="checkbox checkbox-lg">
+                                    <input type="checkbox" id="chkHdrSun" @checkSun />
+                                    <span></span>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script type="text/javascript">
+    function formatTimeSmart(val) {
+        val = val.replace(/\D/g, ""); // bỏ ký tự không phải số
+
+        if (!val) return "";
+
+        let h = 0, m = 0;
+
+        if (val.length <= 2) {
+            // ví dụ: 9 -> 09:00, 15 -> 15:00
+            h = parseInt(val, 10);
+            m = 0;
+        } else if (val.length === 3) {
+            // ví dụ: 930 -> 09:30
+            h = parseInt(val.substring(0, 1), 10);
+            m = parseInt(val.substring(1, 3), 10);
+        } else {
+            // ví dụ: 1234 -> 12:34
+            h = parseInt(val.substring(0, 2), 10);
+            m = parseInt(val.substring(2, 4), 10);
+        }
+
+        // validate
+        if (h > 23 || m > 59) return "";
+
+        return h.toString().padStart(2, "0") + ":" +
+            m.toString().padStart(2, "0");
+    }
+
+    // format khi rời input
+    $(document).on("blur", ".time-input", function () {
+        let val = $(this).val();
+        let formatted = formatTimeSmart(val);
+
+        if (!formatted && val !== "") {
+            // alert("Giờ không hợp lệ");
+            toastr.error("Giờ không hợp lệ");
+            $(this).val("");
+            return;
+        }
+
+        $(this).val(formatted);
+
+        validateTimeRange();
+    });
+
+    $(document).on("input", ".time-input", function () {
+        let cursorPos = this.selectionStart;
+        let val = $(this).val().replace(/\D/g, "");
+
+        if (val.length >= 3) {
+            val = val.substring(0, 2) + ":" + val.substring(2, 4);
+        }
+
+        $(this).val(val);
+    });
+
+    function toMinutes(time) {
+        let parts = time.split(":");
+        return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+
+    function validateTimeRange() {
+        let from = $("#TxtFromHour").val();
+        let to = $("#TxtToHour").val();
+
+        if (!from || !to) return;
+
+        let fromMin = toMinutes(from);
+        let toMin = toMinutes(to);
+
+        if (fromMin >= toMin) {
+            //alert("Giờ kết thúc phải lớn hơn giờ bắt đầu");
+            toastr.error("Giờ kết thúc phải lớn hơn giờ bắt đầu");
+            $("#TxtToHour").val("").focus();
+        }
+    }
+</script>

@@ -1,0 +1,1079 @@
+﻿@using VCM.BLUEPOS.Model.Store;
+@using VCM.BLUEPOS.Model.OptionModel;
+
+@{
+    ViewBag.Title = "Tạo Price Group";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listPriceGroup = ViewBag.ListPriceGroup as List<OptionModel>;
+    var styleProfile = ViewBag.StyleProfile as List<OptionModel>;
+
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý giá</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Tạo Price Group V2</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <div class="col-12">
+                <button type="button" id="btn-add-price-group" class="btn btn-primary font-weight-bold"><i class="la la-plus-circle"></i>Thêm mới</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid">
+    <div class="container">
+        @using (Html.BeginForm("", "Price", FormMethod.Post, new { @id = "frm-export-excel" }))
+        {
+            <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                    <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Nhóm giá</label>
+                                    <div class="form-group">
+                                        <select class="form-control select2" style="width:100%;" id="sel-price-group-code" name="PriceGroupCode">
+                                            @if (listPriceGroup != null && listPriceGroup.Count > 0)
+                                            {
+                                                if (listPriceGroup.Count == 1)
+                                                {
+                                                    <option value="@listPriceGroup.FirstOrDefault().Value">@listPriceGroup.FirstOrDefault().Text</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="">Tất cả</option>
+                                                    foreach (var item in listPriceGroup)
+                                                    {
+                                                        <option value="@item.Value">@item.Text</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                    <label class="font-weight-bold" style="font-weight:bold !important">Độ ưu tiên</label>
+                                    <div class="form-group">
+                                        <input type="number" class="form-control pull-right" id="txt-priority" name="Priority" placeholder="Nhập độ ưu tiên" min="1" oninput="this.value = Math.floor(this.value);"/>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-7 col-md-7 col-sm-12 col-xs-12" style="margin-top:25px;">
+                                    <button type="button" id="btn-search" class="btn btn-primary"><i class="fa fa-search"></i>Tìm kiếm</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <table id="tbl-price-group-list" class="table table-bordered table-hover text-nowrap">
+                            <thead>
+                                <tr class="text-center" style="text-transform:uppercase">
+                                    <th>STT</th>
+                                    <th>Mã nhóm giá</th>
+                                    <th>Tên nhóm giá</th>
+                                    <th>Người tạo</th>
+                                    <th>Ngày tạo</th>
+                                    <th>Trạng thái</th>
+                                    <th>Danh sách cửa hàng</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-add-price-group" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-store">Thêm mới Price Group</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+
+            <div class="modal-body" id="modal-add-price-group-body">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                        <div class="card card-custom bgi-no-repeat card-stretch">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important;">Mã nhóm giá</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" style="width:100%;" id="txt-add-price-group-code" name="PriceGroupCode" placeholder="Nhập mã nhóm giá" />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important;">Tên nhóm giá</label>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control pull-right" style="width:100%;" id="txt-add-price-group-name" name="PriceGroupName" placeholder="Nhập tên nhóm giá" />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important;">Độ ưu tiên</label>
+                                        <div class="form-group">
+                                            <input type="number" class="form-control pull-right" style="width:100%;" id="txt-add-priority" name="Priority" placeholder="" value="1000" min="1" oninput="this.value = Math.floor(this.value);" />
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+                                        <label class="font-weight-bold" style="font-weight:bold !important;">Trạng thái</label>
+                                        <div class="form-group">
+                                            <select class="form-control select2" style="width:100%;" id="sel-status-by-price-group" name="StatusByPriceGroup">
+                                                <option value="1" selected>Active</option>
+                                                <option value="0">Deactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="btn-save-add-price-group" class="btn btn-bg-primary" style="color:#fff;"><i class="fa fa-save" style="color:#fff;"></i>Lưu lại</button>
+                    <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-add-price-group-by-store" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog  modal-xl" role="document" style="width:100%;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title-store">Cập nhật nhóm giá theo cửa hàng</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <i aria-hidden="true" class="ki ki-close"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-add-price-group-by-store-body">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                            <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-4 col-sm-12 col-xs-12 mb-1">
+                                            <label style="font-weight:bold">Kênh</label>
+                                            <div class="form-group">
+                                                <select class="form-control select2" style="width:100%;" id="sel-style-profile">
+                                                    @if (styleProfile != null && styleProfile.Count > 0)
+                                                    {
+                                                        if (styleProfile.Count == 1)
+                                                        {
+                                                            <option value="@styleProfile.FirstOrDefault().Value">@styleProfile.FirstOrDefault().Text</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="-1">Tất cả</option>
+                                                            foreach (var item in styleProfile)
+                                                            {
+                                                                <option value="@item.Value">@item.Text</option>
+                                                            }
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-1">
+                                            <label style="font-weight:bold">Cửa hàng</label>
+                                            <div class="form-group" id="div-store-list">
+                                                <select class="form-control select2" id="sel-store-no" style="width:100%;">
+                                                    <option value="-1">Tất cả</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-1">
+                                            <label style="font-weight:bold">Từ khóa</label>
+                                            <div class="form-group">
+                                                <input type="text" id="txt-search-store" placeholder="Nhập mã cửa hàng" class="form-control changeEvent">
+                                            </div>
+                                        </div>
+
+                                        <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12 mb-1 text-left">
+                                            <button type="button" class="btn btn-primary" id="btn-search-store" style="color:#fff;cursor:pointer;margin-top:27px;"> <i class="fa fa-search"></i> Tìm kiếm</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="separator separator-dashed separator-border-1 separator-primary" style="margin-bottom:10px;"></div>
+                                    
+                                    <div class="row">
+                                        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1 text-left" style="margin-top:5px;">
+                                            <table>
+                                                <tr>
+                                                    <td style="width:100px;">
+                                                        <label style="font-weight:bold">Tên nhóm giá</label>
+                                                    </td>
+                                                    <td style="width:250px;">
+                                                        <div class="form-group" style="padding-left:10px;">
+                                                            <select class="form-control select2" style="width:100%;" id="sel-modal-add-price-group-code" name="ModalPriceGroupCode">
+                                                                @if (listPriceGroup != null && listPriceGroup.Count > 0)
+                                                                {
+                                                                    if (listPriceGroup.Count == 1)
+                                                                    {
+                                                                        <option value="@listPriceGroup.FirstOrDefault().Value">@listPriceGroup.FirstOrDefault().Text</option>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        foreach (var item in listPriceGroup)
+                                                                        {
+                                                                            <option value="@item.Value">@item.Text</option>
+                                                                        }
+                                                                    }
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+
+                                        <input type="hidden" id="txt-modal-add-priority" name="PriorityByPriceGroupCode" value="" />
+
+                                        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-1 text-right" style="margin-top:5px;">
+                                            @*<button type="button" class="btn btn-success" id="btn-save-add-store-price-group-all" title="Lưu tất cả cửa hàng" style="color: #fff;cursor:pointer;float:right;margin-left:15px;"><i class="fa fa-save" style="font-size:22px;font-weight:700;text-align:center;"></i><span>Lưu tất cả cửa hàng</span></button>*@
+                                            <button type="button" class="btn btn-success" id="btn-save-add-store-price-group" title="Cập nhật" style="color: #fff;cursor:pointer;float:right"><i class="fa fa-save" style="font-size:22px;font-weight:700;text-align:center;"></i><span>Cập nhật</span></button>
+                                        </div>
+
+                                        <div class="transfer-container">
+                                            <div class="table-wrapper" style="margin-top:-15px;">
+                                                <table class="table table-bordered table-striped" id="tbl-store-list-left" style="width:100%;">
+                                                    <thead>
+                                                        <tr style="text-align:center;text-transform:uppercase;font-weight:700;">
+                                                            <th style="width:20%;">Mã cửa hàng</th>
+                                                            <th style="width:70%;">Tên cửa hàng</th>
+                                                            <th style="width:10%;"><input type="checkbox" class="chk-all-left" id="chk-all-left" value="" style="height:22px;width:22px;"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                            <div class="transfer-actions" style="margin-top:-15px;">
+                                                <button class="btn-custom btn-select" title="Chọn mục đã đánh dấu" onclick="MoveRight()" style="background-color:#04AA6D;"><i class="fas fa-angle-right" style="color:#fff;"></i></button>
+                                                <button class="btn-custom btn-select-all" title="Chọn tất cả" onclick="MoveAllRight()" style="background-color:#008CBA;"><i class="fas fa-angle-double-right" style="color:#fff;"></i></button>
+                                                <button class="btn-custom btn-deselect" title="Bỏ mục đã đánh dấu" onclick="MoveLeft()" style="background-color:#ff6666;"><i class="fas fa-angle-left" style="color:#fff;"></i></button>
+                                                <button class="btn-custom btn-deselect-all" title="Bỏ chọn tất cả" onclick="MoveAllLeft()" style="background-color:#f44336;"><i class="fas fa-angle-double-left" style="color:#fff;"></i></button>
+                                            </div>
+                                            <div class="table-wrapper" style="margin-top:-15px;">
+                                                <table class="table table-bordered table-striped" id="tbl-store-list-right" style="width:100%;">
+                                                    <thead>
+                                                        <tr style="text-align:center;text-transform:uppercase;font-weight:700;">
+                                                            <th style="text-align:center;width:10%;"><input type="checkbox" class="chk-all-right" id="chk-all-right" value="" style="height:22px;width:22px;"></th>
+                                                            <th style="text-align:center;width:20%;">Mã cửa hàng</th>
+                                                            <th style="text-align:center;width:70%;">Tên cửa hàng</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light-danger font-weight-bold" data-dismiss="modal"><i class="la la-close"></i>Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+        var tableStoreLeft = "";
+        var tableStoreRight = "";
+
+        function LoadStoreRight() {
+            tableStoreRight = $('#tbl-store-list-right').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                pagingType: "simple_numbers",
+                paging: true,
+                pageLength: 10,
+                lengthChange: false,
+                searching: false,
+                ordering: false,
+                autoWidth: false,
+                info: true,
+                data: [],
+                infoCallback: function (settings, start, end, max, total, pre) {
+                    if (total === 0) return "Không có cửa hàng nào";
+                    return "Hiển thị " + start + " - " + end + " trên tổng số " + total + " cửa hàng";
+                },
+                columns: [
+                    {
+                        data: null,
+                        width: '10%',
+                        render: function (data, type, row) {
+                            return '<input type="checkbox" class="chkStoreNo2" value="' + row.StoreNo + '" style="height:22px;width:22px;">';
+                        },
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                        width: '20%'
+                    },
+
+                    {
+                        data: "StoreName",
+                        width: '70%'
+                    }
+                ],
+                language: {
+                    emptyTable: "Không có dữ liệu"
+                }
+            });
+        }
+
+         function LoadStoreLeft() {
+            tableStoreLeft = $('#tbl-store-list-left').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: true,           // for show progress bar
+                serverSide: true,           // for process server side
+                filter: true,               // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                info: true,
+                language: {
+                    emptyTable: "Không có dữ liệu"
+                },
+                infoCallback: function (settings, start, end, max, total, pre) {
+                    if (total === 0) return "Không có cửa hàng nào";
+                    return "Hiển thị " + start + " - " + end + " trên tổng số " + total + " cửa hàng";
+                },
+                ajax: {
+                    url: '@Url.Action("LoadStoreList", "Price")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        if ($('#sel-store-no').val() == "-1") {
+                            d.StoreNo = $('#sel-store-no').val();
+                        } else {
+                            d.StoreNo = JSON.stringify($('#sel-store-no').val());
+                        }
+                        d.TextSearch = $("#txt-search-store").val();
+                        d.StyleProfile = $("#sel-style-profile").val();
+                    }
+                },
+                columns: [
+                    {
+                        data: "StoreNo",
+                        className: 'text-center'
+                    },
+
+                    {
+                        data: "StoreName",
+                        render: function (data, type, row) {
+                            var html = '<span style="text-align:left;">' + row.StoreName +'</span>';
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "StoreNo",
+                        className: 'text-center',
+                         render: function (data, type, row) {
+                             var html = '<input type="checkbox" class="chkStoreNo1" id="chk-store-no' + row.StoreNo + '" value="' + row.StoreNo + '" style="height:22px;width:22px;">';
+                             return html;
+                         }
+                    }
+                ]
+            }).on('page.dt', function () {
+                $('#chk-all-left').prop('checked', false);
+            });
+        }
+
+        var listStoreNo = "";
+        var listStoreAll = "";
+
+        function MoveRight() {
+              var data = tableStoreRight.rows().data().toArray();            
+              $('#tbl-store-list-left input.chkStoreNo1:checked').each(function () {
+                    var storeNo = $(this).closest('tr').find('td').eq(0).text();
+                    listStoreNo += $(this).closest('tr').find('td').eq(0).text() + ";";
+                    var storeName = $(this).closest('tr').find('td').eq(1).text();              
+                    // check trùng
+                    var exists = data.some(x => x.StoreNo === storeNo);
+                    if (!exists) {
+                        data.push({
+                            StoreNo: storeNo,
+                            StoreName: storeName
+                        });
+                    }
+            });       
+            //debugger
+            if (data.length == 0) {
+                Swal.fire("Thông báo", "Vui lòng chọn cửa hàng", "warning");
+                return;
+            }
+            tableStoreRight.clear();
+            tableStoreRight.rows.add(data);
+            tableStoreRight.draw();
+        }
+
+        function MoveAllRight() {
+            //debugger
+            var storeNo = $('#sel-store-no').val();
+            var textSearch = $("#txt-search-store").val();
+            var styleProfile = $("#sel-style-profile").val();
+            $.ajax({
+                url: '@Url.Action("GetStoreAllList", "Price")',
+                type: "POST",
+                data: { StoreNo: storeNo, TextSearch: textSearch, StyleProfile: styleProfile},
+                success: function (res) {
+                    if (res && res.length > 0) {
+                        var totalStore = res.length;
+                        var allStoreRow = {
+                            StoreNo: "ALL",
+                            StoreName: "Tổng số cửa hàng là " + totalStore
+                        };
+                        var rightData = [];
+                        rightData.push(allStoreRow);
+                        tableStoreRight.clear().rows.add(rightData).draw();
+                        $('#chk-all-left').prop('checked', false);
+                    }                    
+                },
+                error: function () {
+                }
+            });
+        }
+    
+        function MoveLeft() {
+            var data = [];
+            $('#tbl-store-list-right input.chkStoreNo2:checked').each(function () {
+                var storeNo = $(this).closest('tr').find('td').eq(1).text();
+                data.push({
+                    StoreNo: storeNo
+                });
+            });
+            //debugger
+            if (data.length == 0) {
+                Swal.fire("Thông báo", "Vui lòng chọn cửa hàng", "warning");
+                return;
+            }
+            tableStoreRight.clear().draw();
+            $('#chk-all-right').prop('checked', false);
+        }
+
+        function MoveAllLeft() {
+                var storeNo = $('#sel-store-no').val();
+                var textSearch = $("#txt-search-store").val();
+                var styleProfile = $("#sel-style-profile").val();
+                $.ajax({
+                    url: '@Url.Action("GetStoreAllList", "Price")',
+                    type: "POST",
+                    data: { StoreNo: storeNo, TextSearch: textSearch, StyleProfile: styleProfile },
+                    success: function (res) {
+                        if (tableStoreRight.rows().count() === 0) return;
+                        tableStoreRight.clear().draw();
+                        tableStoreLeft.draw();
+                        $('#chk-all-right').prop('checked', false);
+                    },
+                    error: function () {
+                    }
+                });
+        }
+
+        // Check store trước khi lưu
+        function SelectedStoreRight() { 
+            var listStore = "";
+            $('#tbl-store-list-right input.chkStoreNo2:checked').each(function () {
+                var storeNo = $(this).closest('tr').find('td').eq(1).text();
+                if (storeNo == "ALL") {
+                    return listStore = "ALL";
+                }
+                listStore += $(this).closest('tr').find('td').eq(1).text() + ";";
+            });
+            return listStore;
+        }
+
+        // Hàm lưu dữ liệu
+        function AddStorePriceGroup() {
+            //debugger
+            var listStore = SelectedStoreRight();
+            if (!listStore) {
+                Swal.fire("Thông báo", "Vui lòng chọn cửa hàng để cập nhật", "warning");
+                return;
+            }
+            var priceGroupCode = $('#sel-modal-add-price-group-code').val();
+            if (priceGroupCode == null || priceGroupCode == "") {
+                Swal.fire("Thông báo", "Vui lòng chọn mã nhóm giá để cập nhật", "warning");
+                return;
+            }
+
+            var priority = $('#txt-modal-add-priority').val();
+            if (!priority) {
+                Swal.fire("Thông báo", "Vui lòng nhập độ ưu tiên để cập nhật", "warning");
+                return;
+            }
+            var storeSearchList = $('#sel-store-no').val();
+            var textSearch = $("#txt-search-store").val();
+            var styleProfile = $("#sel-style-profile").val();
+            loading.showloading();
+            $.ajax({
+                url: '/Price/SaveStorePriceGroup',
+                type: 'POST',
+                data: {                    
+                    StoreList: listStore,
+                    PriceGroupCode: priceGroupCode,
+                    Priority: priority,
+                    StoreSearchList: storeSearchList,
+                    TextSearch: textSearch,
+                    StyteProfile: styleProfile                    
+                },
+                success: function (res) {
+                    loading.hideloading();
+                    if (res.Status == 200) {
+                        listStoreNoAll = "";
+                        listStoreNo = "";
+                        Swal.fire("Thông báo", res.Message, "success");
+                        tableStoreLeft.clear().draw();
+                        tableStoreRight.clear().draw();
+                        $('#chk-all-left').prop('checked', false);
+                        $('#chk-all-right').prop('checked', false);
+                        return;
+                    }
+                    else {
+                        listStoreNoAll = "";
+                        listStoreNo = "";
+                        Swal.fire("Thông báo", res.Message, "error");
+                        tableStoreLeft.clear().draw();
+                        $('#chk-all-left').prop('checked', false);
+                        return;
+                    }
+                }
+            });
+        }
+
+         function LoadComboxStore(chanelNo) {
+             //debugger
+             if (chanelNo == "-1") {
+                     var html = '<select class="form-control select2" style="width:100%;" id="sel-store-no" name="SiteNo1">';
+                         html += '<option value = "-1" selected>Tất cả</option>';
+                         html += '</select>';
+                     $("#div-store-list").html(html);
+
+                     $('#sel-store-no').fSelect({
+                         placeholder: 'Tất cả',
+                         numDisplayed: 1,
+                         overflowText: '{n} Cửa hàng được chọn',
+                         searchText: 'Tìm kiếm....',
+                         noResultsText: 'Không tìm thấy cửa hàng',
+                         showSearch: false,
+                         optionFormatter: false,
+                         isSelectAll: false,
+                         includeSelectAllOption: false
+                     });
+            }
+            else {
+                loading.showloading();
+                var html = '<select class="form-control select2" multiple="multiple" style="width: 100%;" id="sel-store-no" name="SiteNo1">';
+                $.ajax({
+                url: '@Url.Action("LoadComboxStoreByChanel", "Common")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    chanelNo: chanelNo
+                },
+                success: function (data) {
+                    loading.hideloading();
+                    if (data != null) {
+                        if (data.length == 1) {
+                            data.forEach((name, i) => {
+                                if (name.SiteNo != "") {
+                                    html += "<option value=" + name.SiteNo + ">" + name.SiteNo + " - " + name.SiteName + "</option>";
+                                }
+                            });
+                            html += '</select>';
+                            $("#div-store-list").html(html);
+
+                            $('#sel-store-no').fSelect({
+                                placeholder: 'Tất cả',
+                                numDisplayed: 1,
+                                overflowText: '{n} Cửa hàng được chọn',
+                                searchText: 'Tìm kiếm....',
+                                noResultsText: 'Không tìm thấy cửa hàng',
+                                showSearch: false,
+                                optionFormatter: false,
+                                isSelectAll: false,
+                                includeSelectAllOption: false
+                            });
+                        }
+                        else {
+                            data.forEach((name, i) => {
+                                if (name.SiteNo != "") {
+                                    html += "<option value=" + name.SiteNo + ">" + name.SiteNo + " - " + name.SiteName + "</option>";
+                                }
+                            });
+                            html += '</select>';
+                            $("#div-store-list").html(html);
+
+                            $('#sel-store-no').fSelect({
+                                placeholder: 'Tất cả',
+                                numDisplayed: 1,
+                                overflowText: '{n} Cửa hàng được chọn',
+                                searchText: 'Tìm kiếm....',
+                                noResultsText: 'Không tìm thấy cửa hàng',
+                                showSearch: true,
+                                optionFormatter: false,
+                                isSelectAll: true,
+                                includeSelectAllOption: true
+                            });
+                        }
+                    }
+                },
+                error: function () {}
+                });
+            }
+        }
+
+        function CreatePriceGroup() {
+            //debugger
+            var priceGroupCode = $('#txt-add-price-group-code').val();
+            var priceGroupName = $('#txt-add-price-group-name').val();
+            var priority = $('#txt-add-priority').val();
+            var status = $('#sel-status-by-price-group').val();
+
+            if (priceGroupCode == null || priceGroupCode == "") {
+                toastr.error("Vui lòng nhập mã nhóm giá");
+                return;
+            }
+
+            if (priceGroupName == null || priceGroupName == "") {
+                toastr.error("Vui lòng nhập tên nhóm giá");
+                return;
+            }
+
+            if (priority == 0 || priority < 0) {
+                toastr.error("Vui lòng nhập độ ưu tiên (số nguyên dương > 0");
+                return;
+            }
+            loading.showloading();
+            var fromData = new FormData();
+            fromData.append('PriceGroupCode', priceGroupCode);
+            fromData.append('PriceGroupName', priceGroupName);
+            fromData.append('Priority', priority);
+            fromData.append('EnabledStr', status);
+            $.ajax({
+                url: '@Url.Action("CreatePriceGroup", "Price")',
+                type: "POST",
+                data: fromData,
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    //debugger
+                    loading.hideloading();
+                    if (data.Status == 1)
+                    {
+                        toastr.success(data.Message);
+                        $('#modal-add-price-group').modal("hide");
+                        $('#btn-save-add-price-group').trigger('click');
+                        $('#btn-search').trigger('click');
+                    }
+                    else
+                    {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        function ClearText() {
+            $('#txt-add-price-group-code').val('');
+            $('#txt-add-price-group-name').val('');
+            $('#txt-add-priority').val('');
+        }
+
+    $(document).ready(function () {
+
+        $('.select2').select2();
+        LoadStoreLeft();
+        LoadStoreRight();
+        $("#chk-all-left").click(function () {
+            if ($("#chk-all-left").is(':checked'))
+                $('.chkStoreNo1').prop('checked', true);
+            else
+                $('.chkStoreNo1').prop('checked', false);
+        });
+
+        $("#chk-all-right").click(function () {
+            if ($("#chk-all-right").is(':checked'))
+                $('.chkStoreNo2').prop('checked', true);
+            else
+                $('.chkStoreNo2').prop('checked', false);
+        });
+
+        $("#btn-search-store").on("click", function (e) {
+            tableStoreLeft.draw();
+            tableStoreRight.clear().draw(); // reset luôn table phải
+        });
+
+        $("#sel-style-profile").on("change", function (e) {
+            LoadComboxStore($("#sel-style-profile").val());
+        });
+
+        $('#btn-add-price-group').on('click', function () {
+            ClearText();
+            $('#modal-add-price-group').modal({
+                backdrop: "static"
+            });
+        });
+
+        $('#btn-save-add-price-group').on("click", function () {
+            CreatePriceGroup();
+        });
+
+        $('#btn-save-add-store-price-group').on("click", function () {
+            //debugger
+            AddStorePriceGroup();
+        });
+
+        table = $('#tbl-price-group-list').DataTable({
+                //destroy: true,
+                //deferLoading: 0,
+                select: {
+                    style: 'single'
+                },
+                drawCallback: function (settings) {
+                    $(".btn-add-store-by-price-group").click(function () {
+                        //debugger
+                        var pricegroupcode = $(this).attr("data-price-group-code");
+                        var pricegroupname = $(this).attr("data-price-group-name");
+                        var priority = $(this).attr("data-priority");
+                        $('#txt-modal-add-store-price-group-code').val(pricegroupcode);
+                        $('#txt-modal-add-price-group-name-by-store').val(pricegroupname);
+                        $('#txt-modal-add-priority').val(priority);
+                        $('#sel-modal-add-price-group-code').val(pricegroupcode).trigger('change');
+                        $('#modal-add-price-group-by-store').modal({
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+                    });
+                },
+
+                dom: '<"top"iflp<"clear">>rt',
+                paging: true,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,          // for show progress bar
+                serverSide: true,           // for process server side
+                filter: false,              // this is for disable filter (search box)
+                orderMulti: false,          // for disable multiple column at once
+                info: false,                // Hiển thị dòng _START_ đến dòng _END_ của tổng số _TOTAL_ dòng,
+                autoWidth: false,
+                ordering: false,
+                displayLength: 15,
+                searching: false,
+                lengthChange: false,
+                scrollCollapse: false,
+                scrollX: true,
+                ajax: {
+                    url: '@Url.Action("GetPriceGroupList", "Price")',
+                    type: "POST",
+                    datatype: "json",
+                    data: function (d) {
+                        d.PriceGroup = $('#sel-price-group-code').val();
+                        d.Priority = $('#txt-priority').val();
+                    }
+                },
+
+                columns: [
+                    {
+                        data: "ID",
+                        className: 'text-center',
+                        render: function (data, type, row, meta) {
+                            var start = meta.settings._iDisplayStart;
+                            return meta.row + 1 + start;
+                        }
+                    },
+
+                    {
+                        data: "PriceGroupCode",
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.PriceGroupCode == "" || row.PriceGroupCode == null) {
+                                html += '<span style="display: block; font-weight: 700;"></span>';
+                            }
+                            else
+                            {
+                                html += '<span style="display: block; font-weight: 700;">' + row.PriceGroupCode + '</span>';
+                            }
+                            return html;
+
+                        }
+                    },
+
+                    {
+                        data: "PriceGroupName",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.PriceGroupName == "" || row.PriceGroupName == null) {
+                                html += '<span style="display: block; font-weight: 400;text-align:left"></span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;text-align:left">' + row.PriceGroupName + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreatedUser",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreatedUser == "" || row.CreatedUser == null) {
+                                html += '<span style="display: block; font-weight: 400;text-align:center;"></span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;text-align:center;">' + row.CreatedUser + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "CreatedDateStr",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.CreatedDateStr == "" || row.CreatedDateStr == null) {
+                                html += '<span style="display: block; font-weight: 400;text-align:center;"></span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 400;text-align:center;">' + row.CreatedDateStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        data: "EnabledStr",
+                        render: function (data, type, row) {
+                            var html = "";
+                            if (row.EnabledStr == "Active") {
+                                html += '<span style="display: block; font-weight: 700;text-align:center;color:#0b9129;">' + row.EnabledStr + '</span>';
+                            }
+                            else {
+                                html += '<span style="display: block; font-weight: 700;text-align:center;color:#b7053b;">' + row.EnabledStr + '</span>';
+                            }
+                            return html;
+                        }
+                    },
+
+                    {
+                        className: 'text-center',
+                        render: function (data, type, row) {
+                            var html = '<a type="button" class="btn btn-icon btn-light-warning btn-add-store-by-price-group"  data-price-group-code ="' + row.PriceGroupCode + '" data-price-group-name ="' + row.PriceGroupName + '" data-priority="' + row.Priority +'" data-toggle="tooltip" data-placement="left" title="Cập nhật"  style="color:#fff;text-align:center;"><i class="la la-edit"></i><span class="pulse-ring"></span></a>';
+                            return html;
+                        }
+                    }
+
+                ]
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+        $('#tbl-price-group-list tbody').on('click', 'tr', function () {
+            $(this).toggleClass('selected');
+        });
+
+        $("#btn-search").on("click", function (e) {
+            table.draw();
+        });
+
+        $("#btn-export-excel").on("click", function (e) {
+            $('#frm-export-excel').submit();
+        });
+
+
+    });
+
+    </script>
+}
+
+<style>
+    .transfer-actions {
+        display: flex;
+        flex-direction: column; /* Xếp dọc theo ảnh mockup */
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding: 0 15px;
+    }
+
+    .btn-custom {
+        width: 40px;
+        height: 40px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #fff;
+        cursor: pointer;
+        font-size: 20px;
+        font-weight: bold;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* Nút thêm (Màu xanh) */
+    .btn-select, .btn-select-all {
+        color: #28a745;
+    }
+
+        .btn-select:hover, .btn-select-all:hover {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
+    /* Nút bỏ (Màu đỏ/xám) */
+    .btn-deselect, .btn-deselect-all {
+        color: #dc3545;
+    }
+
+        .btn-deselect:hover, .btn-deselect-all:hover {
+            background-color: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+
+    /* Trạng thái khi không có dữ liệu để chọn */
+    .btn:disabled {
+        background-color: #f5f5f5;
+        color: #ccc;
+        cursor: not-allowed;
+        border-color: #eee;
+    }
+
+    .transfer-container {
+        display: flex; /* Kích hoạt dàn hàng ngang */
+        align-items: flex-start; /* Căn lề trên các khối bằng nhau */
+        justify-content: space-between; /* Giãn cách đều các khối */
+        gap: 10px; /* Khoảng cách giữa bảng và cụm nút */
+        width: 100%;
+        padding: 20px;
+    }
+
+    .table-wrapper {
+        flex: 1; /* Giúp 2 bảng tự động chia đôi không gian bằng nhau */
+        min-width: 0; /* Tránh bảng bị vỡ layout khi nội dung quá dài */
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fff;
+    }
+
+    .transfer-actions {
+        display: flex;
+        flex-direction: column;
+        /* Đẩy nội dung lên trên cùng */
+        justify-content: flex-start;
+        align-items: center;
+        padding: 10px 15px; /* Thêm padding top nếu muốn cách mép trên một chút */
+        gap: 10px; /* Khoảng cách giữa các nút */
+    }
+
+    /* Style chung cho nhóm nút điều hướng */
+    .btn-custom > btn-transfer {
+        display: block;
+        width: 45px;
+        height: 40px;
+        margin: 10px auto;
+        border: none;
+        border-radius: 8px; /* Bo góc hiện đại */
+        background-color: #fff;
+        color: #444;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Đổ bóng nhẹ */
+        transition: all 0.3s ease; /* Hiệu ứng mượt mà */
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+        /* Hiệu ứng khi di chuột qua (Hover) */
+        .btn-transfer:hover {
+            background-color: #1565c0; /* Màu xanh đậm giống dòng ALL bên trên */
+            color: #fff;
+            transform: translateY(-2px); /* Nhích nhẹ lên trên */
+            box-shadow: 0 4px 8px rgba(21, 101, 192, 0.3);
+        }
+
+        /* Hiệu ứng khi nhấn (Active) */
+        .btn-transfer:active {
+            transform: translateY(0);
+        }
+
+    /* CSS cho container chứa các nút để căn giữa theo chiều dọc */
+    .transfer-controls {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+    }
+
+</style>
+
+
+
+

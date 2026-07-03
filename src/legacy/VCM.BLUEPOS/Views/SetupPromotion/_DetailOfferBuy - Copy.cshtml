@@ -1,0 +1,454 @@
+﻿@using VCM.BLUEPOS.Model.SetupPromotion
+@{
+
+    var model = Model as GetBBModel;
+    var modelHeader = model.GetOfferHearder;
+
+    var data = model.GetOfferBuy;// Model.GetOfferBuy as List<OfferBuyModel>;
+    var comboLineType = ComboboxModel.ComboLineType();
+    var comboScaleType = ComboboxModel.ComboScaleType();
+    var comboDiscountType = ComboboxModel.ComboDiscountType();
+
+
+
+    var offerNo = modelHeader.No;
+    var isSetupBuy = model.IsSetupBuy;
+    var conditionBuy = model.Condition;
+
+    var offerType = modelHeader.OfferType;
+    var isTotalBill = model.IsTotalBill;
+    var isSetupGet = model.IsSetupGet;
+
+    var buyLinkCart = modelHeader.BuyLinkCat == "O" ? "OR" : "AND";
+    var checkMinValue = modelHeader.CheckMinValue;
+    var totalMinValue = string.Format("{0:###,###}", modelHeader.TotalMinValue);
+
+    var readonlyMinValue = isTotalBill == false ? "readonly" : checkMinValue == "0" ? "readonly" : "";
+    var checkValue = checkMinValue == "1" ? "checked" : "";
+
+    List<string> listBuyLink = new List<string>(new string[] { "AND", "OR" });
+    var disableTotalBill = isTotalBill == false ? "disabled" : "";
+
+}
+<div class="row">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="form-group row">
+
+            <div class="col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                <div class="row">
+                    <label class="col-form-label col-6 text-right font-weight-bold">Điều kiện áp dụng</label>
+                    <div class="col-6">
+                        <select class="form-control select2 updateBuyHeader" style="width:100%;" id="slDKApDungBuy">
+                            @{
+                                foreach (var item in listBuyLink)
+                                {
+                                    var selected = item == buyLinkCart ? "selected" : "";
+                                    <option value="@item" @selected>@item</option>
+                                }
+                            }
+
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5 col-md-5 col-sm-6 col-xs-12 mb-1">
+                <div class="row">
+                    <label class="col-form-label col-6 text-right font-weight-bold">Giá trị tổng tiền tối thiểu</label>
+                    <div class="col-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">
+                                    <label class="checkbox checkbox-inline" title="Giá trị tổng tiền tối thiểu">
+                                        <input type="checkbox" checked="@isTotalBill" disabled="disabled" id="chkMinValue" @checkValue class="updateBuyHeader" />
+                                        <span></span>
+                                    </label>
+                                </span>
+                            </div>
+                            <input type="text" id="txtTotalMinValue" value="@totalMinValue" class="form-control updateBuyHeader money" />
+                            <div class="input-group-append"><span class="input-group-text">VNĐ</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-3">
+                <button type="button" class="btn btn-primary font-weight-bold" id="btnAppendTable" onclick="AppendBuyTable()"><i class="la la-plus-circle"></i> Thêm sản phẩm mua</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="card-body table-responsive">
+            <table class="table table-bordered text-nowrap" id="tableOfferBuy">
+                <thead>
+                    <tr class="text-center">
+                        <th>Loại</th>
+                        <th>Mã sản phẩm</th>
+                        <th>Mô tả</th>
+                        <th>Đơn vị tính</th>
+                        <th>Số lượng</th>
+                        <th>Điều kiện áp dụng</th>
+                        <th>#</th>
+
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (data != null && data.Count > 0)
+                    {
+                        foreach (var item in data)
+                        {
+                            var tagTr = $"tr_{item.OfferNo}_{item.LineNo}";
+                            var clssItem = $"itemBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssHiddenItem = $"itemHiddenBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssDesc = $"descBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssUOM = $"uomBuy_{item.OfferNo}_{item.LineNo}";
+                            var clssLineType = $"selectLineType_{item.OfferNo}_{item.LineNo}";
+                            var clssDiscountType = $"selectDiscountType_{item.OfferNo}_{item.LineNo}";
+                            var clssDiscountValue = $"txtDiscountValue_{item.OfferNo}_{item.LineNo}";
+                            var clssScaleType = $"selectScaleType_{item.OfferNo}_{item.LineNo}";
+                            var clssQuantity = $"txtQuantity_{item.OfferNo}_{item.LineNo}";
+                            var spanHtml = $"spanAction_{item.OfferNo}_{item.LineNo}";
+                            var placeHolder = item.LineType == 1 ? "groupCode" : "itemNo";
+
+                            var disableLineType = !string.IsNullOrEmpty(item.No) ? "disabled" : "";
+                            var classHiddenLineType = $"hiddenLineType_{item.OfferNo}_{item.LineNo}";
+
+                            var quantity = string.Format("{0:###,###}", item.Quantity);
+
+                            <tr id="@tagTr">
+                                <td style="width:100px;vertical-align:middle">
+                                    <input type="hidden" class="form-control @classHiddenLineType" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-linetype="@item.LineType" data-groupcode="@item.BonusBuyNo" value="@item.LineType" />
+                                    <select @disableLineType class="form-control eventGrid select2 @clssLineType"
+                                            data-offerno="@item.OfferNo"
+                                            data-lineno="@item.LineNo"
+                                            @*data-linetype="@item.LineType" *@
+                                            data-groupcode="@item.BonusBuyNo">
+                                        @foreach (var loai in comboLineType)
+                                        {
+                                            var selected = loai.value == "" + item.LineType ? "selected" : "";
+                                            <option value="@loai.value" @selected>@loai.Display</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td style="min-width:150px;vertical-align:middle">
+                                    <input type="hidden" class="form-control @clssHiddenItem" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-groupcode="@item.BonusBuyNo" value="@item.No" />
+                                    <div class="input-group">
+                                        <input type="text" class="form-control @clssItem eventItemKeyPress" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-linetype="@item.LineType" data-groupcode="@item.BonusBuyNo" placeholder="@placeHolder" name="No" value="@item.No" />
+                                        <div class="input-group-append eventPopup" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-linetype="@item.LineType" data-groupcode="@item.BonusBuyNo"><span class="input-group-text"><i class="flaticon2-search-1 icon-md"></i></span></div>
+                                    </div>
+                                </td>
+                                <td style="vertical-align:middle">
+                                    <span class="@clssDesc">@item.Description</span>
+                                </td>
+
+                                <td style="vertical-align:middle;text-align:center"><span class="@clssUOM">@item.UnitOfMeasure</span></td>
+                                <td style="vertical-align:middle">
+                                    <input type="text" style="width:90px" class="form-control eventGrid @clssQuantity money" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-linetype="@item.LineType" data-groupcode="@item.BonusBuyNo" value="@string.Format("{0:###,###}", item.Quantity)" />
+                                </td>
+                                <td style="width:100px;vertical-align:middle">
+                                    <select class="form-control select2 eventGrid @clssScaleType"
+                                            data-offerno="@item.OfferNo"
+                                            data-lineno="@item.LineNo"
+                                            data-linetype="@item.LineType"
+                                            data-groupcode="@item.BonusBuyNo">
+                                        @foreach (var loai in comboScaleType)
+                                        {
+                                            var selected = loai.value == item.ScaleType ? "selected" : "";
+                                            <option value="@loai.value" @selected>@loai.Display</option>
+                                        }
+                                    </select>
+                                </td>
+                               
+                                <td style="vertical-align:middle;width:80px; text-align:center">
+                                    <span class="@spanHtml">
+                                        <a onclick="DeleteOfferBuy('@item.OfferNo',@item.LineNo,'@item.No',@item.LineType,'@item.BonusBuyNo')" title="Xóa" class="btn btn-icon btn-light-danger" data-offerno="@item.OfferNo" data-lineno="@item.LineNo" data-no="@item.No"><i class="la la-close"></i><span class="pulse-ring"></span></a>
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalListItemSetup" tabindex="-1" role="dialog" aria-hidden="true">
+    <div id="divPopupListItem"></div>
+</div>
+
+<script type="text/javascript">
+    var offerNo = '@offerNo';
+    var offerType = '@offerType';
+
+    var isSetupGet = '@isSetupGet';
+    var isSetupBuy = '@isSetupBuy';
+    var isTotalBill = '@isTotalBill';
+
+    $(document).ready(function () {
+        $(".select2").select2();
+
+        if ($("#chkMinValue").prop('checked')) {
+            $('#txtTotalMinValue').prop('readonly', false);
+        }
+        else {
+            $('#txtTotalMinValue').prop('readonly', true);
+            $('#txtTotalMinValue').val("");
+        }
+
+        $('.money').mask('000,000,000', {
+            placeholder: "0",
+            reverse: true,
+            rightAlign: true
+        });
+
+        $('.eventItemKeyPress').keydown(function (e) {
+            var code = e.keyCode || e.which;
+            debugger
+            if (code === 9 || code == 13) {//Tab or Enter
+                //e.preventDefault();
+                var conditionBuy = $("#slDKApDungBuy").val();
+                var offerNo = $(this).attr("data-offerno");
+                var lineNo = $(this).attr("data-lineno");
+                //var lineType = $(this).attr("data-linetype");
+                var groupCode = $(this).attr("data-groupcode");
+                var itemNo = $(this).val();
+                GetItem(offerNo, lineNo, itemNo, offerType, conditionBuy, groupCode, isTotalBill, isSetupGet);
+            }
+        });
+
+        $(".eventGrid").on("change", function () {
+            debugger
+            var lineNo = $(this).attr("data-lineno");
+            var offerNo = $(this).attr("data-offerno");
+
+            var conditionBuy = $("#slDKApDungBuy").val();
+
+            var groupCode = $(this).attr("data-groupcode");
+
+            ParamOfferBuy(offerNo, lineNo, offerType, conditionBuy, groupCode, isTotalBill, isSetupGet);
+
+            //var lineTypeCombo = $(".selectLineType_" + offerNo + "_" + lineNo).val();
+            //if (lineTypeCombo == lineType) {
+            //    ParamOfferBuy(offerNo, lineNo, offerType, conditionBuy, lineType, groupCode, isTotalBill, isSetupGet);
+            //}
+            //else {
+            //    toastr.error("Đã có dữ liệu, nên không được phép thay đổi");
+            //    $(".selectLineType_" + offerNo + "_" + lineNo).select2('val', [lineType]);
+            //    return;
+            //}
+
+        });
+
+        $(".eventPopup").on("click", function () {
+            loading.showloading();
+            var offerNo = $(this).attr("data-offerno");
+            var lineNo = $(this).attr("data-lineno");
+            var lineType = $(this).attr("data-linetype");//0:Item,1:Group
+            var conditionBuy = $("#slDKApDungBuy").val();
+            var groupCode = $(this).attr("data-groupcode");
+            if (lineType == 1) {
+                var scaleType = $(".selectScaleType_" + offerNo + "_" + lineNo).val();
+                var quantity = $(".txtQuantity_" + offerNo + "_" + lineNo).val();
+                $.ajax({
+                    type: "GET",
+                    url: "/SetupPromotion/_ViewSetupGroupItemBuy?groupCode=" + groupCode + "&offerNo=" + offerNo + "&offerType=" + offerType + "&condition=" + conditionBuy + "&lineNo=" + lineNo + "&tabOffer=OfferBuy&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "&scaleType=" + scaleType + "&quantity=" + quantity + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        loading.hideloading();
+                        $("#divPopupListItem").html(result);
+
+                        $('#modalListItemSetup').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                    },
+                    error: function (event) {
+
+                    }
+                });
+
+                loading.hideloading();
+            }
+            else {
+                $.ajax({
+                    type: "GET",
+                    url: "/SetupPromotion/_ViewListItemSetup?offerNo=" + offerNo + "&offerType=" + offerType + "&conditionBuy=" + conditionBuy + "&lineNo=" + lineNo + "&tabOffer=OfferBuy&isTotalBill=" + isTotalBill + "&isSetupGet=" + isSetupGet + "",
+                    dataType: 'html',
+                    contentType: false,
+                    processData: false,
+                    success: function (result) {
+                        $("#divPopupListItem").html(result);
+
+                        $('#modalListItemSetup').modal({
+                            backdrop: 'static',
+                            keyboard: false
+                        });
+                        loading.hideloading();
+                    },
+                    error: function (event) {
+                        loading.hideloading();
+                    }
+                });
+            }
+        });
+
+        $("#chkMinValue").on("change", function () {
+            if ($(this).prop('checked')) {
+                $('#txtTotalMinValue').prop('readonly', false);
+            }
+            else {
+                $('#txtTotalMinValue').prop('readonly', true);
+                $('#txtTotalMinValue').val("");
+            }
+        });
+
+        $(".updateBuyHeader").on("change", function () {
+            var conditionBuy = $("#slDKApDungBuy").val();
+            var chkMinValue = 0;
+            var totalMinValue = 0;
+            if ($("#chkMinValue").prop('checked')) {
+                chkMinValue = 1;
+                totalMinValue = $("#txtTotalMinValue").val().replace(/\,/g, '');
+            }
+            var fromData = new FormData();
+            fromData.append('OfferNo', offerNo);
+            fromData.append('BuyLinkCat', conditionBuy);
+            fromData.append('CheckMinValue', chkMinValue);
+            fromData.append('MinValue', totalMinValue);
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("SetupHeaderBuy", "SetupPromotion")',
+                data: fromData,
+                contentType: "application/json",
+                dataType: "json",
+                contentType: false,
+                processData: false,
+                success: function (data) {
+                    if (data.Status == 200) {
+                    }
+                    else {
+                        toastr.error(data.Message);
+                        $("#offBuy-tab").trigger("click");
+                    }
+
+                },
+                error: function () {
+                }
+            });
+        });
+    });
+
+    function DeleteOfferBuy(offerNo, lineNo, itemNo, lineType, groupCode) {
+        var thongbao = lineType == 1 ? "Bạn có chắc chắn xóa group " + groupCode + " này không?" : "Bạn có chắc chắn xóa item " + itemNo + " này không?";
+
+        $.confirm({
+            backgroundDismiss: false,
+            escapeKey: true,
+            icon: 'fa fa-warning',
+            type: 'red',
+            typeAnimated: true,
+            title: 'Thông báo',
+            content: thongbao,
+            buttons: {
+                "CÓ": {
+                    btnClass: 'btn btn-default',
+                    keys: ['ctrl'],
+                    action: function () {
+                        var fromData = new FormData();
+                        fromData.append('OfferNo', offerNo);
+                        fromData.append('LineNo', lineNo);
+                        fromData.append('LineType', lineType);
+                        fromData.append('GroupCode', groupCode);
+                        $.ajax({
+                            type: "POST",
+                            url: '@Url.Action("DeleteOfferBuy", "SetupPromotion")',
+                            data: fromData,
+                            contentType: "application/json",
+                            dataType: "json",
+                            contentType: false,
+                            processData: false,
+                            success: function (data) {
+                                if (data.Status == 200) {
+                                    //debugger
+                                    toastr.success("Xóa thành công");
+                                    $("#tr_" + offerNo + "_" + lineNo).remove();
+                                }
+                                else {
+                                    toastr.error(data.Message);
+                                    $("#offBuy-tab").trigger("click");
+                                }
+
+                            },
+                            error: function () {
+                            }
+                        });
+                    }
+                },
+                "KHÔNG": {
+                    btnClass: 'btn-default',
+                    action: function () { }
+                }
+            }
+        });
+    }
+
+    
+
+    function getMaxLineNo() {
+
+        var max = 0;
+        //debugger
+        $("#tableOfferBuy tbody tr._row").each(function () {
+            console.log($(this).html());
+            var lineno = parseInt($(this).find("[data-lineno]").first().attr("data-lineno")) || 0;
+
+            if (lineno > max) max = lineno;
+        });
+
+        return max;
+    }
+    function AppendBuyTable() {
+       // debugger
+        var newLineNo = getMaxLineNo() + 1;
+
+        var conditionBuy = $("#slDKApDungBuy").val();
+
+        loading.showloading();
+        var fromData = new FormData();
+        fromData.append('offerNo', offerNo);
+        fromData.append('conditionBuy', conditionBuy);
+        fromData.append('offerType', offerType);
+        fromData.append('isTotalBill', isTotalBill);
+        fromData.append('isSetupGet', isSetupGet);
+        fromData.append('lineno', newLineNo);
+        $.ajax({
+            type: "POST",
+            url: '@Url.Action("_AppendOfferBuy", "SetupPromotion")',
+            data: fromData,
+            contentType: "application/json",
+            dataType: "json",
+            contentType: false,
+            processData: false,
+            success: function (result) {
+              //  debugger
+                if (result.Status == 200) {
+                    var viewHtml = result.ViewPartial;
+                    $("#tableOfferBuy tbody").append(viewHtml);
+                }
+                else {
+                    toastr.error(result.Message);
+                    $("#offBuy-tab").trigger("click");
+                }
+
+                loading.hideloading();
+            },
+            error: function () {
+                loading.hideloading();
+            }
+        });
+    }
+</script>
+

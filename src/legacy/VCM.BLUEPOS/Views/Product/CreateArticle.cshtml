@@ -1,0 +1,486 @@
+﻿@using VCM.BLUEPOS.Model.Product;
+@using VCM.BLUEPOS.Model.OptionModel;
+@{
+    ViewBag.Title = "Tạo Article";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var listArticleType = (List<OptionModel>)ViewBag.ListArticleType;
+    var listUnits = (List<OptionModel>)ViewBag.ListUnitOfMeasure;
+}
+
+<div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+        <div class="d-flex align-items-center flex-wrap mr-1">
+            <div class="d-flex align-items-baseline flex-wrap mr-5">
+                <ul class="breadcrumb breadcrumb-transparent breadcrumb-dot font-weight-bold p-0 my-2 font-size-lg">
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý dữ liệu</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Quản lý sản phẩm</a>
+                    </li>
+                    <li class="breadcrumb-item text-muted">
+                        <a style="color:#0C713D;">Tạo Article</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="d-flex align-items-center"></div>
+    </div>
+</div>
+
+<div class="d-flex flex-column-fluid" style="margin-top:10px;">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-6 col-md-6 col-sm-6 col-xl-12">
+                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Article Type</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="sel-article-type" name="ArticleType">
+                                        <option value="" selected>------ Chọn ------</option>
+                                        @if (listArticleType != null && listArticleType.Count > 0)
+                                        {
+                                            foreach (var item in listArticleType)
+                                            {
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Tên sản phẩm</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txt-item-name" name="ItemName" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-5 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Tên đầy đủ sản phẩm</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txt-full-item-name" name="FullItemName" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Đơn vị tính</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="sel-unit" name="Units">
+                                        <option value="" selected>------ Chọn ------</option>
+                                        @if (listUnits != null && listUnits.Count > 0)
+                                        {
+                                            foreach (var item in listUnits)
+                                            {
+                                                <option value="@item.Value">@item.Text</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Thương hiệu</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txt-trademark" name="Trademark" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Model</label>
+                                <div class="form-group">
+                                    <input type="text" class="form-control pull-right" style="width:100%;" id="txt-model" name="Model" />
+                                </div>
+                            </div>
+
+                            <div class="col-lg-1 col-md-6 col-sm-12 col-xs-12" style="display: inline-block; padding-top: 30px;">
+                                <input type="checkbox" id="chk-taxcode-vat" style="height:25px; width:25px; cursor:pointer; padding-top: 5px; margin-left: 1px;">
+                                <label for="chk-taxcode-vat" style="font-size:11px; margin-top: 10px; position: absolute; padding-left: 7px;">Xuất VAT</label>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Thuế suất VAT</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="sel-tax-code" name="TaxCode" disabled>
+                                        <option value="" selected>Chọn thuế suất...</option>
+                                        <option value="4">10%</option>
+                                        <option value="5">5%</option> <!-- 3,5 : 5%-->
+                                        <option value="2">0%</option>
+                                        <option value="1">Non Tax</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12">
+                                <label class="font-weight-bold" style="margin-bottom: 0 !important;">Trạng thái</label>
+                                <div class="form-group">
+                                    <select class="form-control select2" id="txt-status" name="Status">
+                                        <option value="0" selected>Có hiệu lực</option>
+                                        <option value="1">Hết hiệu lực</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 col-md-6 col-sm-12 col-xs-12" style="display: inline-block; padding-top: 30px;">
+                                <input type="checkbox" id="chk-member-points" style="height:25px; width:25px; cursor:pointer; padding-top: 5px; margin-left: 1px;">
+                                <label for="chk-member-points" style="font-size:11px; margin-top: 10px; position: absolute; padding-left: 7px;">Tích điểm thành viên</label>
+                            </div>
+                        </div>
+
+                        <!-- Thông tin Barcode -->
+                        <div class="row">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+                                <div class="card card-custom bgi-no-repeat gutter-b card-stretch">
+                                    <div class="card-body">
+                                        <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                            <button type="button" id="btn-add-row" class="btn btn-hover-transparent-primary"><i class="la la-plus-circle"></i> Thêm dòng</button>
+                                            <button type="button" id="btn-save" class="btn btn-hover-transparent-warning"><i class="fa fa-save"></i>Lưu</button>
+                                        </div>
+
+                                        <table id="tbl-barcode-table" class="table table-bordered table-hover">
+                                            <thead>
+                                                <tr class="text-center">
+                                                    @*<th width="20px" style="padding-right: 10px;">
+                                                            <input type="checkbox" class="cusor" name="CheckAll" id="check-all" data-toggle="tooltip" data-placement="top" title="Chọn tất cả">
+                                                        </th>*@
+                                                    <th style="text-align:center; padding-right: 10px;">STT</th>
+                                                    <th style="text-align:center; padding-right: 10px;">Đơn vị tính</th>
+                                                    <th style="text-align:center; padding-right: 10px;">Barcode</th>
+                                                    <th style="text-align:center; padding-right: 10px;">#</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var table = "";
+        var globalHtml = "";
+        function LoadComboxUnits() {
+            //debugger
+            $('#tbl-barcode-table tbody').find('tr').each(function () {
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetComboxUnitOfMeasure", "Common")',
+                    dataType: "json",
+                    success: function (data)
+                    {
+                        //debugger
+                        if (data != null) {
+                           var html = "<option value=\"\" selected>Chọn đơn vị tính...</option>";
+                           data.forEach((name, i) => {
+                               html += "<option value='" + name.Value + "'>" + name.Text +"</option>";
+                            });
+                            globalHtml = html;
+                            $('.sel-combox-units').empty().html(html).select2();
+                        }
+                    },
+                    error: function ()
+                    {
+                        toastr.error('Lỗi hệ thống');
+                    }
+                });
+
+            });
+
+        };
+
+        function RowCount() {
+            var result = 0;
+            $('#tbl-barcode-table tbody').find('tr').each(function () {
+                //debugger
+                var rowCount = $(this).find('td:nth-child(1)').html();
+                result = rowCount;
+                return result;
+            });
+            return result;
+        }
+
+        function ClearRow(row) {
+            var result = true;
+            $('#tbl-barcode-table tbody').find('tr').each(function () {
+                var id = $(this).find('td:nth-child(1)').html();
+                if (id > 0) {
+                    row.closest('tr').remove();
+                }
+                return result;
+            });
+        };
+
+        function GetDataRowBarcode() {
+            var data = [];
+            $('#tbl-barcode-table tbody').find('tr').each(function () {
+                var item = {};
+                var _unit = $(this).find('.sel-combox-units').val();
+                var _barcode = $(this).find('td:nth-child(3) input').val();
+                if (_unit != null && _unit != "" && _barcode != null && _barcode.trim() != "") {
+                    item['UnitOfMeasureCode'] = $(this).find('.sel-combox-units').val();
+                    item['BarcodeNo'] = $(this).find('td:nth-child(3) input').val();
+                    data.push(item);
+                }
+            });
+            return data;
+        };
+
+        function validateDataRow() {
+            //debugger
+            var result = true;
+            var data = GetDataRowBarcode();
+            for (var i = 0; i < data.length; i++) {
+                if (data[i].UnitOfMeasureCode == null || data[i].UnitOfMeasureCode == "") {
+                    toastr.error('Chọn đơn vị tính');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].BarcodeNo == null || data[i].BarcodeNo == "") {
+                    toastr.error('Nhập mã barcode');
+                    result = false;
+                    return result;
+                }
+
+                if (data[i].BarcodeNo != null || data[i].BarcodeNo.length > 0) {
+                    var check = data[i].BarcodeNo.trim();
+                    if ((check == check / 1) == false) {
+                        toastr.error("Mã barcode phải là kiểu số");
+                        result = false;
+                        return result;
+                    }
+                }
+            }
+            return result;
+        };
+
+
+        function SaveBarcode() {
+            //debugger
+            var data = GetDataRowBarcode();
+            if (data == null || data.length == 0) {
+                toastr.error('Chọn các dòng có dữ liệu để lưu barcode');
+                return;
+            }
+            // Validate
+            var isCheck = validateDataRow();
+            if (isCheck == false)
+            {
+                return;
+            }
+
+            loading.showloading();
+            $.ajax({
+                url: '@Url.Action("SaveBarcodeList", "Product")',
+                type: "POST",
+                dataType: "text",
+                data: { req: JSON.stringify(data) },
+                success: function (response) {
+                    //debugger
+                    loading.hideloading();
+                    var item = JSON.parse(response);
+                    if (item.Status = 1) {
+                        toastr.success(item.Message);
+                    }
+                    else if (item.Status = 2) {
+                        toastr.warning(item.Message);
+                    }
+                    else if (item.Status = 3) {
+                        toastr.warning(item.Message);
+                    }
+                    else if (item.Status = 4) {
+                        toastr.warning(item.Message);
+                    }
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+
+        };
+
+        //
+        function SaveArticle() {
+            //debugger
+            var _articleType = $('#sel-article-type').val();
+            var _itemName = $('#txt-item-name').val();
+            var _itemNameFull = $('#txt-full-item-name').val();
+            var _baseUnit = $('#sel-unit').val();
+            var _salesUnit = $('#sel-unit').val();
+            var _taxCode = $('#sel-tax-code').val();
+            var _status = $('#txt-status').val();
+            var _memberPoint = $('#chk-member-points').prop('checked');
+            var _checkVAT = $('#chk-taxcode-vat').prop('checked');
+
+            var barcodeList = GetDataRowBarcode();
+            if (barcodeList == null || barcodeList.length == 0) {
+                toastr.error('Nhập thông tin barcode để lưu. Vui lòng kiểm tra lại');
+                return;
+            }
+            // Validate
+            var isCheck = validateDataRow();
+            if (isCheck == false) {
+                return;
+            }
+
+            if (_checkVAT == false) {
+                _taxCode = "-1";
+            }
+
+            if (_status == "0") {
+                _status = 0;  // có hiệu lực
+            }
+            else {
+                _status = 1;  // hết hiệu lực
+            }
+
+            if (_memberPoint == true) {
+                _memberPoint = 1; // tích điểm
+            }
+            else {
+                _memberPoint = 0;
+            }
+
+            loading.showloading();
+
+            $.ajax({
+                url: '@Url.Action("SaveArticleList", "Product")',
+                type: "POST",
+                dataType: "json",
+                data: {
+                    ItemName: _itemName,
+                    ItemNameFull: _itemNameFull,
+                    BaseUnitOfMeasure: _baseUnit,
+                    SalesUnitOfMeasure: _salesUnit,
+                    TaxGroupCode: _taxCode,
+                    ItemFamilyCode: _articleType,
+                    Blocked: _status,
+                    BlockedVINID: _memberPoint,
+                    CreateBarcodeStr: JSON.stringify(barcodeList)
+                },
+                success: function (data) {
+                    //debugger
+                    loading.hideloading();
+                    if (data.Status = 1) {
+                        toastr.success(data.Message);
+                    }
+                    else if (data.Status = 2) {
+                        toastr.warning(data.Message);
+                    }
+                    else if (data.Status = 3) {
+                        toastr.error(data.Message);
+                    }
+                    else if (data.Status = 4) {
+                        toastr.error(data.Message);
+                    }
+                },
+                error: function (data) {
+                    loading.hideloading();
+                    toastr.error('Lỗi hệ thống');
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            $("#btn-save").on("click", function (e) {
+                SaveArticle();
+            });
+
+            $("#chk-taxcode-vat").change(function () {
+                if (this.checked) {
+                    $('#sel-tax-code').prop('disabled', false);
+                } else {
+                    $('#sel-tax-code').prop('disabled', true);
+                }
+            });
+
+            $("#btn-add-row").click(function () {
+                //debugger
+                var rowCount = RowCount();
+                var y = Number(rowCount);
+                if (y > 0)
+                {
+                        var rowCount = RowCount();
+                        var z = Number(rowCount);
+                        var stt = z + 1;
+                        var markup = '<tr>';
+                        markup += '<td style="text-align:center; padding-top: 20px; width: 5%;">' + stt + '</td>';
+                        markup += '<td><select class="select2 sel-combox-units" style="width:50%; height:40px;">' + globalHtml +'</select></td>';
+                        markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                        markup += '<td style="text-align:center; width: 5%;"><button type="button" class="btn btn-clear-text-row" onclick="ClearRow($(this))"  data-toggle="tooltip" data-placement="left" title="Xóa dòng"  style="text-align:center;font-size:11px;margin-right:2px;color:#ffffff;"><i class="fa fa-trash" style="color:red"></i></button></td>';
+                        markup += '</tr>';
+                        $("table tbody").append(markup);
+                        $('.select2 ').select2();
+                }
+                else
+                {
+                        var stt = 1;
+                        var markup = '<tr>';
+                        markup += '<td style="text-align:center; padding-top: 20px; width: 5%;">' + stt + '</td>';
+                        markup += '<td><select class="select2 sel-combox-units" style="width:50%; height:40px;">' + globalHtml +'</select></td>';
+                        markup += '<td><input type="text" class="form-control" style="text-align: center;"></td>';
+                        markup += '<td style="text-align:center; width: 5%;"><button type="button" class="btn btn-clear-text-row" onclick="ClearRow($(this))"  data-toggle="tooltip" data-placement="left" title="Xóa dòng"  style="text-align:center;font-size:11px;margin-right:2px;color:#ffffff;"><i class="fa fa-trash" style="color:red"></i></button></td>';
+                        markup += '</tr>';
+                        $("table tbody").append(markup);
+                        LoadComboxUnits();
+                }
+            });
+
+            table = $('#tbl-barcode-table').DataTable({
+                dom: '<"top"iflp<"clear">>rt',
+                destroy: true,
+                select: {
+                    style: 'single'
+                },
+
+                paging: false,
+                pagingType: "simple_numbers",
+                responsive: false,
+                processing: false,              // for show progress bar
+                serverSide: false,              // for process server side
+                filter: false,                  // this is for disable filter (search box)
+                orderMulti: false,              // for disable multiple column at once
+                autoWidth: false,
+                ordering: false,
+                displayLength: 10,
+                searching: false,
+                lengthChange: false,
+                columns: []
+
+            }).on('processing.dt', function (e, settings, processing) {
+                if (processing) {
+                    loading.showloading();
+                } else {
+                    loading.hideloading();
+                }
+            });
+
+            $('[data-toggle="tooltip"]').tooltip();
+            $('#tbl-barcode-table tbody').on('click', 'tr', function () {
+                $(this).toggleClass('selected');
+            });
+
+        });
+
+    </script>
+}
+
+
+
+
