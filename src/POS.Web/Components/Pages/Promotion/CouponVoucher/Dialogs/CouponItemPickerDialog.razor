@@ -22,7 +22,7 @@
                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
             </MudItem>
             <MudItem xs="12" sm="2" Class="d-flex align-center">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
                            OnClick="SearchAsync">Tìm</MudButton>
             </MudItem>
         </MudGrid>
@@ -53,8 +53,8 @@
         </MudTable>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
-        <MudButton OnClick="Select" Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton OnClick="Select" Variant="Variant.Outlined" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Check">
             Chọn (@_selected.Count)
         </MudButton>

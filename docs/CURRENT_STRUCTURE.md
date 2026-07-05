@@ -38,7 +38,9 @@ src/
 │   ├── Middleware/
 │   │   ├── BasicAuthHandler.cs
 │   │   ├── ExceptionHandlingMiddleware.cs   ← G3 global exception → ResultResponse (UsePosExceptionHandling)
-│   │   └── PosApiKeyMiddleware.cs           ← Xác thực X-API (MD5) / Authorization, fail-closed (UsePosApiKeyAuth)
+│   │   ├── PosApiKeyMiddleware.cs           ← Xác thực X-API (MD5) / Authorization, fail-closed (UsePosApiKeyAuth)
+│   │   ├── RequestResponseLoggingMiddleware.cs ← Log request/response MỌI API qua IKibanaService, cấu hình RequestLogging:Enabled (UseRequestResponseLogging, đặt ngoài cùng pipeline)
+│   │   └── RequestLoggingOptions.cs         ← Options cho middleware trên (Enabled/MaxBodyBytes/ExcludePaths)
 │   ├── Program.cs
 │   └── Properties/
 │       └── launchSettings.json
@@ -243,7 +245,7 @@ src/
     ├── Files/
     │   ├── ConnectToSharedFolder.cs
     │   ├── IFtpFileTransfer.cs
-    │   ├── WinScpFileTransfer.cs
+    │   ├── FtpFileTransfer.cs
     │   ├── IFileArchiveService.cs / FileArchiveService.cs   ← ZipFile.CreateFromDirectory (Singleton, MasterDataSyncOptions.ZipCompressionLevel)
     │   ├── ISyncFileLock.cs / SyncFileLock.cs               ← keyed SemaphoreSlim (Singleton), chống sinh zip trùng
     │   └── MasterDataSyncOptions.cs                         ← bind section "MasterDataSync": SqlCommandTimeoutSeconds, BatchSizePerFile, MaxParallelTables, ZipCompressionLevel, KeepZipDays, DateInZipName
@@ -316,6 +318,7 @@ src/
 | `IVoucherService` | `VoucherService` | `POS.Application.Features.CouponVoucher` | POS.Application |
 | `IVoucherPublishedService` | `VoucherPublishedService` | `POS.Application.Features.CouponVoucher` | POS.Application |
 | `IPriceService` | `PriceService` | `POS.Application.Features.Price` | POS.Application |
+| `IBusinessDayService` | `BusinessDayService` | `POS.Application.Features.StoreActivities` | POS.Application |
 
 ### POS.Infrastructure — Repositories
 
@@ -358,7 +361,7 @@ src/
 | `IKafkaProducer` | `KafkaProducer` | `POS.Infrastructure.Messaging` | POS.Infrastructure |
 | `IFileLogHelper` | `FileLogHelper` | `POS.Infrastructure.Logging` | POS.Infrastructure |
 | `IKibanaService` | `KibanaService` | `POS.Infrastructure.Logging` | POS.Infrastructure |
-| `IFtpFileTransfer` | `WinScpFileTransfer` | `POS.Infrastructure.Files` | POS.Infrastructure |
+| `IFtpFileTransfer` | `FtpFileTransfer` | `POS.Infrastructure.Files` | POS.Infrastructure |
 | `IFileArchiveService` | `FileArchiveService` | `POS.Infrastructure.Files` | POS.Infrastructure |
 | `ISyncFileLock` | `SyncFileLock` | `POS.Infrastructure.Files` | POS.Infrastructure |
 | `IDbConnectionFactory` | `CentralMDConnectionFactory`, `LoyaltyConnectionFactory`, `StagingDbConnectionFactory`, `StoreRoutedConnectionFactory` | `POS.Infrastructure.Database` | POS.Infrastructure |
@@ -385,7 +388,12 @@ src/
 | `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher) |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
+<<<<<<< HEAD
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
+=======
+| `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey |
+| `IBusinessDayService` → `BusinessDayService` | Scoped | Xác nhận kết thúc ngày — merge `ICentralMDRepository.GetPosTerminalListAsync` (master POS) + `ICentralSaleRepository.GetPosDayStagingAsync` (staging shard); validate rule "tất cả POS đã đóng ngày" trước khi gọi `ConfirmBusinessDayAsync` |
+>>>>>>> minhnb
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 
@@ -416,7 +424,7 @@ src/
 | `IRedisService` → `RedisService` | Singleton | High-level Redis wrapper (sử dụng trong code) |
 | `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
 | `IKafkaProducer` → `KafkaProducer` | Singleton | IProducer thread-safe |
-| `IFtpFileTransfer` → `WinScpFileTransfer` | Singleton | Upload zip qua WinSCP |
+| `IFtpFileTransfer` → `FtpFileTransfer` | Singleton | Upload zip qua FluentFTP (managed, chạy trên Linux) |
 | `IFileLogHelper` → `FileLogHelper` (factory) | Singleton | baseDirectory từ `Logging:FileLogDirectory` |
 | `IKibanaService` → `KibanaService` | Singleton | Serilog → Elasticsearch |
 | Named HttpClient `"FMV"` | — | UseCookies=false, BaseAddress per-request |
@@ -530,6 +538,11 @@ Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string pos
 Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default)
 Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
 Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default)
+
+// Business Day Confirm (Xác nhận kết thúc ngày) — connection per-store qua StoreRoutedConnectionFactory
+Task<List<PosDayStagingDto>> GetPosDayStagingAsync(string storeNo, DateTime businessDate, CancellationToken ct = default)
+Task<BusinessDayConfirmDto?> GetBusinessDayConfirmAsync(string storeNo, DateTime businessDate, CancellationToken ct = default)
+Task<ConfirmBusinessDayResult> ConfirmBusinessDayAsync(ConfirmBusinessDayRequest request, CancellationToken ct = default)
 ```
 
 ### `IDataRawJsonRepository` (`POS.Infrastructure.Repositories.Interfaces`)
@@ -689,6 +702,16 @@ Task<List<HealthCheckItemDto>> CheckAllAsync(string? storeNo, CancellationToken 
 ```csharp
 Task<ResultResponse> PushSalesToTopic(List<KafkaMessageDto> kafkaMessageDtos)
 ```
+
+#### `IBusinessDayService` (`POS.Application.Features.StoreActivities`)
+
+```csharp
+Task<List<PosDayStagingDto>> GetPosDayStagingAsync(string storeNo, DateTime businessDate, CancellationToken ct = default)
+Task<BusinessDayConfirmDto?> GetConfirmStatusAsync(string storeNo, DateTime businessDate, CancellationToken ct = default)
+Task<DateTime?> GetCurrentBusinessDateAsync(string storeNo, CancellationToken ct = default)
+Task<ConfirmBusinessDayResult> ConfirmBusinessDayAsync(string storeNo, DateTime businessDate, string confirmedBy, bool allowForceConfirm = false, CancellationToken ct = default)
+```
+> `allowForceConfirm=true` (role ITOps/SystemAdmin) bỏ qua guard "còn POS chưa đóng ngày" (force EOD); StoreOperator luôn `false`.
 
 ### Infrastructure — AppServices
 
@@ -918,6 +941,17 @@ File này chứa nhiều model dùng cho CommonController:
 | `Ops_Logging` | Ops_Logging.cs | Ops logging record |
 | `Ops_Monitoring` | Ops_Monitoring.cs | Server monitoring record |
 
+### POS.Common.Dtos.CentralSale
+
+| Class | File | Các field chính |
+|-------|------|----------------|
+| `EosDayDto` | EosDayDto.cs | `StoreNo`, `BussinessDate`, `TotalShifts`, `ClosedShifts`, `OpenShifts`, `TotalRevenue`, `TotalTransactions`, `TotalTienHeThong`, `TotalTienMat`, `TotalChenLech` — dùng bởi `GetEosDayListAsync` |
+| `EosShiftDto` | EosShiftDto.cs | per-shift: `StoreNo`, `PosTerminal`, `BussinessDate`, `ShiftNumber`, `BeginAmount`, `TienMat`, `TienHeThong`, `ChenLech`, `StaffCode`, `OpenShiftDate`, `CloseShiftDate`, `IsShiftClosed`, `TotalRevenue`, `TransactionCount` |
+| `PosDayStagingDto` | PosDayStagingDto.cs | 1 dòng/POS terminal (trang Xác nhận kết thúc ngày): `PosTerminal`, `Placement`, `IsClosed`, `CloseTime`, `LastSaleTime`, `TotalRevenue`, `TienMat`, `CustomerCount`, `TotalQuantity` |
+| `BusinessDayConfirmDto` | BusinessDayConfirmDto.cs | `StoreNo`, `BusinessDate`, `TotalRevenue`, `TotalShifts`, `ConfirmedBy`, `ConfirmedDate` — map bảng `dbo.BusinessDayConfirm` (DB CentralSale theo store, KHÔNG phải CentralMD) |
+| `ConfirmBusinessDayRequest` | ConfirmBusinessDayRequest.cs | `StoreNo`, `BusinessDate`, `TotalRevenue`, `TotalShifts`, `ConfirmedBy` |
+| `ConfirmBusinessDayResult` | ConfirmBusinessDayResult.cs | `Success` (bool), `Message`, `NewBusinessDate` |
+
 ### Các domain DTO khác (có file, chưa đọc chi tiết)
 
 | Domain | File | Ghi chú |
@@ -1015,6 +1049,10 @@ _(Nguồn: `src/POS.Api/appsettings.json` — giá trị nhạy cảm đã ẩn)
 | `Elasticsearch:IndexFormat` | string | `"pos-api-logs-{0:yyyy.MM.dd}"` |
 | `Elasticsearch:Username` | string | _(ẩn)_ |
 | `Elasticsearch:Password` | string | _(ẩn)_ |
+| `RequestLogging:Enabled` | bool | `false` — bật log request/response toàn cục (RequestResponseLoggingMiddleware) |
+| `RequestLogging:PersistToFile` | bool | `true` — có ghi thêm log Request/Response vào File sink (`pos-*.log`) hay chỉ Elasticsearch; đọc riêng trong `SerilogConfiguration.cs`, không qua `RequestLoggingOptions` |
+| `RequestLogging:MaxBodyBytes` | int | `8192` — cắt bớt body log quá dài |
+| `RequestLogging:ExcludePaths` | string[] | `["/health", "/swagger"]` |
 | `Redis:Mode` | string | `"StandAlone"` |
 | `Redis:SentinelHosts` | string[] | `["10.x.x.x:6379"]` |
 | `Redis:MasterName` | string | `"mymaster"` |
@@ -1050,7 +1088,6 @@ _(Nguồn: `src/POS.Api/appsettings.json` — giá trị nhạy cảm đã ẩn)
 | `AppSettings:FtpRootPath` | string | `"D:\\ROOT\\FTPBLUEPOS"` |
 | `AppSettings:RemoteSvrUser` | string | _(ẩn)_ |
 | `AppSettings:RemoteSvrPass` | string | _(ẩn)_ |
-| `AppSettings:WinScpExecutablePath` | string | `""` (chưa cấu hình) |
 
 ---
 

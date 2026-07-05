@@ -71,8 +71,7 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"
-                       Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
 }
 else if (_errorMsg != null)
 {
@@ -156,8 +155,7 @@ Mọi page có data phải handle đủ 3 state:
 @* State 1 — Loading *@
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"
-                       Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
 }
 
 @* State 2 — Error (exception khi load) *@
@@ -608,15 +606,28 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Đặt page mới vào root `Store/` thay vì sub-folder đúng nhóm nav (Operations/Transactions/Reports)
 - ❌ Đặt dialog component lẫn với page file trong cùng folder — dialog không có `@page`, đặt vào `{Section}/Dialogs/`
 - ❌ Gọi `IDialogService.ShowMessageBox(...)` cho confirm đơn giản → không có overload đó trong MudBlazor v9. Dùng `MudMessageBox @ref` trong Razor + `await _msgBox!.ShowAsync()` (xem pattern bên dưới)
+- ❌ Gọi `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)` cho confirm dialog → render nút Yes bằng markup mặc định của MudBlazor (`Variant.Filled`, không sửa được) thay vì `Variant.Outlined` chuẩn dự án. Luôn dùng `MudMessageBox @ref` (xem pattern bên dưới) — lỗi này đã xảy ra thật ở 8 page, khó phát hiện bằng grep vì nút không nằm trong markup của page.
 
 ### Pattern: `MudMessageBox @ref` — confirm dialog đơn giản
-> Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete mà không cần form — thay thế `IDialogService.ShowMessageBox` (không tồn tại trong v9).
+> Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete/approve/retry mà không cần
+> form — thay thế `IDialogService.ShowMessageBox` (không tồn tại trong v9).
+>
+> **BẮT BUỘC dùng cách khai báo `@ref` này — KHÔNG dùng
+> `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)`.** Cách gọi qua
+> `ShowAsync<MudMessageBox>` render Yes/No button bằng markup MẶC ĐỊNH của MudBlazor (bên trong
+> thư viện, không nằm trong source của dự án) — **không có `<YesButton>` slot để can thiệp**, nên
+> nút Yes luôn ra `Variant.Filled` mặc định, bất kể chuẩn `Variant.Outlined` của dự án
+> (`CLAUDE.md §14`). Đây là lỗi có thật đã xảy ra ở 8 page (BusinessDayPage, VouchersPage,
+> SpecialComboPage, PromotionSetupPage, PosDataSetupPage, DataRawLogPage, UsersPage, BankPosPage)
+> — phát hiện vì `grep MudButton.*Variant.Filled` không bắt được (nút đó không tồn tại trong
+> markup của dự án, MudBlazor tự render). Luôn dùng cách khai báo `@ref` bên dưới để nút Yes nằm
+> trong markup của page, có thể set `Variant="Variant.Outlined"` như mọi `MudButton` khác.
 
 ```razor
-@* Khai báo trong Razor template — đặt gần đầu content *@
+@* Khai báo trong Razor template — đặt gần đầu content, TRƯỚC mọi @if bao ngoài (nếu page có list/edit mode) *@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
-    <YesButton><MudButton Variant="Variant.Filled" Color="Color.Primary">Xác nhận</MudButton></YesButton>
+    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Primary">Xác nhận</MudButton></YesButton>
 </MudMessageBox>
 
 @code {
@@ -632,7 +643,15 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
     }
 }
 ```
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`
+
+**Title/YesText/Color động** (vd khóa/mở khóa dùng chung 1 dialog): thêm field
+`_confirmTitle`/`_confirmYesText`/`_confirmYesColor` (kiểu `Color`), bind vào `Title="@_confirmTitle"`
+và `<YesButton><MudButton Variant="Variant.Outlined" Color="@_confirmYesColor">@_confirmYesText</MudButton></YesButton>`,
+set cả 3 field trước khi gọi `_confirmBox!.ShowAsync()`. Ví dụ thực tế: `Admin/UsersPage.razor`
+(`ConfirmToggleAsync` — khóa dùng `Color.Error`/"Khóa", kích hoạt dùng `Color.Success`/"Kích hoạt").
+
+> Ví dụ thực tế (static Title/YesText): `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`,
+> `Ops/PosMapPage.razor`, `Store/Operations/BusinessDayPage.razor`.
 
 ---
 
@@ -801,7 +820,10 @@ Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (def
 
 ## Theming — Custom MudBlazor Theme
 
-> **Chi tiết đầy đủ: `.claude/skills/web/theming.md`** — đọc khi cần đổi màu/typography toàn app.
+> **Chi tiết đầy đủ: `.claude/skills/web/theming.md`** — đọc khi cần đổi màu/typography toàn app,
+> hoặc khi tạo page/component mới cần biết chuẩn hiện hành: sidebar/appbar nền sáng, card
+> borderless, `DefaultBorderRadius=16px`, button `Variant.Outlined` mọi nơi, `pos-filter-panel`,
+> icon sidebar `Outlined` (cập nhật v2 2026-07-04 — theming.md đã đồng bộ đầy đủ).
 > Tập trung tại `src/POS.Web/Theme/PosTheme.cs` + `<MudThemeProvider Theme="@PosTheme.Default"/>`. Lưu ý v9: `FontWeight`/`LineHeight` là string, `Shadows.Elevation` đúng 25 phần tử.
 
 ---
@@ -816,16 +838,22 @@ Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (def
 ## Sidebar nav (MainLayout) — 3 cấp
 
 > Áp dụng khi: thêm sub-group mới vào sidebar hoặc thêm leaf MudNavLink vào sub-group.
-> Icon chỉ ở cấp 1 và cấp 2 — cấp 3 (leaf) KHÔNG có icon (chỉ tam giác mặc định).
+> Cập nhật 2026-07-04: icon cấp 2 đổi thành `ChevronRight` — **giống hệt** icon cấp 3 (trước đó
+> mỗi sub-group có icon riêng như `Monitor`/`Assessment`/`Business`... đã bỏ, giảm nhiễu thị giác).
+> Chỉ còn cấp 1 giữ icon riêng biệt làm landmark. Mọi `MudNavGroup` (cấp 1 VÀ cấp 2) BẮT BUỘC thêm
+> `HideExpandIcon="true"` — ẩn mũi tên expand/collapse mặc định (`ArrowDropDown`) bên phải, tránh
+> trùng lặp thị giác với icon trái. `MudNavLink` (cấp 3) không có prop `HideExpandIcon` (không áp dụng).
+> **Icon set BẮT BUỘC `Icons.Material.Outlined.*`** (đổi từ `Filled` 2026-07-04 — xem
+> `.claude/skills/web/theming.md` pattern "Sidebar — brand header + icon set Outlined").
 
 ```razor
-@* Cấp 1 — section (có icon) *@
-<MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart" @bind-Expanded="_expandOps">
-    @* Cấp 2 — sub-group (có icon) *@
-    <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Filled.Monitor" @bind-Expanded="_expandOpsMonitor">
-        @* Cấp 3 — leaf link (KHÔNG icon). BẮT BUỘC Match="NavLinkMatch.All" *@
-        <MudNavLink Href="/ops/health" Match="NavLinkMatch.All">System health</MudNavLink>
-        <MudNavLink Href="/ops/alerts" Match="NavLinkMatch.All">Alerts</MudNavLink>
+@* Cấp 1 — section (icon riêng, Outlined) + HideExpandIcon ẩn mũi tên phải *@
+<MudNavGroup Title="Vận hành" Icon="@Icons.Material.Outlined.MonitorHeart" HideExpandIcon="true" @bind-Expanded="_expandOps">
+    @* Cấp 2 — sub-group: icon = ChevronRight (giống cấp 3) + HideExpandIcon *@
+    <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Outlined.ChevronRight" HideExpandIcon="true" @bind-Expanded="_expandOpsMonitor">
+        @* Cấp 3 — leaf link: icon = ChevronRight. BẮT BUỘC Match="NavLinkMatch.All" *@
+        <MudNavLink Href="/ops/health" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
+        <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
     </MudNavGroup>
 </MudNavGroup>
 ```
@@ -847,7 +875,9 @@ private void UpdateExpanded(string uri)
 ```
 
 > Anti-pattern:
-> - ❌ Thêm `Icon="..."` vào MudNavLink cấp 3.
+> - ❌ Đặt icon riêng biệt (khác `ChevronRight`) cho `MudNavGroup` cấp 2 — chỉ cấp 1 mới giữ icon riêng.
+> - ❌ Bỏ `HideExpandIcon="true"` trên `MudNavGroup` — để mặc định sẽ hiện thêm mũi tên `ArrowDropDown` bên phải, thừa vì đã có icon trái + accordion tự mở theo route.
+> - ❌ Xóa `@bind-Expanded` để "tắt tính năng gì đó" — đây là cơ chế accordion (I3 trong `docs/WEB_STATUS.md`) tự mở nhánh chứa route đang active và tự đóng nhánh khác; muốn ẩn UI thì sửa `HideExpandIcon`/CSS, không xóa binding.
 > - ❌ Thêm `MudNavLink` mới vào markup mà quên thêm route đó vào `UpdateExpanded()` — điều hướng tới route mới sẽ không mở đúng nhánh cha, có thể khiến TOÀN BỘ sidebar collapse (mọi flag đều tính lại từ URI mỗi lần navigate, không giữ trạng thái cũ).
 > - ❌ `MudNavLink` thiếu `Match="NavLinkMatch.All"` — mặc định `NavLinkMatch.Prefix` (như `NavLink` gốc) khiến 1 route ngắn (vd `/promotion/coupons`) bị đánh dấu active luôn khi đang ở route dài hơn cùng tiền tố (`/promotion/coupons/issue`) → 2 leaf link cùng sáng active. Áp dụng cho MỌI leaf link, kể cả link chưa có route trùng tiền tố hiện tại (phòng khi thêm route mới sau này).
 > Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`

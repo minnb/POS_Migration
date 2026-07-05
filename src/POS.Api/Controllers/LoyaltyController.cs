@@ -28,8 +28,6 @@ public sealed class LoyaltyController(
     {
         var sw = Stopwatch.StartNew();
         var endpoint = "api/common/v2/loyalty/customer/get";
-        _kibanaService.LogRequest(endpoint, posID,
-            JsonConvert.SerializeObject(new { numberCard, posID, storeNo, clubCode, isMobile }));
 
         if (string.IsNullOrEmpty(numberCard) || numberCard.Length < 9)
         {
@@ -82,7 +80,6 @@ public sealed class LoyaltyController(
 
         var sw = Stopwatch.StartNew();
         var endpoint = "api/common/v2/loyalty/transaction/add";
-        _kibanaService.LogRequest(endpoint, model.PosID ?? "", JsonConvert.SerializeObject(model));
 
         // TODO: extract phone validation to a helper
         if (!(model.CardNumber.Length >= 9 && model.CardNumber.Length <= 11 && model.CardNumber.All(char.IsDigit)))
@@ -118,7 +115,6 @@ public sealed class LoyaltyController(
 
         var sw = Stopwatch.StartNew();
         var endpoint = "api/common/v2/loyalty/transaction/refund";
-        _kibanaService.LogRequest(endpoint, model.TerminalId ?? "", JsonConvert.SerializeObject(model));
 
         // TODO: extract phone validation to a helper
         if (!(model.CardNumber.Length >= 9 && model.CardNumber.Length <= 11 && model.CardNumber.All(char.IsDigit)))

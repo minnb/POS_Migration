@@ -15,13 +15,13 @@
 <PageTitle>Nhật ký thao tác – POS Dashboard</PageTitle>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Class="mr-2" Style="vertical-align:middle"/>
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
     Nhật ký thao tác
 </MudText>
 
 @* ── Filter panel ────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="2">
             <MudDatePicker @bind-Date="_fromDate"
@@ -67,7 +67,7 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
@@ -84,7 +84,7 @@
 @* ── Loading ──────────────────────────────────────────────────────────── *@
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 
 @* ── Alerts ───────────────────────────────────────────────────────────── *@

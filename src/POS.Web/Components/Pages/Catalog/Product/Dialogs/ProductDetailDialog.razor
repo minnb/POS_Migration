@@ -167,8 +167,8 @@
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text" Disabled="@_saving">Đóng</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Disabled="@_saving">Đóng</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    OnClick="SaveAsync" Disabled="@(!_formValid || _saving)"
                    StartIcon="@Icons.Material.Filled.Save">
             @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }

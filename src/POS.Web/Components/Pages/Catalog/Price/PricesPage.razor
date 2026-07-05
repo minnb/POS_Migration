@@ -24,11 +24,11 @@
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.PriceChange" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.PriceChange" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Danh mục Bảng giá
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-page-header-btn"
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-page-header-btn"
                StartIcon="@Icons.Material.Filled.FileDownload"
                Disabled="_exporting" OnClick="ExportExcelAsync">
         @(_exporting ? "Đang xuất..." : "Xuất Excel")
@@ -36,7 +36,7 @@
 </div>
 
 @* ── Filter bar ──────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="2">
             <MudTextField @bind-Value="_filter.ItemNo" Label="Mã sản phẩm"
@@ -64,7 +64,7 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>

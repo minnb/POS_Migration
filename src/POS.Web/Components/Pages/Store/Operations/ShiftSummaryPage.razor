@@ -22,16 +22,16 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
 }
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Summarize" Class="mr-2" Style="vertical-align:middle"/>
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.Summarize" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
     Tổng kết ca
 </MudText>
 
 @* ── Filter Panel ─────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
 
         <MudItem xs="12" sm="6" md="3">
@@ -83,7 +83,7 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
+                <MudButton Variant="Variant.Outlined"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
@@ -301,7 +301,7 @@ else if (!_loading && _summaries.Count == 0)
     private bool _isEmpty = true;
     private List<ChartSeries<double>> _barSeries = [];
     private string[] _barLabels = [];
-    private readonly BarChartOptions _barOptions = new() { ShowLegend = false };
+    private BarChartOptions _barOptions = new() { ShowLegend = false };
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
 
@@ -384,14 +384,29 @@ else if (!_loading && _summaries.Count == 0)
         if (_isEmpty) return;
 
         _barLabels = _summaries.Select(s => $"Ca {s.ShiftNumber}").ToArray();
+        var revenueValues = _summaries.Select(s => (double)s.TotalRevenue).ToArray();
         _barSeries =
         [
-            new ChartSeries<double>
-            {
-                Name = "Doanh thu",
-                Data = new ChartData<double>(_summaries.Select(s => (double)s.TotalRevenue).ToArray())
-            }
+            new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(revenueValues) }
         ];
+
+        var (yMax, yTick) = CalcYAxis(revenueValues);
+        _barOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
+    }
+
+    // Margin ~5% quanh giá trị max — cột luôn sát đỉnh trục Y (đồng bộ RevenuePage/RevenueHourlyPage).
+    // Ghi chú: YAxisTicks (MudBlazor) là khoảng cách giữa gridline, kiểu Int32 → với max rất nhỏ
+    // (vd <10), spacing tối thiểu =1 có thể tạo margin thực tế lớn hơn 5% (giới hạn kỹ thuật của
+    // thư viện, không khắc phục được bằng công thức tính toán).
+    private static (double YMax, int YTick) CalcYAxis(double[] values, double marginPct = 0.05, int gridLines = 5)
+    {
+        var max = values.Length > 0 ? values.Max() : 0;
+        if (max <= 0) return (5, 1);
+
+        var target = max * (1 + marginPct);
+        var tick   = Math.Max(1, (int)Math.Ceiling(target / gridLines));
+        var yMax   = tick * (int)Math.Ceiling(target / tick);
+        return (yMax, tick);
     }
 
     private async Task ResetFilterAsync()

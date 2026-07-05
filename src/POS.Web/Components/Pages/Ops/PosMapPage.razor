@@ -23,8 +23,8 @@
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-1">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.Map" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.Map" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         POS Map
     </MudText>
     <div class="d-flex align-center gap-2">
@@ -36,7 +36,7 @@
             <MudSelectItem Value="120">120 giây</MudSelectItem>
             <MudSelectItem Value="300">5 phút</MudSelectItem>
         </MudSelect>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="LoadDataAsync" Disabled="_loading"
                    Style="align-self:center; white-space:nowrap">
@@ -58,8 +58,7 @@
 @* ── Loading bar ─────────────────────────────────────────────────────── *@
 @if (_loading && !_allItems.Any())
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 
 @* ── KPI summary cards ───────────────────────────────────────────────── *@
@@ -103,7 +102,7 @@
 }
 
 @* ── Filter bar ──────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-3 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-3 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="5">
             <MudTextField Value="_search" Immediate="true"
@@ -146,7 +145,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Sync">Đẩy dữ liệu</MudButton>
     </YesButton>
 </MudMessageBox>

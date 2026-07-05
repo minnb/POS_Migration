@@ -46,37 +46,46 @@ private bool _isEmpty;   // kiểm tra empty qua flag — KHÔNG qua .Data.Lengt
 
 ---
 
-## Pattern: Y-axis auto-scale theo dữ liệu thực tế
+## Pattern: Y-axis auto-scale theo dữ liệu thực tế (margin ~5%)
 
-> Áp dụng khi: chart Bar/Line hiển thị data nhỏ (vài triệu đồng) mà trục Y luôn max=20.
+> Áp dụng khi: chart Bar/Line hiển thị data nhỏ (vài triệu đồng) mà trục Y luôn max=20, hoặc cột
+> cao nhất chỉ chiếm 40-50% chiều cao trục Y (buffer cộng/nhân cố định quá lớn so với data thật).
 
-**Nguyên nhân:** `BarChartOptions.YAxisTicks` default = **20** là *khoảng cách giữa tick*, không phải số lượng tick.
-Khi data max = 8M và spacing = 20 → MudBlazor vẽ tick 0 và 20 → trục Y nhìn cứng max=20.
+**Nguyên nhân gốc:** `BarChartOptions.YAxisTicks`/`LineChartOptions.YAxisTicks` là kiểu `Int32`,
+đại diện *khoảng cách giữa gridline* (spacing), **không phải số lượng tick**. MudBlazor render đỉnh
+trục Y = `spacing × ceil(max(data, YAxisSuggestedMax) / spacing)`. Nếu chọn buffer/spacing không
+tỷ lệ với data thật (buffer cộng cố định `+2.5`, hoặc bảng spacing cứng theo ngưỡng `≤5/≤10/≤20`),
+kết quả bị làm tròn lên một mốc cao hơn nhiều so với max thật → cột/đường trông rất nhỏ so với trục.
 
-**Giải pháp:** tính `YAxisSuggestedMax` và `YAxisTicks` sau khi có data:
+**Giải pháp:** dùng margin theo **%** của giá trị max thật (mặc định 5%) thay vì buffer cố định,
+chia đều thành N gridline (mặc định 5) để suy ra `YAxisTicks` (spacing) sát nhất có thể:
 
 ```csharp
-// Sau khi tính xong mảng values, trước khi set BarChartOptions:
-var yMax = CalcYMax(values);
-_barOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+// Sau khi tính xong mảng values, trước khi set BarChartOptions/LineChartOptions:
+var (yMax, yTick) = CalcYAxis(values);
+_barOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
 
-private static double CalcYMax(double[] values)
+// Margin ~5% quanh giá trị max — cột/đường luôn sát đỉnh trục Y.
+// Ghi chú: YAxisTicks là Int32 → với max rất nhỏ (vd <10), spacing tối thiểu =1 có thể tạo margin
+// thực tế lớn hơn 5% (giới hạn kỹ thuật của thư viện, không khắc phục được bằng công thức).
+private static (double YMax, int YTick) CalcYAxis(double[] values, double marginPct = 0.05, int gridLines = 5)
 {
     var max = values.Length > 0 ? values.Max() : 0;
-    if (max <= 0) return 5;
-    return Math.Ceiling(max + 2.5);   // buffer ~2.5 đơn vị, làm tròn lên
-}
+    if (max <= 0) return (5, 1);
 
-private static int CalcYTick(double yMax)
-{
-    if (yMax <= 5)  return 1;
-    if (yMax <= 10) return 2;
-    if (yMax <= 20) return 5;
-    return 10;
+    var target = max * (1 + marginPct);
+    var tick   = Math.Max(1, (int)Math.Ceiling(target / gridLines));
+    var yMax   = tick * (int)Math.Ceiling(target / tick);
+    return (yMax, tick);
 }
 ```
 
 > `YAxisSuggestedMax` là "gợi ý" — nếu data vượt qua, MudBlazor tự mở rộng (không clip).
+> Với data max rất nhỏ (< ~10 đơn vị hiển thị), margin thực tế có thể lớn hơn 5% do `YAxisTicks`
+> không nhận spacing dưới 1 — đây là giới hạn của MudBlazor, không phải lỗi công thức.
+
+**Ví dụ thực tế đã áp dụng:** `RevenuePage.razor` (2 Bar), `RevenueHourlyPage.razor` (1 Line + 2 Bar),
+`ShiftSummaryPage.razor` (1 Bar).
 
 ---
 
@@ -85,6 +94,9 @@ private static int CalcYTick(double yMax)
 - ❌ Dùng `<MudChart ChartType="...">` (v8 syntax) → compile error với MudBlazor 9.5.0
 - ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
 - ❌ `BarChartOptions { ShowLegend = false }` không set `YAxisSuggestedMax` → `YAxisTicks` default=20 (spacing!) làm Y-axis luôn max=20 dù data chỉ 2–8M
+- ❌ Buffer cộng cố định (`max + 2.5`) hoặc bảng spacing cứng theo ngưỡng tuyệt đối (`≤5→1, ≤10→2...`)
+  → không tỷ lệ với data thật, dễ khiến cột chỉ chiếm 40-50% chiều cao trục khi max nhỏ. Dùng
+  `CalcYAxis` (margin %) ở trên thay thế.
 - ❌ `ChartSeries<double>="@..."` như HTML attribute trong Razor (v9 syntax sai)
 
 ---

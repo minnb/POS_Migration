@@ -12,7 +12,7 @@
             <MudTextField @bind-Value="_keyword" Label="Tìm theo mã / tên sản phẩm"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true"
                           OnKeyDown="OnKeyDown" Class="flex-grow-1"/>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Search" OnClick="SearchAsync">Tìm</MudButton>
         </div>
 
@@ -35,8 +35,8 @@
         </MudTable>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Hủy</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    Disabled="_selected.Count == 0" OnClick="Confirm">
             Thêm (@_selected.Count)
         </MudButton>

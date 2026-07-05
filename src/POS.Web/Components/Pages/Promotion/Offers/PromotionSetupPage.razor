@@ -19,19 +19,26 @@
 
 <PageTitle>Cài đặt CTKM – POS Dashboard</PageTitle>
 
+<MudMessageBox @ref="_confirmBox" Title="Duyệt CTKM" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Success">Duyệt</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @if (!_editing)
 {
     @* ══ LIST MODE ══════════════════════════════════════════════════════ *@
     <div class="pos-page-header mb-4">
-        <MudText Typo="Typo.h5" Class="pos-page-header-title">
-            <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" Style="vertical-align:middle"/>
+        <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+            <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             Cài đặt CTKM
         </MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-page-header-btn"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNewAsync">Thêm CTKM</MudButton>
     </div>
 
-    <MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6" md="3">
                 <MudTextField @bind-Value="_filter.OfferNo" Label="Mã CTKM"
@@ -51,7 +58,7 @@
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                                FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined"
                                FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
@@ -125,15 +132,15 @@ else
 {
     @* ══ EDITOR MODE ════════════════════════════════════════════════════ *@
     <div class="pos-page-header mb-4">
-        <MudText Typo="Typo.h5" Class="pos-page-header-title">
-            <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" Style="vertical-align:middle"/>
+        <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+            <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             @(string.IsNullOrEmpty(_header.No) ? "Thêm CTKM" : $"CTKM {_header.No}")
             @if (_isReadonly)
             {
                 <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ml-2">Đã duyệt — chỉ xem</MudChip>
             }
         </MudText>
-        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
                    Class="pos-page-header-btn" OnClick="BackToList">Quay lại</MudButton>
     </div>
 
@@ -593,7 +600,7 @@ else
     {
         <MudPaper Elevation="1" Class="pa-4 mt-4 d-flex justify-end gap-2 flex-wrap">
             <MudTooltip Text="Lưu nháp CTKM (chưa phát hành cho máy POS)">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            Disabled="_saving" OnClick="SaveAsync">
                     @if (_saving)
                     {
@@ -609,7 +616,7 @@ else
             @if (!string.IsNullOrEmpty(_header.No))
             {
                 <MudTooltip Text="Duyệt & phát hành CTKM cho máy POS (không sửa lại được)">
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle"
                                Disabled="_saving" OnClick="@(() => ApproveAsync(_header.No))">Duyệt CTKM</MudButton>
                 </MudTooltip>
             }
@@ -623,6 +630,9 @@ else
     private readonly PromotionSetupListFilter _filter = new() { ApproveStatus = "", PageSize = 20 };
     private List<PromotionSetupListItemDto> _rows = [];
     private int _offset;
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
 
     // ── Options ──
     private List<OptionItemDto> _offerTypes = [];
@@ -814,16 +824,9 @@ else
     // ── Approve ──
     private async Task ApproveAsync(string bbynr)
     {
-        var parameters = new DialogParameters
-        {
-            ["Message"]    = $"Duyệt và phát hành CTKM {bbynr}? Sau khi duyệt sẽ không sửa được.",
-            ["YesText"]    = "Duyệt",
-            ["CancelText"] = "Hủy"
-        };
-        var dialog = await DialogService.ShowAsync<MudMessageBox>("Duyệt CTKM", parameters,
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-        var confirm = await dialog.Result;
-        if (confirm is null or { Canceled: true }) return;
+        _confirmMsg = $"Duyệt và phát hành CTKM {bbynr}? Sau khi duyệt sẽ không sửa được.";
+        var confirmed = await _confirmBox!.ShowAsync();
+        if (confirmed != true) return;
 
         try
         {

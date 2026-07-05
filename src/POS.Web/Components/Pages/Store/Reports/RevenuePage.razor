@@ -16,12 +16,12 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
 }
 
 @* ── Header ────────────────────────────────────────────────────────── *@
-<MudText Typo="Typo.h5" Class="mb-1">
-    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Class="mr-2" Style="vertical-align:middle"/>
+<MudText Typo="Typo.h5" Class="mb-1" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
     Tổng hợp doanh thu
 </MudText>
 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
@@ -208,10 +208,10 @@
                 new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(hourlyValues) }
             ];
 
-            var dailyYMax  = CalcYMax(dailyValues);
-            var hourlyYMax = CalcYMax(hourlyValues);
-            _dailyBarOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = dailyYMax, YAxisTicks = CalcYTick(dailyYMax) };
-            _barOptions      = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = hourlyYMax, YAxisTicks = CalcYTick(hourlyYMax) };
+            var (dailyYMax, dailyYTick)   = CalcYAxis(dailyValues);
+            var (hourlyYMax, hourlyYTick) = CalcYAxis(hourlyValues);
+            _dailyBarOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = dailyYMax, YAxisTicks = dailyYTick };
+            _barOptions      = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = hourlyYMax, YAxisTicks = hourlyYTick };
 
             // Increment version to force chart component re-mount via @key
             _chartVersion++;
@@ -223,19 +223,19 @@
         }
     }
 
-    private static double CalcYMax(double[] values)
+    // Margin ~5% (thay vì buffer cộng cố định) — cột luôn sát đỉnh trục Y bất kể data lớn/nhỏ.
+    // Ghi chú: YAxisTicks (MudBlazor) là khoảng cách giữa gridline, kiểu Int32 → với max rất nhỏ
+    // (vd <10), spacing tối thiểu =1 có thể tạo margin thực tế lớn hơn 5% (giới hạn kỹ thuật của
+    // thư viện, không khắc phục được bằng công thức tính toán).
+    private static (double YMax, int YTick) CalcYAxis(double[] values, double marginPct = 0.05, int gridLines = 5)
     {
         var max = values.Length > 0 ? values.Max() : 0;
-        if (max <= 0) return 5;
-        return Math.Ceiling(max + 2.5);
-    }
+        if (max <= 0) return (5, 1);
 
-    private static int CalcYTick(double yMax)
-    {
-        if (yMax <= 5)  return 1;
-        if (yMax <= 10) return 2;
-        if (yMax <= 20) return 5;
-        return 10;
+        var target = max * (1 + marginPct);
+        var tick   = Math.Max(1, (int)Math.Ceiling(target / gridLines));
+        var yMax   = tick * (int)Math.Ceiling(target / tick);
+        return (yMax, tick);
     }
 
     private static string FormatVND(decimal amount) => amount switch

@@ -71,13 +71,41 @@ public static class SerilogConfiguration
         var fileLogDir = configuration["Logging:FileLogDirectory"];
         if (!string.IsNullOrWhiteSpace(fileLogDir))
         {
-            loggerConfig.WriteTo.File(
-                path: Path.Combine(fileLogDir, "pos-.log"),      // → pos-yyyyMMdd.log
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14,
-                shared: true,                                    // nhiều instance ghi chung an toàn
-                flushToDiskInterval: TimeSpan.FromSeconds(1),
-                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+            const string outputTemplate =
+                "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}";
+            var filePath = Path.Combine(fileLogDir, "pos-.log"); // → pos-yyyyMMdd.log
+
+            // RequestLogging:PersistToFile=true (mặc định — chưa cài Elasticsearch): File sink nhận
+            // MỌI loại log như trước giờ, không đổi hành vi cũ.
+            // RequestLogging:PersistToFile=false: loại trừ riêng log Request/Response (property
+            // "HttpContext"="Request"/"Response" do KibanaService.LogRequest/LogResponse push) khỏi
+            // File sink để giảm I/O đĩa khi khối lượng log request/response lớn — log Exception/Info
+            // (cùng dùng property "HttpContext" nhưng giá trị khác) KHÔNG bị ảnh hưởng, luôn ghi đủ.
+            var persistRequestLogToFile = configuration.GetValue("RequestLogging:PersistToFile", defaultValue: true);
+            if (persistRequestLogToFile)
+            {
+                loggerConfig.WriteTo.File(
+                    path: filePath,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 14,
+                    shared: true,                                // nhiều instance ghi chung an toàn
+                    flushToDiskInterval: TimeSpan.FromSeconds(1),
+                    outputTemplate: outputTemplate);
+            }
+            else
+            {
+                loggerConfig.WriteTo.Logger(lc => lc
+                    .Filter.ByExcluding(evt =>
+                        evt.Properties.TryGetValue("HttpContext", out var v) &&
+                        v is ScalarValue { Value: "Request" or "Response" })
+                    .WriteTo.File(
+                        path: filePath,
+                        rollingInterval: RollingInterval.Day,
+                        retainedFileCountLimit: 14,
+                        shared: true,
+                        flushToDiskInterval: TimeSpan.FromSeconds(1),
+                        outputTemplate: outputTemplate));
+            }
         }
 
         var nodes = esOptions.Nodes

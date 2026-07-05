@@ -6,6 +6,7 @@ using POS.Application.Features.Gift;
 using POS.Application.Features.Partner;
 using POS.Application.Features.Promotion;
 using POS.Application.Features.Sap;
+using POS.Application.Features.StoreActivities;
 
 namespace POS.Application;
 
@@ -30,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<ICouponService, CouponService>();
         services.AddScoped<IVoucherService, VoucherService>();
         services.AddScoped<IVoucherPublishedService, VoucherPublishedService>();
+        services.AddScoped<IBusinessDayService, BusinessDayService>();
         return services;
     }
 }

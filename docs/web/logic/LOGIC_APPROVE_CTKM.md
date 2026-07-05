@@ -3,13 +3,13 @@
 > **Mục đích:** tài liệu *code-flow kỹ thuật* phục vụ **bảo trì** — trace toàn bộ luồng từ khi
 > người dùng bấm nút **"Duyệt"** trên giao diện Blazor xuống tận Database.
 > **Đối tượng đọc:** Dev bảo trì, kỹ sư hệ thống.
-> **Khác với** [`offer-coupon-flow.md`](offer-coupon-flow.md) (tài liệu nghiệp vụ + test case).
+> **Khác với** [`offer-coupon-flow.md`](../testing/offer-coupon-flow.md) (tài liệu nghiệp vụ + test case).
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Chức năng | **Cài đặt CTKM** (Chương trình khuyến mãi / Bonus Buy) |
 | Route | `/promotion/setup` |
-| Trang | [`PromotionSetupPage.razor`](../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor) |
+| Trang | [`PromotionSetupPage.razor`](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor) |
 | Database | `RPOSMasterData` (CentralMD) |
 | Quyền | `WebPolicies.OpsAndAbove` → **ITOps** hoặc **SystemAdmin** (StoreOperator bị chặn) |
 
@@ -45,12 +45,12 @@ Cả hai nút "Duyệt" đều gọi chung một hàm:
 private async Task ApproveAsync(string bbynr)
 ```
 
-Vị trí: [`PromotionSetupPage.razor:639`](../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L639).
+Vị trí: [`PromotionSetupPage.razor:639`](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L639).
 
 | Nút | Vị trí | Điều kiện hiển thị |
 |---|---|---|
-| `MudIconButton` (icon `CheckCircle`) — màn **danh sách** | [dòng ~104-105](../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L104) | chỉ hiện khi `!context.IsApprove` (CTKM chưa duyệt) |
-| `MudButton "Duyệt CTKM"` — màn **editor** | [dòng ~437-438](../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L437) | chỉ hiện khi `!_isReadonly` **và** `_header.No` khác rỗng |
+| `MudIconButton` (icon `CheckCircle`) — màn **danh sách** | [dòng ~104-105](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L104) | chỉ hiện khi `!context.IsApprove` (CTKM chưa duyệt) |
+| `MudButton "Duyệt CTKM"` — màn **editor** | [dòng ~437-438](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L437) | chỉ hiện khi `!_isReadonly` **và** `_header.No` khác rỗng |
 
 ### 1.2. Validate tại UI (Frontend) trước khi gửi
 
@@ -81,8 +81,8 @@ Vị trí: [`PromotionSetupPage.razor:639`](../../src/POS.Web/Components/Pages/P
 
 | Thành phần | File |
 |---|---|
-| Interface | [`IPromotionService`](../../src/POS.Application/Features/Promotion/IPromotionService.cs) |
-| Implementation | [`PromotionService.cs:35`](../../src/POS.Application/Features/Promotion/PromotionService.cs#L35) |
+| Interface | [`IPromotionService`](../../../src/POS.Application/Features/Promotion/IPromotionService.cs) |
+| Implementation | [`PromotionService.cs:35`](../../../src/POS.Application/Features/Promotion/PromotionService.cs#L35) |
 
 ```csharp
 public Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, CancellationToken ct = default)
@@ -99,8 +99,8 @@ public Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, Cancellat
 
 | Thành phần | File |
 |---|---|
-| Interface | [`IPromotionRepository`](../../src/POS.Infrastructure/Repositories/Promotion/IPromotionRepository.cs) |
-| Implementation | [`PromotionRepository.cs:245`](../../src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs#L245) |
+| Interface | [`IPromotionRepository`](../../../src/POS.Infrastructure/Repositories/Promotion/IPromotionRepository.cs) |
+| Implementation | [`PromotionRepository.cs:245`](../../../src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs#L245) |
 | Connection | `CentralMDConnectionFactory` → DB **RPOSMasterData** |
 
 ```csharp
@@ -128,7 +128,7 @@ public async Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, Can
 
 ### 3.1. Stored Procedure `dbo.usp_SetupPromotion_Approve`
 
-Script: [`docs/sql/SetupPromotion_ApproveAndStatus.sql`](../sql/SetupPromotion_ApproveAndStatus.sql).
+Script: [`docs/sql/SetupPromotion_ApproveAndStatus.sql`](../../sql/SetupPromotion_ApproveAndStatus.sql).
 
 ```sql
 CREATE PROCEDURE dbo.usp_SetupPromotion_Approve
@@ -183,7 +183,7 @@ END
 
 > Transformation được thực thi bởi SP **`dbo.Setup_Promotion_Insert @BBY`** (SP nghiệp vụ có sẵn trong DB,
 > **không nằm trong source repo** — không reverse SP body ở đây). Bảng dưới mô tả **ánh xạ cột mức schema**
-> để đối chiếu khi bảo trì. Nguồn cột: [`SetupPromotion_Save.sql`](../sql/SetupPromotion_Save.sql) (bên nháp) và
+> để đối chiếu khi bảo trì. Nguồn cột: [`SetupPromotion_Save.sql`](../../sql/SetupPromotion_Save.sql) (bên nháp) và
 > `docs/architecture/database-schema.md` — bảng `Offer*` (bên LIVE).
 > **Nguồn chính thức của logic vẫn là SP `Setup_Promotion_Insert`.**
 
@@ -251,7 +251,7 @@ END
 |---|---|
 | **Audit log** | `IAuditLogger.LogAsync(_actor, "APPROVE", "SetupPromotion", bbynr, null, null)` → 1 dòng trong `DashboardAuditLog` (action `APPROVE`, entity `SetupPromotion`, key = BBYNR). Chỉ ghi khi thao tác **thành công**. |
 | **Khóa UI** | Editor chuyển readonly (chip *"Đã duyệt — chỉ xem"*), nút Lưu/Duyệt biến mất. Ở màn danh sách: bảng reload, dòng chuyển trạng thái "Đã duyệt". |
-| **Publish nghiệp vụ** | Dữ liệu xuất hiện ở bảng `Offer*` → hiển thị tại [`/promotion/offers`](../../src/POS.Web/Components/Pages/Promotion/Offers/OffersPage.razor) → **máy POS tải và áp dụng CTKM**. |
+| **Publish nghiệp vụ** | Dữ liệu xuất hiện ở bảng `Offer*` → hiển thị tại [`/promotion/offers`](../../../src/POS.Web/Components/Pages/Promotion/Offers/OffersPage.razor) → **máy POS tải và áp dụng CTKM**. |
 | **Bất khả nghịch** | CTKM đã duyệt **không sửa/không hủy** được từ UI. Muốn thay đổi phải thao tác trực tiếp DB (ngoài phạm vi ứng dụng). |
 
 ---
@@ -271,13 +271,13 @@ END
 
 | Lớp | File | Điểm neo |
 |---|---|---|
-| UI (Blazor) | [`PromotionSetupPage.razor`](../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor) | `ApproveAsync` (~L639), nút Duyệt (L104, L437) |
-| Service (Application) | [`PromotionService.cs`](../../src/POS.Application/Features/Promotion/PromotionService.cs) | `ApproveSetupAsync` (L35) |
-| Repository (Infrastructure) | [`PromotionRepository.cs`](../../src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs) | `ApproveSetupAsync` (L245) |
-| SP Duyệt | [`docs/sql/SetupPromotion_ApproveAndStatus.sql`](../sql/SetupPromotion_ApproveAndStatus.sql) | `usp_SetupPromotion_Approve` |
-| SP Lưu (nguồn cột nháp) | [`docs/sql/SetupPromotion_Save.sql`](../sql/SetupPromotion_Save.sql) | `usp_SaveSetupCTKMAll` |
+| UI (Blazor) | [`PromotionSetupPage.razor`](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor) | `ApproveAsync` (~L639), nút Duyệt (L104, L437) |
+| Service (Application) | [`PromotionService.cs`](../../../src/POS.Application/Features/Promotion/PromotionService.cs) | `ApproveSetupAsync` (L35) |
+| Repository (Infrastructure) | [`PromotionRepository.cs`](../../../src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs) | `ApproveSetupAsync` (L245) |
+| SP Duyệt | [`docs/sql/SetupPromotion_ApproveAndStatus.sql`](../../sql/SetupPromotion_ApproveAndStatus.sql) | `usp_SetupPromotion_Approve` |
+| SP Lưu (nguồn cột nháp) | [`docs/sql/SetupPromotion_Save.sql`](../../sql/SetupPromotion_Save.sql) | `usp_SaveSetupCTKMAll` |
 | SP publish (có sẵn trong DB) | *(ngoài source repo)* | `Setup_Promotion_Insert @BBY` |
 
 **Liên quan:**
-- Tài liệu nghiệp vụ + test case: [`offer-coupon-flow.md`](offer-coupon-flow.md).
-- Rollout / script SQL cần chạy trước khi test: [`docs/ROLLOUT.md`](../ROLLOUT.md).
+- Tài liệu nghiệp vụ + test case: [`offer-coupon-flow.md`](../testing/offer-coupon-flow.md).
+- Rollout / script SQL cần chạy trước khi test: [`docs/ROLLOUT.md`](../../ROLLOUT.md).

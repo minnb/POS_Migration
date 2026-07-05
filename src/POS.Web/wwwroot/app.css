@@ -26,6 +26,8 @@
   --pos-warning-bg:     #FEF6E7;
   --pos-info:           #3A6FCC;
   --pos-info-bg:        #EBF0FB;
+  --pos-primary-bg:     #E9EEF8;
+  --pos-teal-bg:        #E6F7F4;
 
   /* Typography */
   --pos-text-heading:   #1A2B45;
@@ -61,9 +63,19 @@
 ::-webkit-scrollbar-thumb { background: var(--pos-border-strong); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--pos-text-muted); }
 
-/* Delta values: dùng trong các page hiển thị % so sánh */
-.pos-delta-up   { color: var(--pos-success); font-weight: 600; }
-.pos-delta-down { color: var(--pos-danger);  font-weight: 600; }
+/* Delta values: dùng trong các page hiển thị % so sánh — pill badge, giữ ngữ nghĩa
+   tăng=xanh/giảm=đỏ (dashboard vận hành POS cần tín hiệu tốt/xấu rõ ràng, không dùng
+   màu trang trí tùy ý theo từng KPI). */
+.pos-delta-up, .pos-delta-down {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.pos-delta-up   { color: var(--pos-success); background-color: var(--pos-success-bg); }
+.pos-delta-down { color: var(--pos-danger);  background-color: var(--pos-danger-bg); }
 
 /* Flat button — bỏ box-shadow MudBlazor default (Elevation=2 = 0 2px 8px ...)
    Áp dụng cho mọi trạng thái: normal, hover, focus, active */
@@ -75,58 +87,99 @@
 }
 
 /* ── Sidebar: active nav item highlight ─────────────────────────────────
-   DrawerBackground = #1B3A5C (dark navy).
-   MudBlazor default active color (#2051A3) không đủ tương phản trên nền
-   này → override để item được chọn nổi bật rõ ràng. */
+   DrawerBackground = #FFFFFF (light, theo mẫu MudBlazor "Mud Mini").
+   Active item = pill bo tròn nền tint nhạt của Primary, chữ/icon Primary đậm. */
 .mud-drawer .mud-nav-link.active {
-    background-color: rgba(255, 255, 255, 0.14) !important;
-    color: #ffffff !important;
+    background-color: var(--pos-primary-bg) !important;
+    color: var(--pos-primary) !important;
     font-weight: 600;
-    border-left: 3px solid var(--pos-primary-light);
-    padding-left: calc(16px - 3px) !important;
+    border-radius: var(--pos-radius-lg);
 }
 
 .mud-drawer .mud-nav-link.active .mud-icon-root {
-    color: #ffffff !important;
+    color: var(--pos-primary) !important;
     opacity: 1 !important;
 }
 
 /* Hover nhẹ cho non-active items */
 .mud-drawer .mud-nav-link:not(.active):hover {
-    background-color: rgba(255, 255, 255, 0.07) !important;
+    background-color: rgba(32, 81, 163, 0.05) !important;
+    border-radius: var(--pos-radius-lg);
 }
 
 /* ── Sidebar visual hierarchy (3 cấp) ───────────────────────────────────
-   Nền drawer tối #1B3A5C → dùng opacity trắng để phân tầng bậc:
-   L1 (section)   → bold 700, trắng 95%  — landmark chính
-   L2 (sub-group) → medium 500, trắng 65% — nhãn nhóm phụ
-   L3 (leaf link) → normal 400, trắng 50% — destination, mờ nhất khi inactive  */
+   Nền drawer sáng #FFFFFF → dùng opacity navy để phân tầng bậc:
+   L1 (section)   → bold 700, navy 90%  — landmark chính
+   L2 (sub-group) → medium 500, navy 65% — nhãn nhóm phụ
+   L3 (leaf link) → normal 400, navy 55% — destination, mờ nhất khi inactive  */
 
-/* L1 — Cửa hàng / Vận hành / Quản trị */
+/* L1 — Cửa hàng / Vận hành / Quản trị
+   Padding/margin/line-height ăn theo base (.mud-drawer .mud-nav-link: 6px/
+   2px/1.4) — ở mức padding này phần bù riêng cho chữ đậm (700) không còn cần
+   thiết (0.2px không tạo khác biệt thị giác), nên gộp chung với L3. */
 .mud-drawer .mud-nav-menu > .mud-nav-group > .mud-nav-group-title {
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.95) !important;
+    color: rgba(26, 43, 69, 0.90) !important;
     font-size: 0.875rem;
 }
 
-/* L2 — Giám sát / Giao dịch / Báo cáo / Nhật ký ... */
+/* L2 — Giám sát / Giao dịch / Báo cáo / Nhật ký ...
+   QA pass 2026-07-05: phục hồi line-height 1.3→1.4 (an toàn hơn cho dấu
+   tiếng Việt) + padding 1.1px→5px + margin 0→1px. Tổng chiều cao dòng
+   22.2px→32px (icon 20px + padding 10px + margin 2px) — vượt ngưỡng WCAG
+   2.5.8 (tối thiểu 24×24px) mà mức cũ vi phạm, đồng thời vẫn thấp hơn L1/L3
+   (36px) một chút để giữ tín hiệu phân tầng 3 cấp. */
 .mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group > .mud-nav-group-title {
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.65) !important;
+    color: rgba(26, 43, 69, 0.65) !important;
     font-size: 0.8125rem;
+    line-height: 1.4 !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    margin-top: 1px !important;
+    margin-bottom: 1px !important;
 }
 
 /* L3 — leaf link (inactive) */
 .mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group .mud-nav-link:not(.mud-nav-group-title) {
-    color: rgba(255, 255, 255, 0.50) !important;
+    color: rgba(26, 43, 69, 0.55) !important;
     font-size: 0.8125rem;
     font-weight: 400;
 }
 
 /* L3 active — đảm bảo specificity cao hơn rule L3 inactive ở trên */
 .mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group .mud-nav-link.active {
-    color: #ffffff !important;
+    color: var(--pos-primary) !important;
     font-weight: 600;
+}
+
+/* Icon nav sidebar — giảm từ mặc định MudBlazor (24px) xuống gọn hơn,
+   khớp tỷ lệ với text 0.8125-0.875rem cạnh bên (icon 24px cạnh chữ 13-14px
+   trông quá to/lệch tỷ lệ). Áp dụng luôn cho icon mũi tên expand/collapse
+   của MudNavGroup vì cùng chọn qua .mud-icon-root. */
+.mud-drawer .mud-icon-root {
+    font-size: 1.25rem;
+}
+
+/* ── Sidebar brand header (logo + tên app) ───────────────────────────────
+   Theo mẫu MudBlazor "Mud Mini" (docs/web/images/flat1.jpg) — logo tròn +
+   tên app ở đầu sidebar. Dùng: <div class="pos-sidebar-brand"> */
+.pos-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 16px 12px;
+}
+.pos-sidebar-brand-text {
+    font-weight: 700;
+    color: var(--pos-text-heading);
+}
+
+/* Nav item — inset ngang (không bám sát mép sidebar), khớp gutter trong ảnh mẫu */
+.mud-drawer .mud-nav-link {
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    width: calc(100% - 16px) !important;
 }
 
 /* ── Responsive: Page header (title + action button) ────────────────────
@@ -141,7 +194,19 @@
     gap: 8px;
     flex-wrap: wrap;
 }
-.pos-page-header-title { flex: 1; min-width: 0; }
+.pos-page-header-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.25rem;   /* giảm từ mặc định h5 MudBlazor (~1.5rem) — cân đối hơn với icon 20px cạnh bên */
+}
+
+/* ── Filter panel: soft-tint nền để phân biệt vùng nhập liệu ─────────────
+   Dùng cho MudPaper chứa filter fields — tách biệt với card dữ liệu trắng
+   (MudTable) bên dưới, không cần thêm viền.
+   Dùng: <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4"> */
+.pos-filter-panel {
+    background-color: var(--pos-primary-bg);
+}
 
 @media (max-width: 599.98px) {          /* xs: mobile dọc */
     .pos-page-header { gap: 12px; }
@@ -170,7 +235,7 @@
 .pos-table thead tr {
     background-color: #EEF1F7;
     color: #1A2B45;
-    border-bottom: 2px solid #2051A3;
+    border-bottom: 1px solid var(--pos-border);
 }
 
 .pos-table th {
@@ -243,7 +308,8 @@
 }
 
 /* ── MudTable header override ─────────────────────────────────────────────
-   Header nổi bật: nền #EEF1F7, border navy 2px dưới, chữ semi-bold 13px.
+   Header nổi bật: nền #EEF1F7, border 1px nhạt dưới (đồng bộ borderless v2 —
+   xem PosTheme.cs Shadows), chữ semi-bold 13px.
    Áp dụng toàn bộ MudTable trong dự án — không cần sửa từng Razor page.
    Sort button bị strip padding/height để header row ≈ body row
    (loại bỏ vấn đề row cao hơn header khi dùng MudTableSortLabel).     */
@@ -252,7 +318,7 @@
     color: var(--pos-text-heading);
     font-weight: 600;
     font-size: 0.8125rem;
-    border-bottom: 2px solid var(--pos-primary);
+    border-bottom: 1px solid var(--pos-border);
     white-space: nowrap;
     padding: 10px 16px;
 }
@@ -276,8 +342,10 @@
 /* ── Flat UI overrides ───────────────────────────────────────────────────
    Làm mảnh border của input Outlined (MudTextField, MudSelect, MudAutocomplete...).
    Mặc định MudBlazor dùng 1px nhưng màu khá nhạt → tăng tương phản nhẹ.
-   KHÔNG thêm border cho MudPaper/MudCard — hairline shadow (E1–E5 = 0 0 0 1px)
-   đã tạo viền rồi; thêm border CSS sẽ gây viền đôi.                       */
+   KHÔNG thêm border/shadow cho MudPaper/MudCard — Elevation 1-5 = "none" (borderless),
+   card phân tách bằng chênh lệch nền Surface #FFFFFF vs Background #F2F4F8, theo mẫu
+   MudBlazor "Mud Mini" (docs/web/images/flat1.jpg). Thêm border/shadow sẽ đi ngược
+   nguyên tắc borderless này.                                              */
 
 /* Border mặc định (không lỗi, không focus): dùng --pos-border-strong (#B8C4D8) */
 .mud-input-outlined:not(.mud-input-error):not(.mud-focused) .mud-input-outlined-border {
@@ -303,14 +371,27 @@
     margin-bottom: 2px !important;
 }
 
-/* Sidebar nav link — padding dọc desktop
-   4px padding + 1px margin = 10px/item (giảm ~30% so với 5px+2px=14px trước)
-   margin override: Margin.Dense mặc định 2px → giảm xuống 1px */
+/* Sidebar nav link — padding dọc desktop (áp dụng L1 title + L3 leaf; L2 có
+   rule riêng ở trên với giá trị nhỏ hơn).
+   letter-spacing: rút ngắn ~15% (tracking mặc định "normal") để label gần chữ
+   hơn, tránh xuống dòng trên các mục có tên dài (Sản phẩm bán chạy, Khách hàng
+   thân thiết, Theo hình thức thanh toán...). Áp dụng chung cả 3 cấp vì
+   .mud-nav-group-title kế thừa class .mud-nav-link.
+   QA pass 2026-07-05: các lượt nén liên tiếp trước đó (padding 4px→2px +
+   line-height 1.3) đã đưa tổng chiều cao dòng L1/L3 xuống ~26px — sát/dưới
+   ngưỡng WCAG 2.5.8 (target tối thiểu 24×24px) và dưới khuyến nghị line-height
+   cho dấu tiếng Việt (≥1.4). Phục hồi: line-height 1.3→1.4, padding 2px→6px,
+   margin 1px→2px → tổng dòng = max(14×1.4, 13×1.4, icon 20px) + 12 + 4 = 36px
+   — vẫn gọn hơn nhiều so với mặc định MudBlazor (~44-48px) nhưng đạt chuẩn
+   accessibility + khớp tinh thần thoáng của ảnh mẫu Mud Mini
+   (docs/web/images/flat1.jpg). */
 .mud-drawer .mud-nav-link {
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-    margin-top: 1px !important;
-    margin-bottom: 1px !important;
+    letter-spacing: -0.022em;
+    line-height: 1.4;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    margin-top: 2px !important;
+    margin-bottom: 2px !important;
 }
 
 /* ── Vấn đề 1: Button thấp hơn input trong filter panel ─────────────────
@@ -366,6 +447,17 @@
 
     /* Sidebar nav link: nới tap target trên mobile (override desktop 4px) */
     .mud-drawer .mud-nav-link {
+        padding-top: 9px !important;
+        padding-bottom: 9px !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+    }
+
+    /* Fix bug: selector L2 (5 class, tự có !important riêng cho padding/margin
+       desktop) có specificity cao hơn rule .mud-drawer .mud-nav-link mobile ở
+       trên → rule đó không bao giờ thắng, khiến L2 kẹt ở kích thước desktop
+       chật hẹp ngay cả trên mobile. Thêm override tường minh cùng giá trị. */
+    .mud-drawer .mud-nav-menu > .mud-nav-group .mud-nav-group > .mud-nav-group-title {
         padding-top: 9px !important;
         padding-bottom: 9px !important;
         margin-top: 2px !important;

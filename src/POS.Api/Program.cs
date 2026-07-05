@@ -65,6 +65,10 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 // ── Memory Cache ──────────────────────────────────────────────────────────
 builder.Services.AddMemoryCache();
 
+// ── Request/Response logging (toàn cục, bật/tắt qua config) ───────────────
+builder.Services.Configure<RequestLoggingOptions>(
+    builder.Configuration.GetSection(RequestLoggingOptions.SectionName));
+
 // ── Application services ──────────────────────────────────────────────────
 builder.Services.AddApplication();
 
@@ -122,8 +126,11 @@ if (builder.Environment.IsDevelopment())
 // ─────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// ── Log request/response toàn cục — ĐẶT NGOÀI CÙNG để bao trùm cả response lỗi
+// chuẩn hoá mà ExceptionHandlingMiddleware tự viết ra khi có exception. ─────
+app.UseRequestResponseLogging();
+
 // ── Lưới an toàn cuối: bắt mọi exception chưa xử lý, trả đúng ResultResponse ──
-// Đặt ĐẦU pipeline để bao trùm toàn bộ request.
 app.UsePosExceptionHandling();
 app.UseSerilogRequestLogging();
 //app.UsePosApiKeyAuth();

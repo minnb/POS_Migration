@@ -27,17 +27,17 @@
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         @(IsEditing ? $"Xem voucher {_model.ItemNo}" : "Phát hành Voucher")
     </MudText>
     <MudStack Row="true" Spacing="1" Class="pos-page-header-btn">
-        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ArrowBack"
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
                    OnClick="@(() => Nav.NavigateTo("/promotion/vouchers"))">Danh sách</MudButton>
         @* Xem voucher: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
         @if (!IsEditing || BlockedChanged)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="_saving"
+            <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Disabled="_saving"
                        OnClick="@(() => IsEditing ? SaveBlockedAsync() : SaveAsync())">
                 @if (_saving)
                 {
@@ -56,7 +56,7 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 else
 {
@@ -220,7 +220,7 @@ else
                                     </MudButton>
                                 </ActivatorContent>
                             </MudFileUpload>
-                            <MudButton Variant="Variant.Text" Color="Color.Info"
+                            <MudButton Variant="Variant.Outlined" Color="Color.Info"
                                        StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
                                 File mẫu
                             </MudButton>
@@ -268,7 +268,7 @@ else
                 @if (_items.Count > 0 && !IsEditing)
                 {
                     <div class="d-flex justify-end mb-2">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                    OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
                     </div>
                 }
@@ -303,7 +303,7 @@ else
                         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
                             @if (!IsEditing)
                             {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="OpenItemPickerAsync" Class="mb-3">Thêm sản phẩm</MudButton>
                             }
                             <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>

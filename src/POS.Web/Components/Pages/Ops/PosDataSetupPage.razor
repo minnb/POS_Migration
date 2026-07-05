@@ -18,14 +18,22 @@
 
 <PageTitle>POS Data Setup – POS Dashboard</PageTitle>
 
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @* ── Header ─────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         POS Data Setup
     </MudText>
-    <MudButton Variant="Variant.Filled"
+    <MudButton Variant="Variant.Outlined"
                Color="Color.Primary"
+               Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
                OnClick="@(() => OpenDialogAsync(null))"
                Class="pos-page-header-btn">
@@ -35,7 +43,7 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 
 @if (_errorMsg != null)
@@ -82,7 +90,7 @@ else
     </div>
 
     @* ── Filter Panel ─────────────────────────────────────────────────── *@
-    <MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6" md="4">
                 <MudTextField @bind-Value="_filterText"
@@ -101,7 +109,7 @@ else
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                                FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined"
                                FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
@@ -182,6 +190,9 @@ else
     private string  _filterText    = string.Empty;
     private string  _filterStoreNo = string.Empty;
     private string  _currentActor  = "unknown";
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
 
     private List<POSDataSetupAdminDto> _allItems      = [];
     private List<POSDataSetupAdminDto> _filteredItems = [];
@@ -293,19 +304,9 @@ else
 
     private async Task ConfirmDeleteAsync(POSDataSetupAdminDto item)
     {
-        var parameters = new DialogParameters
-        {
-            ["Message"]    = $"Bạn có chắc muốn xóa cấu hình \"{item.Code}\" (StoreNo: {item.StoreNo})?",
-            ["YesText"]    = "Xóa",
-            ["CancelText"] = "Hủy"
-        };
-        var dialog = await DialogService.ShowAsync<MudMessageBox>(
-            "Xác nhận xóa",
-            parameters,
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-
-        var result = await dialog.Result;
-        if (result is null or { Canceled: true }) return;
+        _confirmMsg = $"Bạn có chắc muốn xóa cấu hình \"{item.Code}\" (StoreNo: {item.StoreNo})?";
+        var confirmed = await _confirmBox!.ShowAsync();
+        if (confirmed != true) return;
 
         var ok = await CentralMDRepo.DeletePOSDataSetupAsync(item.Code);
         if (ok)

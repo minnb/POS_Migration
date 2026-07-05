@@ -170,7 +170,7 @@ public sealed class SyncDataPosService(
         }
         catch (Exception ex)
         {
-            fileLogHelper.WriteLogs($"[Log] Lỗi upload Log: {JsonConvert.SerializeObject(ex)}");
+            fileLogHelper.WriteLogs($"[Log] Lỗi upload Log: {ex}");
         }
     }
 
