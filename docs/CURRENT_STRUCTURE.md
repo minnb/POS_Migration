@@ -388,12 +388,8 @@ src/
 | `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher) |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
-<<<<<<< HEAD
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
-=======
-| `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey |
 | `IBusinessDayService` → `BusinessDayService` | Scoped | Xác nhận kết thúc ngày — merge `ICentralMDRepository.GetPosTerminalListAsync` (master POS) + `ICentralSaleRepository.GetPosDayStagingAsync` (staging shard); validate rule "tất cả POS đã đóng ngày" trước khi gọi `ConfirmBusinessDayAsync` |
->>>>>>> minhnb
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 

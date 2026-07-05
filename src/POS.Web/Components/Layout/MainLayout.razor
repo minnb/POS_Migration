@@ -111,18 +111,12 @@
                         -->
                     </MudNavGroup>
 
-<<<<<<< HEAD
-                    <MudNavGroup Title="Giá bán" Icon="@Icons.Material.Filled.PriceChange" @bind-Expanded="_expandCatPrice">
-                        <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Danh mục Bảng giá</MudNavLink>
-                        <MudNavLink Href="/catalog/price-declare" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Cài đặt giá</MudNavLink>
-                        @* Ẩn menu "Setup giá (Bulk Import)" (route /catalog/price-setup) — route vẫn còn, chỉ ẩn khỏi menu
-                        <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Setup giá (Bulk Import)</MudNavLink>
-                        *@
-=======
                     <MudNavGroup Title="Giá bán" @bind-Expanded="_expandCatPrice">
-                        <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Giá bán</MudNavLink>
-                        <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup giá bán</MudNavLink>
->>>>>>> minhnb
+                        <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Bảng giá</MudNavLink>
+                        <MudNavLink Href="/catalog/price-declare" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt giá</MudNavLink>
+                        @* Ẩn menu "Setup giá (Bulk Import)" (route /catalog/price-setup) — route vẫn còn, chỉ ẩn khỏi menu
+                        <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup giá (Bulk Import)</MudNavLink>
+                        *@
                     </MudNavGroup>
 
                 </MudNavGroup>
