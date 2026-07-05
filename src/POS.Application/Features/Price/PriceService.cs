@@ -126,6 +126,17 @@ public sealed class PriceService(
         return await repository.SaveAsync(lines, actor, ct);
     }
 
+    // 9.1 — Sửa giá (port SetupPriceController.UpdatePrice: chặn UnitPrice <= 0 trước khi gọi DB).
+    public Task<PriceSaveResult> UpdatePriceAsync(
+        PriceRowKey key, double unitPrice, string actor, CancellationToken ct = default)
+        => unitPrice <= 0
+            ? Task.FromResult(Fail("Giá bán phải lớn hơn 0"))
+            : repository.UpdatePriceAsync(key, unitPrice, actor, ct);
+
+    // 9.1 — Xóa mềm (port SetupPriceController.DeletePrice: không validate, ủy quyền DB).
+    public Task<PriceSaveResult> DeletePriceAsync(PriceRowKey key, string actor, CancellationToken ct = default)
+        => repository.SoftDeletePriceAsync(key, actor, ct);
+
     // ── Helpers ──────────────────────────────────────────────────────────────
     private static PriceSaveResult Fail(string message) => new() { Ok = false, Message = message };
 

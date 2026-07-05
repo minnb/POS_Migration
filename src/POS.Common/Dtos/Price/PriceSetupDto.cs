@@ -79,6 +79,18 @@ public sealed class PriceSaveResult
     public string Message { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// 9.1 — khoá định vị 1 dòng SalesPrice cho Sửa/Xóa giá. Bảng KHÔNG có cột Id → dùng composite PK
+/// (ItemNo, SalesCode, StartingDate, UnitOfMeasureCode). SP tự tra Pkey theo khoá này.
+/// </summary>
+public sealed class PriceRowKey
+{
+    public string ItemNo { get; set; } = string.Empty;
+    public string SalesCode { get; set; } = string.Empty;
+    public string UnitOfMeasureCode { get; set; } = string.Empty;
+    public DateTime StartingDate { get; set; }
+}
+
 /// <summary>Danh sách lookup cho form setup giá.</summary>
 public sealed class PriceSetupLookupDto
 {

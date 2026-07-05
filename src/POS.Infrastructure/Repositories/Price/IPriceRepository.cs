@@ -29,6 +29,12 @@ public interface IPriceRepository
     /// </summary>
     Task<PriceSaveResult> SaveAsync(IReadOnlyList<PriceSaveLine> lines, string actor, CancellationToken ct = default);
 
+    /// <summary>SP usp_SalesPrice_UpdatePrice — sửa UnitPrice in-place theo composite PK + bump Counter. Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> UpdatePriceAsync(PriceRowKey key, double unitPrice, string actor, CancellationToken ct = default);
+
+    /// <summary>SP usp_SalesPrice_SoftDelete — soft-delete (EndingDate năm 7777) theo composite PK + bump Counter. Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> SoftDeletePriceAsync(PriceRowKey key, string actor, CancellationToken ct = default);
+
     /// <summary>Dropdown Nhóm giá — DISTINCT dbo.StorePriceGroup (PriceGroupCode/PriceGroupName), cache Redis 12h.</summary>
     Task<List<PriceOptionDto>> GetPriceGroupOptionsAsync(CancellationToken ct = default);
 

@@ -5,6 +5,8 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
 @using MudBlazor
+@using Newtonsoft.Json
+@using System.Globalization
 @using POS.Application.Features.Price
 @using POS.Common.Dtos.Price
 @using POS.Infrastructure.Logging
@@ -14,6 +16,7 @@
 
 @inject IPriceService PriceService
 @inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
 @inject IFileLogHelper FileLogger
 @inject IJSRuntime JS
 
@@ -88,6 +91,7 @@
         <MudTh Style="text-align:right">Giá bán</MudTh>
         <MudTh>Ngày bắt đầu HL</MudTh>
         <MudTh>Ngày hết HL</MudTh>
+        <MudTh Style="width:104px; white-space:nowrap">Thao tác</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
@@ -96,9 +100,35 @@
         <MudTd DataLabel="Mã sản phẩm"><b>@context.ItemNo</b></MudTd>
         <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
         <MudTd DataLabel="ĐVT">@context.UnitOfMeasureCode</MudTd>
-        <MudTd DataLabel="Giá bán" Style="text-align:right">@context.UnitPrice</MudTd>
+        <MudTd DataLabel="Giá bán" Style="text-align:right">
+            @if (IsEditing(context))
+            {
+                <MudTextField @bind-Value="_editPrice" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              InputMode="InputMode.numeric" Immediate="true" Style="min-width:110px"/>
+            }
+            else
+            {
+                @context.UnitPrice
+            }
+        </MudTd>
         <MudTd DataLabel="Ngày bắt đầu HL">@context.StartingDateStr</MudTd>
         <MudTd DataLabel="Ngày hết HL">@context.EndingDateStr</MudTd>
+        <MudTd DataLabel="Thao tác" Style="white-space:nowrap">
+            @if (IsEditing(context))
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small"
+                               Disabled="_savingRow" OnClick="@(() => SaveEditAsync(context))"/>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Default" Size="Size.Small"
+                               Disabled="_savingRow" OnClick="CancelEdit"/>
+            }
+            else
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                               OnClick="@(() => BeginEdit(context))"/>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                               OnClick="@(() => DeleteAsync(context))"/>
+            }
+        </MudTd>
     </RowTemplate>
     <NoRecordsContent>
         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
@@ -117,6 +147,9 @@
 </MudTable>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
     private MudTable<PriceListItemDto> _table = null!;
     private readonly PriceListFilter _filter = new() { OnlyActive = true, PageSize = 10 };
 
@@ -124,6 +157,17 @@
     private int _offset;
     private bool _exporting;
     private string? _errorMsg;
+
+    private string _actor = "unknown";
+    private PriceListItemDto? _editing;
+    private string _editPrice = string.Empty;
+    private bool _savingRow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+    }
 
     private async Task<TableData<PriceListItemDto>> LoadServerData(TableState state, CancellationToken token)
     {
@@ -181,6 +225,110 @@
             Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
         }
         finally { _exporting = false; }
+    }
+
+    // ── Sửa giá / Xóa giá (9.1) ───────────────────────────────────────────────
+    private bool IsEditing(PriceListItemDto row) => ReferenceEquals(_editing, row);
+
+    private void BeginEdit(PriceListItemDto row)
+    {
+        _editing = row;
+        _editPrice = (row.UnitPrice ?? string.Empty).Replace(",", string.Empty).Trim();
+    }
+
+    private void CancelEdit()
+    {
+        _editing = null;
+        _editPrice = string.Empty;
+    }
+
+    private async Task SaveEditAsync(PriceListItemDto row)
+    {
+        if (!TryBuildKey(row, out var key, out var keyErr)) { Snackbar.Add(keyErr, Severity.Error); return; }
+        var price = ParsePrice(_editPrice);
+        if (price <= 0) { Snackbar.Add("Giá bán phải lớn hơn 0.", Severity.Warning); return; }
+
+        _savingRow = true;
+        try
+        {
+            var result = await PriceService.UpdatePriceAsync(key, price, _actor);
+            if (!result.Ok) { Snackbar.Add(result.Message, Severity.Error); return; }
+
+            await AuditLogger.LogAsync(_actor, "UPDATE", "SalesPrice",
+                $"{row.ItemNo}/{row.SalesCode}/{row.UnitOfMeasureCode}/{row.StartingDateStr}",
+                oldValueJson: JsonConvert.SerializeObject(new { row.UnitPrice }),
+                newValueJson: JsonConvert.SerializeObject(new { UnitPrice = price }));
+
+            Snackbar.Add("Đã cập nhật giá bán.", Severity.Success);
+            _editing = null;
+            await _table.ReloadServerData();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PricesPage.Update", ex);
+            var detail = ex.GetBaseException().Message;
+            if (string.IsNullOrWhiteSpace(detail)) detail = ex.GetBaseException().GetType().Name;
+            Snackbar.Add($"Cập nhật giá thất bại: {detail}", Severity.Error);
+        }
+        finally { _savingRow = false; }
+    }
+
+    private async Task DeleteAsync(PriceListItemDto row)
+    {
+        if (!TryBuildKey(row, out var key, out var keyErr)) { Snackbar.Add(keyErr, Severity.Error); return; }
+        if (!await JS.InvokeAsync<bool>("confirm",
+                $"Xóa giá sản phẩm {row.ItemNo} ({row.UnitOfMeasureCode}) — vùng giá {row.SalesCode}?"))
+            return;
+
+        try
+        {
+            var result = await PriceService.DeletePriceAsync(key, _actor);
+            if (!result.Ok) { Snackbar.Add(result.Message, Severity.Error); return; }
+
+            await AuditLogger.LogAsync(_actor, "DELETE", "SalesPrice",
+                $"{row.ItemNo}/{row.SalesCode}/{row.UnitOfMeasureCode}/{row.StartingDateStr}",
+                oldValueJson: JsonConvert.SerializeObject(row), newValueJson: null);
+
+            if (ReferenceEquals(_editing, row)) _editing = null;
+            Snackbar.Add("Đã xóa giá.", Severity.Success);
+            await _table.ReloadServerData();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PricesPage.Delete", ex);
+            var detail = ex.GetBaseException().Message;
+            if (string.IsNullOrWhiteSpace(detail)) detail = ex.GetBaseException().GetType().Name;
+            Snackbar.Add($"Xóa giá thất bại: {detail}", Severity.Error);
+        }
+    }
+
+    // Khoá dòng = composite PK (bảng không có Id). StartingDate parse từ chuỗi dd/MM/yyyy (SP format 103).
+    private static bool TryBuildKey(PriceListItemDto row, out PriceRowKey key, out string error)
+    {
+        key = new PriceRowKey();
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(row.ItemNo)) { error = "Dòng thiếu Mã sản phẩm."; return false; }
+        if (!DateTime.TryParseExact(row.StartingDateStr, "dd/MM/yyyy",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var start))
+        {
+            error = "Không đọc được Ngày bắt đầu hiệu lực của dòng.";
+            return false;
+        }
+        key = new PriceRowKey
+        {
+            ItemNo = row.ItemNo!.Trim(),
+            SalesCode = (row.SalesCode ?? string.Empty).Trim(),
+            UnitOfMeasureCode = (row.UnitOfMeasureCode ?? string.Empty).Trim(),
+            StartingDate = start
+        };
+        return true;
+    }
+
+    private static double ParsePrice(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return 0;
+        var cleaned = raw.Replace(",", string.Empty).Replace(" ", string.Empty).Trim();
+        return double.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0;
     }
 
     private static byte[] BuildXlsx(IReadOnlyList<PriceListItemDto> data)

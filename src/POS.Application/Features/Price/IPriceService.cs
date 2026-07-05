@@ -32,4 +32,11 @@ public interface IPriceService
     /// <summary>9.3 — validate toàn bộ + build Pkey + lưu. Trả (Ok, Message).</summary>
     Task<PriceSaveResult> SaveAsync(
         PriceSetupContext context, IReadOnlyList<PriceSaveRow> rows, string actor, CancellationToken ct = default);
+
+    /// <summary>9.1 — sửa giá 1 dòng (in-place UnitPrice). UnitPrice phải &gt; 0. Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> UpdatePriceAsync(
+        PriceRowKey key, double unitPrice, string actor, CancellationToken ct = default);
+
+    /// <summary>9.1 — xóa mềm 1 dòng giá (sentinel năm 7777). Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> DeletePriceAsync(PriceRowKey key, string actor, CancellationToken ct = default);
 }

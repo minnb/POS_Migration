@@ -114,12 +114,62 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         var p = new DynamicParameters();
         p.Add("@Lines", BuildLineTable(lines).AsTableValuedParameter("dbo.SetupSalePriceLineTVP"));
         p.Add("@Actor", actor ?? string.Empty);
+        // Kết quả qua OUTPUT param — KHÔNG dùng result set. Nhánh update của SP gọi
+        // Setup_SalePrice_Get_ALL (có SELECT Interface_Errors + ROLLBACK bên trong) nên result set
+        // của nó sẽ lẫn vào; ExecuteAsync (ExecuteNonQuery) nuốt hết result set rồi output param mới
+        // được gán → đọc @Ok/@Message an toàn (trước đây QueryFirstOrDefault đọc nhầm set rỗng → báo lỗi giả).
+        p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        p.Add("@Message", dbType: DbType.String, size: 4000, direction: ParameterDirection.Output);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "dbo.usp_SetupSalePrice_Save", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
+
+        var ok = p.Get<bool?>("@Ok") ?? false;
+        var message = p.Get<string?>("@Message");
+        return new PriceSaveResult
+        {
+            Ok = ok,
+            Message = string.IsNullOrWhiteSpace(message)
+                ? (ok ? "Cập nhật thành công bảng giá" : "Lưu bảng giá thất bại")
+                : message!
+        };
+    }
+
+    public async Task<PriceSaveResult> UpdatePriceAsync(
+        PriceRowKey key, double unitPrice, string actor, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@ItemNo", key.ItemNo);
+        p.Add("@SalesCode", key.SalesCode);
+        p.Add("@StartingDate", key.StartingDate.Date, DbType.Date);
+        p.Add("@UnitOfMeasureCode", key.UnitOfMeasureCode);
+        p.Add("@UnitPrice", unitPrice);
+        p.Add("@Actor", actor ?? string.Empty);
 
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
         var row = await conn.QueryFirstOrDefaultAsync<PriceSaveResult>(new CommandDefinition(
-            "dbo.usp_SetupSalePrice_Save", p,
-            commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
-        return row ?? new PriceSaveResult { Ok = false, Message = "Lưu bảng giá thất bại" };
+            "dbo.usp_SalesPrice_UpdatePrice", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+        return row ?? new PriceSaveResult { Ok = false, Message = "Cập nhật giá thất bại" };
+    }
+
+    public async Task<PriceSaveResult> SoftDeletePriceAsync(
+        PriceRowKey key, string actor, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@ItemNo", key.ItemNo);
+        p.Add("@SalesCode", key.SalesCode);
+        p.Add("@StartingDate", key.StartingDate.Date, DbType.Date);
+        p.Add("@UnitOfMeasureCode", key.UnitOfMeasureCode);
+        p.Add("@Actor", actor ?? string.Empty);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var row = await conn.QueryFirstOrDefaultAsync<PriceSaveResult>(new CommandDefinition(
+            "dbo.usp_SalesPrice_SoftDelete", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+        return row ?? new PriceSaveResult { Ok = false, Message = "Xóa giá thất bại" };
     }
 
     public async Task<List<PriceOptionDto>> GetPriceGroupOptionsAsync(CancellationToken ct = default)

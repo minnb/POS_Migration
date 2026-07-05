@@ -15,7 +15,9 @@
      - Pkey ĐÃ tồn tại   → gọi SP có sẵn [dbo].[Setup_SalePrice_Get_ALL] @Json (đã proven trên
        production) với JSON [{Pkey, FromDate 'yyyy-MM-dd', ToDate, UnitPrice}] — GIỮ NGUYÊN logic update legacy.
 
-   Trả 1 row (Ok bit, Message). Lỗi → Ok=0 + ERROR_MESSAGE(), KHÔNG throw ra ngoài.
+   Trả kết quả qua OUTPUT param @Ok bit + @Message nvarchar(4000) (KHÔNG dùng result set — vì nhánh
+   update gọi [Setup_SalePrice_Get_ALL] có SELECT Interface_Errors + ROLLBACK bên trong, không thể
+   hứng/nuốt result set bằng INSERT...EXEC). Lỗi → @Ok=0 + ERROR_MESSAGE(), KHÔNG throw ra ngoài.
 
    ⚠️ SCHEMA (đối chiếu DDL hiện hành dbo.SalesPrice): bảng CHỈ có 15 cột — KHÔNG có
       IsActive / LastTimeUpdate / Id (khác EF model legacy .NET 4.6). INSERT vì vậy chỉ ghi
@@ -64,8 +66,10 @@ GO
 
 CREATE PROCEDURE dbo.usp_SetupSalePrice_Save
 (
-    @Lines dbo.SetupSalePriceLineTVP READONLY,
-    @Actor nvarchar(200) = NULL
+    @Lines   dbo.SetupSalePriceLineTVP READONLY,
+    @Actor   nvarchar(200)  = NULL,
+    @Ok      bit            = 0   OUTPUT,
+    @Message nvarchar(4000) = N'' OUTPUT
 )
 AS
 BEGIN
@@ -100,11 +104,15 @@ BEGIN
             INSERT dbo.SalesPrice
                 (ItemNo, SalesCode, StartingDate, CurrencyCode, UnitOfMeasureCode, UnitPrice,
                  PriceIncludesVAT, AllowInvoiceDisc, SalesType, MinimumQuantity, EndingDate,
-                 VariantCode, AllowLineDisc, Counter, Pkey)
+                 VariantCode, AllowLineDisc, Counter, Pkey,IsActive)
             SELECT
                 L.ItemNo, L.SalesCode, L.StartingDate, N'VND', L.UnitOfMeasureCode, L.UnitPrice,
-                1, 1, L.SalesType, 1, L.EndingDate,
-                N'', 1, @maxCounter, L.Pkey
+                1, 1, L.SalesType, 1,
+                -- Chuẩn hóa sentinel "vô thời hạn" về 9999-01-01 CHO KHỚP nhánh update legacy
+                -- (Setup_SalePrice_Get_ALL map 9999-12-31 → 9999-01-01). Nếu để 9999-12-31, lần
+                -- cập nhật sau sẽ tạo khoảng "đuôi" thừa [ToDate+1 → 9999-12-31] do 9999-12-31 > 9999-01-01.
+                CASE WHEN YEAR(L.EndingDate) = 9999 THEN CONVERT(datetime, '9999-01-01') ELSE L.EndingDate END,
+                N'', 1, @maxCounter, L.Pkey,1
             FROM @Lines L
             WHERE NOT EXISTS (
                 SELECT 1 FROM dbo.SalesPrice SP
@@ -113,15 +121,24 @@ BEGIN
         COMMIT;   -- đóng transaction của mình TRƯỚC khi gọi SP legacy
 
         /* 3b) Pkey ĐÃ tồn tại → ủy quyền SP update legacy (chạy NGOÀI transaction —
-               SP legacy tự BEGIN/COMMIT/ROLLBACK, không còn nesting với ta) */
+               SP legacy tự BEGIN/COMMIT/ROLLBACK, không còn nesting với ta).
+
+               ⚠️ [Setup_SalePrice_Get_ALL] khi @IsInsert=1 TRẢ VỀ 1 result set
+               (SELECT * FROM Interface_Errors). KHÔNG hứng bằng INSERT...EXEC được vì SP legacy
+               có ROLLBACK bên trong → SQL báo "Cannot use the ROLLBACK statement within an
+               INSERT-EXEC statement." Do đó KẾT QUẢ trả qua OUTPUT param @Ok/@Message thay vì
+               result set: repository đọc output param SAU khi ExecuteNonQuery đã nuốt hết mọi
+               result set thừa của SP legacy → không còn đọc nhầm → hết lỗi "Pkey đã tồn tại thất bại". */
         IF @Json IS NOT NULL AND LEN(@Json) > 0
             EXEC dbo.Setup_SalePrice_Get_ALL @Json = @Json;
 
-        SELECT CAST(1 AS bit) AS Ok, N'Cập nhật thành công bảng giá' AS Message;
+        SET @Ok = 1;
+        SET @Message = N'Cập nhật thành công bảng giá';
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
-        SELECT CAST(0 AS bit) AS Ok, ERROR_MESSAGE() AS Message;
+        SET @Ok = 0;
+        SET @Message = ERROR_MESSAGE();
     END CATCH
 END
 GO

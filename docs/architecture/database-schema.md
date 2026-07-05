@@ -834,8 +834,10 @@ AllowLineDisc           tinyint          NOT NULL
 Counter                 bigint           NULL
 Pkey                    varchar(50)      NULL
 ```
-> `EndingDate` năm `7777` = giá đang hiệu lực vô thời hạn (convention dùng trong
-> `usp_SetupSalePrice_Save` khi tính `Counter` mới). `SalesCode` = mã Store/PriceGroup áp dụng.
+> `EndingDate` năm `9999` (setup lưu `9999-12-31`, SP quy về `9999-01-01`) = giá hiệu lực vô thời hạn.
+> `EndingDate` năm `7777` = **dòng đã xóa mềm** (bị loại khỏi `usp_SetupSalePrice_Save` qua điều kiện
+> `YEAR(EndingDate) <> 7777`; cơ chế xóa của `usp_SalesPrice_SoftDelete`). `SalesCode` = mã
+> Store/PriceGroup áp dụng. Bảng KHÔNG có `Id`/`IsActive` → Sửa/Xóa định vị bằng composite PK.
 
 ### SalesPriceRange
 PK: (none) — bảng giá theo khoảng số lượng
@@ -2594,6 +2596,22 @@ lực, `0`=tất cả.
 (@ItemCode nvarchar(20), @ItemName nvarchar(500), @BarCode nvarchar(50), @SalesCode nvarchar(20), @isCheck int)
 ```
 Giống `GetSalesPriceList` không phân trang — export Excel.
+
+### usp_SalesPrice_UpdatePrice
+```
+(@ItemNo nvarchar(20), @SalesCode nvarchar(20), @StartingDate date, @UnitOfMeasureCode nvarchar(10),
+ @UnitPrice float, @Actor nvarchar(200)=NULL)
+```
+9.1 Sửa giá in-place: định vị dòng theo composite PK, `UPDATE UnitPrice` + bump `Counter=MAX+1`
+cho toàn bộ dòng cùng `Pkey`. Trả `(Ok bit, Message)`. Script: `docs/sql/SalesPrice_EditDelete.sql`.
+
+### usp_SalesPrice_SoftDelete
+```
+(@ItemNo nvarchar(20), @SalesCode nvarchar(20), @StartingDate date, @UnitOfMeasureCode nvarchar(10),
+ @Actor nvarchar(200)=NULL)
+```
+9.1 Xóa mềm: set `EndingDate='7777-07-07'` (sentinel đã xóa) + bump `Counter` cho dòng đích và các
+dòng cùng `Pkey`. Trả `(Ok bit, Message)`. Script: `docs/sql/SalesPrice_EditDelete.sql`.
 
 ### Setup_Promotion_Insert
 ```

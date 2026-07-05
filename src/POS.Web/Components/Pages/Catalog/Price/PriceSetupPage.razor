@@ -1,4 +1,5 @@
 @page "/catalog/price-setup"
+@page "/catalog/price-declare"
 @attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
 
@@ -23,7 +24,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
-<PageTitle>Setup giá – POS Dashboard</PageTitle>
+<PageTitle>Cài đặt giá – POS Dashboard</PageTitle>
 
 <style>
     /* Lưới setup giá: thu nhỏ chữ để text/date/select hiện đầy đủ, dòng gọn hơn */
@@ -34,13 +35,17 @@
     .pos-price-grid .mud-select .mud-select-input { font-size: .8125rem; }
     .pos-price-grid .mud-input.mud-input-dense .mud-input-slot { min-height: 30px; }
     .pos-price-grid .mud-input-adornment .mud-icon-root { font-size: 1rem; }
+    /* Giữ bề rộng cột — bật cuộn ngang thay vì bóp cột (đặc biệt là 2 ô ngày) */
+    .pos-price-grid table { min-width: 1040px; }
+    /* Ô giá bán căn phải cho dễ đọc số tiền */
+    .pos-price-grid .pos-price-input input { text-align: right; }
 </style>
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
     <MudText Typo="Typo.h5" Class="pos-page-header-title">
         <MudIcon Icon="@Icons.Material.Filled.Sell" Class="mr-2" Style="vertical-align:middle"/>
-        Setup giá
+        Cài đặt giá
     </MudText>
     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-page-header-btn"
                StartIcon="@Icons.Material.Filled.FormatListBulleted"
@@ -153,14 +158,14 @@ else
         <HeaderContent>
             <MudTh Style="width:56px">STT</MudTh>
             <MudTh Style="width:1%; white-space:nowrap">Nhóm giá</MudTh>
-            <MudTh Style="width:300px">Sản phẩm</MudTh>
+            <MudTh Style="width:260px">Sản phẩm</MudTh>
             @if (!IsBarcodeMode)
             {
-                <MudTh Style="width:120px">Đơn vị tính</MudTh>
+                <MudTh Style="width:110px">Đơn vị tính</MudTh>
             }
-            <MudTh Style="width:130px">Giá bán *</MudTh>
-            <MudTh Style="width:150px">Từ ngày *</MudTh>
-            <MudTh Style="width:150px">Đến ngày *</MudTh>
+            <MudTh Style="width:140px">Giá bán *</MudTh>
+            <MudTh Style="width:160px">Từ ngày *</MudTh>
+            <MudTh Style="width:160px">Đến ngày *</MudTh>
             <MudTh Style="width:44px">#</MudTh>
         </HeaderContent>
         <RowTemplate>
@@ -207,8 +212,11 @@ else
                 </MudTd>
             }
             <MudTd DataLabel="Giá bán">
-                <MudTextField @bind-Value="context.UnitPrice" Variant="Variant.Outlined" Margin="Margin.Dense"
-                              InputMode="InputMode.numeric" Immediate="true"/>
+                <MudTextField T="string" Value="context.UnitPrice"
+                              ValueChanged="@(v => OnPriceChanged(context, v))"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              InputMode="InputMode.numeric" Immediate="true"
+                              Class="pos-price-input"/>
             </MudTd>
             <MudTd DataLabel="Từ ngày">
                 <MudDatePicker @bind-Date="context.StartDate" DateFormat="dd/MM/yyyy" AutoClose="true"
@@ -553,7 +561,9 @@ else
         catch (Exception ex)
         {
             FileLogger.WriteExpLogs("PriceSetupPage.Save", ex);
-            Snackbar.Add($"Lưu bảng giá thất bại: {ex.Message}", Severity.Error);
+            var detail = ex.GetBaseException().Message;
+            if (string.IsNullOrWhiteSpace(detail)) detail = ex.GetBaseException().GetType().Name;
+            Snackbar.Add($"Lưu bảng giá thất bại: {detail}", Severity.Error);
         }
         finally { _saving = false; }
     }
@@ -566,6 +576,22 @@ else
     private static DateTime? ParseDmy(string? dmy)
         => DateTime.TryParseExact(dmy, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    // ── Format giá bán khi nhập: chèn dấu phân cách ngàn kiểu "30,000" ────────────
+    // Dùng dấu ',' (InvariantCulture) — khớp cách PriceService.ParsePrice tách chuỗi (Replace ",")
+    // và khớp định dạng hiển thị ###,### ở màn Danh sách giá → KHÔNG phá luồng lưu/import.
+    private static void OnPriceChanged(PriceEditRow row, string? value)
+        => row.UnitPrice = FormatThousands(value);
+
+    private static string FormatThousands(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        var digits = new string(raw.Where(char.IsDigit).ToArray()).TrimStart('0');
+        if (digits.Length == 0) return raw.Any(char.IsDigit) ? "0" : string.Empty;
+        return long.TryParse(digits, out var n)
+            ? n.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture)
+            : digits;
+    }
 
     private sealed class PriceEditRow
     {
