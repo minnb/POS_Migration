@@ -15,13 +15,13 @@
 
 <PageTitle>Log Viewer – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-2" Style="vertical-align:middle"/>
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.Article" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
     Log Viewer — Interface Errors
 </MudText>
 
 @* ── Filter ────────────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="3">
             <MudDatePicker Label="Từ ngày" @bind-Date="_fromDate" DateFormat="dd/MM/yyyy"
@@ -47,7 +47,7 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="LoadDataAsync" FullWidth="true"
                            Disabled="_loading">Tìm</MudButton>

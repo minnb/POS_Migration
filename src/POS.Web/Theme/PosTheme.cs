@@ -41,14 +41,14 @@ public static class PosTheme
             BackgroundGray = "#EEF1F7",
             Surface       = "#FFFFFF",
 
-            // --- Drawer (sidebar): dark navy ---
-            DrawerBackground = "#1B3A5C",
-            DrawerText       = "rgba(255,255,255,0.85)",
-            DrawerIcon       = "rgba(255,255,255,0.65)",
+            // --- Drawer (sidebar): light, per MudBlazor "Mud Mini" reference ---
+            DrawerBackground = "#FFFFFF",
+            DrawerText       = "rgba(26,43,69,0.85)",
+            DrawerIcon       = "rgba(26,43,69,0.55)",
 
-            // --- AppBar: same dark navy ---
-            AppbarBackground = "#1B3A5C",
-            AppbarText       = "#FFFFFF",
+            // --- AppBar: same light surface ---
+            AppbarBackground = "#FFFFFF",
+            AppbarText       = "#1A2B45",
 
             // --- Typography colors ---
             TextPrimary   = "#1A2B45",
@@ -76,7 +76,7 @@ public static class PosTheme
 
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "4px",
+            DefaultBorderRadius = "16px",
             DrawerWidthLeft     = "260px",
         },
 
@@ -90,8 +90,8 @@ public static class PosTheme
             },
             H5 = new H5Typography
             {
-                FontWeight    = "700",
-                LetterSpacing = "-0.01em",
+                FontWeight    = "800",
+                LetterSpacing = "-0.02em",
             },
             H6 = new H6Typography
             {
@@ -103,7 +103,12 @@ public static class PosTheme
             },
             Body1 = new Body1Typography
             {
-                FontSize = "0.875rem",   // 14px — khớp DataTable và filter labels
+                FontSize   = "0.75rem",   // 12px — giảm ~15% từ 14px cũ. Chi phối text input/value
+                                          // trong MudTextField/MudSelect/MudDatePicker + dropdown/
+                                          // autocomplete popup (KHÔNG ảnh hưởng DataTable — cell
+                                          // MudTable dùng size cố định riêng của MudBlazor, không
+                                          // cascade từ Body1).
+                FontWeight = "400",       // chữ tự nhiên, không đậm
             },
             Body2 = new Body2Typography
             {
@@ -128,11 +133,11 @@ public static class PosTheme
             Elevation =
             [
                 "none",                                         // 0
-                "0 0 0 1px rgba(26,43,69,0.12)",               // 1 — flat hairline
-                "0 0 0 1px rgba(26,43,69,0.12)",               // 2 — flat hairline (card)
-                "0 0 0 1px rgba(26,43,69,0.12)",               // 3 — flat hairline
-                "0 0 0 1px rgba(26,43,69,0.12)",               // 4 — flat hairline
-                "0 0 0 1px rgba(26,43,69,0.12)",               // 5 — flat hairline
+                "none",                                         // 1 — borderless (bg contrast Surface vs Background)
+                "none",                                         // 2 — borderless (card)
+                "none",                                         // 3 — borderless
+                "none",                                         // 4 — borderless
+                "none",                                         // 5 — borderless
                 "0 5px 18px rgba(26,43,69,0.15)",              // 6
                 "0 6px 20px rgba(26,43,69,0.16)",              // 7
                 "0 6px 22px rgba(26,43,69,0.17)",              // 8

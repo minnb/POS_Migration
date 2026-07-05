@@ -16,14 +16,22 @@
 
 <PageTitle>Quản lý người dùng – POS Dashboard</PageTitle>
 
+<MudMessageBox @ref="_confirmBox" Title="@_confirmTitle" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="@_confirmYesColor">@_confirmYesText</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @* ── Header ─────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Quản lý người dùng
     </MudText>
-    <MudButton Variant="Variant.Filled"
+    <MudButton Variant="Variant.Outlined"
                Color="Color.Primary"
+               Size="Size.Small"
                StartIcon="@Icons.Material.Filled.PersonAdd"
                OnClick="@(() => OpenDialogAsync(null))"
                Class="pos-page-header-btn">
@@ -33,7 +41,7 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 
 @if (_errorMsg != null)
@@ -80,7 +88,7 @@ else
     </div>
 
     @* ── Filter Panel ─────────────────────────────────────────────────── *@
-    <MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6" md="4">
                 <MudTextField @bind-Value="_filterSearch"
@@ -113,7 +121,7 @@ else
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                                FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined"
                                FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
@@ -208,6 +216,12 @@ else
     private int     _filterStatus = -1;
     private List<DashboardUser> _users         = [];
     private List<DashboardUser> _filteredUsers = [];
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg       = string.Empty;
+    private string _confirmTitle     = string.Empty;
+    private string _confirmYesText   = string.Empty;
+    private Color  _confirmYesColor  = Color.Primary;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -309,20 +323,15 @@ else
     private async Task ConfirmToggleAsync(DashboardUser user)
     {
         var isLocking = user.IsActive;
-        var parameters = new DialogParameters
-        {
-            ["Message"]    = isLocking
-                ? $"Bạn có chắc muốn khóa tài khoản \"{user.Username}\" ({user.FullName})?"
-                : $"Kích hoạt lại tài khoản \"{user.Username}\" ({user.FullName})?",
-            ["YesText"]    = isLocking ? "Khóa" : "Kích hoạt",
-            ["CancelText"] = "Hủy"
-        };
-        var dialog = await DialogService.ShowAsync<MudMessageBox>(
-            isLocking ? "Xác nhận khóa tài khoản" : "Xác nhận kích hoạt",
-            parameters,
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-        var result = await dialog.Result;
-        if (result is null or { Canceled: true }) return;
+        _confirmTitle    = isLocking ? "Xác nhận khóa tài khoản" : "Xác nhận kích hoạt";
+        _confirmMsg      = isLocking
+            ? $"Bạn có chắc muốn khóa tài khoản \"{user.Username}\" ({user.FullName})?"
+            : $"Kích hoạt lại tài khoản \"{user.Username}\" ({user.FullName})?";
+        _confirmYesText  = isLocking ? "Khóa" : "Kích hoạt";
+        _confirmYesColor = isLocking ? Color.Error : Color.Success;
+
+        var confirmed = await _confirmBox!.ShowAsync();
+        if (confirmed != true) return;
 
         var ok = isLocking
             ? await UserService.DeleteAsync(user.Id)

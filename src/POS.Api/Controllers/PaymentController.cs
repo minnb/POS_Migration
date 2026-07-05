@@ -38,7 +38,6 @@ public sealed class PaymentController(
     {
         var sw = Stopwatch.StartNew();
         const string endpoint = "api/v2/partner/voucher/check";
-        _kibanaService.LogRequest(endpoint, modelPOS.PosNo, JsonConvert.SerializeObject(modelPOS));
 
         try
         {
@@ -102,7 +101,6 @@ public sealed class PaymentController(
     {
         var sw = Stopwatch.StartNew();
         const string endpoint = "api/v2/partner/voucher/update-status";
-        _kibanaService.LogRequest(endpoint, modelPOS.PosNo, JsonConvert.SerializeObject(modelPOS));
 
         try
         {

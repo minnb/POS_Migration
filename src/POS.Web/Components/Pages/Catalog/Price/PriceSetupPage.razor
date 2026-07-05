@@ -38,11 +38,11 @@
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.Sell" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.Sell" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Setup giá
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-page-header-btn"
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
                StartIcon="@Icons.Material.Filled.FormatListBulleted"
                OnClick="@(() => Nav.NavigateTo("/catalog/prices"))">
         Danh sách giá
@@ -51,7 +51,7 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 else
 {
@@ -61,7 +61,7 @@ else
     }
 
     @* ── Ngữ cảnh + khai báo / import ───────────────────────────────────── *@
-    <MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6" md="4">
                 <MudSelect T="string" Value="_declType" ValueChanged="OnDeclTypeChangedAsync" Label="Loại khai báo"
@@ -97,7 +97,7 @@ else
                                  Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="500"/>
             </MudItem>
             <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
                            StartIcon="@Icons.Material.Filled.PlaylistAdd" OnClick="DeclareRows">
                     Khai báo giá bán
                 </MudButton>
@@ -111,14 +111,14 @@ else
                         </MudButton>
                     </ActivatorContent>
                 </MudFileUpload>
-                <MudButton Variant="Variant.Filled" Color="Color.Info"
+                <MudButton Variant="Variant.Outlined" Color="Color.Info"
                            StartIcon="@Icons.Material.Filled.PlaylistAddCheck"
                            Disabled="_importFile == null || _validating" OnClick="LoadImportAsync">
                     @(_validating ? "Đang nạp..." : "Import giá bán")
                 </MudButton>
             </MudItem>
             <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
-                <MudButton Variant="Variant.Text" Color="Color.Secondary" FullWidth="true"
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
                            StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
                     File mẫu
                 </MudButton>
@@ -128,7 +128,7 @@ else
 
     @* ── Toolbar lưới ───────────────────────────────────────────────────── *@
     <div class="d-flex align-center gap-2 mb-2 flex-wrap">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="AddBlankRow">Thêm dòng</MudButton>
         <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
@@ -233,7 +233,7 @@ else
 
     @* ── Action bar ─────────────────────────────────────────────────────── *@
     <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-        <MudButton Variant="Variant.Filled" Color="Color.Success"
+        <MudButton Variant="Variant.Outlined" Color="Color.Success"
                    StartIcon="@Icons.Material.Filled.Save"
                    Disabled="_saving || _rows.Count == 0" OnClick="SaveAsync">
             @(_saving ? "Đang lưu..." : "Lưu bảng giá")

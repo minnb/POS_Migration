@@ -14,6 +14,7 @@
 | O1 | Master data sync (POS.Api) | Đảm bảo `FtpRootPath` ghi được + tinh chỉnh `MasterDataSync` | MEDIUM | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
 | O2 | File import worker (POS.Worker) | Tạo 3 thư mục inbox/error/_work + cấp quyền ghi + điền path `FileImport` | MEDIUM | [§O2](#o2--worker-nạp-sale-từ-file-zip-posworker) |
 | O3 | Nút SyncData trên POS.Web (`/catalog/pos-setup`) | Đặt `FtpRootPath` của **POS.Web** = ĐÚNG thư mục vật lý POS.Api phục vụ (chung share/volume) | MEDIUM | [§O3](#o3--nút-syncdata-đẩy-dữ-liệu-đầu-ngày-posweb) |
+| O4 | Log request/response toàn cục (POS.Api) | Mặc định TẮT (`RequestLogging:Enabled=false`) — chỉ bật khi cần debug 1 đợt cụ thể; `PersistToFile=true` mặc định vì chưa cài Elasticsearch | LOW (opt-in khi cần) | [§O4](#o4--log-requestresponse-toàn-cục-posapi) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 4 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list) | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
@@ -309,6 +310,28 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 - **Đa-instance**: worker "claim" zip bằng `File.Move` khỏi inbox trước khi xử lý → an toàn khi chạy nhiều instance chung thư mục
   (instance không claim được sẽ bỏ qua). Không cần khóa ngoài.
 - **Giám sát**: heartbeat ghi Redis key **`Worker:Heartbeat:PosFileImport`** (TTL ~3× interval) — dùng cho trang Ops theo dõi worker.
+
+---
+
+## O4 — Log request/response toàn cục (POS.Api)
+
+> `RequestResponseLoggingMiddleware` (`src/POS.Api/Middleware/RequestResponseLoggingMiddleware.cs`)
+> log request/response cho **mọi** endpoint POS.Api qua `IKibanaService` — thay thế các lời gọi
+> `LogRequest` thủ công rải rác trước đây (chỉ có ở 3/9 controller, không nhất quán, dùng để debug
+> các API chưa rõ POS gửi request/response ra sao, ví dụ vụ `UploadFileLogJob`).
+
+- **Mặc định TẮT** (`RequestLogging:Enabled=false`) ở mọi môi trường — bật thủ công (đổi config,
+  restart, không cần build lại) khi cần debug 1 đợt cụ thể, tắt lại sau khi xong.
+- **`RequestLogging:PersistToFile`** (mặc định `true`) — vì **Elasticsearch chưa được cài đặt** ở
+  thời điểm viết tài liệu này, log Request/Response cần có bản ghi trên đĩa server (`pos-*.log`,
+  đọc từ `Logging:FileLogDirectory`) để còn tra cứu được. **Sau khi Elasticsearch được cài đặt và
+  xác nhận hoạt động ổn định**, có thể đổi `PersistToFile=false` để log Request/Response chỉ gửi
+  Elasticsearch, giảm I/O đĩa (log Exception/Info không bị ảnh hưởng bởi cờ này, luôn ghi đủ file).
+- Không cần thêm hạ tầng gì khác — middleware tái dùng nguyên `IKibanaService`/Serilog pipeline đã
+  có sẵn; Elasticsearch sink tự no-op nếu `Elasticsearch:Nodes` rỗng.
+- Body request/response bị cắt theo `RequestLogging:MaxBodyBytes` (mặc định 8192 byte); multipart
+  upload (`UploadFileLogJob`, `UploadFileSale`) và response nhị phân (`DowloadFileStream`, zip) chỉ
+  log metadata, không capture nội dung file.
 
 ---
 

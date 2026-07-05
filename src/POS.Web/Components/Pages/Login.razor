@@ -9,14 +9,14 @@
 @inject NavigationManager Nav
 @inject IMemoryCache MemoryCache
 
-<PageTitle>Đăng nhập – POS Dashboard</PageTitle>
+<PageTitle>Đăng nhập – Dashboard</PageTitle>
 
 <MudPaper Elevation="4" Style="width:380px;padding:32px 28px;border-radius:12px;">
     <div style="text-align:center;margin-bottom:24px;">
         <MudIcon Icon="@Icons.Material.Filled.PointOfSale"
                  Color="Color.Primary" Style="font-size:3rem;"/>
         <MudText Typo="Typo.h6" Class="mt-1">POS Dashboard</MudText>
-        <MudText Typo="Typo.caption" Color="Color.Secondary">POSMaster Operations</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">RPOS Operations</MudText>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMsg))

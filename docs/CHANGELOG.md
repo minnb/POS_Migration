@@ -6,6 +6,310 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-05] Middleware log request/response toàn cục cho POS.Api (bật/tắt qua config)
+
+**Layer:** POS.Api, POS.Infrastructure
+**Loại:** Feature + Pattern mới
+
+**Bối cảnh:** nhiều API port từ code cũ (VCM.POSBLUE.API, source gốc không còn) chưa rõ POS gửi
+request lên như thế nào / API trả response ra sao — khó chẩn đoán khi có lỗi (rút ra từ vụ debug
+`UploadFileLogJob`). Trước đó chỉ 3/9 controller tự gọi `LogRequest` thủ công, không nhất quán,
+1 kiểu ghi file `.txt` đồng bộ (`FileLogHelper.WriteLogs`) tốn I/O nếu áp cho toàn bộ endpoint.
+
+**Thay đổi:**
+- `src/POS.Api/Middleware/RequestResponseLoggingMiddleware.cs` (mới): log request/response cho
+  MỌI API qua `IKibanaService.LogRequest`/`LogResponse` (tái dùng Serilog pipeline có sẵn, không
+  thêm hạ tầng mới). Dùng `CappedCapturingStream` pass-through — KHÔNG buffer toàn bộ response vào
+  `MemoryStream` (an toàn với endpoint stream file lớn như `DowloadFileStream`). Bỏ qua capture nội
+  dung multipart upload và response binary, chỉ log metadata.
+- `src/POS.Api/Middleware/RequestLoggingOptions.cs` (mới): `Enabled`/`MaxBodyBytes`/`ExcludePaths`.
+- `src/POS.Infrastructure/Logging/SerilogConfiguration.cs`: thêm cờ `RequestLogging:PersistToFile`
+  — quyết định File sink (`pos-*.log`) có nhận log Request/Response hay chỉ Elasticsearch (lọc
+  đúng theo giá trị property `"HttpContext"="Request"/"Response"`, không ảnh hưởng Exception/Info).
+- `src/POS.Api/Program.cs`: đăng ký middleware **ngoài cùng pipeline** (trước
+  `UsePosExceptionHandling`) để bao trùm cả response lỗi chuẩn hoá.
+- Dọn 19 điểm gọi `LogRequest` thủ công cũ (method wrapper + call site) ở `SyncDataPosController.cs`,
+  `PaymentController.cs`, `LoyaltyController.cs` — middleware toàn cục thay thế, tránh log trùng.
+- `appsettings.json`/`.UAT.json`/`.Production.json` (POS.Api): thêm section `RequestLogging`
+  (`Enabled: false` mặc định — opt-in khi cần debug 1 đợt; `PersistToFile: true` vì **chưa cài
+  Elasticsearch**, cần bản ghi local trên đĩa server để tra cứu).
+- `appsettings.Development.json` (POS.Api): override `RequestLogging:Enabled: true` — tiện bật sẵn
+  lúc dev/debug, không cần set biến môi trường thủ công (bug follow-up: lúc verify ban đầu chỉ set
+  qua biến môi trường tạm, không lưu vào config nào → lần chạy sau tưởng middleware không hoạt
+  động, thực ra do cấu hình quay về mặc định `false`).
+
+**Pattern mới:** Middleware log request/response toàn cục — capped pass-through stream → đã cập
+nhật `.claude/skills/api/SKILLS.md`.
+
+**Lưu ý cho session sau:** `RequestLogging:Enabled` mặc định `false` ở mọi môi trường (opt-in) —
+**riêng Development** đã override `true` trong `appsettings.Development.json`. Nếu thấy log
+Request/Response không xuất hiện, kiểm tra `RequestLogging:Enabled` hiệu lực trước khi nghi ngờ
+code. Khi Elasticsearch được cài đặt thật và ổn định, cân nhắc đổi `PersistToFile: false` (UAT/PROD)
+để giảm I/O đĩa cho log Request/Response (xem `docs/ROLLOUT.md` §O4).
+
+---
+
+## [2026-07-05] Thay WinSCP bằng FluentFTP cho UploadFileLogJob (WinSCP không chạy được trên Linux)
+
+**Layer:** POS.Infrastructure, POS.Application
+**Loại:** Bug fix
+
+**Root cause:** `WinScpFileTransfer` dùng thư viện `WinSCP` (.NET assembly) — vốn hoạt động bằng
+cách spawn tiến trình `winscp.exe` (Windows PE binary). POS.Api chạy trên container Linux
+(`mcr.microsoft.com/dotnet/aspnet:10.0`, xem `Dockerfile`) → `winscp.exe` **không thể** thực thi,
+nên `session.Open(...)` luôn throw. Catch-block cố log lại exception bằng
+`JsonConvert.SerializeObject(ex)` (Newtonsoft reflection-serialize) lại tự ném
+`JsonSerializationException` khác vì exception WinSCP tham chiếu `Session` đã bị `using` dispose
+trước khi vào catch (`Session.DebugLogPath` getter throw `ObjectDisposedException`) — che giấu hoàn
+toàn lý do thất bại thật.
+
+**Thay đổi:**
+- `src/POS.Infrastructure/POS.Infrastructure.csproj`: gỡ package `WinSCP`, thêm `FluentFTP` (managed
+  .NET thuần, không cần binary ngoài, chạy được trên Linux/Ubuntu).
+- `src/POS.Infrastructure/Files/WinScpFileTransfer.cs` → xoá, thay `FtpFileTransfer.cs` (dùng
+  `FluentFTP.FtpClient`, `DataConnectionType = PASV` — cần thiết vì API chạy sau NAT/Docker). Sửa
+  luôn cách log exception: `ex.ToString()` thay `JsonConvert.SerializeObject(ex)` (áp dụng cả ở
+  `SyncDataPosService.UploadFileLogToFtpAsync`) — tránh Newtonsoft đệ quy vào object nội bộ gây lỗi
+  thứ cấp tương tự trong tương lai.
+- `src/POS.Infrastructure/DependencyInjection.cs`: `IFtpFileTransfer` → `FtpFileTransfer`.
+- Dọn config `AppSettings:WinScpExecutablePath` không còn dùng khỏi 4 file `appsettings*.json`
+  (POS.Api + POS.Web) + `docs/CURRENT_STRUCTURE.md`.
+
+**Pattern mới (nếu có):** Không — thay thư viện, giữ nguyên interface `IFtpFileTransfer`.
+
+**Lưu ý cho session sau:** Tính năng đẩy log job qua FTP trung tâm (`UploadFileFTP: "YES"`) có thể
+đã fail âm thầm từ lâu (từ khi hạ tầng chuyển sang Docker/Linux) do nguyên nhân trên — sau khi đổi
+sang FluentFTP, còn cần đội hạ tầng xác nhận container mở được outbound tới FTP server (port điều
+khiển + dải port PASV) và `FTPSERVER/FTPUSERNAME/FTPPASSWORD` (bảng Data Setup) còn đúng.
+
+---
+
+## [2026-07-05] BusinessDayPage — fix crash tìm kiếm + phân quyền force EOD + auto-load
+
+**Layer:** POS.Web, POS.Application, POS.Infrastructure
+**Loại:** Bug fix + Feature
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Repositories/Sale/CentralSaleRepository.cs`: FIX crash `ArgumentException:
+  duplicate key ""` khi tìm kiếm — SP `GetSalesEODConfirm` trả cột theo tên legacy (`TerminalID`,
+  `AmountTotal`, `CashMoney`, `LastOrderTime`, `CountCustomer`, `CountOrderNo`…) không khớp property
+  `PosDayStagingDto` nên Dapper để `PosTerminal = ""` cho mọi dòng → `ToDictionary` trùng key rỗng.
+  Thêm `private sealed class SalesEodConfirmRow` (nullable) khớp tên cột SP + `commandType:
+  CommandType.StoredProcedure` (trước đó thiếu → SP chạy dạng text) rồi project tường minh sang DTO.
+  Xóa khối `const string sql` (query CTE dead-code không được gọi).
+- `src/POS.Application/Features/StoreActivities/IBusinessDayService.cs` + `BusinessDayService.cs`:
+  thêm param `bool allowForceConfirm = false` cho `ConfirmBusinessDayAsync` (guard "còn POS chưa đóng
+  ngày" chỉ chặn khi `!allowForceConfirm`); thêm method `GetCurrentBusinessDateAsync(storeNo)`
+  delegate sang `ICentralSaleRepository.GetBusinessDateAsync(...).BussinessDate`.
+- `src/POS.Web/Components/Pages/Store/Operations/BusinessDayPage.razor`: (1) `_canForceConfirm =
+  IsInRole(ITOps)||IsInRole(SystemAdmin)`, `CanConfirm` cho ITOps/Admin force kể cả còn POS mở ngày,
+  truyền `_canForceConfirm` xuống service (StoreOperator luôn false — defense-in-depth); cảnh báo +
+  confirm dialog nhắc rõ khi force. (2) Sau xác nhận thành công `_businessDate = businessDate.AddDays(1)`
+  rồi `SearchAsync()` — tự load lưới ngày D+1. (3) `OnInitializedAsync`: StoreOperator tự lấy ngày
+  kinh doanh hiện tại của store (`GetCurrentBusinessDateAsync`; null → hôm nay) + auto-load, khỏi bấm
+  "Tìm kiếm"; ITOps/Admin giữ thủ công.
+- Doc: `docs/CURRENT_STRUCTURE.md` (signature `IBusinessDayService`), `docs/web/logic/eod.md` (flow).
+
+**Pattern mới (nếu có):** Không — feature theo pattern sẵn có. (Lưu ý kỹ thuật: SP trả cột tên khác
+DTO → dùng class trung gian nullable + project, KHÔNG map thẳng SP vào DTO response.)
+
+**Lưu ý cho session sau:** SP `GetSalesEODConfirm` (DB CentralSale per-store) trả cột đặt tên theo
+legacy `SaleBusinessStoreModel` — nếu bổ sung cột hiển thị, map qua `SalesEodConfirmRow` chứ đừng đổi
+tên property `PosDayStagingDto` (đang dùng ở razor). Cột "Số lượng bán" tạm map từ `CountOrderNo`
+(số đơn) — còn `// TODO confirm` vì SP không có cột item-quantity thật.
+
+---
+
+## [2026-07-04] Fix bẫy MudMessageBox — nút Yes không theo chuẩn Outlined (8 page)
+
+**Layer:** POS.Web
+
+**Loại:** Bug fix + cập nhật chuẩn (ngăn tái diễn)
+
+**Nguyên nhân:** `DialogService.ShowAsync<MudMessageBox>(title, new DialogParameters{...}, options)`
+render nút Yes bằng markup **mặc định của MudBlazor** — API này không có `<YesButton>` slot để
+chỉnh `Variant`, nên nút luôn ra `Variant.Filled` bất kể chuẩn dự án đã chuyển hết sang
+`Outlined`. Grep `MudButton.*Variant.Filled` không bắt được vì nút không tồn tại trong markup của
+page — đây là lý do đợt rà soát rollout trước đó (2 entry bên dưới) không phát hiện ra.
+
+**Thay đổi:**
+- Chuyển 8 file từ `DialogService.ShowAsync<MudMessageBox>(...)` sang khai báo trực tiếp
+  `<MudMessageBox @ref="_confirmBox">` + `<YesButton><MudButton Variant="Variant.Outlined" .../>
+  </YesButton>` + gọi `_confirmBox!.ShowAsync()`: `BusinessDayPage.razor`, `VouchersPage.razor`,
+  `SpecialComboPage.razor`, `PromotionSetupPage.razor`, `PosDataSetupPage.razor`,
+  `DataRawLogPage.razor`, `UsersPage.razor`, `BankPosPage.razor`.
+- `UsersPage.razor` cần thêm field động `_confirmTitle`/`_confirmYesText`/`_confirmYesColor` vì
+  title/màu nút Yes đổi theo trạng thái khóa/mở khóa user.
+- Cập nhật chuẩn để không tái diễn: `.claude/skills/web/SKILLS.md` (sửa ví dụ mẫu cũ đang dùng
+  `Variant.Filled` trong chính pattern `MudMessageBox @ref`, thêm cảnh báo rõ anti-pattern + danh
+  sách 8 file, thêm bullet vào "KHÔNG làm"), `CLAUDE.md` §14 (thêm callout "Bẫy dễ bỏ sót — confirm
+  dialog"), `.claude/rules/mudblazor-flat-ui.md` §3 (thêm bullet tương tự).
+
+**Verification:** `dotnet build src/POS.Web/POS.Web.csproj` → 0 error. `dotnet test
+tests/POS.ContractTests` → 25/25 pass.
+
+**Lưu ý cho session sau:** Bất kỳ page nào cần confirm dialog PHẢI dùng
+`<MudMessageBox @ref>` khai báo trong markup — KHÔNG dùng `DialogService.ShowAsync<MudMessageBox>`
+dù có vẻ gọn hơn, vì không thể style nút Yes theo chuẩn Outlined của dự án.
+
+---
+
+## [2026-07-04] MudBlazor Flat UI v2 — rollout đầy đủ toàn bộ 4 cụm menu còn lại (Cửa hàng, Khuyến mãi, Vận hành, Quản trị)
+
+**Layer:** POS.Web
+
+**Loại:** UI polish diện rộng (tiếp nối rollout pilot 9 page "Danh mục" cùng ngày)
+
+**Thay đổi:**
+- Áp dụng đầy đủ chuẩn Flat UI v2 (xem entry "MudBlazor Flat UI v2" pilot bên dưới cho chi tiết
+  token theme) cho **~35 page + ~25 dialog** còn lại thuộc 4 cụm menu:
+  - **Cửa hàng**: `Operations/{BusinessDayPage,EosShiftsPage,ShiftSummaryPage}`,
+    `Transactions/{TransactionsPage,RefundsPage,VoidsPage}`,
+    `Reports/{RevenuePage,RevenueByStaffPage,RevenueByStorePage,DetailRevenuePage,
+    SalesByCategoryPage,RevenueHourlyPage,PaymentBreakdownPage,TopProductPage,LoyaltyPage}`
+    + dialog liên quan (`EosShiftDetailDialog`, `TransactionDetailDialog`, `VoidDetailDialog`,
+    `ProductOrdersDialog`...).
+  - **Khuyến mãi**: `Offers/{OffersPage,PromotionSetupPage,SpecialComboPage}`,
+    `CouponVoucher/{CouponsPage,CouponIssuePage,VouchersPage,VouchersPublishedPage,
+    VoucherIssuePage}` + dialog (`CouponAdvancedDialog`, `CouponItemPickerDialog`,
+    `VoucherItemPickerDialog`...).
+  - **Vận hành**: `HealthPage`, `AlertsPage`, `QueuesPage`, `LogsPage`, `DataRawLogPage`,
+    `SqlConsoleAuditPage` (route `/ops/activity-log` — tên file khác tên route, phát hiện trong
+    lúc rollout), `PosDataSetupPage` + dialog (`PosDataSetupFormDialog`).
+  - **Quản trị**: `UsersPage`, `RolesPage`, `ConfigPage`, `AuditPage`, `SqlConsolePage`,
+    `EncryptSecretPage` + dialog (`UserFormDialog`).
+- Mọi `MudButton` `Variant.Filled`/`Variant.Text` → `Variant.Outlined` (không ngoại lệ); mọi filter/
+  input `MudPaper` thêm class `pos-filter-panel`; page-header icon/button `Size="Size.Small"` +
+  title `Style="font-weight:400"`; dọn hardcode `Style="border-radius:4px"` trên
+  `MudProgressLinear`.
+- Phát hiện + sửa 2 dialog bị bỏ sót ở đợt pilot: `Catalog/Price/Dialogs/PriceItemPickerDialog.razor`,
+  `Ops/Dialogs/PosTerminalEditDialog.razor`.
+- Phát hiện + sửa 1 page bị bỏ sót ở đợt pilot (không nằm trong sidebar nav, chỉ reachable từ
+  `VouchersPage`): `VoucherIssuePage.razor` + dialog `VoucherItemPickerDialog.razor` — đối xứng
+  với `CouponIssuePage.razor` (đã convert ở đợt pilot).
+- `Store/Dialogs/EosDayShiftListDialog.razor` xác nhận **orphaned** (grep không còn page nào mở
+  dialog này) — cố ý không convert, giữ nguyên chờ dọn dẹp sau.
+
+**Quy trình thực hiện:** dùng 6 subagent chạy song song (Agent tool, không phải Workflow — không
+có opt-in ultracode), mỗi agent nhận đúng 1 bộ rule cơ học (button/filter-panel/header/radius) +
+1 file tham chiếu đã convert (`ProductsPage.razor`) làm chuẩn calibrate, xử lý 1 nhóm menu độc
+lập. Sau khi tất cả agent xong, tự grep quét lại toàn bộ `Components/Pages/` để xác nhận không còn
+`MudButton Variant.Filled/Text` sót (chỉ còn `Login.razor` — cố ý, và `EosDayShiftListDialog.razor`
+— orphaned).
+
+**Pattern mới:** Không có pattern mới — đây là rollout cơ học của pattern đã thiết lập ở entry
+pilot bên dưới. Đã cập nhật `.claude/rules/mudblazor-flat-ui.md` mục "Trạng thái rollout" để phản
+ánh phạm vi đầy đủ.
+
+**Lưu ý cho session sau:**
+- Toàn bộ ~44 page + ~34 dialog trong `Components/Pages/` (Danh mục + Cửa hàng + Khuyến mãi +
+  Vận hành + Quản trị) nay đã đồng bộ chuẩn Flat UI v2. Page mới tạo sau này phải theo đúng chuẩn
+  này ngay từ đầu (xem `CLAUDE.md §14`, `.claude/skills/web/theming.md`).
+- Icon set `Icons.Material.Outlined.*` **vẫn chỉ** áp dụng cho `MainLayout.razor` (sidebar +
+  AppBar) — icon trong nội dung từng page/button vẫn `Filled` như cũ, đây là quyết định có chủ
+  đích, chưa mở rộng.
+- Build + `dotnet test tests/POS.ContractTests` (25/25) đã xanh sau toàn bộ đợt rollout — verify
+  cuối cùng chạy sau khi cả 6 agent xong + sau khi tự vá 4 gap phát hiện thêm.
+
+---
+
+## [2026-07-04] Sidebar UI polish — bỏ icon riêng cấp 2, ẩn expand icon, đổi tên leaf, thu gọn spacing
+
+**Layer:** POS.Web
+
+**Loại:** Refactor (UI polish, không đổi logic nghiệp vụ)
+
+**Thay đổi:**
+- `src/POS.Web/Components/Layout/MainLayout.razor`: icon `MudNavGroup` cấp 2 (Vận hành/Giao dịch/Báo cáo/Tổ chức/Thiết bị POS/Sản phẩm/Giá bán/Chương trình KM/Coupon & Voucher/Giám sát/Nhật ký/Cấu hình) đổi đồng nhất về `ChevronRight` — giống icon cấp 3, chỉ cấp 1 còn giữ icon riêng; thêm `HideExpandIcon="true"` cho toàn bộ `MudNavGroup` (cấp 1+2) ẩn mũi tên expand mặc định bên phải.
+- Đổi tên 6 title leaf: "Tỉnh / Thành"→"Chi nhánh", "Khai báo máy POS"→"POSTerminal", "Máy POS ngân hàng"→"POS bank", "Danh sách SP / Barcode"→"Danh sách", "Setup giá (Bulk Import)"→"Setup giá bán", "Danh mục khuyến mãi"→"Danh mục".
+- `src/POS.Web/wwwroot/app.css`: dòng menu cấp 2 thêm `padding-top/bottom:3px` + `line-height:1.5` (thu gọn ~15% so với mặc định MudBlazor `padding:4px`+`line-height:1.75`); `.mud-drawer .mud-nav-link` thêm `letter-spacing:-0.022em` (rút tracking, tránh label dài xuống dòng).
+- Giữa chừng có 1 lần nhầm lẫn: đã lỡ xóa toàn bộ `@bind-Expanded` + logic accordion (`UpdateExpanded`, `OnLocationChanged`, `IAsyncDisposable`) tưởng đây là thứ cần bỏ — đã khôi phục lại đầy đủ ngay trong cùng session, giữ nguyên hành vi accordion tự mở/đóng theo route (`docs/WEB_STATUS.md` mục I3).
+
+**Pattern mới:** Không có pattern hoàn toàn mới, nhưng pattern sidebar 3 cấp đã có (`.claude/skills/web/SKILLS.md` §"Sidebar nav (MainLayout) — 3 cấp") bị lệch với thực tế → đã cập nhật lại ví dụ code + anti-pattern trong file đó, và mục 5 `.claude/rules/mudblazor-flat-ui.md`.
+
+**Lưu ý cho session sau:** Muốn ẩn UI chỉ báo expand/collapse của `MudNavGroup` → dùng prop `HideExpandIcon="true"` (KHÔNG xóa `@bind-Expanded`, đó là 2 cơ chế độc lập — Expanded quyết định trạng thái mở/đóng + accordion theo route, HideExpandIcon chỉ ẩn mũi tên hiển thị). `MudNavLink` không có `HideExpandIcon` (chỉ MudNavGroup có).
+
+---
+
+## [2026-07-04] MudBlazor Flat UI v2 — theo mẫu "Mud Mini" (sidebar/appbar sáng, borderless, radius 16px, button Outlined toàn app)
+
+**Layer:** POS.Web
+
+**Loại:** Pattern mới (redesign theme toàn diện) + UI polish 9 page + 9 dialog "Danh mục"
+
+**Thay đổi:**
+- `src/POS.Web/Theme/PosTheme.cs`:
+  - Sidebar/AppBar chuyển từ navy đậm (`#1B3A5C`) sang nền sáng (`#FFFFFF`) + chữ tint navy — theo
+    mẫu MudBlazor chính thức "Mud Mini" (`docs/web/images/flat1.jpg`), thay cho Ynex (đã đánh giá
+    và loại bỏ vì không phải MudBlazor gốc, rebrand rủi ro cao).
+  - `DefaultBorderRadius` 4px → 16px.
+  - `Shadows.Elevation[1..5]`: hairline (`0 0 0 1px`) → `"none"` (borderless hoàn toàn — card
+    phân tách bằng chênh lệch nền Surface/Background, không viền không bóng).
+  - `Typography.H5`: FontWeight 700→800, LetterSpacing -0.01em→-0.02em.
+  - `Typography.Body1`: FontSize 0.875rem→0.75rem (giảm ~15%) + FontWeight=400 — chi phối input
+    `MudTextField`/`MudSelect`/`MudDatePicker`/`MudAutocomplete` toàn app (không ảnh hưởng MudTable).
+- `src/POS.Web/wwwroot/app.css`: thêm token `--pos-primary-bg`/`--pos-teal-bg`; viết lại CSS
+  sidebar cho nền sáng (active-item = pill `--pos-primary-bg`, 3 tầng chữ opacity navy); class mới
+  `.pos-sidebar-brand`, `.pos-filter-panel` (nền soft-tint filter panel); icon sidebar giảm còn
+  `1.25rem`; nav item inset ngang 8px; nâng cấp `.pos-delta-up/down` thành pill badge (giữ ngữ
+  nghĩa tăng=xanh/giảm=đỏ); softening viền header MudTable (2px navy → 1px `--pos-border`).
+- `src/POS.Web/Components/Layout/MainLayout.razor`: `MudAppBar Color="Color.Primary"` →
+  `Color.Default`; thêm `div.pos-sidebar-brand` (logo `MudAvatar` + "RPOS") thay `MudDrawerHeader`
+  cũ (text thô "POSMaster POS System"); đổi toàn bộ icon sidebar `Icons.Material.Filled.*` →
+  `Outlined.*`; đổi brand text "POS Dashboard – POSMaster" → "RPOS Dashboard", "POSMaster" →
+  "RPOS".
+- **9 page + 9 dialog trong menu "Danh mục"** (EmployeesPage, StorePage, ProvincesPage,
+  PosMapPage, BankPosPage, ProductsPage, ProductLockPage, PricesPage, PriceSetupPage +
+  EmployeeFormDialog, EmployeeChangePasswordDialog, StoreCreateDialog, StoreDetailDialog,
+  BranchCreateDialog, BranchDetailDialog, PosTerminalDetailDialog, BankPosDetailDialog,
+  ProductDetailDialog): mọi `MudButton` `Variant.Filled`/`Variant.Text` → `Variant.Outlined`
+  (không ngoại lệ, kể cả nút trong confirm dialog/bulk action/nút Lưu cuối); filter panel thêm
+  class `pos-filter-panel`; page-header icon/button thêm `Size="Size.Small"` + title thêm
+  `Style="font-weight:400"`; dọn hardcode `Style="border-radius:4px"` trên `MudProgressLinear`.
+- `ProductsPage.razor`: bỏ 5 cột thừa trên bảng hiển thị (Mã SP PLG, Tên SP (VN), ĐVT BC, Mã cha,
+  Size) — vẫn giữ đủ 11 cột trong Export Excel (không đổi).
+
+**Pattern mới:** Toàn bộ pattern (borderless card, Outlined-mọi-nơi cho button kể cả trong dialog,
+input font-size 12px, sidebar brand header + icon Outlined, `pos-filter-panel`) đã ghi vào
+`CLAUDE.md §14`, `.claude/rules/mudblazor-flat-ui.md` (rules file mới — có lịch sử quyết định đầy
+đủ, kể cả phương án đã cân nhắc và loại bỏ), `.claude/skills/web/theming.md`,
+`.claude/skills/web/SKILLS.md`, `.claude/skills/web/ui-polish-standard.md`.
+
+**Lưu ý cho session sau:**
+- Chỉ 9 page + 9 dialog "Danh mục" đã migrate đầy đủ sang chuẩn v2. ~31 page/dialog khác (Store
+  reports, Ops, Admin, Promotion) vẫn dùng `Filled` cho CTA + chưa có `pos-filter-panel`/page-header
+  sizing — rollout tiếp khi có yêu cầu, xem mục TODO cuối `.claude/rules/mudblazor-flat-ui.md`.
+- `<PageTitle>` (tab browser) của các page vẫn giữ "... – POS Dashboard" — chỉ đổi brand text ở
+  sidebar/AppBar sang "RPOS" theo đúng yêu cầu, chưa rename toàn app.
+- Đây là bản v2 kế tiếp bản v1 (2026-06-26, flat hairline) — cách nhau chưa đầy 2 tuần; nếu cần
+  đối chiếu/rollback, xem lịch sử quyết định đầy đủ trong `.claude/rules/mudblazor-flat-ui.md`.
+- Build lúc thực hiện session này bị chặn nhiều lần do Visual Studio giữ lock file DLL (đang debug
+  song song) — đã verify xanh (`dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25)
+  sau khi VS nhả lock ở cuối session.
+
+---
+
+## [2026-07-04] Xác nhận kết thúc ngày — port từ legacy StoreActivitiesController sang BusinessDayPage
+
+**Layer:** POS.Web + POS.Application + POS.Infrastructure + POS.Common
+
+**Loại:** Feature (port có chủ đích từ `src/legacy/`) + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Common/Dtos/CentralSale/{PosDayStagingDto,BusinessDayConfirmDto,ConfirmBusinessDayRequest,ConfirmBusinessDayResult}.cs`: DTO mới.
+- `src/POS.Infrastructure/Repositories/Sale/{I}CentralSaleRepository.cs`: thêm `GetPosDayStagingAsync`, `GetBusinessDayConfirmAsync`, `ConfirmBusinessDayAsync` — connection per-store qua `StoreRoutedConnectionFactory` (không phải `CentralSaleConnectionFactory` central dùng cho báo cáo đa store).
+- `src/POS.Application/Features/StoreActivities/{I}BusinessDayService.cs`: mới, merge master POS terminal (`ICentralMDRepository.GetPosTerminalListAsync`, CentralMD) + staging shard (`ICentralSaleRepository`), validate rule "tất cả POS đã đóng ngày" trước khi cho xác nhận. Đăng ký DI trong `POS.Application/DependencyInjection.cs`.
+- `docs/sql/BusinessDay_ConfirmEndDate.sql`: bảng `dbo.BusinessDayConfirm` + SP `usp_BusinessDay_ConfirmEndDate` — **chạy trên DB "CentralSale" theo TỪNG STORE** (shard, KHÔNG PHẢI RPOSMasterData/CentralMD), vì cần cùng 1 transaction với `UPDATE dbo.BussinessDateOpen` (advance +1 ngày cho máy POS) — atomic tuyệt đối.
+- `src/POS.Web/Components/Pages/Store/Operations/BusinessDayPage.razor`: viết lại hoàn toàn (route giữ nguyên `/store/business-day`) — chọn 1 store bắt buộc (mặc định store đầu theo StoreNo, không có "Tất cả"), ngày kinh doanh mặc định hôm nay, KHÔNG tự load khi mở trang (chờ bấm Tìm kiếm); lưới per-POS-terminal + nút Xác nhận.
+- `src/POS.Web/Components/Layout/MainLayout.razor`: đổi tên menu "Ngày kinh doanh" → "Xác nhận kết thúc ngày".
+- Xóa `src/POS.Web/Components/Pages/Store/Dialogs/EosDayShiftListDialog.razor` (chỉ dùng bởi BusinessDayPage cũ, đã grep xác nhận không dùng chung; `EosShiftDetailDialog`/`GetEosDayListAsync`/`GetEosShiftListAsync` GIỮ NGUYÊN vì dùng chung với ShiftSummaryPage/EosShiftsPage).
+
+**Pattern mới:** SP ghi dữ liệu có yêu cầu atomic với 1 bảng đã tồn tại sẵn ở DB khác CentralMD (ở đây là `BussinessDateOpen` trên DB "CentralSale" theo store) thì đặt bảng/SP mới CÙNG DB đó thay vì mặc định CentralMD — ưu tiên atomicity hơn quy ước mặc định. Chưa đưa vào SKILLS.md vì đây là quyết định case-by-case, không phải quy tắc chung.
+
+**Lưu ý cho session sau:** Rule "tất cả POS đã đóng ngày" dựa trên sự tồn tại của dòng `POSEOD_API` (Store+Terminal+BusinessDate) — đây là giả định hợp lý dựa trên API `UpdatePOSEODAsync` đã có sẵn, CHƯA được xác nhận 100% với vận hành thực tế. Cột "Tiền mặt" dùng `POSShiftHeader`/`POSShiftLine` với giả định tên bảng giống DB CentralSale trung tâm (chưa xác minh trên shard DB) — có TODO comment trong code. Script `docs/sql/BusinessDay_ConfirmEndDate.sql` phải chạy thủ công trên DB CentralSale của TỪNG store (không phải 1 lần duy nhất như các script CentralMD khác).
+
+---
+
 ## [2026-07-03] DataSync — fix đường dẫn UNC/CHANGE + Action envelope theo caller
 
 **Layer:** POS.Api + POS.Application + POS.Common

@@ -23,19 +23,26 @@
 
 <PageTitle>Special Combo – POS Dashboard</PageTitle>
 
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @if (!_editing)
 {
     @* ══ LIST ══════════════════════════════════════════════════════════ *@
     <div class="pos-page-header mb-4">
-        <MudText Typo="Typo.h5" Class="pos-page-header-title">
-            <MudIcon Icon="@Icons.Material.Filled.Fastfood" Class="mr-2" Style="vertical-align:middle"/>
+        <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+            <MudIcon Icon="@Icons.Material.Filled.Fastfood" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             Special Combo
         </MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-page-header-btn"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNewAsync">Thêm combo</MudButton>
     </div>
 
-    <MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6" md="3">
                 <MudAutocomplete T="string" Value="_filter.StoreNo" ValueChanged="@(v => _filter.StoreNo = v)"
@@ -74,7 +81,7 @@
                 <MudStack Row="true" Spacing="1" Class="w-100">
                     <MudTextField @bind-Value="_filter.TextSearch" Label="Mã / Tên combo"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined" OnClick="ClearFilterAsync">Xóa</MudButton>
                 </MudStack>
             </MudItem>
@@ -144,11 +151,11 @@ else
 {
     @* ══ EDITOR ════════════════════════════════════════════════════════ *@
     <div class="pos-page-header mb-4">
-        <MudText Typo="Typo.h5" Class="pos-page-header-title">
-            <MudIcon Icon="@Icons.Material.Filled.Fastfood" Class="mr-2" Style="vertical-align:middle"/>
+        <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+            <MudIcon Icon="@Icons.Material.Filled.Fastfood" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             @(string.IsNullOrEmpty(_header.Code) ? "Thêm combo" : $"Combo {_header.Code}")
         </MudText>
-        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
                    Class="pos-page-header-btn" OnClick="@(() => _editing = false)">Quay lại</MudButton>
     </div>
 
@@ -310,7 +317,7 @@ else
     </MudTabs>
 
     <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
                    Disabled="_saving" OnClick="SaveAsync">Lưu</MudButton>
     </MudPaper>
 }
@@ -326,6 +333,9 @@ else
     private List<StoreDto> _allStores = [];
 
     private bool _editing;
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
     private bool _saving;
     private SpecialComboHeaderDto _header = new();
     private List<SpecialComboLineDto> _lines = [];
@@ -491,16 +501,9 @@ else
     // ── Delete ──
     private async Task DeleteAsync(SpecialComboListItemDto item)
     {
-        var parameters = new DialogParameters
-        {
-            ["Message"]    = $"Xóa combo {item.Code} – {item.Name}? Không thể hoàn tác.",
-            ["YesText"]    = "Xóa",
-            ["CancelText"] = "Hủy"
-        };
-        var dialog = await DialogService.ShowAsync<MudMessageBox>("Xác nhận xóa", parameters,
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-        var res = await dialog.Result;
-        if (res is null or { Canceled: true }) return;
+        _confirmMsg = $"Xóa combo {item.Code} – {item.Name}? Không thể hoàn tác.";
+        var confirmed = await _confirmBox!.ShowAsync();
+        if (confirmed != true) return;
 
         var ok = await ComboService.DeleteAsync(item.Code);
         if (!ok) { Snackbar.Add("Xóa combo thất bại.", Severity.Error); return; }

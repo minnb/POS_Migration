@@ -1,8 +1,8 @@
 namespace POS.Infrastructure.Files;
 
 /// <summary>
-/// Upload file lên FTP server qua WinSCP (cần winscp.exe deploy kèm app).
-/// Migrated từ UtilsAPI.UploadFilesLogJobWinSCP.
+/// Upload file lên FTP server qua FluentFTP (managed .NET, không cần binary ngoài — chạy được trên
+/// Linux/Ubuntu container, khác WinSCP cũ vốn cần spawn winscp.exe chỉ chạy trên Windows).
 /// </summary>
 public interface IFtpFileTransfer
 {

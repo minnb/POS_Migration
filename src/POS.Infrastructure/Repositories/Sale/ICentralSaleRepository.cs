@@ -70,6 +70,16 @@ public interface ICentralSaleRepository
         IReadOnlyList<string>? storeCodes = null,
         CancellationToken ct = default);
 
+    // ── Business Day Confirm (Xác nhận kết thúc ngày) ────────────────────────
+    Task<List<PosDayStagingDto>> GetPosDayStagingAsync(
+        string storeNo, DateTime businessDate, CancellationToken ct = default);
+
+    Task<BusinessDayConfirmDto?> GetBusinessDayConfirmAsync(
+        string storeNo, DateTime businessDate, CancellationToken ct = default);
+
+    Task<ConfirmBusinessDayResult> ConfirmBusinessDayAsync(
+        ConfirmBusinessDayRequest request, CancellationToken ct = default);
+
     // ── DataRawJson Log ───────────────────────────────────────────────────────
     Task<DataRawJsonSummaryDto> GetDataRawJsonSummaryAsync(
         DateTime fromDate, DateTime toDate, CancellationToken ct = default);

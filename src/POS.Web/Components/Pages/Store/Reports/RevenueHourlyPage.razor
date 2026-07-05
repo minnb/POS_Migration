@@ -23,16 +23,16 @@
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
 }
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Class="mr-2" Style="vertical-align:middle"/>
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
     Doanh thu theo khung giờ
 </MudText>
 
 @* ── Filter Panel ─────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
 
         <MudItem xs="12" sm="6" md="3">
@@ -90,7 +90,7 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
+                <MudButton Variant="Variant.Outlined"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
@@ -632,9 +632,9 @@
         _lineEmpty  = grossVals.All(v => v == 0) && netVals.All(v => v == 0);
 
         // Y-axis auto-scale như 2 bar chart (tránh trục cứng max=20 với giá trị nhỏ).
-        var yMax  = CalcYMax(grossVals.Concat(netVals).ToArray());
+        var (yMax, yTick) = CalcYAxis(grossVals.Concat(netVals).ToArray());
         _lineOpts = new LineChartOptions { LineStrokeWidth = 2, ShowLegend = true,
-                                           YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+                                           YAxisSuggestedMax = yMax, YAxisTicks = yTick };
     }
 
     private void BuildHourChart(List<SaleByTimeSeriesDto> hourSeries)
@@ -658,8 +658,8 @@
         _hourlyEmpty  = _hourlyValues.All(v => v == 0);
         _hourlySeries = [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(_hourlyValues) }];
 
-        var yMax = CalcYMax(_hourlyValues);
-        _hourlyBarOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+        var (yMax, yTick) = CalcYAxis(_hourlyValues);
+        _hourlyBarOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
     }
 
     private void BuildWeekdayChart(List<SaleByTimeSeriesDto> weekdaySeries)
@@ -674,8 +674,8 @@
         _weekdayEmpty  = weekVals.All(v => v == 0);
         _weekdaySeries = [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(weekVals) }];
 
-        var yMax = CalcYMax(weekVals);
-        _weekdayBarOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = CalcYTick(yMax) };
+        var (yMax, yTick) = CalcYAxis(weekVals);
+        _weekdayBarOpts = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -727,18 +727,18 @@
 
     private static double Round(decimal v) => Math.Round((double)(v / 1_000_000m), 2);
 
-    private static double CalcYMax(double[] values)
+    // Margin ~5% (thay vì buffer nhân cố định 1.15) — cột/đường luôn sát đỉnh trục Y.
+    // Ghi chú: YAxisTicks (MudBlazor) là khoảng cách giữa gridline, kiểu Int32 → với max rất nhỏ
+    // (vd <10), spacing tối thiểu =1 có thể tạo margin thực tế lớn hơn 5% (giới hạn kỹ thuật của
+    // thư viện, không khắc phục được bằng công thức tính toán).
+    private static (double YMax, int YTick) CalcYAxis(double[] values, double marginPct = 0.05, int gridLines = 5)
     {
         var max = values.Length > 0 ? values.Max() : 0;
-        if (max <= 0) return 5;
-        return Math.Ceiling(max * 1.15);
-    }
+        if (max <= 0) return (5, 1);
 
-    private static int CalcYTick(double yMax)
-    {
-        if (yMax <= 5)  return 1;
-        if (yMax <= 10) return 2;
-        if (yMax <= 20) return 5;
-        return 10;
+        var target = max * (1 + marginPct);
+        var tick   = Math.Max(1, (int)Math.Ceiling(target / gridLines));
+        var yMax   = tick * (int)Math.Ceiling(target / tick);
+        return (yMax, tick);
     }
 }

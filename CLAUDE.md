@@ -829,17 +829,28 @@ Nhất quán với POS.Api và POS terminals.
 
 ```razor
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.XYZ" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.XYZ" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Tên trang
     </MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
                Class="pos-page-header-btn">
         Thêm
     </MudButton>
 </div>
 ```
+
+> Cập nhật 2026-07-04: `.pos-page-header-title` đã giảm `font-size` xuống `1.25rem` (từ mặc định
+> h5 MudBlazor ~1.5rem — quá to so với tổng thể borderless v2). Icon cạnh title BẮT BUỘC
+> `Size="Size.Small"` để cân tỷ lệ. Nút hành động đi kèm dùng `Size="Size.Small"` +
+> `Variant="Variant.Outlined"` (không còn `Filled`) để đồng bộ kích thước với title đã thu nhỏ.
+> **Font-weight title: BẮT BUỘC thêm `Style="font-weight:400"` ngay trên thẻ `MudText` title**
+> (chữ "tự nhiên", không đậm) — ghi đè font-weight 800 kế thừa từ `Typography.H5` trong
+> `PosTheme.cs`. Đặt cục bộ trên từng `MudText`, **không** sửa `.pos-page-header-title` global
+> (sẽ đổi luôn font-weight cho page chưa polish, gây lệch tạm thời). Đã áp dụng cho toàn bộ 9
+> page trong menu "Danh mục" + `ProductsPage.razor` — coi đây là chuẩn cho mọi page header mới/
+> polish tiếp theo, không còn là ngoại lệ riêng của 1 page.
 
 - **Desktop (sm+):** title bên trái, button bên phải — cùng hàng
 - **Mobile (xs):** title full-width hàng trên, button full-width hàng dưới
@@ -1035,14 +1046,66 @@ dotnet test tests/POS.ContractTests -nologo                         # phải xan
 
 ### 14. MudBlazor Flat UI Standard — BẮT BUỘC với mọi component mới
 
-> Áp dụng từ phiên thiết kế 2026-06-26. Theme flat đã được cấu hình sẵn trong `PosTheme.cs`.
-> Tự áp dụng — không cần nhắc.
+> Bản v2 — cập nhật 2026-07-04 theo mẫu MudBlazor "Mud Mini" (`docs/web/images/flat1.jpg`),
+> thay cho bản gốc 2026-06-26 (hairline border, radius 4px, sidebar navy đậm — đã lỗi thời).
+> Theme flat đã được cấu hình sẵn trong `PosTheme.cs`. Tự áp dụng — không cần nhắc.
+> Sidebar/AppBar giờ nền sáng (`DrawerBackground`/`AppbarBackground = "#FFFFFF"`), card
+> **borderless** (không viền/không đổ bóng — phân tách bằng chênh lệch nền Surface `#FFFFFF`
+> vs Background `#F2F4F8`), `DefaultBorderRadius = "16px"`. Màu trend/delta (%) vẫn giữ
+> **ngữ nghĩa** tăng=xanh/giảm=đỏ (`.pos-delta-up/down` trong `app.css`) — dashboard vận hành
+> POS cần tín hiệu tốt/xấu rõ ràng, không dùng màu trang trí tùy ý theo từng KPI.
 
 #### Quy ước Input
 
 - **Variant:** luôn dùng `Variant="Variant.Outlined"`
 - **Margin:** luôn dùng `Margin="Margin.Dense"` (trừ khi layout cần Normal)
-- **KHÔNG** dùng `Variant.Filled` cho input (chỉ dùng Filled cho button CTA)
+- **KHÔNG** dùng `Variant.Filled` cho input
+
+#### Input font-size — giảm 15%, không đậm
+
+> Cập nhật 2026-07-04. `Typography.Body1` trong `PosTheme.cs` chi phối text hiển thị/gõ trong
+> `MudTextField`/`MudSelect`/`MudDatePicker`/`MudAutocomplete` + item trong dropdown popup của
+> chúng — **không** ảnh hưởng `MudTable` (cell dùng size cố định riêng của MudBlazor).
+
+```csharp
+Body1 = new Body1Typography { FontSize = "0.75rem", FontWeight = "400" },  // 12px, giảm ~15% từ 14px cũ
+```
+
+- Đây là thay đổi **global** (1 chỗ trong `PosTheme.cs`) — tự áp dụng cho mọi input toàn app,
+  kể cả trong dialog/form, không cần sửa từng page/dialog riêng.
+- **KHÔNG** cần thêm `Style="font-size:..."` hay `Style="font-weight:..."` thủ công trên từng
+  `MudTextField`/`MudSelect` — theme đã xử lý toàn cục.
+
+#### Quy ước Button — Outlined mọi nơi, phân biệt bằng Color
+
+> Cập nhật 2026-07-04: bỏ `Variant.Filled` **và `Variant.Text`** kể cả cho CTA — mọi `MudButton`
+> dùng `Variant="Variant.Outlined"`, phân biệt chức năng bằng `Color`, không phân biệt bằng
+> filled/outline/text. Khớp cảm giác "phẳng" của theme borderless v2 hơn nút đặc màu. Áp dụng
+> **cả trong dialog** (`DialogActions` — nút Hủy/Đóng/Lưu/Sửa) — không chỉ page. `MudChip`
+> (status badge) không thuộc rule này, vẫn giữ `Variant.Filled` khi cần.
+
+```razor
+<MudButton Variant="Variant.Outlined">Default</MudButton>
+<MudButton Variant="Variant.Outlined" Color="Color.Primary">Primary</MudButton>
+<MudButton Variant="Variant.Outlined" Color="Color.Secondary">Secondary</MudButton>
+<MudButton Variant="Variant.Outlined" Disabled="true">Disabled</MudButton>
+```
+
+- **CTA chính của page** (nút "Thêm mới" trong `pos-page-header`, nút "Tìm" trong filter panel):
+  `Variant="Variant.Outlined" Color="Color.Primary"`.
+- **Hành động trung tính** (Xóa/Clear, Hủy/Cancel): `Variant="Variant.Outlined"` không đặt `Color`
+  (mặc định Default).
+- **Hành động phụ có ngữ nghĩa riêng** (vd Export Excel): giữ `Color` phù hợp (`Color.Success`...)
+  nhưng vẫn `Variant="Variant.Outlined"`.
+- **KHÔNG** dùng `Variant.Filled` cho `MudButton` thông thường trong page — chỉ còn dùng ở nơi
+  thật sự cần nhấn mạnh cực mạnh (nếu có, cân nhắc kỹ trước khi dùng).
+- **Bẫy dễ bỏ sót — confirm dialog**: `DialogService.ShowAsync<MudMessageBox>(title, parameters,
+  options)` render nút Yes bằng markup **mặc định của MudBlazor** (`Variant.Filled`, không sửa
+  được vì không có `<YesButton>` slot) — **KHÔNG** dùng cách gọi này. Luôn khai báo
+  `<MudMessageBox @ref="_confirmBox">` trực tiếp trong Razor với `<YesButton><MudButton
+  Variant="Variant.Outlined" ...>` tường minh, gọi `await _confirmBox!.ShowAsync()`. Lỗi này từng
+  lọt qua grep vì nút không nằm trong markup của page — xem pattern đầy đủ trong
+  `.claude/skills/web/SKILLS.md` §"MudMessageBox @ref".
 
 ```razor
 @* ✅ Chuẩn flat — form input *@
@@ -1061,10 +1124,22 @@ dotnet test tests/POS.ContractTests -nologo                         # phải xan
 
 #### Quy ước Card / Paper / Panel
 
-- **Card/Paper chứa nội dung:** `Elevation="1"` hoặc `Elevation="2"` — tạo hairline border 1px
-- **Filter panel:** `Elevation="1"`
+- **Card/Paper chứa nội dung:** `Elevation="1"` hoặc `Elevation="2"` — **borderless** (Elevation
+  1-5 = `"none"`), phân tách bằng chênh lệch nền Surface `#FFFFFF` vs Background `#F2F4F8`
+- **Filter panel:** `Elevation="1"` + class `pos-filter-panel` (nền soft-tint
+  `var(--pos-primary-bg)`, xem `app.css`) — phân biệt vùng nhập liệu với card dữ liệu trắng
+  (MudTable) bên dưới, không cần thêm viền
 - **Section phân tách nhẹ (không cần border):** `Elevation="0"`
 - **KHÔNG** dùng `Elevation="3"` trở lên cho card/paper thông thường
+- **KHÔNG** tự thêm `border`/`box-shadow` CSS cho MudPaper/MudCard để "tạo viền" — đi ngược
+  nguyên tắc borderless, dùng nền + `DefaultBorderRadius` (16px) là đủ
+
+```razor
+@* ✅ Filter panel — nền soft-tint *@
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+    <MudGrid Spacing="2">@* filter fields *@</MudGrid>
+</MudPaper>
+```
 
 ```razor
 @* ✅ Chuẩn flat — card *@
@@ -1084,25 +1159,55 @@ dotnet test tests/POS.ContractTests -nologo                         # phải xan
 
 | Loại component | Elevation dùng | Lý do |
 |---------------|---------------|-------|
-| Card / Paper / Panel | `0`–`2` | Flat hairline (E1–E5 = `0 0 0 1px`) |
+| Card / Paper / Panel | `0`–`2` | Borderless (E1–E5 = `"none"`), phân tách bằng nền |
 | Button | `DisableElevation` hoặc mặc định | app.css đã bỏ shadow button global |
 | **MudPopover / dropdown** | **KHÔNG hạ** — giữ E8 mặc định | MudSelect, MudAutocomplete, MudDatePicker, MudMenu cần nổi |
 | **MudDialog** | **KHÔNG hạ** — giữ E12 mặc định | Dialog phải nổi trên overlay |
 
-> **Quy tắc cốt lõi:** Chỉ flat `Elevation 0–5` (card/panel). `Elevation 6+` giữ shadow gốc cho overlay/dropdown/dialog — làm phẳng sẽ khiến dropdown dính bẹt vào nền.
+> **Quy tắc cốt lõi:** Chỉ flat `Elevation 0–5` (card/panel, = `"none"`). `Elevation 6+` giữ
+> shadow gốc cho overlay/dropdown/dialog — làm phẳng sẽ khiến dropdown dính bẹt vào nền.
 
 #### Border-radius chuẩn dự án
 
-- Theme: `DefaultBorderRadius = "4px"` (cấu hình trong `PosTheme.cs`)
+- Theme: `DefaultBorderRadius = "16px"` (cấu hình trong `PosTheme.cs`) — global, áp dụng
+  Button/TextField/Paper/Dialog/Chip toàn app
 - CSS token: `--pos-radius-sm: 4px` | `--pos-radius-md: 8px` | `--pos-radius-lg: 12px`
-- Dùng `--pos-radius-sm` cho custom HTML element nhỏ (badge, tag)
-- **KHÔNG** hardcode `border-radius` trên component MudBlazor — theme tự xử lý
+- Dùng `--pos-radius-sm`/`-md` cho custom HTML element nhỏ (badge, tag, active-nav highlight)
+- **KHÔNG** hardcode `border-radius` trên component MudBlazor — theme tự xử lý (vd không tự thêm
+  `Style="border-radius:4px"` trên `MudProgressLinear`/`MudPaper` — sẽ lệch với 16px toàn app)
+
+#### Màu Sidebar / AppBar
+
+- `DrawerBackground`/`AppbarBackground = "#FFFFFF"` (sáng), `DrawerText`/`AppbarText` dùng tint
+  navy (`rgba(26,43,69,...)`) thay vì trắng — theo mẫu MudBlazor "Mud Mini"
+- Active nav item: pill bo tròn nền `var(--pos-primary-bg)`, chữ/icon `var(--pos-primary)` —
+  KHÔNG dùng thanh viền trái (`border-left`) như bản cũ
+- `MudAppBar` trong `MainLayout.razor` dùng `Color="Color.Default"` (không phải `Color.Primary`)
+  để ăn theo `AppbarBackground`/`AppbarText` sáng
+- Icon nav sidebar: giảm còn `1.25rem` (CSS `.mud-drawer .mud-icon-root` trong `app.css`) — mặc
+  định MudBlazor 24px quá to so với text 13-14px cạnh bên
+- **Icon set sidebar dùng `Icons.Material.Outlined.*`** (không phải `Filled`) — nhẹ/mảnh hơn, khớp
+  cảm giác "Mud Mini". Áp dụng cho mọi icon trong `MudNavGroup`/`MudNavLink` trong `MainLayout.razor`.
+- **KHÔNG** dùng `MudDrawerHeader` (bare text "POSMaster POS System"...) trong `MudDrawer` — đã bỏ
+  (2026-07-04). Thay bằng `div.pos-sidebar-brand` (logo `MudAvatar` tròn + tên app ngắn gọn) đặt
+  ngay đầu `MudDrawer`, trước `MudNavMenu` — khớp cấu trúc logo+brand trong ảnh mẫu.
+- Active/hover nav item: `border-radius: var(--pos-radius-lg)` (12px, không phải `-md` 8px) — pill
+  tròn hơn khớp ảnh mẫu. `.mud-nav-link` có inset ngang 8px mỗi bên (không bám sát mép sidebar).
+
+#### Màu trend/delta (%) — giữ ngữ nghĩa
+
+- `.pos-delta-up`/`.pos-delta-down` (app.css) — pill badge nền nhạt (`--pos-success-bg`/
+  `--pos-danger-bg`), chữ đậm màu `--pos-success`/`--pos-danger`
+- **BẮT BUỘC** giữ ngữ nghĩa tăng=xanh/giảm=đỏ cho mọi chỉ số vận hành (doanh thu, lỗi, trạng
+  thái máy POS...) — **KHÔNG** dùng màu trang trí tùy ý theo từng KPI (mất tín hiệu tốt/xấu)
 
 #### Cấm tuyệt đối
 
 - ❌ Thêm thư viện component UI khác (Radzen, Blazorise, Ant Design Blazor...) — chỉ dùng MudBlazor
 - ❌ Thêm `box-shadow` inline trên MudPaper/MudCard — dùng `Elevation` attribute
-- ❌ Hạ Elevation của MudPopover, MudDialog, MudDrawer — các overlay này cần shadow để tách khỏi nền
+- ❌ Hạ Elevation của MudPopover, MudDialog — 2 overlay nổi tạm thời này cần shadow thật (E6+) để
+  tách khỏi nền. `MudDrawer` (sidebar) **không** thuộc nhóm này — sidebar đã chuyển sang borderless
+  đồng bộ với card (chênh lệch nền `#FFFFFF` vs `#F2F4F8` là đủ), không cần giữ shadow riêng
 
 ---
 

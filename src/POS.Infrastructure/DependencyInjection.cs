@@ -71,7 +71,7 @@ public static class DependencyInjection
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
 
         // ── File transfer (SyncDataPos) ───────────────────────────────────────
-        services.AddSingleton<IFtpFileTransfer, WinScpFileTransfer>();
+        services.AddSingleton<IFtpFileTransfer, FtpFileTransfer>();
 
         // ── Master data sync (.zip cho POS) ───────────────────────────────────
         // Bind options theo convention dự án (GetSection().Get<T>()), bọc IOptions qua Options.Create.

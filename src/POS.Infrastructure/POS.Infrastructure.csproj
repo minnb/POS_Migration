@@ -4,6 +4,7 @@
     <PackageReference Include="Confluent.Kafka" Version="2.14.2" />
     <PackageReference Include="Dapper" Version="2.*" />
     <PackageReference Include="Elastic.Serilog.Sinks" Version="9.0.0" />
+    <PackageReference Include="FluentFTP" Version="54.2.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.*" />
 <PackageReference Include="Newtonsoft.Json" Version="13.*" />
     <PackageReference Include="RabbitMQ.Client" Version="7.*" />
@@ -11,7 +12,6 @@
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.13.17" />
-    <PackageReference Include="WinSCP" Version="6.5.6" />
   </ItemGroup>
 
   <ItemGroup>

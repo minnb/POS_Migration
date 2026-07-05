@@ -140,9 +140,9 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
         <MudButton OnClick="Submit"
-                   Variant="Variant.Filled" Color="Color.Primary"
+                   Variant="Variant.Outlined" Color="Color.Primary"
                    Disabled="@_saving"
                    StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
             @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/> }

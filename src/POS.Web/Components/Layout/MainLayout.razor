@@ -12,10 +12,10 @@
 <MudSnackbarProvider/>
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary" Dense="true">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+    <MudAppBar Elevation="1" Color="Color.Default" Dense="true">
+        <MudIconButton Icon="@Icons.Material.Outlined.Menu" Color="Color.Inherit"
                        Edge="Edge.Start" OnClick="@(() => _drawerOpen = !_drawerOpen)"/>
-        <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">POS Dashboard – POSMaster</MudText>
+        <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">RPOS Dashboard</MudText>
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>
@@ -25,155 +25,154 @@
                 <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Class="mr-3">
                     @context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
                 </MudChip>
-                <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                <MudIconButton Icon="@Icons.Material.Outlined.Logout"
                                Color="Color.Inherit" Href="/logout" title="Đăng xuất"/>
             </Authorized>
         </AuthorizeView>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.subtitle2" Class="mt-1">
-                POSMaster POS System
-            </MudText>
-        </MudDrawerHeader>
+        <div class="pos-sidebar-brand">
+            <MudAvatar Color="Color.Primary" Size="Size.Small">P</MudAvatar>
+            <MudText Typo="Typo.subtitle1" Class="pos-sidebar-brand-text">RPOS</MudText>
+        </div>
         <MudNavMenu Margin="Margin.Dense">
 
             <AuthorizeView Policy="@WebPolicies.StoreAndAbove">
-                <MudNavGroup Title="Cửa hàng" Icon="@Icons.Material.Filled.Store" @bind-Expanded="_expandStore">
+                <MudNavGroup Title="Cửa hàng" Icon="@Icons.Material.Outlined.Store" HideExpandIcon="true" @bind-Expanded="_expandStore">
 
-                    <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.WorkHistory" @bind-Expanded="_expandStoreOps">
-                        <MudNavLink Href="/store/business-day" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Ngày kinh doanh</MudNavLink>
-                        <MudNavLink Href="/store/eos-shifts" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Kết thúc ca</MudNavLink>
-                        <MudNavLink Href="/store/shift-summary" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Tổng kết ca</MudNavLink>
+                    <MudNavGroup Title="Vận hành" @bind-Expanded="_expandStoreOps">
+                        <MudNavLink Href="/store/business-day" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Xác nhận kết thúc ngày</MudNavLink>
+                        <MudNavLink Href="/store/eos-shifts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Kết thúc ca</MudNavLink>
+                        <MudNavLink Href="/store/shift-summary" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Tổng kết ca</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Giao dịch" Icon="@Icons.Material.Filled.PointOfSale" @bind-Expanded="_expandStoreTx">
-                        <MudNavLink Href="/store/transactions" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Danh sách giao dịch</MudNavLink>
-                        <MudNavLink Href="/store/refunds" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Hoàn trả</MudNavLink>
-                        <MudNavLink Href="/store/voids" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Lịch sử hủy giao dịch</MudNavLink>
+                    <MudNavGroup Title="Giao dịch" @bind-Expanded="_expandStoreTx">
+                        <MudNavLink Href="/store/transactions" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh sách giao dịch</MudNavLink>
+                        <MudNavLink Href="/store/refunds" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Hoàn trả</MudNavLink>
+                        <MudNavLink Href="/store/voids" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Lịch sử hủy giao dịch</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Báo cáo" Icon="@Icons.Material.Filled.Assessment" @bind-Expanded="_expandStoreReport">
-                        <MudNavLink Href="/store/revenue" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Tổng hợp doanh thu</MudNavLink>
-                        <MudNavLink Href="/store/revenue-by-staff" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Theo nhân viên</MudNavLink>
-                        <MudNavLink Href="/store/revenue-by-store" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Theo cửa hàng</MudNavLink>
-                        <MudNavLink Href="/store/revenue-detail" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Chi tiết doanh thu</MudNavLink>
-                        <MudNavLink Href="/store/revenue-category" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Theo ngành hàng</MudNavLink>
-                        <MudNavLink Href="/store/revenue-hourly" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Theo khung giờ</MudNavLink>
-                        <MudNavLink Href="/store/payment-breakdown" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Theo hình thức thanh toán</MudNavLink>
-                        <MudNavLink Href="/store/top-product" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Sản phẩm bán chạy</MudNavLink>
-                        <MudNavLink Href="/store/loyalty" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Khách hàng thân thiết</MudNavLink>
+                    <MudNavGroup Title="Báo cáo" @bind-Expanded="_expandStoreReport">
+                        <MudNavLink Href="/store/revenue" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Tổng hợp doanh thu</MudNavLink>
+                        <MudNavLink Href="/store/revenue-by-staff" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo nhân viên</MudNavLink>
+                        <MudNavLink Href="/store/revenue-by-store" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo cửa hàng</MudNavLink>
+                        <MudNavLink Href="/store/revenue-detail" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Chi tiết doanh thu</MudNavLink>
+                        <MudNavLink Href="/store/revenue-category" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo ngành hàng</MudNavLink>
+                        <MudNavLink Href="/store/revenue-hourly" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo khung giờ</MudNavLink>
+                        <MudNavLink Href="/store/payment-breakdown" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo hình thức thanh toán</MudNavLink>
+                        <MudNavLink Href="/store/top-product" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Sản phẩm bán chạy</MudNavLink>
+                        <MudNavLink Href="/store/loyalty" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Khách hàng thân thiết</MudNavLink>
                     </MudNavGroup>
 
                 </MudNavGroup>
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Danh mục" Icon="@Icons.Material.Filled.Inventory2" @bind-Expanded="_expandCatalog">
+                <MudNavGroup Title="Danh mục" Icon="@Icons.Material.Outlined.Inventory2" HideExpandIcon="true" @bind-Expanded="_expandCatalog">
 
-                    <MudNavGroup Title="Tổ chức" Icon="@Icons.Material.Filled.Business" @bind-Expanded="_expandCatOrg">
-                        <MudNavLink Href="/catalog/employees" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Nhân viên</MudNavLink>
-                        <MudNavLink Href="/catalog/stores" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Cửa hàng</MudNavLink>
-                        <MudNavLink Href="/catalog/provinces" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Tỉnh / Thành</MudNavLink>
+                    <MudNavGroup Title="Tổ chức" @bind-Expanded="_expandCatOrg">
+                        <MudNavLink Href="/catalog/employees" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhân viên</MudNavLink>
+                        <MudNavLink Href="/catalog/stores" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cửa hàng</MudNavLink>
+                        <MudNavLink Href="/catalog/provinces" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Chi nhánh</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Thiết bị POS" Icon="@Icons.Material.Filled.PointOfSale" @bind-Expanded="_expandCatPos">
-                        <MudNavLink Href="/catalog/pos-setup" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Khai báo máy POS</MudNavLink>
-                        <MudNavLink Href="/catalog/bank-pos" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Máy POS ngân hàng</MudNavLink>
+                    <MudNavGroup Title="Thiết bị POS" @bind-Expanded="_expandCatPos">
+                        <MudNavLink Href="/catalog/pos-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POSTerminal</MudNavLink>
+                        <MudNavLink Href="/catalog/bank-pos" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS bank</MudNavLink>
                         <!--
-                        <MudNavLink Href="/catalog/pos-versions" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Phiên bản POS</MudNavLink>
-                        <MudNavLink Href="/catalog/print-setup" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Cấu hình in (POSWeb)</MudNavLink>
-                        <MudNavLink Href="/catalog/posweb-users" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">User đăng nhập POSWeb</MudNavLink>
+                        <MudNavLink Href="/catalog/pos-versions" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Phiên bản POS</MudNavLink>
+                        <MudNavLink Href="/catalog/print-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cấu hình in (POSWeb)</MudNavLink>
+                        <MudNavLink Href="/catalog/posweb-users" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">User đăng nhập POSWeb</MudNavLink>
                         -->
                     </MudNavGroup>
                     <!--
-                    <MudNavGroup Title="Thanh toán" Icon="@Icons.Material.Filled.Payments" @bind-Expanded="_expandCatPay">
-                        <MudNavLink Href="/catalog/banks" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Ngân hàng</MudNavLink>
-                        <MudNavLink Href="/catalog/bank-card-types" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Loại thẻ ngân hàng</MudNavLink>
-                        <MudNavLink Href="/catalog/ewallets" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Ví điện tử</MudNavLink>
-                        <MudNavLink Href="/catalog/currency-rates" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Tỷ giá</MudNavLink>
+                    <MudNavGroup Title="Thanh toán" Icon="@Icons.Material.Outlined.Payments" @bind-Expanded="_expandCatPay">
+                        <MudNavLink Href="/catalog/banks" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Ngân hàng</MudNavLink>
+                        <MudNavLink Href="/catalog/bank-card-types" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Loại thẻ ngân hàng</MudNavLink>
+                        <MudNavLink Href="/catalog/ewallets" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Ví điện tử</MudNavLink>
+                        <MudNavLink Href="/catalog/currency-rates" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Tỷ giá</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Cấu hình khác" Icon="@Icons.Material.Filled.Tune" @bind-Expanded="_expandCatMisc">
-                        <MudNavLink Href="/catalog/sales-order-types" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Loại đơn bán</MudNavLink>
-                        <MudNavLink Href="/catalog/qr-info" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">QR Information</MudNavLink>
-                        <MudNavLink Href="/catalog/image-sliders" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Ảnh slider</MudNavLink>
+                    <MudNavGroup Title="Cấu hình khác" Icon="@Icons.Material.Outlined.Tune" @bind-Expanded="_expandCatMisc">
+                        <MudNavLink Href="/catalog/sales-order-types" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Loại đơn bán</MudNavLink>
+                        <MudNavLink Href="/catalog/qr-info" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">QR Information</MudNavLink>
+                        <MudNavLink Href="/catalog/image-sliders" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Ảnh slider</MudNavLink>
                     </MudNavGroup>
                         -->
-                    <MudNavGroup Title="Sản phẩm" Icon="@Icons.Material.Filled.Inventory" @bind-Expanded="_expandCatProduct">
-                        <MudNavLink Href="/catalog/products" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Danh sách SP / Barcode</MudNavLink>
-                        <MudNavLink Href="/catalog/product-lock" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Khóa sản phẩm</MudNavLink>
+                    <MudNavGroup Title="Sản phẩm" @bind-Expanded="_expandCatProduct">
+                        <MudNavLink Href="/catalog/products" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh sách</MudNavLink>
+                        <MudNavLink Href="/catalog/product-lock" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Khóa sản phẩm</MudNavLink>
                         <!--
-                        <MudNavLink Href="/catalog/product-lock-grabfood" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Khóa SP GrabFood</MudNavLink>
-                        <MudNavLink Href="/catalog/setup-item" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Setup Item</MudNavLink>
-                        <MudNavLink Href="/catalog/setup-item-partner" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Setup Item đối tác</MudNavLink>
-                        <MudNavLink Href="/catalog/pos-groups" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">POS Group</MudNavLink>
+                        <MudNavLink Href="/catalog/product-lock-grabfood" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Khóa SP GrabFood</MudNavLink>
+                        <MudNavLink Href="/catalog/setup-item" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup Item</MudNavLink>
+                        <MudNavLink Href="/catalog/setup-item-partner" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup Item đối tác</MudNavLink>
+                        <MudNavLink Href="/catalog/pos-groups" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS Group</MudNavLink>
                         -->
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Giá bán" Icon="@Icons.Material.Filled.PriceChange" @bind-Expanded="_expandCatPrice">
-                        <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Giá bán</MudNavLink>
-                        <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Setup giá (Bulk Import)</MudNavLink>
+                    <MudNavGroup Title="Giá bán" @bind-Expanded="_expandCatPrice">
+                        <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Giá bán</MudNavLink>
+                        <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup giá bán</MudNavLink>
                     </MudNavGroup>
 
                 </MudNavGroup>
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Khuyến mãi" Icon="@Icons.Material.Filled.LocalOffer" @bind-Expanded="_expandPromotion">
+                <MudNavGroup Title="Khuyến mãi" Icon="@Icons.Material.Outlined.LocalOffer" HideExpandIcon="true" @bind-Expanded="_expandPromotion">
 
-                    <MudNavGroup Title="Chương trình KM" Icon="@Icons.Material.Filled.Campaign" @bind-Expanded="_expandPromoOffer">
-                        <MudNavLink Href="/promotion/offers" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Danh mục khuyến mãi</MudNavLink>
-                        <MudNavLink Href="/promotion/setup" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Cài đặt CTKM</MudNavLink>
-                        <MudNavLink Href="/promotion/special-combo" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Special Combo</MudNavLink>
+                    <MudNavGroup Title="Chương trình KM" @bind-Expanded="_expandPromoOffer">
+                        <MudNavLink Href="/promotion/offers" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục</MudNavLink>
+                        <MudNavLink Href="/promotion/setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt CTKM</MudNavLink>
+                        <MudNavLink Href="/promotion/special-combo" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Special Combo</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Coupon & Voucher" Icon="@Icons.Material.Filled.ConfirmationNumber" @bind-Expanded="_expandPromoCoupon">
-                        <MudNavLink Href="/promotion/coupons" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Danh mục Coupon</MudNavLink>
-                        <MudNavLink Href="/promotion/vouchers" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Danh mục Voucher</MudNavLink>
-                        <MudNavLink Href="/promotion/vouchers-published" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Voucher theo hóa đơn</MudNavLink>
+                    <MudNavGroup Title="Coupon & Voucher" @bind-Expanded="_expandPromoCoupon">
+                        <MudNavLink Href="/promotion/coupons" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Coupon</MudNavLink>
+                        <MudNavLink Href="/promotion/vouchers" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Voucher</MudNavLink>
+                        <MudNavLink Href="/promotion/vouchers-published" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Voucher theo hóa đơn</MudNavLink>
                     </MudNavGroup>
 
                 </MudNavGroup>
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Filled.MonitorHeart" @bind-Expanded="_expandOps">
+                <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Outlined.MonitorHeart" HideExpandIcon="true" @bind-Expanded="_expandOps">
 
-                    <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Filled.Monitor" @bind-Expanded="_expandOpsMonitor">
-                        <MudNavLink Href="/ops/health" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
-                        <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
-                        <MudNavLink Href="/ops/queues" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Queue monitor</MudNavLink>
+                    <MudNavGroup Title="Giám sát" @bind-Expanded="_expandOpsMonitor">
+                        <MudNavLink Href="/ops/health" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
+                        <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
+                        <MudNavLink Href="/ops/queues" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Queue monitor</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Filled.Article" @bind-Expanded="_expandOpsLog">
-                        <MudNavLink Href="/ops/logs" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Interface Error</MudNavLink>
-                        <MudNavLink Href="/ops/data-raw-log" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">DataRawJson Log</MudNavLink>
-                        <MudNavLink Href="/ops/activity-log" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">Nhật ký thao tác</MudNavLink>
+                    <MudNavGroup Title="Nhật ký" @bind-Expanded="_expandOpsLog">
+                        <MudNavLink Href="/ops/logs" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Interface Error</MudNavLink>
+                        <MudNavLink Href="/ops/data-raw-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">DataRawJson Log</MudNavLink>
+                        <MudNavLink Href="/ops/activity-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhật ký thao tác</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Cấu hình" Icon="@Icons.Material.Filled.Tune" @bind-Expanded="_expandOpsConfig">
-                        <MudNavLink Href="/ops/pos-data-setup" Icon="@Icons.Material.Filled.ChevronRight" Match="NavLinkMatch.All">POS Data Setup</MudNavLink>
+                    <MudNavGroup Title="Cấu hình" @bind-Expanded="_expandOpsConfig">
+                        <MudNavLink Href="/ops/pos-data-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS Data Setup</MudNavLink>
                     </MudNavGroup>
 
                 </MudNavGroup>
             </AuthorizeView>
             
             <AuthorizeView Policy="@WebPolicies.AdminOnly">
-                <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Filled.AdminPanelSettings" @bind-Expanded="_expandAdmin">
+                <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Outlined.AdminPanelSettings" HideExpandIcon="true" @bind-Expanded="_expandAdmin">
                     <MudNavLink Href="/admin/users" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Filled.People">Users</MudNavLink>
+                                Icon="@Icons.Material.Outlined.People">Users</MudNavLink>
                     <MudNavLink Href="/admin/roles" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Filled.Security">Roles</MudNavLink>
+                                Icon="@Icons.Material.Outlined.Security">Roles</MudNavLink>
                     <MudNavLink Href="/admin/config" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Filled.Settings">Configs</MudNavLink>
+                                Icon="@Icons.Material.Outlined.Settings">Configs</MudNavLink>
                     <MudNavLink Href="/admin/audit" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Filled.History">Audit log</MudNavLink>
+                                Icon="@Icons.Material.Outlined.History">Audit log</MudNavLink>
                     <MudNavLink Href="/admin/sql-console" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Filled.Storage">SQL Console</MudNavLink>
+                                Icon="@Icons.Material.Outlined.Storage">SQL Console</MudNavLink>
                     <MudNavLink Href="/admin/encrypt-secret" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Filled.Lock">Mã hóa Secret</MudNavLink>
+                                Icon="@Icons.Material.Outlined.Lock">Mã hóa Secret</MudNavLink>
                 </MudNavGroup>
             </AuthorizeView>
 

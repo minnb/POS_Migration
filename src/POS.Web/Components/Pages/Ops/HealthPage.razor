@@ -17,8 +17,8 @@
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-1">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         System Health
     </MudText>
     <div class="d-flex align-center gap-2">
@@ -30,7 +30,7 @@
             <MudSelectItem Value="120">120 giây</MudSelectItem>
             <MudSelectItem Value="300">5 phút</MudSelectItem>
         </MudSelect>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="RunCheckAsync"
                    Disabled="_checking"
@@ -83,8 +83,7 @@
 @* ── Loading (first load only) ───────────────────────────────────────── *@
 @if (_checking && !_items.Any())
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 
 @* ── Service cards ───────────────────────────────────────────────────── *@

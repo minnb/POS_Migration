@@ -22,32 +22,38 @@
 
 <PageTitle>Máy POS Ngân hàng – POS Dashboard</PageTitle>
 
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @* ── Header ──────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title">
-        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Class="mr-2" Style="vertical-align:middle"/>
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Máy POS Ngân hàng
     </MudText>
-    <div class="d-flex align-center gap-2">
-        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+    <MudStack Row="true" Spacing="1" Class="pos-page-header-btn">
+        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.FileDownload"
                    Disabled="@(_exporting || _loading)"
                    OnClick="ExportExcelAsync">
             @(_exporting ? "Đang xuất..." : "Xuất Excel")
         </MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Add"
-                   Class="pos-page-header-btn"
                    OnClick="@(() => OpenDialogAsync(null))">
             Thêm mới
         </MudButton>
-    </div>
+    </MudStack>
 </div>
 
 @* ── Loading bar ─────────────────────────────────────────────────────── *@
 @if (_loading && !_allItems.Any())
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius:4px"/>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
 }
 
 @* ── KPI row ─────────────────────────────────────────────────────────── *@
@@ -82,7 +88,7 @@
 }
 
 @* ── Filter panel ────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="3">
             <MudAutocomplete T="StoreDto" Value="_filterStore"
@@ -210,6 +216,9 @@
     private bool    _loading    = true;
     private bool    _exporting;
     private string? _errorMsg;
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
 
     private StoreDto? _filterStore;
     private string    _filterBankCode = string.Empty;
@@ -340,18 +349,9 @@
 
     private async Task ConfirmDeleteAsync(BankPOSListDto item)
     {
-        var dialog = await DialogService.ShowAsync<MudMessageBox>(
-            "Xác nhận xóa",
-            new DialogParameters
-            {
-                ["Message"]    = $"Bạn có chắc muốn xóa máy POS Ngân hàng \"{item.BankPOSCode}\"?",
-                ["YesText"]    = "Xóa",
-                ["CancelText"] = "Hủy"
-            },
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-
-        var result = await dialog.Result;
-        if (result is null or { Canceled: true }) return;
+        _confirmMsg = $"Bạn có chắc muốn xóa máy POS Ngân hàng \"{item.BankPOSCode}\"?";
+        var confirmed = await _confirmBox!.ShowAsync();
+        if (confirmed != true) return;
 
         var ok = await MdRepo.DeleteBankPOSAsync(item.BankPOSCode);
         if (ok)

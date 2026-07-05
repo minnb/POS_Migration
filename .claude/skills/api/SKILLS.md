@@ -509,3 +509,14 @@ private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /*
 > Ví dụ thực tế: `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`ResolveFtpPhysicalPath`,
 > `GetFileFromServerApiAsync`, `PushStartOfDayDataAsync`), `src/POS.Api/Controllers/SyncDataPosController.cs`
 > (`DowloadFileStream`/`DeleteFileFromFTP`/`GetFileFromFTP`), `MasterDataSyncService.ActionFor`
+
+---
+
+## Logging (IFileLogHelper / IKibanaService / RequestResponseLoggingMiddleware)
+
+> Đã tách sang file riêng: **[`logging.md`](logging.md)** — 3 cơ chế logging trong POS.Api/
+> POS.Infrastructure, khi nào dùng cái nào, pattern middleware log request/response toàn cục
+> (capped pass-through stream, không buffer file lớn vào RAM), cờ `RequestLogging:PersistToFile`,
+> và các bug/anti-pattern thực tế đã gặp (`JsonConvert.SerializeObject(ex)` trên object đã dispose,
+> filter Serilog theo giá trị property chứ không theo tên property...). Đọc file đó TRƯỚC khi thêm
+> log mới ở bất kỳ đâu.

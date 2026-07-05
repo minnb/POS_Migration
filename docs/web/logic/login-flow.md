@@ -20,8 +20,8 @@ CREATE TABLE DashboardUsers (
 );
 ```
 
-**File model:** [src/POS.Web/Auth/DashboardUser.cs](../../src/POS.Web/Auth/DashboardUser.cs)  
-**Migration SQL:** [src/POS.Web/Auth/migration_dashboard_users.sql](../../src/POS.Web/Auth/migration_dashboard_users.sql)
+**File model:** [src/POS.Web/Auth/DashboardUser.cs](../../../src/POS.Web/Auth/DashboardUser.cs)  
+**Migration SQL:** [src/POS.Web/Auth/migration_dashboard_users.sql](../../../src/POS.Web/Auth/migration_dashboard_users.sql)
 
 ---
 
@@ -98,7 +98,7 @@ Trình duyệt                    Blazor Server                    Database
 
 ## 4. Cookie & Session
 
-**Cấu hình** ([Program.cs](../../src/POS.Web/Program.cs)):
+**Cấu hình** ([Program.cs](../../../src/POS.Web/Program.cs)):
 
 | Thuộc tính | Giá trị | Ý nghĩa |
 |---|---|---|
@@ -128,7 +128,7 @@ MainLayout logout button → Href="/logout"
 
 ## 5. Phân quyền Role-Based
 
-### 3 Roles ([WebRoles.cs](../../src/POS.Web/Auth/WebRoles.cs))
+### 3 Roles ([WebRoles.cs](../../../src/POS.Web/Auth/WebRoles.cs))
 
 | Role | Mô tả |
 |---|---|
@@ -148,11 +148,11 @@ MainLayout logout button → Href="/logout"
 
 | URL | Policy | Component |
 |---|---|---|
-| `/store/revenue` | `StoreAndAbove` | [RevenuePage.razor](../../src/POS.Web/Components/Pages/Store/RevenuePage.razor) |
-| `/ops/health` | `OpsAndAbove` | [HealthPage.razor](../../src/POS.Web/Components/Pages/Ops/HealthPage.razor) |
-| `/admin/users` | `AdminOnly` | [UsersPage.razor](../../src/POS.Web/Components/Pages/Admin/UsersPage.razor) |
-| `/login` | `[AllowAnonymous]` | [Login.razor](../../src/POS.Web/Components/Pages/Login.razor) |
-| `/access-denied` | `[AllowAnonymous]` | [AccessDenied.razor](../../src/POS.Web/Components/Pages/AccessDenied.razor) |
+| `/store/revenue` | `StoreAndAbove` | [RevenuePage.razor](../../../src/POS.Web/Components/Pages/Store/RevenuePage.razor) |
+| `/ops/health` | `OpsAndAbove` | [HealthPage.razor](../../../src/POS.Web/Components/Pages/Ops/HealthPage.razor) |
+| `/admin/users` | `AdminOnly` | [UsersPage.razor](../../../src/POS.Web/Components/Pages/Admin/UsersPage.razor) |
+| `/login` | `[AllowAnonymous]` | [Login.razor](../../../src/POS.Web/Components/Pages/Login.razor) |
+| `/access-denied` | `[AllowAnonymous]` | [AccessDenied.razor](../../../src/POS.Web/Components/Pages/AccessDenied.razor) |
 
 ### StoreCodes (hạn chế theo cửa hàng)
 

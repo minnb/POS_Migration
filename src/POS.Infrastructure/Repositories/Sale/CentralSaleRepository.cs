@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using Dapper;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using POS.Common.Dtos.CentralSale;
 using POS.Common.Dtos.POS;
@@ -633,6 +634,119 @@ public sealed class CentralSaleRepository(
         {
             fileLogHelper.WriteExpLogs("GetEosDayList", ex);
             return [];
+        }
+    }
+
+    // ── Business Day Confirm (Xác nhận kết thúc ngày) ────────────────────────
+    // Ported from src/legacy/VCM.BLUEPOS.Data/StoreActivities/StoreActivitiesData.cs
+    // (SaleBusinessStoreStaging, dòng 219 — gọi SP SP_END_DATE_CONFIRM_STAGING đã compile sẵn,
+    // không có script để đối chiếu chính xác). Viết lại từ TransHeader/TransLine/POSShiftHeader/
+    // POSShiftLine/POSEOD_API hiện có, theo đúng connection per-store (giống CentralSalesContainer
+    // cũ routed theo ServerIPConnection.GetIPServerByStore). "Đã đóng ngày" = có dòng POSEOD_API
+    // cho (Store, Terminal, Ngày) — terminal tự báo cáo qua API UpdatePOSEOD hiện có.
+    public async Task<List<PosDayStagingDto>> GetPosDayStagingAsync(
+        string storeNo, DateTime businessDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo, ct: ct);
+            // SP dbo.GetSalesEODConfirm trả cột theo tên legacy (TerminalID, AmountTotal, CashMoney…) —
+            // map thủ công sang PosDayStagingDto (tên property khác) để Dapper không để trống PosTerminal.
+            var rows = await conn.QueryAsync<SalesEodConfirmRow>(new CommandDefinition(
+                "GetSalesEODConfirm",
+                new { StoreNo = storeNo, BusinessDate = businessDate.Date },
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: Timeout, cancellationToken: ct));
+
+            return rows.Select(r => new PosDayStagingDto
+            {
+                PosTerminal   = r.TerminalID ?? string.Empty,
+                IsClosed      = r.IsClosed ?? false,
+                CloseTime     = r.CloseDate,
+                LastSaleTime  = r.LastOrderTime,
+                TotalRevenue  = r.AmountTotal ?? 0m,
+                TienMat       = r.CashMoney ?? 0m,
+                CustomerCount = r.CountCustomer ?? 0,
+                TotalQuantity = r.CountOrderNo ?? 0,   // TODO confirm: SP không có cột "số lượng bán" (item qty);
+                                                       // CountOrderNo = số đơn — dùng tạm cho cột "Số lượng bán"
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetPosDayStaging", ex);
+            return [];
+        }
+    }
+
+    // Cột SP dbo.GetSalesEODConfirm (đặt tên theo legacy SaleBusinessStoreModel) — dùng làm class
+    // trung gian cho Dapper rồi project sang PosDayStagingDto ở GetPosDayStagingAsync.
+    private sealed class SalesEodConfirmRow
+    {
+        public string? TerminalID { get; set; }
+        public bool? IsClosed { get; set; }
+        public DateTime? CloseDate { get; set; }
+        public DateTime? LastOrderTime { get; set; }
+        public decimal? AmountTotal { get; set; }
+        public decimal? CashMoney { get; set; }
+        public int? CountCustomer { get; set; }
+        public int? CountOrderNo { get; set; }
+    }
+
+    public async Task<BusinessDayConfirmDto?> GetBusinessDayConfirmAsync(
+        string storeNo, DateTime businessDate, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo, ct: ct);
+            const string sql = @"SELECT TOP 1 StoreNo, BusinessDate, TotalRevenue, TotalShifts, ConfirmedBy, ConfirmedDate
+                                 FROM dbo.BusinessDayConfirm (NOLOCK)
+                                 WHERE StoreNo = @StoreNo AND BusinessDate = @BusinessDate;";
+            return await conn.QueryFirstOrDefaultAsync<BusinessDayConfirmDto>(new CommandDefinition(
+                sql, new { StoreNo = storeNo, BusinessDate = businessDate.Date },
+                commandTimeout: Timeout, cancellationToken: ct));
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("GetBusinessDayConfirm", ex);
+            return null;
+        }
+    }
+
+    // SP dbo.usp_BusinessDay_ConfirmEndDate (docs/sql/BusinessDay_ConfirmEndDate.sql) — 1 transaction:
+    // insert ledger + advance BussinessDateOpen (+1 ngày) trên cùng DB CentralSale của store.
+    public async Task<ConfirmBusinessDayResult> ConfirmBusinessDayAsync(
+        ConfirmBusinessDayRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await connectionFactory.CreateOpenConnectionAsync(request.StoreNo, ct: ct);
+            await conn.ExecuteAsync(new CommandDefinition(
+                "dbo.usp_BusinessDay_ConfirmEndDate",
+                new
+                {
+                    request.StoreNo,
+                    BusinessDate = request.BusinessDate.Date,
+                    request.TotalRevenue,
+                    request.TotalShifts,
+                    request.ConfirmedBy
+                },
+                commandType: CommandType.StoredProcedure, commandTimeout: Timeout, cancellationToken: ct));
+
+            return new ConfirmBusinessDayResult
+            {
+                Success = true,
+                Message = "Xác nhận kết thúc ngày thành công.",
+                NewBusinessDate = request.BusinessDate.Date.AddDays(1)
+            };
+        }
+        catch (SqlException ex) when (ex.Number is 50001 or 50002)
+        {
+            return new ConfirmBusinessDayResult { Success = false, Message = ex.Message };
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("ConfirmBusinessDay", ex);
+            return new ConfirmBusinessDayResult { Success = false, Message = "Lỗi hệ thống. Vui lòng thử lại." };
         }
     }
 

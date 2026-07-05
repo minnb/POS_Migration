@@ -16,13 +16,20 @@
 
 <PageTitle>DataRaw Log – POS Dashboard</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">
-    <MudIcon Icon="@Icons.Material.Filled.DataObject" Class="mr-2" Style="vertical-align:middle"/>
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận Retry" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Warning">Retry</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.DataObject" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
     DataRaw Log — Kafka Message Audit
 </MudText>
 
 @* ── Filter ────────────────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="2">
             <MudDatePicker Label="Từ ngày" @bind-Date="_fromDate" DateFormat="dd/MM/yyyy"
@@ -56,7 +63,7 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="LoadDataAsync" FullWidth="true"
                            Disabled="_loading">Tìm</MudButton>
@@ -153,7 +160,7 @@ else
                 {
                     <div class="d-flex align-center justify-center gap-2 flex-wrap">
                         <span style="background:var(--pos-danger); color:#fff; border-radius:4px; padding:2px 10px; font-size:0.75rem; font-weight:600">✗ Lỗi</span>
-                        <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
                                    StartIcon="@Icons.Material.Filled.Refresh"
                                    Disabled="@_retrying.Contains(context.Id)"
                                    OnClick="@(() => RetryAsync(context))">
@@ -228,7 +235,7 @@ else
     <DialogActions>
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy"
                    OnClick="CopyMessageAsync">Sao chép</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                    OnClick="@(() => _dialogOpen = false)">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
@@ -240,6 +247,9 @@ else
     private bool    _loading  = true;
     private bool    _isEmpty;
     private string? _errorMsg;
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
 
     private DateTime? _fromDate      = DateTime.Today;
     private DateTime? _toDate        = DateTime.Today;
@@ -380,17 +390,10 @@ else
                 return;
             }
 
-            var parameters = new DialogParameters
-            {
-                // Một dòng — MudMessageBox render Message dạng text nên '\n' chỉ thành dấu cách.
-                ["Message"]    = $"Thực thi lại transaction '{row.TransactionId}'? (Store {storeNo} / POS {posNo})",
-                ["YesText"]    = "Retry",
-                ["CancelText"] = "Hủy"
-            };
-            var dialog = await DialogService.ShowAsync<MudMessageBox>("Xác nhận Retry", parameters,
-                new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-            var confirm = await dialog.Result;
-            if (confirm is null or { Canceled: true }) return;
+            // Một dòng — MudMessageBox render Message dạng text nên '\n' chỉ thành dấu cách.
+            _confirmMsg = $"Thực thi lại transaction '{row.TransactionId}'? (Store {storeNo} / POS {posNo})";
+            var confirmed = await _confirmBox!.ShowAsync();
+            if (confirmed != true) return;
 
             var state    = await AuthState;
             var userName = state.User.Identity?.Name ?? "unknown";
