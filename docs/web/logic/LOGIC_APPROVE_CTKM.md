@@ -15,10 +15,28 @@
 
 ## Sơ đồ tổng thể (Sequence)
 
+> **Cập nhật 2026-07-06 — FIX bug "Duyệt publish dữ liệu nháp cũ":** trước đây nút "Duyệt CTKM"
+> trong editor chỉ điều kiện theo `_header.No` khác rỗng (đã Lưu tạm **1 lần bất kỳ lúc nào**) —
+> nếu user sửa/thêm Buy/Get/Site SAU lần Lưu tạm đó rồi bấm "Duyệt" thẳng (không Lưu tạm lại),
+> `ApproveAsync` không hề gửi Buy/Get/Site lên server → SP Duyệt chỉ publish lại đúng dữ liệu
+> nháp **cũ** (có thể rỗng) đang có trong `SetupPromotionBUY/GET/SITE`. Đã fix: nút "Duyệt CTKM"
+> trong **editor** nay gọi `ApproveFromEditorAsync()` — LUÔN Lưu tạm state hiện tại trước, chỉ
+> Duyệt tiếp nếu Lưu tạm thành công. Nút Duyệt nhanh ở **màn danh sách** (icon `CheckCircle`, xem
+> mục 1.1) **KHÔNG đổi** — vẫn gọi `ApproveAsync(context.No)` thẳng, không Lưu tạm (vì tại đó
+> không có state Buy/Get/Site trong bộ nhớ của đúng CTKM đó — tự Lưu tạm ở đây sẽ ghi đè dữ liệu
+> thật thành rỗng, còn tệ hơn bug cũ). Cả 2 nút dùng chung `ApproveCoreAsync(bbynr)` (phần logic
+> gọi `usp_SetupPromotion_Approve` không đổi).
+
 ```
 [UI Blazor]  PromotionSetupPage.razor
-  │  bấm "Duyệt" → ApproveAsync(bbynr)
-  │  ├─ Confirm dialog (MudMessageBox)   ─── Hủy → dừng
+  │  Editor: bấm "Duyệt CTKM" → ApproveFromEditorAsync()
+  │  ├─ Confirm dialog (MudMessageBox: "... sẽ Lưu tạm dữ liệu hiện tại trước ...") ─ Hủy → dừng
+  │  ├─ 1) SaveAsync(showSuccessSnackbar:false) — Lưu tạm state hiện tại; lỗi → dừng, KHÔNG Duyệt
+  │  └─ 2) ApproveCoreAsync(bbynr)
+  │
+  │  Danh sách: bấm icon Duyệt → ApproveAsync(context.No)
+  │  ├─ Confirm dialog                    ─── Hủy → dừng
+  │  └─ ApproveCoreAsync(bbynr)   (KHÔNG Lưu tạm — không có state Buy/Get/Site của CTKM đó)
   │  ▼
 [Application]  IPromotionService.ApproveSetupAsync(bbynr)   ← thin wrapper (chỉ delegate)
   │  ▼
@@ -39,18 +57,16 @@
 
 ### 1.1. Hàm C# được gọi
 
-Cả hai nút "Duyệt" đều gọi chung một hàm:
+**Từ 2026-07-06, 2 nút "Duyệt" gọi 2 hàm khác nhau** (trước đó gọi chung `ApproveAsync`):
 
-```csharp
-private async Task ApproveAsync(string bbynr)
-```
+| Nút | Vị trí | Hàm gọi | Điều kiện hiển thị |
+|---|---|---|---|
+| `MudIconButton` (icon `CheckCircle`) — màn **danh sách** | [dòng ~118-121](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L118) | `ApproveAsync(context.No)` | chỉ hiện khi `!context.IsApprove` (CTKM chưa duyệt) |
+| `MudButton "Duyệt CTKM"` — màn **editor** | [dòng ~730-738](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L730) | `ApproveFromEditorAsync()` | chỉ hiện khi `!_isReadonly` **và** `_header.No` khác rỗng |
 
-Vị trí: [`PromotionSetupPage.razor:639`](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L639).
-
-| Nút | Vị trí | Điều kiện hiển thị |
-|---|---|---|
-| `MudIconButton` (icon `CheckCircle`) — màn **danh sách** | [dòng ~104-105](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L104) | chỉ hiện khi `!context.IsApprove` (CTKM chưa duyệt) |
-| `MudButton "Duyệt CTKM"` — màn **editor** | [dòng ~437-438](../../../src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor#L437) | chỉ hiện khi `!_isReadonly` **và** `_header.No` khác rỗng |
+Cả 2 hàm cuối cùng đều gọi `ApproveCoreAsync(bbynr)` để thực thi phần publish thật (SP
+`usp_SetupPromotion_Approve`) — khác biệt duy nhất là `ApproveFromEditorAsync` chạy
+`SaveAsync(showSuccessSnackbar:false)` **trước** khi gọi `ApproveCoreAsync`.
 
 ### 1.2. Validate tại UI (Frontend) trước khi gửi
 
@@ -59,21 +75,39 @@ Vị trí: [`PromotionSetupPage.razor:639`](../../../src/POS.Web/Components/Page
 | **Phân quyền** | `@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]` | Chỉ ITOps/SystemAdmin vào được trang |
 | **Chưa duyệt** | Nút Duyệt chỉ render khi `IsApprove == false` | Đã duyệt → nút biến mất |
 | **Đã có mã (BBYNR)** | Trong editor, nút chỉ hiện khi `_header.No` khác rỗng | Phải **Lưu** trước để sinh `BBYNR` mới thấy nút Duyệt |
-| **Xác nhận** | `MudMessageBox`: *"Duyệt và phát hành CTKM {bbynr}? Sau khi duyệt sẽ không sửa được."* | Người dùng bấm Hủy → `return`, không gọi service |
+| **Xác nhận** | `MudMessageBox`: *"Duyệt và phát hành CTKM {bbynr}? ..."* (editor: có thêm câu "Hệ thống sẽ Lưu tạm dữ liệu hiện tại trước khi Duyệt") | Người dùng bấm Hủy → `return`, không gọi service |
+| **Lưu tạm thành công (chỉ luồng editor)** | `ApproveFromEditorAsync` gọi `SaveAsync(false)`; Lưu lỗi → `return` ngay, KHÔNG gọi `ApproveCoreAsync` | Đảm bảo dữ liệu publish luôn khớp UI đang hiển thị — xem mục "Cập nhật 2026-07-06" ở đầu file |
 
-> **Lưu ý:** không có validate **field-level** khi Duyệt (khác với thao tác Lưu). Duyệt chỉ cần một
-> `BBYNR` hợp lệ đã tồn tại; mọi ràng buộc dữ liệu đã được kiểm tại bước Lưu.
+> **Lưu ý:** không có validate **field-level** riêng khi Duyệt — luồng editor tái dùng validate
+> đã có sẵn trong `SaveAsync` (bắt buộc phải Lưu thành công mới Duyệt được); luồng danh sách vẫn
+> không validate field-level (đúng như trước, vì không Lưu tạm ở đó).
 
-### 1.3. Trình tự trong `ApproveAsync`
+### 1.3. Trình tự trong `ApproveFromEditorAsync` (luồng editor — MỚI)
 
-1. Hiện confirm dialog → nếu `Canceled` thì `return`.
-2. Gọi `PromotionService.ApproveSetupAsync(bbynr)` → nhận `(bool ok, string message)`.
-3. Nếu `!ok` → `Snackbar.Add(message, Severity.Error)` + `return`.
-4. Ghi audit: `AuditLogger.LogAsync(_actor, "APPROVE", "SetupPromotion", bbynr, null, null)`.
-5. `Snackbar.Add(message, Severity.Success)`.
-6. Cập nhật UI: nếu đang ở editor và `_header.No == bbynr` → `_isReadonly = true; _header.IsApprove = true` (khóa form);
+1. Hiện confirm dialog (kèm cảnh báo sẽ tự Lưu tạm) → nếu `Canceled` thì `return`.
+2. Gọi `SaveAsync(showSuccessSnackbar: false)` — Lưu tạm state hiện tại (Header + `_buyRows` +
+   `_getRows` + `_siteRows`), không hiện snackbar thành công (tránh gây rối UX vì sắp hiện tiếp
+   snackbar Duyệt).
+3. Nếu Lưu tạm thất bại (`false`) → `return` ngay, **không** gọi Duyệt — snackbar lỗi đã hiện từ
+   trong `SaveAsync`.
+4. Gọi `ApproveCoreAsync(_header.No)` (dùng `bbynr` mới nhất sau khi Lưu, để đúng cả trường hợp
+   Lưu tạm lần đầu vừa sinh `BBYNR`).
+
+### 1.4. Trình tự trong `ApproveCoreAsync` (dùng chung cả 2 luồng)
+
+1. Gọi `PromotionService.ApproveSetupAsync(bbynr)` → nhận `(bool ok, string message)`.
+2. Nếu `!ok` → `Snackbar.Add(message, Severity.Error)` + `return`.
+3. Ghi audit: `AuditLogger.LogAsync(_actor, "APPROVE", "SetupPromotion", bbynr, null, null)`.
+4. `Snackbar.Add(message, Severity.Success)`.
+5. Cập nhật UI: nếu đang ở editor và `_header.No == bbynr` → `_isReadonly = true; _header.IsApprove = true` (khóa form);
    nếu ở màn danh sách → `await _table.ReloadServerData()`.
-7. `catch` → `FileLogger.WriteExpLogs("PromotionSetupPage.Approve", ex)` + snackbar đỏ.
+6. `catch` → `FileLogger.WriteExpLogs("PromotionSetupPage.Approve", ex)` + snackbar đỏ.
+
+### 1.5. Luồng `ApproveAsync(bbynr)` (danh sách — KHÔNG đổi)
+
+Giữ nguyên hành vi cũ: hiện confirm dialog → `Canceled` thì dừng → gọi thẳng
+`ApproveCoreAsync(bbynr)`, không Lưu tạm gì (không có state Buy/Get/Site của đúng CTKM đó trong
+bộ nhớ trang, tự Lưu tạm ở đây sẽ ghi đè dữ liệu thật thành rỗng).
 
 ---
 

@@ -280,14 +280,6 @@ public sealed class PromotionRepository(
 
         try
         {
-            // TODO(DIAG-temp): gỡ ngay sau khi xác định nguyên nhân mất dữ liệu Buy/Get/Site.
-            var buyTable = BuildBuyTable(request.BuyRows);
-            var getTable = BuildGetTable(request.GetRows);
-            System.Diagnostics.Debug.WriteLine(
-                $"[DIAG] BuyRows={request.BuyRows.Count} GetRows={request.GetRows.Count} " +
-                $"SiteGroupCodes={request.SiteGroupCodes.Count} BuyTable={buyTable.Rows.Count} " +
-                $"GetTable={getTable.Rows.Count} SiteTable={siteTable.Rows.Count}");
-
             using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
             await conn.ExecuteAsync(new CommandDefinition(
                 "dbo.usp_SaveSetupCTKMAll", p,
