@@ -16,8 +16,16 @@
 @inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject IDialogService DialogService
 
 <PageTitle>Danh mục Khuyến mãi – POS Dashboard</PageTitle>
+
+<MudMessageBox @ref="_confirmDeactivateBox" Title="Xác nhận deactive" CancelText="Hủy">
+    <MessageContent>@_confirmDeactivateMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error">Deactive</MudButton>
+    </YesButton>
+</MudMessageBox>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
 <MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
@@ -92,6 +100,7 @@
         <MudTh Style="white-space:normal">Tên CTKM</MudTh>
         <MudTh>OfferType</MudTh>
         <MudTh>Trạng thái</MudTh>
+        <MudTh>Hình thức bán</MudTh>
         <MudTh>Từ ngày</MudTh>
         <MudTh>Đến ngày</MudTh>
         <MudTh>SiteGroup</MudTh>
@@ -102,12 +111,18 @@
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
         <MudTd DataLabel="Action">
             <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Primary"
-                           Title="Xem chi tiết"/>
+                           Title="Xem chi tiết" OnClick="@(() => OpenDetailDialogAsync(context))"/>
+            @if (IsActive(context.Status))
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.ToggleOff" Size="Size.Small" Color="Color.Error"
+                               Title="Deactive" OnClick="@(() => ConfirmDeactivateAsync(context))"/>
+            }
         </MudTd>
         <MudTd DataLabel="Bonus Buy"><b>@context.BonusbuyNo</b></MudTd>
         <MudTd DataLabel="Promotion No">@context.PromotionNo</MudTd>
         <MudTd DataLabel="Tên CTKM" Style="white-space:normal">@context.Description</MudTd>
         <MudTd DataLabel="OfferType">@context.OfferType</MudTd>
+        <MudTd DataLabel="Hình thức bán">@context.SalesTypeName</MudTd>
         <MudTd DataLabel="Trạng thái">
             <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
                      Color="@(IsActive(context.Status) ? Color.Success : Color.Error)">
@@ -144,13 +159,16 @@
 
 @code {
     private MudTable<OfferHeaderListItemDto> _table = null!;
-    private readonly OfferListFilter _filter = new() { Status = "-1", PageSize = 20 };
+    private readonly OfferListFilter _filter = new() { Status = "0", PageSize = 20 };
 
     private List<OfferHeaderListItemDto> _rows = [];
     private List<OfferTypeOptionDto> _offerTypes = [];
     private int _offset;
     private bool _exporting;
     private string? _errorMsg;
+
+    private MudMessageBox? _confirmDeactivateBox;
+    private string _confirmDeactivateMsg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,6 +204,39 @@
         }
     }
 
+    private async Task OpenDetailDialogAsync(OfferHeaderListItemDto row)
+    {
+        var parameters = new DialogParameters<OfferDetailDialog>
+        {
+            { x => x.OfferNo, row.BonusbuyNo }, { x => x.OfferType, row.OfferType }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseOnEscapeKey = true };
+        await DialogService.ShowAsync<OfferDetailDialog>("Thông tin chi tiết khuyến mãi", parameters, options);
+    }
+
+    // Ported from src/legacy/Database/Stored_Procedures/Script_Stored_Procedures.sql
+    // (Setup_Promotion_Insert — quy ước Status 0/1/2 + Counter sync). Tính năng mới, KHÔNG có ở
+    // legacy PromotionList — legacy chỉ read-only, không cho phép tắt offer đã publish từ UI.
+    private async Task ConfirmDeactivateAsync(OfferHeaderListItemDto row)
+    {
+        _confirmDeactivateMsg = $"Bạn có chắc muốn deactive khuyến mãi [{row.BonusbuyNo}] {row.Description}? " +
+                                 "Không thể hoàn tác.";
+        var confirmed = await _confirmDeactivateBox!.ShowAsync();
+        if (confirmed != true) return;
+
+        try
+        {
+            var (ok, message) = await PromotionService.DeactivateOfferAsync(row.BonusbuyNo);
+            Snackbar.Add(message, ok ? Severity.Success : Severity.Error);
+            if (ok) await _table.ReloadServerData();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OffersPage.Deactivate", ex);
+            Snackbar.Add("Deactive khuyến mãi thất bại.", Severity.Error);
+        }
+    }
+
     private async Task SearchAsync() => await _table.ReloadServerData();
 
     private async Task ClearFilterAsync()
@@ -194,7 +245,7 @@
         _filter.PromotionName = null;
         _filter.OfferType     = null;
         _filter.ItemNo        = null;
-        _filter.Status        = "-1";
+        _filter.Status        = "0";
         await _table.ReloadServerData();
     }
 
@@ -228,6 +279,7 @@
         }
     }
 
+    // Ported from src/legacy/VCM.BLUEPOS/Controllers/PromotionController.cs:224-289 (thêm 2 cột Voucher)
     private static byte[] BuildXlsx(IReadOnlyList<OfferHeaderListItemDto> data)
     {
         using var wb = new XLWorkbook();
@@ -236,7 +288,8 @@
         string[] headers =
         [
             "Bonus Buy", "Promotion No", "Tên CTKM", "Loại CTKM", "Hình thức bán",
-            "Trạng thái", "Từ ngày", "Đến ngày", "Local Site Group", "LimitQty", "Ngày cập nhật"
+            "Trạng thái", "Từ ngày", "Đến ngày", "Voucher có giá trị từ ngày", "Voucher có giá trị đến ngày",
+            "Local Site Group", "LimitQty", "Ngày cập nhật"
         ];
         for (var c = 0; c < headers.Length; c++)
             ws.Cell(1, c + 1).Value = headers[c];
@@ -253,9 +306,11 @@
             ws.Cell(r, 6).Value = e.Status;
             ws.Cell(r, 7).Value = e.StartingDate;
             ws.Cell(r, 8).Value = e.EndingDate;
-            ws.Cell(r, 9).Value = e.LocalSiteGroup;
-            ws.Cell(r, 10).Value = e.LimitQty;
-            ws.Cell(r, 11).Value = e.LastDateModified;
+            ws.Cell(r, 9).Value = e.VoucherFromDate;
+            ws.Cell(r, 10).Value = e.VoucherToDate;
+            ws.Cell(r, 11).Value = e.LocalSiteGroup;
+            ws.Cell(r, 12).Value = e.LimitQty;
+            ws.Cell(r, 13).Value = e.LastDateModified;
             r++;
         }
 

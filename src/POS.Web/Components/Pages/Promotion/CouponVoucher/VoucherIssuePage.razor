@@ -373,10 +373,10 @@ else
     [SupplyParameterFromQuery(Name = "id")]
     private string? Id { get; set; }
 
-    // ArticleType/UnitOfMeasure/MaxAmount/LimitQty ẩn khỏi form → dùng default ngầm ("ZTRD"/"CAI"/0/0).
+    // ArticleType/UnitOfMeasure/MaxAmount/LimitQty ẩn khỏi form → dùng default ngầm ("ZVCN"/"CAI"/0/0).
     private VoucherIssueSaveRequest _model = new()
     {
-        IssueType = "Auto", DiscountType = 1, ArticleType = "ZTRD", UnitOfMeasure = "CAI", MaxAmount = 0, LimitQty = 0
+        IssueType = "Auto", DiscountType = 1, ArticleType = "ZVCN", UnitOfMeasure = "CAI", MaxAmount = 0, LimitQty = 0
     };
     private List<VoucherLineDto> _items = [];
     private DateTime? _fromDate;
@@ -428,7 +428,7 @@ else
         _model.CharOfNumber = 5;        // ẩn khỏi form — default cố định (số chữ cái)
         _model.CharPosition = 4;        // ẩn khỏi form — default cố định (vị trí đứng)
         _model.Quantity = 1;
-        _model.ArticleType = "ZTRD";    // ẩn khỏi form — default cố định
+        _model.ArticleType = "ZVCN";    // ẩn khỏi form — default cố định
         _model.UnitOfMeasure = "CAI";   // ẩn khỏi form — default cố định
         _fromDate = DateTime.Today.AddDays(1);
         _toDate = DateTime.Today.AddDays(60);
@@ -442,7 +442,7 @@ else
         _model = new VoucherIssueSaveRequest
         {
             ItemNo = d.ItemNo, Serial = d.SerialNo, ItemName = d.ItemName,
-            ArticleType = string.IsNullOrWhiteSpace(d.ArticleType) ? "ZTRD" : d.ArticleType,
+            ArticleType = string.IsNullOrWhiteSpace(d.ArticleType) ? "ZVCN" : d.ArticleType,
             UnitOfMeasure = string.IsNullOrWhiteSpace(d.UnitOfMeasure) ? "CAI" : d.UnitOfMeasure,
             DiscountType = d.DiscountType == 0 ? 1 : d.DiscountType,
             DiscountValue = d.DiscountValue, ValueOfVoucher = d.ValueOfVoucher, MaxAmount = d.MaxAmount,
@@ -452,7 +452,7 @@ else
             QuantityCodeInDB = d.QuantityCode
         };
         _quantityCodeInDb = d.QuantityCode;
-        _applyPerItem = !d.IsCheckItem;   // IsCheckItem: true = tổng bill; false = theo sản phẩm
+        _applyPerItem = d.IsCheckItem;   // IsCheckItem: true = theo sản phẩm; false = tổng bill (khớp Coupon)
         _originalBlocked = d.Blocked;
         _items = d.Items ?? [];
         _fromDate = ParseDmy(d.StartingDate);
@@ -473,8 +473,9 @@ else
 
         _model.StartingDateStr = _fromDate.Value.ToString("dd/MM/yyyy");
         _model.EndingDateStr = _toDate.Value.ToString("dd/MM/yyyy");
-        _model.IsCheckItem = !_applyPerItem;                       // NGƯỢC coupon
+        _model.IsCheckItem = _applyPerItem;                        // khớp Coupon: true = theo sản phẩm
         _model.Items = _applyPerItem ? _items : [];
+        _model.ArticleType = "ZVCN";
 
         var needCodes = string.IsNullOrWhiteSpace(_model.ItemNo) || _quantityCodeInDb == 0;
         if (needCodes && !IsAuto)

@@ -1,5 +1,17 @@
 # POS API — Claude Code Context
 
+## QUY TẮC GIAO TIẾP VÀ BÁO CÁO (BẮT BUỘC TUÂN THỦ)
+
+> Áp dụng cho **toàn bộ** tương tác, mọi task, không có ngoại lệ.
+
+1. **TRƯỚC KHI BÁO XONG**: Bắt buộc phải đưa ra kết quả cụ thể, trích xuất output, hoặc log
+   thực tế để chứng minh rằng công việc đã thực sự hoàn thành và chạy được.
+2. **CHỈ BÁO CÁO DỰA TRÊN BẰNG CHỨNG**: Chỉ thông báo những việc mà bạn có thể cung cấp bằng
+   chứng rõ ràng. Không báo cáo "đã sửa xong" nếu chỉ mới gõ code mà chưa kiểm chứng.
+3. **TRUNG THỰC KHI CHƯA VERIFY**: Nếu không thể tự verify được kết quả (do thiếu môi trường,
+   database, quyền truy cập...), HÃY NÓI THẲNG LÀ CHƯA VERIFY ĐƯỢC. Tuyệt đối không tự chẩn
+   đoán mò, không đoán bừa kết quả.
+
 ## Dự án
 POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 - Solution: `POS.slnx`
@@ -83,6 +95,7 @@ POS API trên **.NET 10** (Clean Architecture) phục vụ ~5.000 máy POS.
 | Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) | Quy trình thêm DTO vào `POS.Common` |
 | Tra quy tắc mã hóa credentials appsettings (`enc:` / `POS_SECRET_KEY`) | **`docs/architecture/appsetting.md`** | Dùng mã hóa hay plaintext (tự suy ra từ nội dung file), phạm vi áp dụng, anti-pattern |
 | Trạng thái / lịch sử POS.Web | `docs/WEB_STATUS.md`, `docs/CHANGELOG.md` | — |
+| Tra luồng nghiệp vụ module Chương trình khuyến mãi (Offer/Setup CTKM) — UI → Service → Repository → SP/bảng | **`docs/web/logic/promotion_technical_spec.md`** | Đặc tả kỹ thuật `OffersPage.razor`/`PromotionSetupPage.razor`, DTO, SP, luồng Lưu tạm/Duyệt |
 | Port chức năng từ `src/legacy/` (VCM.BLUEPOS) — tra layer cũ tương ứng layer nào ở dự án mới | **`docs/migrations/MIGRATION_MAP.md`** | Khảo sát kiến trúc cũ, convention dự án mới, bảng ánh xạ cũ→mới, danh sách điểm KHÔNG map 1-1 cần quyết định |
 | Viết file phân tích nghiệp vụ trước khi port (`FEATURE_{Name}_ANALYSIS.md`) — template + checklist | **`.claude/skills/migration/SKILLS.md`** | Template chuẩn, khi nào cần viết, checklist hoàn thành + cập nhật `docs/migrations/STATUS.md` |
 

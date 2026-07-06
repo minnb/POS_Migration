@@ -699,6 +699,41 @@ khóa/mở khóa sản phẩm — ternary theo nội dung `_confirmMsg` vì khô
 
 ---
 
+### Pattern: Modal chi tiết nhiều tab — lazy-load theo tab active (miễn phí, không cần state thủ công)
+> Áp dụng khi: dialog/modal có nhiều tab (`MudTabs`/`MudTabPanel`), mỗi tab tự load dữ liệu riêng
+> (thường mỗi tab 1 `MudTable ServerData` hoặc 1 lệnh gọi service riêng) và muốn tránh gọi hết
+> N service cùng lúc lúc mở modal (khác hành vi legacy DataTables — thường load lại TOÀN BỘ mọi
+> tab mỗi lần đổi tab, gây gọi API thừa).
+
+`MudTabs` mặc định **không giữ panel không active trong DOM** (không có `KeepPanelsAlive="true"`)
+— nghĩa là nội dung mỗi `MudTabPanel` (kể cả `MudTable ServerData` bên trong) chỉ thực sự
+**render lần đầu khi tab đó được kích hoạt**, và `ServerData` chỉ được gọi tại thời điểm đó.
+→ **Không cần tự viết `HashSet<int> _loadedTabs` hay `OnActivePanelIndexChanged` để lazy-load
+thủ công** — đặt thẳng `MudTable ServerData="LoadXxxAsync"` vào từng `MudTabPanel` là đã lazy-load
+đúng theo tab, miễn phí nhờ hành vi mặc định của framework.
+
+```razor
+<MudTabs Outlined="true" PanelClass="pa-3">
+    <MudTabPanel Text="Tab A">
+        <MudTable @ref="_tableA" ServerData="LoadAAsync" T="RowA">...</MudTable>
+    </MudTabPanel>
+    <MudTabPanel Text="Tab B">
+        <MudTable @ref="_tableB" ServerData="LoadBAsync" T="RowB">...</MudTable>
+    </MudTabPanel>
+</MudTabs>
+```
+
+- Tab đầu tiên (mặc định active khi mở dialog) **vẫn load ngay** — nếu là dữ liệu 1-record đơn
+  giản (không phải `MudTable`), gọi thẳng trong `OnInitializedAsync` thay vì đợi tab activate.
+- Quay lại tab đã xem trước đó sẽ gọi lại `ServerData` (không cache) — chấp nhận được cho modal
+  read-only tra cứu; nếu cần cache qua lại giữa các lần xem tab trong CÙNG 1 lần mở dialog, tự
+  thêm field lưu kết quả và check trước khi gọi lại.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/Dialogs/OfferDetailDialog.razor`
+> (6 tab: Header/Buy/Benefits/Get/Site/Priority — port từ legacy modal 6 tab load-tất-cả-mỗi-lần-đổi-tab).
+
+---
+
 ### Pattern: Load nhiều nguồn độc lập trong `OnInitializedAsync` — tránh crash circuit
 > Áp dụng khi: page/dialog cần load ≥2 nguồn dữ liệu ĐỘC LẬP (list chính + dropdown/lookup, hoặc
 > ≥2 dropdown/lookup không liên quan nhau — vd danh sách cửa hàng + danh sách ngân hàng + danh sách
@@ -780,6 +815,29 @@ protected override async Task OnInitializedAsync()
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/PriceSetupPage.razor` +
 > `Dialogs/PriceItemPickerDialog.razor`; repo `src/POS.Infrastructure/Repositories/Price/PriceRepository.cs`;
 > SQL `docs/sql/SetupSalePrice_Save.sql` (TVP validate + TVP save).
+
+---
+
+## Pattern: Upload ảnh → base64 + preview trong dialog (không dùng varbinary)
+> Áp dụng khi: cần lưu 1 ảnh nhỏ (≤2-5MB) đại diện cho 1 entity. Rút ra từ upload ảnh sản phẩm
+> (`ProductDetailDialog`) — dự án dùng `nvarchar(max)` base64 cho ảnh (xem tiền lệ
+> `dbo.TenderTypeImage.Image`), KHÔNG `varbinary`.
+
+- `MudFileUpload T="IBrowserFile"` (`Accept=".jpg,.jpeg,.png"`, `MaximumFileCount="1"`) →
+  `FilesChanged` validate đuôi file + `file.Size` **trước** khi đọc, không đợi Lưu mới báo lỗi.
+- Đọc `file.OpenReadStream(maxAllowedSize).CopyToAsync(ms)` → `Convert.ToBase64String(ms.ToArray())`
+  → build `data:{mime};base64,{...}` hiển thị `<MudImage>` preview **ngay trong dialog trước khi
+  Lưu** (không cần round-trip DB để xem lại).
+- **Không lưu thêm cột MIME type** — khi cần hiển thị lại ảnh đã lưu (base64 thuần, không prefix),
+  suy đoán PNG/JPEG từ magic-byte prefix của base64: PNG luôn bắt đầu `"iVBORw0KGgo"`, còn lại mặc
+  định JPEG. Đủ dùng cho 2 định dạng phổ biến, tránh migration thêm cột.
+- Lưu ảnh là **thao tác phụ, tách khỏi transaction chính**: entity chính tạo/lưu thành công trước
+  → gọi lưu ảnh sau; nếu lưu ảnh lỗi chỉ Snackbar cảnh báo + log, **không rollback** entity chính đã
+  tạo (ảnh là optional, entity không phụ thuộc ảnh để tồn tại hợp lệ).
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor`
+> (upload), `Dialogs/ProductViewDialog.razor` (hiển thị lại); bảng `dbo.ProductImage`, SQL
+> `docs/sql/ProductImage_Save.sql`.
 
 ---
 

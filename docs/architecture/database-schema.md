@@ -827,6 +827,18 @@ Counter         bigint           NULL
 Pkey            varchar(50)      NULL
 ```
 
+### ProductImage
+> Bảng mới (2026-07-06) — 1 ảnh đại diện/sản phẩm, upload từ `ProductDetailDialog.razor`
+> (`catalog/products`), mã hóa base64 (theo convention `dbo.TenderTypeImage.Image`, không
+> `varbinary`). Script: `docs/sql/ProductImage_Save.sql`. SP: `dbo.usp_ProductImage_Save` (UPSERT).
+
+PK: (ItemNo, Uom)
+```
+ItemNo         nvarchar(20)     NOT NULL
+Uom            nvarchar(10)     NOT NULL
+ImageBase64    nvarchar(max)    NOT NULL
+```
+
 ---
 
 ## Sales Price
@@ -1667,7 +1679,7 @@ CouponCode          nvarchar(50)     NOT NULL   -- = Serial (voucher)
 LimitQty            int              NOT NULL
 LastDateModified    datetime         NOT NULL
 Counter             bigint           NULL
-IsCheckItem         bit              NULL       -- 1 = tổng bill, 0 = theo sản phẩm
+IsCheckItem         bit              NULL       -- 1 = theo sản phẩm, 0 = tổng bill (Coupon & Voucher cùng nghĩa, đổi 2026-07-06)
 Pkey                varchar(50)      NULL
 IssueType           varchar(20)      NULL       -- 'Auto' | 'Import'
 MinAmount           float            NULL
@@ -1751,7 +1763,7 @@ Pkey            varchar(50)     NULL
 ```
 
 ### CpnVchBOMLine
-PK: (none) — line item áp dụng coupon (khi `IsCheckItem = 0`)
+PK: (none) — line item áp dụng coupon/voucher (khi `IsCheckItem = 1`, đổi 2026-07-06)
 ```
 ItemNo          nvarchar(20)    NOT NULL   -- FK logic → CpnVchBOMHeader.ItemNo
 LineNo          int             NOT NULL
@@ -2831,7 +2843,8 @@ Chi tiết voucher: RS1 = header từ `CpnVchBOMHeader` (map `CouponCode` → `S
 **Phát hành voucher**: upsert `CpnVchBOMHeader` (số thuần seed `70000001`, **KHÔNG** ghi
 `CpnVchBOMIssueRule`) + insert `@Codes` vào `CpnVchBOMCodeIssue` (`Source='VOUCHER'`, lần đầu điền đủ
 `Status='SOLD'`/`Value`/`VoucherType`/`Voucher_Currency='VND'`/`CompanyCode='WCM'` để POS.Api
-check/redeem) + replace `@Lines` vào `CpnVchBOMLine` khi `@IsCheckItem=0`. Serial trùng → `THROW`.
+check/redeem) + replace `@Lines` vào `CpnVchBOMLine` khi `@IsCheckItem=1` (đổi 2026-07-06, trước
+đó `=0`). Serial trùng → `THROW`.
 Script: `docs/sql/SetupVoucher_SaveIssue.sql`.
 
 ### usp_SetupVoucher_GetList
@@ -2852,7 +2865,8 @@ trong `CpnVchBOMIssueRule` (phân biệt voucher chuẩn vs coupon issue-type). 
  @Lines dbo.VoucherLineTVP READONLY, @Actor nvarchar(100))
 ```
 Upsert `CpnVchBOMHeader` (voucher chuẩn) + validate `@Serial` (CouponCode) không trùng.
-`@IsCheckItem=1` → tổng bill (không cần `@Lines`); `=0` → theo sản phẩm (`@Lines` → `CpnVchBOMLine`).
+`@IsCheckItem=1` → theo sản phẩm (`@Lines` → `CpnVchBOMLine`); `=0` → tổng bill (không cần `@Lines`).
+(Đổi 2026-07-06 — trước đó ngược nghĩa Coupon, xem `docs/sql/Voucher_FlipIsCheckItem_Migration.sql`.)
 
 ### usp_SpecialCombo_Delete
 ```

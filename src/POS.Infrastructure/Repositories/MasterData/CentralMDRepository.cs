@@ -882,6 +882,48 @@ public sealed class CentralMDRepository(
         return t;
     }
 
+    public async Task<(bool Success, string Message)> SaveProductImageAsync(
+        ProductImageDto dto, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@ItemNo", dto.ItemNo);
+        p.Add("@Uom", dto.Uom);
+        p.Add("@ImageBase64", dto.ImageBase64);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("dbo.usp_ProductImage_Save", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
+
+        return (true, "Lưu ảnh sản phẩm thành công");
+    }
+
+    public async Task<ProductDetailDto?> GetProductDetailAsync(string itemNo, CancellationToken ct = default)
+    {
+        const string sqlItem = @"
+SELECT No AS ItemNo, Description AS ItemName, LongDescription AS ItemNameFull,
+       BaseUnitOfMeasure, SalesUnitOfMeasure, ItemFamilyCode, TaxGroupCode,
+       Blocked, BlockedVINID
+FROM dbo.Item (NOLOCK)
+WHERE No = @ItemNo;";
+        var detail = await QueryFirstOrDefaultAsync<ProductDetailDto>(sqlItem, new { ItemNo = itemNo }, ct: ct);
+        if (detail is null) return null;
+
+        const string sqlBarcodes = @"
+SELECT BarcodeNo, UnitOfMeasureCode
+FROM dbo.Barcodes (NOLOCK)
+WHERE ItemNo = @ItemNo
+ORDER BY BarcodeNo;";
+        detail.Barcodes = (await QueryAsync<BarcodeRowDto>(sqlBarcodes, new { ItemNo = itemNo }, ct: ct)).ToList();
+
+        const string sqlImage = @"
+SELECT TOP 1 ImageBase64
+FROM dbo.ProductImage (NOLOCK)
+WHERE ItemNo = @ItemNo;";
+        detail.ImageBase64 = await QueryFirstOrDefaultAsync<string>(sqlImage, new { ItemNo = itemNo }, ct: ct);
+
+        return detail;
+    }
+
     // ── Product Lock — Khóa sản phẩm (migrate 6.4) ───────────────────────────
 
     public async Task<(List<ProductLockItemDto> Items, int Total)> GetProductLockListAsync(

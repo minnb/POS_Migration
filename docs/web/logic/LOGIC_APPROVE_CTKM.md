@@ -286,7 +286,7 @@ END
 | **Audit log** | `IAuditLogger.LogAsync(_actor, "APPROVE", "SetupPromotion", bbynr, null, null)` → 1 dòng trong `DashboardAuditLog` (action `APPROVE`, entity `SetupPromotion`, key = BBYNR). Chỉ ghi khi thao tác **thành công**. |
 | **Khóa UI** | Editor chuyển readonly (chip *"Đã duyệt — chỉ xem"*), nút Lưu/Duyệt biến mất. Ở màn danh sách: bảng reload, dòng chuyển trạng thái "Đã duyệt". |
 | **Publish nghiệp vụ** | Dữ liệu xuất hiện ở bảng `Offer*` → hiển thị tại [`/promotion/offers`](../../../src/POS.Web/Components/Pages/Promotion/Offers/OffersPage.razor) → **máy POS tải và áp dụng CTKM**. |
-| **Bất khả nghịch** | CTKM đã duyệt **không sửa/không hủy** được từ UI. Muốn thay đổi phải thao tác trực tiếp DB (ngoài phạm vi ứng dụng). |
+| **Bất khả nghịch (có 1 ngoại lệ)** | CTKM đã duyệt **không sửa** được từ UI (muốn sửa lại phải thao tác trực tiếp DB). Riêng việc **tắt/hủy hiệu lực** có 1 lối thoát duy nhất: nút "Deactive" tại [`/promotion/offers`](../../../src/POS.Web/Components/Pages/Promotion/Offers/OffersPage.razor) — gọi `IPromotionService.DeactivateOfferAsync` → SP `usp_OfferHeader_Deactivate` set `OfferHeader.Status = 2` (Ngưng áp dụng) + `Counter = MAX(Counter)+1` (trigger delta-sync xuống POS). Đây là thao tác **một chiều** (không có nút "kích hoạt lại" từ UI) — không sửa được dữ liệu khác của offer (Buy/Get/Site giữ nguyên). |
 
 ---
 

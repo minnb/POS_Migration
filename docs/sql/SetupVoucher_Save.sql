@@ -5,12 +5,14 @@
    Khác biệt QUAN TRỌNG so với Coupon (8.1/8.2):
      - ItemNo voucher là SỐ THUẦN, seed '70000001' (KHÔNG prefix 'C'). Sinh ItemNo mới =
        MAX(ItemNo thuần số)+1 — BỎ QUA mã coupon 'C...' để không lỗi CAST (legacy int.Parse bị lỗi này).
-     - IsCheckItem NGƯỢC nghĩa với coupon:
-         IsCheckItem = 1 → "Áp dụng tổng bill"  → KHÔNG có dòng sản phẩm.
-         IsCheckItem = 0 → "Áp dụng theo sản phẩm" → có dòng sản phẩm (replace).
+     - IsCheckItem khớp nghĩa Coupon (đổi 2026-07-06, trước đó NGƯỢC coupon):
+         IsCheckItem = 1 → "Áp dụng theo sản phẩm" → có dòng sản phẩm (replace).
+         IsCheckItem = 0 → "Áp dụng tổng bill"  → KHÔNG có dòng sản phẩm.
      - Serial (CouponCode) BẮT BUỘC duy nhất trên CpnVchBOMHeader.
    Trả 1 row (Ok bit, Message, ItemNo). Lỗi nghiệp vụ (serial trùng) → Ok=0, KHÔNG throw.
-   CHẠY 1 LẦN trên RPOSMasterData.
+   CHẠY 1 LẦN trên RPOSMasterData (ban đầu). Đổi ngữ nghĩa IsCheckItem 2026-07-06 → CHẠY LẠI
+   script này (DROP+CREATE) trên RPOSMasterData UAT/PROD SAU KHI deploy code, kèm chạy
+   docs/sql/Voucher_FlipIsCheckItem_Migration.sql để flip dữ liệu voucher đã tồn tại.
    ============================================================================ */
 USE [RPOSMasterData];
 GO
@@ -41,7 +43,7 @@ CREATE PROCEDURE dbo.usp_SetupVoucher_Save
     @ValueOfVoucher  decimal(38,20),
     @MaxAmount       decimal(38,20),
     @LimitQty        int,
-    @IsCheckItem     bit,                    -- 1 = tổng bill (no lines); 0 = theo sản phẩm
+    @IsCheckItem     bit,                    -- 1 = theo sản phẩm; 0 = tổng bill (no lines)
     @Blocked         bit,
     @StartingDate    datetime,
     @EndingDate      datetime,
@@ -57,6 +59,11 @@ BEGIN
     DECLARE @isNew bit = CASE WHEN @ItemNo IS NULL OR LTRIM(RTRIM(@ItemNo)) = '' THEN 1 ELSE 0 END;
     DECLARE @blk tinyint = CASE WHEN @Blocked = 1 THEN 1 ELSE 0 END;
 
+	IF(@LimitQty = 0)
+	BEGIN
+		SET @LimitQty = 999999999; -- Không giới hạn số lượng
+	END;
+    
     -- ── Validate serial (CouponCode) trùng ──
     IF EXISTS (SELECT 1 FROM dbo.CpnVchBOMHeader
                WHERE CouponCode = @Serial AND (@isNew = 1 OR ItemNo <> @ItemNo))
@@ -105,9 +112,9 @@ BEGIN
                  @now, @IsCheckItem, @cntHeader + 1, @ItemNo, '', 0, 0, 0);
         END
 
-        -- Lines: replace. Chỉ giữ khi áp dụng theo sản phẩm (IsCheckItem = 0).
+        -- Lines: replace. Chỉ giữ khi áp dụng theo sản phẩm (IsCheckItem = 1).
         DELETE FROM dbo.CpnVchBOMLine WHERE ItemNo = @ItemNo;
-        IF @IsCheckItem = 0 AND EXISTS (SELECT 1 FROM @Lines)
+        IF @IsCheckItem = 1 AND EXISTS (SELECT 1 FROM @Lines)
         BEGIN
             DECLARE @cntLine bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMLine);
             INSERT INTO dbo.CpnVchBOMLine
