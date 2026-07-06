@@ -37,7 +37,7 @@
         @* Xem voucher: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
         @if (!IsEditing || BlockedChanged)
         {
-            <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Disabled="_saving"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
                        OnClick="@(() => IsEditing ? SaveBlockedAsync() : SaveAsync())">
                 @if (_saving)
                 {
@@ -268,7 +268,7 @@ else
                 @if (_items.Count > 0 && !IsEditing)
                 {
                     <div class="d-flex justify-end mb-2">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                    OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
                     </div>
                 }
@@ -303,7 +303,7 @@ else
                         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
                             @if (!IsEditing)
                             {
-                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="OpenItemPickerAsync" Class="mb-3">Thêm sản phẩm</MudButton>
                             }
                             <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>

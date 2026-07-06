@@ -38,7 +38,7 @@
             <MudIcon Icon="@Icons.Material.Filled.Fastfood" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             Special Combo
         </MudText>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNewAsync">Thêm combo</MudButton>
     </div>
 
@@ -81,7 +81,7 @@
                 <MudStack Row="true" Spacing="1" Class="w-100">
                     <MudTextField @bind-Value="_filter.TextSearch" Label="Mã / Tên combo"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined" OnClick="ClearFilterAsync">Xóa</MudButton>
                 </MudStack>
             </MudItem>
@@ -232,7 +232,7 @@ else
 
         <MudTabPanel Text="Sản phẩm" Icon="@Icons.Material.Filled.ShoppingBasket">
             <div class="d-flex align-center gap-2 flex-wrap mb-3">
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                            OnClick="@(() => _lines.Add(new SpecialComboLineDto()))">Thêm dòng</MudButton>
                 <MudText Typo="Typo.caption" Class="ml-2">Gom sản phẩm theo cùng "Mã nhóm". Tối đa 1 dòng giá động.</MudText>
             </div>
@@ -317,7 +317,7 @@ else
     </MudTabs>
 
     <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
                    Disabled="_saving" OnClick="SaveAsync">Lưu</MudButton>
     </MudPaper>
 }

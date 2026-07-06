@@ -13,7 +13,7 @@ public interface IPromotionService
     Task<List<OfferHeaderListItemDto>> ExportOfferHeaderListAsync(
         OfferListFilter filter, CancellationToken ct = default);
 
-    Task<List<OptionItemDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default);
+    Task<List<OfferTypeOptionDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default);
 
     Task<List<OptionItemDto>> GetSalesOrderTypeOptionsAsync(CancellationToken ct = default);
 
@@ -35,4 +35,20 @@ public interface IPromotionService
     Task<List<OfferSiteLineDto>> GetSiteGroupOptionsAsync(CancellationToken ct = default);
 
     Task<List<OptionItemDto>> GetMemberCodeOptionsAsync(CancellationToken ct = default);
+
+    Task<(bool Ok, string Message)> SaveSiteGroupAsync(SiteGroupSaveRequest request, string actor, CancellationToken ct = default);
+
+    Task<(List<SiteGroupListItemDto> Items, int Total)> GetSiteGroupListAsync(
+        string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(
+        string groupCode, string storeNo, string storeName, CancellationToken ct = default);
+
+    Task<(bool Ok, string Message)> SaveItemGroupAsync(ItemGroupSaveRequest request, string actor, CancellationToken ct = default);
+
+    Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(
+        string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(
+        string groupCode, string itemNo, string itemName, CancellationToken ct = default);
 }

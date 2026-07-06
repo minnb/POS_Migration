@@ -21,7 +21,7 @@
         <MudIcon Icon="@Icons.Material.Filled.ConfirmationNumber" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Danh sách Coupon / Voucher
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
                OnClick="@(() => Nav.NavigateTo("/promotion/coupons/issue"))"
                Class="pos-page-header-btn">
@@ -56,7 +56,7 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>

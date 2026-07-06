@@ -592,6 +592,31 @@ Task<Tuple<bool, string>> UpdateWincodeCustomerAsync(WinLife_UpdatePromotions_PO
 Task<Tuple<bool, string>> InsertWincodeCustomerAsync(WinLife_UpdatePromotions_POS_Request request, CancellationToken ct = default)
 ```
 
+### `IPromotionRepository` (`POS.Infrastructure.Repositories.Interfaces`, impl `PromotionRepository` namespace `POS.Infrastructure.Repositories`)
+
+> Danh mục khuyến mãi (Offer Header) + "Cài đặt CTKM" (SetupPromotionHEADER/BUY/GET/SITE) — dùng bởi `OffersPage.razor` và `PromotionSetupPage.razor`.
+
+```csharp
+Task<(List<OfferHeaderListItemDto> Items, int Total)> GetOfferHeaderListAsync(OfferListFilter filter, CancellationToken ct = default)
+Task<List<OfferHeaderListItemDto>> ExportOfferHeaderListAsync(OfferListFilter filter, CancellationToken ct = default)
+Task<List<OfferTypeOptionDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default)   // cache Redis 12h — kèm cờ IsTotalBill/IsSetupBuy/IsSetupGet/IsVoucher/IsGift/UserGuide
+Task<List<OptionItemDto>> GetSalesOrderTypeOptionsAsync(CancellationToken ct = default)    // cache Redis 12h
+Task<(List<PromotionSetupListItemDto> Items, int Total)> GetSetupListAsync(PromotionSetupListFilter filter, CancellationToken ct = default)
+Task<PromotionSetupDetailDto?> GetSetupDetailAsync(string bbynr, CancellationToken ct = default)
+Task<(bool Ok, string Message, string BBYNR)> SaveSetupAsync(PromotionSetupSaveRequest request, CancellationToken ct = default)   // SP usp_SaveSetupCTKMAll
+Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, CancellationToken ct = default)   // SP usp_SetupPromotion_Approve
+Task<bool> UpdateSetupStatusAsync(string bbynr, string status, CancellationToken ct = default)
+Task<List<ItemOptionDto>> SearchItemsAsync(string keyword, CancellationToken ct = default)
+Task<List<OfferSiteLineDto>> GetSiteGroupOptionsAsync(CancellationToken ct = default)      // cache Redis 12h, key MD:SiteGroupOptions
+Task<List<OptionItemDto>> GetMemberCodeOptionsAsync(CancellationToken ct = default)        // cache Redis 12h
+Task<(bool Ok, string Message)> SaveSiteGroupAsync(SiteGroupSaveRequest request, string actor, CancellationToken ct = default)   // SP usp_SetupGroupSite_Save, invalidate cache SiteGroupOptions
+Task<(List<SiteGroupListItemDto> Items, int Total)> GetSiteGroupListAsync(string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(string groupCode, string storeNo, string storeName, CancellationToken ct = default)
+Task<(bool Ok, string Message)> SaveItemGroupAsync(ItemGroupSaveRequest request, string actor, CancellationToken ct = default)   // SP usp_SetupGroupItem_Save
+Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(string groupCode, string itemNo, string itemName, CancellationToken ct = default)
+```
+
 ---
 
 ## MỤC E — Service & AppService: method signatures
@@ -685,6 +710,29 @@ Task<List<PathFileAPIModel>> DownloadFileUpgradeToolShareFolderAsync(string ipSe
 Task DeleteFileExistAsync(List<PathFileAPIModel> model, string ipServerHost)
 Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)  // POS.Web nút SyncData: sinh zip full-data ALL vào {FtpRootPath}\SyncDataPos\POS\CHANGE\{site}\{terminal} (MapFtpPath, bám controller); delegate IMasterDataSyncService.EnsureMasterDataFileAsync (không đổi logic sinh file)
 string ResolveFtpPhysicalPath(string? posPath)  // UNC POS gửi (\\ip\FTPBLUEPOS\...) → physical path local dưới FtpRootPath; dùng chung DowloadFileStream + DeleteFileFromFTP
+```
+
+#### `IPromotionService` (`POS.Application.Features.Promotion`) — thin wrapper, delegate xuống `IPromotionRepository` (Mục D)
+
+```csharp
+Task<(List<OfferHeaderListItemDto> Items, int Total)> GetOfferHeaderListAsync(OfferListFilter filter, CancellationToken ct = default)
+Task<List<OfferHeaderListItemDto>> ExportOfferHeaderListAsync(OfferListFilter filter, CancellationToken ct = default)
+Task<List<OfferTypeOptionDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default)
+Task<List<OptionItemDto>> GetSalesOrderTypeOptionsAsync(CancellationToken ct = default)
+Task<(List<PromotionSetupListItemDto> Items, int Total)> GetSetupListAsync(PromotionSetupListFilter filter, CancellationToken ct = default)
+Task<PromotionSetupDetailDto?> GetSetupDetailAsync(string bbynr, CancellationToken ct = default)
+Task<(bool Ok, string Message, string BBYNR)> SaveSetupAsync(PromotionSetupSaveRequest request, CancellationToken ct = default)
+Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, CancellationToken ct = default)
+Task<bool> UpdateSetupStatusAsync(string bbynr, string status, CancellationToken ct = default)
+Task<List<ItemOptionDto>> SearchItemsAsync(string keyword, CancellationToken ct = default)
+Task<List<OfferSiteLineDto>> GetSiteGroupOptionsAsync(CancellationToken ct = default)
+Task<List<OptionItemDto>> GetMemberCodeOptionsAsync(CancellationToken ct = default)
+Task<(bool Ok, string Message)> SaveSiteGroupAsync(SiteGroupSaveRequest request, string actor, CancellationToken ct = default)
+Task<(List<SiteGroupListItemDto> Items, int Total)> GetSiteGroupListAsync(string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(string groupCode, string storeNo, string storeName, CancellationToken ct = default)
+Task<(bool Ok, string Message)> SaveItemGroupAsync(ItemGroupSaveRequest request, string actor, CancellationToken ct = default)
+Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(string groupCode, string itemNo, string itemName, CancellationToken ct = default)
 ```
 
 #### `IHealthCheckService` (`POS.Application.Interfaces`)
@@ -928,6 +976,28 @@ File này chứa nhiều model dùng cho CommonController:
 | `DataJsonDto` | DataJsonDto.cs | JSON data payload |
 | `DataRawJsonDto` | DataRawJsonDto.cs | Raw JSON data từ POS |
 | `StagingDBConfigDto` | StagingDBConfigDto.cs | StagingDB config |
+
+### POS.Common.Dtos.Promotion (PromotionSetupDto.cs — "Cài đặt CTKM")
+
+| Class | Các field chính |
+|-------|----------------|
+| `PromotionSetupListItemDto` | No, Description, OfferType, SalesType, Status, ValidFrom, ValidTo, IsApprove, Total |
+| `PromotionSetupHeaderDto` | No, Description, SalesType, OfferType, Status, StartingDate, EndingDate, IsVoucher, IsApprove, ConditionBuy, ConditionGet, LimitQty, MemberOnly, MemberCode, PriorityBBY, NumOfDays, VoucherFromDate/ToDate, VoucherValidDay, VoucherLimitNumber, AllowUseAfterDay, AllowUseAfterTime, FromTime, ToTime, Mon..Sun (bool), MinValue, CheckTotalDiscount, TotalDiscountType, TotalDiscountValue |
+| `OfferTypeOptionDto` | Value, Text, IsTotalBill, IsSetupBuy, IsSetupGet, IsVoucher, IsGift, UserGuide — option Loại CTKM kèm cờ điều khiển UI |
+| `IOfferLineItem` (interface) | LineType, No, GroupCode, Description, UnitOfMeasure |
+| `OfferBuyLineDto : IOfferLineItem` | + Quantity, ScaleType |
+| `OfferGetLineDto : IOfferLineItem` | + Quantity, ScaleType, DiscountType, DiscountValue |
+| `OfferSiteLineDto` | SiteGroupCode, GroupName |
+| `PromotionSetupSaveRequest` | Header, BuyRows, GetRows, SiteGroupCodes |
+| `PromotionSetupDetailDto` | Header, BuyRows, GetRows, SiteRows |
+| `PromotionSetupListFilter` | OfferNo, OfferName, ApproveStatus, PageNumber, PageSize |
+| `ItemOptionDto` | No, Description, Uom |
+| `SiteGroupSaveRequest` | GroupCode, GroupName, StoreListRaw |
+| `SiteGroupListItemDto` | GroupCode, GroupName, StoreCount (-1=ALL), Status, LastUpdateDate, Total |
+| `SiteGroupStoreItemDto` | StoreNo, StoreName |
+| `ItemGroupSaveRequest` | GroupCode, GroupName, ItemNos (List<string>) |
+| `ItemGroupListItemDto` | GroupCode, GroupName, ItemCount, Status, LastUpdateDate, Total |
+| `ItemGroupItemDto` | No, Description, Uom |
 
 ### POS.Common.Dtos.Ops
 

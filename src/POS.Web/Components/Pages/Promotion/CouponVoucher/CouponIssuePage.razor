@@ -36,7 +36,7 @@
                    OnClick="@(() => Nav.NavigateTo("/promotion/coupons"))">Danh sách</MudButton>
         @if (!IsViewMode)
         {
-            <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Disabled="_saving" OnClick="SaveAsync">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving" OnClick="SaveAsync">
                 @if (_saving)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
@@ -253,7 +253,7 @@ else
             @if (_items.Count > 0 && !IsViewMode)
             {
                 <div class="d-flex justify-end mb-2">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
                 </div>
             }
@@ -285,7 +285,7 @@ else
                     <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
                         @if (!IsViewMode)
                         {
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                        OnClick="OpenItemPickerAsync" Class="mb-3">Thêm sản phẩm</MudButton>
                         }
                         <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>

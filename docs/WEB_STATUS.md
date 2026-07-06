@@ -1,5 +1,74 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-05 (BusinessDayPage `/store/business-day` — 4 điều chỉnh: (1) FIX crash
+> Cập nhật: 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
+> (1) **Typography pixel-perfect**: `PosTheme.cs` (`Default.LineHeight` 1.45→1.5, `Button.FontSize`
+> thêm 12px + bỏ letter-spacing thừa, `Body1.FontSize` 12px→12.5px), `app.css` (sidebar L1/L2 size,
+> `.mud-table-body .mud-table-cell` 12.5px mới, `.mud-input-label-inputcontrol` uppercase/bold mới,
+> xóa dead-code line-height mobile-only), 4 class mới `.pos-kpi-value/.pos-kpi-label/.pos-card-title/
+> .pos-section-label` áp mẫu trên `RevenueByStorePage.razor`/`ShiftSummaryPage.razor` (CHƯA rollout
+> 80 file còn lại). (2) **Topbar**: bỏ `Dense="true"` trên `MudAppBar`, thêm
+> `LayoutProperties.AppbarHeight="50px"` khớp mockup; thay title tĩnh "RPOS Dashboard" bằng
+> breadcrumb động (`BreadcrumbMap` 43 route, copy đúng text sidebar). Xác nhận rõ: mockup topbar
+> KHÔNG có User Profile/Notification (chỉ có ở sidebar-footer) nên không map gì thêm vào đó. Cập
+> nhật `.claude/rules/mudblazor-flat-ui.md` (mục 11, 11.1 checklist), `.claude/skills/web/SKILLS.md`
+> (pattern Breadcrumb động). Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests`
+> 25/25. Chưa xác nhận trực quan trên browser thật (chưa `dotnet run` để đo bằng DevTools). Chi
+> tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-06 (PromotionSetupPage `/promotion/setup` — hoàn thiện phần bị hoãn của task
+> trước: modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get chọn Loại = "Nhóm SP" (LineType=1). Đọc
+> trực tiếp `_ViewSetupGroupItemBuy/Get.cshtml`, `_ViewDataBuyGroupItem/GetGroupItem.cshtml` legacy
+> — xác nhận bảng `dbo.SetupGroupItem` đã tồn tại thật trong `src/legacy/Database/CentralMD.sql`
+> (chưa có tài liệu ở `database-schema.md`, chưa có SP nào). Port theo đúng khuôn mẫu "Site Group"
+> đã làm đợt trước: dialog mới `ItemGroupSetupDialog.razor` (2 sub-tab: "Cài đặt nhóm sản phẩm" —
+> tạo mới, tìm sản phẩm qua autocomplete, ĐVT hiển thị read-only vì cột DB không lưu UOM; "Danh
+> sách nhóm sản phẩm" — filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng đang sửa, phục
+> hồi tính năng đang bị `display:none` ẩn khỏi UI của legacy). Giữ nguyên 2 hạn chế legacy theo
+> quyết định người dùng: (1) `ListItemNo` chỉ lưu `List<string>` ItemNo, không lưu UOM; (2) nhóm
+> đã tồn tại chỉ sửa được Tên, không ghi đè lại danh sách sản phẩm. Khác legacy: lưu DB ngay khi
+> bấm "Lưu" trong dialog (không qua sessionStorage) — nhất quán với Site Group. SP mới
+> `usp_SetupGroupItem_Save` (`docs/sql/SetupGroupItem_Save.sql`) — **chưa chạy trên DB thật**, cần
+> chạy tay trên `RPOSMasterData` (DEV trước) trước khi test UI. Verify: `dotnet build` 0 lỗi,
+> `dotnet test tests/POS.ContractTests` 25/25. Chi tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-05 (PromotionSetupPage `/promotion/setup` — chuyển đổi lại form "Cài đặt CTKM"
+> khớp 100% ô nhập liệu legacy `src/legacy/VCM.BLUEPOS/Views/SetupPromotion/*.cshtml` (đọc trực
+> tiếp HTML gốc, không chỉ ảnh mockup). Thay đổi chính: (1) tách field header (Tên/Loại CTKM/Hình
+> thức bán/Trạng thái/Voucher/Từ-Đến ngày) ra khối `MudPaper` cố định NGOÀI 4 tab; (2) tab "Thông
+> tin chung" đổi thành bảng tóm tắt lịch áp dụng (Từ giờ/Đến giờ + Mon-Sun checkbox, field mới
+> `FromTime/ToTime/Mon..Sun` — cột DB `TIMEFROM/TIMETO/MON..SUN` trước đây SP hard-code rỗng); (3)
+> tab "Sản phẩm mua" thêm toolbar bulk-add "Số lượng dòng" + "Giá trị tổng tiền tối thiểu"
+> (`MinValue`, enable theo cờ `IsTotalBill` của OfferType — không phải checkbox tự do, khớp hành
+> vi legacy khoá cứng checkbox) + cột "Điều kiện áp dụng" (ScaleType A/B/C); (4) tab "Sản phẩm
+> khuyến mãi" thêm checkbox "Giảm giá tổng bill" (`CheckTotalDiscount`/`TotalDiscountType`/
+> `TotalDiscountValue`) loại trừ với bảng dòng Get (confirm xoá khi bật); (5) tab "Cửa hàng áp
+> dụng" thêm nút "Chọn nhóm CH/ST" mở dialog mới `SiteGroupSetupDialog.razor` (2 sub-tab: tạo mới
+> nhóm + danh sách nhóm có filter/phân trang/xem chi tiết store/chọn gắn vào CTKM); (6) tab "Cài
+> đặt nâng cao" thêm `AllowUseAfterDay`/`AllowUseAfterTime` (voucher delay), đổi `MemberCode` từ
+> `MudSelect` sang `MudAutocomplete` (gõ tự do + gợi ý, khớp bản chất text-input của legacy). SP
+> `usp_SaveSetupCTKMAll` sửa thêm tham số (KHÔNG ALTER TABLE — cột đã có sẵn), SP mới
+> `usp_SetupGroupSite_Save` — 2 script `.sql` cần chạy tay trên `RPOSMasterData` (DEV trước) TRƯỚC
+> khi test UI, chưa chạy tự động. Ngoài phạm vi đợt này (hoãn task riêng): modal "CÀI ĐẶT NHÓM SẢN
+> PHẨM" (định nghĩa item cụ thể trong group cho dòng Buy/Get "Theo nhóm"). Verify: `dotnet build`
+> 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25. Chưa xác nhận trực quan trên browser thật (SP
+> chưa chạy trên DB thật) — cần chạy 2 script SQL rồi tự kiểm tra UI. Chi tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-05 (MudBlazor Theme Standard v3 — chuyển toàn bộ theme sang ngôn ngữ thiết kế
+> mockup `docs/web/theme/theme_html.html` (tham chiếu, KHÔNG port UI nghiệp vụ ngân sách của mockup).
+> `PosTheme.cs`: đổi toàn bộ Palette (Primary `#2660A4`/Secondary `#4A6070`/Tertiary `#6040A8`/
+> Success `#1F7A4A`/Error `#B52B27`/Warning `#D4860A`/Info `#3D8FD9`, sidebar `DrawerBackground
+> #0D1B2A`), `DefaultBorderRadius` 16px→12px, `Shadows.Elevation[2-5]` từ "none" sang shadow thật.
+> `MainLayout.razor` + `app.css`: sidebar navy đậm 3 cấp (L1 in hoa không icon, L2 icon riêng từng
+> nhóm, L3 `ChevronRight` đồng nhất), sidebar-footer (avatar initials + tên/role/logout, dời khỏi
+> AppBar), table header uppercase/muted, filter panel trắng+border. Quy ước `MudButton` đảo ngược:
+> Filled/Primary cho CTA (Lưu/Thêm mới/Tìm), Filled/Success cho hành động chốt luồng (Duyệt),
+> Outlined/Error cho phá hủy (Xóa), Outlined không màu cho trung tính (Hủy/Đóng) — rollout đủ 59
+> file/5 cụm menu. **Font audit bổ sung cùng ngày**: phát hiện `Typography.Default.FontFamily`
+> KHÔNG cascade xuống các variant khác (H1-H6/Subtitle/Body/Caption/Overline/Button đều có CSS
+> variable riêng trong MudBlazor) — set `FontFamily=["Segoe UI","system-ui","sans-serif"]` tường
+> minh trên TỪNG variant trong `PosTheme.cs`; `Default.FontSize` 14px→13px, `Body1` 12px (input),
+> `.pos-table` 14px→13px (app.css); gỡ Google Fonts Roboto `<link>` khỏi `App.razor` (không còn
+> cần). Đã cập nhật `CLAUDE.md §14`, `.claude/rules/mudblazor-flat-ui.md` (v3), `.claude/skills/
+> web/SKILLS.md` (pattern per-variant FontFamily + MudMessageBox YesButton). Verify: `dotnet build`
+> 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25. Chưa xác nhận trực quan trên browser thật —
+> cần tự chạy app kiểm tra. Chi tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-05 (BusinessDayPage `/store/business-day` — 4 điều chỉnh: (1) FIX crash
 > "duplicate key" khi tìm kiếm — SP `GetSalesEODConfirm` trả cột tên legacy (`TerminalID`,
 > `AmountTotal`…) ≠ property DTO → Dapper để trống `PosTerminal`, thêm class trung gian
 > `SalesEodConfirmRow` + `CommandType.StoredProcedure` map tường minh trong `CentralSaleRepository`;
@@ -114,9 +183,10 @@ src/POS.Web/
 │       │       └── Dialogs/ (PriceItemPickerDialog — tìm & chọn SP thêm dòng)
 │       ├── Promotion/
 │       │   ├── Offers/
-│       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (editor 5 tab; UI polish MudCard+tooltip+validation trực quan)
+│       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (header cố định ngoài 4 tab: Thông tin chung=bảng lịch giờ/Mon-Sun, Sản phẩm mua/khuyến mãi=bulk-add+ScaleType+MinValue/TotalDiscount, Cửa hàng áp dụng, Cài đặt nâng cao=voucher delay+MemberCode autocomplete — khớp 100% field legacy SetupMain.cshtml)
 │       │   │   ├── SpecialComboPage.razor      ← /promotion/special-combo — Special Combo
-│       │   │   └── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live)
+│       │   │   ├── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live)
+│       │   │   └── Dialogs/ (SiteGroupSetupDialog — modal "Cài đặt nhóm cửa hàng": tạo mới nhóm CH/ST + danh sách filter/phân trang/xem chi tiết store/chọn gắn vào CTKM; ItemGroupSetupDialog — modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get "Nhóm SP": tạo mới nhóm + danh sách filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng)
 │       │   └── CouponVoucher/
 │       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list+xóa / phát hành Auto·Import — 1 form gộp đủ field, không qua dialog nâng cao)
 │       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export)

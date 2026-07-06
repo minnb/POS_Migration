@@ -298,6 +298,22 @@ LastUpdateDate   datetime        NULL
 Status           bit             NULL
 ```
 
+### SetupGroupItem
+PK: `ID` identity (`PK_BuyGroupItem` — tên constraint tàn tích từ thời đặt tên trước khi đổi tên
+bảng, giữ nguyên không đổi). Bảng song sinh với `SetupGroupSite` — nhóm sản phẩm cụ thể dùng cho
+dòng Buy/Get "Theo nhóm" (`SetupPromotionBUY/GET.BonusBuyNo` = `GroupCode`).
+```
+ID               int             NOT NULL IDENTITY
+GroupCode        varchar(50)     NULL
+GroupName        nvarchar(250)   NULL
+ListItemNo       varchar(max)    NULL     -- JSON array List<string> ItemNo — KHÔNG lưu UOM (hạn chế legacy giữ nguyên)
+CreatedUser      varchar(50)     NULL
+CreatedDate      datetime        NULL
+LastUpdateUser   varchar(50)     NULL
+LastUpdateDate   datetime        NULL
+Status           bit             NULL
+```
+
 ---
 
 ## POS Terminal & Device
@@ -2654,12 +2670,34 @@ SP1 trong luồng Sync Master Data — trả metadata các bảng cần đồng 
  @VoucherFrom nvarchar(8)='', @VoucherTo nvarchar(8)='',
  @VoucherValidDay nvarchar(10)='0', @VoucherLimitNumber nvarchar(10)='0',
  @Buy dbo.SetupPromotionBuyTVP READONLY, @Get dbo.SetupPromotionGetTVP READONLY,
- @Site dbo.SetupPromotionSiteTVP READONLY)
+ @Site dbo.SetupPromotionSiteTVP READONLY,
+ -- Bản sửa lần 2 (2026-07-05) — tham số mới, cột DB đã có sẵn (không ALTER TABLE):
+ @FromTime nvarchar(10)='', @ToTime nvarchar(10)='',
+ @Mon nvarchar(5)='', @Tue nvarchar(5)='', @Wed nvarchar(5)='', @Thu nvarchar(5)='',
+ @Fri nvarchar(5)='', @Sat nvarchar(5)='', @Sun nvarchar(5)='',
+ @MinValue nvarchar(50)='0',
+ @CheckTotalDiscount nvarchar(5)='', @TotalDiscountType nvarchar(10)='0', @TotalDiscountValue nvarchar(50)='0',
+ @AllowUseAfterDay nvarchar(10)='0', @AllowUseAfterTime nvarchar(10)='')
 ```
 Upsert đầy đủ 1 CTKM (`SetupPromotionHEADER` + replace `BUY`/`GET`/`SITE`) trong 1 transaction.
 Auto-gen `BBYNR` khi tạo mới (bắt đầu `6000000001`, `UPDLOCK`/`HOLDLOCK` chống trùng). Chặn sửa
 khi CTKM đã `IsApprove = 1`. **Tham số TVP `dbo.SetupPromotionBuyTVP`/`GetTVP`/`SiteTVP` không
 định nghĩa trong `CentralMD.sql`** — cần tra script tạo Table Type riêng khi porting.
+
+**Cập nhật 2026-07-05**: các cột `TIMEFROM/TIMETO/MON..SUN/MINVALUE/TOTALDISCOUNT/
+TOTALDISCOUNTTYPE/TOTALDISCOUNTVALUE/ZVCDAY_AFTER/ZVCTIME_AFTER` trên `SetupPromotionHEADER`
+(đã có sẵn cột vật lý — xem mục "SetupPromotionHEADER" bên trên) **nay được SP ghi/đọc thật**
+(trước đó SP hard-code rỗng hoặc bỏ qua hoàn toàn) — khớp form "Cài đặt CTKM" đầy đủ field legacy.
+Script cập nhật: `docs/sql/SetupPromotion_Save.sql`. SP mới `usp_SetupGroupSite_Save` (upsert
+`SetupGroupSite` theo `GroupCode`, sinh `ID` qua `UPDLOCK/HOLDLOCK`) — script `docs/sql/
+SetupGroupSite_Save.sql`. Cả 2 script **chưa chạy trên DB thật** — cần chạy tay trên
+`RPOSMasterData` (DEV trước khi UAT/PROD).
+
+**Cập nhật 2026-07-06**: SP mới `usp_SetupGroupItem_Save` (upsert `SetupGroupItem` theo
+`GroupCode` — mirror `usp_SetupGroupSite_Save`; nhóm đã tồn tại chỉ sửa `GroupName`, KHÔNG ghi đè
+`ListItemNo` — khớp hạn chế legacy `SetupGroupBuyItem`) — script `docs/sql/SetupGroupItem_Save.sql`,
+**chưa chạy trên DB thật** — cần chạy tay trên `RPOSMasterData` (DEV trước). Dùng bởi modal "Cài
+đặt nhóm sản phẩm" khi dòng Buy/Get chọn Loại = "Nhóm SP".
 
 ### usp_SetupCoupon_CheckCodesExist
 ```

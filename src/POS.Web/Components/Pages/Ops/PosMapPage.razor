@@ -36,7 +36,7 @@
             <MudSelectItem Value="120">120 giây</MudSelectItem>
             <MudSelectItem Value="300">5 phút</MudSelectItem>
         </MudSelect>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="LoadDataAsync" Disabled="_loading"
                    Style="align-self:center; white-space:nowrap">
@@ -145,7 +145,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Sync">Đẩy dữ liệu</MudButton>
     </YesButton>
 </MudMessageBox>

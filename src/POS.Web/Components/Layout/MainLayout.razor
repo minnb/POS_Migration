@@ -12,48 +12,45 @@
 <MudSnackbarProvider/>
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Default" Dense="true">
+    <MudAppBar Elevation="1" Color="Color.Default">
         <MudIconButton Icon="@Icons.Material.Outlined.Menu" Color="Color.Inherit"
                        Edge="Edge.Start" OnClick="@(() => _drawerOpen = !_drawerOpen)"/>
-        <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">RPOS Dashboard</MudText>
+        @if (!string.IsNullOrEmpty(_breadcrumbLabel))
+        {
+            <MudText Typo="Typo.body2" Class="ml-3 pos-breadcrumb d-none d-sm-flex">
+                <strong>@_breadcrumbSection</strong>&nbsp;/&nbsp;@_breadcrumbLabel
+            </MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6" Class="ml-3 d-none d-sm-flex">RPOS Dashboard</MudText>
+        }
         <MudSpacer/>
-        <AuthorizeView>
-            <Authorized>
-                <MudText Class="mr-2" Typo="Typo.body2">
-                    @context.User.Identity?.Name
-                </MudText>
-                <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Class="mr-3">
-                    @context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
-                </MudChip>
-                <MudIconButton Icon="@Icons.Material.Outlined.Logout"
-                               Color="Color.Inherit" Href="/logout" title="Đăng xuất"/>
-            </Authorized>
-        </AuthorizeView>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Always">
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always">
         <div class="pos-sidebar-brand">
-            <MudAvatar Color="Color.Primary" Size="Size.Small">P</MudAvatar>
-            <MudText Typo="Typo.subtitle1" Class="pos-sidebar-brand-text">RPOS</MudText>
+            <div class="pos-sidebar-brand-name">RPOS</div>
+            <div class="pos-sidebar-brand-sub">Quản lý bán hàng</div>
         </div>
         <MudNavMenu Margin="Margin.Dense">
 
             <AuthorizeView Policy="@WebPolicies.StoreAndAbove">
-                <MudNavGroup Title="Cửa hàng" Icon="@Icons.Material.Outlined.Store" HideExpandIcon="true" @bind-Expanded="_expandStore">
+                <MudNavGroup Title="CỬA HÀNG" HideExpandIcon="true" @bind-Expanded="_expandStore">
 
-                    <MudNavGroup Title="Vận hành" @bind-Expanded="_expandStoreOps">
+                    <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Outlined.Schedule" @bind-Expanded="_expandStoreOps">
                         <MudNavLink Href="/store/business-day" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Xác nhận kết thúc ngày</MudNavLink>
                         <MudNavLink Href="/store/eos-shifts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Kết thúc ca</MudNavLink>
                         <MudNavLink Href="/store/shift-summary" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Tổng kết ca</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Giao dịch" @bind-Expanded="_expandStoreTx">
+                    <MudNavGroup Title="Giao dịch" Icon="@Icons.Material.Outlined.ReceiptLong" @bind-Expanded="_expandStoreTx">
                         <MudNavLink Href="/store/transactions" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh sách giao dịch</MudNavLink>
                         <MudNavLink Href="/store/refunds" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Hoàn trả</MudNavLink>
                         <MudNavLink Href="/store/voids" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Lịch sử hủy giao dịch</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Báo cáo" @bind-Expanded="_expandStoreReport">
+                    <MudNavGroup Title="Báo cáo" Icon="@Icons.Material.Outlined.Assessment" @bind-Expanded="_expandStoreReport">
                         <MudNavLink Href="/store/revenue" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Tổng hợp doanh thu</MudNavLink>
                         <MudNavLink Href="/store/revenue-by-staff" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo nhân viên</MudNavLink>
                         <MudNavLink Href="/store/revenue-by-store" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Theo cửa hàng</MudNavLink>
@@ -69,15 +66,15 @@
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Danh mục" Icon="@Icons.Material.Outlined.Inventory2" HideExpandIcon="true" @bind-Expanded="_expandCatalog">
+                <MudNavGroup Title="DANH MỤC" HideExpandIcon="true" @bind-Expanded="_expandCatalog">
 
-                    <MudNavGroup Title="Tổ chức" @bind-Expanded="_expandCatOrg">
+                    <MudNavGroup Title="Tổ chức" Icon="@Icons.Material.Outlined.Groups" @bind-Expanded="_expandCatOrg">
                         <MudNavLink Href="/catalog/employees" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhân viên</MudNavLink>
                         <MudNavLink Href="/catalog/stores" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cửa hàng</MudNavLink>
                         <MudNavLink Href="/catalog/provinces" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Chi nhánh</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Thiết bị POS" @bind-Expanded="_expandCatPos">
+                    <MudNavGroup Title="Thiết bị POS" Icon="@Icons.Material.Outlined.PointOfSale" @bind-Expanded="_expandCatPos">
                         <MudNavLink Href="/catalog/pos-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POSTerminal</MudNavLink>
                         <MudNavLink Href="/catalog/bank-pos" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS bank</MudNavLink>
                         <!--
@@ -100,7 +97,7 @@
                         <MudNavLink Href="/catalog/image-sliders" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Ảnh slider</MudNavLink>
                     </MudNavGroup>
                         -->
-                    <MudNavGroup Title="Sản phẩm" @bind-Expanded="_expandCatProduct">
+                    <MudNavGroup Title="Sản phẩm" Icon="@Icons.Material.Outlined.Inventory2" @bind-Expanded="_expandCatProduct">
                         <MudNavLink Href="/catalog/products" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh sách</MudNavLink>
                         <MudNavLink Href="/catalog/product-lock" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Khóa sản phẩm</MudNavLink>
                         <!--
@@ -111,7 +108,7 @@
                         -->
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Giá bán" @bind-Expanded="_expandCatPrice">
+                    <MudNavGroup Title="Giá bán" Icon="@Icons.Material.Outlined.Sell" @bind-Expanded="_expandCatPrice">
                         <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Bảng giá</MudNavLink>
                         <MudNavLink Href="/catalog/price-declare" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt giá</MudNavLink>
                         @* Ẩn menu "Setup giá (Bulk Import)" (route /catalog/price-setup) — route vẫn còn, chỉ ẩn khỏi menu
@@ -123,15 +120,15 @@
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Khuyến mãi" Icon="@Icons.Material.Outlined.LocalOffer" HideExpandIcon="true" @bind-Expanded="_expandPromotion">
+                <MudNavGroup Title="KHUYẾN MÃI" HideExpandIcon="true" @bind-Expanded="_expandPromotion">
 
-                    <MudNavGroup Title="Chương trình KM" @bind-Expanded="_expandPromoOffer">
+                    <MudNavGroup Title="Chương trình KM" Icon="@Icons.Material.Outlined.Campaign" @bind-Expanded="_expandPromoOffer">
                         <MudNavLink Href="/promotion/offers" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục</MudNavLink>
                         <MudNavLink Href="/promotion/setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt CTKM</MudNavLink>
                         <MudNavLink Href="/promotion/special-combo" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Special Combo</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Coupon & Voucher" @bind-Expanded="_expandPromoCoupon">
+                    <MudNavGroup Title="Coupon & Voucher" Icon="@Icons.Material.Outlined.ConfirmationNumber" @bind-Expanded="_expandPromoCoupon">
                         <MudNavLink Href="/promotion/coupons" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Coupon</MudNavLink>
                         <MudNavLink Href="/promotion/vouchers" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Voucher</MudNavLink>
                         <MudNavLink Href="/promotion/vouchers-published" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Voucher theo hóa đơn</MudNavLink>
@@ -141,21 +138,21 @@
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
-                <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Outlined.MonitorHeart" HideExpandIcon="true" @bind-Expanded="_expandOps">
+                <MudNavGroup Title="VẬN HÀNH" HideExpandIcon="true" @bind-Expanded="_expandOps">
 
-                    <MudNavGroup Title="Giám sát" @bind-Expanded="_expandOpsMonitor">
+                    <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Outlined.MonitorHeart" @bind-Expanded="_expandOpsMonitor">
                         <MudNavLink Href="/ops/health" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
                         <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
                         <MudNavLink Href="/ops/queues" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Queue monitor</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Nhật ký" @bind-Expanded="_expandOpsLog">
+                    <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Outlined.Article" @bind-Expanded="_expandOpsLog">
                         <MudNavLink Href="/ops/logs" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Interface Error</MudNavLink>
                         <MudNavLink Href="/ops/data-raw-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">DataRawJson Log</MudNavLink>
                         <MudNavLink Href="/ops/activity-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhật ký thao tác</MudNavLink>
                     </MudNavGroup>
 
-                    <MudNavGroup Title="Cấu hình" @bind-Expanded="_expandOpsConfig">
+                    <MudNavGroup Title="Cấu hình" Icon="@Icons.Material.Outlined.Tune" @bind-Expanded="_expandOpsConfig">
                         <MudNavLink Href="/ops/pos-data-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS Data Setup</MudNavLink>
                     </MudNavGroup>
 
@@ -163,7 +160,7 @@
             </AuthorizeView>
             
             <AuthorizeView Policy="@WebPolicies.AdminOnly">
-                <MudNavGroup Title="Quản trị" Icon="@Icons.Material.Outlined.AdminPanelSettings" HideExpandIcon="true" @bind-Expanded="_expandAdmin">
+                <MudNavGroup Title="QUẢN TRỊ" HideExpandIcon="true" @bind-Expanded="_expandAdmin">
                     <MudNavLink Href="/admin/users" Match="NavLinkMatch.All"
                                 Icon="@Icons.Material.Outlined.People">Users</MudNavLink>
                     <MudNavLink Href="/admin/roles" Match="NavLinkMatch.All"
@@ -180,6 +177,22 @@
             </AuthorizeView>
 
         </MudNavMenu>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="pos-sidebar-footer">
+                    <div class="pos-sidebar-user-avatar">@GetInitials(context.User.Identity?.Name)</div>
+                    <div class="pos-sidebar-user-info">
+                        <div class="pos-sidebar-user-name">@context.User.Identity?.Name</div>
+                        <div class="pos-sidebar-user-role">
+                            @context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                        </div>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Outlined.Logout" Size="Size.Small"
+                                   Class="pos-sidebar-logout" Href="/logout" title="Đăng xuất"/>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </MudDrawer>
 
     <MudMainContent>
@@ -212,9 +225,80 @@
     private bool _expandPromoCoupon;
     private bool _expandAdmin;
 
+    private string _breadcrumbSection = "";
+    private string _breadcrumbLabel = "";
+
+    // Nguồn: copy đúng Title (L1)/text (leaf) đã có trong MudNavMenu bên dưới — không tự đặt tên
+    // mới. Route nào không có trong map (vd "/", "/access-denied") → breadcrumb rỗng, AppBar rơi
+    // về fallback "RPOS Dashboard" tĩnh (xem markup AppBar phía trên).
+    private static readonly Dictionary<string, (string Section, string Label)> BreadcrumbMap = new()
+    {
+        // CỬA HÀNG / Vận hành
+        ["/store/business-day"]     = ("CỬA HÀNG", "Xác nhận kết thúc ngày"),
+        ["/store/eos-shifts"]       = ("CỬA HÀNG", "Kết thúc ca"),
+        ["/store/shift-summary"]    = ("CỬA HÀNG", "Tổng kết ca"),
+        // CỬA HÀNG / Giao dịch
+        ["/store/transactions"]     = ("CỬA HÀNG", "Danh sách giao dịch"),
+        ["/store/refunds"]          = ("CỬA HÀNG", "Hoàn trả"),
+        ["/store/voids"]            = ("CỬA HÀNG", "Lịch sử hủy giao dịch"),
+        // CỬA HÀNG / Báo cáo
+        ["/store/revenue"]          = ("CỬA HÀNG", "Tổng hợp doanh thu"),
+        ["/store/revenue-by-staff"] = ("CỬA HÀNG", "Theo nhân viên"),
+        ["/store/revenue-by-store"] = ("CỬA HÀNG", "Theo cửa hàng"),
+        ["/store/revenue-detail"]   = ("CỬA HÀNG", "Chi tiết doanh thu"),
+        ["/store/revenue-category"] = ("CỬA HÀNG", "Theo ngành hàng"),
+        ["/store/revenue-hourly"]   = ("CỬA HÀNG", "Theo khung giờ"),
+        ["/store/payment-breakdown"] = ("CỬA HÀNG", "Theo hình thức thanh toán"),
+        ["/store/top-product"]      = ("CỬA HÀNG", "Sản phẩm bán chạy"),
+        ["/store/loyalty"]          = ("CỬA HÀNG", "Khách hàng thân thiết"),
+
+        // DANH MỤC / Tổ chức
+        ["/catalog/employees"]      = ("DANH MỤC", "Nhân viên"),
+        ["/catalog/stores"]         = ("DANH MỤC", "Cửa hàng"),
+        ["/catalog/provinces"]      = ("DANH MỤC", "Chi nhánh"),
+        // DANH MỤC / Thiết bị POS
+        ["/catalog/pos-setup"]      = ("DANH MỤC", "POSTerminal"),
+        ["/catalog/bank-pos"]       = ("DANH MỤC", "POS bank"),
+        // DANH MỤC / Sản phẩm
+        ["/catalog/products"]       = ("DANH MỤC", "Danh sách"),
+        ["/catalog/product-lock"]   = ("DANH MỤC", "Khóa sản phẩm"),
+        // DANH MỤC / Giá bán
+        ["/catalog/prices"]         = ("DANH MỤC", "Danh mục Bảng giá"),
+        ["/catalog/price-declare"]  = ("DANH MỤC", "Cài đặt giá"),
+
+        // KHUYẾN MÃI / Chương trình KM
+        ["/promotion/offers"]           = ("KHUYẾN MÃI", "Danh mục"),
+        ["/promotion/setup"]            = ("KHUYẾN MÃI", "Cài đặt CTKM"),
+        ["/promotion/special-combo"]    = ("KHUYẾN MÃI", "Special Combo"),
+        // KHUYẾN MÃI / Coupon & Voucher
+        ["/promotion/coupons"]          = ("KHUYẾN MÃI", "Danh mục Coupon"),
+        ["/promotion/vouchers"]         = ("KHUYẾN MÃI", "Danh mục Voucher"),
+        ["/promotion/vouchers-published"] = ("KHUYẾN MÃI", "Voucher theo hóa đơn"),
+
+        // VẬN HÀNH / Giám sát
+        ["/ops/health"]             = ("VẬN HÀNH", "System health"),
+        ["/ops/alerts"]             = ("VẬN HÀNH", "Alerts"),
+        ["/ops/queues"]             = ("VẬN HÀNH", "Queue monitor"),
+        // VẬN HÀNH / Nhật ký
+        ["/ops/logs"]               = ("VẬN HÀNH", "Interface Error"),
+        ["/ops/data-raw-log"]       = ("VẬN HÀNH", "DataRawJson Log"),
+        ["/ops/activity-log"]       = ("VẬN HÀNH", "Nhật ký thao tác"),
+        // VẬN HÀNH / Cấu hình
+        ["/ops/pos-data-setup"]     = ("VẬN HÀNH", "POS Data Setup"),
+
+        // QUẢN TRỊ (phẳng, không có L2)
+        ["/admin/users"]            = ("QUẢN TRỊ", "Users"),
+        ["/admin/roles"]            = ("QUẢN TRỊ", "Roles"),
+        ["/admin/config"]           = ("QUẢN TRỊ", "Configs"),
+        ["/admin/audit"]            = ("QUẢN TRỊ", "Audit log"),
+        ["/admin/sql-console"]      = ("QUẢN TRỊ", "SQL Console"),
+        ["/admin/encrypt-secret"]   = ("QUẢN TRỊ", "Mã hóa Secret"),
+    };
+
     protected override void OnInitialized()
     {
         UpdateExpanded(Nav.Uri);
+        UpdateBreadcrumb(Nav.Uri);
         Nav.LocationChanged += OnLocationChanged;
     }
 
@@ -230,7 +314,23 @@
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         UpdateExpanded(e.Location);
+        UpdateBreadcrumb(e.Location);
         InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateBreadcrumb(string uri)
+    {
+        var path = new Uri(uri).AbsolutePath.ToLowerInvariant().TrimEnd('/');
+        if (BreadcrumbMap.TryGetValue(path, out var crumb))
+        {
+            _breadcrumbSection = crumb.Section;
+            _breadcrumbLabel   = crumb.Label;
+        }
+        else
+        {
+            _breadcrumbSection = "";
+            _breadcrumbLabel   = "";
+        }
     }
 
     private void UpdateExpanded(string uri)
@@ -259,4 +359,13 @@
     }
 
     public async ValueTask DisposeAsync() => Nav.LocationChanged -= OnLocationChanged;
+
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length == 1
+            ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant()
+            : $"{parts[^2][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
 }

@@ -19,7 +19,8 @@
 <MudMessageBox @ref="_confirmBox" Title="@_confirmTitle" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="@_confirmYesColor">@_confirmYesText</MudButton>
+        <MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)"
+                   Color="@_confirmYesColor">@_confirmYesText</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -29,7 +30,7 @@
         <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Quản lý người dùng
     </MudText>
-    <MudButton Variant="Variant.Outlined"
+    <MudButton Variant="Variant.Filled"
                Color="Color.Primary"
                Size="Size.Small"
                StartIcon="@Icons.Material.Filled.PersonAdd"
@@ -121,7 +122,7 @@ else
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined"
                                FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>

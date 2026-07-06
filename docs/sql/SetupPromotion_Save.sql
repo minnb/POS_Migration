@@ -5,6 +5,13 @@
    Cột bám đúng entity legacy SetupPromotionHEADER/BUY/GET/SITE.
    ----------------------------------------------------------------------------
    CHẠY 1 LẦN trên RPOSMasterData. Nếu TYPE đã tồn tại, drop SP trước rồi TYPE.
+   ----------------------------------------------------------------------------
+   BẢN SỬA LẦN 2 (2026-07-05) — thêm tham số/cột trước đây hard-code rỗng hoặc
+   bỏ qua hoàn toàn, để khớp 100% field legacy SetupMain: khung giờ áp dụng
+   (TIMEFROM/TIMETO) + ngày trong tuần (MON..SUN), giá trị tổng tiền tối thiểu
+   (MINVALUE), giảm giá tổng bill (TOTALDISCOUNT/TOTALDISCOUNTTYPE/
+   TOTALDISCOUNTVALUE), voucher delay (ZVCDAY_AFTER/ZVCTIME_AFTER). Toàn bộ cột
+   đã tồn tại sẵn trong SetupPromotionHEADER — không ALTER TABLE, chỉ sửa SP.
    ============================================================================ */
 USE [RPOSMasterData];
 GO
@@ -71,6 +78,16 @@ CREATE PROCEDURE dbo.usp_SaveSetupCTKMAll
     @VoucherTo          nvarchar(8)  = '',
     @VoucherValidDay    nvarchar(10) = '0',
     @VoucherLimitNumber nvarchar(10) = '0',
+    @AllowUseAfterDay   nvarchar(10) = '0',   -- ZVCDAY_AFTER — dùng sau N ngày kể từ lúc ra bill
+    @AllowUseAfterTime  nvarchar(10) = '',    -- ZVCTIME_AFTER
+    -- ── Lịch áp dụng theo giờ/ngày trong tuần ──
+    @FromTime nvarchar(10) = '', @ToTime nvarchar(10) = '',
+    @Mon nvarchar(5) = '', @Tue nvarchar(5) = '', @Wed nvarchar(5) = '', @Thu nvarchar(5) = '',
+    @Fri nvarchar(5) = '', @Sat nvarchar(5) = '', @Sun nvarchar(5) = '',
+    -- ── Giá trị tổng tiền tối thiểu (Buy) + Giảm giá tổng bill (Get) ──
+    @MinValue nvarchar(50) = '0',
+    @CheckTotalDiscount nvarchar(5) = '', @TotalDiscountType nvarchar(10) = '0',
+    @TotalDiscountValue nvarchar(50) = '0',
     @Buy          dbo.SetupPromotionBuyTVP  READONLY,
     @Get          dbo.SetupPromotionGetTVP  READONLY,
     @Site         dbo.SetupPromotionSiteTVP READONLY
@@ -130,7 +147,22 @@ BEGIN
                    ZVCDATE_ST    = @VcSt,
                    ZVCDATE_EN    = @VcEn,
                    ZVCDATE_VA    = @VoucherValidDay,
-                   LIMITNR       = @VoucherLimitNumber
+                   LIMITNR       = @VoucherLimitNumber,
+                   ZVCDAY_AFTER  = @AllowUseAfterDay,
+                   ZVCTIME_AFTER = @AllowUseAfterTime,
+                   TIMEFROM      = @FromTime,
+                   TIMETO        = @ToTime,
+                   MON           = @Mon,
+                   TUE           = @Tue,
+                   WED           = @Wed,
+                   THUR          = @Thu,
+                   FRI           = @Fri,
+                   SAT           = @Sat,
+                   SUN           = @Sun,
+                   MINVALUE      = @MinValue,
+                   TOTALDISCOUNT      = @CheckTotalDiscount,
+                   TOTALDISCOUNTTYPE  = @TotalDiscountType,
+                   TOTALDISCOUNTVALUE = @TotalDiscountValue
             WHERE  BBYNR = @BBYNR;
         END
         ELSE
@@ -147,12 +179,14 @@ BEGIN
                     (BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
                      ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
                      PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
-                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR)
+                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR,
+                     ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
                 VALUES
                     (@BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
-                     @VcSt, @VcEn, '', '', '', '', '', '', '', '', '',
+                     @VcSt, @VcEn, @FromTime, @ToTime, @Mon, @Tue, @Wed, @Thu, @Fri, @Sat, @Sun,
                      @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
-                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber);
+                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber,
+                     @AllowUseAfterDay, @AllowUseAfterTime, @MinValue, @CheckTotalDiscount, @TotalDiscountType, @TotalDiscountValue);
             END
             ELSE
             BEGIN
@@ -163,12 +197,14 @@ BEGIN
                     (ID, BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
                      ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
                      PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
-                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR)
+                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR,
+                     ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
                 VALUES
                     (@newId, @BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
-                     @VcSt, @VcEn, '', '', '', '', '', '', '', '', '',
+                     @VcSt, @VcEn, @FromTime, @ToTime, @Mon, @Tue, @Wed, @Thu, @Fri, @Sat, @Sun,
                      @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
-                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber);
+                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber,
+                     @AllowUseAfterDay, @AllowUseAfterTime, @MinValue, @CheckTotalDiscount, @TotalDiscountType, @TotalDiscountValue);
             END
         END
 

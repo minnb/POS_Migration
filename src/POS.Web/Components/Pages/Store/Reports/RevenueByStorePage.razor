@@ -91,7 +91,7 @@
 
         <MudItem xs="12" sm="12" md="5" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="SearchAsync" Disabled="@_searching"
                            FullWidth="true">
@@ -130,26 +130,26 @@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #1976D2">
-                <MudText Typo="Typo.h5" Color="Color.Primary">@_totalItems.ToString("N0")</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng hóa đơn</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_totalItems.ToString("N0")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng hóa đơn</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
             <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #7B1FA2">
-                <MudText Typo="Typo.h5" Style="color:#7B1FA2">@FormatVND((decimal)(_grand.SumTruocVAT ?? 0m))</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Trước thuế</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:#7B1FA2">@FormatVND((decimal)(_grand.SumTruocVAT ?? 0m))</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Trước thuế</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 130px">
             <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #F57C00">
-                <MudText Typo="Typo.h5" Style="color:#F57C00">@FormatVND((decimal)(_grand.SumVAT ?? 0m))</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Thuế VAT</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:#F57C00">@FormatVND((decimal)(_grand.SumVAT ?? 0m))</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Thuế VAT</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
             <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #388E3C">
-                <MudText Typo="Typo.h5" Color="Color.Success">@FormatVND((decimal)(_grand.SumSauVAT ?? 0m))</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Sau thuế</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND((decimal)(_grand.SumSauVAT ?? 0m))</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Sau thuế</MudText>
             </MudPaper>
         </div>
     </div>

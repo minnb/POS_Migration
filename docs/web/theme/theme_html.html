@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetOS — Hệ thống Quản lý Ngân sách</title>
+<style>
+:root {
+  --navy:#0D1B2A; --navy2:#142334; --navy3:#1E3448;
+  --steel:#2660A4; --sky:#3D8FD9; --sky-l:#E8F2FB;
+  --gold:#D4860A; --gold-l:#FEF3DC; --gold-b:#F5C45A;
+  --green:#1F7A4A; --green-l:#E3F5EC; --green-b:#52C98A;
+  --red:#B52B27; --red-l:#FDEAEA; --red-b:#F07070;
+  --orange:#C06020; --orange-l:#FEF0E4;
+  --purple:#6040A8; --purple-l:#F0ECFA;
+  --gray1:#F0F4F8; --gray2:#E4E9EF; --gray3:#C8D3DE;
+  --gray4:#8FA3B4; --gray5:#4A6070;
+  --text:#1A2B38; --text2:#3D5568; --text3:#6A8498;
+  --white:#FFFFFF;
+  --radius:8px; --radius-lg:12px;
+  --shadow:0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg:0 4px 20px rgba(0,0,0,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--gray1);color:var(--text);font-size:13px;line-height:1.5;display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;min-width:220px;background:var(--navy);display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.07)}
+.logo-name{font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.3px}
+.logo-sub{font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;margin-top:1px}
+.entity-sel{margin:12px 12px 4px;background:var(--navy3);border-radius:var(--radius);padding:8px 10px;cursor:pointer}
+.entity-label{font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.8px;text-transform:uppercase}
+.entity-val{font-size:12px;color:#fff;font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+.nav-section{padding:14px 12px 4px}
+.nav-section-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.3);padding:0 4px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;margin-bottom:2px;transition:background 0.15s;color:rgba(255,255,255,0.6);font-size:12.5px;font-weight:500}
+.nav-item:hover{background:var(--navy3);color:#fff}
+.nav-item.active{background:var(--steel);color:#fff}
+.nav-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--red-b);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px}
+.sidebar-footer{margin-top:auto;padding:12px;border-top:1px solid rgba(255,255,255,0.07)}
+.user-row{display:flex;align-items:center;gap:8px}
+.user-avatar{width:30px;height:30px;background:var(--steel);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.user-name{font-size:12px;color:rgba(255,255,255,0.8);font-weight:600}
+.user-role{font-size:10px;color:rgba(255,255,255,0.35)}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:1px solid var(--gray2);padding:0 24px;height:50px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.topbar-left{display:flex;align-items:center;gap:8px}
+.breadcrumb{font-size:12px;color:var(--text3)}
+.breadcrumb strong{color:var(--text);font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.period-btn{background:var(--gray1);border:1px solid var(--gray2);border-radius:var(--radius);padding:5px 12px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s}
+.btn-primary{background:var(--steel);color:#fff}
+.btn-primary:hover{background:#1E50A0}
+.btn-secondary{background:var(--gray1);color:var(--text2);border:1px solid var(--gray2)}
+.btn-secondary:hover{background:var(--gray2)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-danger{background:var(--red-l);color:var(--red);border:1px solid #F5C0BC}
+.page{flex:1;overflow-y:auto;padding:20px 24px}
+
+/* ── CARDS ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi-card{background:#fff;border-radius:var(--radius-lg);padding:16px 18px;border:1px solid var(--gray2);box-shadow:var(--shadow)}
+.kpi-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.kpi-value{font-size:22px;font-weight:800;line-height:1;margin-bottom:4px}
+.kpi-sub{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px}
+.kpi-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.progress-bar{height:5px;background:var(--gray2);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.3s}
+
+/* ── GRID LAYOUTS ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px}
+.col-7-3{display:grid;grid-template-columns:7fr 3fr;gap:14px;margin-bottom:18px}
+.card{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--gray2);box-shadow:var(--shadow)}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--gray2);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:700;color:var(--text)}
+.card-body{padding:14px 18px}
+
+/* ── TABLES ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--gray1);color:var(--text3);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;padding:8px 12px;text-align:left;border-bottom:2px solid var(--gray2);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--gray2);color:var(--text2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#F8FAFB}
+th.right,td.right{text-align:right}
+th.center,td.center{text-align:center}
+.num{font-variant-numeric:tabular-nums;font-weight:600}
+.num-red{color:var(--red);font-weight:700}
+.num-green{color:var(--green);font-weight:700}
+.num-gold{color:var(--gold);font-weight:700}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.badge-pending{background:#FEF9E6;color:#9A6500}.badge-pending::before{background:#F0B90B}
+.badge-approved{background:var(--green-l);color:var(--green)}.badge-approved::before{background:var(--green-b)}
+.badge-rejected{background:var(--red-l);color:var(--red)}.badge-rejected::before{background:var(--red-b)}
+.badge-done{background:var(--sky-l);color:var(--steel)}.badge-done::before{background:var(--sky)}
+.badge-warning{background:var(--orange-l);color:var(--orange)}.badge-warning::before{background:#E87030}
+.badge-draft{background:var(--gray1);color:var(--gray5)}.badge-draft::before{background:var(--gray3)}
+.badge-info{background:var(--purple-l);color:var(--purple)}.badge-info::before{background:#9870E0}
+
+/* ── FORMS ── */
+.form-section{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--gray2);margin-bottom:14px}
+.form-section-header{padding:12px 18px;border-bottom:1px solid var(--gray2);background:var(--gray1);border-radius:var(--radius-lg) var(--radius-lg) 0 0;display:flex;align-items:center;gap:8px}
+.form-section-title{font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.5px}
+.form-section-icon{font-size:15px}
+.form-body{padding:16px 18px}
+.form-grid{display:grid;gap:14px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-grid-3{grid-template-columns:1fr 1fr 1fr}
+.form-grid-4{grid-template-columns:1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.field .req{color:var(--red);margin-left:2px}
+.input,.select,.textarea{background:var(--gray1);border:1.5px solid var(--gray2);border-radius:var(--radius);padding:8px 10px;font-size:12.5px;color:var(--text);width:100%;outline:none;font-family:inherit;transition:border-color 0.15s}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--sky);background:#fff}
+.input[disabled],.select[disabled]{background:var(--gray2);color:var(--text3);cursor:not-allowed}
+.input-prefix{display:flex;align-items:center;background:var(--gray1);border:1.5px solid var(--gray2);border-radius:var(--radius);overflow:hidden}
+.input-prefix span{padding:8px 10px;background:var(--gray2);color:var(--text3);font-size:12px;font-weight:600;border-right:1px solid var(--gray3);white-space:nowrap}
+.input-prefix input{border:none;background:transparent;padding:8px 10px;font-size:12.5px;color:var(--text);outline:none;flex:1}
+.field-hint{font-size:10.5px;color:var(--text3);margin-top:2px}
+.field-error{font-size:10.5px;color:var(--red);margin-top:2px}
+.radio-group{display:flex;gap:12px;flex-wrap:wrap}
+.radio-item{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;color:var(--text2);padding:7px 12px;border-radius:var(--radius);border:1.5px solid var(--gray2);background:var(--gray1);font-weight:500}
+.radio-item.sel{border-color:var(--sky);background:var(--sky-l);color:var(--steel)}
+
+/* ── BUDGET TABLE ── */
+.budget-table table th{font-size:10px;padding:6px 8px;background:var(--navy);color:rgba(255,255,255,0.8);text-align:right;white-space:nowrap}
+.budget-table table th:first-child{text-align:left;min-width:200px;background:var(--navy2)}
+.budget-table table td{padding:6px 8px;text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums}
+.budget-table table td:first-child{text-align:left;font-weight:500}
+.budget-table .section-row td{background:var(--navy);color:#fff;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;padding:7px 8px}
+.budget-table .total-row td{background:var(--gray1);font-weight:700;border-top:2px solid var(--gray3)}
+.budget-table .indent td:first-child{padding-left:22px;color:var(--text2)}
+.editable-cell{background:#FFFBF0;border:1px dashed var(--gold-b);border-radius:4px;padding:4px 6px;text-align:right;cursor:text;min-width:70px;display:inline-block}
+
+/* ── ALERT CARDS ── */
+.alert-card{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--gray2);padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;box-shadow:var(--shadow)}
+.alert-icon{width:36px;height:36px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.alert-content{flex:1;min-width:0}
+.alert-title{font-weight:700;font-size:13px;margin-bottom:3px}
+.alert-desc{font-size:12px;color:var(--text3);margin-bottom:6px}
+.alert-meta{display:flex;gap:10px;font-size:11px;color:var(--text3);align-items:center;flex-wrap:wrap}
+.alert-actions{display:flex;gap:8px;align-items:flex-start;flex-shrink:0}
+.alert-hi{border-left:4px solid var(--red-b)}
+.alert-med{border-left:4px solid var(--gold-b)}
+.alert-low{border-left:4px solid var(--green-b)}
+
+/* ── CHART SVG ── */
+.chart-area{padding:16px 18px}
+.chart-label{font-size:10px;fill:var(--text3)}
+.chart-val{font-size:10px;font-weight:700}
+
+/* ── FILTER BAR ── */
+.filter-bar{background:#fff;border-radius:var(--radius-lg);border:1px solid var(--gray2);padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filter-bar .select{max-width:180px}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--gray1);border:1.5px solid var(--gray2);border-radius:var(--radius);padding:6px 10px;flex:1;max-width:280px}
+.search-box input{border:none;background:transparent;outline:none;font-size:12.5px;color:var(--text);width:100%}
+.filter-sep{width:1px;height:20px;background:var(--gray2);flex-shrink:0}
+
+/* ── STATUS TABS ── */
+.status-tabs{display:flex;gap:4px;margin-bottom:14px;background:#fff;border-radius:var(--radius-lg);border:1px solid var(--gray2);padding:6px;box-shadow:var(--shadow)}
+.status-tab{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text3);transition:all 0.15s;display:flex;align-items:center;gap:5px}
+.status-tab.active{background:var(--steel);color:#fff}
+.status-tab span{background:var(--gray2);color:var(--text3);padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700}
+.status-tab.active span{background:rgba(255,255,255,0.25);color:#fff}
+
+/* ── APPROVAL FLOW ── */
+.approval-flow{display:flex;align-items:center;gap:0;margin-top:10px}
+.step-node{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;border:3px solid transparent}
+.step-circle.done{background:var(--green);border-color:var(--green-b)}
+.step-circle.current{background:var(--steel);border-color:var(--sky);box-shadow:0 0 0 4px var(--sky-l)}
+.step-circle.wait{background:#fff;border-color:var(--gray3);color:var(--gray3)}
+.step-node-label{font-size:10px;font-weight:600;color:var(--text3);text-align:center;max-width:80px;line-height:1.3}
+.step-node-sub{font-size:9.5px;color:var(--text3);text-align:center;max-width:80px}
+.step-line{flex-shrink:0;width:40px;height:2px;background:var(--gray2);margin-top:-16px}
+.step-line.done{background:var(--green-b)}
+
+/* ── BUDGET CHECK PANEL ── */
+.budget-panel{background:var(--sky-l);border:1.5px solid #C5DEFF;border-radius:var(--radius-lg);padding:14px 16px}
+.budget-panel-title{font-size:11px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px}
+.bp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:12px}
+.bp-label{color:var(--text3)}
+.bp-val{font-weight:700;color:var(--text)}
+.bp-sep{height:1px;background:#C5DEFF;margin:8px 0}
+.bp-available{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:var(--radius);padding:8px 10px;margin-top:8px}
+.bp-avail-label{font-size:11px;font-weight:700;color:var(--text3)}
+.bp-avail-val{font-size:16px;font-weight:800;color:var(--green)}
+.bp-warn{display:flex;align-items:center;gap:6px;background:var(--orange-l);border:1px solid #F5C8A8;border-radius:var(--radius);padding:7px 10px;margin-top:8px;font-size:11.5px;color:var(--orange)}
+
+/* ── REPORT ── */
+.report-type-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.report-type-card{background:#fff;border:2px solid var(--gray2);border-radius:var(--radius-lg);padding:14px 16px;cursor:pointer;transition:all 0.15s;min-width:150px}
+.report-type-card:hover{border-color:var(--sky)}
+.report-type-card.sel{border-color:var(--steel);background:var(--sky-l)}
+.report-type-card .rtc-icon{font-size:22px;margin-bottom:6px}
+.report-type-card .rtc-name{font-size:12px;font-weight:700;color:var(--text)}
+.report-type-card .rtc-desc{font-size:10.5px;color:var(--text3)}
+
+/* ── MINI CHART ── */
+.mini-bar{display:flex;align-items:flex-end;gap:5px;height:60px}
+.mini-bar-col{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+.mini-bar-muf{background:var(--gray2);border-radius:3px 3px 0 0;width:100%}
+.mini-bar-act{background:var(--sky);border-radius:3px 3px 0 0;width:60%;margin:0 auto}
+.mini-bar-lbl{font-size:9px;color:var(--text3)}
+
+/* ── ICON DOTS ── */
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-green{background:var(--green-b)}
+.dot-red{background:var(--red-b)}
+.dot-gold{background:var(--gold-b)}
+.dot-blue{background:var(--sky)}
+.dot-gray{background:var(--gray3)}
+
+/* ── MISC ── */
+.divider{height:1px;background:var(--gray2);margin:14px 0}
+.section-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--gray2)}
+.tag{display:inline-block;background:var(--gray1);color:var(--text3);border:1px solid var(--gray2);border-radius:4px;padding:1px 7px;font-size:10.5px;font-weight:600}
+.flex-row{display:flex;align-items:center;gap:8px}
+.ml-auto{margin-left:auto}
+.text-right{text-align:right}
+.mb8{margin-bottom:8px}
+.mb14{margin-bottom:14px}
+.fw7{font-weight:700}
+.fs11{font-size:11px}
+.col-green{color:var(--green)}
+.col-red{color:var(--red)}
+.col-gold{color:var(--gold)}
+.col-blue{color:var(--steel)}
+.hint-row{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text3);background:var(--gray1);border-radius:var(--radius);padding:8px 12px;margin-bottom:14px}
+
+.overflow-chip{background:var(--red-l);color:var(--red);border:1px solid #F5C0BC;border-radius:var(--radius);padding:3px 8px;font-size:11px;font-weight:700}
+.ok-chip{background:var(--green-l);color:var(--green);border:1px solid #A8DFC4;border-radius:var(--radius);padding:3px 8px;font-size:11px;font-weight:700}
+.warn-chip{background:var(--orange-l);color:var(--orange);border:1px solid #F5C8A8;border-radius:var(--radius);padding:3px 8px;font-size:11px;font-weight:700}
+
+.inline-form-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-name">BudgetOS</div>
+    <div class="logo-sub">Quản lý ngân sách</div>
+  </div>
+  <div class="entity-sel">
+    <div class="entity-label">Entity đang xem</div>
+    <div class="entity-val">MSC — 111 <span>▾</span></div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Tổng quan</div>
+    <div class="nav-item active" onclick="go('dashboard')"><span class="nav-icon">📊</span>Dashboard</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Ngân sách</div>
+    <div class="nav-item" onclick="go('budget-plan')"><span class="nav-icon">📝</span>Lập kế hoạch NS</div>
+    <div class="nav-item" onclick="go('budget-track')"><span class="nav-icon">📈</span>Theo dõi NS</div>
+    <div class="nav-item" onclick="go('share-cost')"><span class="nav-icon">🔀</span>Phân bổ Share Cost</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Chi phí & Thanh toán</div>
+    <div class="nav-item" onclick="go('pay-form')"><span class="nav-icon">📄</span>Tạo tờ trình PAY</div>
+    <div class="nav-item" onclick="go('pay-list')"><span class="nav-icon">📋</span>Danh sách tờ trình <span class="nav-badge">8</span></div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Kiểm soát & BI</div>
+    <div class="nav-item" onclick="go('alerts')"><span class="nav-icon">🔔</span>Cảnh báo <span class="nav-badge">3</span></div>
+    <div class="nav-item" onclick="go('reports')"><span class="nav-icon">📉</span>Báo cáo</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Hệ thống</div>
+    <div class="nav-item" onclick="go('integration')"><span class="nav-icon">🔗</span>Tích hợp Oracle EBS</div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-row">
+      <div class="user-avatar">NQ</div>
+      <div>
+        <div class="user-name">Nguyễn Thị Quỳnh</div>
+        <div class="user-role">Finance Controller</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="breadcrumb" id="breadcrumb"><strong>Dashboard</strong></span>
+    </div>
+    <div class="topbar-right">
+      <div class="period-btn">📅 Tháng 6 / 2026</div>
+      <div class="period-btn">MUF 2026 ▾</div>
+      <button class="btn btn-primary" onclick="go('pay-form')">＋ Tờ trình mới</button>
+    </div>
+  </div>
+
+  <div class="page" id="page-content">
+    <!-- rendered by JS -->
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SCREEN DEFINITIONS
+// ══════════════════════════════════════════
+
+const screens = {
+
+// ── 1. DASHBOARD ──────────────────────────
+dashboard: {
+  title: 'Dashboard',
+  render: () => `
+<div class="kpi-row">
+  <div class="kpi-card">
+    <div class="kpi-label">🏦 NS Phê duyệt (MUF)</div>
+    <div class="kpi-value" style="color:var(--navy)">642.4 <span style="font-size:14px;font-weight:600">tỷ</span></div>
+    <div class="kpi-sub"><span class="dot dot-gray"></span>Năm 2026 — đã khóa</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--gray3)"></div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">💸 Chi thực tế (ACT YTD)</div>
+    <div class="kpi-value" style="color:var(--steel)">298.6 <span style="font-size:14px;font-weight:600">tỷ</span></div>
+    <div class="kpi-sub"><span class="dot dot-blue"></span>46.5% ngân sách / YTD T6</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:46.5%;background:var(--sky)"></div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">🔒 Đã cam kết (PO Open)</div>
+    <div class="kpi-value" style="color:var(--orange)">84.2 <span style="font-size:14px;font-weight:600">tỷ</span></div>
+    <div class="kpi-sub"><span class="dot dot-gold"></span>13.1% ngân sách</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:13.1%;background:var(--gold-b)"></div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">✅ Còn lại (Available)</div>
+    <div class="kpi-value" style="color:var(--green)">259.6 <span style="font-size:14px;font-weight:600">tỷ</span></div>
+    <div class="kpi-sub"><span class="dot dot-green"></span>40.4% — bình thường</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:40.4%;background:var(--green-b)"></div></div>
+  </div>
+</div>
+
+<div class="col-7-3">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">ACT vs MUF theo tháng — MSC 2026</div>
+      <div class="flex-row">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)"><span style="width:10px;height:10px;background:var(--sky);border-radius:2px;display:inline-block"></span>ACT</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)"><span style="width:10px;height:10px;background:var(--gray2);border-radius:2px;display:inline-block"></span>MUF</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)"><span style="width:10px;height:2px;background:var(--gold-b);display:inline-block"></span>FCST</div>
+      </div>
+    </div>
+    <div class="chart-area">
+      <svg viewBox="0 0 560 160" style="width:100%;height:160px">
+        <!-- grid lines -->
+        <line x1="40" y1="20" x2="540" y2="20" stroke="#E4E9EF" stroke-width="1"/>
+        <line x1="40" y1="50" x2="540" y2="50" stroke="#E4E9EF" stroke-width="1"/>
+        <line x1="40" y1="80" x2="540" y2="80" stroke="#E4E9EF" stroke-width="1"/>
+        <line x1="40" y1="110" x2="540" y2="110" stroke="#E4E9EF" stroke-width="1"/>
+        <text x="30" y="23" class="chart-label" text-anchor="end">100</text>
+        <text x="30" y="53" class="chart-label" text-anchor="end">75</text>
+        <text x="30" y="83" class="chart-label" text-anchor="end">50</text>
+        <text x="30" y="113" class="chart-label" text-anchor="end">25</text>
+        <!-- MUF bars (gray) -->
+        <rect x="50" y="28" width="28" height="82" fill="#E4E9EF" rx="3"/>
+        <rect x="120" y="30" width="28" height="80" fill="#E4E9EF" rx="3"/>
+        <rect x="190" y="26" width="28" height="84" fill="#E4E9EF" rx="3"/>
+        <rect x="260" y="32" width="28" height="78" fill="#E4E9EF" rx="3"/>
+        <rect x="330" y="28" width="28" height="82" fill="#E4E9EF" rx="3"/>
+        <rect x="400" y="22" width="28" height="88" fill="#E4E9EF" rx="3"/>
+        <!-- ACT bars (blue) — only Jan-Jun -->
+        <rect x="54" y="42" width="20" height="68" fill="#3D8FD9" rx="2"/>
+        <rect x="124" y="46" width="20" height="64" fill="#3D8FD9" rx="2"/>
+        <rect x="194" y="38" width="20" height="72" fill="#3D8FD9" rx="2"/>
+        <rect x="264" y="44" width="20" height="66" fill="#3D8FD9" rx="2"/>
+        <rect x="334" y="48" width="20" height="62" fill="#3D8FD9" rx="2"/>
+        <rect x="404" y="52" width="20" height="58" fill="#3D8FD9" rx="2"/>
+        <!-- FCST line (Jul-Dec dashed) -->
+        <polyline points="414,55 480,48 550,42" fill="none" stroke="#D4860A" stroke-width="2" stroke-dasharray="5,3"/>
+        <!-- Labels -->
+        <text x="64" y="148" class="chart-label" text-anchor="middle">T1</text>
+        <text x="134" y="148" class="chart-label" text-anchor="middle">T2</text>
+        <text x="204" y="148" class="chart-label" text-anchor="middle">T3</text>
+        <text x="274" y="148" class="chart-label" text-anchor="middle">T4</text>
+        <text x="344" y="148" class="chart-label" text-anchor="middle">T5</text>
+        <text x="414" y="148" class="chart-label" text-anchor="middle">T6</text>
+        <text x="480" y="148" class="chart-label" text-anchor="middle" fill="#D4860A">T7</text>
+        <text x="550" y="148" class="chart-label" text-anchor="middle" fill="#D4860A">T12</text>
+        <!-- Value labels -->
+        <text x="64" y="38" class="chart-label" text-anchor="middle" fill="#2660A4">47.2</text>
+        <text x="134" y="42" class="chart-label" text-anchor="middle" fill="#2660A4">45.8</text>
+        <text x="204" y="34" class="chart-label" text-anchor="middle" fill="#2660A4">51.3</text>
+        <text x="274" y="40" class="chart-label" text-anchor="middle" fill="#2660A4">48.1</text>
+        <text x="344" y="44" class="chart-label" text-anchor="middle" fill="#2660A4">57.6</text>
+        <text x="414" y="48" class="chart-label" text-anchor="middle" fill="#2660A4">48.6</text>
+        <text x="20" y="90" class="chart-label" fill="#8FA3B4" transform="rotate(-90,20,90)" text-anchor="middle">tỷ VND</text>
+      </svg>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔔 Cảnh báo mới</div><span class="nav-badge" style="background:var(--red-b)">3</span></div>
+      <div style="padding:0 4px 4px">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--gray2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:700;color:var(--red)">⚠ Vượt NS — IT cost</span>
+            <span class="badge badge-rejected">Critical</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text3)">TI04: AWS/Oracle vượt 18.3% MUF T6</div>
+        </div>
+        <div style="padding:10px 14px;border-bottom:1px solid var(--gray2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:700;color:var(--gold)">⚡ Sắp vượt NS</span>
+            <span class="badge badge-warning">Warning</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text3)">RD_MCH: Chi R&D đạt 83% MUF YTD</div>
+        </div>
+        <div style="padding:10px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:700;color:var(--gold)">⏰ Tờ trình tồn đọng</span>
+            <span class="badge badge-warning">Warning</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text3)">8 tờ trình chờ > 3 ngày làm việc</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">⏳ Chờ phê duyệt</div></div>
+      <div style="padding:10px 14px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px"><span style="color:var(--text3)">Tờ trình PAY</span><strong>8 yêu cầu</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px"><span style="color:var(--text3)">Purchase Request</span><strong>14 yêu cầu</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--text3)">Điều chỉnh NS</span><strong>2 yêu cầu</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Top 8 phòng ban — Chi tiêu YTD vs MUF</div>
+    <select class="select" style="max-width:160px;padding:4px 8px">
+      <option>People + Operation</option><option>Chỉ Operation</option><option>Chỉ People</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Phòng ban</th><th>Function</th>
+        <th class="right">MUF (tỷ)</th><th class="right">ACT YTD (tỷ)</th><th class="right">FCST FY (tỷ)</th>
+        <th class="right">Variance</th><th class="right">% Used</th><th>Trạng thái</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="fw7">TI04 — IT</td><td><span class="tag">G&A</span></td><td class="right num">89.4</td><td class="right num col-blue">78.2</td><td class="right num col-gold">101.6</td><td class="right num-red">+12.2</td><td class="right"><span class="overflow-chip">113.6%</span></td><td><span class="badge badge-rejected">Vượt NS</span></td></tr>
+        <tr><td class="fw7">RD02 — R&D MCH</td><td><span class="tag">R&D</span></td><td class="right num">74.8</td><td class="right num col-blue">62.1</td><td class="right num col-gold">83.0</td><td class="right num-red">+8.2</td><td class="right"><span class="warn-chip">83.0%</span></td><td><span class="badge badge-warning">Sắp vượt</span></td></tr>
+        <tr><td class="fw7">MB01 — MKT BEV</td><td><span class="tag">MKT</span></td><td class="right num">52.3</td><td class="right num col-blue">38.4</td><td class="right num col-gold">51.8</td><td class="right num-green">−0.5</td><td class="right"><span class="ok-chip">73.4%</span></td><td><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td class="fw7">HR01 — Nhân sự</td><td><span class="tag">G&A</span></td><td class="right num">38.6</td><td class="right num col-blue">29.7</td><td class="right num col-gold">37.9</td><td class="right num-green">−0.7</td><td class="right"><span class="ok-chip">76.9%</span></td><td><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td class="fw7">MF02 — MKT SS</td><td><span class="tag">MKT</span></td><td class="right num">31.2</td><td class="right num col-blue">19.6</td><td class="right num col-gold">29.4</td><td class="right num-green">−1.8</td><td class="right"><span class="ok-chip">62.8%</span></td><td><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td class="fw7">HR02 — Hành chánh</td><td><span class="tag">G&A</span></td><td class="right num">28.4</td><td class="right num col-blue">18.3</td><td class="right num col-gold">27.1</td><td class="right num-green">−1.3</td><td class="right"><span class="ok-chip">64.4%</span></td><td><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td class="fw7">SP01 — Planning</td><td><span class="tag">PLAN</span></td><td class="right num">24.1</td><td class="right num col-blue">16.8</td><td class="right num col-gold">23.5</td><td class="right num-green">−0.6</td><td class="right"><span class="ok-chip">69.7%</span></td><td><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td class="fw7">GM02 — Ban TGĐ</td><td><span class="tag">G&A</span></td><td class="right num">18.7</td><td class="right num col-blue">10.2</td><td class="right num col-gold">18.1</td><td class="right num-green">−0.6</td><td class="right"><span class="ok-chip">54.5%</span></td><td><span class="badge badge-done">Bình thường</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+`},
+
+// ── 2. LẬP NGÂN SÁCH ──────────────────────
+'budget-plan': {
+  title: 'Lập kế hoạch ngân sách',
+  render: () => `
+<div class="filter-bar">
+  <div class="field" style="min-width:160px"><label>Entity <span class="req">*</span></label>
+    <select class="select"><option>MSC — 111</option><option>NET — 611</option><option>HIF — 652</option></select></div>
+  <div class="field" style="min-width:160px"><label>Version ngân sách <span class="req">*</span></label>
+    <select class="select"><option>MUF 2026</option><option>AP 2026</option><option>RE1 2026</option></select></div>
+  <div class="field" style="min-width:140px"><label>Function</label>
+    <select class="select"><option>G&A</option><option>SALE DOMESTIC</option><option>MKT</option><option>R&D</option></select></div>
+  <div class="field" style="min-width:180px"><label>Phòng ban <span class="req">*</span></label>
+    <select class="select"><option>HR02 — Hành chánh</option><option>HR01 — Nhân sự</option><option>TI04 — IT</option></select></div>
+  <div class="ml-auto flex-row">
+    <button class="btn btn-secondary">📥 Import Excel</button>
+    <button class="btn btn-primary">💾 Lưu nháp</button>
+    <button class="btn" style="background:var(--green);color:#fff">✅ Gửi phê duyệt</button>
+  </div>
+</div>
+
+<div class="hint-row">
+  <span>🔵 Ô màu vàng = có thể chỉnh sửa (FCST)</span>
+  <span>|</span>
+  <span>⬜ Ô xám = đã khóa (ACT từ EBS)</span>
+  <span>|</span>
+  <span>💡 Nhấp đúp vào ô để chỉnh sửa giá trị FCST</span>
+  <span class="ml-auto"><strong>Đơn vị: triệu VND</strong></span>
+</div>
+
+<div class="card budget-table">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:200px;background:var(--navy2)">Khoản mục</th>
+          <th class="right">T1 ACT</th><th class="right" style="background:#1A3B5A">T2 ACT</th>
+          <th class="right">T3 ACT</th><th class="right" style="background:#1A3B5A">T4 ACT</th>
+          <th class="right">T5 ACT</th><th class="right" style="background:#1E4068;color:var(--gold-b)">T6 ACT</th>
+          <th class="right" style="color:var(--gold-b)">T7 FCST</th><th class="right" style="color:var(--gold-b)">T8 FCST</th>
+          <th class="right" style="color:var(--gold-b)">T9 FCST</th><th class="right" style="color:var(--gold-b)">T10 FCST</th>
+          <th class="right" style="color:var(--gold-b)">T11 FCST</th><th class="right" style="color:var(--gold-b)">T12 FCST</th>
+          <th class="right" style="background:#1E4068">FY MUF</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- HEADCOUNT -->
+        <tr class="section-row"><td colspan="14">👤 HEADCOUNT (người)</td></tr>
+        <tr class="indent"><td>Rank 1</td><td class="right">3</td><td class="right">3</td><td class="right">3</td><td class="right">3</td><td class="right">3</td><td class="right">3</td>
+          <td class="right"><span class="editable-cell">3</span></td><td class="right"><span class="editable-cell">3</span></td><td class="right"><span class="editable-cell">3</span></td>
+          <td class="right"><span class="editable-cell">3</span></td><td class="right"><span class="editable-cell">3</span></td><td class="right"><span class="editable-cell">3</span></td>
+          <td class="right num">3</td></tr>
+        <tr class="indent"><td>Rank 2</td><td class="right">8</td><td class="right">8</td><td class="right">9</td><td class="right">9</td><td class="right">9</td><td class="right">10</td>
+          <td class="right"><span class="editable-cell">10</span></td><td class="right"><span class="editable-cell">10</span></td><td class="right"><span class="editable-cell">10</span></td>
+          <td class="right"><span class="editable-cell">10</span></td><td class="right"><span class="editable-cell">10</span></td><td class="right"><span class="editable-cell">10</span></td>
+          <td class="right num">10</td></tr>
+        <tr class="indent"><td>Rank 3</td><td class="right">22</td><td class="right">22</td><td class="right">23</td><td class="right">24</td><td class="right">24</td><td class="right">25</td>
+          <td class="right"><span class="editable-cell">25</span></td><td class="right"><span class="editable-cell">25</span></td><td class="right"><span class="editable-cell">25</span></td>
+          <td class="right"><span class="editable-cell">26</span></td><td class="right"><span class="editable-cell">26</span></td><td class="right"><span class="editable-cell">26</span></td>
+          <td class="right num">25</td></tr>
+        <tr class="indent"><td>Rank 4–6</td><td class="right">41</td><td class="right">42</td><td class="right">43</td><td class="right">43</td><td class="right">44</td><td class="right">46</td>
+          <td class="right"><span class="editable-cell">46</span></td><td class="right"><span class="editable-cell">47</span></td><td class="right"><span class="editable-cell">47</span></td>
+          <td class="right"><span class="editable-cell">47</span></td><td class="right"><span class="editable-cell">47</span></td><td class="right"><span class="editable-cell">47</span></td>
+          <td class="right num">45</td></tr>
+        <!-- PEOPLE COST -->
+        <tr class="section-row"><td colspan="14">💰 PEOPLE COST</td></tr>
+        <tr class="indent"><td>Lương cơ bản (Salary)</td><td class="right num">2,841</td><td class="right num">2,803</td><td class="right num">2,958</td><td class="right num">2,891</td><td class="right num">3,014</td><td class="right num">3,102</td>
+          <td class="right"><span class="editable-cell">3,150</span></td><td class="right"><span class="editable-cell">3,150</span></td><td class="right"><span class="editable-cell">3,200</span></td>
+          <td class="right"><span class="editable-cell">3,200</span></td><td class="right"><span class="editable-cell">3,200</span></td><td class="right"><span class="editable-cell">3,200</span></td>
+          <td class="right num">35,000</td></tr>
+        <tr class="indent"><td>Thưởng (Bonus)</td><td class="right num">—</td><td class="right num">—</td><td class="right num">—</td><td class="right num">1,200</td><td class="right num">—</td><td class="right num">—</td>
+          <td class="right"><span class="editable-cell">—</span></td><td class="right"><span class="editable-cell">—</span></td><td class="right"><span class="editable-cell">—</span></td>
+          <td class="right"><span class="editable-cell">—</span></td><td class="right"><span class="editable-cell">—</span></td><td class="right"><span class="editable-cell">4,800</span></td>
+          <td class="right num">6,000</td></tr>
+        <tr class="indent"><td>Phúc lợi (Benefits)</td><td class="right num">312</td><td class="right num">308</td><td class="right num">325</td><td class="right num">318</td><td class="right num">331</td><td class="right num">341</td>
+          <td class="right"><span class="editable-cell">346</span></td><td class="right"><span class="editable-cell">346</span></td><td class="right"><span class="editable-cell">352</span></td>
+          <td class="right"><span class="editable-cell">352</span></td><td class="right"><span class="editable-cell">352</span></td><td class="right"><span class="editable-cell">352</span></td>
+          <td class="right num">3,850</td></tr>
+        <tr class="indent"><td>Nhân công thuê ngoài</td><td class="right num">180</td><td class="right num">180</td><td class="right num">240</td><td class="right num">240</td><td class="right num">240</td><td class="right num">320</td>
+          <td class="right"><span class="editable-cell">320</span></td><td class="right"><span class="editable-cell">320</span></td><td class="right"><span class="editable-cell">320</span></td>
+          <td class="right"><span class="editable-cell">320</span></td><td class="right"><span class="editable-cell">320</span></td><td class="right"><span class="editable-cell">320</span></td>
+          <td class="right num">3,200</td></tr>
+        <tr class="total-row"><td class="fw7">Tổng People Cost</td><td class="right num fw7">3,333</td><td class="right num fw7">3,291</td><td class="right num fw7">3,523</td><td class="right num fw7">4,649</td><td class="right num fw7">3,585</td><td class="right num fw7">3,763</td>
+          <td class="right num fw7 col-gold">3,816</td><td class="right num fw7 col-gold">3,816</td><td class="right num fw7 col-gold">3,872</td>
+          <td class="right num fw7 col-gold">3,872</td><td class="right num fw7 col-gold">3,872</td><td class="right num fw7 col-gold">8,672</td>
+          <td class="right num fw7">48,050</td></tr>
+        <!-- OPERATION COST -->
+        <tr class="section-row"><td colspan="14">🏢 OPERATION COST</td></tr>
+        <tr class="indent"><td>Đào tạo (Training Cost)</td><td class="right num">280</td><td class="right num">195</td><td class="right num">440</td><td class="right num">320</td><td class="right num">392</td><td class="right num">615</td>
+          <td class="right"><span class="editable-cell">400</span></td><td class="right"><span class="editable-cell">400</span></td><td class="right"><span class="editable-cell">450</span></td>
+          <td class="right"><span class="editable-cell">450</span></td><td class="right"><span class="editable-cell">450</span></td><td class="right"><span class="editable-cell">450</span></td>
+          <td class="right num">4,842</td></tr>
+        <tr class="indent"><td>Tuyển dụng</td><td class="right num">98</td><td class="right num">142</td><td class="right num">88</td><td class="right num">121</td><td class="right num">102</td><td class="right num">156</td>
+          <td class="right"><span class="editable-cell">120</span></td><td class="right"><span class="editable-cell">120</span></td><td class="right"><span class="editable-cell">120</span></td>
+          <td class="right"><span class="editable-cell">120</span></td><td class="right"><span class="editable-cell">120</span></td><td class="right"><span class="editable-cell">120</span></td>
+          <td class="right num">1,427</td></tr>
+        <tr class="indent"><td>Chi phí đi lại (Travel)</td><td class="right num">421</td><td class="right num">388</td><td class="right num">462</td><td class="right num">495</td><td class="right num">511</td><td class="right num">583</td>
+          <td class="right"><span class="editable-cell">520</span></td><td class="right"><span class="editable-cell">520</span></td><td class="right"><span class="editable-cell">520</span></td>
+          <td class="right"><span class="editable-cell">520</span></td><td class="right"><span class="editable-cell">520</span></td><td class="right"><span class="editable-cell">520</span></td>
+          <td class="right num">5,980</td></tr>
+        <tr class="indent"><td>IT cost</td><td class="right num">6,420</td><td class="right num">5,891</td><td class="right num">6,104</td><td class="right num">6,538</td><td class="right num">7,810</td><td class="right num col-red">9,248</td>
+          <td class="right"><span class="editable-cell" style="color:var(--red)">8,500</span></td><td class="right"><span class="editable-cell">7,800</span></td><td class="right"><span class="editable-cell">7,200</span></td>
+          <td class="right"><span class="editable-cell">7,200</span></td><td class="right"><span class="editable-cell">7,200</span></td><td class="right"><span class="editable-cell">7,200</span></td>
+          <td class="right num">89,400</td></tr>
+        <tr class="indent"><td>Văn phòng phẩm</td><td class="right num">62</td><td class="right num">58</td><td class="right num">71</td><td class="right num">65</td><td class="right num">74</td><td class="right num">81</td>
+          <td class="right"><span class="editable-cell">72</span></td><td class="right"><span class="editable-cell">72</span></td><td class="right"><span class="editable-cell">72</span></td>
+          <td class="right"><span class="editable-cell">72</span></td><td class="right"><span class="editable-cell">72</span></td><td class="right"><span class="editable-cell">72</span></td>
+          <td class="right num">830</td></tr>
+        <tr class="indent"><td>Thuê VP (Lease & Rental)</td><td class="right num">2,180</td><td class="right num">2,180</td><td class="right num">2,180</td><td class="right num">2,180</td><td class="right num">2,180</td><td class="right num">2,180</td>
+          <td class="right"><span class="editable-cell">2,180</span></td><td class="right"><span class="editable-cell">2,180</span></td><td class="right"><span class="editable-cell">2,180</span></td>
+          <td class="right"><span class="editable-cell">2,180</span></td><td class="right"><span class="editable-cell">2,180</span></td><td class="right"><span class="editable-cell">2,180</span></td>
+          <td class="right num">26,160</td></tr>
+        <tr class="total-row"><td class="fw7">Tổng Operation Cost</td><td class="right num fw7">9,461</td><td class="right num fw7">8,854</td><td class="right num fw7">9,345</td><td class="right num fw7">9,719</td><td class="right num fw7">11,069</td><td class="right num fw7 col-red">12,863</td>
+          <td class="right num fw7 col-gold">11,792</td><td class="right num fw7 col-gold">11,092</td><td class="right num fw7 col-gold">10,542</td>
+          <td class="right num fw7 col-gold">10,542</td><td class="right num fw7 col-gold">10,542</td><td class="right num fw7 col-gold">10,542</td>
+          <td class="right num fw7">127,639</td></tr>
+        <!-- GRAND TOTAL -->
+        <tr style="background:var(--navy2)"><td style="color:#fff;font-weight:800;font-size:13px">GRAND TOTAL</td>
+          <td class="right num" style="color:var(--sky);font-weight:800">12,794</td><td class="right num" style="color:var(--sky);font-weight:800">12,145</td>
+          <td class="right num" style="color:var(--sky);font-weight:800">12,868</td><td class="right num" style="color:var(--sky);font-weight:800">14,368</td>
+          <td class="right num" style="color:var(--sky);font-weight:800">14,654</td><td class="right num" style="color:var(--red-b);font-weight:800">16,626</td>
+          <td class="right num" style="color:var(--gold-b);font-weight:800">15,608</td><td class="right num" style="color:var(--gold-b);font-weight:800">14,908</td>
+          <td class="right num" style="color:var(--gold-b);font-weight:800">14,414</td><td class="right num" style="color:var(--gold-b);font-weight:800">14,414</td>
+          <td class="right num" style="color:var(--gold-b);font-weight:800">14,414</td><td class="right num" style="color:var(--gold-b);font-weight:800">19,214</td>
+          <td class="right num" style="color:#fff;font-weight:800">175,689</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+`},
+
+// ── 3. THEO DÕI NS ──────────────────────────
+'budget-track': {
+  title: 'Theo dõi ngân sách',
+  render: () => `
+<div class="filter-bar">
+  <div class="search-box"><span>🔍</span><input placeholder="Tìm kiếm khoản mục, mã tiểu khoản..."/></div>
+  <div class="filter-sep"></div>
+  <select class="select"><option>Tất cả entity</option><option selected>MSC — 111</option><option>NET — 611</option></select>
+  <select class="select"><option>Tất cả phòng ban</option><option>HR02 — Hành chánh</option><option>TI04 — IT</option><option>RD02 — R&D MCH</option></select>
+  <select class="select"><option>Tất cả loại CP</option><option>PEOPLE COST</option><option>OPERATION COST</option><option>SHARE COST</option></select>
+  <select class="select"><option>YTD (T1–T6)</option><option>Tháng 6/2026</option><option>Q2/2026</option></select>
+  <button class="btn btn-secondary ml-auto">📥 Export</button>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi-card"><div class="kpi-label">NS phê duyệt (MUF YTD)</div>
+    <div class="kpi-value" style="color:var(--navy)">280.1 <small style="font-size:14px">tỷ</small></div>
+    <div class="kpi-sub col-blue">6 tháng / 12 tháng</div></div>
+  <div class="kpi-card"><div class="kpi-label">Thực tế (ACT YTD)</div>
+    <div class="kpi-value col-blue">298.6 <small style="font-size:14px">tỷ</small></div>
+    <div class="kpi-sub col-red">▲ +18.5 tỷ so với MUF YTD</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--red-b)"></div></div></div>
+  <div class="kpi-card"><div class="kpi-label">Đã cam kết (Committed)</div>
+    <div class="kpi-value col-gold">84.2 <small style="font-size:14px">tỷ</small></div>
+    <div class="kpi-sub">PO Open chưa thanh toán</div></div>
+  <div class="kpi-card"><div class="kpi-label">Còn lại (Available)</div>
+    <div class="kpi-value col-green">259.6 <small style="font-size:14px">tỷ</small></div>
+    <div class="kpi-sub col-green">= MUF FY − ACT − Committed</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Chi tiết theo dõi ngân sách — MSC, YTD T6/2026</div>
+    <div class="flex-row">
+      <button class="btn btn-secondary btn-sm">👁 Ẩn dòng không hoạt động</button>
+      <button class="btn btn-secondary btn-sm">🔽 Nhóm theo Function</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Loại CP / Tiểu khoản</th><th>Phòng ban</th>
+        <th class="right">MUF YTD</th><th class="right">ACT YTD</th>
+        <th class="right">Committed</th><th class="right">FCST FY</th>
+        <th class="right">MUF FY</th><th class="right">Variance</th>
+        <th class="right">% Used</th><th class="center">Trạng thái</th>
+      </tr></thead>
+      <tbody>
+        <tr style="background:var(--sky-l)"><td class="fw7" colspan="10" style="color:var(--steel);font-size:11px;text-transform:uppercase;letter-spacing:0.5px">💰 PEOPLE COST</td></tr>
+        <tr><td>Lương cơ bản</td><td><span class="tag">HR02</span></td><td class="right num">17,609</td><td class="right num col-blue">18,609</td><td class="right num">—</td><td class="right num col-gold">37,900</td><td class="right num">35,000</td><td class="right num-red">+5.7%</td><td class="right"><span class="warn-chip">106.2%</span></td><td class="center"><span class="badge badge-warning">Sắp vượt</span></td></tr>
+        <tr><td>Thưởng (Bonus)</td><td><span class="tag">HR02</span></td><td class="right num">1,200</td><td class="right num col-blue">1,200</td><td class="right num">—</td><td class="right num col-gold">6,000</td><td class="right num">6,000</td><td class="right num-green">0%</td><td class="right"><span class="ok-chip">20.0%</span></td><td class="center"><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td>Phúc lợi (Benefits)</td><td><span class="tag">HR02</span></td><td class="right num">1,935</td><td class="right num col-blue">1,935</td><td class="right num">—</td><td class="right num col-gold">3,850</td><td class="right num">3,850</td><td class="right num-green">0%</td><td class="right"><span class="ok-chip">50.3%</span></td><td class="center"><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td>Nhân công thuê ngoài</td><td><span class="tag">HR02</span></td><td class="right num">1,420</td><td class="right num col-blue">1,600</td><td class="right num">640</td><td class="right num col-gold">3,520</td><td class="right num">3,200</td><td class="right num-red">+10.0%</td><td class="right"><span class="overflow-chip">110.0%</span></td><td class="center"><span class="badge badge-rejected">Vượt NS</span></td></tr>
+        <tr style="background:var(--green-l)"><td colspan="2" class="fw7">Tổng People Cost</td><td class="right num fw7">22,164</td><td class="right num fw7 col-blue">23,344</td><td class="right num fw7">640</td><td class="right num fw7 col-gold">51,270</td><td class="right num fw7">48,050</td><td class="right num-red fw7">+6.7%</td><td class="right fw7"><span class="overflow-chip">106.7%</span></td><td></td></tr>
+
+        <tr style="background:#FFF8ED"><td class="fw7" colspan="10" style="color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:0.5px">🏢 OPERATION COST</td></tr>
+        <tr><td>IT cost (Oracle, AWS, Azure)</td><td><span class="tag">TI04</span></td><td class="right num">44,700</td><td class="right num col-red">52,011</td><td class="right num">18,400</td><td class="right num col-red">101,611</td><td class="right num">89,400</td><td class="right num-red">+13.7%</td><td class="right"><span class="overflow-chip">113.7%</span></td><td class="center"><span class="badge badge-rejected">Vượt NS</span></td></tr>
+        <tr><td>Đào tạo (Training)</td><td><span class="tag">HR01</span></td><td class="right num">2,242</td><td class="right num col-blue">2,222</td><td class="right num">860</td><td class="right num col-gold">4,900</td><td class="right num">4,842</td><td class="right num-red">+1.2%</td><td class="right"><span class="warn-chip">63.1%</span></td><td class="center"><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td>Chi phí đi lại</td><td><span class="tag">Multi</span></td><td class="right num">2,860</td><td class="right num col-blue">2,860</td><td class="right num">420</td><td class="right num col-gold">5,950</td><td class="right num">5,980</td><td class="right num-green">-0.5%</td><td class="right"><span class="ok-chip">55.4%</span></td><td class="center"><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td>Thuê VP (Lease & Rental)</td><td><span class="tag">HR02</span></td><td class="right num">13,080</td><td class="right num col-blue">13,080</td><td class="right num">—</td><td class="right num col-gold">26,160</td><td class="right num">26,160</td><td class="right num-green">0%</td><td class="right"><span class="ok-chip">50.0%</span></td><td class="center"><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr><td>R&D Chi phí thử nghiệm</td><td><span class="tag">RD02</span></td><td class="right num">31,100</td><td class="right num col-blue">37,200</td><td class="right num">8,200</td><td class="right num col-red">83,000</td><td class="right num">74,800</td><td class="right num-red">+11.0%</td><td class="right"><span class="overflow-chip">120.5%</span></td><td class="center"><span class="badge badge-rejected">Vượt NS</span></td></tr>
+        <tr><td>Văn phòng phẩm</td><td><span class="tag">Multi</span></td><td class="right num">415</td><td class="right num col-blue">400</td><td class="right num">—</td><td class="right num col-gold">815</td><td class="right num">830</td><td class="right num-green">-1.8%</td><td class="right"><span class="ok-chip">48.2%</span></td><td class="center"><span class="badge badge-done">Bình thường</span></td></tr>
+        <tr style="background:var(--orange-l)"><td colspan="2" class="fw7">Tổng Operation Cost</td><td class="right num fw7">94,397</td><td class="right num fw7 col-red">107,773</td><td class="right num fw7">27,880</td><td class="right num fw7 col-red">222,436</td><td class="right num fw7">201,912</td><td class="right num-red fw7">+10.2%</td><td class="right fw7"><span class="overflow-chip">110.2%</span></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+`},
+
+// ── 4. TỜ TRÌNH PAY ─────────────────────────
+'pay-form': {
+  title: 'Tạo tờ trình thanh toán',
+  render: () => `
+<div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
+<div>
+  <!-- Section 1: Header -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">📋</span><div class="form-section-title">Thông tin chung</div>
+    <div class="ml-auto flex-row"><span class="badge badge-draft">Nháp</span><span style="font-size:11px;color:var(--text3)">ID: 2606MSCPAY000<strong>822</strong></span></div></div>
+    <div class="form-body">
+      <div class="form-grid form-grid-3 mb14">
+        <div class="field"><label>Công ty <span class="req">*</span></label>
+          <select class="select"><option>MSC — Công Ty CP Hàng tiêu dùng Masan</option><option>NET — Net Company</option><option>HIF — HI-FRESH</option><option>MTL — Masan Consumer Thailand</option></select></div>
+        <div class="field"><label>Loại tờ trình <span class="req">*</span></label>
+          <div class="radio-group">
+            <div class="radio-item sel">🏢 Chi phí hoạt động</div>
+            <div class="radio-item">✈️ Chi phí công tác</div>
+          </div></div>
+        <div class="field"><label>Ngày tạo</label>
+          <input class="input" type="date" value="2026-06-25" disabled/></div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="field"><label>Người tạo</label>
+          <div class="input-prefix"><span>👤</span><input value="Nguyễn Thị Chồn — 1000815 (MSC-HR02)" disabled/></div></div>
+        <div class="field"><label>Email người tạo</label>
+          <input class="input" value="chonnt@msc.masangroup.com" disabled/></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Vendor/Employee -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">🤝</span><div class="form-section-title">Thông tin đối tác / nhân viên nhận tiền</div></div>
+    <div class="form-body">
+      <div class="form-grid form-grid-2 mb14">
+        <div class="field"><label>Đối tác / Nhân viên <span class="req">*</span></label>
+          <div class="input-prefix"><span>🔍</span><input placeholder="Nhập mã NV hoặc tên công ty..."/></div>
+          <div class="field-hint">VD: 1004447 — Công Ty CP Thương Mại DV Kỹ Thuật Cao Nam Phát</div></div>
+        <div class="field"><label>Thanh toán cho <span class="req">*</span></label>
+          <select class="select">
+            <option>Chi phí hoạt động liên quan của từng phòng ban</option>
+            <option>Chi phí công tác Nhân viên</option>
+            <option>Phụ cấp nhân viên</option>
+          </select></div>
+      </div>
+      <div class="form-grid form-grid-3">
+        <div class="field"><label>Đơn vị tiền tệ <span class="req">*</span></label>
+          <select class="select"><option>VND</option><option>USD</option><option>THB</option><option>EUR</option></select></div>
+        <div class="field"><label>Tỷ giá</label>
+          <input class="input" value="1" disabled/><div class="field-hint">Tự động điền khi chọn ngoại tệ</div></div>
+        <div class="field"><label>Số PR liên quan</label>
+          <input class="input" placeholder="VD: 10000244988"/></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Contract -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">📜</span><div class="form-section-title">Liên kết hợp đồng (nếu có)</div></div>
+    <div class="form-body">
+      <div class="form-grid form-grid-4">
+        <div class="field"><label>Mã yêu cầu HĐ</label>
+          <input class="input" placeholder="VD: 2601MSCCtr000144"/></div>
+        <div class="field"><label>Số hợp đồng</label>
+          <input class="input" placeholder="VD: 20.25/CNP-MSC"/></div>
+        <div class="field"><label>Mã yêu cầu phụ lục</label>
+          <input class="input" placeholder="(tùy chọn)"/></div>
+        <div class="field"><label>Số phụ lục HĐ</label>
+          <input class="input" placeholder="(tùy chọn)"/></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Budget Mapping -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">🏦</span><div class="form-section-title">Phân bổ ngân sách <span class="req">*</span></div></div>
+    <div class="form-body">
+      <div class="form-grid form-grid-3 mb14">
+        <div class="field"><label>Entity chịu chi phí <span class="req">*</span></label>
+          <select class="select"><option>111 — MSC</option><option>611 — NET</option><option>451 — MBD</option></select></div>
+        <div class="field"><label>Phòng ban chịu chi phí <span class="req">*</span></label>
+          <select class="select"><option>HR02 — Hành chánh</option><option>HR01 — Nhân sự</option><option>TI04 — IT</option><option>GM02 — Ban TGĐ</option></select></div>
+        <div class="field"><label>Ngành hàng chịu phí</label>
+          <input class="input" placeholder="VD: IDW250 — Wake up 247..."/></div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="field"><label>Loại chi phí <span class="req">*</span></label>
+          <select class="select"><option>OPERATION COST</option><option>PEOPLE COST</option><option>SHARE COST</option></select></div>
+        <div class="field"><label>Mã tiểu khoản <span class="req">*</span></label>
+          <select class="select">
+            <option>RM01 — Bảo trì sửa chữa VP</option>
+            <option>CF01 — Văn phòng phẩm</option>
+            <option>TR01 — Đào tạo bên ngoài</option>
+            <option>TV06 — Hội họp nội bộ</option>
+            <option>FC03 — Phần mềm, bản quyền</option>
+            <option>FC09 — Dịch vụ Cloud, hosting</option>
+          </select></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 5: Line items -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">📝</span><div class="form-section-title">Chi tiết hóa đơn / chứng từ</div>
+      <button class="btn btn-secondary btn-sm ml-auto">＋ Thêm dòng</button></div>
+    <div class="form-body" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="min-width:40px">#</th>
+            <th style="min-width:140px">Invoice / Receipt No</th>
+            <th style="min-width:110px">Ngày hóa đơn</th>
+            <th style="min-width:220px">Nội dung thanh toán</th>
+            <th class="right" style="min-width:110px">Thành tiền (VND)</th>
+            <th class="right" style="min-width:90px">VAT</th>
+            <th class="right" style="min-width:120px">Tổng tiền</th>
+            <th class="center" style="min-width:50px">Xóa</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="color:var(--text3)">1</td>
+              <td><input class="input" style="min-width:130px" value="00000904"/></td>
+              <td><input class="input" type="date" value="2026-05-26"/></td>
+              <td><input class="input" style="min-width:210px" value="Vòi nước nóng máy pantry"/></td>
+              <td><input class="input text-right" value="250,000"/></td>
+              <td><select class="select"><option>0%</option><option selected>10%</option></select></td>
+              <td class="right num fw7">275,000</td>
+              <td class="center"><button class="btn btn-danger btn-sm">✕</button></td></tr>
+            <tr><td style="color:var(--text3)">2</td>
+              <td><input class="input" style="min-width:130px" value="00000901"/></td>
+              <td><input class="input" type="date" value="2026-05-26"/></td>
+              <td><input class="input" style="min-width:210px" value="Bảo trì định kỳ máy lọc nước T5"/></td>
+              <td><input class="input text-right" value="220,000"/></td>
+              <td><select class="select"><option>0%</option><option selected>10%</option></select></td>
+              <td class="right num fw7">242,000</td>
+              <td class="center"><button class="btn btn-danger btn-sm">✕</button></td></tr>
+            <tr style="background:var(--gray1)"><td colspan="4" class="text-right fw7" style="font-size:12px">Tổng cộng</td>
+              <td class="right num fw7">470,000</td><td></td>
+              <td class="right num fw7" style="color:var(--navy)">517,000</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 6: Attachment -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">📎</span><div class="form-section-title">Đính kèm hồ sơ</div></div>
+    <div class="form-body">
+      <div style="border:2px dashed var(--gray3);border-radius:var(--radius);padding:20px;text-align:center;color:var(--text3);margin-bottom:12px;cursor:pointer;background:var(--gray1)">
+        <div style="font-size:22px;margin-bottom:6px">📂</div>
+        <div style="font-size:13px;font-weight:600">Kéo thả file hoặc <span style="color:var(--steel);text-decoration:underline">chọn file</span></div>
+        <div style="font-size:11px;margin-top:4px">Hóa đơn VAT, biên lai, phiếu công tác — PDF, JPG, PNG (max 10MB/file)</div>
+      </div>
+      <div class="flex-row" style="gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;background:var(--sky-l);border:1px solid #C5DEFF;border-radius:6px;padding:5px 10px;font-size:12px">
+          📄 hoadon_CNP_T5.pdf <span style="color:var(--text3);margin-left:4px">42 KB</span> <button class="btn btn-danger btn-sm" style="padding:1px 6px">✕</button></div>
+        <div style="display:flex;align-items:center;gap:6px;background:var(--sky-l);border:1px solid #C5DEFF;border-radius:6px;padding:5px 10px;font-size:12px">
+          🖼 photo_receipt.jpg <span style="color:var(--text3);margin-left:4px">218 KB</span> <button class="btn btn-danger btn-sm" style="padding:1px 6px">✕</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 7: Notes -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">💬</span><div class="form-section-title">Ghi chú</div></div>
+    <div class="form-body">
+      <textarea class="textarea" rows="3" placeholder="Nhập ghi chú, nội dung bổ sung cho người phê duyệt...">111.95156, 97452. Cao Nam Phát. Thanh toán thay linh kiện bảo trì T5 – 2 máy văn phòng 8F mPlaza</textarea>
+    </div>
+  </div>
+
+  <!-- Approval flow -->
+  <div class="form-section">
+    <div class="form-section-header"><span class="form-section-icon">✅</span><div class="form-section-title">Quy trình phê duyệt</div></div>
+    <div class="form-body">
+      <div class="approval-flow">
+        <div class="step-node"><div class="step-circle done">✓</div><div class="step-node-label">Người tạo</div><div class="step-node-sub">Nguyễn Thị Chồn</div></div>
+        <div class="step-line done"></div>
+        <div class="step-node"><div class="step-circle current">2</div><div class="step-node-label">Trưởng phòng</div><div class="step-node-sub">Đang chờ duyệt</div></div>
+        <div class="step-line"></div>
+        <div class="step-node"><div class="step-circle wait">3</div><div class="step-node-label">Finance</div><div class="step-node-sub">duongttt@msc</div></div>
+        <div class="step-line"></div>
+        <div class="step-node"><div class="step-circle wait">4</div><div class="step-node-label">Kế toán xác nhận</div><div class="step-node-sub">Kiểm tra hồ sơ</div></div>
+        <div class="step-line"></div>
+        <div class="step-node"><div class="step-circle wait">5</div><div class="step-node-label">Oracle EBS</div><div class="step-node-sub">Ghi số chứng từ</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="flex-row" style="padding:4px 0 16px">
+    <button class="btn btn-secondary">💾 Lưu nháp</button>
+    <button class="btn btn-primary" style="margin-left:auto">📨 Gửi phê duyệt</button>
+    <button class="btn" style="background:var(--red-l);color:var(--red)">🗑 Hủy</button>
+  </div>
+</div>
+
+<!-- SIDEBAR: Budget check -->
+<div>
+  <div class="budget-panel mb14">
+    <div class="budget-panel-title">🏦 Kiểm tra ngân sách</div>
+    <div class="bp-row"><span class="bp-label">Phòng ban</span><span class="bp-val">HR02 — Hành chánh</span></div>
+    <div class="bp-row"><span class="bp-label">Khoản mục</span><span class="bp-val">RM01 — Bảo trì SC VP</span></div>
+    <div class="bp-sep"></div>
+    <div class="bp-row"><span class="bp-label">NS phê duyệt (MUF FY)</span><span class="bp-val">2,800,000,000</span></div>
+    <div class="bp-row"><span class="bp-label">Đã chi (ACT YTD)</span><span class="bp-val col-blue">1,840,000,000</span></div>
+    <div class="bp-row"><span class="bp-label">Đã cam kết (PO Open)</span><span class="bp-val col-gold">420,000,000</span></div>
+    <div class="bp-row"><span class="bp-label">Yêu cầu này</span><span class="bp-val">517,000</span></div>
+    <div class="bp-sep"></div>
+    <div class="bp-available">
+      <div><div class="bp-avail-label">Còn lại sau yêu cầu</div></div>
+      <div class="bp-avail-val">539,483,000</div>
+    </div>
+    <div class="ok-chip" style="display:block;text-align:center;margin-top:8px;padding:8px">✅ Đủ ngân sách</div>
+  </div>
+
+  <div class="card mb14">
+    <div class="card-header"><div class="card-title">📋 Trạng thái tờ trình</div></div>
+    <div class="card-body">
+      <div class="bp-row fs11"><span class="bp-label">Mã yêu cầu</span><span class="bp-val">2606MSCPAY000822</span></div>
+      <div class="bp-row fs11"><span class="bp-label">Ngày tạo</span><span class="bp-val">25/06/2026 09:15</span></div>
+      <div class="bp-row fs11"><span class="bp-label">Trạng thái</span><span class="badge badge-draft">Nháp</span></div>
+      <div class="bp-row fs11"><span class="bp-label">Trạng thái HĐ</span><span style="font-size:11px;color:var(--text3)">Chờ nhập liệu</span></div>
+      <div class="bp-sep"></div>
+      <div class="bp-row fs11"><span class="bp-label">Người phê duyệt tiếp</span><span class="bp-val">thuyntt3@msc</span></div>
+      <div class="bp-row fs11"><span class="bp-label">Finance phụ trách</span><span class="bp-val">ngapth@msc</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">🔗 PO liên quan</div></div>
+    <div class="card-body">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Các PO thuộc phòng ban HR02 còn mở</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--gray2)">
+        <span>PO 1000097452</span><span class="badge badge-pending">Open</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--gray2)">
+        <span>PO 1000095156</span><span class="badge badge-pending">Open</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span>PO 1000098187</span><span class="badge badge-done">Closed</span></div>
+    </div>
+  </div>
+</div>
+</div>
+`},
+
+// ── 5. DANH SÁCH TỜ TRÌNH ────────────────────
+'pay-list': {
+  title: 'Danh sách tờ trình thanh toán',
+  render: () => `
+<div class="filter-bar">
+  <div class="search-box"><span>🔍</span><input placeholder="Tìm mã yêu cầu, nội dung, tên NV..."/></div>
+  <div class="filter-sep"></div>
+  <select class="select"><option>Tất cả công ty</option><option>MSC</option><option>NET</option><option>MTL</option></select>
+  <select class="select"><option>Tất cả phòng ban</option><option>HR01</option><option>HR02</option><option>TI01</option><option>MKT</option></select>
+  <select class="select"><option>Tháng 6/2026</option><option>Tháng 5/2026</option><option>Q2/2026</option></select>
+  <div class="filter-sep"></div>
+  <button class="btn btn-secondary">📥 Export</button>
+  <button class="btn btn-primary ml-auto" onclick="go('pay-form')">＋ Tạo tờ trình</button>
+</div>
+
+<div class="status-tabs">
+  <div class="status-tab active">Tất cả <span>47</span></div>
+  <div class="status-tab">⏳ Đang duyệt <span>8</span></div>
+  <div class="status-tab">✅ Đã phê duyệt <span>31</span></div>
+  <div class="status-tab">📁 Đầy đủ hồ sơ <span>24</span></div>
+  <div class="status-tab">⏰ Chờ xác nhận HĐ <span>5</span></div>
+  <div class="status-tab">❌ Từ chối <span>3</span></div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Mã yêu cầu</th><th>Nội dung</th><th>Đối tác / Nhân viên</th><th>Phòng ban</th>
+        <th class="right">Số tiền (VND)</th><th>Ngày tạo</th><th>Trạng thái</th>
+        <th>HĐ/ Chứng từ</th><th>Người duyệt tiếp</th><th class="center">Actions</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MSCPAY000821</strong></td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Teabreak ăn trưa ăn sáng BOD T6 + đồ cúng thần tài</td>
+          <td style="font-size:11.5px">1000815 — Nguyễn Thị Chồn<br><span style="color:var(--text3)">MSC-HR02</span></td>
+          <td><span class="tag">HR02</span></td>
+          <td class="right num">6,726,246</td>
+          <td style="font-size:11.5px">24/06/2026<br><span style="color:var(--text3)">14:13</span></td>
+          <td><span class="badge badge-pending">Đang duyệt</span></td>
+          <td style="font-size:11px;color:var(--text3)">PR: 10000231160</td>
+          <td style="font-size:11.5px">xuandm@msc</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-sm" style="background:var(--green-l);color:var(--green)">✓</button>
+            <button class="btn btn-danger btn-sm">✕</button></div></td>
+        </tr>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MSCPAY000819</strong></td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Thanh toán Vũng Tàu 08-10/06/2026 cùng A Đăng & A Dũng</td>
+          <td style="font-size:11.5px">1052970 — Nguyễn Tuấn Phương<br><span style="color:var(--text3)">MSC-HR02</span></td>
+          <td><span class="tag">HR02</span></td>
+          <td class="right num">1,609,091</td>
+          <td style="font-size:11.5px">24/06/2026<br><span style="color:var(--text3)">12:36</span></td>
+          <td><span class="badge badge-pending">Đang duyệt</span></td>
+          <td style="font-size:11px;color:var(--text3)">—</td>
+          <td style="font-size:11.5px">duongttt@msc</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-sm" style="background:var(--green-l);color:var(--green)">✓</button>
+            <button class="btn btn-danger btn-sm">✕</button></div></td>
+        </tr>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MSCPAY000806</strong></td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cao Nam Phát — TT thay linh kiện bảo trì T5 2 máy VP 8F</td>
+          <td style="font-size:11.5px">1004447 — Cao Nam Phát<br><span style="color:var(--text3)">Vendor</span></td>
+          <td><span class="tag">HR02</span></td>
+          <td class="right num">9,452,800</td>
+          <td style="font-size:11.5px">23/06/2026<br><span style="color:var(--text3)">17:47</span></td>
+          <td><span class="badge badge-pending">Đang duyệt</span></td>
+          <td style="font-size:11px">HĐ: 20.25/CNP-MSC<br><span style="color:var(--text3)">PO: 1000097452</span></td>
+          <td style="font-size:11.5px">duongttt@msc</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-sm" style="background:var(--green-l);color:var(--green)">✓</button>
+            <button class="btn btn-danger btn-sm">✕</button></div></td>
+        </tr>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MSCPAY000801</strong></td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Tài Năng — Mua Macbook MTS 2260028 cho Team Creative</td>
+          <td style="font-size:11.5px">1036596 — Cty TNHH Tài Năng<br><span style="color:var(--text3)">Vendor</span></td>
+          <td><span class="tag">MT02</span></td>
+          <td class="right num">116,574,074</td>
+          <td style="font-size:11.5px">23/06/2026<br><span style="color:var(--text3)">16:30</span></td>
+          <td><span class="badge badge-pending">Đang duyệt</span></td>
+          <td style="font-size:11px">HĐ: 067/2025/HD-MSC<br><span style="color:var(--text3)">PO: 1000097294</span></td>
+          <td style="font-size:11.5px">duongttt@msc</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-sm" style="background:var(--green-l);color:var(--green)">✓</button>
+            <button class="btn btn-danger btn-sm">✕</button></div></td>
+        </tr>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MSCPAY000755</strong></td>
+          <td>Công tác phí thị trường Nghệ An tháng 5/2026</td>
+          <td style="font-size:11.5px">1005798 — Quách Chi Hồng<br><span style="color:var(--text3)">MSC-TI01</span></td>
+          <td><span class="tag">TI01</span></td>
+          <td class="right num">250,000</td>
+          <td style="font-size:11.5px">22/06/2026<br><span style="color:var(--text3)">16:54</span></td>
+          <td><span class="badge badge-approved">Đã phê duyệt</span></td>
+          <td style="font-size:11px;color:var(--green)">✅ Đầy đủ hồ sơ</td>
+          <td style="font-size:11px;color:var(--text3)">—</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-secondary btn-sm">📋</button></div></td>
+        </tr>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MSCPAY000686</strong></td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">2CE — Chi phí SX và vận hành gian hàng THAIFEX 2026</td>
+          <td style="font-size:11.5px">1052372 — Cty QC & TT 2CE<br><span style="color:var(--text3)">Vendor</span></td>
+          <td><span class="tag">KE01</span></td>
+          <td class="right num">182,375,201</td>
+          <td style="font-size:11.5px">19/06/2026<br><span style="color:var(--text3)">15:00</span></td>
+          <td><span class="badge badge-approved">Đã phê duyệt</span></td>
+          <td style="font-size:11px;color:var(--green)">✅ Đầy đủ hồ sơ</td>
+          <td style="font-size:11px;color:var(--text3)">—</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-secondary btn-sm">📋</button></div></td>
+        </tr>
+        <tr>
+          <td><strong style="font-size:11.5px;color:var(--steel)">2606MTLPAY000016</strong></td>
+          <td>UIH — Internet service fee Apr-Jun 2026</td>
+          <td style="font-size:11.5px">1038403 — United Info Highway<br><span style="color:var(--text3)">Thailand Vendor</span></td>
+          <td><span class="tag" style="background:var(--purple-l);color:var(--purple);border-color:#D5C0F0">MTL</span></td>
+          <td class="right num">11,428 <span style="font-size:10px">THB</span></td>
+          <td style="font-size:11.5px">22/06/2026<br><span style="color:var(--text3)">18:39</span></td>
+          <td><span class="badge badge-pending">Đang duyệt</span></td>
+          <td style="font-size:11px;color:var(--text3)">INV: 402606***</td>
+          <td style="font-size:11.5px">yennh@msc</td>
+          <td class="center"><div class="flex-row" style="justify-content:center;gap:4px">
+            <button class="btn btn-secondary btn-sm">👁</button>
+            <button class="btn btn-sm" style="background:var(--green-l);color:var(--green)">✓</button>
+            <button class="btn btn-danger btn-sm">✕</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+`},
+
+// ── 6. CẢNH BÁO ─────────────────────────────
+alerts: {
+  title: 'Cảnh báo ngân sách',
+  render: () => `
+<div class="filter-bar">
+  <div class="status-tabs" style="background:transparent;border:none;padding:0;box-shadow:none;margin-bottom:0">
+    <div class="status-tab active">Tất cả <span>11</span></div>
+    <div class="status-tab" style="background:var(--red-l);color:var(--red)">🔴 Critical <span style="background:var(--red-b);color:#fff">3</span></div>
+    <div class="status-tab" style="background:var(--orange-l);color:var(--orange)">🟡 Warning <span style="background:#E87030;color:#fff">5</span></div>
+    <div class="status-tab">🔵 Info <span>3</span></div>
+  </div>
+  <div class="ml-auto flex-row">
+    <select class="select"><option>Tất cả entity</option><option>MSC</option><option>NET</option></select>
+    <button class="btn btn-secondary">✓ Đánh dấu đã xử lý</button>
+  </div>
+</div>
+
+<div class="section-label" style="color:var(--red)">🔴 CRITICAL — Cần xử lý ngay</div>
+
+<div class="alert-card alert-hi">
+  <div class="alert-icon" style="background:var(--red-l)">🚨</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--red)">Vượt ngân sách IT Cost — TI04</div>
+    <div class="alert-desc">Chi thực tế IT cost YTD (52.0 tỷ) + Committed (18.4 tỷ) = 70.4 tỷ &gt; MUF FY 89.4 tỷ. FCST FY ước đạt 101.6 tỷ, vượt 12.2 tỷ (+13.7%). Nguyên nhân chính: gia hạn Oracle DB license 8.8 tỷ + AWS Cloud tăng.</div>
+    <div class="alert-meta">
+      <span>📅 Phát hiện: 24/06/2026 08:00</span><span>🏢 Entity: MSC-111</span><span>👤 Owner: TI04</span>
+      <span class="badge badge-rejected">Chưa xử lý</span>
+    </div>
+  </div>
+  <div class="alert-actions">
+    <button class="btn btn-primary btn-sm">📊 Xem chi tiết</button>
+    <button class="btn btn-secondary btn-sm">✓ Đã biết</button>
+  </div>
+</div>
+
+<div class="alert-card alert-hi">
+  <div class="alert-icon" style="background:var(--red-l)">🔒</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--red)">PR tạo khi ngân sách không đủ — RD_MCH</div>
+    <div class="alert-desc">PR 10000245099 (Chi phí giống ớt 445 triệu) được tạo khi ngân sách RD07 chỉ còn 210 triệu. Hệ thống đã tự động hold PR này, chờ xử lý điều chỉnh hoặc phê duyệt ngoại lệ.</div>
+    <div class="alert-meta">
+      <span>📅 23/06/2026 11:30</span><span>🏢 MSC-111 / RD02</span><span>👤 toandns@msc</span>
+      <span class="badge badge-rejected">Đang block</span>
+    </div>
+  </div>
+  <div class="alert-actions">
+    <button class="btn btn-primary btn-sm">📝 Xử lý PR</button>
+    <button class="btn btn-secondary btn-sm">💱 Điều chỉnh NS</button>
+  </div>
+</div>
+
+<div class="alert-card alert-hi">
+  <div class="alert-icon" style="background:var(--red-l)">⚠️</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--red)">Chi phí ngoài kế hoạch không được mapping — PO06</div>
+    <div class="alert-desc">Phát hiện 12 dòng PO trong tháng 6 có mã tiểu khoản #N/A, không thể phân bổ vào ngân sách. Tổng giá trị: 3.2 tỷ. Cần bộ phận Finance cập nhật mapping trong MASTER data.</div>
+    <div class="alert-meta">
+      <span>📅 25/06/2026 06:00</span><span>🏢 Multi-dept</span>
+      <span class="badge badge-rejected">12 dòng lỗi</span>
+    </div>
+  </div>
+  <div class="alert-actions">
+    <button class="btn btn-primary btn-sm">🔧 Fix mapping</button>
+    <button class="btn btn-secondary btn-sm">📋 Xem danh sách</button>
+  </div>
+</div>
+
+<div class="divider"></div>
+<div class="section-label" style="color:var(--orange)">🟡 WARNING — Cần theo dõi</div>
+
+<div class="alert-card alert-med">
+  <div class="alert-icon" style="background:var(--orange-l)">📈</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--orange)">R&D MCH đạt 83% MUF YTD — sắp vượt</div>
+    <div class="alert-desc">Phòng RD02 đã dùng 62.1/74.8 tỷ MUF (83%). Với tốc độ hiện tại, dự báo sẽ vượt ngân sách vào cuối tháng 8. Các dự án trial lớn đang chờ: Ketchup, Omachi, WK247.</div>
+    <div class="alert-meta"><span>📅 25/06/2026</span><span>🏢 MSC / RD02</span><span class="badge badge-warning">83% used</span></div>
+  </div>
+  <div class="alert-actions"><button class="btn btn-secondary btn-sm">📊 Xem forecast</button></div>
+</div>
+
+<div class="alert-card alert-med">
+  <div class="alert-icon" style="background:var(--orange-l)">⏰</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--orange)">8 tờ trình PAY chờ phê duyệt > 3 ngày làm việc</div>
+    <div class="alert-desc">8 tờ trình thanh toán đang tồn đọng quá 3 ngày làm việc, trong đó có 2 tờ trình giá trị lớn (>100 triệu). Người phê duyệt: duongttt@msc và hanhht@msc.</div>
+    <div class="alert-meta"><span>📅 25/06/2026</span><span>Tổng: 342 triệu</span><span class="badge badge-warning">8 tờ trình</span></div>
+  </div>
+  <div class="alert-actions"><button class="btn btn-primary btn-sm" onclick="go('pay-list')">📋 Xem tờ trình</button></div>
+</div>
+
+<div class="alert-card alert-med">
+  <div class="alert-icon" style="background:var(--orange-l)">📅</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--orange)">Hợp đồng sắp hết hạn trong 30 ngày</div>
+    <div class="alert-desc">3 hợp đồng cần gia hạn: (1) Toyota Tân Cảng — 033/2017/HD-MSC (hết 31/7/2026), (2) Khang Minh VPP — 149/2024/HD-MSC (hết 15/7/2026), (3) Oracle license renewal.</div>
+    <div class="alert-meta"><span>📅 25/06/2026</span><span>3 hợp đồng</span><span class="badge badge-warning">Cần gia hạn</span></div>
+  </div>
+  <div class="alert-actions"><button class="btn btn-secondary btn-sm">📋 Xem HĐ</button></div>
+</div>
+
+<div class="divider"></div>
+<div class="section-label" style="color:var(--steel)">🔵 INFO — Thông tin</div>
+<div class="alert-card" style="border-left:4px solid var(--sky)">
+  <div class="alert-icon" style="background:var(--sky-l)">🔄</div>
+  <div class="alert-content">
+    <div class="alert-title" style="color:var(--steel)">Đồng bộ GL từ Oracle EBS hoàn thành — T6/2026</div>
+    <div class="alert-desc">Đã pull thành công 2,847 journal entries từ Oracle EBS GL cho kỳ tháng 5/2026. Tổng giá trị: 298.6 tỷ VND. Không có lỗi mapping.</div>
+    <div class="alert-meta"><span>📅 01/06/2026 07:30</span><span>✅ 2,847 entries</span><span class="badge badge-done">Hoàn thành</span></div>
+  </div>
+  <div class="alert-actions"><button class="btn btn-secondary btn-sm">📊 Xem log</button></div>
+</div>
+`},
+
+// ── 7. BÁO CÁO ──────────────────────────────
+reports: {
+  title: 'Báo cáo & Phân tích',
+  render: () => `
+<div class="report-type-row">
+  <div class="report-type-card sel"><div class="rtc-icon">📊</div><div class="rtc-name">MUF vs Actual</div><div class="rtc-desc">So sánh kế hoạch và thực tế</div></div>
+  <div class="report-type-card"><div class="rtc-icon">👥</div><div class="rtc-name">Headcount</div><div class="rtc-desc">Biến động nhân sự và chi phí</div></div>
+  <div class="report-type-card"><div class="rtc-icon">📄</div><div class="rtc-name">Chi tiết PO/PAY</div><div class="rtc-desc">Danh sách giao dịch chi tiêu</div></div>
+  <div class="report-type-card"><div class="rtc-icon">🔀</div><div class="rtc-name">Share Cost</div><div class="rtc-desc">Phân bổ chi phí nội bộ</div></div>
+  <div class="report-type-card"><div class="rtc-icon">📈</div><div class="rtc-name">Forecast</div><div class="rtc-desc">Dự báo chi tiêu cuối kỳ</div></div>
+  <div class="report-type-card"><div class="rtc-icon">🔗</div><div class="rtc-name">EBS Reconcile</div><div class="rtc-desc">Đối soát với Oracle GL</div></div>
+</div>
+
+<div class="filter-bar">
+  <div class="field"><label style="font-size:10px">Entity</label>
+    <select class="select"><option>Tất cả</option><option>MSC — 111</option><option>NET — 611</option><option>MCH + NET</option></select></div>
+  <div class="field"><label style="font-size:10px">Function</label>
+    <select class="select"><option>Tất cả</option><option>G&A</option><option>MKT</option><option>R&D</option><option>Sales</option></select></div>
+  <div class="field"><label style="font-size:10px">Kỳ báo cáo</label>
+    <select class="select"><option>YTD T6/2026</option><option>Q2/2026</option><option>Tháng 6/2026</option><option>FY 2026</option></select></div>
+  <div class="field"><label style="font-size:10px">Version ngân sách</label>
+    <select class="select"><option>MUF 2026</option><option>AP 2026</option></select></div>
+  <div class="ml-auto flex-row">
+    <button class="btn btn-secondary">🔄 Làm mới</button>
+    <button class="btn btn-secondary">📥 Excel</button>
+    <button class="btn btn-secondary">📄 PDF</button>
+    <button class="btn btn-primary">📧 Gửi email</button>
+  </div>
+</div>
+
+<div class="two-col" style="margin-bottom:14px">
+  <div class="card"><div class="card-header"><div class="card-title">ACT vs MUF — Theo Function (YTD T6)</div></div>
+    <div class="card-body">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="fw7">G&A</span><span class="num">158.4 / 180.2 tỷ <span class="col-green">87.9%</span></span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:87.9%;background:var(--sky)"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="fw7">MKT</span><span class="num">82.1 / 148.6 tỷ <span class="col-green">55.2%</span></span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:55.2%;background:var(--sky)"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="fw7">R&D</span><span class="num">99.3 / 155.8 tỷ <span class="col-gold">63.7%</span></span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:63.7%;background:var(--gold-b)"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="fw7">Sales & Planning</span><span class="num">44.2 / 87.4 tỷ <span class="col-green">50.6%</span></span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:50.6%;background:var(--sky)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><div class="card-header"><div class="card-title">Top chi phí phát sinh ngoài kế hoạch</div></div>
+    <div class="card-body" style="padding:0">
+      <table><thead><tr><th>Khoản mục</th><th class="right">Variance</th><th>%</th></tr></thead>
+      <tbody>
+        <tr><td>Oracle License renewal</td><td class="right num-red">+8,800</td><td><span class="overflow-chip">+34%</span></td></tr>
+        <tr><td>AWS Cloud — Bidding+Indirect</td><td class="right num-red">+3,072</td><td><span class="overflow-chip">+18%</span></td></tr>
+        <tr><td>R&D Trial — Ketchup Line</td><td class="right num-red">+1,638</td><td><span class="overflow-chip">+22%</span></td></tr>
+        <tr><td>Outside Contractor HR</td><td class="right num-red">+640</td><td><span class="warn-chip">+10%</span></td></tr>
+        <tr><td>Chuyên gia R&D nước ngoài</td><td class="right num-red">+585</td><td><span class="warn-chip">+41%</span></td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Báo cáo MUF vs Actual — Tổng hợp theo Function & Loại CP (Đơn vị: triệu VND)</div>
+    <button class="btn btn-secondary btn-sm">🔽 Mở rộng tất cả</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Function / Phòng ban</th><th>Loại CP</th>
+        <th class="right">MUF FY</th>
+        <th class="right">ACT T1-T3</th><th class="right">ACT T4-T6</th>
+        <th class="right">ACT YTD</th><th class="right">FCST FY</th>
+        <th class="right">Variance FY</th><th class="right">% Used YTD</th><th>Rating</th>
+      </tr></thead>
+      <tbody>
+        <tr style="background:#EEF2F7"><td class="fw7">🏢 G&A TOTAL</td><td>—</td><td class="right num fw7">361,200</td><td class="right num col-blue">84,200</td><td class="right num col-blue">98,400</td><td class="right num fw7 col-blue">182,600</td><td class="right num col-gold">368,500</td><td class="right num-red fw7">+7,300</td><td class="right fw7">50.6%</td><td><span class="warn-chip">+2.0%</span></td></tr>
+        <tr class="indent"><td>HR01 — Nhân sự</td><td>People+Op</td><td class="right num">38,600</td><td class="right num col-blue">17,840</td><td class="right num col-blue">20,420</td><td class="right num col-blue">38,260</td><td class="right num col-gold">39,200</td><td class="right num-red">+600</td><td class="right">99.1%</td><td><span class="warn-chip">+1.6%</span></td></tr>
+        <tr class="indent"><td>HR02 — Hành chánh</td><td>Op</td><td class="right num">28,400</td><td class="right num col-blue">13,180</td><td class="right num col-blue">14,900</td><td class="right num col-blue">28,080</td><td class="right num col-gold">28,200</td><td class="right num-green">-200</td><td class="right">98.9%</td><td><span class="ok-chip">-0.7%</span></td></tr>
+        <tr class="indent"><td>TI04 — IT</td><td>Op</td><td class="right num">89,400</td><td class="right num col-blue">24,630</td><td class="right num col-red">27,380</td><td class="right num col-red">52,010</td><td class="right num col-red">101,600</td><td class="right num-red">+12,200</td><td class="right">58.2%</td><td><span class="overflow-chip">+13.7%</span></td></tr>
+        <tr style="background:#EEF2F7"><td class="fw7">🔬 R&D TOTAL</td><td>—</td><td class="right num fw7">155,800</td><td class="right num col-blue">44,100</td><td class="right num col-blue">55,200</td><td class="right num fw7 col-blue">99,300</td><td class="right num col-red">173,000</td><td class="right num-red fw7">+17,200</td><td class="right fw7">63.7%</td><td><span class="overflow-chip">+11.0%</span></td></tr>
+        <tr class="indent"><td>RD02 — R&D MCH</td><td>R&D</td><td class="right num">74,800</td><td class="right num col-blue">22,400</td><td class="right num col-red">39,800</td><td class="right num col-red">62,200</td><td class="right num col-red">83,000</td><td class="right num-red">+8,200</td><td class="right">83.2%</td><td><span class="overflow-chip">+11.0%</span></td></tr>
+        <tr class="indent"><td>RH03 — R&D HPC</td><td>R&D</td><td class="right num">42,600</td><td class="right num col-blue">12,100</td><td class="right num col-blue">11,900</td><td class="right num col-blue">24,000</td><td class="right num col-gold">43,800</td><td class="right num-red">+1,200</td><td class="right">56.3%</td><td><span class="warn-chip">+2.8%</span></td></tr>
+        <tr style="background:#EEF2F7"><td class="fw7">📣 MKT TOTAL</td><td>—</td><td class="right num fw7">148,600</td><td class="right num col-blue">38,200</td><td class="right num col-blue">43,900</td><td class="right num fw7 col-blue">82,100</td><td class="right num col-gold">147,200</td><td class="right num-green fw7">-1,400</td><td class="right fw7">55.2%</td><td><span class="ok-chip">-0.9%</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+`},
+
+// ── 8. TÍCH HỢP ORACLE ──────────────────────
+integration: {
+  title: 'Tích hợp Oracle EBS',
+  render: () => `
+<div class="kpi-row">
+  <div class="kpi-card"><div class="kpi-label">🔄 Lần sync gần nhất</div>
+    <div class="kpi-value" style="font-size:18px;color:var(--green)">01/06/2026</div>
+    <div class="kpi-sub col-green">✅ GL T5/2026 — Thành công</div></div>
+  <div class="kpi-card"><div class="kpi-label">📊 Tổng records đã sync</div>
+    <div class="kpi-value" style="color:var(--steel)">2,847</div>
+    <div class="kpi-sub">Journal entries tháng 5/2026</div></div>
+  <div class="kpi-card"><div class="kpi-label">⚠️ Lỗi mapping</div>
+    <div class="kpi-value" style="color:var(--red)">12</div>
+    <div class="kpi-sub col-red">Cần xử lý — mã #N/A</div></div>
+  <div class="kpi-card"><div class="kpi-label">⏰ Lịch sync tiếp theo</div>
+    <div class="kpi-value" style="font-size:18px;color:var(--navy)">01/07/2026</div>
+    <div class="kpi-sub">GL close T6/2026 (auto)</div></div>
+</div>
+
+<div class="card mb14">
+  <div class="card-header">
+    <div class="card-title">🔗 Trạng thái các điểm tích hợp Oracle EBS</div>
+    <button class="btn btn-primary btn-sm">▶ Chạy sync thủ công</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Module EBS</th><th>Loại dữ liệu</th><th>Chiều</th>
+        <th>Tần suất</th><th class="right">Lần cuối</th><th class="right">Số records</th><th>Trạng thái</th><th class="center">Action</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="fw7">GL — General Ledger</td><td style="font-size:11.5px">Actual expenses theo cost center, account, period</td>
+          <td><span class="badge badge-done">PULL ← EBS</span></td><td>Monthly (close)</td>
+          <td class="right" style="font-size:11.5px">01/06/2026 07:30</td><td class="right num">2,847</td>
+          <td><span class="badge badge-approved">✅ OK</span></td>
+          <td class="center"><button class="btn btn-secondary btn-sm">▶ Run</button></td></tr>
+        <tr><td class="fw7">PO — Purchase Order</td><td style="font-size:11.5px">PO number, status, amount, vendor, approved</td>
+          <td><span class="badge badge-done">PULL ← EBS</span></td><td>Realtime (webhook)</td>
+          <td class="right" style="font-size:11.5px">25/06/2026 14:58</td><td class="right num">142</td>
+          <td><span class="badge badge-approved">✅ OK</span></td>
+          <td class="center"><button class="btn btn-secondary btn-sm">▶ Run</button></td></tr>
+        <tr><td class="fw7">AP — Accounts Payable</td><td style="font-size:11.5px">Invoice, payment status, vendor payment</td>
+          <td><span class="badge badge-done">PULL ← EBS</span></td><td>Daily (08:00)</td>
+          <td class="right" style="font-size:11.5px">25/06/2026 08:00</td><td class="right num">388</td>
+          <td><span class="badge badge-approved">✅ OK</span></td>
+          <td class="center"><button class="btn btn-secondary btn-sm">▶ Run</button></td></tr>
+        <tr><td class="fw7">Budgetary Control</td><td style="font-size:11.5px">Budget check khi tạo PO (encumbrance)</td>
+          <td><span class="badge badge-warning">SYNC ↔</span></td><td>Realtime (API)</td>
+          <td class="right" style="font-size:11.5px">25/06/2026 14:59</td><td class="right num">—</td>
+          <td><span class="badge badge-approved">✅ Online</span></td>
+          <td class="center"><button class="btn btn-secondary btn-sm">🧪 Test</button></td></tr>
+        <tr><td class="fw7">Payroll / HRMS</td><td style="font-size:11.5px">Headcount, salary journals, allowances</td>
+          <td><span class="badge badge-done">PULL ← EBS</span></td><td>Monthly (payroll close)</td>
+          <td class="right" style="font-size:11.5px">05/06/2026 09:00</td><td class="right num">1,204</td>
+          <td><span class="badge badge-approved">✅ OK</span></td>
+          <td class="center"><button class="btn btn-secondary btn-sm">▶ Run</button></td></tr>
+        <tr style="background:#FEF9E6"><td class="fw7">GL Journal Interface</td><td style="font-size:11.5px">Share cost allocation entries → EBS GL</td>
+          <td><span class="badge badge-info">PUSH → EBS</span></td><td>Monthly (period end)</td>
+          <td class="right" style="font-size:11.5px">31/05/2026 23:00</td><td class="right num">248</td>
+          <td><span class="badge badge-approved">✅ OK</span></td>
+          <td class="center"><button class="btn btn-primary btn-sm">▶ Push</button></td></tr>
+        <tr style="background:var(--red-l)"><td class="fw7">Cost Center Mapping</td><td style="font-size:11.5px">EBS cost center ↔ Internal dept mapping</td>
+          <td><span class="badge badge-done">PULL ← EBS</span></td><td>Weekly (Thứ 2)</td>
+          <td class="right" style="font-size:11.5px">23/06/2026 06:00</td><td class="right num col-red">12 lỗi</td>
+          <td><span class="badge badge-rejected">⚠️ Lỗi mapping</span></td>
+          <td class="center"><button class="btn btn-primary btn-sm">🔧 Fix</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card"><div class="card-header"><div class="card-title">📋 Log sync gần đây</div></div>
+    <div class="card-body" style="padding:0">
+      <table><thead><tr><th>Thời gian</th><th>Job</th><th>Kết quả</th><th class="right">Records</th></tr></thead>
+      <tbody>
+        <tr><td style="font-size:11px">25/06 14:59</td><td>PO Sync</td><td><span class="badge badge-approved">OK</span></td><td class="right num">3</td></tr>
+        <tr><td style="font-size:11px">25/06 08:00</td><td>AP Daily</td><td><span class="badge badge-approved">OK</span></td><td class="right num">28</td></tr>
+        <tr><td style="font-size:11px">23/06 06:00</td><td>Cost Center Map</td><td><span class="badge badge-rejected">Lỗi</span></td><td class="right num col-red">12 err</td></tr>
+        <tr><td style="font-size:11px">01/06 07:30</td><td>GL Monthly</td><td><span class="badge badge-approved">OK</span></td><td class="right num">2,847</td></tr>
+        <tr><td style="font-size:11px">31/05 23:00</td><td>Journal Push</td><td><span class="badge badge-approved">OK</span></td><td class="right num">248</td></tr>
+        <tr><td style="font-size:11px">05/06 09:00</td><td>Payroll</td><td><span class="badge badge-approved">OK</span></td><td class="right num">1,204</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+  <div class="card"><div class="card-header"><div class="card-title">🔧 Xử lý lỗi mapping (12 dòng)</div></div>
+    <div class="card-body" style="padding:0">
+      <table><thead><tr><th>EBS Code</th><th>Dept</th><th>Lỗi</th><th class="center">Fix</th></tr></thead>
+      <tbody>
+        <tr><td style="font-size:11px">#N/A</td><td style="font-size:11px">RD_MCH / RD02</td><td><span class="badge badge-rejected" style="font-size:10px">Không tìm thấy</span></td><td class="center"><button class="btn btn-primary btn-sm" style="font-size:10px">Ánh xạ</button></td></tr>
+        <tr><td style="font-size:11px">#REF!</td><td style="font-size:11px">ADMIN / HR02</td><td><span class="badge badge-rejected" style="font-size:10px">Ref lỗi</span></td><td class="center"><button class="btn btn-primary btn-sm" style="font-size:10px">Sửa</button></td></tr>
+        <tr><td style="font-size:11px">#N/A</td><td style="font-size:11px">FIN / TI02</td><td><span class="badge badge-rejected" style="font-size:10px">Không tìm thấy</span></td><td class="center"><button class="btn btn-primary btn-sm" style="font-size:10px">Ánh xạ</button></td></tr>
+        <tr><td colspan="4" style="text-align:center;color:var(--text3);font-size:11px;padding:8px">... và 9 dòng khác</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</div>
+`}
+};
+
+// ── NAVIGATION ──────────────────────────────
+function go(name) {
+  const screen = screens[name];
+  if (!screen) return;
+  document.getElementById('page-content').innerHTML = screen.render();
+  document.getElementById('breadcrumb').innerHTML = `<strong>${screen.title}</strong>`;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(name)) el.classList.add('active');
+  });
+}
+
+// Init
+go('dashboard');
+</script>
+</body>
+</html>

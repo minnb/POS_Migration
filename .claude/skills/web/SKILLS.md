@@ -435,6 +435,37 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | Paper nền | `MudPaper Elevation="2" Class="pa-4"` |
 | Grid layout | `MudGrid` + `MudItem xs="12" sm="6"` |
 
+> Bảng trên map theo **nhu cầu chức năng** (cần làm gì → dùng component nào). Khi polish/tạo UI
+> mới đối chiếu trực tiếp với 1 mockup HTML (`div.sidebar`, `div.card`, `button.btn-primary`...),
+> dùng bảng **"Mapping HTML mockup → MudBlazor Component"** ở `.claude/rules/mudblazor-flat-ui.md`
+> mục 0 — map theo **cấu trúc/markup**, bổ sung cho bảng này chứ không lặp lại.
+
+### Pattern: Polish/tạo UI theo mockup HTML — quy trình chuẩn
+
+> Áp dụng khi nhận 1 mockup HTML/CSS mới cần đưa ngôn ngữ thiết kế vào POS.Web (page/component có
+> sẵn, KHÔNG tạo page mới nếu không được yêu cầu rõ).
+
+1. Đối chiếu từng phần tử mockup với bảng mapping ở `.claude/rules/mudblazor-flat-ui.md` mục 0 —
+   không tự viết `<div>`/`<table>` thuần thay cho component MudBlazor đã có.
+2. Màu/spacing cụ thể lấy từ token `--pos-*` trong `app.css` + `PosTheme.cs` (Palette/Typography/
+   Shadows) — không hardcode hex/px mới trong markup Razor.
+3. Cần ghi đè CSS của component con MudBlazor tự render → xem `.claude/rules/mudblazor-flat-ui.md`
+   mục 10 "CSS Isolation" trước khi quyết định `app.css` hay `{Component}.razor.css`.
+
+```razor
+@* Ví dụ: card + filter-bar tối thiểu theo mapping mục 0 *@
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">   @* div.filter-bar *@
+    <MudGrid Spacing="2">...</MudGrid>
+</MudPaper>
+
+<MudPaper Elevation="2" Class="pa-4">                          @* div.card *@
+    <MudText Typo="Typo.h5">@value</MudText>                  @* .kpi-value *@
+</MudPaper>
+```
+
+> Ví dụ đầy đủ hơn (page-header + filter + table): xem "Template Page Component chuẩn" ở
+> `CLAUDE.md` mục "POS.Web — Blazor Server Dashboard" §5.
+
 ### Charts (Line / Bar) — MudBlazor v9
 
 > **Chi tiết đầy đủ: `.claude/skills/web/charts.md`** — đọc trước khi thêm biểu đồ.
@@ -593,7 +624,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Dùng `<MudChart ChartType="...">` (v8 syntax) → compile error với MudBlazor 9.5.0
 - ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
 - ❌ `BarChartOptions { ShowLegend = false }` không set `YAxisSuggestedMax` → `YAxisTicks` default=20 (spacing!) làm Y-axis luôn max=20 dù data chỉ 2–8M
-- ❌ `PosTheme.cs` thiếu `Body1 = new Body1Typography { FontSize = "0.875rem" }` → dropdown/autocomplete/picker popup render 16px (MudBlazor built-in cho Body1), to hơn DataTable 14px. `Default.FontSize` KHÔNG tự cascade xuống `Body1`.
+- ❌ `PosTheme.cs` thiếu `Body1 = new Body1Typography { FontSize = "0.75rem" }` → dropdown/autocomplete/picker popup render theo font-size mặc định MudBlazor (16px), to hơn text bảng/input. `Default.FontSize` KHÔNG tự cascade xuống `Body1`.
+- ❌ Chỉ set `Typography.Default.FontFamily` trong `PosTheme.cs` rồi tưởng đổi font toàn app → **SAI**. MudBlazor sinh CSS variable RIÊNG cho mỗi typography variant (`--mud-typography-h5-family`, `--mud-typography-body1-family`...) — KHÔNG kế thừa từ `Default`. Phần lớn text hiển thị thật (H5/H6/Subtitle1/Body1/Body2/Caption/Button) vẫn giữ font mặc định MudBlazor nếu không set `FontFamily` riêng trên TỪNG variant (`H1Typography`...`ButtonTypography`). Xem `PosTheme.cs` — mọi variant đều set `FontFamily` tường minh dù giá trị giống nhau.
 - ❌ `MudDatePicker Editable="true"` → click vào ô text không mở calendar, phải click icon. Dùng `AutoClose="true"` (bỏ `Editable`) để click text = mở calendar + tự đóng sau chọn.
 - ❌ Raw SQL trong page/component → phải đi qua Repository hoặc Service
 - ❌ Thêm nav link mới mà quên wrap `<AuthorizeView Policy="...">` trong `MainLayout.razor`
@@ -606,7 +638,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Đặt page mới vào root `Store/` thay vì sub-folder đúng nhóm nav (Operations/Transactions/Reports)
 - ❌ Đặt dialog component lẫn với page file trong cùng folder — dialog không có `@page`, đặt vào `{Section}/Dialogs/`
 - ❌ Gọi `IDialogService.ShowMessageBox(...)` cho confirm đơn giản → không có overload đó trong MudBlazor v9. Dùng `MudMessageBox @ref` trong Razor + `await _msgBox!.ShowAsync()` (xem pattern bên dưới)
-- ❌ Gọi `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)` cho confirm dialog → render nút Yes bằng markup mặc định của MudBlazor (`Variant.Filled`, không sửa được) thay vì `Variant.Outlined` chuẩn dự án. Luôn dùng `MudMessageBox @ref` (xem pattern bên dưới) — lỗi này đã xảy ra thật ở 8 page, khó phát hiện bằng grep vì nút không nằm trong markup của page.
+- ❌ Gọi `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)` cho confirm dialog → render nút Yes bằng markup mặc định của MudBlazor, không có `<YesButton>` slot để chỉnh Variant/Color theo bản chất hành động (CLAUDE.md §14). Luôn dùng `MudMessageBox @ref` (xem pattern bên dưới) — lỗi này đã xảy ra thật ở 8 page, khó phát hiện bằng grep vì nút không nằm trong markup của page.
 
 ### Pattern: `MudMessageBox @ref` — confirm dialog đơn giản
 > Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete/approve/retry mà không cần
@@ -616,27 +648,34 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 > `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)`.** Cách gọi qua
 > `ShowAsync<MudMessageBox>` render Yes/No button bằng markup MẶC ĐỊNH của MudBlazor (bên trong
 > thư viện, không nằm trong source của dự án) — **không có `<YesButton>` slot để can thiệp**, nên
-> nút Yes luôn ra `Variant.Filled` mặc định, bất kể chuẩn `Variant.Outlined` của dự án
-> (`CLAUDE.md §14`). Đây là lỗi có thật đã xảy ra ở 8 page (BusinessDayPage, VouchersPage,
+> không thể chọn đúng Variant/Color theo bản chất hành động Yes (xem bảng Button convention ở
+> `CLAUDE.md §14`). Đây là lỗi có thật đã xảy ra ở 8 page (BusinessDayPage, VouchersPage,
 > SpecialComboPage, PromotionSetupPage, PosDataSetupPage, DataRawLogPage, UsersPage, BankPosPage)
 > — phát hiện vì `grep MudButton.*Variant.Filled` không bắt được (nút đó không tồn tại trong
 > markup của dự án, MudBlazor tự render). Luôn dùng cách khai báo `@ref` bên dưới để nút Yes nằm
-> trong markup của page, có thể set `Variant="Variant.Outlined"` như mọi `MudButton` khác.
+> trong markup của page, chọn đúng Variant/Color theo bảng dưới.
+
+**Chọn Variant/Color cho `<YesButton>` theo bản chất hành động Yes** (CLAUDE.md §14):
+- Yes = phá hủy/không hoàn tác (xóa, hủy giao dịch, khóa) → `Variant="Variant.Outlined" Color="Color.Error"`.
+- Yes = xác nhận tích cực/chốt luồng, không phá hủy (kích hoạt, mở khóa, đồng bộ lại, retry) →
+  `Variant="Variant.Filled" Color="Color.Primary"` (hoặc `Color.Success`/`Color.Warning` nếu ngữ
+  cảnh cần nhấn mạnh cảnh báo — vd "Xác nhận kết thúc ngày" dùng `Filled`/`Warning` vì không thể
+  hoàn tác dù không phải "xóa dữ liệu").
 
 ```razor
 @* Khai báo trong Razor template — đặt gần đầu content, TRƯỚC mọi @if bao ngoài (nếu page có list/edit mode) *@
-<MudMessageBox @ref="_confirmBox" Title="Xác nhận" CancelText="Hủy">
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
-    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Primary">Xác nhận</MudButton></YesButton>
+    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton></YesButton>
 </MudMessageBox>
 
 @code {
     private MudMessageBox? _confirmBox;
     private string _confirmMsg = string.Empty;
 
-    private async Task ToggleAsync(MyItem item)
+    private async Task DeleteAsync(MyItem item)
     {
-        _confirmMsg = $"Bạn có chắc muốn khóa [{item.Code}]?";
+        _confirmMsg = $"Bạn có chắc muốn xóa [{item.Code}]? Không thể hoàn tác.";
         var ok = await _confirmBox!.ShowAsync();
         if (ok != true) return;
         // thực hiện action
@@ -644,11 +683,16 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 }
 ```
 
-**Title/YesText/Color động** (vd khóa/mở khóa dùng chung 1 dialog): thêm field
-`_confirmTitle`/`_confirmYesText`/`_confirmYesColor` (kiểu `Color`), bind vào `Title="@_confirmTitle"`
-và `<YesButton><MudButton Variant="Variant.Outlined" Color="@_confirmYesColor">@_confirmYesText</MudButton></YesButton>`,
-set cả 3 field trước khi gọi `_confirmBox!.ShowAsync()`. Ví dụ thực tế: `Admin/UsersPage.razor`
-(`ConfirmToggleAsync` — khóa dùng `Color.Error`/"Khóa", kích hoạt dùng `Color.Success`/"Kích hoạt").
+**Title/YesText/Variant/Color động** (vd khóa/mở khóa dùng chung 1 dialog — 2 hành động khác bản
+chất): thêm field `_confirmTitle`/`_confirmYesText`/`_confirmYesColor` (kiểu `Color`), bind vào
+`Title="@_confirmTitle"` và
+`<YesButton><MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)" Color="@_confirmYesColor">@_confirmYesText</MudButton></YesButton>`
+— **Variant cũng phải tính động theo Color** (không hardcode `Outlined`), vì "khóa" (Error) và
+"kích hoạt/mở khóa" (Success) thuộc 2 nhóm khác nhau trong bảng Button convention. Set cả 3 field
+trước khi gọi `_confirmBox!.ShowAsync()`. Ví dụ thực tế: `Admin/UsersPage.razor`
+(`ConfirmToggleAsync` — khóa dùng `Outlined`/`Color.Error`/"Khóa", kích hoạt dùng
+`Filled`/`Color.Success`/"Kích hoạt"); `Catalog/Product/ProductLockPage.razor` (dialog dùng chung
+khóa/mở khóa sản phẩm — ternary theo nội dung `_confirmMsg` vì không có field Color riêng).
 
 > Ví dụ thực tế (static Title/YesText): `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`,
 > `Ops/PosMapPage.razor`, `Store/Operations/BusinessDayPage.razor`.
@@ -881,6 +925,44 @@ private void UpdateExpanded(string uri)
 > - ❌ Thêm `MudNavLink` mới vào markup mà quên thêm route đó vào `UpdateExpanded()` — điều hướng tới route mới sẽ không mở đúng nhánh cha, có thể khiến TOÀN BỘ sidebar collapse (mọi flag đều tính lại từ URI mỗi lần navigate, không giữ trạng thái cũ).
 > - ❌ `MudNavLink` thiếu `Match="NavLinkMatch.All"` — mặc định `NavLinkMatch.Prefix` (như `NavLink` gốc) khiến 1 route ngắn (vd `/promotion/coupons`) bị đánh dấu active luôn khi đang ở route dài hơn cùng tiền tố (`/promotion/coupons/issue`) → 2 leaf link cùng sáng active. Áp dụng cho MỌI leaf link, kể cả link chưa có route trùng tiền tố hiện tại (phòng khi thêm route mới sau này).
 > Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`
+
+---
+
+## AppBar — Breadcrumb động (thay text tĩnh)
+
+> Áp dụng khi: cần hiển thị vị trí hiện tại (Section / Trang) trong `MudAppBar` thay vì tiêu đề
+> app tĩnh. Bắt nguồn từ việc port Topbar theo mockup `theme_html.html` (2026-07-06).
+
+```csharp
+// @code trong MainLayout.razor — Dictionary tĩnh copy ĐÚNG text đã có sẵn trong MudNavLink/
+// MudNavGroup bên dưới (không tự đặt tên mới). Route không có trong map → breadcrumb rỗng.
+private static readonly Dictionary<string, (string Section, string Label)> BreadcrumbMap = new()
+{
+    ["/store/business-day"] = ("CỬA HÀNG", "Xác nhận kết thúc ngày"),
+    // ... liệt kê ĐỦ mọi Href leaf đang render — thiếu route mới thêm sau này sẽ khiến
+    // trang đó hiển thị fallback tĩnh thay vì breadcrumb đúng (không crash, chỉ thiếu hiển thị)
+};
+
+private void UpdateBreadcrumb(string uri)
+{
+    var path = new Uri(uri).AbsolutePath.ToLowerInvariant().TrimEnd('/');
+    if (BreadcrumbMap.TryGetValue(path, out var crumb))
+        (_breadcrumbSection, _breadcrumbLabel) = crumb;
+    else
+        (_breadcrumbSection, _breadcrumbLabel) = ("", "");
+}
+// Gọi UpdateBreadcrumb() trong CẢ OnInitialized (route ban đầu) VÀ OnLocationChanged
+// (điều hướng sau) — thiếu 1 trong 2 chỗ sẽ khiến breadcrumb sai lúc load lần đầu hoặc khi
+// chuyển trang bằng client-side routing.
+```
+
+> Anti-pattern:
+> - ❌ Tự đặt tên Section/Label mới khác với Title/text đã hiển thị trong `MudNavGroup`/`MudNavLink`
+>   — gây 2 nguồn sự thật lệch nhau khi 1 bên đổi mà quên đổi bên kia.
+>   Trước đó `MudAppBar` có `Dense="true"`; khi cần chiều cao cụ thể (khớp mockup) đã bỏ `Dense`
+>   và set thẳng `LayoutProperties.AppbarHeight` trong `PosTheme.cs` — tránh phải tính ngược hệ số
+>   0.75 mà `Dense` áp dụng lên `AppbarHeight` gốc.
+> Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`, `src/POS.Web/Theme/PosTheme.cs`.
 
 ---
 

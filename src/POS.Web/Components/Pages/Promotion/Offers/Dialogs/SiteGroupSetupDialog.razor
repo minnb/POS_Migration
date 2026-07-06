@@ -1,0 +1,289 @@
+@namespace POS.Web.Components.Pages.Promotion.Offers
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using POS.Application.Features.Promotion
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.Promotion
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+
+@inject IPromotionService PromotionService
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Store" Class="mr-2" Style="vertical-align:middle"/>
+            Cài đặt nhóm cửa hàng
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTabs Outlined="true" PanelClass="pa-3">
+            <MudTabPanel Text="Cài đặt nhóm CH/ST" Icon="@Icons.Material.Filled.AddBusiness">
+                <MudForm @ref="_form" @bind-IsValid="_formValid">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_model.GroupCode" Label="Mã nhóm" Required="true"
+                                          RequiredError="Vui lòng nhập mã nhóm" Immediate="true" MaxLength="50"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_model.GroupName" Label="Tên nhóm" Required="true"
+                                          RequiredError="Vui lòng nhập tên nhóm" Immediate="true" MaxLength="250"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudAutocomplete T="StoreDto" Label="Mã CH/ST" Dense="true"
+                                             SearchFunc="SearchStoreAsync"
+                                             ToStringFunc="@(s => s == null ? string.Empty : $"{s.StoreNo} – {s.Name}")"
+                                             ValueChanged="AppendStore" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             MaxItems="50" Clearable="true" Placeholder="Tìm & thêm nhanh 1 cửa hàng..."/>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_model.StoreListRaw" Label="Danh sách cửa hàng" Lines="4"
+                                          Placeholder="Nhập list store cách nhau dấu ; hoặc dấu , hoặc khoảng trắng (1535;1561 2018,1560....)"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          HelperText="Gõ 'ALL' để áp dụng toàn bộ cửa hàng"/>
+                        </MudItem>
+                    </MudGrid>
+                </MudForm>
+                @if (_errorMsg != null)
+                {
+                    <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+                }
+                <div class="d-flex justify-end mt-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving"
+                               OnClick="SubmitAsync">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2"/>
+                        }
+                        Lưu
+                    </MudButton>
+                </div>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Danh sách nhóm CH/ST" Icon="@Icons.Material.Filled.List">
+                <MudGrid Spacing="2" Class="mb-2">
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_filterGroupCode" Label="Mã nhóm" Clearable="true"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      OnKeyUp="@(async e => { if (e.Key == "Enter") await _table.ReloadServerData(); })"/>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_filterGroupName" Label="Tên nhóm" Clearable="true"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      OnKeyUp="@(async e => { if (e.Key == "Enter") await _table.ReloadServerData(); })"/>
+                    </MudItem>
+                </MudGrid>
+                <MudTable @ref="_table" ServerData="LoadGroupsAsync" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="SiteGroupListItemDto">
+                    <HeaderContent>
+                        <MudTh>Mã nhóm</MudTh>
+                        <MudTh>Tên nhóm</MudTh>
+                        <MudTh>Số CH/ST</MudTh>
+                        <MudTh>Trạng thái</MudTh>
+                        <MudTh>Cập nhật</MudTh>
+                        <MudTh Style="text-align:center">Thao tác</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Mã nhóm"><b>@context.GroupCode</b></MudTd>
+                        <MudTd DataLabel="Tên nhóm">@context.GroupName</MudTd>
+                        <MudTd DataLabel="Số CH/ST">@(context.StoreCount < 0 ? "ALL" : context.StoreCount.ToString())</MudTd>
+                        <MudTd DataLabel="Trạng thái">
+                            <MudChip T="string" Size="Size.Small" Color="@(context.Status ? Color.Success : Color.Default)">
+                                @(context.Status ? "Active" : "Inactive")
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Cập nhật">@(context.LastUpdateDate?.ToString("dd/MM/yyyy HH:mm") ?? "—")</MudTd>
+                        <MudTd DataLabel="Thao tác" Style="text-align:center">
+                            <MudTooltip Text="Xem CH/ST">
+                                <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Visibility"
+                                               Color="Color.Primary" OnClick="@(() => ViewStoresAsync(context))"/>
+                            </MudTooltip>
+                            <MudTooltip Text="Chọn nhóm này cho CTKM">
+                                <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle"
+                                               Color="Color.Success" OnClick="@(() => SelectGroup(context))"/>
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                            <MudText Typo="Typo.body2">Chưa có nhóm cửa hàng nào.</MudText>
+                        </div>
+                    </NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                                       RowsPerPageString="Số dòng mỗi trang:"/>
+                    </PagerContent>
+                </MudTable>
+
+                @if (_viewingGroupCode != null)
+                {
+                    <MudPaper Elevation="1" Class="pa-3 mt-3">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Danh sách CH/ST — @_viewingGroupCode</MudText>
+                        <MudTable Items="_viewingStores" Dense="true" Hover="true" Elevation="0"
+                                  HorizontalScrollbar="true" T="SiteGroupStoreItemDto">
+                            <HeaderContent>
+                                <MudTh>Mã CH/ST</MudTh><MudTh>Tên CH/ST</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Mã CH/ST">@context.StoreNo</MudTd>
+                                <MudTd DataLabel="Tên CH/ST">@context.StoreName</MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Typo="Typo.body2" Class="pa-2">Không có cửa hàng.</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    </MudPaper>
+                }
+            </MudTabPanel>
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private readonly SiteGroupSaveRequest _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+    private string _actor = "unknown";
+
+    private MudTable<SiteGroupListItemDto> _table = null!;
+    private string? _filterGroupCode;
+    private string? _filterGroupName;
+
+    private string? _viewingGroupCode;
+    private List<SiteGroupStoreItemDto> _viewingStores = [];
+
+    /// <summary>Nhóm được chọn (tạo mới hoặc chọn từ danh sách) — page cha đọc qua DialogResult.Data.</summary>
+    public string? SelectedGroupCode { get; private set; }
+    public string? SelectedGroupName { get; private set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+    }
+
+    private async Task<TableData<SiteGroupListItemDto>> LoadGroupsAsync(TableState state, CancellationToken ct)
+    {
+        try
+        {
+            var (items, total) = await PromotionService.GetSiteGroupListAsync(
+                _filterGroupCode ?? string.Empty, _filterGroupName ?? string.Empty, state.Page, state.PageSize, ct);
+            return new TableData<SiteGroupListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SiteGroupSetupDialog.LoadGroups", ex);
+            Snackbar.Add("Không tải được danh sách nhóm cửa hàng.", Severity.Error);
+            return new TableData<SiteGroupListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private List<StoreDto> _allStores = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { _allStores = await MdRepo.GetStoreListAsync(); }
+            catch (Exception ex) { FileLogger.WriteExpLogs("SiteGroupSetupDialog.LoadStores", ex); }
+        }
+    }
+
+    private void AppendStore(StoreDto? store)
+    {
+        if (store?.StoreNo == null) return;
+        var current = (_model.StoreListRaw ?? string.Empty).Trim();
+        _model.StoreListRaw = string.IsNullOrEmpty(current) ? store.StoreNo : $"{current};{store.StoreNo}";
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+        if (string.IsNullOrWhiteSpace(_model.StoreListRaw))
+        {
+            _errorMsg = "Vui lòng nhập danh sách cửa hàng hoặc gõ 'ALL'.";
+            return;
+        }
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            var (ok, message) = await PromotionService.SaveSiteGroupAsync(_model, _actor);
+            if (!ok) { _errorMsg = message; return; }
+
+            await AuditLogger.LogAsync(_actor, "CREATE", "SetupGroupSite", _model.GroupCode,
+                oldValueJson: null, newValueJson: Newtonsoft.Json.JsonConvert.SerializeObject(_model));
+            Snackbar.Add(message, Severity.Success);
+
+            SelectedGroupCode = _model.GroupCode;
+            SelectedGroupName = _model.GroupName;
+            MudDialog.Close(DialogResult.Ok((SelectedGroupCode, SelectedGroupName)));
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SiteGroupSetupDialog.Submit", ex);
+            _errorMsg = "Lưu nhóm cửa hàng thất bại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ViewStoresAsync(SiteGroupListItemDto group)
+    {
+        _viewingGroupCode = group.GroupCode;
+        try
+        {
+            _viewingStores = await PromotionService.GetSiteGroupStoresAsync(group.GroupCode, string.Empty, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("SiteGroupSetupDialog.ViewStores", ex);
+            Snackbar.Add("Không tải được danh sách CH/ST.", Severity.Error);
+            _viewingStores = [];
+        }
+    }
+
+    private void SelectGroup(SiteGroupListItemDto group)
+    {
+        SelectedGroupCode = group.GroupCode;
+        SelectedGroupName = group.GroupName;
+        MudDialog.Close(DialogResult.Ok((SelectedGroupCode, SelectedGroupName)));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -6,6 +6,237 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-06] Topbar/AppBar breadcrumb + Typography pixel-perfect theo mockup `theme_html.html`
+
+**Layer:** POS.Web
+**Loại:** Pattern mới + Polish UI (2 task liên tiếp trong cùng session)
+
+**Bối cảnh:** Theme v3 (2026-07-05) mới khớp màu/shadow/radius với mockup; font-size/weight/
+letter-spacing từng thành phần và khu vực Topbar chưa đối chiếu lại. Đã audit toàn bộ CSS mockup
+(`docs/web/theme/theme_html.html`, chỉ 1 `<style>` inline, font `'Segoe UI',system-ui,sans-serif`,
+không Google Fonts) và đối chiếu với `PosTheme.cs`/`app.css`/`MainLayout.razor` hiện tại.
+
+**Thay đổi — Typography:**
+- `PosTheme.cs`: `Default.LineHeight` 1.45→1.5; `Button` thêm `FontSize="0.75rem"` + xóa
+  `LetterSpacing="0.03em"` thừa; `Body1.FontSize` 0.75rem→0.78125rem (12.5px).
+- `app.css`: sidebar L1 label weight 400→700/size 11px→10px/letter-spacing 0.8px→1px; sidebar L2
+  size 13px→12.5px; thêm `.mud-table .mud-table-body .mud-table-cell` (12.5px, trước chỉ có
+  header); thêm `.mud-input-label-inputcontrol` (11px/700/uppercase/ls 0.5px — field label trước
+  đó dùng mặc định MudBlazor 16px/400); xóa override line-height mobile-only (dead code vì
+  `Default.LineHeight` đã 1.5 mọi breakpoint); thêm 4 class `.pos-kpi-value`/`.pos-kpi-label`/
+  `.pos-card-title`/`.pos-section-label` (mockup `.kpi-value/.kpi-label/.card-title/.section-label`).
+- `RevenueByStorePage.razor`, `ShiftSummaryPage.razor`: áp `.pos-kpi-value`/`.pos-kpi-label` làm
+  **mẫu chuẩn** trên KPI row (giữ nguyên `@code`) — **CHƯA rollout** ~80 file KPI/card-title khác
+  dùng `Typo.h5/h6/body2/caption` tương tự (quyết định phạm vi có chủ đích, xem dưới).
+
+**Thay đổi — Topbar/AppBar:**
+- `PosTheme.cs`: thêm `LayoutProperties.AppbarHeight="50px"` (khớp mockup `.topbar{height:50px}`,
+  đã verify property tồn tại thật qua grep `MudBlazor.dll`).
+- `MainLayout.razor`: bỏ `Dense="true"` trên `MudAppBar` (tránh phải tính ngược hệ số 0.75 áp lên
+  `AppbarHeight`); thay `MudText` tiêu đề tĩnh "RPOS Dashboard" bằng breadcrumb động — thêm
+  `BreadcrumbMap` (43 route, copy đúng Title/text đã có trong `MudNavMenu`, không đặt tên mới) +
+  `UpdateBreadcrumb()` gọi trong `OnInitialized` và `OnLocationChanged` (tái dùng lifecycle có
+  sẵn). Route không có trong map → fallback về text tĩnh cũ.
+- `app.css`: thêm `.pos-breadcrumb`/`.pos-breadcrumb strong` khớp mockup `.breadcrumb`.
+
+**Phát hiện quan trọng (không đoán, đã verify bằng grep + đọc trực tiếp code)**: mockup
+`.topbar-right` thực chất chứa nội dung của 1 app khác (nút lọc kỳ + CTA "Tờ trình mới" — app
+ngân sách/phê duyệt), không có User Profile/Notification nào để map. Code `MainLayout.razor`
+hiện tại cũng KHÔNG có logic User Profile/Notification trong AppBar — toàn bộ nằm ở
+`pos-sidebar-footer`. Đã xác nhận với user và **quyết định không thêm** nội dung `.topbar-right`
+của mockup vào app (không có ngữ cảnh tương ứng) — chỉ đồng bộ khung sườn (height/breadcrumb).
+
+**Pattern mới:** "AppBar — Breadcrumb động" → đã thêm vào `.claude/skills/web/SKILLS.md`.
+Đồng thời cập nhật `.claude/rules/mudblazor-flat-ui.md` mục 11 (chi tiết audit Typography) và
+11.1 (checklist bắt buộc cho page mới — `.pos-kpi-value`/`.pos-kpi-label`/`.pos-card-title`/
+`.pos-section-label`).
+
+**Lưu ý cho session sau:** (1) `.pos-card-title`/`.pos-section-label` mới chỉ định nghĩa CSS,
+CHƯA áp dụng vào page nào — cần rà soát riêng nếu muốn rollout. (2) `BreadcrumbMap` phải cập nhật
+thủ công khi thêm route mới vào sidebar — thiếu route không crash, chỉ hiển thị fallback tĩnh.
+(3) Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25 (cả 2 lần) — **chưa
+chạy `dotnet run` để xác nhận trực quan** chiều cao AppBar 50px và breadcrumb hiển thị đúng trên
+browser thật.
+
+---
+
+## [2026-07-06] PromotionSetupPage — modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get "Nhóm SP"
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web
+**Loại:** Feature (hoàn thiện phần bị hoãn của task trước)
+
+**Bối cảnh:** task trước (chuyển đổi form "Cài đặt CTKM" khớp 100% field legacy) đã hoãn modal
+này lại vì khối lượng tương đương 1 CRUD feature riêng. Đọc trực tiếp
+`_ViewSetupGroupItemBuy/Get.cshtml`, `_ViewDataBuyGroupItem/GetGroupItem.cshtml`,
+`SetupPromotionController.SetupBuyGroupItem/LoadBuyGroupItem`, `SetupPromotionData.
+SetupGroupBuyItem/LoadBuyGroup` — xác nhận bảng `dbo.SetupGroupItem` đã tồn tại thật trong
+`src/legacy/Database/CentralMD.sql` (chưa có tài liệu, chưa có SP) và có khuôn mẫu 1:1 vừa port
+xong ("Site Group") để tái dùng.
+
+**Thay đổi:**
+- `POS.Common/Dtos/Promotion/PromotionSetupDto.cs`: thêm `ItemGroupSaveRequest`,
+  `ItemGroupListItemDto`, `ItemGroupItemDto`.
+- `IPromotionRepository`/`PromotionRepository.cs`: thêm `SaveItemGroupAsync` (validate item tồn
+  tại trong `dbo.Item` trước khi lưu, gọi SP), `GetItemGroupListAsync` (filter+paging),
+  `GetItemGroupItemsAsync` (bung `ListItemNo` JOIN `dbo.Item`).
+- `IPromotionService`/`PromotionService.cs`: thêm wrapper thin tương ứng.
+- `docs/sql/SetupGroupItem_Save.sql` (mới): SP `usp_SetupGroupItem_Save` — mirror
+  `usp_SetupGroupSite_Save`.
+- `Dialogs/ItemGroupSetupDialog.razor` (mới): modal 2 sub-tab (tạo nhóm mới với autocomplete tìm
+  sản phẩm + danh sách nhóm có filter/phân trang/xem chi tiết/chọn gắn vào dòng).
+- `PromotionSetupPage.razor`: thay placeholder "(Cấu hình nhóm SP — bổ sung ở task sau)" (2 chỗ,
+  bảng Buy + Get) bằng nút "Cấu hình nhóm" mở dialog, gán `GroupCode` trả về vào dòng.
+- `docs/architecture/database-schema.md`, `docs/CURRENT_STRUCTURE.md`, `docs/WEB_STATUS.md`: cập
+  nhật theo thay đổi trên.
+
+**Hạn chế legacy CHỦ Ý giữ nguyên (theo quyết định người dùng)**: cột `ListItemNo` chỉ lưu
+`List<string>` ItemNo (không lưu UOM — bảng chọn sản phẩm trong dialog hiển thị ĐVT read-only,
+không phải input); khi `GroupCode` đã tồn tại, SP chỉ update `GroupName`, không ghi đè lại danh
+sách sản phẩm (đúng bug/limitation của `SetupGroupBuyItem` legacy).
+
+**Khác legacy (theo quyết định người dùng)**: lưu DB ngay khi bấm "Lưu" trong dialog (SP upsert),
+không qua `sessionStorage` như legacy — nhất quán với `SiteGroupSetupDialog` đã làm đợt trước.
+
+**Pattern mới:** không có — mirror 1:1 pattern "Site Group" đã có.
+
+**Lưu ý cho session sau:** SP `usp_SetupGroupItem_Save` **CHƯA chạy trên DB thật** — phải chạy tay
+trên `RPOSMasterData` (DEV trước) trước khi test UI. Verify: `dotnet build` 0 lỗi,
+`dotnet test tests/POS.ContractTests` 25/25 — chưa test UI thật trên browser vì phụ thuộc SP.
+Trong lúc build, gặp lỗi khóa file DLL do process `POS.Web` đang chạy qua Visual Studio (PID
+15960) — đã dừng process đó theo xác nhận của người dùng để build được; cần F5 lại trong Visual
+Studio để tiếp tục debug.
+
+---
+
+## [2026-07-06] Đóng gói MudBlazor Theme Standard v3 thành Rule chuẩn — bổ sung mapping + CSS isolation
+
+**Layer:** POS.Web (tài liệu, không đổi code)
+**Loại:** Pattern mới (tài liệu hóa)
+
+**Bối cảnh:** sau khi hoàn thành rollout theme v3 (sidebar navy, shadow thật, radius 2 cấp, Button
+Filled/Outlined theo ngữ nghĩa — xem entry theme v3 phía dưới), người dùng muốn "đóng gói" kiến
+thức này thành rule chuẩn để AI tự áp dụng nhất quán cho mọi component/page mới. Rà soát trước khi
+viết phát hiện phần lớn nội dung yêu cầu **đã có sẵn** trong `CLAUDE.md §14` + `.claude/rules/
+mudblazor-flat-ui.md` — quyết định KHÔNG tạo file rule mới trùng lặp (sẽ là nguồn sự thật thứ 5 cho
+cùng chủ đề, vi phạm nguyên tắc "Cổng chặn trùng lặp" của chính dự án), mà bổ sung đúng 2 phần thật
+sự còn thiếu vào file đã có vai trò tương ứng.
+
+**Thay đổi:**
+- `.claude/rules/mudblazor-flat-ui.md`: thêm mục 0 "Mapping HTML mockup → MudBlazor Component"
+  (bảng tổng quát: `div.sidebar`→`MudDrawer`, `div.card`→`MudPaper Elevation=2`, `button.btn-
+  primary`→`MudButton Filled/Primary`...) và mục 10 "CSS Isolation — khi nào dùng `.razor.css`"
+  (mặc định `app.css` global; `.razor.css` chỉ khi style cục bộ hoàn toàn; ghi đè component con
+  MudBlazor tự render → ưu tiên `app.css` vì cần `::deep` mới xuyên qua CSS isolation).
+- `.claude/skills/web/SKILLS.md`: thêm "Pattern: Polish/tạo UI theo mockup HTML — quy trình chuẩn"
+  ngay sau bảng "MudBlazor — component mapping" hiện có, trỏ sang mục 0 mới ở rules file (không
+  copy lại bảng — giữ 1 nguồn sự thật).
+- `CLAUDE.md §14`: thêm 1 dòng router tường minh ở đầu mục, yêu cầu đọc `.claude/rules/
+  mudblazor-flat-ui.md` trước khi code UI bất kỳ.
+
+**Lưu ý cho session sau:** Trước khi tạo file rule/skill mới cho 1 chủ đề UI, LUÔN kiểm tra
+`CLAUDE.md §13/14/15` + `.claude/rules/mudblazor-flat-ui.md` + `.claude/skills/web/SKILLS.md` xem
+đã có chưa — dự án đã có sẵn phân lớp tài liệu rõ ràng cho MudBlazor UI, tạo file mới cạnh đó gần
+như luôn là trùng lặp.
+
+---
+
+## [2026-07-05] PromotionSetupPage — chuyển đổi form "Cài đặt CTKM" khớp 100% field legacy
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web
+**Loại:** Feature (bổ sung field/tính năng còn thiếu so với legacy)
+
+**Bối cảnh:** trang `/promotion/setup` đã migrate từ `SetupPromotionController.SetupMain`
+(`src/legacy/VCM.BLUEPOS`) nhưng bị đơn giản hoá, thiếu nhiều field. Đọc trực tiếp toàn bộ
+`.cshtml` gốc (`SetupMain`, `_DetailOfferHeader/Buy/Get/Site`, `_SetupAdvance`, `_ViewSetupCHST`,
+`_AddStoreGroup_ViewDataGroupSite`, `_ViewSetupGroupItemBuy`) để lấy chính xác từng ô nhập liệu,
+không chỉ dựa vào ảnh mockup.
+
+**Thay đổi:**
+- `POS.Common/Dtos/Promotion/PromotionSetupDto.cs`: thêm field `FromTime/ToTime/Mon..Sun`,
+  `MinValue`, `CheckTotalDiscount/TotalDiscountType/TotalDiscountValue`, `AllowUseAfterDay/
+  AllowUseAfterTime` vào `PromotionSetupHeaderDto`; thêm `OfferTypeOptionDto`,
+  `SiteGroupSaveRequest`, `SiteGroupListItemDto`, `SiteGroupStoreItemDto`.
+- `IPromotionRepository`/`PromotionRepository.cs`: `GetOfferTypeOptionsAsync` đổi trả
+  `List<OfferTypeOptionDto>` (kèm cờ IsTotalBill/IsSetupBuy/IsSetupGet/IsVoucher/IsGift/
+  UserGuide); `GetSetupDetailAsync`/`SaveSetupAsync` thêm field mới; thêm
+  `SaveSiteGroupAsync`/`GetSiteGroupListAsync`/`GetSiteGroupStoresAsync` (CRUD nhóm cửa hàng).
+- `IPromotionService`/`PromotionService.cs`: thêm wrapper thin tương ứng.
+- `docs/sql/SetupPromotion_Save.sql`: sửa `usp_SaveSetupCTKMAll` thêm tham số (cột DB đã có sẵn,
+  trước đây SP hard-code rỗng/bỏ qua — KHÔNG ALTER TABLE).
+- `docs/sql/SetupGroupSite_Save.sql` (mới): SP `usp_SetupGroupSite_Save` upsert `SetupGroupSite`.
+- `PromotionSetupPage.razor`: tái cấu trúc — khối header (Tên/Loại CTKM/Hình thức bán/Trạng thái/
+  Voucher/Từ-Đến ngày) chuyển ra NGOÀI 4 tab; tab "Thông tin chung" → bảng tóm tắt lịch (giờ +
+  Mon-Sun); toolbar Buy/Get thêm bulk-add "Số lượng dòng" + cột "Điều kiện áp dụng" (ScaleType);
+  Buy thêm "Giá trị tổng tiền tối thiểu" (enable theo `IsTotalBill` của OfferType, không phải
+  checkbox tự do — khớp hành vi khoá cứng của legacy); Get thêm "Giảm giá tổng bill" (loại trừ với
+  bảng dòng, confirm xoá); Site thêm nút "Chọn nhóm CH/ST"; Advanced thêm voucher-delay + đổi
+  `MemberCode` sang `MudAutocomplete` (gõ tự do + gợi ý).
+- `Dialogs/SiteGroupSetupDialog.razor` (mới): modal 2 sub-tab (tạo nhóm mới + danh sách nhóm có
+  filter/phân trang/xem chi tiết store/chọn gắn vào CTKM).
+- `docs/architecture/database-schema.md`, `docs/CURRENT_STRUCTURE.md`, `docs/WEB_STATUS.md`: cập
+  nhật theo thay đổi trên.
+
+**Pattern mới:** không có pattern mới ngoài phạm vi đã có (dialog/SP/cache theo chuẩn dự án).
+
+**Ngoài phạm vi (hoãn task riêng sau):** modal "CÀI ĐẶT NHÓM SẢN PHẨM" (định nghĩa item cụ thể
+trong 1 group khi dòng Buy/Get chọn "Theo nhóm") — khối lượng tương đương 1 CRUD feature riêng,
+cần khảo sát thêm bảng DB.
+
+**Lưu ý cho session sau:** 2 script SQL (`SetupPromotion_Save.sql` sửa, `SetupGroupSite_Save.sql`
+mới) **CHƯA chạy trên DB thật** — phải chạy tay trên `RPOSMasterData` (DEV trước) trước khi test
+UI, nếu không các field mới (giờ/ngày trong tuần, MinValue, TotalDiscount*, voucher-delay, nhóm
+cửa hàng) sẽ không lưu được (SP cũ không nhận tham số). Verify: `dotnet build` 0 lỗi,
+`dotnet test tests/POS.ContractTests` 25/25 — chưa test UI thật trên browser vì phụ thuộc SP.
+
+---
+
+## [2026-07-05] MudBlazor Theme Standard v3 — chuyển toàn app sang ngôn ngữ thiết kế mockup + font audit
+
+**Layer:** POS.Web
+**Loại:** Pattern mới (theme) + Refactor diện rộng (59 file) + Bug fix (font-family không áp dụng)
+
+**Bối cảnh:** người dùng cung cấp mockup HTML/CSS `docs/web/theme/theme_html.html` (demo "BudgetOS",
+khác nghiệp vụ) làm nguồn tham chiếu ngôn ngữ thiết kế mới — sidebar navy đậm, card có shadow thật,
+radius 2 cấp, Button Filled cho CTA. Chốt phạm vi qua AskUserQuestion: chỉ lấy design token/layout,
+KHÔNG port UI nghiệp vụ ngân sách của mockup, không tạo page mới.
+
+**Thay đổi:**
+- `src/POS.Web/Theme/PosTheme.cs`: đổi toàn bộ `PaletteLight` (Primary `#2660A4`, Secondary
+  `#4A6070`, Tertiary `#6040A8`, Success/Error/Warning/Info theo mockup, `DrawerBackground
+  #0D1B2A`), `DefaultBorderRadius` 16px→12px, `Shadows.Elevation[2-5]` từ `"none"` sang shadow
+  thật (`0 2px 8px rgba(0,0,0,.08)` / `0 4px 20px rgba(0,0,0,.12)`). **Bổ sung font audit**: set
+  `FontFamily=["Segoe UI","system-ui","sans-serif"]` tường minh trên TỪNG Typography variant
+  (H1-H6, Subtitle1/2, Body1/2, Caption, Overline, Button) — không chỉ `Default`; `Default.FontSize`
+  14px→13px, `Body1` 12px.
+- `src/POS.Web/Components/Layout/MainLayout.razor`: sidebar 3 cấp (L1 UPPERCASE không icon, L2
+  icon Material riêng từng nhóm, L3 `ChevronRight` đồng nhất), sidebar-footer (avatar initials +
+  tên/role/logout, dời khỏi `MudAppBar`), brand block text-only.
+- `src/POS.Web/wwwroot/app.css`: token `--pos-*` đổi theo palette mới, sidebar navy CSS (dùng đúng
+  class MudBlazor 9.5.0 thật: `.mud-navmenu`, `.mud-nav-group > .mud-nav-link`), table header
+  uppercase/muted, filter panel trắng+border, radius control 8px, `.pos-table` font-size 14px→13px.
+- `src/POS.Web/Components/App.razor`: gỡ Google Fonts Roboto `<link>` (không cần, dùng system font).
+- **59 file Razor** (5 cụm menu: Danh mục/Cửa hàng/Khuyến mãi/Vận hành/Quản trị): đổi quy ước
+  `MudButton` — CTA (Lưu/Thêm mới/Tìm) → `Filled`/`Primary`; hành động chốt luồng (Duyệt) →
+  `Filled`/`Success`; phá hủy (Xóa) → `Outlined`/`Error`; trung tính (Hủy/Đóng) → `Outlined` không
+  màu. `MudMessageBox @ref` YesButton chọn theo bản chất hành động Yes.
+
+**Pattern mới:**
+1. **MudBlazor `Icon=` nhận SVG path, không phải text/ligature** — truyền emoji vào `Icon=` của
+   `MudNavLink`/`MudNavGroup`/`MudIcon` khiến icon biến mất im lặng (không lỗi). Đã thử và rollback
+   trong session này. Đã ghi vào `CLAUDE.md §14`, `.claude/rules/mudblazor-flat-ui.md`.
+2. **Typography per-variant FontFamily không cascade từ `Default`** — MudBlazor sinh CSS variable
+   riêng cho mỗi variant (`--mud-typography-h5-family`, `--mud-typography-body1-family`...). Chỉ
+   set `Default.FontFamily` gần như không có tác dụng vì hầu hết text hiển thị dùng H5/H6/Body1/
+   Body2/Caption/Button. Đã cập nhật `.claude/skills/web/SKILLS.md` (mục "KHÔNG làm").
+
+**Lưu ý cho session sau:** Khi đổi bất kỳ giá trị nào trong `Typography` của `PosTheme.cs` (font
+size/family/weight), phải set trên TỪNG variant cần áp dụng — không tin tưởng `Default` cascade
+xuống. Còn ~15 page report có inline `font-size` bespoke cho KPI-number/badge (không phải font-
+family) — cố ý chưa đổi vì là tuning riêng từng page, không phải lỗi theme. Chưa xác nhận trực
+quan trên browser thật trong session này (không có công cụ browser) — cần người dùng tự chạy app.
+
+---
+
 ## [2026-07-05] Middleware log request/response toàn cục cho POS.Api (bật/tắt qua config)
 
 **Layer:** POS.Api, POS.Infrastructure

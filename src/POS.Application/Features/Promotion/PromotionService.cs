@@ -14,7 +14,7 @@ public sealed class PromotionService(IPromotionRepository repository) : IPromoti
         OfferListFilter filter, CancellationToken ct = default)
         => repository.ExportOfferHeaderListAsync(filter, ct);
 
-    public Task<List<OptionItemDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default)
+    public Task<List<OfferTypeOptionDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default)
         => repository.GetOfferTypeOptionsAsync(ct);
 
     public Task<List<OptionItemDto>> GetSalesOrderTypeOptionsAsync(CancellationToken ct = default)
@@ -46,4 +46,26 @@ public sealed class PromotionService(IPromotionRepository repository) : IPromoti
 
     public Task<List<OptionItemDto>> GetMemberCodeOptionsAsync(CancellationToken ct = default)
         => repository.GetMemberCodeOptionsAsync(ct);
+
+    public Task<(bool Ok, string Message)> SaveSiteGroupAsync(SiteGroupSaveRequest request, string actor, CancellationToken ct = default)
+        => repository.SaveSiteGroupAsync(request, actor, ct);
+
+    public Task<(List<SiteGroupListItemDto> Items, int Total)> GetSiteGroupListAsync(
+        string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+        => repository.GetSiteGroupListAsync(groupCode, groupName, pageNumber, pageSize, ct);
+
+    public Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(
+        string groupCode, string storeNo, string storeName, CancellationToken ct = default)
+        => repository.GetSiteGroupStoresAsync(groupCode, storeNo, storeName, ct);
+
+    public Task<(bool Ok, string Message)> SaveItemGroupAsync(ItemGroupSaveRequest request, string actor, CancellationToken ct = default)
+        => repository.SaveItemGroupAsync(request, actor, ct);
+
+    public Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(
+        string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+        => repository.GetItemGroupListAsync(groupCode, groupName, pageNumber, pageSize, ct);
+
+    public Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(
+        string groupCode, string itemNo, string itemName, CancellationToken ct = default)
+        => repository.GetItemGroupItemsAsync(groupCode, itemNo, itemName, ct);
 }

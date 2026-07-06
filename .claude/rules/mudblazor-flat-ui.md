@@ -1,212 +1,354 @@
-# MudBlazor Flat UI — quy tắc áp dụng thực tế (POS.Web)
+# MudBlazor Theme Standard — quy tắc áp dụng thực tế (POS.Web)
 
 > File này là bản tóm tắt trỏ về nguồn sự thật thật sự: **`CLAUDE.md` §13 "UI Polish", §14
-> "MudBlazor Flat UI Standard", §15 "Density Standard"** và
+> "MudBlazor Theme Standard", §15 "Density Standard"** và
 > **`.claude/skills/web/ui-polish-standard.md`**. Khi sửa 1 trong 4 nơi này, phải đối chiếu 3 nơi
 > còn lại — tránh lệch giữa các tài liệu.
 >
-> **Bản v2 — cập nhật 2026-07-04**, thay cho bản gốc (hairline border, radius 4px, sidebar navy
-> đậm — đã lỗi thời). Bản v2 theo mẫu MudBlazor chính thức "Mud Mini"
-> (`docs/web/images/flat1.jpg`) — khác Ynex (không phải MudBlazor gốc, đã đánh giá và loại bỏ ở
-> vòng trước) ở chỗ đây là demo dùng cùng framework nên áp dụng trực tiếp qua theme, không cần
-> dựng lại component. Cùng ngày, sau khi áp dụng lên `ProductsPage.razor` làm pilot, đã tinh
-> chỉnh thêm: button chuyển hẳn sang Outlined, filter panel có nền soft-tint, page-header/icon
-> thu nhỏ, sidebar bỏ icon to + bỏ `MudDrawerHeader`.
+> **Bản v3 — cập nhật 2026-07-05**, thay cho bản v2 (2026-07-04, sidebar sáng + borderless +
+> Button Outlined mọi nơi — đã lỗi thời, xem lịch sử ở mục "Đã cân nhắc và loại bỏ"). Bản v3
+> chuyển hoàn toàn sang phong cách mockup `docs/web/theme/theme_html.html` (do người dùng cung
+> cấp): sidebar navy đậm, card có shadow thật, radius 2 cấp, Button Filled cho CTA. Khác v2 (dựa
+> theo 1 ảnh mẫu MudBlazor "Mud Mini" tham khảo), v3 bám sát 1 file mockup HTML/CSS cụ thể — mọi
+> giá trị màu/radius/shadow đều đối chiếu trực tiếp CSS gốc của file đó, không suy đoán.
 
-## 1. Surface & Shadow (Elevation) — BORDERLESS, không còn hairline
+## 0. Mapping HTML mockup → MudBlazor Component
 
-- Cơ chế "phẳng" của dự án đã đổi từ **hairline border** sang **borderless hoàn toàn**:
-  `Shadows.Elevation[1..5] = "none"` trong `PosTheme.cs` (giống Elevation 0). Card phân tách với
-  nền chỉ bằng chênh lệch màu Surface `#FFFFFF` vs Background `#F2F4F8` — không viền, không bóng.
-- `MudPaper`/`MudCard` chứa nội dung: `Elevation="1"` hoặc `Elevation="2"` (2 mức này giờ render
-  giống hệt nhau về mặt shadow — chỉ còn ý nghĩa quy ước, không còn phân biệt thị giác).
-- **KHÔNG** tự thêm `border`/`box-shadow` CSS cho MudPaper/MudCard để "tạo viền" — đi ngược
-  nguyên tắc borderless, nền + radius 16px là đủ để tách khối.
-- **KHÔNG** hạ Elevation của `MudPopover`/`MudDialog`/`MudMenu` — các overlay nổi tạm thời này giữ
-  nguyên Elevation cao (E8/E12, shadow thật) để tách khỏi nền.
-- `MudDrawer` (sidebar) **không** thuộc nhóm overlay cần giữ shadow — sidebar giờ cũng borderless
-  đồng bộ với card (xem mục 5).
+> Dùng bảng này khi polish/tạo mới bất kỳ page/component nào đối chiếu với mockup HTML
+> (`docs/web/theme/theme_html.html` hoặc mockup tương lai khác cùng ngôn ngữ thiết kế). Tổng hợp từ
+> các quyết định đã áp dụng thật trong `MainLayout.razor`/`app.css`/59 file page — không suy đoán.
+
+| HTML mockup | MudBlazor | Ghi chú |
+|---|---|---|
+| `div.sidebar` | `<MudDrawer Elevation="0">` | navy tự tách nền bằng màu, không cần shadow (xem mục 1) |
+| `div.nav-section` (label, không icon) | `<MudNavGroup>` cấp L1, **không** đặt `Icon=` | CHỮ IN HOA qua CSS `app.css`, không qua C# |
+| `div.nav-item` (có icon) | `<MudNavGroup>`/`<MudNavLink Icon="@Icons.Material.Outlined.X">` | `Icon=` nhận SVG path — **không** dùng emoji/text (xem mục 5) |
+| `div.card` | `<MudPaper Elevation="2">` | shadow thật theo `Shadows.Elevation`, không tự thêm `box-shadow` CSS |
+| `div.filter-bar` | `<MudPaper Elevation="1" Class="pos-filter-panel">` | flat, nền trắng + border (xem mục 7) |
+| `table` | `<MudTable Dense="true" HorizontalScrollbar="true">` | không tự viết `<table class="pos-table">` cho DataTable mới (xem mục 4) |
+| `.badge`/`.chip` (status) | `<MudChip T="string" Color="...">` | màu ternary inline tại `Color=`, không thêm helper `@code` |
+| `button.btn-primary` | `<MudButton Variant="Variant.Filled" Color="Color.Primary">` | xem bảng đầy đủ ở mục 3 |
+| `.kpi-value` | `<MudText Typo="Typo.h5">` trong `<MudPaper Elevation="2">` | xem CLAUDE.md §15 "KPI card row" |
+| `input`/`select` | `<MudTextField>`/`<MudSelect> Variant="Variant.Outlined" Margin="Margin.Dense"` | xem mục 2 |
+
+- Bảng này là **mapping cấu trúc** (thành phần nào dùng component nào) — màu sắc/spacing cụ thể
+  tra ở các mục số bên dưới, KHÔNG lặp lại ở đây.
+- Mockup mới có phần tử không nằm trong bảng → tìm component MudBlazor gần nghĩa nhất theo tinh
+  thần "dùng component sẵn có của MudBlazor, không tự viết HTML thuần" — không tự chế `<div>` thay
+  cho component đã có.
+
+## 1. Surface & Shadow (Elevation) — có shadow thật, không còn borderless
+
+- `Shadows.Elevation` trong `PosTheme.cs`: index 0-1 = `"none"` (flat, filter panel/toolbar);
+  index 2-3 = `"0 2px 8px rgba(0,0,0,0.08)"` (card có shadow thật — khớp mockup `--shadow`);
+  index 4-5 = `"0 4px 20px rgba(0,0,0,0.12)"` (shadow mạnh hơn — mockup `--shadow-lg`, dùng cho
+  Login card). Index 6-25 giữ nguyên thang cũ, chỉ đổi tint sang navy mới nếu cần đồng bộ.
+- `MudPaper`/`MudCard` chứa nội dung: `Elevation="2"` (card, có shadow). Filter panel/toolbar:
+  `Elevation="1"` (flat, không shadow).
+- **KHÔNG** tự thêm `border`/`box-shadow` CSS cho MudPaper/MudCard — dùng thuộc tính `Elevation`.
+- **KHÔNG** hạ Elevation của `MudPopover`/`MudDialog`/`MudMenu` — giữ nguyên E8/E12.
+- `MudDrawer` (sidebar): `Elevation="0"` — sidebar navy tự tách khỏi nền sáng bằng màu, không cần
+  shadow riêng (nếu để Elevation cao sẽ tự nhận box-shadow theo mục 1, gây viền nổi thừa quanh
+  sidebar).
 
 ## 2. Form & Input
 
 - `MudTextField`/`MudSelect`/`MudDatePicker`: luôn `Variant="Variant.Outlined"` +
-  `Margin="Margin.Dense"`. (Không đổi so với bản v1.)
-- Border-radius lấy từ theme `DefaultBorderRadius="16px"` (đã cấu hình trong `PosTheme.cs` —
-  **tăng từ 4px**) và token CSS `--pos-radius-sm(4px)/md(8px)/lg(12px)` — **không hardcode**
-  `border-radius` trên component MudBlazor (vd không tự thêm `Style="border-radius:4px"` trên
-  `MudProgressLinear` — sẽ lệch với 16px toàn app; đã dọn ở `ProductsPage.razor`, còn ~35 page
-  khác dùng cùng pattern cũ chưa dọn — xem TODO cuối file).
-- **Font-size input**: cập nhật 2026-07-04 — `Typography.Body1` trong `PosTheme.cs` giảm còn
-  `0.75rem` (12px, ~15% từ 14px cũ) + `FontWeight="400"`. Chi phối text trong
-  `MudTextField`/`MudSelect`/`MudDatePicker`/`MudAutocomplete` + dropdown popup của chúng, áp
-  dụng **global** (tự động cả trong dialog/form, không cần sửa từng file). **Không** ảnh hưởng
-  `MudTable` (cell dùng size cố định riêng của MudBlazor).
+  `Margin="Margin.Dense"`. (Không đổi qua các bản.)
+- Border-radius control (Button/Chip/Input): `8px` — ép riêng qua CSS (`.mud-button-root`,
+  `.mud-chip`, `.mud-input-outlined-border` trong `app.css`), KHÔNG qua `DefaultBorderRadius`
+  (giá trị đó nay dành cho Paper/Card/Dialog = `12px`, xem mục 8).
+- **Font-size input**: `Typography.Body1` trong `PosTheme.cs` = `0.78125rem` (12.5px, cập nhật
+  2026-07-06 từ `0.75rem`/12px — khớp chính xác mockup `.input,.select,.textarea{font-size:12.5px}`)
+  + `FontWeight "400"`. Xem mục 11 cho toàn bộ đợt rà soát Typography pixel-perfect.
 
-## 3. Button — Outlined mọi nơi, phân biệt bằng Color
+## 3. Button — Filled cho CTA, Outlined cho phần còn lại
 
-> Cập nhật 2026-07-04: bỏ `Variant.Filled` kể cả cho CTA chính của page.
+> Cập nhật 2026-07-05: **đảo ngược** chuẩn v2 (Outlined mọi nơi). Theo mockup, `.btn-primary` là
+> nền đặc màu (Filled), không phải viền trong suốt.
+
+| Loại hành động | Variant | Color | Ví dụ |
+|---|---|---|---|
+| CTA chính (Lưu, Thêm mới, Cập nhật, Tìm) | `Filled` | `Primary` | "Lưu", "Thêm mới", "Tìm" |
+| Hành động tích cực chốt luồng (Duyệt, Kích hoạt) | `Filled` | `Success` | "Duyệt" |
+| Phá hủy/không hoàn tác (Xóa, Khóa) | `Outlined` | `Error` | "Xóa" |
+| Trung tính (Hủy/Đóng dialog, Xóa bộ lọc) | `Outlined` | *(không đặt Color)* | "Hủy", "Đóng" |
+| Phụ có ngữ nghĩa riêng (Export Excel...) | `Outlined` | Color phù hợp | "Export Excel" |
 
 ```razor
-<MudButton Variant="Variant.Outlined">Default</MudButton>
-<MudButton Variant="Variant.Outlined" Color="Color.Primary">Primary</MudButton>
-<MudButton Variant="Variant.Outlined" Color="Color.Secondary">Secondary</MudButton>
-<MudButton Variant="Variant.Outlined" Disabled="true">Disabled</MudButton>
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
+<MudButton Variant="Variant.Outlined" OnClick="ClearFilter">Xóa</MudButton>
+<MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DeleteAsync">Xóa</MudButton>
+<MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="ApproveAsync">Duyệt</MudButton>
 ```
 
-- CTA chính (nút "Thêm mới" trong `pos-page-header`, nút "Tìm" trong filter panel):
-  `Variant="Variant.Outlined" Color="Color.Primary"` + `Size="Size.Small"` (khớp header đã thu
-  nhỏ — xem mục 6).
-- Hành động trung tính (Xóa/Clear, Hủy): `Variant="Variant.Outlined"` không đặt `Color`.
-- Hành động phụ có ngữ nghĩa riêng (Export Excel...): giữ `Color` phù hợp, vẫn `Outlined`.
-- Đã áp dụng ở `ProductsPage.razor` (nút "Thêm mới", "Tìm"). "Xóa" và "Excel" vốn đã Outlined từ
-  trước nên không cần đổi.
-- **Bẫy confirm dialog (phát hiện 2026-07-04, đã sửa 8 page)**: `DialogService.ShowAsync<MudMessageBox>
-  (title, parameters, options)` render nút Yes bằng markup **mặc định của MudBlazor** — không có
-  `<YesButton>` slot để chỉnh `Variant`, nút luôn ra `Filled` bất kể chuẩn dự án. Grep
-  `MudButton.*Variant.Filled` KHÔNG bắt được lỗi này (nút không nằm trong markup của page). Luôn
-  dùng `<MudMessageBox @ref="_confirmBox">` khai báo trực tiếp trong Razor +
-  `<YesButton><MudButton Variant="Variant.Outlined" .../></YesButton>` + `_confirmBox!.ShowAsync()`
-  — xem pattern đầy đủ (kể cả case Title/YesText/Color động) trong
-  `.claude/skills/web/SKILLS.md` §"MudMessageBox @ref". Đã sửa: BusinessDayPage, VouchersPage,
-  SpecialComboPage, PromotionSetupPage, PosDataSetupPage, DataRawLogPage, UsersPage, BankPosPage.
+- "Lưu" LUÔN là CTA (`Filled`/`Primary`), KHÔNG phải `Success`. "Sửa"/"Thêm dòng" cũng xếp CTA.
+- Nút điều hướng thuần túy (quay lại, chuyển trang) xếp Trung tính.
+- Không rõ 1 nút thuộc loại nào → ưu tiên Trung tính (`Outlined`, không `Color`).
+- **Bẫy confirm dialog** (không đổi qua các bản): `DialogService.ShowAsync<MudMessageBox>(...)`
+  render nút Yes bằng markup mặc định, không sửa được — **KHÔNG** dùng cách gọi này. Luôn khai báo
+  `<MudMessageBox @ref="_confirmBox">` trực tiếp + `<YesButton>` tường minh, chọn Variant/Color
+  theo bản chất hành động Yes (bảng trên). Dialog dùng chung nhiều hành động (khóa/mở khóa) →
+  ternary inline dựa trên field/biến message có sẵn, không thêm field mới — vd
+  `ProductLockPage.razor`, `UsersPage.razor` (`_confirmYesColor`). Pattern đầy đủ:
+  `.claude/skills/web/SKILLS.md` §"MudMessageBox @ref".
 
 ## 4. Bảng dữ liệu (MudTable)
 
-- Luôn dùng `<MudTable>` (không tự viết `<table>` thô), với `Dense="true"` **bắt buộc** (theo
-  Density Standard §15 — không hạ xuống `Dense="false"` để "thoáng" hơn), `Hover="true"`,
+- Luôn dùng `<MudTable>`, `Dense="true"` **bắt buộc** (Density Standard §15), `Hover="true"`,
   `Striped="true"`, `HorizontalScrollbar="true"`.
-- Màu header bảng: nền `--pos-bg-alt`, viền dưới đã **softening** từ `2px solid var(--pos-primary)`
-  → `1px solid var(--pos-border)` (áp dụng cho cả `.mud-table` và `.pos-table`) — khớp tổng thể
-  borderless v2, không còn viền navy đậm lạc quẻ trong 1 card đã bỏ hết viền. `.rpt-pivot-table`
-  (pivot report) **giữ nguyên** viền cyan 2px cũ — là thiết kế riêng biệt có chủ đích, không thuộc
-  hệ borderless chung.
-- `MudTablePager` `PageSizeOptions` luôn bắt đầu bằng `10` (khớp `RowsPerPage` mặc định của
-  `MudTable`).
+- Header bảng (`.mud-table .mud-table-head .mud-table-cell` và `.pos-table thead`): nền
+  `var(--pos-bg-alt)`, chữ `var(--pos-text-muted)` (muted, không phải heading đậm), **in hoa**
+  (`text-transform:uppercase`), `font-size: 0.6875rem`, `letter-spacing:0.4px`, border-bottom 2px
+  — khớp `th` mockup. Đây là thay đổi trực quan rõ nhất của v3 trên mọi `MudTable`.
+- `.rpt-pivot-table` (pivot report) **giữ nguyên** viền cyan cũ — ngoài phạm vi, thiết kế riêng.
+- `MudTablePager` `PageSizeOptions` luôn bắt đầu bằng `10`.
 
-## 5. Sidebar / AppBar — nền sáng, icon nhỏ gọn, brand header riêng
+## 5. Sidebar / AppBar — navy đậm, 3 cấp phân biệt icon
 
-- `DrawerBackground`/`AppbarBackground`: `"#FFFFFF"` (đổi từ navy đậm `#1B3A5C`).
-- `DrawerText`/`AppbarText`: dùng tint navy (`rgba(26,43,69,...)`/`#1A2B45`) thay vì trắng.
-- Active nav item: pill bo tròn nền `var(--pos-primary-bg)` (`#E9EEF8`), chữ/icon
-  `var(--pos-primary)`, `border-radius: var(--pos-radius-lg)` (12px, **không** phải `-md` 8px —
-  đã tăng để pill tròn hơn khớp ảnh mẫu) — **không** dùng thanh viền trái (`border-left`).
-- `.mud-nav-link` có inset ngang `margin-left/right: 8px` + `width: calc(100% - 16px)` — không
-  bám sát mép sidebar, khớp gutter trong ảnh `flat1.jpg`.
-- `MudAppBar` trong `MainLayout.razor` dùng `Color="Color.Default"` (đổi từ `Color.Primary`) để
-  tự ăn theo `AppbarBackground`/`AppbarText` sáng — các phần tử con dùng `Color="Color.Inherit"`
-  tự động theo, không cần sửa riêng.
-- **Icon nav sidebar**: giảm còn `1.25rem` qua CSS `.mud-drawer .mud-icon-root` — mặc định
-  MudBlazor 24px quá to so với text 13-14px cạnh bên (áp dụng luôn cho icon expand/collapse của
-  `MudNavGroup`, cùng selector).
-- **Icon set sidebar đổi sang `Icons.Material.Outlined.*`** (từ `Filled`) — nhẹ/mảnh hơn, khớp
-  cảm giác "Mud Mini". Đã đổi toàn bộ icon trong `MudNavGroup`/`MudNavLink` ở `MainLayout.razor`
-  (và tiện thể luôn 2 icon AppBar Menu/Logout vì cùng file — side-effect nhỏ, không phải yêu cầu
-  ban đầu nhưng nhất quán và không có tác dụng phụ xấu).
-- **Đã bỏ `MudDrawerHeader`** ("POSMaster POS System" — text thô, không có logo). Thay bằng
-  `div.pos-sidebar-brand` (logo `MudAvatar Color="Color.Primary"` chữ "P" + `MudText` "POSMaster")
-  đặt ngay đầu `MudDrawer`, trước `MudNavMenu` — khớp cấu trúc logo+brand của ảnh mẫu, tên rút
-  gọn (không lặp lại nguyên văn "POS Dashboard – POSMaster" đã có sẵn trên AppBar).
-- **Cập nhật 2026-07-04 (round 2 — decluttering thêm)**: icon `MudNavGroup` **cấp 2** (sub-group,
-  vd Vận hành/Giao dịch/Báo cáo/Giám sát/Nhật ký...) đổi đồng nhất về `ChevronRight` — **giống hệt**
-  icon cấp 3 (leaf) thay vì icon riêng biệt theo ngữ nghĩa (`Monitor`/`Assessment`/`Business`...) —
-  chỉ còn cấp 1 giữ icon landmark riêng. Đồng thời mọi `MudNavGroup` (cấp 1 + cấp 2) thêm
-  `HideExpandIcon="true"` để ẩn mũi tên expand/collapse mặc định (`ArrowDropDown`) bên phải —
-  tránh 2 icon cùng lúc (icon trái + mũi tên phải) cho 1 mục. **Không đổi** cơ chế `@bind-Expanded`/
-  accordion tự mở-đóng theo route (`docs/WEB_STATUS.md` mục I3) — chỉ ẩn phần hiển thị, giữ nguyên
-  hành vi. Xem pattern đầy đủ + code mẫu: `.claude/skills/web/SKILLS.md` §"Sidebar nav (MainLayout)
-  — 3 cấp". Cùng đợt: rút gọn dòng menu cấp 2 (`padding-top/bottom:3px` + `line-height:1.5`, thu
-  ~15% so với mặc định) và `letter-spacing:-0.022em` cho `.mud-drawer .mud-nav-link` (rút tracking,
-  tránh xuống dòng tên dài) trong `app.css`; đổi tên 6 title leaf cho ngắn gọn hơn (vd "Tỉnh / Thành"
-  → "Chi nhánh", "Khai báo máy POS" → "POSTerminal").
+- `DrawerBackground = "#0D1B2A"` (navy đậm, mockup `--navy`) — **đảo ngược v2** (sidebar sáng).
+  `DrawerText`/`DrawerIcon` = `rgba(255,255,255,0.6)`.
+- `AppbarBackground = "#FFFFFF"` (topbar vẫn sáng) — `MudAppBar Color="Color.Default"`, thêm
+  shadow riêng `0 1px 4px rgba(0,0,0,.04)` (CSS `.mud-appbar`) khác Elevation=1 dùng chung filter
+  panel (flat).
+- Active nav item: nền **đặc** `var(--pos-primary)`, chữ/icon trắng, `border-radius:
+  var(--pos-radius-sm)` (8px — **không phải** `-lg` 12px, đây là bug đã phát hiện và sửa: mockup
+  `.nav-item` dùng `--radius` 8px, không phải `--radius-lg`). Hover (không active): nền
+  `var(--pos-drawer-hover)` (`#1E3448`).
+- **3 cấp sidebar theo cấu trúc mockup** (mockup chỉ có 2 cấp: `.nav-section-label` không icon +
+  `.nav-item` có icon — ánh xạ sang 3 cấp của POS.Web):
+  - **L1** (Cửa hàng/Danh mục/Khuyến mãi/Vận hành/Quản trị): **CHỮ IN HOA**, `font-weight:700`,
+    `font-size:0.625rem` (10px), `letter-spacing:1px` (cập nhật 2026-07-06, khớp chính xác mockup
+    `.nav-section-label{font-size:10px;font-weight:700;letter-spacing:1px}` — trước đó weight sai
+    400 thay vì 700), màu faint (`rgba(255,255,255,0.4)`), **KHÔNG icon**.
+  - **L2** (Vận hành/Giao dịch/Báo cáo/Tổ chức/Giám sát...): **có icon Material riêng** cho từng
+    nhóm (`Icons.Material.Outlined.Schedule`, `.ReceiptLong`, `.Assessment`, `.Groups`,
+    `.PointOfSale`, `.Inventory2`, `.Sell`, `.Campaign`, `.ConfirmationNumber`, `.MonitorHeart`,
+    `.Article`, `.Tune`...), `font-size:0.78125rem` (12.5px, cập nhật 2026-07-06 từ 13px — khớp
+    mockup `.nav-item{font-size:12.5px}`), sáng nhất trong các mục chưa active — giống `.nav-item`
+    mockup.
+  - **L3** (leaf link): icon `ChevronRight` đồng nhất cho mọi mục, mờ hơn L2.
+  - Nhóm "Quản trị" cấu trúc phẳng (không có L2, leaf nằm trực tiếp dưới L1) → 6 leaf giữ icon
+    riêng có ý nghĩa (People/Security/Settings/History/Storage/Lock) vì chúng nằm ở độ sâu tương
+    đương L2.
+- **Icon set giữ `Icons.Material.Outlined.*`** — mockup dùng emoji nhưng đã quyết định KHÔNG dùng
+  emoji cho toàn bộ nav (dù đã thử 1 lần và rollback — xem mục "Đã cân nhắc và loại bỏ").
+- ⚠️ **Bug đã gặp và fix**: tham số `Icon=` của `MudNavLink`/`MudNavGroup`/`MudIcon` nhận **SVG
+  path** (`<path d="...">`), KHÔNG phải text/ligature. Truyền emoji vào đó khiến path vô hiệu,
+  icon **biến mất hoàn toàn** (không lỗi, không cảnh báo — rất khó phát hiện qua code review).
+  Nếu cần hiển thị icon dạng text/emoji, phải nhúng trực tiếp trong `ChildContent` (vd
+  `<span>📊</span>Label`), không qua `Icon=`. Ở v3, quyết định cuối là KHÔNG dùng emoji nên vấn đề
+  này không còn áp dụng, nhưng vẫn là bẫy kỹ thuật cần nhớ nếu sau này cân nhắc lại.
+- `pos-sidebar-brand` (đầu `MudDrawer`): text-only 2 dòng (tên app + subtitle), KHÔNG
+  icon/avatar — khớp `.logo` mockup. **Khác v2** (v2 dùng `MudAvatar` tròn + tên).
+- `pos-sidebar-footer` (cuối `MudDrawer`, `margin-top:auto`): avatar chữ cái đầu (tròn, nền
+  Primary) + tên + role + nút logout — **user-info đã dời từ `MudAppBar` xuống đây** (v2 để ở
+  AppBar). `AppBar` giờ chỉ còn menu-toggle + title + spacer.
+- Icon nav sidebar: `1.25rem` → `1.125rem` (18px) — khớp `.nav-icon{width:18px}` mockup.
+- Indent 3 cấp thu gọn: `12px`/`20px`/`28px` (L1/L2/L3) thay mặc định MudBlazor `16/36/48px` —
+  khít hơn nhiều, đúng tinh thần mockup `.nav-section{padding:12px}`.
+- **MudBlazor 9.5.0 class thật cho nav** (đã verify từ `MudBlazor.min.css` thật trong NuGet cache,
+  KHÔNG đoán — bug ban đầu dùng sai tên class `.mud-nav-menu`/`.mud-nav-group-title` khiến CSS
+  không áp dụng được gì):
+  ```
+  .mud-navmenu                        ← MudNavMenu (KHÔNG phải .mud-nav-menu)
+    .mud-nav-group                    ← L1 NavGroup
+      .mud-nav-link                   ← L1 title chính là link này (KHÔNG có class -title riêng)
+      .mud-collapse-container
+        .mud-nav-group                ← L2 NavGroup
+          .mud-nav-link                ← L2 title
+          .mud-collapse-container
+            .mud-nav-link              ← L3 leaf link
+  ```
 
-## 6. Page header — thu nhỏ title/icon/button cho cân đối
+## 6. Page header — Filled cho CTA
 
-- `.pos-page-header-title`: thêm `font-size: 1.25rem` (giảm từ mặc định h5 MudBlazor ~1.5rem —
-  quá to so với tổng thể borderless, nhỏ gọn v2).
-- Icon cạnh title: **bắt buộc** `Size="Size.Small"` (trước đây không set → mặc định 24px, lệch tỷ
-  lệ với title đã thu nhỏ).
-- Nút hành động đi kèm title (`pos-page-header-btn`): thêm `Size="Size.Small"` + đổi
-  `Variant="Variant.Outlined"` (xem mục 3) để cân xứng với title/icon đã nhỏ lại.
-- **Font-weight title: BẮT BUỘC `Style="font-weight:400"`** trên thẻ `MudText` title (chữ "tự
-  nhiên", không đậm) — ghi đè font-weight 800 kế thừa từ `Typography.H5`. Đặt cục bộ trên từng
-  `MudText`, **không** sửa `.pos-page-header-title` global (ảnh hưởng mọi page khác kể cả page
-  chưa polish). Áp dụng cả cho page title-only không dùng `pos-page-header` (vd `ProductLockPage`
-  dùng `MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400"` trực tiếp).
-- Đã áp dụng cho toàn bộ 9 page trong menu "Danh mục" (Employees, Store, Provinces, PosMap,
-  BankPos, Products, ProductLock, Prices, PriceSetup) — đây là chuẩn chung, không còn là ngoại lệ
-  riêng của `ProductsPage.razor`.
+- `.pos-page-header-title`: `font-size:1.25rem`, icon cạnh title `Size="Size.Small"` — không đổi
+  qua các bản.
+- Nút CTA trong header (`pos-page-header-btn`): `Size="Size.Small"` + **`Variant="Variant.Filled"
+  Color="Color.Primary"`** — đảo ngược v2 (Outlined), theo mục 3.
+- Font-weight title: `Style="font-weight:400"` cục bộ trên từng `MudText` title — không đổi.
 
-## 7. Filter panel — nền soft-tint
+## 7. Filter panel — trắng + border (không còn soft-tint)
 
-- `MudPaper` chứa filter fields: thêm class `pos-filter-panel` (CSS mới, `background-color:
-  var(--pos-primary-bg)`) — phân biệt vùng nhập liệu với card dữ liệu trắng (MudTable) bên dưới,
-  không cần thêm viền.
-- Dùng: `<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">`.
+- `MudPaper` chứa filter fields: class `pos-filter-panel` = nền **trắng** (`var(--pos-surface)`) +
+  `border: 1px solid var(--pos-border)` — **đảo ngược v2** (soft-tint `var(--pos-primary-bg)`),
+  theo mockup `.filter-bar` (nền trắng, border 1px, không tint).
+- Dùng: `<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">` (Elevation=1 = flat, khớp
+  mục 1).
 
-## 8. Hệ màu (Palette) — GIỮ NGUYÊN hex thương hiệu
+## 8. Hệ màu (Palette) — đổi toàn bộ theo mockup
 
-- Primary: **Navy `#2051A3`** (Darken `#1B3A5C`, Lighten `#3A6FCC`) — **không đổi**, chỉ đổi cách
-  dùng (nền sidebar/appbar chuyển sang trắng, Primary giờ dùng làm accent/text/active-state).
-- Success `#27AE60`, Error `#DC3545`, Warning `#F39C12`, Info `#3A6FCC` — không đổi.
-- Background `#F2F4F8` / `#EEF1F7`, Surface `#FFFFFF` — không đổi.
-- Token mới: `--pos-primary-bg` (`#E9EEF8`) — dùng cho active-nav highlight VÀ nền
-  `pos-filter-panel`; `--pos-teal-bg` (`#E6F7F4`) — dự phòng cho icon-badge KPI sau này nếu cần.
+> Khác v2 (giữ nguyên hex thương hiệu), v3 đổi **toàn bộ** Primary/Secondary/Tertiary/Success/
+> Error/Warning/Info theo đúng mockup — quyết định có chủ đích vì yêu cầu gốc là "CustomTheme
+> khớp 100% mockup", không chỉ đổi cách dùng màu cũ.
 
-## 9. Màu trend/delta (%) — BẮT BUỘC giữ ngữ nghĩa
+| Property | Giá trị mới | Nguồn mockup |
+|---|---|---|
+| Primary | `#2660A4` (Darken `#1E50A0`, Lighten `#3D8FD9`) | `--steel` |
+| Secondary | `#4A6070` | `--gray5` |
+| Tertiary | `#6040A8` (slot cũ `#1EAA90` không dùng ở đâu, tái sử dụng an toàn) | `--purple` |
+| Success / Error / Warning / Info | `#1F7A4A` / `#B52B27` / `#D4860A` / `#3D8FD9` | `--green`/`--red`/`--gold`/`--sky` |
+| Background / Surface | `#F0F4F8` / `#FFFFFF` | `--gray1` |
+| DrawerBackground | `#0D1B2A` | `--navy` |
 
-- `.pos-delta-up`/`.pos-delta-down` (app.css) — đã nâng cấp thành pill badge nền nhạt
-  (`--pos-success-bg`/`--pos-danger-bg`), chữ đậm màu `--pos-success`/`--pos-danger`.
-- **Quyết định rõ ràng**: dashboard vận hành POS (doanh thu, lỗi, trạng thái máy) giữ ngữ nghĩa
-  **tăng=xanh/giảm=đỏ** — **KHÔNG** dùng màu trang trí tùy ý theo từng KPI kiểu mẫu tham khảo
-  (ảnh mẫu dùng màu trang trí không ngữ nghĩa, nhưng đã quyết định KHÔNG áp dụng phần này vì mất
-  tín hiệu tốt/xấu cho nhân viên vận hành).
+- Font-family: `Typography.Default.FontFamily` đổi sang `["Segoe UI", "system-ui", "sans-serif"]`
+  đúng theo mockup (yêu cầu bổ sung riêng, không nằm trong quyết định "giữ nguyên Typography" ban
+  đầu của Bước 2).
+- Warning 2 cấp: mockup có `--gold` (nhẹ) và `--orange` (mạnh hơn) nhưng MudBlazor chỉ có 1 slot
+  `Warning`. Dùng `--gold` cho slot chính thức; `--orange` chỉ tồn tại dưới dạng CSS token
+  `--pos-warning-strong`/`--pos-warning-strong-bg`, không phải Palette slot.
+- Token đổi tên: `--pos-teal`/`--pos-teal-bg` → `--pos-purple`/`--pos-purple-bg` (không dùng ở
+  đâu ngoài khai báo, an toàn đổi tên).
+
+## 9. Màu trend/delta (%) — BẮT BUỘC giữ ngữ nghĩa (không đổi)
+
+- `.pos-delta-up`/`.pos-delta-down` (app.css) — pill badge nền nhạt (`--pos-success-bg`/
+  `--pos-danger-bg`), chữ đậm màu `--pos-success`/`--pos-danger`. Giá trị hex bên dưới đổi theo
+  mục 8 nhưng ngữ nghĩa và cơ chế giữ nguyên.
+- **Quyết định giữ nguyên qua mọi bản**: dashboard vận hành POS giữ ngữ nghĩa tăng=xanh/giảm=đỏ —
+  KHÔNG dùng màu trang trí tùy ý theo từng KPI.
+
+## 11. Typography — rà soát pixel-perfect (2026-07-06)
+
+> Đợt rà soát riêng, sau v3: v3 mới chỉ khớp `font-family` + bảng màu; font-size/weight/
+> letter-spacing/line-height của từng thành phần chưa đối chiếu lại với `theme_html.html`.
+> Đã audit toàn bộ CSS mockup (single inline `<style>`, không Google Fonts/local font — chỉ
+> `'Segoe UI', system-ui, sans-serif`) và sửa theo phạm vi **chỉ Theme + CSS toàn cục** (đã chốt
+> với user — không rollout Typo attribute qua 82 file dùng `Typo.h5/h6/body2/caption`).
+
+**Sửa trong `PosTheme.cs` (Typography, áp dụng toàn app):**
+
+| Variant | Trước | Sau | Khớp mockup |
+|---|---|---|---|
+| `Default.LineHeight` | `1.45` | `1.5` | `body{line-height:1.5}` |
+| `Button.FontSize` | *(không set → ~14px mặc định)* | `0.75rem` (12px) | `.btn{font-size:12px}` |
+| `Button.LetterSpacing` | `0.03em` | *(đã xóa)* | mockup không có letter-spacing cho `.btn` |
+| `Body1.FontSize` | `0.75rem` (12px) | `0.78125rem` (12.5px) | `.input,.select,.textarea{font-size:12.5px}` |
+
+**Sửa trong `app.css` (selector toàn cục có sẵn):**
+
+- Sidebar L1 (`.mud-drawer .mud-navmenu > .mud-nav-group > .mud-nav-link`): weight 400→700,
+  size 11px→10px, letter-spacing 0.8px→1px (xem mục 5).
+- Sidebar L2 (nav-item lồng): size 13px→12.5px (xem mục 5).
+- `.mud-table .mud-table-body .mud-table-cell`: **mới thêm** `font-size:0.78125rem` (12.5px) —
+  trước đó chỉ có override cho `.mud-table-head`, body cell dùng size mặc định MudBlazor không
+  khớp mockup `table{font-size:12.5px}`.
+- `.mud-input-label-inputcontrol`: **mới thêm** `font-size:0.6875rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.5px` — khớp mockup `.field label`. Trước đó field
+  label dùng mặc định MudBlazor (`font-size:1rem;font-weight:400`, không uppercase) vì
+  `Typography` theme không cascade vào label input (đã verify class thật qua `MudBlazor.min.css`).
+- Xóa override `--mud-typography-default-lineheight:1.5` riêng cho mobile (media query) — nay
+  `Default.LineHeight` đã là `1.5` sẵn cho mọi breakpoint, override cũ thành dead code.
+
+**Class CSS mới cho thành phần KHÔNG có class dùng chung** (KPI value/label, card title, section
+label — do từng page tự chọn `Typo=` nên sửa theme global sẽ ảnh hưởng chỗ khác không liên quan):
+
+```css
+.pos-kpi-value    { font-size:1.375rem; font-weight:800; line-height:1; letter-spacing:normal; }
+.pos-kpi-label    { font-size:0.6875rem; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; }
+.pos-card-title   { font-size:0.8125rem; font-weight:700; }
+.pos-section-label{ font-size:0.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:0.7px; padding-bottom:6px; border-bottom:1px solid var(--pos-border); margin-bottom:10px; }
+```
+
+Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hiện có trên `MudText`
+(giữ nguyên Typo để không đổi hành vi ngữ nghĩa, CSS class chỉ ép lại giá trị hiển thị).
+
+- **Đã áp dụng làm mẫu chuẩn** (2 page, KHÔNG rollout toàn bộ):
+  `RevenueByStorePage.razor`, `ShiftSummaryPage.razor` (đều ở `Store/Reports|Operations/`) —
+  `.pos-kpi-value` trên `MudText` giá trị KPI, `.pos-kpi-label` trên `MudText Typo.body2` nhãn KPI.
+- **CHƯA áp dụng**: mọi page KPI/card-title/section-label khác (~80 file còn lại dùng
+  `Typo.h5/h6/body2/caption` cho mục đích tương tự) — đây là chuẩn tham chiếu cho đợt polish kế
+  tiếp, KHÔNG phải đã đồng bộ 100% toàn app. `.pos-card-title`/`.pos-section-label` mới chỉ định
+  nghĩa trong `app.css`, chưa áp dụng vào page nào (chưa xác định page nào đang dùng "card title"
+  theo đúng nghĩa mockup — cần rà soát riêng nếu muốn rollout).
+
+### 11.1 Checklist Typography — BẮT BUỘC áp dụng ngay khi tạo page/component mới
+
+> Mục đích: page mới sinh ra đã đúng chuẩn ngay từ đầu, không cần đợt polish riêng về sau.
+> `PosTheme.cs` + `app.css` đã lo phần nền tảng (line-height, input, table, sidebar, field label,
+> button) — page mới **không cần làm gì thêm** cho các mục đó. Chỉ cần tự tay áp đúng class ở các
+> mục có `[Tự làm]` bên dưới vì chúng do page tự chọn `Typo=`, theme không thể tự suy ra ngữ nghĩa.
+
+| Thành phần | Việc cần làm khi tạo mới | Ai lo |
+|---|---|---|
+| Input/Select/DatePicker text, Button, MudTable (header + body), Sidebar nav | Không cần làm gì — theme/CSS toàn cục đã đúng | Tự động |
+| Field label (label của input) | Không cần làm gì — `.mud-input-label-inputcontrol` đã ép uppercase/bold/11px toàn cục | Tự động |
+| **KPI value** (số lớn trong KPI card) | `<MudText Typo="Typo.h5" Class="pos-kpi-value" ...>` — giữ `Typo=` hiện có, thêm `Class` | **[Tự làm]** |
+| **KPI label** (nhãn nhỏ dưới KPI value) | `<MudText Typo="Typo.body2" Class="pos-kpi-label" ...>` | **[Tự làm]** |
+| **Card title** (tiêu đề trong `MudPaper`/`MudCard`, không phải page header) | Thêm `Class="pos-card-title"` vào `MudText` tiêu đề card | **[Tự làm]** |
+| **Section label** (nhãn phân nhóm trong form, có gạch chân) | Thêm `Class="pos-section-label"` vào `MudText` | **[Tự làm]** |
+| Page header title | Dùng `div.pos-page-header` + `.pos-page-header-title` sẵn có — KHÔNG dùng 4 class ở trên (page header là style riêng, không thuộc mockup `.card-title`/`.kpi-value`) | Đã có class riêng |
+
+- **KHÔNG** tự bịa font-size/weight/letter-spacing bằng `Style="..."` inline cho 4 thành phần
+  `[Tự làm]` — luôn dùng đúng class đã định nghĩa trong `app.css` (mục 11) để đảm bảo mọi page
+  hiển thị đồng nhất, tránh mỗi page một số liệu khác nhau.
+- Cần thành phần typography khác chưa có class tương ứng (vd biến thể mới của mockup) → thêm class
+  mới vào `app.css` cùng nhóm `.pos-*` này và cập nhật bảng trên **trong cùng commit** — không tạo
+  file CSS/rule riêng cho typography (tránh lệch với mục 11 đã có).
 
 ## Đã cân nhắc và loại bỏ (giữ lại lịch sử quyết định)
 
 | Đề xuất | Lý do loại bỏ |
 |---|---|
-| Theme Ynex (rebrand Indigo, navbar đầy icon, dark mode, dashboard Ecommerce mới) | Không phải MudBlazor gốc, rebrand toàn app rủi ro cao, nhiều phần không phục vụ nghiệp vụ POS |
-| `Outlined="true"` cho MudPaper/MudCard | Thay bằng cơ chế borderless (Elevation=none) thay vì Outlined bool |
-| Đổi hex Primary/Success/Error/Warning/Info | Giữ nguyên thương hiệu — chỉ đổi cách dùng (nền sáng, borderless, radius) |
-| `Dense="false"` cho MudTable | Vi phạm Density Standard §15 (bắt buộc `Dense="true"`) |
-| Font-size tăng (Body1/Body2/Caption) | Giữ nguyên — chỉ đổi H5 weight/letter-spacing, không đổi size |
-| Màu trend trang trí không ngữ nghĩa (theo ảnh mẫu Mud Mini) | Mất tín hiệu tốt/xấu cho dashboard vận hành — giữ semantic xanh/đỏ |
+| Theme Ynex (rebrand Indigo, navbar đầy icon, dark mode, dashboard Ecommerce mới) | Không phải MudBlazor gốc, rebrand toàn app rủi ro cao (quyết định thời v1) |
+| `Outlined="true"` cho MudPaper/MudCard (v2) | Thay bằng Elevation=none (borderless) — nay v3 lại đổi tiếp sang Elevation có shadow thật |
+| Đổi hex Primary/Success/Error/Warning/Info (v2) | v2 giữ nguyên thương hiệu; **v3 đã đổi** theo mockup theo yêu cầu "CustomTheme khớp 100%" — quyết định v2 không còn áp dụng |
+| `Dense="false"` cho MudTable | Vi phạm Density Standard §15 (bắt buộc `Dense="true"`) — không đổi qua các bản |
+| Sidebar sáng + `MudAvatar` brand (v2) | v3 đảo ngược hoàn toàn sang navy đậm + brand text-only theo mockup mới |
+| Emoji làm icon sidebar (thử ở v3, đã rollback) | Kỹ thuật thất bại: `Icon=` của MudNavLink/MudIcon nhận SVG path, không phải text — emoji khiến icon biến mất hoàn toàn. Đã rollback về Material Icons Outlined; sau đó người dùng yêu cầu thêm cấu trúc 3 cấp phân biệt icon (L1 không icon/IN HOA, L2 có icon riêng, L3 chevron đồng nhất) |
+| Filter panel soft-tint `--pos-primary-bg` (v2) | v3 đổi sang trắng + border theo đúng mockup `.filter-bar` |
+| Button Outlined mọi nơi (v2) | v3 đảo ngược: Filled cho CTA/hành động tích cực, Outlined cho phần còn lại — theo `.btn-primary` mockup |
 
-## Trạng thái rollout (cập nhật 2026-07-04, đợt 2 — toàn bộ menu)
+## Trạng thái rollout (cập nhật 2026-07-05, v3 — toàn bộ theme + 5 cụm menu)
 
-> Ban đầu chỉ áp dụng cho 9 page + 9 dialog menu "Danh mục" (pilot). Đợt 2 cùng ngày đã rollout
-> đầy đủ cho **toàn bộ 4 cụm menu còn lại: Cửa hàng, Khuyến mãi, Vận hành, Quản trị** — tổng
-> ~35 page + ~25 dialog. Cả `dotnet build` và `dotnet test tests/POS.ContractTests` (25/25) xanh
-> sau đợt rollout này.
+- **Theme/Layout/Sidebar** (Bước 2-3.7): `PosTheme.cs` (Palette/Radius/Shadow/FontFamily),
+  `MainLayout.razor` (sidebar navy, appbar, sidebar-footer, 3 cấp icon), `app.css` (token, sidebar
+  3-tầng, table header, filter panel, radius control) — hoàn tất, build + test xanh.
+- **Button convention** (Bước 4): rollout đủ **5 cụm menu — Danh mục (14 file), Cửa hàng (17
+  file), Khuyến mãi (11 file), Vận hành (12 file), Quản trị (5 file)** = 59 file, build + test
+  xanh sau mỗi cụm. Đã rà kỹ 12 dialog dùng `MudMessageBox @ref` (bao gồm 2 dialog dùng chung
+  nhiều hành động — `ProductLockPage`, `UsersPage` — dùng ternary inline theo bản chất hành động).
+- **Không đổi trong đợt này**: `Login.razor` (không thuộc menu nào, cố ý không đổi từ đợt v2),
+  `EosDayShiftListDialog.razor` (orphaned — không còn page nào mở, xác nhận lại qua grep vẫn
+  đúng — vẫn áp Button convention mới cho nhất quán dù orphaned).
+- **Icon set**: vẫn CHỈ `Icons.Material.Outlined.*` cho `MainLayout.razor` (sidebar). Icon trong
+  nội dung từng page (page-header icon, button StartIcon) vẫn giữ `Icons.Material.Filled.*` như
+  trước — quyết định có chủ đích từ v2, chưa thay đổi ở v3.
+- **Typography audit** (2026-07-06, xem mục 11): `PosTheme.cs` (line-height/Button/Body1) +
+  `app.css` (sidebar label, MudTable body cell, field label) sửa toàn cục — build + test xanh.
+  Class `.pos-kpi-value`/`.pos-kpi-label` mới chỉ áp mẫu trên 2 page; `.pos-card-title`/
+  `.pos-section-label` mới định nghĩa, chưa áp dụng page nào.
 
-- **Button `Variant.Filled`/`Variant.Text` → `Outlined`**: áp dụng cho TOÀN BỘ `MudButton` trong
-  mọi page + dialog thuộc 5 menu (Danh mục, Cửa hàng, Khuyến mãi, Vận hành, Quản trị) — không có
-  ngoại lệ, kể cả nút Hủy/Đóng, nút trong confirm dialog/`MudMessageBox`, bulk action, nút Lưu
-  cuối cùng. `MudChip` (status/tab badge) vẫn giữ `Variant.Filled` khi cần — không thuộc rule
-  button. Đã grep xác nhận không còn `MudButton Variant.Filled/Text` nào sót trong
-  `Components/Pages/` ngoại trừ `Login.razor` (không thuộc menu nào, cố ý không đổi) và
-  `EosDayShiftListDialog.razor` (orphaned — không còn page nào mở dialog này, xác nhận qua grep).
-- **Page header title/icon thu nhỏ + font-weight:400**: áp dụng cho tất cả page có
-  `div.pos-page-header` hoặc title-only `MudText Typo.h5` trong cả 5 menu.
-- **`pos-filter-panel`**: áp dụng cho mọi `MudPaper` đóng vai trò vùng nhập liệu/filter/khai báo
-  trong cả 5 menu — không áp cho card nội dung thuần (KPI display, info card, MudCard nhóm field).
-- **Hardcode `border-radius:4px`** trên `MudProgressLinear` đã dọn sạch trong cả 5 menu.
-- **Icon set `Outlined`**: vẫn CHỈ áp dụng cho `MainLayout.razor` (sidebar + 2 icon AppBar) — icon
-  bên trong nội dung từng page (page-header icon, icon trong button...) **vẫn giữ nguyên
-  `Icons.Material.Filled.*`** như trước — đây là quyết định có chủ đích, chưa từng yêu cầu đổi
-  đồng bộ icon set toàn app, chỉ sidebar mới cần cảm giác "Mud Mini" nhẹ/mảnh.
-- 2 dialog bị bỏ sót ở đợt 1 (phát hiện và sửa ở đợt 2): `PriceItemPickerDialog.razor`
-  (Catalog/Price) và `PosTerminalEditDialog.razor` (Ops) — nay đã Outlined đầy đủ.
-- 1 page bị bỏ sót ở đợt 1 vì không nằm trong sidebar nav (chỉ reachable từ VouchersPage):
-  `VoucherIssuePage.razor` + dialog `VoucherItemPickerDialog.razor` — nay đã convert đầy đủ,
-  đối xứng với `CouponIssuePage.razor` (đã convert ở đợt 1).
+## 10. CSS Isolation — khi nào dùng `.razor.css`
+
+> Chốt lại quyết định kỹ thuật đã áp dụng thật khi làm sidebar (Bước 3.5) — trước đây chỉ nằm
+> trong plan nội bộ, chưa từng ghi vào rule file.
+
+- **Mặc định dùng `app.css` (global)** cho mọi style liên quan token thiết kế dùng chung: màu,
+  radius, shadow, sidebar, table header, filter panel... Đây là nơi chứa 100% CSS custom hiện tại
+  của dự án (`--pos-*` token + mọi override MudBlazor).
+- **Chỉ tạo `{Component}.razor.css`** (CSS isolation) khi style thật sự **cục bộ cho 1 component/
+  page cụ thể**, không tái dùng ở nơi khác, và **không cần** ghi đè CSS của component con do
+  MudBlazor tự render.
+- **Khi cần ghi đè style của component con MudBlazor tự render** (`MudNavLink`, `MudNavGroup`,
+  `MudTable` internals, `MudTablePager`...) → **ưu tiên `app.css`** với selector toàn cục
+  (`.mud-nav-link`, `.mud-table-head .mud-table-cell`...). CSS isolation cần combinator `::deep`
+  mới xuyên qua được markup của component con — phức tạp hơn selector toàn cục mà không có lợi ích
+  thêm, và tạo thêm 1 nguồn CSS thứ hai cho cùng 1 khu vực (dễ lệch khi sửa sau này).
+- **Ví dụ thực tế**: toàn bộ CSS sidebar 3 cấp (Bước 3-3.7) nằm ở `app.css` — không có
+  `MainLayout.razor.css`, dù `MainLayout.razor` là component phức tạp nhất trong app.
 
 ## TODO còn lại (chưa làm — chỉ ghi nhận)
 
 - `Login.razor`, vài page report (`PaymentBreakdownPage.razor`, `TopProductPage.razor`) có
-  `border-radius` hardcode khác (8px/12px/2px) cho mini progress bar/card phụ, hoặc custom
-  `<div style="border-radius:4px">` cho Pareto-bar visualization (không phải `MudProgressLinear`)
-  — cố ý chưa đổi vì không phải hardcode trên component MudBlazor chuẩn.
-- Icon set `Outlined` chưa mở rộng ra ngoài `MainLayout.razor` — nếu sau này muốn đồng bộ icon
-  toàn app (page-header, button StartIcon...) thì đây sẽ là thay đổi diện rộng riêng, cần quyết
-  định rõ ràng trước khi làm (ảnh hưởng ~35+ page).
+  `border-radius` hardcode khác cho mini progress bar/card phụ — cố ý chưa đổi vì không phải
+  hardcode trên component MudBlazor chuẩn.
+- Icon set `Outlined` chưa mở rộng ra ngoài `MainLayout.razor` — nếu muốn đồng bộ icon toàn app
+  (page-header, button StartIcon...) thì đây là thay đổi diện rộng riêng, cần quyết định rõ ràng
+  trước khi làm (ảnh hưởng ~40+ page).
+- `Shadows.Elevation[6..25]` chưa đổi tint sang navy mới (`rgba(13,27,42,x)`) — vẫn giữ tint cũ
+  `rgba(26,43,69,x)`, rủi ro thấp vì chưa có ví dụ cụ thể từ mockup cho elevation cao.
+- `.pos-kpi-value`/`.pos-kpi-label` (mục 11) chưa rollout ngoài 2 page mẫu; `.pos-card-title`/
+  `.pos-section-label` chưa áp dụng vào page nào — cần rà soát ~80 file dùng `Typo.h5/h6/body2`
+  cho KPI/card-title/section-label để rollout đầy đủ nếu muốn đồng bộ 100% toàn app.

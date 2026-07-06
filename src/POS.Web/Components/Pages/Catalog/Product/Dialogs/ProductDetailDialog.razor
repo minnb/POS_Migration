@@ -112,7 +112,7 @@
     <MudDivider Class="my-4"/>
     <div class="d-flex align-center justify-space-between mb-2">
         <MudText Typo="Typo.subtitle1"><strong>Danh sách Barcode</strong> <span style="color:red">*</span></MudText>
-        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Add"
                    OnClick="AddBarcodeRow">
             Thêm dòng
@@ -168,7 +168,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Variant="Variant.Outlined" Disabled="@_saving">Đóng</MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    OnClick="SaveAsync" Disabled="@(!_formValid || _saving)"
                    StartIcon="@Icons.Material.Filled.Save">
             @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }

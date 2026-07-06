@@ -83,7 +83,7 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
@@ -113,30 +113,30 @@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 160px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Color="Color.Primary">@FormatVND(_summaries.Sum(s => s.TotalRevenue))</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng doanh thu</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_summaries.Sum(s => s.TotalRevenue))</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh thu</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h4" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng số GD</MudText>
+                <MudText Typo="Typo.h4" Class="pos-kpi-value" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số GD</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h4" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
+                <MudText Typo="Typo.h4" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
                     @_summaries.Sum(s => s.OpenCount)
                 </MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Ca chưa đóng</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Ca chưa đóng</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h4" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
+                <MudText Typo="Typo.h4" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
                     @_summaries.Sum(s => s.DiscrepancyCount)
                 </MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Ca có chênh lệch</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Ca có chênh lệch</MudText>
             </MudPaper>
         </div>
     </div>

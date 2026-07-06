@@ -8,122 +8,141 @@ public static class PosTheme
     {
         PaletteLight = new PaletteLight
         {
-            // --- Primary brand: navy blue ---
-            Primary             = "#2051A3",
-            PrimaryDarken       = "#1B3A5C",
-            PrimaryLighten      = "#3A6FCC",
+            // --- Primary brand: steel blue (theme_html mockup --steel) ---
+            Primary             = "#2660A4",
+            PrimaryDarken       = "#1E50A0",
+            PrimaryLighten      = "#3D8FD9",
             PrimaryContrastText = "#FFFFFF",
 
-            // --- Secondary: muted blue-gray (accessible on white: ~5.1:1) ---
-            Secondary             = "#6B7A8D",
-            SecondaryDarken       = "#4A5568",
-            SecondaryLighten      = "#8898AA",
+            // --- Secondary: neutral gray-blue (theme_html --gray5) ---
+            Secondary             = "#4A6070",
+            SecondaryDarken       = "#37495A",
+            SecondaryLighten      = "#6A8498",
             SecondaryContrastText = "#FFFFFF",
 
-            // --- Tertiary: teal accent ---
-            Tertiary             = "#1EAA90",
-            TertiaryDarken       = "#17876F",
-            TertiaryLighten      = "#3DC9AE",
+            // --- Tertiary: purple accent (theme_html --purple) ---
+            Tertiary             = "#6040A8",
+            TertiaryDarken       = "#4A3080",
+            TertiaryLighten      = "#8A6FC8",
             TertiaryContrastText = "#FFFFFF",
 
-            // --- Status ---
-            Success             = "#27AE60",
+            // --- Status (theme_html --green/--red/--gold/--sky) ---
+            Success             = "#1F7A4A",
             SuccessContrastText = "#FFFFFF",
-            Error               = "#DC3545",
+            Error               = "#B52B27",
             ErrorContrastText   = "#FFFFFF",
-            Warning             = "#F39C12",
-            WarningContrastText = "#1A2B45",   // dark text — #F39C12 on white is only 2.4:1
-            Info                = "#3A6FCC",
+            Warning             = "#D4860A",
+            WarningContrastText = "#1A2B38",
+            Info                = "#3D8FD9",
             InfoContrastText    = "#FFFFFF",
 
-            // --- Background & Surface ---
-            Background    = "#F2F4F8",
-            BackgroundGray = "#EEF1F7",
+            // --- Background & Surface (theme_html --gray1) ---
+            Background    = "#F0F4F8",
+            BackgroundGray = "#E4E9EF",
             Surface       = "#FFFFFF",
 
-            // --- Drawer (sidebar): light, per MudBlazor "Mud Mini" reference ---
-            DrawerBackground = "#FFFFFF",
-            DrawerText       = "rgba(26,43,69,0.85)",
-            DrawerIcon       = "rgba(26,43,69,0.55)",
+            // --- Drawer (sidebar): dark navy, per theme_html mockup ---
+            DrawerBackground = "#0D1B2A",
+            DrawerText       = "rgba(255,255,255,0.6)",
+            DrawerIcon       = "rgba(255,255,255,0.6)",
 
-            // --- AppBar: same light surface ---
+            // --- AppBar: light surface (theme_html .topbar) ---
             AppbarBackground = "#FFFFFF",
-            AppbarText       = "#1A2B45",
+            AppbarText       = "#1A2B38",
 
             // --- Typography colors ---
-            TextPrimary   = "#1A2B45",
-            TextSecondary = "#6B7A8D",
-            TextDisabled  = "#B0BAC9",
+            TextPrimary   = "#1A2B38",
+            TextSecondary = "#6A8498",
+            TextDisabled  = "#8FA3B4",
 
             // --- Actions & icons ---
-            ActionDefault            = "#6B7A8D",
-            ActionDisabled           = "#B0BAC9",
-            ActionDisabledBackground = "#EEF1F7",
+            ActionDefault            = "#4A6070",
+            ActionDisabled           = "#8FA3B4",
+            ActionDisabledBackground = "#E4E9EF",
 
             // --- Dividers ---
-            Divider      = "#DDE3EE",
-            DividerLight = "rgba(221,227,238,0.5)",
+            Divider      = "#E4E9EF",
+            DividerLight = "rgba(228,233,239,0.6)",
 
             // --- Tables ---
-            TableLines   = "#DDE3EE",
-            TableStriped = "#F8F9FC",
-            TableHover   = "#EEF1F7",
+            TableLines   = "#E4E9EF",
+            TableStriped = "#F6F8FA",
+            TableHover   = "#F8FAFB",
 
             // --- Overlay ---
-            OverlayLight = "rgba(242,244,248,0.7)",
-            OverlayDark  = "rgba(26,43,69,0.5)",
+            OverlayLight = "rgba(240,244,248,0.7)",
+            OverlayDark  = "rgba(13,27,42,0.5)",
         },
 
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "16px",
+            DefaultBorderRadius = "12px",
             DrawerWidthLeft     = "260px",
+            AppbarHeight        = "50px", // khớp mockup .topbar{height:50px}
         },
 
         Typography = new Typography
         {
+            // theme_html.html: body{font-family:'Segoe UI',system-ui,sans-serif}. MudBlazor sinh
+            // CSS variable RIÊNG cho mỗi typography variant (--mud-typography-h5-family,
+            // --mud-typography-body1-family...) — KHÔNG kế thừa từ Default. Phải set FontFamily
+            // trên TỪNG variant, nếu không phần lớn chữ hiển thị thật (H5/H6/Subtitle1/Body1/
+            // Body2/Caption/Button) vẫn giữ font mặc định của MudBlazor.
             Default = new DefaultTypography
             {
-                FontFamily = ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "sans-serif"],
-                FontSize   = "0.875rem",
-                LineHeight = "1.45",
+                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
+                FontSize   = "0.8125rem",   // 13px — khớp base mockup (cũ 0.875rem/14px)
+                LineHeight = "1.5",         // khớp mockup body{line-height:1.5}
             },
+            H1 = new H1Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
+            H2 = new H2Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
+            H3 = new H3Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
+            H4 = new H4Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
             H5 = new H5Typography
             {
+                FontFamily    = ["Segoe UI", "system-ui", "sans-serif"],
                 FontWeight    = "800",
                 LetterSpacing = "-0.02em",
             },
             H6 = new H6Typography
             {
+                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
                 FontWeight = "600",
             },
             Subtitle1 = new Subtitle1Typography
             {
+                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
                 FontWeight = "600",
             },
+            Subtitle2 = new Subtitle2Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
             Body1 = new Body1Typography
             {
-                FontSize   = "0.75rem",   // 12px — giảm ~15% từ 14px cũ. Chi phối text input/value
-                                          // trong MudTextField/MudSelect/MudDatePicker + dropdown/
-                                          // autocomplete popup (KHÔNG ảnh hưởng DataTable — cell
-                                          // MudTable dùng size cố định riêng của MudBlazor, không
-                                          // cascade từ Body1).
+                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
+                FontSize   = "0.78125rem", // 12.5px — khớp mockup .input,.select,.textarea. Chi phối
+                                          // text input/value trong MudTextField/MudSelect/
+                                          // MudDatePicker + dropdown/autocomplete popup (KHÔNG ảnh
+                                          // hưởng DataTable — cell MudTable dùng size cố định riêng
+                                          // của MudBlazor, không cascade từ Body1).
                 FontWeight = "400",       // chữ tự nhiên, không đậm
             },
             Body2 = new Body2Typography
             {
-                FontSize = "0.8125rem",
+                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
+                FontSize   = "0.8125rem",
             },
             Caption = new CaptionTypography
             {
+                FontFamily    = ["Segoe UI", "system-ui", "sans-serif"],
                 FontSize      = "0.75rem",
                 FontWeight    = "600",
                 LetterSpacing = "0.04em",
             },
+            Overline = new OverlineTypography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
             Button = new ButtonTypography
             {
+                FontFamily    = ["Segoe UI", "system-ui", "sans-serif"],
+                FontSize      = "0.75rem", // 12px — khớp mockup .btn
                 FontWeight    = "600",
-                LetterSpacing = "0.03em",
                 TextTransform = "none",   // bỏ ALL CAPS mặc định của MudBlazor
             },
         },
@@ -133,11 +152,11 @@ public static class PosTheme
             Elevation =
             [
                 "none",                                         // 0
-                "none",                                         // 1 — borderless (bg contrast Surface vs Background)
-                "none",                                         // 2 — borderless (card)
-                "none",                                         // 3 — borderless
-                "none",                                         // 4 — borderless
-                "none",                                         // 5 — borderless
+                "none",                                         // 1 — flat/bordered (filter panel, toolbar)
+                "0 2px 8px rgba(0,0,0,0.08)",                   // 2 — card shadow thật (KPI card, table-wrap, alert) — theme_html --shadow
+                "0 2px 8px rgba(0,0,0,0.08)",                   // 3 — = elevation 2
+                "0 4px 20px rgba(0,0,0,0.12)",                  // 4 — theme_html --shadow-lg (Login card)
+                "0 4px 20px rgba(0,0,0,0.12)",                  // 5 — = elevation 4
                 "0 5px 18px rgba(26,43,69,0.15)",              // 6
                 "0 6px 20px rgba(26,43,69,0.16)",              // 7
                 "0 6px 22px rgba(26,43,69,0.17)",              // 8

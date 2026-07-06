@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Dapper;
 using Newtonsoft.Json;
 using POS.Common.Dtos.Promotion;
@@ -42,16 +43,19 @@ public sealed class PromotionRepository(
         => (await QueryAsync<OfferHeaderListItemDto>(Sql, BuildParams(filter, 0, ExportPageSize),
             commandTimeout: 120, ct: ct)).ToList();
 
-    public async Task<List<OptionItemDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default)
+    public async Task<List<OfferTypeOptionDto>> GetOfferTypeOptionsAsync(CancellationToken ct = default)
     {
-        var cached = await redis.StringGetAsync<List<OptionItemDto>>(KeyOfferTypeOptions);
+        var cached = await redis.StringGetAsync<List<OfferTypeOptionDto>>(KeyOfferTypeOptions);
         if (cached?.Count > 0) return cached;
 
-        const string sql = @"SELECT [OfferType] AS Value, [OfferType] + '-' + [OfferName] AS Text
+        const string sql = @"SELECT [OfferType] AS Value, [OfferType] + '-' + [OfferName] AS Text,
+                                    ISNULL([IsTotalBill],0) AS IsTotalBill, ISNULL([IsSetupBuy],0) AS IsSetupBuy,
+                                    ISNULL([IsSetupGet],0) AS IsSetupGet, ISNULL([IsVoucher],0) AS IsVoucher,
+                                    ISNULL([IsGift],0) AS IsGift, ISNULL([UserGuide],'') AS UserGuide
                              FROM   dbo.OfferType (NOLOCK)
                              WHERE  ISNULL([Enabled], 0) = 1
                              ORDER  BY [OfferType]";
-        var data = (await QueryAsync<OptionItemDto>(sql, ct: ct)).ToList();
+        var data = (await QueryAsync<OfferTypeOptionDto>(sql, ct: ct)).ToList();
         if (data.Count > 0)
             redis.StringSet(KeyOfferTypeOptions, data, ttlSeconds: 43200);
         return data;
@@ -125,7 +129,21 @@ public sealed class PromotionRepository(
                     ISNULL(ZVCDATE_ST,'') AS VoucherFromDate,
                     ISNULL(ZVCDATE_EN,'') AS VoucherToDate,
                     ISNULL(TRY_CONVERT(int, ZVCDATE_VA),0) AS VoucherValidDay,
-                    ISNULL(TRY_CONVERT(int, LIMITNR),0) AS VoucherLimitNumber
+                    ISNULL(TRY_CONVERT(int, LIMITNR),0) AS VoucherLimitNumber,
+                    ISNULL(TRY_CONVERT(int, ZVCDAY_AFTER),0) AS AllowUseAfterDay,
+                    ISNULL(ZVCTIME_AFTER,'') AS AllowUseAfterTime,
+                    ISNULL(TIMEFROM,'') AS FromTime, ISNULL(TIMETO,'') AS ToTime,
+                    CAST(CASE WHEN MON='X' THEN 1 ELSE 0 END AS bit) AS Mon,
+                    CAST(CASE WHEN TUE='X' THEN 1 ELSE 0 END AS bit) AS Tue,
+                    CAST(CASE WHEN WED='X' THEN 1 ELSE 0 END AS bit) AS Wed,
+                    CAST(CASE WHEN THUR='X' THEN 1 ELSE 0 END AS bit) AS Thu,
+                    CAST(CASE WHEN FRI='X' THEN 1 ELSE 0 END AS bit) AS Fri,
+                    CAST(CASE WHEN SAT='X' THEN 1 ELSE 0 END AS bit) AS Sat,
+                    CAST(CASE WHEN SUN='X' THEN 1 ELSE 0 END AS bit) AS Sun,
+                    ISNULL(TRY_CONVERT(decimal(18,3), MINVALUE),0) AS MinValue,
+                    CAST(CASE WHEN TOTALDISCOUNT='X' THEN 1 ELSE 0 END AS bit) AS CheckTotalDiscount,
+                    ISNULL(TRY_CONVERT(int, TOTALDISCOUNTTYPE),0) AS TotalDiscountType,
+                    ISNULL(TRY_CONVERT(decimal(18,3), TOTALDISCOUNTVALUE),0) AS TotalDiscountValue
             FROM    dbo.SetupPromotionHEADER (NOLOCK) WHERE BBYNR = @bbynr;
 
             SELECT  CASE WHEN b.BUYTYPE='MGP' THEN 1 ELSE 0 END AS LineType,
@@ -173,6 +191,13 @@ public sealed class PromotionRepository(
         header.VoucherFromDate = YmdToVoucherDisplay(header.VoucherFromDate);
         header.VoucherToDate = YmdToVoucherDisplay(header.VoucherToDate);
 
+        // Bản ghi cũ tạo trước khi có field Mon..Sun → cả 7 cột rỗng ở DB → fallback cả tuần
+        // để tránh hiển thị sai "CTKM cũ không áp dụng ngày nào".
+        if (!header.Mon && !header.Tue && !header.Wed && !header.Thu && !header.Fri && !header.Sat && !header.Sun)
+        {
+            header.Mon = header.Tue = header.Wed = header.Thu = header.Fri = header.Sat = header.Sun = true;
+        }
+
         return new PromotionSetupDetailDto { Header = header, BuyRows = buys, GetRows = gets, SiteRows = sites };
     }
 
@@ -196,6 +221,18 @@ public sealed class PromotionRepository(
             return (false, "Ngày kết thúc không đúng định dạng (dd/MM/yyyy)", string.Empty);
         if (endDate < startDate)
             return (false, "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu", string.Empty);
+        if (h.CheckTotalDiscount && h.TotalDiscountValue <= 0)
+            return (false, "Vui lòng nhập giá trị khuyến mãi cho giảm giá tổng bill", string.Empty);
+        if (!string.IsNullOrEmpty(h.FromTime) || !string.IsNullOrEmpty(h.ToTime))
+        {
+            if (string.IsNullOrEmpty(h.FromTime) || string.IsNullOrEmpty(h.ToTime))
+                return (false, "Vui lòng nhập đủ Từ giờ và Đến giờ", string.Empty);
+            if (!TimeSpan.TryParseExact(h.FromTime, "hh\\:mm", CultureInfo.InvariantCulture, out var fromTime)
+                || !TimeSpan.TryParseExact(h.ToTime, "hh\\:mm", CultureInfo.InvariantCulture, out var toTime))
+                return (false, "Từ giờ/Đến giờ không đúng định dạng (HH:mm)", string.Empty);
+            if (toTime <= fromTime)
+                return (false, "Đến giờ phải lớn hơn Từ giờ", string.Empty);
+        }
 
         // ── Expand nhóm cửa hàng → (SiteGroupCode, SiteCode) ──
         var siteTable = await BuildSiteTableAsync(request.SiteGroupCodes, ct);
@@ -222,12 +259,35 @@ public sealed class PromotionRepository(
         p.Add("@VoucherTo", DmyToYmd(h.VoucherToDate));
         p.Add("@VoucherValidDay", h.VoucherValidDay.ToString(CultureInfo.InvariantCulture));
         p.Add("@VoucherLimitNumber", h.VoucherLimitNumber.ToString(CultureInfo.InvariantCulture));
+        p.Add("@AllowUseAfterDay", h.AllowUseAfterDay.ToString(CultureInfo.InvariantCulture));
+        p.Add("@AllowUseAfterTime", h.AllowUseAfterTime ?? string.Empty);
+        p.Add("@FromTime", h.FromTime ?? string.Empty);
+        p.Add("@ToTime", h.ToTime ?? string.Empty);
+        p.Add("@Mon", h.Mon ? "X" : "");
+        p.Add("@Tue", h.Tue ? "X" : "");
+        p.Add("@Wed", h.Wed ? "X" : "");
+        p.Add("@Thu", h.Thu ? "X" : "");
+        p.Add("@Fri", h.Fri ? "X" : "");
+        p.Add("@Sat", h.Sat ? "X" : "");
+        p.Add("@Sun", h.Sun ? "X" : "");
+        p.Add("@MinValue", h.MinValue.ToString(CultureInfo.InvariantCulture));
+        p.Add("@CheckTotalDiscount", h.CheckTotalDiscount ? "X" : "");
+        p.Add("@TotalDiscountType", h.TotalDiscountType.ToString(CultureInfo.InvariantCulture));
+        p.Add("@TotalDiscountValue", h.TotalDiscountValue.ToString(CultureInfo.InvariantCulture));
         p.Add("@Buy", BuildBuyTable(request.BuyRows).AsTableValuedParameter("dbo.SetupPromotionBuyTVP"));
         p.Add("@Get", BuildGetTable(request.GetRows).AsTableValuedParameter("dbo.SetupPromotionGetTVP"));
         p.Add("@Site", siteTable.AsTableValuedParameter("dbo.SetupPromotionSiteTVP"));
 
         try
         {
+            // TODO(DIAG-temp): gỡ ngay sau khi xác định nguyên nhân mất dữ liệu Buy/Get/Site.
+            var buyTable = BuildBuyTable(request.BuyRows);
+            var getTable = BuildGetTable(request.GetRows);
+            System.Diagnostics.Debug.WriteLine(
+                $"[DIAG] BuyRows={request.BuyRows.Count} GetRows={request.GetRows.Count} " +
+                $"SiteGroupCodes={request.SiteGroupCodes.Count} BuyTable={buyTable.Rows.Count} " +
+                $"GetTable={getTable.Rows.Count} SiteTable={siteTable.Rows.Count}");
+
             using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
             await conn.ExecuteAsync(new CommandDefinition(
                 "dbo.usp_SaveSetupCTKMAll", p,
@@ -309,6 +369,250 @@ public sealed class PromotionRepository(
         if (data.Count > 0)
             redis.StringSet(KeySiteGroupOptions, data, ttlSeconds: 43200);
         return data;
+    }
+
+    public async Task<(bool Ok, string Message)> SaveSiteGroupAsync(
+        SiteGroupSaveRequest request, string actor, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.GroupCode))
+            return (false, "Vui lòng nhập mã nhóm");
+        if (string.IsNullOrWhiteSpace(request.GroupName))
+            return (false, "Vui lòng nhập tên nhóm");
+
+        var raw = (request.StoreListRaw ?? string.Empty).Trim();
+        string listStoreJson;
+        if (string.Equals(raw, "ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            listStoreJson = "ALL";
+        }
+        else
+        {
+            var stores = Regex.Split(raw, @"[;,\s]+").Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+            if (stores.Count == 0)
+                return (false, "Vui lòng nhập danh sách cửa hàng hoặc gõ 'ALL'");
+            listStoreJson = JsonConvert.SerializeObject(stores);
+        }
+
+        try
+        {
+            using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+            await conn.ExecuteAsync(new CommandDefinition(
+                "dbo.usp_SetupGroupSite_Save",
+                new { GroupCode = request.GroupCode.Trim(), GroupName = request.GroupName.Trim(), ListStore = listStoreJson, UserName = actor },
+                commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
+
+            redis.Delete(KeySiteGroupOptions);
+            return (true, $"Lưu nhóm cửa hàng {request.GroupCode} thành công");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(List<SiteGroupListItemDto> Items, int Total)> GetSiteGroupListAsync(
+        string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  GroupCode, ISNULL(GroupName,'') AS GroupName, ISNULL(ListStore,'') AS ListStoreRaw,
+                    ISNULL(Status,0) AS Status, LastUpdateDate,
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.SetupGroupSite (NOLOCK)
+            WHERE   (@GroupCode = '' OR GroupCode LIKE '%' + @GroupCode + '%')
+              AND   (@GroupName = '' OR GroupName LIKE '%' + @GroupName + '%')
+            ORDER BY GroupCode
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var rows = (await QueryAsync<SiteGroupListRow>(sql, new
+        {
+            GroupCode = (groupCode ?? string.Empty).Trim(),
+            GroupName = (groupName ?? string.Empty).Trim(),
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, ct: ct)).ToList();
+
+        var items = rows.Select(r => new SiteGroupListItemDto
+        {
+            GroupCode = r.GroupCode,
+            GroupName = r.GroupName,
+            Status = r.Status,
+            LastUpdateDate = r.LastUpdateDate,
+            StoreCount = CountStores(r.ListStore)
+        }).ToList();
+
+        var total = rows.Count > 0 ? rows[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(
+        string groupCode, string storeNo, string storeName, CancellationToken ct = default)
+    {
+        const string groupSql = @"SELECT ISNULL(ListStore,'') FROM dbo.SetupGroupSite (NOLOCK) WHERE GroupCode = @groupCode";
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var listStore = await conn.QueryFirstOrDefaultAsync<string>(
+            new CommandDefinition(groupSql, new { groupCode }, cancellationToken: ct)) ?? string.Empty;
+
+        var no = (storeNo ?? string.Empty).Trim();
+        var name = (storeName ?? string.Empty).Trim();
+
+        if (string.Equals(listStore, "ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            const string sql = @"SELECT No AS StoreNo, ISNULL(Name,'') AS StoreName
+                                 FROM   dbo.Store (NOLOCK)
+                                 WHERE  ClosingMethod = 0
+                                   AND  (@no = '' OR No LIKE '%' + @no + '%')
+                                   AND  (@name = '' OR Name LIKE '%' + @name + '%')
+                                 ORDER  BY No";
+            return (await QueryAsync<SiteGroupStoreItemDto>(sql, new { no, name }, ct: ct)).ToList();
+        }
+
+        List<string>? codes = null;
+        try { codes = JsonConvert.DeserializeObject<List<string>>(listStore); } catch { /* ignore bad json */ }
+        codes ??= [];
+        if (codes.Count == 0) return [];
+
+        const string joinSql = @"SELECT No AS StoreNo, ISNULL(Name,'') AS StoreName
+                                 FROM   dbo.Store (NOLOCK)
+                                 WHERE  No IN @codes
+                                   AND  (@no = '' OR No LIKE '%' + @no + '%')
+                                   AND  (@name = '' OR Name LIKE '%' + @name + '%')
+                                 ORDER  BY No";
+        return (await QueryAsync<SiteGroupStoreItemDto>(joinSql, new { codes, no, name }, ct: ct)).ToList();
+    }
+
+    public async Task<(bool Ok, string Message)> SaveItemGroupAsync(
+        ItemGroupSaveRequest request, string actor, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.GroupCode))
+            return (false, "Vui lòng nhập mã nhóm");
+        if (string.IsNullOrWhiteSpace(request.GroupName))
+            return (false, "Vui lòng nhập tên nhóm");
+
+        var itemNos = request.ItemNos.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+        if (itemNos.Count == 0)
+            return (false, "Vui lòng thêm ít nhất 1 sản phẩm vào nhóm");
+
+        // Validate toàn bộ item tồn tại trong dbo.Item — khớp business rule legacy
+        // SetupGroupBuyItem (insert toàn bộ hoặc không insert gì).
+        const string checkSql = "SELECT No FROM dbo.Item (NOLOCK) WHERE No IN @itemNos";
+        var validNos = (await QueryAsync<string>(checkSql, new { itemNos }, ct: ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var invalid = itemNos.Where(no => !validNos.Contains(no)).ToList();
+        if (invalid.Count > 0)
+            return (false, $"Sản phẩm không tồn tại: {string.Join(", ", invalid)}");
+
+        try
+        {
+            using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+            await conn.ExecuteAsync(new CommandDefinition(
+                "dbo.usp_SetupGroupItem_Save",
+                new { request.GroupCode, request.GroupName, ListItemNo = JsonConvert.SerializeObject(itemNos), UserName = actor },
+                commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
+
+            return (true, $"Lưu nhóm sản phẩm {request.GroupCode} thành công");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(
+        string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  GroupCode, ISNULL(GroupName,'') AS GroupName, ISNULL(ListItemNo,'') AS ListItemNoRaw,
+                    ISNULL(Status,0) AS Status, LastUpdateDate,
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.SetupGroupItem (NOLOCK)
+            WHERE   (@GroupCode = '' OR GroupCode LIKE '%' + @GroupCode + '%')
+              AND   (@GroupName = '' OR GroupName LIKE '%' + @GroupName + '%')
+            ORDER BY GroupCode
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var rows = (await QueryAsync<ItemGroupListRow>(sql, new
+        {
+            GroupCode = (groupCode ?? string.Empty).Trim(),
+            GroupName = (groupName ?? string.Empty).Trim(),
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, ct: ct)).ToList();
+
+        var items = rows.Select(r => new ItemGroupListItemDto
+        {
+            GroupCode = r.GroupCode,
+            GroupName = r.GroupName,
+            Status = r.Status,
+            LastUpdateDate = r.LastUpdateDate,
+            ItemCount = CountItemNos(r.ListItemNoRaw)
+        }).ToList();
+
+        var total = rows.Count > 0 ? rows[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(
+        string groupCode, string itemNo, string itemName, CancellationToken ct = default)
+    {
+        const string groupSql = @"SELECT ISNULL(ListItemNo,'') FROM dbo.SetupGroupItem (NOLOCK) WHERE GroupCode = @groupCode";
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var listItemNo = await conn.QueryFirstOrDefaultAsync<string>(
+            new CommandDefinition(groupSql, new { groupCode }, cancellationToken: ct)) ?? string.Empty;
+
+        List<string>? itemNos = null;
+        try { itemNos = JsonConvert.DeserializeObject<List<string>>(listItemNo); } catch { /* ignore bad json */ }
+        itemNos ??= [];
+        if (itemNos.Count == 0) return [];
+
+        var no = (itemNo ?? string.Empty).Trim();
+        var name = (itemName ?? string.Empty).Trim();
+        const string sql = @"SELECT [No], ISNULL([Description],'') AS Description, ISNULL([BaseUnitOfMeasure],'') AS Uom
+                             FROM   dbo.Item (NOLOCK)
+                             WHERE  [No] IN @itemNos
+                               AND  (@no = '' OR [No] LIKE '%' + @no + '%')
+                               AND  (@name = '' OR [Description] LIKE '%' + @name + '%')
+                             ORDER  BY [No]";
+        return (await QueryAsync<ItemGroupItemDto>(sql, new { itemNos, no, name }, ct: ct)).ToList();
+    }
+
+    private static int CountItemNos(string listItemNoRaw)
+    {
+        try
+        {
+            var list = JsonConvert.DeserializeObject<List<string>>(listItemNoRaw);
+            return list?.Count ?? 0;
+        }
+        catch { return 0; }
+    }
+
+    private sealed class ItemGroupListRow
+    {
+        public string GroupCode { get; set; } = string.Empty;
+        public string GroupName { get; set; } = string.Empty;
+        public string ListItemNoRaw { get; set; } = string.Empty;
+        public bool Status { get; set; }
+        public DateTime? LastUpdateDate { get; set; }
+        public int Total { get; set; }
+    }
+
+    private static int CountStores(string listStore)
+    {
+        if (string.Equals(listStore, "ALL", StringComparison.OrdinalIgnoreCase)) return -1;
+        try
+        {
+            var list = JsonConvert.DeserializeObject<List<string>>(listStore);
+            return list?.Count ?? 0;
+        }
+        catch { return 0; }
+    }
+
+    private sealed class SiteGroupListRow
+    {
+        public string GroupCode { get; set; } = string.Empty;
+        public string GroupName { get; set; } = string.Empty;
+        public string ListStore { get; set; } = string.Empty;
+        public bool Status { get; set; }
+        public DateTime? LastUpdateDate { get; set; }
+        public int Total { get; set; }
     }
 
     // ── Helpers (TVP builders + site expansion) ──────────────────────────────

@@ -47,7 +47,7 @@
         <MudIcon Icon="@Icons.Material.Filled.Sell" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Cài đặt giá
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="pos-page-header-btn"
                StartIcon="@Icons.Material.Filled.FormatListBulleted"
                OnClick="@(() => Nav.NavigateTo("/catalog/prices"))">
         Danh sách giá
@@ -102,7 +102,7 @@ else
                                  Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="500"/>
             </MudItem>
             <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
                            StartIcon="@Icons.Material.Filled.PlaylistAdd" OnClick="DeclareRows">
                     Khai báo giá bán
                 </MudButton>
@@ -133,7 +133,7 @@ else
 
     @* ── Toolbar lưới ───────────────────────────────────────────────────── *@
     <div class="d-flex align-center gap-2 mb-2 flex-wrap">
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="AddBlankRow">Thêm dòng</MudButton>
         <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
@@ -241,7 +241,7 @@ else
 
     @* ── Action bar ─────────────────────────────────────────────────────── *@
     <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Save"
                    Disabled="_saving || _rows.Count == 0" OnClick="SaveAsync">
             @(_saving ? "Đang lưu..." : "Lưu bảng giá")

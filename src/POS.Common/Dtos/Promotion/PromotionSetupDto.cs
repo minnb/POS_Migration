@@ -39,6 +39,40 @@ public class PromotionSetupHeaderDto
     public string VoucherToDate { get; set; } = string.Empty;  // dd/MM/yyyy
     public int VoucherValidDay { get; set; }                   // ZVCDATE_VA
     public int VoucherLimitNumber { get; set; }                // LIMITNR
+    public int AllowUseAfterDay { get; set; }                  // ZVCDAY_AFTER — dùng sau N ngày kể từ lúc ra bill
+    public string AllowUseAfterTime { get; set; } = string.Empty; // ZVCTIME_AFTER
+
+    // ── Lịch áp dụng theo giờ/ngày trong tuần (tab "Thông tin chung") ──
+    public string FromTime { get; set; } = string.Empty;       // TIMEFROM — "HH:mm"
+    public string ToTime { get; set; } = string.Empty;         // TIMETO — "HH:mm"
+    public bool Mon { get; set; } = true;                       // MON — CTKM mới mặc định áp dụng cả tuần
+    public bool Tue { get; set; } = true;
+    public bool Wed { get; set; } = true;
+    public bool Thu { get; set; } = true;                       // cột DB tên THUR
+    public bool Fri { get; set; } = true;
+    public bool Sat { get; set; } = true;
+    public bool Sun { get; set; } = true;
+
+    // ── Giá trị tổng tiền tối thiểu (tab Sản phẩm mua) — enable theo IsTotalBill của OfferType đã chọn ──
+    public decimal MinValue { get; set; }                       // MINVALUE
+
+    // ── Giảm giá tổng bill (tab Sản phẩm khuyến mãi) — loại trừ với danh sách dòng Get ──
+    public bool CheckTotalDiscount { get; set; }                // TOTALDISCOUNT cờ 'X'/''
+    public int TotalDiscountType { get; set; }                  // TOTALDISCOUNTTYPE: 0=%,1=Amount,2=Price
+    public decimal TotalDiscountValue { get; set; }              // TOTALDISCOUNTVALUE
+}
+
+/// <summary>Option Loại CTKM kèm cờ điều khiển UI (khớp data-attrs của &lt;option&gt; legacy SetupMain.cshtml).</summary>
+public class OfferTypeOptionDto
+{
+    public string Value { get; set; } = string.Empty;          // OfferType code
+    public string Text { get; set; } = string.Empty;
+    public bool IsTotalBill { get; set; }
+    public bool IsSetupBuy { get; set; }
+    public bool IsSetupGet { get; set; }
+    public bool IsVoucher { get; set; }
+    public bool IsGift { get; set; }
+    public string UserGuide { get; set; } = string.Empty;
 }
 
 /// <summary>Phần chung của dòng Buy/Get — để UI tái dùng 1 cell chọn sản phẩm/nhóm.</summary>
@@ -114,6 +148,59 @@ public class PromotionSetupListFilter
 
 /// <summary>Option sản phẩm cho lookup dòng Buy/Get (bảng dbo.Item).</summary>
 public class ItemOptionDto
+{
+    public string No { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Uom { get; set; } = string.Empty;
+}
+
+/// <summary>Request tạo/sửa 1 nhóm cửa hàng (SetupGroupSite) từ modal "Cài đặt nhóm cửa hàng".</summary>
+public class SiteGroupSaveRequest
+{
+    public string GroupCode { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public string StoreListRaw { get; set; } = string.Empty;    // "1535;1561 2018,1560" hoặc "ALL"
+}
+
+/// <summary>1 dòng trong "Danh sách nhóm CH/ST" (sub-tab 2 của modal Site Group).</summary>
+public class SiteGroupListItemDto
+{
+    public string GroupCode { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public int StoreCount { get; set; }                          // -1 = ALL
+    public bool Status { get; set; }
+    public DateTime? LastUpdateDate { get; set; }
+    public int Total { get; set; }                               // server paging
+}
+
+/// <summary>1 dòng store cụ thể trong 1 nhóm — cho popup "Xem chi tiết" của Site Group.</summary>
+public class SiteGroupStoreItemDto
+{
+    public string StoreNo { get; set; } = string.Empty;
+    public string StoreName { get; set; } = string.Empty;
+}
+
+/// <summary>Request tạo/sửa 1 nhóm sản phẩm (SetupGroupItem) từ modal "Cài đặt nhóm sản phẩm".</summary>
+public class ItemGroupSaveRequest
+{
+    public string GroupCode { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public List<string> ItemNos { get; set; } = [];    // đã lọc rỗng/trùng ở UI trước khi gửi
+}
+
+/// <summary>1 dòng trong "Danh sách nhóm sản phẩm" (sub-tab 2 của modal Item Group).</summary>
+public class ItemGroupListItemDto
+{
+    public string GroupCode { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public int ItemCount { get; set; }
+    public bool Status { get; set; }
+    public DateTime? LastUpdateDate { get; set; }
+    public int Total { get; set; }                       // server paging
+}
+
+/// <summary>1 sản phẩm cụ thể trong 1 nhóm — cho popup "Xem chi tiết" của Item Group.</summary>
+public class ItemGroupItemDto
 {
     public string No { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
