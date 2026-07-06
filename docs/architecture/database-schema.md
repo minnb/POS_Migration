@@ -833,11 +833,18 @@ VariantCode             nvarchar(10)     NOT NULL
 AllowLineDisc           tinyint          NOT NULL
 Counter                 bigint           NULL
 Pkey                    varchar(50)      NULL
+IsActive                bit              NULL       -- xác nhận qua GetSalesPriceList (WHERE IsActive=1) + usp_SalesPrice_SoftDelete (2026-07)
+LastTimeUpdate          datetime         NULL       -- xác nhận qua usp_SalesPrice_UpdatePrice/_SoftDelete (2026-07); chưa có trong CentralMD.sql dump
 ```
 > `EndingDate` năm `9999` (setup lưu `9999-12-31`, SP quy về `9999-01-01`) = giá hiệu lực vô thời hạn.
 > `EndingDate` năm `7777` = **dòng đã xóa mềm** (bị loại khỏi `usp_SetupSalePrice_Save` qua điều kiện
 > `YEAR(EndingDate) <> 7777`; cơ chế xóa của `usp_SalesPrice_SoftDelete`). `SalesCode` = mã
-> Store/PriceGroup áp dụng. Bảng KHÔNG có `Id`/`IsActive` → Sửa/Xóa định vị bằng composite PK.
+> Store/PriceGroup áp dụng.
+> **Đính chính (2026-07)**: bảng **CÓ** `IsActive`/`LastTimeUpdate` (khác ghi chú cũ "KHÔNG có Id/IsActive")
+> — phát hiện qua source thật của `GetSalesPriceList` (`AND S.IsActive = 1`, luôn bắt buộc bất kể `@isCheck`)
+> và bản cập nhật `usp_SalesPrice_SoftDelete` (set `IsActive = 0` + `LastTimeUpdate = getdate()` khi xóa mềm,
+> `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`). Sửa/Xóa vẫn định vị dòng bằng composite PK + `SalesType`
+> (không dùng `IsActive`/`Id` làm khoá — bảng không có `Id`).
 
 ### SalesPriceRange
 PK: (none) — bảng giá theo khoảng số lượng
@@ -2585,33 +2592,47 @@ table `#TempPro`/`#TempProEx`), tính `Status` hiệu lực theo `StartingDate`/
 
 ### GetSalesPriceList
 ```
-(@ItemCode nvarchar(20), @ItemName nvarchar(500), @BarCode nvarchar(50), @SalesCode nvarchar(20),
+(@ItemCode nvarchar(20), @ItemName nvarchar(500), @SaleType nvarchar(50), @SalesGroup nvarchar(20),
  @isCheck int, @PageSize int, @PageNumber int)
 ```
-Danh sách `SalesPrice`, join `StorePriceGroup` (`#TmpStorePriceGroup`). `@isCheck`: `1`=có hiệu
-lực, `0`=tất cả.
+Danh sách `SalesPrice`, join `StorePriceGroup` (`#TmpStorePriceGroup`) + `SalesOrderType` (trả
+`SaleTypeName`). `@isCheck`: `1`=có hiệu lực, `0`=tất cả. `@SaleType`/`@SalesGroup`=`''`→tất cả.
+Cột `SalesCode` trả về = **`PriceGroupName`** (tên hiển thị) — cột `SalesGroupCode` trả
+`SalesPrice.SalesCode` (mã gốc), cột `SalesTypeCode` trả `SalesPrice.SalesType` (mã gốc hình thức
+bán hàng) — **cả 2 mã gốc dùng làm khoá cho `usp_SalesPrice_UpdatePrice`/`_SoftDelete`**, KHÔNG
+dùng `SalesCode`/`SaleTypeName` hiển thị để build khoá (1 item/uom/nhóm giá/ngày hiệu lực có thể
+có nhiều dòng khác nhau theo `SalesType`). Script: `docs/sql/GetSalesPriceList_AddSaleType.sql`
+(2026-07, đổi từ `@BarCode`/`@SalesCode` cũ + thêm `SalesGroupCode`) →
+`docs/sql/GetSalesPriceList_AddSalesTypeCode.sql` (2026-07, thêm `SalesTypeCode`) — chạy thủ công
+theo thứ tự.
 
 ### GetSalesPriceList_Export
 ```
-(@ItemCode nvarchar(20), @ItemName nvarchar(500), @BarCode nvarchar(50), @SalesCode nvarchar(20), @isCheck int)
+(@ItemCode nvarchar(20), @ItemName nvarchar(500), @SaleType nvarchar(50), @SalesGroup nvarchar(20), @isCheck int)
 ```
-Giống `GetSalesPriceList` không phân trang — export Excel.
+Giống `GetSalesPriceList` không phân trang — export Excel. `BarcodeNo` luôn trả `''` (đã bỏ join
+Barcode).
 
 ### usp_SalesPrice_UpdatePrice
 ```
 (@ItemNo nvarchar(20), @SalesCode nvarchar(20), @StartingDate date, @UnitOfMeasureCode nvarchar(10),
- @UnitPrice float, @Actor nvarchar(200)=NULL)
+ @UnitPrice float, @Actor nvarchar(200)=NULL, @SalesType nvarchar(50)='')
 ```
-9.1 Sửa giá in-place: định vị dòng theo composite PK, `UPDATE UnitPrice` + bump `Counter=MAX+1`
-cho toàn bộ dòng cùng `Pkey`. Trả `(Ok bit, Message)`. Script: `docs/sql/SalesPrice_EditDelete.sql`.
+9.1 Sửa giá in-place: định vị dòng theo composite PK + `@SalesType` (rỗng=không lọc — 1 item/uom/
+nhóm giá/ngày hiệu lực có thể có nhiều dòng khác nhau theo hình thức bán hàng, thiếu điều kiện này
+có thể sửa nhầm dòng), `UPDATE UnitPrice` + bump `Counter=MAX+1` cho toàn bộ dòng cùng `Pkey`. Trả
+`(Ok bit, Message)`. Script: `docs/sql/SalesPrice_EditDelete.sql` →
+`docs/sql/SalesPrice_EditDelete_AddSalesType.sql` (2026-07, thêm `@SalesType`).
 
 ### usp_SalesPrice_SoftDelete
 ```
 (@ItemNo nvarchar(20), @SalesCode nvarchar(20), @StartingDate date, @UnitOfMeasureCode nvarchar(10),
- @Actor nvarchar(200)=NULL)
+ @Actor nvarchar(200)=NULL, @SalesType nvarchar(50)='')
 ```
-9.1 Xóa mềm: set `EndingDate='7777-07-07'` (sentinel đã xóa) + bump `Counter` cho dòng đích và các
-dòng cùng `Pkey`. Trả `(Ok bit, Message)`. Script: `docs/sql/SalesPrice_EditDelete.sql`.
+9.1 Xóa mềm: định vị dòng theo composite PK + `@SalesType` (như trên), set `EndingDate='7777-07-07'`
+(sentinel đã xóa) + bump `Counter` cho dòng đích và các dòng cùng `Pkey`. Trả `(Ok bit, Message)`.
+Script: `docs/sql/SalesPrice_EditDelete.sql` → `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`
+(2026-07, thêm `@SalesType`).
 
 ### Setup_Promotion_Insert
 ```

@@ -6,6 +6,45 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-06] Danh mục Bảng giá (9.1) — cột Hình thức/Trạng thái, filter combobox, fix bug Sửa/Xóa sai dòng
+
+**Layer:** POS.Web, POS.Common, POS.Infrastructure + SQL
+**Loại:** Feature + Bug fix
+
+**Thay đổi:**
+- `PricesPage.razor`: ẩn cột Site; đổi label "Vùng giá"→"Nhóm giá"; thêm cột **"Hình thức"** (`SaleTypeName`, trước cột "Nhóm giá") + cột **"Trạng thái"** (Hiệu lực/Chưa hiệu lực/Hết hiệu lực — `MudChip` màu, tính client-side từ `StartingDateStr`/`EndingDateStr`); ngày `01/01/9999` hiển thị "Vô thời hạn"; filter Barcode/SalesCode (text tự do) → `MudSelect` "Hình thức bán hàng"/"Nhóm giá" (reuse `PriceService.GetSetupLookupAsync`, không tạo lookup mới); mặc định "Còn hiệu lực" **bỏ check**; format nghìn khi nhập Giá bán (`FormatThousands`, khớp pattern `PriceSetupPage.razor`).
+- **FIX bug Sửa/Xóa giá sai dòng**: SP `GetSalesPriceList`/`_Export` (DBA sửa 2026-07-05→06) đổi trả cột `SalesCode` = **tên** nhóm giá (`PriceGroupName`) thay vì mã — code cũ dùng thẳng field này làm khoá gửi `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**) → luôn báo "Không tìm thấy dữ liệu" khi Code≠Name. Thêm cột mã gốc `SalesGroupCode`/`SalesTypeCode` vào SP (script `docs/sql/GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`), map vào `PriceListItemDto`, sửa `TryBuildKey` dùng field mã thay field hiển thị.
+- **FIX bug thứ 2 phát hiện khi review**: 1 item/uom/nhóm giá/ngày hiệu lực có thể có nhiều dòng khác nhau theo `SalesType` (hình thức bán hàng) — composite PK cũ (ItemNo, SalesCode, StartingDate, UOM) không đủ định vị. Thêm field `PriceRowKey.SalesType` + tham số `@SalesType` vào `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (script `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`).
+- `GetSalesPriceList_Export`: fix thêm 1 bug review-time không liên quan yêu cầu ban đầu — proc tham chiếu sai tên temp table (`#SalsePriceExportTemp` không tồn tại, bảng thật là `#TempSalesPrice`) → nút Xuất Excel sẽ crash runtime nếu không sửa.
+- **Đính chính schema**: `database-schema.md` từng ghi "SalesPrice KHÔNG có Id/IsActive" — SAI. Source thật của `GetSalesPriceList` (`AND S.IsActive = 1`, bắt buộc bất kể `@isCheck`) + bản `usp_SalesPrice_SoftDelete` mới (set `IsActive=0` khi xóa mềm) xác nhận bảng CÓ 2 cột này. Trước bản vá này, xóa mềm chỉ set `EndingDate` năm 7777 mà không set `IsActive=0` → dòng đã xóa có thể vẫn hiển thị khi bỏ check "Còn hiệu lực" (SP luôn yêu cầu `IsActive=1`, không điều kiện theo `@isCheck`).
+- `PriceListDto.cs`: `PriceListItemDto` +`SalesGroupCode`+`SalesTypeCode`; `PriceListFilter` bỏ `Barcode`, `SalesCode`→`SaleType`+`SalesGroup` (mặc định `"ALL"`). `PriceSetupDto.cs`: `PriceRowKey` +`SalesType`. `PriceRepository.cs`: `GetListAsync`/`GetExportListAsync` đổi tham số EXEC theo SP mới + `NormalizeSalesGroup` (dịch UI sentinel `"ALL"`→`""`); `UpdatePriceAsync`/`SoftDeletePriceAsync` truyền thêm `@SalesType`.
+
+**Pattern mới:** SP đổi 1 cột từ mã sang tên hiển thị → luôn thêm cột mã gốc riêng cho composite key (không tái dùng field hiển thị để build khoá Update/Delete). Đã cập nhật `.claude/skills/api/SKILLS.md`.
+
+**Lưu ý cho session sau:** phải chạy đủ 3 script SQL theo thứ tự trước khi test: `GetSalesPriceList_AddSaleType.sql` → `GetSalesPriceList_AddSalesTypeCode.sql` → `SalesPrice_EditDelete_AddSalesType.sql`. Khi 1 SP legacy/tự-quản lý đổi ý nghĩa 1 cột đang dùng làm khoá composite ở nơi khác, luôn rà lại MỌI nơi consume cột đó (không chỉ nơi hiển thị) trước khi merge.
+
+---
+
+## [2026-07-05] Cài đặt giá / Danh mục Bảng giá — Sửa/Xóa giá 9.1, fix lưu SP, format UI, menu
+
+**Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common + SQL
+**Loại:** Feature + Bug fix
+
+**Thay đổi:**
+- `docs/sql/SalesPrice_EditDelete.sql` (MỚI): `usp_SalesPrice_UpdatePrice` (sửa UnitPrice in-place theo composite PK + bump Counter) và `usp_SalesPrice_SoftDelete` (soft-delete = EndingDate năm 7777 + Counter). Bảng `SalesPrice` không có cột `Id` → định vị dòng bằng composite PK `(ItemNo,SalesCode,StartingDate,UOM)`.
+- `PricesPage.razor` (9.1): thêm cột Thao tác — sửa giá inline + xóa (confirm) + `IAuditLogger`.
+- `PriceSetupPage.razor` (9.3): thêm route thứ 2 `/catalog/price-declare`; đổi tiêu đề "Cài đặt giá"; format ô Giá bán khi nhập (thousand sep `,`, căn phải); `.pos-price-grid table{min-width:1040px}` để lưới cuộn ngang, ô ngày không bị bóp.
+- `MainLayout.razor`: menu "Giá bán"→**"Danh mục Bảng giá"** (`/catalog/prices`); thêm "Cài đặt giá" (`/catalog/price-declare`); **ẩn** "Setup giá (Bulk Import)" (`/catalog/price-setup`, route còn).
+- `PriceSetupDto.cs`: +`PriceRowKey`. `IPriceService/PriceService` +`UpdatePriceAsync`/`DeletePriceAsync`. `IPriceRepository/PriceRepository` +`UpdatePriceAsync`/`SoftDeletePriceAsync`.
+- `docs/sql/SetupSalePrice_Save.sql` (FIX): (1) trả kết quả qua **OUTPUT param** `@Ok/@Message` thay vì result set — vì nhánh update `EXEC Setup_SalePrice_Get_ALL` tự SELECT Interface_Errors (+ROLLBACK bên trong → không hứng được bằng INSERT...EXEC), trước đây Dapper `QueryFirstOrDefault` đọc nhầm set rỗng → báo "thất bại" giả khi Pkey đã tồn tại; (2) chuẩn hóa sentinel "vô thời hạn" `9999-12-31 → 9999-01-01` khi INSERT (khớp legacy) để lần cập nhật sau không sinh khoảng "đuôi" thừa. `PriceRepository.SaveAsync` đổi sang `ExecuteAsync` + đọc output param.
+- `FileLogHelper.WriteExpLogs`: ghi `ex.ToString()` (full stack + inner) thay `JsonConvert.SerializeObject(ex)` (dễ ném lỗi → file rỗng).
+
+**Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `database-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
+
+---
+
 ## [2026-07-05] Middleware log request/response toàn cục cho POS.Api (bật/tắt qua config)
 
 **Layer:** POS.Api, POS.Infrastructure
