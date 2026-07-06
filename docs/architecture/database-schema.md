@@ -52,7 +52,7 @@
 | [Notify / Marketing](#notify--marketing) | Notify, OptionData |
 | [Reason / Source](#reason--source) | ReasonCode, SourceBill |
 | [Khác](#khác) | Interface_Errors, UnitOfMeasure |
-| [Stored Procedures](#stored-procedures) | 35 SP hiện có trong script |
+| [Stored Procedures](#stored-procedures) | 36 SP hiện có trong script |
 
 ---
 
@@ -2867,6 +2867,17 @@ Chi tiết voucher: RS1 = header từ `CpnVchBOMHeader` (map `CouponCode` → `S
 check/redeem) + replace `@Lines` vào `CpnVchBOMLine` khi `@IsCheckItem=1` (đổi 2026-07-06, trước
 đó `=0`). Serial trùng → `THROW`.
 Script: `docs/sql/SetupVoucher_SaveIssue.sql`.
+
+### usp_SetupVoucher_IssueMore
+```
+(@ItemNo nvarchar(20), @Codes dbo.CouponCodeTVP READONLY, @OutQuantityAdded int OUTPUT)
+```
+**Phát hành THÊM một lô mã Auto mới** cho voucher ĐÃ TỒN TẠI — khác `usp_SetupVoucher_SaveIssue`
+(SP đó có guard `IF NOT EXISTS ... Source='VOUCHER'` nên gọi lại với `ItemNo` đã có mã sẽ bị bỏ
+qua âm thầm). SP này KHÔNG có guard, luôn insert `@Codes`, snapshot `ArticleType`/`StartingDate`/
+`EndingDate`/`DiscountValue` từ header hiện tại. `Counter` dùng chung `@cntCode+1` cho cả lô
+(giống quy ước "/lô" của `usp_SetupVoucher_SaveIssue`). `ItemNo` không tồn tại → `THROW 50002`.
+Chỉ hỗ trợ Auto — không áp dụng cho Import. Script: `docs/sql/SetupVoucher_IssueMore.sql`.
 
 ### usp_SetupVoucher_GetList
 ```

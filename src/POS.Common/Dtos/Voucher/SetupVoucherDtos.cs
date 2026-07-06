@@ -144,6 +144,20 @@ public sealed class VoucherIssueSaveRequest
     public List<string>         ImportCodes { get; set; } = [];
 }
 
+/// <summary>
+/// Request PHÁT HÀNH THÊM một lô mã Auto mới cho voucher ĐÃ TỒN TẠI (header không đổi).
+/// Chỉ hỗ trợ Auto — KHÔNG áp dụng cho Import.
+/// </summary>
+public sealed class VoucherIssueMoreRequest
+{
+    public string ItemNo       { get; set; } = string.Empty;   // bắt buộc — voucher đã tồn tại
+    public string Prefix       { get; set; } = string.Empty;
+    public int    LenCode      { get; set; }
+    public int    CharOfNumber { get; set; }
+    public int    CharPosition { get; set; }
+    public int    Quantity     { get; set; }
+}
+
 /// <summary>1 mã voucher con (tab "Mã đã phát hành") — khớp cột SP usp_SetupVoucher_GetCodes.</summary>
 public sealed class VoucherCodeDto
 {

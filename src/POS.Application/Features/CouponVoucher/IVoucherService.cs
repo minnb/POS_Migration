@@ -26,6 +26,12 @@ public interface IVoucherService
     /// <summary>Danh sách mã voucher đã phát hành (tab "Mã đã phát hành").</summary>
     Task<(List<VoucherCodeDto> Items, int Total)> GetCodesAsync(VoucherCodeFilter filter, CancellationToken ct = default);
 
+    /// <summary>
+    /// Phát hành THÊM một lô mã Auto mới cho voucher đã tồn tại (không tạo header, không import).
+    /// Reuse CouponVoucherCodeGenerator.GenerateAutoCodes + CheckCodesExistAsync giống SaveIssueAsync.
+    /// </summary>
+    Task<VoucherSaveResult> IssueMoreAsync(VoucherIssueMoreRequest request, string actor, CancellationToken ct = default);
+
     Task<(bool Ok, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default);
 
     /// <summary>Cập nhật RIÊNG trạng thái khóa (Blocked) — dùng ở trang Xem voucher sau khi đã phát hành.</summary>

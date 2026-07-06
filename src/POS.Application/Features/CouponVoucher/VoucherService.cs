@@ -167,6 +167,35 @@ public sealed class VoucherService(
         VoucherCodeFilter filter, CancellationToken ct = default)
         => repository.GetCodesAsync(filter, ct);
 
+    public async Task<VoucherSaveResult> IssueMoreAsync(
+        VoucherIssueMoreRequest request, string actor, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.ItemNo))
+            return Fail("Thiếu mã phát hành (ItemNo)");
+
+        var (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
+            request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);
+        if (err != null) return Fail(err);
+
+        var existing = (await repository.CheckCodesExistAsync(codes, ct)).Distinct().ToList();
+        if (existing.Count > 0)
+            return Fail($"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng thử lại");
+
+        try
+        {
+            var added = await repository.IssueMoreAsync(request.ItemNo, codes, ct);
+            return new VoucherSaveResult
+            {
+                Ok = true, ItemNo = request.ItemNo,
+                Message = $"Phát hành thêm {added} mã thành công cho voucher {request.ItemNo}"
+            };
+        }
+        catch (Exception ex)
+        {
+            return Fail(ex.Message);
+        }
+    }
+
     public async Task<(bool Ok, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default)
     {
         var (deleted, message) = await repository.DeleteAsync(itemNo, ct);

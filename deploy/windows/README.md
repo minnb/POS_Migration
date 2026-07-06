@@ -103,3 +103,8 @@ schtasks /Delete /TN "POS.Worker" /F # gỡ
 > **Ghi chú:** Task Scheduler + .bat đủ cho chạy thử. Với Production dài hạn nên cân nhắc chạy như
 > **Windows Service** (thêm gói `Microsoft.Extensions.Hosting.WindowsServices` + `builder.Services.AddWindowsService()`,
 > hoặc bọc bằng NSSM) để có recovery/logging chuẩn của Service Control Manager.
+
+## Deploy trên Ubuntu (Docker) thay vì Windows
+
+Đây là cách chạy tạm trên máy Windows dev. Để deploy chính thức lên Ubuntu (Docker,
+`--restart unless-stopped` thay cho Task Scheduler): xem **`docs/deploy/pos-worker-ubuntu-guide.md`**.

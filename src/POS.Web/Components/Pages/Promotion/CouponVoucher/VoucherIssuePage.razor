@@ -34,8 +34,34 @@
     <MudStack Row="true" Spacing="1" Class="pos-page-header-btn">
         <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
                    OnClick="@(() => Nav.NavigateTo("/promotion/vouchers"))">Danh sách</MudButton>
-        @* Xem voucher: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
-        @if (!IsEditing || BlockedChanged)
+        @* Xem voucher: nút PHÁT HÀNH luôn hiện — phát hành thêm 1 lô mã Auto mới cho voucher đã có *@
+        @if (IsEditing)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
+                       StartIcon="@Icons.Material.Filled.QrCode2" OnClick="OpenIssueMoreDialogForExistingAsync">
+                PHÁT HÀNH
+            </MudButton>
+        }
+        @* Tạo mới + Auto: "PHÁT HÀNH VOUCHER" mở dialog thu thập tham số sinh mã rồi lưu.
+           Tạo mới + Import: giữ "Lưu" — dialog không áp dụng cho Import.
+           Xem voucher: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
+        @if (!IsEditing && IsAuto)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
+                       OnClick="OpenIssueMoreDialogForNewAsync">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                    <span>Đang lưu...</span>
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2"/>
+                    <span>PHÁT HÀNH VOUCHER</span>
+                }
+            </MudButton>
+        }
+        @if ((!IsEditing && !IsAuto) || (IsEditing && BlockedChanged))
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
                        OnClick="@(() => IsEditing ? SaveBlockedAsync() : SaveAsync())">
@@ -105,6 +131,10 @@ else
                             <MudText Typo="Typo.body1">@_model.DiscountValue.ToString("#,##0.##")</MudText>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="3">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Giảm giá tối đa</MudText>
+                            <MudText Typo="Typo.body1">@_model.MaxAmount.ToString("#,##0.##")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Giá trị voucher</MudText>
                             <MudText Typo="Typo.body1">@_model.ValueOfVoucher.ToString("#,##0.##")</MudText>
                         </MudItem>
@@ -135,11 +165,10 @@ else
     }
     else
     {
-    @* ── Form nhập liệu (1 card, chia 3 nhóm chức năng bằng viền bo) ────────── *@
+    @* ── Form nhập liệu (1 card, 1 nhóm "Thông tin chung" duy nhất) ────────── *@
     <MudCard Elevation="1" Class="mb-4">
         <MudCardContent>
-            @* Group 1: Thông tin chung *@
-            <MudPaper Outlined="true" Class="pa-3 mb-3 rounded-lg" Style="position:relative">
+            <MudPaper Outlined="true" Class="pa-3 rounded-lg" Style="position:relative">
                 <MudText Typo="Typo.subtitle2" Color="Color.Primary"
                          Style="position:absolute; top:-11px; left:12px; padding:0 6px; background:var(--mud-palette-surface); line-height:1;">
                     Thông tin chung
@@ -160,17 +189,7 @@ else
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
                                       Placeholder="Nhập tên hiển thị của voucher"/>
                     </MudItem>
-                </MudGrid>
-            </MudPaper>
 
-            @* Group 2: Cấu hình phát hành & giảm giá (gộp thời gian hiệu lực + cấu hình mã + giảm giá) *@
-            <MudPaper Outlined="true" Class="pa-3 rounded-lg" Style="position:relative">
-                <MudText Typo="Typo.subtitle2" Color="Color.Primary"
-                         Style="position:absolute; top:-11px; left:12px; padding:0 6px; background:var(--mud-palette-surface); line-height:1;">
-                    Cấu hình phát hành & giảm giá
-                </MudText>
-                <MudGrid Spacing="2" Class="mt-1">
-                    @* ── Dòng 1: Thời gian hiệu lực + cách phát hành ── *@
                     <MudItem xs="12" sm="6" md="4">
                         <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày" Required="true"
                                        RequiredError="Vui lòng chọn ngày bắt đầu" DateFormat="dd/MM/yyyy"
@@ -183,39 +202,21 @@ else
                     </MudItem>
                     <MudItem xs="12" sm="6" md="4">
                         <MudSelect @bind-Value="_model.IssueType" Label="Cách phát hành" Required="true"
-                                   RequiredError="Vui lòng chọn cách phát hành" Disabled="@CodeFieldsLocked"
+                                   RequiredError="Vui lòng chọn cách phát hành"
                                    Variant="Variant.Outlined" Margin="Margin.Dense">
                             <MudSelectItem T="string" Value="@("Auto")">Tự động tạo mã</MudSelectItem>
                             <MudSelectItem T="string" Value="@("Import")">Import excel</MudSelectItem>
                         </MudSelect>
                     </MudItem>
 
-                    @* ── Dòng 2: cấu hình sinh mã (Auto) / import file ── *@
-                    @if (IsAuto)
-                    {
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudTextField @bind-Value="_model.Prefix" Label="Tiền tố" Disabled="@CodeFieldsLocked"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense"
-                                          HelperText="Tiền tố đứng đầu mã voucher"/>
-                        </MudItem>
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudNumericField @bind-Value="_model.LenCode" Label="Kích thước mã (5-20)" Variant="Variant.Text"
-                                             Min="0" Max="20" Disabled="@CodeFieldsLocked" Margin="Margin.Dense"
-                                             HideSpinButtons="true"/>
-                        </MudItem>
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudNumericField @bind-Value="_model.Quantity" Label="Số lượng mã phát hành" Variant="Variant.Text"
-                                             Min="0" Disabled="@CodeFieldsLocked" Margin="Margin.Dense" HideSpinButtons="true"
-                                             HelperText="Số lượng mã voucher cần sinh"/>
-                        </MudItem>
-                    }
-                    else
+                    @* Import: chỉ áp dụng cho lần phát hành ĐẦU TIÊN — dialog "PHÁT HÀNH VOUCHER" chỉ hỗ trợ Auto *@
+                    @if (!IsAuto)
                     {
                         <MudItem xs="12" sm="8" md="8" Class="d-flex align-center gap-2 flex-wrap">
                             <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
                                 <ActivatorContent>
                                     <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                                               StartIcon="@Icons.Material.Filled.UploadFile" Disabled="CodeFieldsLocked">
+                                               StartIcon="@Icons.Material.Filled.UploadFile">
                                         @(_importFile?.Name ?? "Chọn file Excel")
                                     </MudButton>
                                 </ActivatorContent>
@@ -227,20 +228,23 @@ else
                         </MudItem>
                     }
 
-                    @* ── Dòng 3: Giảm giá ── *@
-                    <MudItem xs="12" sm="6" md="4">
+                    <MudItem xs="12" sm="6" md="3">
                         <MudSelect @bind-Value="_model.DiscountType" Label="Kiểu giảm giá"
                                    Variant="Variant.Outlined" Margin="Margin.Dense">
                             <MudSelectItem T="int" Value="1">Discount Percent (%)</MudSelectItem>
                             <MudSelectItem T="int" Value="2">Discount Amount (VNĐ)</MudSelectItem>
                         </MudSelect>
                     </MudItem>
-                    <MudItem xs="12" sm="6" md="4">
+                    <MudItem xs="12" sm="6" md="3">
                         <MudNumericField T="decimal" @bind-Value="_model.DiscountValue" Label="Giá trị giảm giá (%/VNĐ)" Variant="Variant.Outlined"
                                          Min="0" Step="0.1m" Required="true" RequiredError="Vui lòng nhập giá trị giảm giá"
                                          Margin="Margin.Dense"/>
                     </MudItem>
-                    <MudItem xs="12" sm="6" md="4">
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudNumericField T="decimal" @bind-Value="_model.MaxAmount" Label="Giảm giá tối đa" Variant="Variant.Outlined"
+                                         Min="0" Step="0.1m" Margin="Margin.Dense"/>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
                         <MudNumericField T="decimal" @bind-Value="_model.ValueOfVoucher" Label="Giá trị voucher" Variant="Variant.Outlined"
                                          Min="0" Step="0.1m" Margin="Margin.Dense"/>
                     </MudItem>
@@ -397,7 +401,6 @@ else
 
     private bool IsEditing => !string.IsNullOrWhiteSpace(_model.ItemNo);
     private bool IsAuto => string.Equals(_model.IssueType, "Auto", StringComparison.OrdinalIgnoreCase);
-    private bool CodeFieldsLocked => IsEditing && _quantityCodeInDb > 0;
 
     // Xem voucher: NGOẠI LỆ DUY NHẤT được sửa là Blocked. Nút Lưu chỉ bật khi giá trị này đổi.
     private bool BlockedChanged => IsEditing && _model.Blocked != _originalBlocked;
@@ -423,11 +426,8 @@ else
 
     private void SetDefaultsForNew()
     {
-        _model.Prefix = "VIC";          // tiền tố mặc định
-        _model.LenCode = 10;
-        _model.CharOfNumber = 5;        // ẩn khỏi form — default cố định (số chữ cái)
-        _model.CharPosition = 4;        // ẩn khỏi form — default cố định (vị trí đứng)
-        _model.Quantity = 1;
+        // Prefix/LenCode/CharOfNumber/CharPosition/Quantity: thu thập qua dialog "PHÁT HÀNH VOUCHER"
+        // (OpenIssueMoreDialogForNewAsync) khi IssueType=Auto — dialog tự có default riêng.
         _model.ArticleType = "ZVCN";    // ẩn khỏi form — default cố định
         _model.UnitOfMeasure = "CAI";   // ẩn khỏi form — default cố định
         _fromDate = DateTime.Today.AddDays(1);
@@ -460,19 +460,24 @@ else
     }
 
     // ── Save ────────────────────────────────────────────────────────────────
+    private bool ValidateHeaderFields()
+    {
+        if (string.IsNullOrWhiteSpace(_model.ItemName)) { Snackbar.Add("Vui lòng nhập tên voucher", Severity.Warning); return false; }
+        if (string.IsNullOrWhiteSpace(_model.ArticleType)) { Snackbar.Add("Vui lòng chọn loại voucher", Severity.Warning); return false; }
+        if (string.IsNullOrWhiteSpace(_model.UnitOfMeasure)) { Snackbar.Add("Vui lòng chọn đơn vị tính", Severity.Warning); return false; }
+        if (_fromDate == null) { Snackbar.Add("Vui lòng chọn ngày bắt đầu", Severity.Warning); return false; }
+        if (_toDate == null) { Snackbar.Add("Vui lòng chọn ngày kết thúc", Severity.Warning); return false; }
+        if (_fromDate.Value.Date > _toDate.Value.Date) { Snackbar.Add("Từ ngày không lớn hơn Đến ngày", Severity.Warning); return false; }
+        return true;
+    }
+
     private async Task SaveAsync()
     {
         _errorMsg = null;
+        if (!ValidateHeaderFields()) return;
 
-        if (string.IsNullOrWhiteSpace(_model.ItemName)) { Snackbar.Add("Vui lòng nhập tên voucher", Severity.Warning); return; }
-        if (string.IsNullOrWhiteSpace(_model.ArticleType)) { Snackbar.Add("Vui lòng chọn loại voucher", Severity.Warning); return; }
-        if (string.IsNullOrWhiteSpace(_model.UnitOfMeasure)) { Snackbar.Add("Vui lòng chọn đơn vị tính", Severity.Warning); return; }
-        if (_fromDate == null) { Snackbar.Add("Vui lòng chọn ngày bắt đầu", Severity.Warning); return; }
-        if (_toDate == null) { Snackbar.Add("Vui lòng chọn ngày kết thúc", Severity.Warning); return; }
-        if (_fromDate.Value.Date > _toDate.Value.Date) { Snackbar.Add("Từ ngày không lớn hơn Đến ngày", Severity.Warning); return; }
-
-        _model.StartingDateStr = _fromDate.Value.ToString("dd/MM/yyyy");
-        _model.EndingDateStr = _toDate.Value.ToString("dd/MM/yyyy");
+        _model.StartingDateStr = _fromDate!.Value.ToString("dd/MM/yyyy");
+        _model.EndingDateStr = _toDate!.Value.ToString("dd/MM/yyyy");
         _model.IsCheckItem = _applyPerItem;                        // khớp Coupon: true = theo sản phẩm
         _model.Items = _applyPerItem ? _items : [];
         _model.ArticleType = "ZVCN";
@@ -548,6 +553,62 @@ else
             Snackbar.Add("Cập nhật khóa voucher thất bại. Vui lòng thử lại.", Severity.Error);
         }
         finally { _saving = false; }
+    }
+
+    // ── Phát hành voucher (dialog) ──────────────────────────────────────────────
+    // Tạo mới + Auto: validate header trước, mở dialog thu thập tham số sinh mã, rồi Lưu (SaveIssueAsync).
+    private async Task OpenIssueMoreDialogForNewAsync()
+    {
+        _errorMsg = null;
+        if (!ValidateHeaderFields()) return;
+
+        var dialog = await DialogService.ShowAsync<VoucherIssueMoreDialog>("Phát hành voucher",
+            new DialogParameters(),
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true, BackdropClick = false });
+        var res = await dialog.Result;
+        if (res is { Canceled: false } && res.Data is VoucherIssueMoreRequest result)
+        {
+            _model.Prefix = result.Prefix;
+            _model.LenCode = result.LenCode;
+            _model.CharOfNumber = result.CharOfNumber;
+            _model.CharPosition = result.CharPosition;
+            _model.Quantity = result.Quantity;
+            await SaveAsync();
+        }
+    }
+
+    // Xem voucher: phát hành THÊM 1 lô mã Auto mới cho voucher đã tồn tại — ở lại trang, refresh tab mã.
+    private async Task OpenIssueMoreDialogForExistingAsync()
+    {
+        var dialog = await DialogService.ShowAsync<VoucherIssueMoreDialog>("Phát hành thêm mã voucher",
+            new DialogParameters(),
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true, BackdropClick = false });
+        var res = await dialog.Result;
+        if (res is { Canceled: false } && res.Data is VoucherIssueMoreRequest result)
+        {
+            result.ItemNo = _model.ItemNo;
+            _saving = true;
+            try
+            {
+                var saveResult = await VoucherService.IssueMoreAsync(result, _currentActor);
+                if (!saveResult.Ok)
+                {
+                    Snackbar.Add(saveResult.Message, Severity.Error);
+                    return;
+                }
+
+                await AuditLogger.LogAsync(_currentActor, "ISSUE", "SetupVoucher", _model.ItemNo,
+                    newValueJson: JsonConvert.SerializeObject(result));
+                Snackbar.Add(saveResult.Message, Severity.Success);
+                await _codeTable.ReloadServerData();
+            }
+            catch (Exception ex)
+            {
+                FileLogger.WriteExpLogs("VoucherIssuePage.IssueMore", ex);
+                Snackbar.Add("Phát hành thêm mã thất bại. Vui lòng thử lại.", Severity.Error);
+            }
+            finally { _saving = false; }
+        }
     }
 
     // ── Item picker dialog ────────────────────────────────────────────────────

@@ -145,6 +145,19 @@ public sealed class VoucherRepository(CentralMDConnectionFactory connectionFacto
         return exist.ToList();
     }
 
+    public async Task<int> IssueMoreAsync(string itemNo, IReadOnlyList<string> codes, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@ItemNo", (itemNo ?? string.Empty).Trim());
+        p.Add("@Codes", BuildCodeTable(codes).AsTableValuedParameter("dbo.CouponCodeTVP"));
+        p.Add("@OutQuantityAdded", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("dbo.usp_SetupVoucher_IssueMore", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
+        return p.Get<int>("@OutQuantityAdded");
+    }
+
     public async Task<VoucherSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default)
     {
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);

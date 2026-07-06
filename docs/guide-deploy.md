@@ -95,6 +95,9 @@ docker run -d --name pos-web-uat \
 
 ### 3.3. POS.Worker
 
+> Runbook chi tiết riêng cho POS.Worker (bảng so sánh Task Scheduler ↔ Docker, checklist,
+> `appsettings.UAT.json` mới thêm): **`docs/deploy/pos-worker-ubuntu-guide.md`**.
+
 ```bash
 # Build
 docker build -t pos-worker:uat -f Dockerfile.worker .

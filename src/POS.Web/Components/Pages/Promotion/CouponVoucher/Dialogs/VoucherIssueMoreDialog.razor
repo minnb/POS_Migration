@@ -1,0 +1,68 @@
+@using MudBlazor
+@using POS.Common.Dtos.Voucher
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.QrCode2" Class="mr-2" Style="vertical-align:middle"/>
+            Phát hành mã voucher
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Prefix" Label="Tiền tố"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Tiền tố đứng đầu mã voucher"/>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.LenCode" Label="Kích thước mã (5-20)"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     Min="5" Max="20" Required="true"
+                                     RequiredError="Vui lòng nhập kích thước mã" HideSpinButtons="true"/>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.CharOfNumber" Label="Số chữ cái"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     Min="0" HideSpinButtons="true"/>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.CharPosition" Label="Vị trí đứng"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     Min="0" HideSpinButtons="true"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudNumericField @bind-Value="_model.Quantity" Label="Số lượng mã phát hành"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     Min="1" Required="true" RequiredError="Vui lòng nhập số lượng"
+                                     HideSpinButtons="true" HelperText="Số lượng mã voucher cần sinh"/>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Primary">PHÁT HÀNH</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private readonly VoucherIssueMoreRequest _model = new()
+    {
+        Prefix = "VIC", LenCode = 10, CharOfNumber = 5, CharPosition = 4, Quantity = 1
+    };
+    private MudForm _form = null!;
+    private bool _formValid;
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

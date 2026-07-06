@@ -6,6 +6,83 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-06] Runbook deploy POS.Worker lên Ubuntu (Docker) + appsettings.UAT.json
+
+**Layer:** Deployment (`deploy/`, `docs/deploy/`), POS.Worker (config)
+**Loại:** Tài liệu deploy mới + bổ sung file cấu hình còn thiếu
+
+**Bối cảnh:** `deploy/windows/POS.Worker.Task.xml` là cách chạy tạm trên Windows dev. Cần chính thức
+hóa cách chạy POS.Worker trên Ubuntu (Docker), song song với POS.Web (đã có nginx). Đã khảo sát: hạ
+tầng Docker cho Worker đã có sẵn ~95% (`Dockerfile.worker`, `docker-compose.yml`,
+`docs/guide-deploy.md` §3.3, `docs/deploy/ubuntu-guide.md`) — chỉ thiếu `appsettings.UAT.json` cho
+Worker (Api/Web cũng thiếu file này nhưng ngoài phạm vi task). `appsettings.Production.json` của
+Worker đã khớp chính xác với của POS.Api (`mssql_2019,1433`, `host.docker.internal`,
+`172.17.0.1:6379`) nên không cần sửa.
+
+**Thay đổi:**
+- `src/POS.Worker/appsettings.UAT.json` (MỚI): mirror cấu trúc `appsettings.Production.json`, thay
+  giá trị hạ tầng bằng placeholder `<UAT_...>`. Build + `dotnet test tests/POS.ContractTests` đã xanh.
+- `docs/deploy/pos-worker-ubuntu-guide.md` (MỚI): runbook đầy đủ — bảng so sánh Windows Task
+  Scheduler ↔ Docker (`restart: unless-stopped` là tương đương của `BootTrigger`+`RestartOnFailure`),
+  lý do nginx không áp dụng cho Worker (không có HTTP endpoint), build/run/verify/update/rollback
+  cho cả UAT và PROD, checklist cuối bài.
+- `docs/guide-deploy.md` §3.3: thêm dòng trỏ sang runbook mới.
+- `deploy/windows/README.md`: thêm mục cuối bài trỏ sang runbook Ubuntu.
+
+**Lưu ý cho session sau:**
+1. Phát hiện phụ (chưa sửa, ngoài phạm vi task): `src/POS.Worker/appsettings.Production.json` mục
+   `ConnectionStrings` thiếu key `BootstrapServers` (có trong `appsettings.json` base) — nếu Worker
+   thật sự dùng Kafka producer ở Production, cần bổ sung key này (đã bổ sung sẵn trong
+   `appsettings.UAT.json` mới tạo, kèm placeholder `<UAT_KAFKA_HOST>`).
+2. `docs/CHANGELOG.md` (file này) đang có conflict marker Git chưa resolve còn sót lại từ merge cũ
+   (dòng ~291-336 và ~565-602, tìm `<<<<<<<`/`=======`/`>>>>>>>`) — KHÔNG phải do task này gây ra,
+   cần dọn riêng khi có thời gian, không tự ý resolve khi không rõ ý đồ của cả 2 nhánh.
+
+---
+
+## [2026-07-06] Phát hành nhiều lần từ 1 mã phát hành Voucher (8.3)
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web
+**Loại:** Feature + Pattern mới
+
+**Bối cảnh:** `VoucherIssuePage.razor` trước đây chỉ cho phép tạo 1 header + 1 lô mã trong đúng 1
+lần lưu (`SaveIssueAsync` → SP `usp_SetupVoucher_SaveIssue`). SP đó có guard `IF NOT EXISTS` chặn
+insert mã nếu ItemNo đã có mã — gọi lại để "phát hành thêm" sẽ bị bỏ qua âm thầm. Yêu cầu nghiệp
+vụ mới: 1 header có thể nhận thêm nhiều lô mã Auto bất kỳ lúc nào.
+
+**Thay đổi:**
+- `docs/sql/SetupVoucher_IssueMore.sql` (MỚI): SP `usp_SetupVoucher_IssueMore` — không guard tồn
+  tại, luôn insert mã mới; `ItemNo` không tồn tại → `THROW 50002`. **Chưa chạy trên DB thật.**
+- `POS.Common/Dtos/Voucher/SetupVoucherDtos.cs`: thêm `VoucherIssueMoreRequest`.
+- `IVoucherRepository`/`VoucherRepository`: thêm `IssueMoreAsync(itemNo, codes, ct)`.
+- `IVoucherService`/`VoucherService`: thêm `IssueMoreAsync(request, actor, ct)` — tái dùng
+  `CouponVoucherCodeGenerator.GenerateAutoCodes` + `CheckCodesExistAsync` như `SaveIssueAsync`.
+- `Dialogs/VoucherIssueMoreDialog.razor` (MỚI): dialog dùng chung cho cả 2 luồng (tạo mới + phát
+  hành thêm), chỉ thu thập Prefix/LenCode/CharOfNumber/CharPosition/Quantity.
+- `VoucherIssuePage.razor`: gộp 2 nhóm form thành 1 "Thông tin chung", hiện field `MaxAmount`
+  (Giảm giá tối đa — trước ẩn/hardcode 0) thành editable, thêm nút "PHÁT HÀNH VOUCHER" (tạo mới)
+  và "PHÁT HÀNH" (xem chi tiết), xóa `CodeFieldsLocked` (dead code).
+- `docs/CURRENT_STRUCTURE.md`, `docs/architecture/database-schema.md`: cập nhật entry SP mới + mô
+  tả method mới.
+- `.claude/skills/database/SKILLS.md`: thêm pattern mới "SP tạo lần đầu (guard) vs SP phát hành
+  thêm (append, không guard)".
+
+**Pattern mới:** SP "tạo lần đầu" (guard tồn tại) vs SP "phát hành thêm" (append, không guard) →
+đã thêm vào `.claude/skills/database/SKILLS.md`.
+
+**Verify:** `dotnet build POS.slnx` 0 lỗi (23 warning có sẵn, không liên quan). `dotnet test
+tests/POS.ContractTests` 25/25 xanh. **CHƯA chạy SQL script mới trên DB thật, CHƯA test tay qua
+browser** (không có môi trường DB/POS.Web chạy thật trong phiên này).
+
+**Lưu ý cho session sau:**
+1. **BẮT BUỘC chạy `docs/sql/SetupVoucher_IssueMore.sql` trên `RPOSMasterData`** (dev/UAT/PROD)
+   trước khi tính năng "PHÁT HÀNH" hoạt động — app không tự tạo SP.
+2. Đi kèm báo cáo Retail BA (cùng phiên) phát hiện `LimitQty` (giới hạn tổng số mã/header) và
+   `MaxAmount` (giảm giá tối đa, vừa hiện lên UI) đều **chưa được enforce ở tầng redemption/SP** —
+   xem chi tiết trong plan file phiên đó nếu cần triển khai tiếp.
+
+---
+
 <<<<<<< HEAD
 ## [2026-07-06] Bổ sung check Validity_From_Date cho SAP CheckVoucher
 

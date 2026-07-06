@@ -128,7 +128,7 @@ src/
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
 │   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
-│   │   ├── Voucher/SetupVoucherDtos.cs      ← 8.3/8.4 (VoucherList/Detail/Save + VoucherPublished lookup)
+│   │   ├── Voucher/SetupVoucherDtos.cs      ← 8.3/8.4 (VoucherList/Detail/Save/IssueSave/IssueMoreRequest + VoucherPublished lookup)
 │   │   ├── CXVoucher/CXVoucherDto.cs
 │   │   ├── DRW/UpdateStatusSfaffDiscountDto.cs
 │   │   ├── FileModel/FileModelDto.cs
@@ -388,7 +388,7 @@ src/
 | `IGiftService` → `GiftService` | Scoped | Gift barcode |
 | `IMasterDataSyncService` → `MasterDataSyncService` | Scoped | Sinh zip master data + log download |
 | `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher) |
-| `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
+| `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items; IssueMoreAsync — phát hành thêm 1 lô mã Auto cho voucher đã tồn tại |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
 | `IBusinessDayService` → `BusinessDayService` | Scoped | Xác nhận kết thúc ngày — merge `ICentralMDRepository.GetPosTerminalListAsync` (master POS) + `ICentralSaleRepository.GetPosDayStagingAsync` (staging shard); validate rule "tất cả POS đã đóng ngày" trước khi gọi `ConfirmBusinessDayAsync` |
@@ -412,7 +412,7 @@ src/
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
 | `IVoucherCodeRepository` → `VoucherCodeRepository` | Scoped | SAP voucher real-time (CpnVchBOMCodeIssue, Source='SAP') |
 | `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD) |
-| `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD) |
+| `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD); IssueMoreAsync — SP usp_SetupVoucher_IssueMore (thêm lô mã, không guard tồn tại) |
 | `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
 | `IPriceRepository` → `PriceRepository` | Scoped | 9.1/9.3 Bảng giá (CentralMD) |
 | `ISyncRepository` → `SyncRepository` | Scoped | SP1 GetSyncTables (Redis cache) + SP2 StreamTableToFiles |

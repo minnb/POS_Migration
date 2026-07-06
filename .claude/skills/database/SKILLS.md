@@ -210,6 +210,63 @@ END CATCH
 
 ---
 
+## Pattern: SP "tạo lần đầu" (guard tồn tại) vs SP "phát hành thêm" (append, không guard)
+
+> Áp dụng khi: 1 nghiệp vụ có 2 giai đoạn — (1) tạo header + phát sinh dữ liệu con **lần đầu**
+> (SP đã có sẵn 1 guard `IF NOT EXISTS` để tránh phát sinh trùng khi lỡ gọi lại), và sau đó (2)
+> nghiệp vụ mới yêu cầu cho phép **thêm dữ liệu con nhiều lần nữa** vào cùng header đó. Guard của
+> SP giai đoạn (1) sẽ **âm thầm bỏ qua** insert nếu gọi lại với header đã có dữ liệu con — KHÔNG
+> tái dùng được cho giai đoạn (2). Giải pháp: viết **SP mới riêng** cho hành động "thêm", không có
+> guard tồn tại, luôn insert dữ liệu con mới; SP giai đoạn (1) giữ nguyên không đổi.
+
+```sql
+-- SP giai đoạn (1) — đã có, giữ nguyên, vẫn còn guard (chỉ chạy 1 lần khi header mới):
+-- IF NOT EXISTS (SELECT 1 FROM dbo.{ChildTable} WHERE {Key}=@Key AND Source='X')
+-- BEGIN INSERT ... END
+
+-- SP mới cho giai đoạn (2) — usp_{Domain}_{Action}More — KHÔNG có guard, luôn insert:
+CREATE PROCEDURE dbo.usp_{Domain}_IssueMore
+(
+    @{Key}            nvarchar(20),      -- BẮT BUỘC đã tồn tại — không tạo header mới
+    @NewRows          dbo.{Name}TVP READONLY,
+    @OutQuantityAdded int OUTPUT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.{HeaderTable} WHERE {Key}=@{Key})
+        ;THROW 50002, N'Không tìm thấy header (Key không tồn tại)', 1;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        INSERT INTO dbo.{ChildTable} (...)
+        SELECT ... FROM @NewRows;              -- luôn insert, không kiểm tra đã có dữ liệu chưa
+        SET @OutQuantityAdded = @@ROWCOUNT;
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+```
+
+- `Counter` (nếu bảng con có cột đồng bộ POS) dùng **chung 1 giá trị `MAX(Counter)+1` cho cả lô**
+  mới thêm — khớp quy ước "1 Counter/lô" của SP giai đoạn (1), KHÔNG tăng theo từng dòng.
+- `@{Key}` không tồn tại → `THROW` lỗi nghiệp vụ rõ ràng — không được tự tạo header mới trong SP
+  "thêm" (tách biệt rõ trách nhiệm 2 SP).
+- Nếu header có field kiểu "giới hạn tổng số dòng con" (vd `LimitQty`) — SP "thêm" nên cộng dồn
+  (dòng con hiện có + dòng mới) so với giới hạn đó trước khi insert, tránh vượt trần không kiểm
+  soát (dễ bị bỏ sót vì SP giai đoạn (1) không cần logic này — chỉ gọi 1 lần).
+
+> Ví dụ thực tế: `docs/sql/SetupVoucher_SaveIssue.sql` (`usp_SetupVoucher_SaveIssue`, có guard,
+> giữ nguyên) vs `docs/sql/SetupVoucher_IssueMore.sql` (`usp_SetupVoucher_IssueMore`, SP mới,
+> không guard) — nghiệp vụ "phát hành nhiều lần từ 1 mã phát hành Voucher".
+
+---
+
 ## Checklist tạo SP mới
 
 1. Tên SP: `dbo.usp_{Domain}_{Action}` — tên TVP (nếu có): `dbo.{Name}TVP`.

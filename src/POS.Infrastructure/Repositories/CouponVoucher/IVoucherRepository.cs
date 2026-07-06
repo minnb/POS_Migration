@@ -27,6 +27,13 @@ public interface IVoucherRepository
     /// <summary>SP usp_SetupVoucher_GetCodes — danh sách mã đã phát hành (Source='VOUCHER'), phân trang.</summary>
     Task<(List<VoucherCodeDto> Items, int Total)> GetCodesAsync(VoucherCodeFilter filter, CancellationToken ct = default);
 
+    /// <summary>
+    /// SP usp_SetupVoucher_IssueMore — thêm 1 lô mã Auto MỚI vào voucher đã tồn tại
+    /// (KHÔNG guard tồn tại như usp_SetupVoucher_SaveIssue — luôn insert @Codes).
+    /// Trả số lượng mã đã thêm thành công. Ném exception nếu ItemNo không tồn tại.
+    /// </summary>
+    Task<int> IssueMoreAsync(string itemNo, IReadOnlyList<string> codes, CancellationToken ct = default);
+
     /// <summary>SP usp_SetupVoucher_CheckCodesExist — trả các mã đã tồn tại trong DB (toàn bảng).</summary>
     Task<List<string>> CheckCodesExistAsync(IEnumerable<string> codes, CancellationToken ct = default);
 
