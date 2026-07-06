@@ -249,6 +249,14 @@ else
     </MudCard>
 
     @* ── Tabs: sản phẩm + mã coupon ─────────────────────────────────────── *@
+    @if (!_applyPerItem && _quantityCodeInDb == 0)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            Tick "Áp dụng theo danh sách sản phẩm" để thêm sản phẩm, hoặc lưu coupon để phát sinh mã.
+        </MudAlert>
+    }
+    else
+    {
     <MudTabs @bind-ActivePanelIndex="_activeTabIndex" Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
         @* Tab sản phẩm chỉ hiện khi "Áp dụng theo danh sách sản phẩm" được tick *@
         @if (_applyPerItem)
@@ -300,15 +308,9 @@ else
             </MudTabPanel>
         }
 
-        <MudTabPanel Text="Mã coupon đã phát hành" Icon="@Icons.Material.Filled.QrCode2">
-            @if (!IsEditing)
-            {
-                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                    Lưu coupon để phát sinh và xem danh sách mã.
-                </MudAlert>
-            }
-            else
-            {
+        @if (_quantityCodeInDb > 0)
+        {
+            <MudTabPanel Text="Mã coupon đã phát hành" Icon="@Icons.Material.Filled.QrCode2">
                 <MudTable @ref="_codeTable" ServerData="LoadCodesData" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="CouponCodeDto">
                     <HeaderContent>
@@ -338,9 +340,10 @@ else
                                        RowsPerPageString="Số dòng/trang:"/>
                     </PagerContent>
                 </MudTable>
-            }
-        </MudTabPanel>
+            </MudTabPanel>
+        }
     </MudTabs>
+    }
 }
 
 @code {
