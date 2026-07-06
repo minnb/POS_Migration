@@ -79,13 +79,13 @@ public sealed class PriceRepository(
         const string sql = @"
 SELECT
     ISNULL(IT.No, '')                                            AS ItemNo,
-    ISNULL(U.Code, '')                                          AS Uom,
+    ISNULL(U.Code, SalesUnitOfMeasure)                           AS Uom,
     ''                                                          AS Barcode,
     ISNULL(IT.No, '') + '-' + ISNULL(IT.Description, '')       AS [Text],
     ISNULL(IT.No, '')                                          AS Id,
     CONCAT(
         CASE WHEN IT.No IS NULL THEN I.ItemNo + N' Item không tồn tại; ' ELSE '' END,
-        CASE WHEN U.Code IS NULL THEN I.ItemNo + N'- UOM: ' + I.Uom + N' không hợp lệ; ' ELSE '' END
+        CASE WHEN ISNULL(U.Code, ISNULL(IT.SalesUnitOfMeasure,'')) =''  THEN I.ItemNo + N'- UOM: ' + I.Uom + N' không hợp lệ; ' ELSE '' END
     )                                                          AS ErrorMessage,
     I.UnitPrice, I.StartingDate, I.EndingDate
 FROM @Import I
@@ -211,7 +211,121 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         return (await QueryAsync<string>(sql, new { itemNo = itemNo.Trim() }, ct: ct)).ToList();
     }
 
+    // ── Danh mục nhóm giá (StorePriceGroupHeader + StorePriceGroup) ──────────────
+    public async Task<(List<PriceGroupListItemDto> Items, int Total)> GetPriceGroupListAsync(
+        PriceGroupListFilter filter, CancellationToken ct = default)
+    {
+        // StoreCount/Priority lấy từ bảng chi tiết StorePriceGroup (Priority cấp nhóm → TOP 1 là đủ).
+        const string sql = @"
+SELECT COUNT(*) OVER()                                              AS Total,
+       h.ID,
+       h.PriceGroupCode,
+       h.PriceGroupName,
+       ISNULL((SELECT TOP 1 sg.[Priority] FROM dbo.StorePriceGroup sg (NOLOCK)
+               WHERE sg.PriceGroupCode = h.PriceGroupCode), 0)      AS [Priority],
+       (SELECT COUNT(*) FROM dbo.StorePriceGroup sg (NOLOCK)
+               WHERE sg.PriceGroupCode = h.PriceGroupCode)          AS StoreCount,
+       CONVERT(varchar(10), h.CreatedDate, 103)                     AS CreatedDateStr
+FROM   dbo.StorePriceGroupHeader h (NOLOCK)
+WHERE  (@Code = '' OR h.PriceGroupCode LIKE '%' + @Code + '%')
+  AND  (@Name = '' OR h.PriceGroupName LIKE '%' + @Name + '%')
+ORDER  BY h.PriceGroupCode
+OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY";
+
+        var items = (await QueryAsync<PriceGroupListItemDto>(sql, new
+        {
+            Code = (filter.PriceGroupCode ?? string.Empty).Trim(),
+            Name = (filter.PriceGroupName ?? string.Empty).Trim(),
+            PageSize = Math.Max(1, filter.PageSize),
+            PageNumber = Math.Max(0, filter.PageNumber)
+        }, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<List<PriceGroupStoreItemDto>> GetPriceGroupStoresAsync(
+        string priceGroupCode, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(priceGroupCode)) return [];
+
+        const string sql = @"SELECT sg.Store,
+                                    s.Name        AS StoreName,
+                                    sg.[Priority] AS [Priority]
+                             FROM   dbo.StorePriceGroup sg (NOLOCK)
+                             LEFT   JOIN dbo.Store s (NOLOCK) ON s.No = sg.Store
+                             WHERE  sg.PriceGroupCode = @code
+                             ORDER  BY sg.Store";
+        return (await QueryAsync<PriceGroupStoreItemDto>(sql, new { code = priceGroupCode.Trim() }, ct: ct)).ToList();
+    }
+
+    public async Task<PriceSaveResult> SavePriceGroupAsync(
+        PriceGroupSaveRequest request, string actor, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@PriceGroupCode", (request.PriceGroupCode ?? string.Empty).Trim());
+        p.Add("@PriceGroupName", (request.PriceGroupName ?? string.Empty).Trim());
+        p.Add("@Priority", request.Priority);
+        p.Add("@Stores", BuildStoreTable(request.Stores).AsTableValuedParameter("dbo.StorePriceGroupStoreTVP"));
+        p.Add("@UserName", actor ?? string.Empty);
+        p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        p.Add("@Message", dbType: DbType.String, size: 400, direction: ParameterDirection.Output);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "dbo.usp_StorePriceGroup_Save", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+
+        var ok = p.Get<bool?>("@Ok") ?? false;
+        var message = p.Get<string?>("@Message");
+        if (ok) redis.Delete(KeyPriceGroupOptions);   // dropdown "Nhóm giá" cập nhật lại
+        return new PriceSaveResult
+        {
+            Ok = ok,
+            Message = string.IsNullOrWhiteSpace(message)
+                ? (ok ? "Lưu nhóm giá thành công" : "Lưu nhóm giá thất bại")
+                : message!
+        };
+    }
+
+    public async Task<PriceSaveResult> DeletePriceGroupAsync(
+        string priceGroupCode, string actor, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@PriceGroupCode", (priceGroupCode ?? string.Empty).Trim());
+        p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        p.Add("@Message", dbType: DbType.String, size: 400, direction: ParameterDirection.Output);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "dbo.usp_StorePriceGroup_Delete", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+
+        var ok = p.Get<bool?>("@Ok") ?? false;
+        var message = p.Get<string?>("@Message");
+        if (ok) redis.Delete(KeyPriceGroupOptions);
+        return new PriceSaveResult
+        {
+            Ok = ok,
+            Message = string.IsNullOrWhiteSpace(message)
+                ? (ok ? "Xóa nhóm giá thành công" : "Xóa nhóm giá thất bại")
+                : message!
+        };
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+    private static DataTable BuildStoreTable(IEnumerable<string>? stores)
+    {
+        var t = new DataTable();
+        t.Columns.Add("Store", typeof(string));
+        foreach (var s in stores ?? [])
+        {
+            var code = (s ?? string.Empty).Trim();
+            if (code.Length > 0) t.Rows.Add(code);
+        }
+        return t;
+    }
+
     private static DataTable BuildImportTable(IEnumerable<PriceImportRow> rows)
     {
         var t = new DataTable();

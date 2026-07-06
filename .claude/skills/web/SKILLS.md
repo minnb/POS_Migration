@@ -1066,3 +1066,9 @@ hiển thị `###,###` ở list. Dùng `.` (vi-VN) sẽ bị parse nhầm thành
 // digits-only → long → ToString("#,##0", CultureInfo.InvariantCulture)
 ```
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/PriceSetupPage.razor` (`FormatThousands`/`OnPriceChanged`).
+
+**Bẫy khi nạp dòng từ nguồn khác (bulk import, preload API) vào CÙNG lưới**: `ValueChanged` chỉ
+fire khi user gõ tay — gán giá trị bằng code (vd sau `ValidateImportAsync`) KHÔNG đi qua
+`FormatThousands`, dòng import hiển thị số thô không dấu phẩy trong khi dòng nhập tay có. Luôn gọi
+tường minh `FormatThousands(rawValue)` ngay lúc build view-model cho dòng nạp từ nguồn ngoài, đừng
+trông chờ event UI tự chạy lại. Đã gặp + sửa ở `PriceSetupPage.LoadImportAsync`.

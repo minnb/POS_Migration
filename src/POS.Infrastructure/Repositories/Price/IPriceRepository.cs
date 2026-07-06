@@ -40,4 +40,18 @@ public interface IPriceRepository
 
     /// <summary>Danh sách ĐVT của 1 item — dbo.ItemUnitOfMeasure.Code (cho dropdown ĐVT inline).</summary>
     Task<List<string>> GetItemUomsAsync(string itemNo, CancellationToken ct = default);
+
+    // ── Danh mục nhóm giá (StorePriceGroupHeader + StorePriceGroup) ──────────────
+    /// <summary>Danh sách nhóm giá + filter + server-side paging (StoreCount/Priority từ StorePriceGroup).</summary>
+    Task<(List<PriceGroupListItemDto> Items, int Total)> GetPriceGroupListAsync(
+        PriceGroupListFilter filter, CancellationToken ct = default);
+
+    /// <summary>Danh sách cửa hàng đã gán vào 1 nhóm giá (dbo.StorePriceGroup + tên từ dbo.Store).</summary>
+    Task<List<PriceGroupStoreItemDto>> GetPriceGroupStoresAsync(string priceGroupCode, CancellationToken ct = default);
+
+    /// <summary>SP usp_StorePriceGroup_Save — upsert header + add-only store list (TVP). Trả (Ok, Message). Invalidate cache dropdown.</summary>
+    Task<PriceSaveResult> SavePriceGroupAsync(PriceGroupSaveRequest request, string actor, CancellationToken ct = default);
+
+    /// <summary>SP usp_StorePriceGroup_Delete — hard-delete header + chi tiết, chặn nếu đang dùng trong SalesPrice. Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> DeletePriceGroupAsync(string priceGroupCode, string actor, CancellationToken ct = default);
 }

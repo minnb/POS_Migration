@@ -434,7 +434,7 @@ else
                     UOM      = uom,
                     UomOptions = string.IsNullOrWhiteSpace(uom) ? [] : [uom],
                     SelectedItem = BuildOption(itemNo, v.Text, uom),
-                    UnitPrice = v.UnitPrice ?? string.Empty,
+                    UnitPrice = FormatThousands(v.UnitPrice),
                     StartDate = ParseDmy(v.StartingDate),
                     EndDate   = ParseDmy(v.EndingDate),
                     Error     = string.IsNullOrWhiteSpace(v.ErrorMessage) ? null : v.ErrorMessage

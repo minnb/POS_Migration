@@ -34,7 +34,7 @@
 
 | Domain | Bảng |
 |---|---|
-| [Store & Company](#store--company) | Store, StoreGroup, StorePriceGroup, StoreSetup, StoreTemp, Branch, CompanyInformation, RetailSetup, SetupGroupSite |
+| [Store & Company](#store--company) | Store, StoreGroup, StorePriceGroupHeader, StorePriceGroup, StoreSetup, StoreTemp, Branch, CompanyInformation, RetailSetup, SetupGroupSite |
 | [POS Terminal & Device](#pos-terminal--device) | POSTerminal, POSTerminalBank, POSTerminalSetup, PosterminalMapping, POSInfo, POSMonitor, POSVersion, POSVATCode, SmartPOS, POSDataSetup |
 | [POS Hotkey / Group](#pos-hotkey--group) | PosGroup, PosGroupItem, POSHotKeyGroup, POSHotKeyItem, POSHotKeyItemGroup |
 | [Item / Product](#item--product) | Item, Barcodes, BarcodeSetup, ItemBlock, ItemBlockVAT, ItemExtra, ItemMaxSalesQty, ItemOption, ItemPaymentBlocked, ItemPointsMember, ItemUnitOfMeasure, LinkedItem, ItemEarnScale |
@@ -119,14 +119,31 @@ Status        bit             NULL
 CreatedDate   datetime        NULL
 ```
 
+### StorePriceGroupHeader
+Header danh mục nhóm giá (1 dòng/nhóm) — dùng bởi chức năng "Danh mục nhóm giá" (menu Giá bán,
+`/catalog/price-groups`). `PriceGroupCode` UNIQUE = khóa nghiệp vụ, link tới chi tiết
+`StorePriceGroup.PriceGroupCode`. SP ghi: `usp_StorePriceGroup_Save` (upsert),
+`usp_StorePriceGroup_Delete` (hard-delete, chặn nếu đang dùng trong `SalesPrice.SalesCode`).
+```
+ID              int identity(1,1)  PRIMARY KEY
+PriceGroupCode  varchar(20)        UNIQUE
+PriceGroupName  nvarchar(200)      NULL
+Counter         bigint             NULL      -- MAX(StorePriceGroup.Counter)+1 khi lưu
+Pkey            nvarchar(50)       NULL      -- = PriceGroupCode
+CreatedDate     datetime           DEFAULT getdate()
+```
+
 ### StorePriceGroup
 PK: (none). `PriceGroupCode` = giá trị `SalesCode` khi lưu giá (9.3 Setup Giá — SP list join
 `SalesPrice.SalesCode = StorePriceGroup.PriceGroupCode`). Dropdown "Nhóm giá" =
-`SELECT DISTINCT PriceGroupCode, PriceGroupName`.
+`SELECT DISTINCT PriceGroupCode, PriceGroupName`. Chi tiết cửa hàng của mỗi nhóm giá
+(header = `StorePriceGroupHeader`); ghi qua `usp_StorePriceGroup_Save` (add-only: chỉ INSERT store
+mới + UPDATE Priority/Name/Counter cho store cũ, KHÔNG DELETE). `Pkey` = `'{Store}-{PriceGroupCode}'`,
+`Type` = 1, `Priority` cấp nhóm (mọi store cùng nhóm dùng chung), `Counter`=`ReplicationCounter`=`MAX+1`.
 ```
 Store                 nvarchar(10)   NOT NULL
 PriceGroupCode        nvarchar(30)   NOT NULL
-PriceGroupName        nvarchar(...)  NULL      -- tên hiển thị nhóm giá (bổ sung 2026-07)
+PriceGroupName        nvarchar(50)   NULL      -- tên hiển thị nhóm giá (bổ sung 2026-07)
 Type                  int            NOT NULL
 Priority              int            NOT NULL
 ReplicationCounter    int            NOT NULL

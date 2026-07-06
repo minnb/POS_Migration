@@ -1,6 +1,47 @@
 # POS.Web — Báo cáo hiện trạng
-<<<<<<< HEAD
-> Cập nhật: 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
+> Cập nhật: 2026-07-06 (PriceGroupsPage `/catalog/price-groups` — chức năng MỚI "Danh mục nhóm giá"
+> trong menu Giá bán: CRUD nhóm giá (header dbo.StorePriceGroupHeader + chi tiết store dbo.StorePriceGroup
+> link qua PriceGroupCode). Trang danh sách (filter mã/tên + MudTable ServerData, cột Độ ưu tiên/Số cửa
+> hàng/Ngày tạo) + dialog thêm/sửa (mã/tên/độ ưu tiên + store picker MudAutocomplete `.Take(50)` theo
+> CLAUDE.md §13, lưới store có nút xóa). Quyết định nghiệp vụ đã chốt với user: (1) Xóa = hard-delete
+> header+chi tiết NHƯNG chặn nếu PriceGroupCode đang dùng trong SalesPrice.SalesCode (dòng active); (2)
+> Priority cấp nhóm (1 giá trị áp mọi store); (3) danh sách store add-only (chỉ thêm, store đã gán read-only,
+> không bỏ được — khớp legacy); (4) form dạng dialog. DTO mới `StorePriceGroupDto.cs`; thêm 4 method vào
+> IPriceService/IPriceRepository (không thêm DI mới); 2 SP mới `usp_StorePriceGroup_Save` (TVP
+> StorePriceGroupStoreTVP, upsert header + add-only store, Type=1/Counter=MAX+1/Pkey='{Store}-{Code}') +
+> `usp_StorePriceGroup_Delete`. Invalidate cache `MD:PriceGroupOptions` sau Save/Delete để dropdown "Nhóm
+> giá" ở PricesPage/PriceSetupPage cập nhật. SP cần chạy tay: `docs/sql/StorePriceGroup_Save.sql`,
+> `docs/sql/StorePriceGroup_Delete.sql`. Verify: `dotnet build src/POS.Web` 0 lỗi,
+> `dotnet test tests/POS.ContractTests` 25/25. Chưa test UI thật (phụ thuộc SP chạy trên DB). Chi tiết:
+> `docs/CHANGELOG.md`)
+> Trước đó 2026-07-06 (PriceSetupPage `/catalog/price-setup` (`/catalog/price-declare`) — 2 fix
+> liên quan import bảng giá: (1) UOM validate trả rỗng khi cặp Item+UOM từ file không khớp
+> `dbo.ItemUnitOfMeasure` — SQL `ValidateImportAsync` (`PriceRepository.cs`) thêm fallback
+> `ISNULL(U.Code, SalesUnitOfMeasure)` (dùng ĐVT bán mặc định của Item khi không tìm thấy dòng
+> ItemUnitOfMeasure khớp chính xác); (2) cột "Giá bán" khi import không có dấu phân cách hàng nghìn
+> như khi nhập tay — `LoadImportAsync` nay gọi `FormatThousands(v.UnitPrice)` thay vì gán thẳng
+> chuỗi thô. Kèm rewrite `dbo.Setup_SalePrice_Get_ALL` + `dbo.usp_SetupSalePrice_Save` sang engine
+> set-based MERGE (hàm mới `dbo.tvf_SetupSalePrice_Timeline`) xử lý chồng lấn khoảng ngày hiệu lực
+> (soft-delete + interval split) thay vì gọi SP legacy lồng transaction; `SalesPrice_EditDelete_
+> AddSalesType.sql` (Sửa/Xóa giá) thêm filter `IsActive`/tombstone (`YEAR(EndingDate)<>7777`) +
+> `ORDER BY Counter DESC` khi tra Pkey. SP cần chạy tay: `docs/sql/SetupSalePrice_Save.sql`,
+> `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet build src/POS.Web` 0 lỗi. Chi
+> tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-06 (PricesPage `/catalog/prices` — nâng cấp 9.1 Danh mục Bảng giá: (1) thêm
+> cột "Hình thức" (SaleTypeName) trước "Nhóm giá" + cột "Trạng thái" (Hiệu lực/Chưa hiệu lực/Hết
+> hiệu lực, MudChip màu, tính client-side theo Start/EndingDateStr); (2) ngày `01/01/9999` hiển thị
+> "Vô thời hạn"; (3) filter Barcode/SalesCode (text tự do) → combobox "Hình thức bán hàng"/"Nhóm
+> giá" (reuse `PriceService.GetSetupLookupAsync`), ẩn cột Site; (4) format nghìn khi nhập "Giá bán"
+> (`FormatThousands`, khớp pattern `PriceSetupPage.razor`); (5) **FIX bug Sửa/Xóa giá**: SP
+> `GetSalesPriceList` đổi trả `SalesCode`=tên nhóm giá (không phải mã) → thêm cột `SalesGroupCode`/
+> `SalesTypeCode` (mã gốc) + field `PriceRowKey.SalesType` để định vị đúng dòng khi 1 item/uom/nhóm
+> giá/ngày hiệu lực có nhiều dòng khác SalesType; (6) phát hiện `SalesPrice` thực ra CÓ cột
+> `IsActive`/`LastTimeUpdate` (đính chính ghi chú cũ), `usp_SalesPrice_SoftDelete` nay set
+> `IsActive=0` khi xóa mềm (trước đây có thể sót hiển thị dòng đã xóa khi bỏ check "Còn hiệu lực").
+> SP cần chạy tay: `GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`,
+> `SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet test tests/POS.ContractTests` 25/25 (build
+> POS.Web bị khoá file do instance đang chạy — không phải lỗi biên dịch). Chi tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
 > (1) **Typography pixel-perfect**: `PosTheme.cs` (`Default.LineHeight` 1.45→1.5, `Button.FontSize`
 > thêm 12px + bỏ letter-spacing thừa, `Body1.FontSize` 12px→12.5px), `app.css` (sidebar L1/L2 size,
 > `.mud-table-body .mud-table-cell` 12.5px mới, `.mud-input-label-inputcontrol` uppercase/bold mới,
@@ -69,22 +110,6 @@
 > web/SKILLS.md` (pattern per-variant FontFamily + MudMessageBox YesButton). Verify: `dotnet build`
 > 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25. Chưa xác nhận trực quan trên browser thật —
 > cần tự chạy app kiểm tra. Chi tiết: `docs/CHANGELOG.md`)
-=======
-> Cập nhật: 2026-07-06 (PricesPage `/catalog/prices` — nâng cấp 9.1 Danh mục Bảng giá: (1) thêm
-> cột "Hình thức" (SaleTypeName) trước "Nhóm giá" + cột "Trạng thái" (Hiệu lực/Chưa hiệu lực/Hết
-> hiệu lực, MudChip màu, tính client-side theo Start/EndingDateStr); (2) ngày `01/01/9999` hiển thị
-> "Vô thời hạn"; (3) filter Barcode/SalesCode (text tự do) → combobox "Hình thức bán hàng"/"Nhóm
-> giá" (reuse `PriceService.GetSetupLookupAsync`), ẩn cột Site; (4) format nghìn khi nhập "Giá bán"
-> (`FormatThousands`, khớp pattern `PriceSetupPage.razor`); (5) **FIX bug Sửa/Xóa giá**: SP
-> `GetSalesPriceList` đổi trả `SalesCode`=tên nhóm giá (không phải mã) → thêm cột `SalesGroupCode`/
-> `SalesTypeCode` (mã gốc) + field `PriceRowKey.SalesType` để định vị đúng dòng khi 1 item/uom/nhóm
-> giá/ngày hiệu lực có nhiều dòng khác SalesType; (6) phát hiện `SalesPrice` thực ra CÓ cột
-> `IsActive`/`LastTimeUpdate` (đính chính ghi chú cũ), `usp_SalesPrice_SoftDelete` nay set
-> `IsActive=0` khi xóa mềm (trước đây có thể sót hiển thị dòng đã xóa khi bỏ check "Còn hiệu lực").
-> SP cần chạy tay: `GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`,
-> `SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet test tests/POS.ContractTests` 25/25 (build
-> POS.Web bị khoá file do instance đang chạy — không phải lỗi biên dịch). Chi tiết: `docs/CHANGELOG.md`)
->>>>>>> 7ff26a64942c307f60c821c0812ddb403e305471
 > Trước đó 2026-07-05 (BusinessDayPage `/store/business-day` — 4 điều chỉnh: (1) FIX crash
 > "duplicate key" khi tìm kiếm — SP `GetSalesEODConfirm` trả cột tên legacy (`TerminalID`,
 > `AmountTotal`…) ≠ property DTO → Dapper để trống `PosTerminal`, thêm class trung gian

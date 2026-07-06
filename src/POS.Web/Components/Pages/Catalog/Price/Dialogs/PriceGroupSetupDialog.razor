@@ -1,0 +1,252 @@
+@namespace POS.Web.Components.Pages.Catalog.Price
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using POS.Application.Features.Price
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.Price
+@using POS.Infrastructure.Logging
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Web.Auth
+
+@inject IPriceService PriceService
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Sell" Class="mr-2" Style="vertical-align:middle"/>
+            @(_isEdit ? "Sửa nhóm giá" : "Thêm nhóm giá")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.PriceGroupCode" Label="Mã nhóm giá" Required="true"
+                                  RequiredError="Vui lòng nhập mã nhóm giá" Immediate="true" MaxLength="20"
+                                  Disabled="_isEdit"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.PriceGroupName" Label="Tên nhóm giá" Required="true"
+                                  RequiredError="Vui lòng nhập tên nhóm giá" Immediate="true" MaxLength="200"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="_model.Priority" Label="Độ ưu tiên" Required="true"
+                                     RequiredError="Vui lòng nhập độ ưu tiên" Min="1" Immediate="true"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     HelperText="Áp cho mọi cửa hàng trong nhóm (số nhỏ ưu tiên cao)"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudAutocomplete T="StoreDto" @ref="_storePicker" Label="Thêm cửa hàng" Dense="true"
+                                     SearchFunc="SearchStoreAsync"
+                                     ToStringFunc="@(s => s == null ? string.Empty : $"{s.StoreNo} – {s.Name}")"
+                                     ValueChanged="AddStoreAsync" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     MaxItems="50" Clearable="true" Placeholder="Tìm & thêm nhanh 1 cửa hàng..."/>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+
+        <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1">
+            Cửa hàng trong nhóm (@(_existingStores.Count + _newStores.Count))
+        </MudText>
+        <MudTable Items="_allRows" Dense="true" Hover="true" Elevation="0"
+                  HorizontalScrollbar="true" T="StoreRow" Class="mt-1">
+            <HeaderContent>
+                <MudTh>Mã CH</MudTh>
+                <MudTh Style="width:100%">Tên cửa hàng</MudTh>
+                <MudTh Style="text-align:center; width:96px">Trạng thái</MudTh>
+                <MudTh Style="text-align:center; width:64px">Xóa</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Mã CH"><b>@context.Store</b></MudTd>
+                <MudTd DataLabel="Tên cửa hàng">@context.StoreName</MudTd>
+                <MudTd DataLabel="Trạng thái" Style="text-align:center">
+                    @if (context.IsExisting)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default">Đã gán</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info">Mới</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Xóa" Style="text-align:center">
+                    @if (!context.IsExisting)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => RemoveNewStore(context.Store))"/>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                    <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                    <MudText Typo="Typo.body2">Chưa chọn cửa hàng nào.</MudText>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+
+        @if (_isEdit)
+        {
+            <MudText Typo="Typo.caption" Class="mt-1" Style="color:var(--mud-palette-text-secondary)">
+                Cửa hàng "Đã gán" không thể bỏ khỏi nhóm (chỉ thêm mới).
+            </MudText>
+        }
+
+        @if (_errorMsg != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SubmitAsync">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    /// <summary>Mã nhóm giá khi Sửa; null = Thêm mới.</summary>
+    [Parameter] public string? EditPriceGroupCode { get; set; }
+
+    private sealed class StoreRow
+    {
+        public string Store { get; set; } = string.Empty;
+        public string? StoreName { get; set; }
+        public bool IsExisting { get; set; }
+    }
+
+    private readonly PriceGroupSaveRequest _model = new() { Priority = 1 };
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private string? _errorMsg;
+    private string _actor = "unknown";
+    private bool _isEdit;
+
+    private MudAutocomplete<StoreDto>? _storePicker;
+    private List<StoreDto> _allStores = [];
+    private List<StoreRow> _existingStores = [];   // đã gán (read-only khi Sửa)
+    private readonly List<StoreRow> _newStores = [];  // mới thêm (xóa được trước khi Lưu)
+
+    private IEnumerable<StoreRow> _allRows => _existingStores.Concat(_newStores);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+        _isEdit = !string.IsNullOrWhiteSpace(EditPriceGroupCode);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _allStores = await MdRepo.GetStoreListAsync();
+            if (_isEdit)
+            {
+                var stores = await PriceService.GetPriceGroupStoresAsync(EditPriceGroupCode!);
+                var header = (await PriceService.GetPriceGroupListAsync(
+                    new PriceGroupListFilter { PriceGroupCode = EditPriceGroupCode, PageSize = 1 })).Items
+                    .FirstOrDefault(g => string.Equals(g.PriceGroupCode, EditPriceGroupCode, StringComparison.OrdinalIgnoreCase));
+
+                _model.PriceGroupCode = EditPriceGroupCode!;
+                _model.PriceGroupName = header?.PriceGroupName ?? string.Empty;
+                _model.Priority = header?.Priority > 0 ? header.Priority : (stores.FirstOrDefault()?.Priority ?? 1);
+                _existingStores = stores.Select(s => new StoreRow
+                {
+                    Store = s.Store, StoreName = s.StoreName, IsExisting = true
+                }).ToList();
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceGroupSetupDialog.Load", ex);
+            _errorMsg = "Không tải được dữ liệu nhóm giá.";
+            StateHasChanged();
+        }
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        IEnumerable<StoreDto> matches = string.IsNullOrWhiteSpace(value)
+            ? _allStores
+            : _allStores.Where(s =>
+                (s.StoreNo?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false));
+        return Task.FromResult(matches.Take(50));
+    }
+
+    private async Task AddStoreAsync(StoreDto? store)
+    {
+        var code = store?.StoreNo?.Trim();
+        // Chống trùng (im lặng, KHÔNG báo lỗi) với cả store đã gán lẫn store mới thêm
+        var isDup = !string.IsNullOrEmpty(code) &&
+            (_existingStores.Any(s => string.Equals(s.Store, code, StringComparison.OrdinalIgnoreCase)) ||
+             _newStores.Any(s => string.Equals(s.Store, code, StringComparison.OrdinalIgnoreCase)));
+        if (!string.IsNullOrEmpty(code) && !isDup)
+            _newStores.Add(new StoreRow { Store = code, StoreName = store!.Name, IsExisting = false });
+
+        // Reset ô autocomplete để sẵn sàng chọn store tiếp theo
+        if (_storePicker != null) await _storePicker.ClearAsync();
+    }
+
+    private void RemoveNewStore(string code)
+        => _newStores.RemoveAll(s => string.Equals(s.Store, code, StringComparison.OrdinalIgnoreCase));
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        var stores = _allRows.Select(s => s.Store).ToList();
+        if (stores.Count == 0)
+        {
+            _errorMsg = "Vui lòng chọn ít nhất 1 cửa hàng cho nhóm giá.";
+            return;
+        }
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            _model.Stores = stores;
+            var result = await PriceService.SavePriceGroupAsync(_model, _actor);
+            if (!result.Ok) { _errorMsg = result.Message; return; }
+
+            await AuditLogger.LogAsync(_actor, _isEdit ? "UPDATE" : "CREATE", "StorePriceGroup",
+                _model.PriceGroupCode, oldValueJson: null,
+                newValueJson: Newtonsoft.Json.JsonConvert.SerializeObject(_model));
+            Snackbar.Add(result.Message, Severity.Success);
+            MudDialog.Close(DialogResult.Ok(_model.PriceGroupCode));
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceGroupSetupDialog.Submit", ex);
+            // Hiện lỗi thật để chẩn đoán (vd SP chưa tạo trên DB → "Could not find stored procedure...").
+            _errorMsg = $"Lưu nhóm giá thất bại: {ex.Message}";
+        }
+        finally { _saving = false; }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

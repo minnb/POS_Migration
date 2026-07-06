@@ -137,6 +137,43 @@ public sealed class PriceService(
     public Task<PriceSaveResult> DeletePriceAsync(PriceRowKey key, string actor, CancellationToken ct = default)
         => repository.SoftDeletePriceAsync(key, actor, ct);
 
+    // ── Danh mục nhóm giá ────────────────────────────────────────────────────
+    public Task<(List<PriceGroupListItemDto> Items, int Total)> GetPriceGroupListAsync(
+        PriceGroupListFilter filter, CancellationToken ct = default)
+        => repository.GetPriceGroupListAsync(filter, ct);
+
+    public Task<List<PriceGroupStoreItemDto>> GetPriceGroupStoresAsync(
+        string priceGroupCode, CancellationToken ct = default)
+        => repository.GetPriceGroupStoresAsync(priceGroupCode ?? string.Empty, ct);
+
+    public Task<PriceSaveResult> SavePriceGroupAsync(
+        PriceGroupSaveRequest request, string actor, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.PriceGroupCode))
+            return Task.FromResult(Fail("Vui lòng nhập Mã nhóm giá"));
+        if (string.IsNullOrWhiteSpace(request.PriceGroupName))
+            return Task.FromResult(Fail("Vui lòng nhập Tên nhóm giá"));
+        if (request.Priority <= 0)
+            return Task.FromResult(Fail("Độ ưu tiên phải lớn hơn 0"));
+
+        var stores = (request.Stores ?? [])
+            .Select(s => (s ?? string.Empty).Trim())
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (stores.Count == 0)
+            return Task.FromResult(Fail("Vui lòng chọn ít nhất 1 cửa hàng cho nhóm giá"));
+
+        request.Stores = stores;
+        return repository.SavePriceGroupAsync(request, actor, ct);
+    }
+
+    public Task<PriceSaveResult> DeletePriceGroupAsync(
+        string priceGroupCode, string actor, CancellationToken ct = default)
+        => string.IsNullOrWhiteSpace(priceGroupCode)
+            ? Task.FromResult(Fail("Thiếu mã nhóm giá"))
+            : repository.DeletePriceGroupAsync(priceGroupCode.Trim(), actor, ct);
+
     // ── Helpers ──────────────────────────────────────────────────────────────
     private static PriceSaveResult Fail(string message) => new() { Ok = false, Message = message };
 

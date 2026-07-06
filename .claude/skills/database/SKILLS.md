@@ -171,6 +171,35 @@ reset trạng thái đã redeem/dùng.
 
 ---
 
+## Pattern: SP xử lý chồng lấn khoảng ngày hiệu lực (timeline merge, set-based)
+
+> Áp dụng khi: bulk save nhiều dòng "giá trị + khoảng ngày hiệu lực" (giá bán, khuyến mãi, tỷ giá...)
+> mà khoảng mới có thể chồng lấn/cắt/nối các khoảng cũ đang active — cần tách lại thành các đoạn
+> nguyên tử không chồng lấn, soft-delete đoạn cũ không còn hiệu lực, KHÔNG được lặp vòng lặp
+> ROW-BY-ROW (chậm + dễ lệch transaction khi gọi SP legacy lồng nhau).
+
+Kỹ thuật: 1 hàm `dbo.tvf_{Domain}_Timeline(@Json)` dựng lại toàn bộ timeline bằng CTE set-based:
+1. Parse `@Json` (OPENJSON) → khoảng mới, `RowId` tăng dần làm độ ưu tiên (mới thắng cũ khi chồng lấn).
+2. Gộp segment cũ (từ bảng thật, prio=0) + segment mới (prio=RowId) → tính **mọi điểm biên**
+   (Start và End+1 của mọi segment) → cắt thành các **khoảng nguyên tử** không chồng lấn.
+3. Mỗi khoảng nguyên tử lấy giá trị của segment có prio CAO NHẤT phủ nó (`CROSS APPLY TOP 1 ... ORDER BY prio DESC`).
+4. Gộp lại các khoảng nguyên tử liền kề CÙNG giá trị (gap/island bằng `LAG()` + `SUM() OVER`) để tránh
+   sinh thừa nhiều dòng nhỏ cho cùng 1 giá trị.
+5. SP gọi hàm này rồi `MERGE` 1 lần vào bảng thật: `WHEN MATCHED` (đổi giá/ngày hoặc revive dòng đã
+   soft-delete) → UPDATE tại chỗ; `WHEN NOT MATCHED BY TARGET` → INSERT; `WHEN NOT MATCHED BY SOURCE`
+   (dòng active cũ không còn trong timeline mới) → soft-delete (`IsActive=0`), KHÔNG xóa cứng (giữ
+   lịch sử + đồng bộ Counter cho client polling).
+
+**KHÔNG làm:** gọi SP legacy trả result-set bên trong 1 vòng lặp T-SQL cursor (chậm, dễ lỗi lồng
+transaction "mismatching BEGIN and COMMIT"); tự so sánh khoảng ngày bằng nhiều câu `IF EXISTS`
+riêng lẻ cho từng trường hợp chồng lấn (dễ sót case, khó test).
+
+> Ví dụ thực tế: `dbo.tvf_SetupSalePrice_Timeline` + `dbo.Setup_SalePrice_Get_ALL`
+> (`docs/sql/SetupSalePrice_Save.sql`) — xử lý chồng lấn khoảng `StartingDate/EndingDate` khi bulk
+> import bảng giá bán (9.3 Setup Giá).
+
+---
+
 ## Checklist tạo SP mới
 
 1. Tên SP: `dbo.usp_{Domain}_{Action}` — tên TVP (nếu có): `dbo.{Name}TVP`.

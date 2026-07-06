@@ -158,6 +158,10 @@ src/
 │   │   │   ├── ValidateTransactionDto.cs
 │   │   │   ├── Common/CommonDtos.cs
 │   │   │   └── Gift/GiftBarcodeRequest.cs
+│   │   ├── Price/
+│   │   │   ├── PriceListDto.cs             ← 9.1 (PriceListItemDto, PriceListFilter, PriceOptionDto)
+│   │   │   ├── PriceSetupDto.cs            ← 9.3 (PriceImportRow/ResultRow, PriceSaveRow/Line/Result, PriceRowKey, PriceSetupContext/LookupDto)
+│   │   │   └── StorePriceGroupDto.cs       ← Danh mục nhóm giá (PriceGroupListFilter/ListItemDto, PriceGroupStoreItemDto, PriceGroupSaveRequest)
 │   │   ├── RabbitMessageDto.cs (root — đã liệt kê)
 │   │   ├── Request/RequestDto.cs
 │   │   ├── Reward/RewardDto.cs
@@ -289,8 +293,8 @@ src/
         │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
         │   ├── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
         │   └── IVoucherCodeRepository.cs / VoucherCodeRepository.cs         ← SAP Internal Voucher real-time (CentralMD, SP usp_Voucher_*, CpnVchBOMCodeIssue Source='SAP'; thay ISAPVoucherRepository/bảng Internal_Voucher cũ, nay LEGACY)
-        ├── Price/                          ← 9.1/9.3 Bảng giá (CentralMD)
-        │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete
+        ├── Price/                          ← 9.1/9.3 Bảng giá + Danh mục nhóm giá (CentralMD)
+        │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete; Danh mục nhóm giá qua usp_StorePriceGroup_Save/_Delete (StorePriceGroupHeader + StorePriceGroup)
         └── DataSync/
             └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync, Redis cache MD:SyncTableList) + SP2 stream (StreamTableToFilesAsync)
 ```
@@ -388,7 +392,7 @@ src/
 | `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher) |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
-| `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
+| `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá; Danh mục nhóm giá (GetPriceGroupList/Stores, SavePriceGroup add-only, DeletePriceGroup) |
 | `IBusinessDayService` → `BusinessDayService` | Scoped | Xác nhận kết thúc ngày — merge `ICentralMDRepository.GetPosTerminalListAsync` (master POS) + `ICentralSaleRepository.GetPosDayStagingAsync` (staging shard); validate rule "tất cả POS đã đóng ngày" trước khi gọi `ConfirmBusinessDayAsync` |
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
@@ -412,7 +416,7 @@ src/
 | `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD) |
 | `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD) |
 | `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
-| `IPriceRepository` → `PriceRepository` | Scoped | 9.1/9.3 Bảng giá (CentralMD) |
+| `IPriceRepository` → `PriceRepository` | Scoped | 9.1/9.3 Bảng giá (CentralMD) + Danh mục nhóm giá (StorePriceGroupHeader/StorePriceGroup, SP usp_StorePriceGroup_Save/_Delete) |
 | `ISyncRepository` → `SyncRepository` | Scoped | SP1 GetSyncTables (Redis cache) + SP2 StreamTableToFiles |
 | `IFileArchiveService` → `FileArchiveService` | Singleton | ZipFile.CreateFromDirectory (compression level configurable) |
 | `ISyncFileLock` → `SyncFileLock` | Singleton | keyed SemaphoreSlim chống sinh zip trùng |
