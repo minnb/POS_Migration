@@ -13,7 +13,14 @@ public sealed class PriceListItemDto
 
     public int ID { get; set; }
     public string? BarcodeNo { get; set; }
+    /// <summary>Tên hiển thị nhóm giá (PriceGroupName) — SP GetSalesPriceList (2026-07 trở đi).</summary>
     public string? SalesCode { get; set; }
+    /// <summary>Mã gốc nhóm giá (PriceGroupCode = SalesPrice.SalesCode) — dùng làm khoá Sửa/Xóa, KHÔNG hiển thị.</summary>
+    public string? SalesGroupCode { get; set; }
+    /// <summary>Tên hình thức bán hàng (SalesOrderType.Description) — cột "Hình thức".</summary>
+    public string? SaleTypeName { get; set; }
+    /// <summary>Mã gốc hình thức bán hàng (SalesPrice.SalesType) — dùng làm khoá Sửa/Xóa, KHÔNG hiển thị.</summary>
+    public string? SalesTypeCode { get; set; }
     public string? SiteNo { get; set; }
     public string? ItemNo { get; set; }
     public string? ItemNo_PLG { get; set; }
@@ -32,8 +39,10 @@ public sealed class PriceListFilter
 {
     public string? ItemNo { get; set; }
     public string? ItemName { get; set; }
-    public string? Barcode { get; set; }
-    public string? SalesCode { get; set; }
+    /// <summary>Hình thức bán hàng (SalesOrderType.Code) — rỗng = tất cả.</summary>
+    public string? SaleType { get; set; }
+    /// <summary>Nhóm giá (StorePriceGroup.PriceGroupCode) — rỗng hoặc "ALL" = tất cả.</summary>
+    public string? SalesGroup { get; set; } = "ALL";
     public bool OnlyActive { get; set; }
     public int PageSize { get; set; } = 20;
     public int PageNumber { get; set; }

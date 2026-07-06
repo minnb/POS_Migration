@@ -26,14 +26,15 @@ public sealed class PriceRepository(
         // Gọi SP bằng positional EXEC (tham số truyền theo ĐÚNG THỨ TỰ) — khớp legacy PriceData.GetPriceList.
         // KHÔNG dùng CommandType.StoredProcedure (bind theo TÊN): [GetSalesPriceList] là SP có sẵn (legacy),
         // tên tham số nội bộ KHÔNG đảm bảo trùng anon-object → bind theo tên sẽ ném lỗi "expects parameter…".
+        // 2026-07: SP đổi @BarCode → @SaleType (Hình thức bán hàng), @SalesCode → @SalesGroup (mã nhóm giá).
         var items = (await conn.QueryAsync<PriceListItemDto>(new CommandDefinition(
-            "EXEC [dbo].[GetSalesPriceList] @ItemCode, @ItemName, @BarCode, @SalesCode, @isCheck, @PageSize, @PageNumber",
+            "EXEC [dbo].[GetSalesPriceList] @ItemCode, @ItemName, @SaleType, @SalesGroup, @isCheck, @PageSize, @PageNumber",
             new
             {
                 ItemCode   = (filter.ItemNo ?? string.Empty).Trim(),
                 ItemName   = (filter.ItemName ?? string.Empty).Trim(),
-                BarCode    = (filter.Barcode ?? string.Empty).Trim(),
-                SalesCode  = (filter.SalesCode ?? string.Empty).Trim(),
+                SaleType   = (filter.SaleType ?? string.Empty).Trim(),
+                SalesGroup = NormalizeSalesGroup(filter.SalesGroup),
                 isCheck    = filter.IsCheck,
                 PageSize   = Math.Max(1, filter.PageSize),
                 PageNumber = Math.Max(0, filter.PageNumber)
@@ -50,16 +51,23 @@ public sealed class PriceRepository(
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
         // Positional EXEC — khớp legacy PriceData.ExportPriceList (xem ghi chú ở GetListAsync).
         return (await conn.QueryAsync<PriceListItemDto>(new CommandDefinition(
-            "EXEC [dbo].[GetSalesPriceList_Export] @ItemCode, @ItemName, @BarCode, @SalesCode, @isCheck",
+            "EXEC [dbo].[GetSalesPriceList_Export] @ItemCode, @ItemName, @SaleType, @SalesGroup, @isCheck",
             new
             {
-                ItemCode  = (filter.ItemNo ?? string.Empty).Trim(),
-                ItemName  = (filter.ItemName ?? string.Empty).Trim(),
-                BarCode   = (filter.Barcode ?? string.Empty).Trim(),
-                SalesCode = (filter.SalesCode ?? string.Empty).Trim(),
-                isCheck   = filter.IsCheck
+                ItemCode   = (filter.ItemNo ?? string.Empty).Trim(),
+                ItemName   = (filter.ItemName ?? string.Empty).Trim(),
+                SaleType   = (filter.SaleType ?? string.Empty).Trim(),
+                SalesGroup = NormalizeSalesGroup(filter.SalesGroup),
+                isCheck    = filter.IsCheck
             },
             commandTimeout: 120, cancellationToken: ct))).ToList();
+    }
+
+    // "ALL" là sentinel UI (mục "Tất cả" trong combobox Nhóm giá) — SP hiểu "tất cả" là chuỗi rỗng.
+    private static string NormalizeSalesGroup(string? salesGroup)
+    {
+        var trimmed = (salesGroup ?? string.Empty).Trim();
+        return trimmed.Equals("ALL", StringComparison.OrdinalIgnoreCase) ? string.Empty : trimmed;
     }
 
     public async Task<List<PriceImportResultRow>> ValidateImportAsync(
@@ -145,6 +153,7 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         p.Add("@SalesCode", key.SalesCode);
         p.Add("@StartingDate", key.StartingDate.Date, DbType.Date);
         p.Add("@UnitOfMeasureCode", key.UnitOfMeasureCode);
+        p.Add("@SalesType", key.SalesType ?? string.Empty);
         p.Add("@UnitPrice", unitPrice);
         p.Add("@Actor", actor ?? string.Empty);
 
@@ -163,6 +172,7 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         p.Add("@SalesCode", key.SalesCode);
         p.Add("@StartingDate", key.StartingDate.Date, DbType.Date);
         p.Add("@UnitOfMeasureCode", key.UnitOfMeasureCode);
+        p.Add("@SalesType", key.SalesType ?? string.Empty);
         p.Add("@Actor", actor ?? string.Empty);
 
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);

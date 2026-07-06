@@ -49,14 +49,23 @@
                           OnKeyDown="OnFilterKeyDown"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
-            <MudTextField @bind-Value="_filter.Barcode" Label="Barcode"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                          OnKeyDown="OnFilterKeyDown"/>
+            <MudSelect T="string" @bind-Value="_filter.SaleType" Label="Hình thức bán hàng"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                       Placeholder="Tất cả">
+                @foreach (var s in _lookup.SalesTypes)
+                {
+                    <MudSelectItem T="string" Value="@s.Value">@s.Text</MudSelectItem>
+                }
+            </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
-            <MudTextField @bind-Value="_filter.SalesCode" Label="ST/CH"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                          OnKeyDown="OnFilterKeyDown"/>
+            <MudSelect T="string" @bind-Value="_filter.SalesGroup" Label="Nhóm giá"
+                       Placeholder="Tất cả"  Variant="Variant.Outlined" Margin="Margin.Dense">
+                @foreach (var g in _lookup.PriceGroups)
+                {
+                    <MudSelectItem T="string" Value="@g.Value">@g.Text</MudSelectItem>
+                }
+            </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="6" md="1" Class="d-flex align-center">
             <MudCheckBox @bind-Value="_filter.OnlyActive" Label="Còn hiệu lực"
@@ -83,27 +92,29 @@
           Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="PriceListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>
-        <MudTh>Vùng giá</MudTh>
-        <MudTh>Site</MudTh>
+        <MudTh>Hình thức</MudTh>
+        <MudTh>Nhóm giá</MudTh>
         <MudTh>Mã sản phẩm</MudTh>
         <MudTh Style="width:100%">Tên sản phẩm</MudTh>
         <MudTh>ĐVT</MudTh>
         <MudTh Style="text-align:right">Giá bán</MudTh>
         <MudTh>Ngày bắt đầu HL</MudTh>
         <MudTh>Ngày hết HL</MudTh>
+        <MudTh>Trạng thái</MudTh>
         <MudTh Style="width:104px; white-space:nowrap">Thao tác</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
-        <MudTd DataLabel="Vùng giá">@context.SalesCode</MudTd>
-        <MudTd DataLabel="Site">@context.SiteNo</MudTd>
+        <MudTd DataLabel="Hình thức">@context.SaleTypeName</MudTd>
+        <MudTd DataLabel="Nhóm giá">@context.SalesCode</MudTd>
         <MudTd DataLabel="Mã sản phẩm"><b>@context.ItemNo</b></MudTd>
         <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
         <MudTd DataLabel="ĐVT">@context.UnitOfMeasureCode</MudTd>
         <MudTd DataLabel="Giá bán" Style="text-align:right">
             @if (IsEditing(context))
             {
-                <MudTextField @bind-Value="_editPrice" Variant="Variant.Outlined" Margin="Margin.Dense"
+                <MudTextField T="string" Value="_editPrice" ValueChanged="@(v => _editPrice = FormatThousands(v))"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
                               InputMode="InputMode.numeric" Immediate="true" Style="min-width:110px"/>
             }
             else
@@ -111,8 +122,12 @@
                 @context.UnitPrice
             }
         </MudTd>
-        <MudTd DataLabel="Ngày bắt đầu HL">@context.StartingDateStr</MudTd>
-        <MudTd DataLabel="Ngày hết HL">@context.EndingDateStr</MudTd>
+        <MudTd DataLabel="Ngày bắt đầu HL">@FormatEffDate(context.StartingDateStr)</MudTd>
+        <MudTd DataLabel="Ngày hết HL">@FormatEffDate(context.EndingDateStr)</MudTd>
+        <MudTd DataLabel="Trạng thái">
+            @{ var status = GetStatus(context); }
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@status.Color">@status.Text</MudChip>
+        </MudTd>
         <MudTd DataLabel="Thao tác" Style="white-space:nowrap">
             @if (IsEditing(context))
             {
@@ -151,7 +166,7 @@
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
     private MudTable<PriceListItemDto> _table = null!;
-    private readonly PriceListFilter _filter = new() { OnlyActive = true, PageSize = 10 };
+    private readonly PriceListFilter _filter = new() { PageSize = 10 };
 
     private List<PriceListItemDto> _rows = [];
     private int _offset;
@@ -162,11 +177,20 @@
     private PriceListItemDto? _editing;
     private string _editPrice = string.Empty;
     private bool _savingRow;
+    private PriceSetupLookupDto _lookup = new();
 
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthState;
         _actor = state.User.Identity?.Name ?? "unknown";
+        try
+        {
+            _lookup = await PriceService.GetSetupLookupAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PricesPage.LoadLookup", ex);
+        }
     }
 
     private async Task<TableData<PriceListItemDto>> LoadServerData(TableState state, CancellationToken token)
@@ -183,7 +207,7 @@
         }
         catch (Exception ex)
         {
-            _errorMsg = "Không thể tải danh mục bảng giá. (Kiểm tra SP [GetSalesPriceList] trên CentralMD)";
+            _errorMsg = "Không thể tải danh mục bảng giá. (Kiểm tra SP [GetSalesPriceList])";
             FileLogger.WriteExpLogs("PricesPage.Load", ex);
             _rows = [];
             return new TableData<PriceListItemDto> { Items = [], TotalItems = 0 };
@@ -201,10 +225,29 @@
     {
         _filter.ItemNo     = null;
         _filter.ItemName   = null;
-        _filter.Barcode    = null;
-        _filter.SalesCode  = null;
-        _filter.OnlyActive = true;
+        _filter.SaleType   = null;
+        _filter.SalesGroup = "ALL";
+        _filter.OnlyActive = false;
         await _table.ReloadServerData();
+    }
+
+    // "01/01/9999" = sentinel vô thời hạn (StartingDateStr/EndingDateStr format dd/MM/yyyy từ SP).
+    private static string? FormatEffDate(string? dmy) => dmy == "01/01/9999" ? "Vô thời hạn" : dmy;
+
+    private static (string Text, Color Color) GetStatus(PriceListItemDto row)
+    {
+        var today = DateTime.Now.Date;
+        var noExpiry = row.EndingDateStr == "01/01/9999";
+
+        if (DateTime.TryParseExact(row.StartingDateStr, "dd/MM/yyyy",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var start) && today < start.Date)
+            return ("Chưa hiệu lực", Color.Info);
+
+        if (!noExpiry && DateTime.TryParseExact(row.EndingDateStr, "dd/MM/yyyy",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var end) && today > end.Date)
+            return ("Hết hiệu lực", Color.Error);
+
+        return ("Hiệu lực", Color.Success);
     }
 
     private async Task ExportExcelAsync()
@@ -233,7 +276,7 @@
     private void BeginEdit(PriceListItemDto row)
     {
         _editing = row;
-        _editPrice = (row.UnitPrice ?? string.Empty).Replace(",", string.Empty).Trim();
+        _editPrice = FormatThousands(row.UnitPrice);
     }
 
     private void CancelEdit()
@@ -317,9 +360,14 @@
         key = new PriceRowKey
         {
             ItemNo = row.ItemNo!.Trim(),
-            SalesCode = (row.SalesCode ?? string.Empty).Trim(),
+            // SalesGroupCode = mã gốc (SalesPrice.SalesCode) — SalesCode giờ là tên hiển thị (PriceGroupName),
+            // KHÔNG dùng để định vị dòng (xem GetSalesPriceList_AddSaleType.sql).
+            SalesCode = (row.SalesGroupCode ?? string.Empty).Trim(),
             UnitOfMeasureCode = (row.UnitOfMeasureCode ?? string.Empty).Trim(),
-            StartingDate = start
+            StartingDate = start,
+            // SalesTypeCode = mã gốc SalesPrice.SalesType — 1 item/uom/nhóm giá/ngày hiệu lực có thể có
+            // nhiều dòng khác nhau theo hình thức bán hàng, thiếu field này sẽ định vị nhầm dòng.
+            SalesType = (row.SalesTypeCode ?? string.Empty).Trim()
         };
         return true;
     }
@@ -331,13 +379,23 @@
         return double.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0;
     }
 
+    // Format giá bán khi nhập: chèn dấu phân cách ngàn kiểu "30,000" (khớp pattern PriceSetupPage.razor).
+    // Dùng dấu ',' (InvariantCulture) — khớp cách ParsePrice tách chuỗi (Replace ",").
+    private static string FormatThousands(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        var digits = new string(raw.Where(char.IsDigit).ToArray()).TrimStart('0');
+        if (digits.Length == 0) return raw.Any(char.IsDigit) ? "0" : string.Empty;
+        return long.TryParse(digits, out var n) ? n.ToString("#,##0", CultureInfo.InvariantCulture) : digits;
+    }
+
     private static byte[] BuildXlsx(IReadOnlyList<PriceListItemDto> data)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("BangGia");
         string[] headers =
         [
-            "STT", "Barcode", "Vùng giá", "Site", "Mã sản phẩm", "Mã SP (PLG)", "Tên sản phẩm",
+            "STT", "Barcode", "Nhóm giá", "Site", "Mã sản phẩm", "Mã SP (PLG)", "Tên sản phẩm",
             "ĐVT", "Giá bán", "Ngày bắt đầu HL", "Ngày hết HL", "Năm hết HL"
         ];
         for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
