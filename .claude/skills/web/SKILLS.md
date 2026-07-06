@@ -1107,3 +1107,20 @@ public async Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCo
 
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Ops/PosMapPage.razor` (`SyncDataAsync`),
 > `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`PushStartOfDayDataAsync`)
+
+### Pattern: Format số tiền khi user nhập (thousand separator) mà không phá parse
+> Áp dụng khi: ô nhập số tiền trong lưới/form cần hiển thị `30,000` nhưng vẫn lưu đúng.
+
+Dùng `Value`/`ValueChanged` (không `@bind`) + `Immediate="true"`, format bằng dấu `,`
+(InvariantCulture `#,##0`) — KHỚP cách service `ParsePrice` tách chuỗi (`Replace(",")`) và format
+hiển thị `###,###` ở list. Dùng `.` (vi-VN) sẽ bị parse nhầm thành dấu thập phân.
+
+```razor
+<MudTextField T="string" Value="context.UnitPrice"
+              ValueChanged="@(v => row.UnitPrice = FormatThousands(v))"
+              InputMode="InputMode.numeric" Immediate="true" Class="pos-price-input"/>
+```
+```csharp
+// digits-only → long → ToString("#,##0", CultureInfo.InvariantCulture)
+```
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/PriceSetupPage.razor` (`FormatThousands`/`OnPriceChanged`).

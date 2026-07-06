@@ -520,3 +520,52 @@ private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /*
 > và các bug/anti-pattern thực tế đã gặp (`JsonConvert.SerializeObject(ex)` trên object đã dispose,
 > filter Serilog theo giá trị property chứ không theo tên property...). Đọc file đó TRƯỚC khi thêm
 > log mới ở bất kỳ đâu.
+
+### Pattern: SP trả kết quả qua OUTPUT param khi ủy quyền SP-legacy có result set
+> Áp dụng khi: SP mới `EXEC` một SP legacy tự `SELECT` (vd Interface_Errors) và/hoặc có `ROLLBACK` bên trong.
+
+Không thể hứng result set legacy bằng `INSERT...EXEC` nếu SP legacy có `ROLLBACK` ("Cannot use the
+ROLLBACK statement within an INSERT-EXEC statement"). Nếu để result set legacy lọt ra, Dapper
+`QueryFirstOrDefault<T>` đọc NHẦM set đầu → `null` → báo lỗi giả. Giải pháp: trả `@Ok bit/@Message`
+qua **OUTPUT param**; repository dùng `ExecuteAsync` (ExecuteNonQuery nuốt hết result set rồi mới gán output).
+
+```csharp
+p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+p.Add("@Message", dbType: DbType.String, size: 4000, direction: ParameterDirection.Output);
+await conn.ExecuteAsync(new CommandDefinition("dbo.usp_X", p, commandType: CommandType.StoredProcedure));
+var ok = p.Get<bool?>("@Ok") ?? false;
+```
+> Ví dụ thực tế: `docs/sql/SetupSalePrice_Save.sql`, `src/POS.Infrastructure/Repositories/Price/PriceRepository.cs` (`SaveAsync`).
+
+---
+
+### Pattern: SP đổi 1 cột từ mã (code) sang tên hiển thị (name) — luôn thêm cột mã gốc riêng cho composite key
+
+> Áp dụng khi: sửa/mở rộng 1 SP list có sẵn để JOIN thêm bảng lookup và **thế** cột mã bằng cột tên hiển thị
+> (vd `SalesCode` từ trả `PriceGroupCode` đổi sang trả `PriceGroupName` cho đẹp UI). Rút ra từ sự cố thực tế:
+> `GetSalesPriceList` đổi `SalesCode` sang trả tên nhóm giá, nhưng code Sửa/Xóa (`PriceRowKey`) vẫn dùng
+> đúng field đó làm khoá gửi tới `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**, không phải
+> tên) → mọi thao tác Sửa/Xóa sẽ báo "Không tìm thấy dữ liệu" ngay khi Code ≠ Name.
+
+**Quy tắc**: mỗi khi 1 cột SP đang được dùng làm khoá composite (Update/Delete/lookup ngược) bị đổi ý nghĩa
+sang giá trị hiển thị, **PHẢI** thêm 1 cột mới song song mang mã gốc (lấy thẳng từ bảng vật lý, không qua
+JOIN lookup có thể `LEFT JOIN` miss), map vào 1 field riêng trên DTO (đặt tên rõ ràng kiểu `XxxCode`, có
+comment "KHÔNG hiển thị — dùng làm khoá"), rồi sửa nơi build khoá composite dùng field mã mới thay vì field
+hiển thị cũ.
+
+```sql
+-- SP list — thêm cột mã gốc song song với cột tên hiển thị đã đổi
+ISNULL(G.PriceGroupName,'') AS SalesCode,       -- tên hiển thị (đã đổi ý nghĩa)
+ISNULL(S.[SalesCode],'')    AS SalesGroupCode,  -- mã gốc — LẤY THẲNG từ bảng vật lý, dùng cho Sửa/Xóa
+```
+```csharp
+// DTO — field mã gốc tách riêng, comment rõ mục đích
+public string? SalesCode { get; set; }       // tên hiển thị — cột lưới
+public string? SalesGroupCode { get; set; }  // mã gốc — KHÔNG hiển thị, dùng build PriceRowKey
+```
+
+> Anti-pattern: tiếp tục dùng field cũ (`row.SalesCode`) để build khoá sau khi ý nghĩa cột đã đổi — lỗi
+> không xuất hiện lúc build/test (kiểu vẫn là `string`), chỉ lộ ra khi chạy thật với dữ liệu có Code≠Name.
+> Ví dụ thực tế: `docs/sql/GetSalesPriceList_AddSaleType.sql` (`SalesGroupCode`),
+> `docs/sql/GetSalesPriceList_AddSalesTypeCode.sql` (`SalesTypeCode`),
+> `src/POS.Web/Components/Pages/Catalog/Price/PricesPage.razor` (`TryBuildKey`).
