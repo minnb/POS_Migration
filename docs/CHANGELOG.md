@@ -41,13 +41,16 @@ chiếu nghiệp vụ (cột Type=1, Pkey='{Store}-{PriceGroupCode}', Priority c
 - `PriceGroupsPage.razor` (MỚI, `/catalog/price-groups`): list + filter + MudTable ServerData +
   MudMessageBox @ref confirm xóa (YesButton Outlined/Error) + audit CREATE/UPDATE/DELETE.
 - `Dialogs/PriceGroupSetupDialog.razor` (MỚI): form mã(disabled khi Sửa)/tên/độ ưu tiên + store picker
-  MudAutocomplete `.Take(50)` + lưới store (store cũ read-only, store mới xóa được).
+  MudAutocomplete `.Take(50)` + lưới store (store cũ read-only, store mới xóa được). Store picker dùng
+  `@ref` + `ClearAsync()` sau mỗi lần thêm (rỗng ô để thêm mục kế tiếp), chống trùng bỏ qua im lặng
+  (không báo lỗi). Khối catch khi Lưu hiện thẳng `ex.Message` để chẩn đoán (vd SP chưa tạo trên DB).
 - `MainLayout.razor`: 3 chỗ — NavLink "Danh mục nhóm giá", BreadcrumbMap, `_expandCatPrice`.
 - `database-schema.md`: thêm bảng `StorePriceGroupHeader` + ghi chú SP; `CURRENT_STRUCTURE.md`: thêm
   DTO + note service/repo.
 
-**Pattern mới:** không có — tái dùng khuôn PricesPage (list) + SiteGroupSetupDialog (dialog header+store)
-+ SP upsert/TVP có sẵn.
+**Pattern mới:** "MudAutocomplete thêm-vào-danh-sách (multi-add picker)" — `@ref` + `ClearAsync()` sau
+mỗi lần thêm, chống trùng bỏ qua im lặng, KHÔNG dùng ResetValueOnEmptyText (crash circuit). Đã thêm vào
+`.claude/skills/web/SKILLS.md` (biến thể của store-picker). Khuôn list/SP/TVP tái dùng có sẵn.
 
 **Lưu ý cho session sau:** chạy tay 2 script SQL trên `RPOSMasterData` (DEV trước) TRƯỚC khi test UI:
 `StorePriceGroup_Save.sql`, `StorePriceGroup_Delete.sql` (app không tự tạo SP). Priority chỉ lưu ở dòng

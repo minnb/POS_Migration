@@ -322,6 +322,23 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/TransactionsPage.razor`
 > Chi tiết: `.claude/skills/web/filter-store.md`
 
+**Biến thể: MudAutocomplete "thêm vào danh sách" (multi-add picker)** — khi picker KHÔNG phải
+chọn 1 giá trị mà để **thêm liên tiếp nhiều mục vào 1 list/lưới** (vd chọn nhiều cửa hàng gán vào
+nhóm): giữ `@ref` và gọi `await _picker.ClearAsync()` NGAY sau khi thêm để ô tự rỗng, sẵn sàng chọn
+mục tiếp theo. Chống trùng bằng cách **bỏ qua im lặng** (không Snackbar/alert — trùng là thao tác
+bình thường của người dùng, không phải lỗi). KHÔNG dùng `ResetValueOnEmptyText`/`MinCharacters=0`
+để tự clear (gây reset-loop crash circuit — xem CLAUDE.md §13); `ClearAsync()` sau add là cách an toàn.
+```csharp
+private MudAutocomplete<StoreDto>? _picker;
+private async Task AddStoreAsync(StoreDto? s) {
+    var code = s?.StoreNo?.Trim();
+    if (!string.IsNullOrEmpty(code) && _rows.All(r => !r.Store.Equals(code, StringComparison.OrdinalIgnoreCase)))
+        _rows.Add(new(){ Store = code, StoreName = s!.Name });
+    if (_picker != null) await _picker.ClearAsync();   // rỗng ô để thêm mục kế tiếp
+}
+```
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/Dialogs/PriceGroupSetupDialog.razor`
+
 ---
 
 ## Báo cáo — Pivot table & Report page layout
