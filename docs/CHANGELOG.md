@@ -7,6 +7,49 @@
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+## [2026-07-06] FIX: "Duyệt CTKM" publish dữ liệu nháp cũ khi chưa Lưu tạm lại
+
+**Layer:** POS.Web
+**Loại:** Bug fix (nghiêm trọng — publish sai dữ liệu lên máy POS)
+
+**Bối cảnh:** người dùng test và tự phát hiện: bấm "Duyệt" mà không bấm "Lưu tạm" lại sau khi
+sửa Buy/Get/Site → dữ liệu mới không được publish. Điều tra xác nhận (không đoán, có bằng chứng
+code + doc cụ thể, xem lịch sử điều tra trong session): nút "Duyệt CTKM" trong editor
+(`PromotionSetupPage.razor`) chỉ điều kiện hiện theo `_header.No` khác rỗng (đã Lưu tạm 1 lần
+BẤT KỲ LÚC NÀO trong quá khứ) — không kiểm tra dữ liệu hiện tại đã Lưu hay chưa.
+`ApproveAsync`/`usp_SetupPromotion_Approve` hoàn toàn không nhận Buy/Get/Site — chỉ publish lại
+đúng dữ liệu **đã có sẵn** trong bảng nháp `SetupPromotionBUY/GET/SITE` từ lần Lưu tạm gần nhất.
+
+**Thay đổi:** `PromotionSetupPage.razor`:
+- `SaveAsync()` đổi trả `Task<bool>` (thêm tham số `showSuccessSnackbar = true`, giữ hành vi cũ
+  cho nút "Lưu tạm" độc lập).
+- Tách `ApproveAsync(bbynr)` cũ thành `ApproveCoreAsync(bbynr)` (logic publish thật, dùng chung).
+- Thêm `ApproveFromEditorAsync()` — dùng riêng cho nút "Duyệt CTKM" trong editor: LUÔN
+  `SaveAsync(false)` trước, chỉ gọi `ApproveCoreAsync` nếu Lưu thành công.
+- Nút Duyệt nhanh ở màn danh sách (`ApproveAsync(context.No)`) **giữ nguyên** — không Lưu tạm
+  (vì không có state Buy/Get/Site của đúng CTKM đó trong bộ nhớ trang; tự Lưu tạm ở đây sẽ ghi đè
+  dữ liệu thật thành rỗng, tệ hơn bug cũ).
+- Gỡ 1 dòng log chẩn đoán tạm (`System.Diagnostics.Debug.WriteLine`) đã thêm trong
+  `PromotionRepository.SaveSetupAsync` ở phiên điều tra trước đó (không còn cần — đã loại trừ
+  giả thuyết lỗi TVP/Dapper qua điều tra, root cause thật nằm ở tầng UI này).
+- `docs/web/logic/LOGIC_APPROVE_CTKM.md` cập nhật sơ đồ + mục 1.1-1.5 phản ánh 2 luồng Duyệt
+  khác nhau (editor tự Lưu tạm trước / danh sách không).
+
+**Pattern mới:** "publish luôn kèm auto-save trước, không dùng cờ dirty" — khi 1 hành động B chỉ
+hợp lệ nếu state đã được persist bởi hành động A, và A có nhiều điểm mutate rải rác (2-way binding
+trên bảng động) khó theo dõi dirty đầy đủ, ưu tiên **luôn chạy A trước B** thay vì cờ dirty dễ sót.
+
+**Lưu ý cho session sau:** đây là bug ảnh hưởng dữ liệu publish lên **5.000 máy POS thật** — nếu
+gặp báo cáo tương tự ("Duyệt xong nhưng CTKM lên POS thiếu sản phẩm/cửa hàng"), kiểm tra ngay xem
+người dùng có Lưu tạm lại sau khi sửa trước khi Duyệt không, trước khi nghi ngờ SP/Dapper. Verify:
+`dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25 — chưa test UI thật (cần người
+dùng tự test lại theo đúng kịch bản đã gặp bug).
+
+---
+
+>>>>>>> minhnb
 ## [2026-07-06] Topbar/AppBar breadcrumb + Typography pixel-perfect theo mockup `theme_html.html`
 
 **Layer:** POS.Web

@@ -229,7 +229,7 @@ else
         @if (!_isReadonly)
         {
             <div class="d-flex justify-end mt-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="@(() => SaveAsync(true))">
                     @if (_saving)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
@@ -730,9 +730,9 @@ else
     @if (!_isReadonly && !string.IsNullOrEmpty(_header.No))
     {
         <MudPaper Elevation="1" Class="pa-4 mt-4 d-flex justify-end gap-2 flex-wrap">
-            <MudTooltip Text="Duyệt & phát hành CTKM cho máy POS (không sửa lại được)">
+            <MudTooltip Text="Lưu tạm dữ liệu hiện tại rồi Duyệt & phát hành CTKM cho máy POS (không sửa lại được)">
                 <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle"
-                           Disabled="_saving" OnClick="@(() => ApproveAsync(_header.No))">Duyệt CTKM</MudButton>
+                           Disabled="_saving" OnClick="ApproveFromEditorAsync">Duyệt CTKM</MudButton>
             </MudTooltip>
         </MudPaper>
     }
@@ -969,9 +969,9 @@ else
     }
 
     // ── Save ──
-    private async Task SaveAsync()
+    private async Task<bool> SaveAsync(bool showSuccessSnackbar = true)
     {
-        if (_saving) return;
+        if (_saving) return false;
         _header.StartingDate = _fromDate?.ToString("dd/MM/yyyy") ?? string.Empty;
         _header.EndingDate = _toDate?.ToString("dd/MM/yyyy") ?? string.Empty;
         _header.VoucherFromDate = _header.IsVoucher ? (_voucherFromDate?.ToString("dd/MM/yyyy") ?? string.Empty) : string.Empty;
@@ -989,17 +989,19 @@ else
                 SiteGroupCodes = _siteRows.Select(s => s.SiteGroupCode).Where(c => !string.IsNullOrWhiteSpace(c)).ToList()
             };
             var (ok, message, bbynr) = await PromotionService.SaveSetupAsync(request);
-            if (!ok) { Snackbar.Add(message, Severity.Error); return; }
+            if (!ok) { Snackbar.Add(message, Severity.Error); return false; }
 
             _header.No = bbynr;
             await AuditLogger.LogAsync(_actor, isNew ? "CREATE" : "UPDATE", "SetupPromotion", bbynr,
                 oldValueJson: null, newValueJson: JsonConvert.SerializeObject(request));
-            Snackbar.Add(message, Severity.Success);
+            if (showSuccessSnackbar) Snackbar.Add(message, Severity.Success);
+            return true;
         }
         catch (Exception ex)
         {
             FileLogger.WriteExpLogs("PromotionSetupPage.Save", ex);
             Snackbar.Add("Lưu CTKM thất bại.", Severity.Error);
+            return false;
         }
         finally
         {
@@ -1008,12 +1010,37 @@ else
     }
 
     // ── Approve ──
+    // Nút Duyệt nhanh ở màn danh sách — CTKM chưa mở editor, không có state Buy/Get/Site trong
+    // bộ nhớ nên KHÔNG được Lưu tạm ở đây (sẽ ghi đè dữ liệu thật thành rỗng). Chỉ publish lại
+    // đúng dữ liệu nháp đã có sẵn trong DB.
     private async Task ApproveAsync(string bbynr)
     {
         _confirmMsg = $"Duyệt và phát hành CTKM {bbynr}? Sau khi duyệt sẽ không sửa được.";
         var confirmed = await _confirmBox!.ShowAsync();
         if (confirmed != true) return;
 
+        await ApproveCoreAsync(bbynr);
+    }
+
+    // Nút "Duyệt CTKM" trong editor — BẮT BUỘC Lưu tạm state hiện tại trước khi publish, để
+    // tránh Duyệt lại dữ liệu nháp cũ (bug: user sửa Buy/Get/Site sau lần Lưu tạm gần nhất rồi
+    // bấm Duyệt thẳng mà không Lưu tạm lại → dữ liệu mới không được publish).
+    private async Task ApproveFromEditorAsync()
+    {
+        var bbynr = _header.No;
+        _confirmMsg = $"Duyệt và phát hành CTKM {bbynr}? Hệ thống sẽ Lưu tạm dữ liệu hiện tại trước khi Duyệt. " +
+                      "Sau khi Duyệt sẽ không sửa được.";
+        var confirmed = await _confirmBox!.ShowAsync();
+        if (confirmed != true) return;
+
+        var saveOk = await SaveAsync(showSuccessSnackbar: false);
+        if (!saveOk) return;
+
+        await ApproveCoreAsync(_header.No);
+    }
+
+    private async Task ApproveCoreAsync(string bbynr)
+    {
         try
         {
             var (ok, message) = await PromotionService.ApproveSetupAsync(bbynr);
