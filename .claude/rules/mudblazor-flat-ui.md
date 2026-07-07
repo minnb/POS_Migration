@@ -124,13 +124,31 @@
   - **L2** (Vận hành/Giao dịch/Báo cáo/Tổ chức/Giám sát...): **có icon Material riêng** cho từng
     nhóm (`Icons.Material.Outlined.Schedule`, `.ReceiptLong`, `.Assessment`, `.Groups`,
     `.PointOfSale`, `.Inventory2`, `.Sell`, `.Campaign`, `.ConfirmationNumber`, `.MonitorHeart`,
-    `.Article`, `.Tune`...), `font-size:0.78125rem` (12.5px, cập nhật 2026-07-06 từ 13px — khớp
-    mockup `.nav-item{font-size:12.5px}`), sáng nhất trong các mục chưa active — giống `.nav-item`
-    mockup.
+    `.Article`, `.Tune`...), `font-size:0.8125rem` (13px, cập nhật 2026-07-06 theo yêu cầu người
+    dùng — tăng lại từ `0.78125rem`/12.5px vì đọc khó trên sidebar navy; **lệch có chủ đích** so
+    với mockup `.nav-item{font-size:12.5px}`, không còn pixel-perfect ở riêng điểm này), sáng nhất
+    trong các mục chưa active — giống `.nav-item` mockup.
   - **L3** (leaf link): icon `ChevronRight` đồng nhất cho mọi mục, mờ hơn L2.
   - Nhóm "Quản trị" cấu trúc phẳng (không có L2, leaf nằm trực tiếp dưới L1) → 6 leaf giữ icon
     riêng có ý nghĩa (People/Security/Settings/History/Storage/Lock) vì chúng nằm ở độ sâu tương
     đương L2.
+
+  > **Cập nhật 2026-07-06 — L1 hết là `MudNavGroup`, trừ Quản trị.** Theo ảnh mẫu
+  > `docs/web/images/menu_sidebar.jpg`, user yêu cầu L2 **luôn hiển thị** dưới L1, không cần
+  > click. `MudNavGroup` (MudBlazor 9.5.0, đã tra XML doc) **không có** tham số khóa "luôn mở,
+  > không phản hồi click" (`Expandable`/`ReadOnly` không tồn tại; `Disabled` chặn cả style/L2 bên
+  > trong nên không phù hợp). Giải pháp: bỏ hẳn `MudNavGroup` bọc L1 cho 4 domain (CỬA HÀNG/
+  > DANH MỤC/KHUYẾN MÃI/VẬN HÀNH), thay bằng `<div class="pos-nav-section-label">` (nhãn tĩnh,
+  > không click) + đưa các `MudNavGroup` L2 lên làm con trực tiếp của `MudNavMenu` (gắn thêm
+  > `Class="pos-nav-l2"` để CSS phân biệt với Quản trị — cũng là `.mud-nav-group` top-level nhưng
+  > không có class này). **QUẢN TRỊ giữ nguyên 100%** cấu trúc `MudNavGroup` bọc L1→leaf cũ — vì
+  > vậy nó vẫn là `.mud-nav-group` top-level DUY NHẤT không có `.pos-nav-l2`, nên rule CSS L1 cũ
+  > (`.mud-navmenu > .mud-nav-group > .mud-nav-link`) **không cần đổi selector**, tự động chỉ còn
+  > áp dụng cho Quản trị. Indent dịch lên 1 bậc do bớt 1 tầng lồng: L2 (nay top-level) `20px→12px`,
+  > L3 `28px→20px` (Quản trị/L1 giữ nguyên `12px`). Field `@code` aggregate không còn dùng
+  > (`_expandStore`/`_expandCatalog`/`_expandPromotion`/`_expandOps`) đã xóa khỏi
+  > `MainLayout.razor` — các field lẻ theo từng L2 (`_expandStoreOps`...) và `_expandAdmin` giữ
+  > nguyên, bind trực tiếp vào `MudNavGroup` L2/Quản trị như cũ.
 - **Icon set giữ `Icons.Material.Outlined.*`** — mockup dùng emoji nhưng đã quyết định KHÔNG dùng
   emoji cho toàn bộ nav (dù đã thử 1 lần và rollback — xem mục "Đã cân nhắc và loại bỏ").
 - ⚠️ **Bug đã gặp và fix**: tham số `Icon=` của `MudNavLink`/`MudNavGroup`/`MudIcon` nhận **SVG
@@ -230,7 +248,8 @@
 
 - Sidebar L1 (`.mud-drawer .mud-navmenu > .mud-nav-group > .mud-nav-link`): weight 400→700,
   size 11px→10px, letter-spacing 0.8px→1px (xem mục 5).
-- Sidebar L2 (nav-item lồng): size 13px→12.5px (xem mục 5).
+- Sidebar L2 (nav-item lồng): size 13px→12.5px (xem mục 5) — **rollback 2026-07-06**: tăng lại
+  12.5px→13px theo yêu cầu người dùng, xem mục 5.
 - `.mud-table .mud-table-body .mud-table-cell`: **mới thêm** `font-size:0.78125rem` (12.5px) —
   trước đó chỉ có override cho `.mud-table-head`, body cell dùng size mặc định MudBlazor không
   khớp mockup `table{font-size:12.5px}`.

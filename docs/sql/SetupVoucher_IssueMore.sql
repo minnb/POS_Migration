@@ -32,8 +32,9 @@ BEGIN
     SET XACT_ABORT ON;
 
     IF NOT EXISTS (SELECT 1 FROM dbo.CpnVchBOMHeader WHERE ItemNo = @ItemNo)
-        ;THROW 50002, N'Không tìm thấy voucher (ItemNo không tồn tại)', 1;
-
+    BEGIN
+        THROW 50002, N'Không tìm thấy voucher (ItemNo không tồn tại)', 1;
+    END
     BEGIN TRY
         BEGIN TRANSACTION;
 

@@ -174,44 +174,76 @@
     margin-inline-start: 9px !important;
 }
 
-/* Indent 3 cấp thu gọn — mockup phẳng (.nav-section{padding:12px}), POS.Web có
-   3 cấp lồng nhau nên dùng thang giảm dần thay mặc định MudBlazor (16/36/48px)
-   để giữ tín hiệu phân tầng nhưng khít hơn nhiều, đúng tinh thần mockup.
+/* Indent — mockup phẳng (.nav-section{padding:12px}).
+   Cập nhật 2026-07-06: bỏ lớp MudNavGroup bọc L1 cho 4 domain (CỬA HÀNG/DANH MỤC/KHUYẾN MÃI/
+   VẬN HÀNH) — L1 giờ là nhãn tĩnh <div class="pos-nav-section-label"> (xem rule riêng bên dưới),
+   không còn là .mud-nav-group nên KHÔNG match các rule .mud-nav-group trong file này nữa.
+   Rule "L1 title indent" dưới đây vì vậy chỉ còn khớp QUẢN TRỊ (menu phẳng duy nhất còn giữ
+   MudNavGroup bọc ngoài, KHÔNG đổi theo yêu cầu). Nhóm marker class `.pos-nav-l2` đánh dấu
+   MudNavGroup trước đây gọi là "L2" nay đã lên vị trí top-level — dịch 2 mốc indent lên 1 bậc,
+   giữ nguyên bước nhảy 8px giữa các cấp: 20px→12px và 28px→20px.
    VERIFIED: MudBlazor 9.5.0 dùng class .mud-navmenu (KHÔNG phải .mud-nav-menu)
              và title NavGroup là .mud-nav-group > .mud-nav-link (KHÔNG phải .mud-nav-group-title). */
-/* L1 title indent */
+/* L1 title indent — chỉ còn áp dụng cho QUẢN TRỊ (menu phẳng, giữ nguyên) */
 .mud-drawer .mud-navmenu > .mud-nav-group > .mud-nav-link {
     padding-left: 12px !important;
 }
-/* L2 title indent (NavGroup lồng trong NavGroup) */
-.mud-drawer .mud-navmenu > .mud-nav-group > .mud-collapse-container .mud-nav-group > .mud-nav-link {
+/* L2 title indent (nay là MudNavGroup top-level, đánh dấu bằng class .pos-nav-l2) */
+.mud-drawer .mud-navmenu > .mud-nav-group.pos-nav-l2 > .mud-nav-link {
+    padding-left: 12px !important;
+}
+/* L3 leaf link indent (con trực tiếp của .pos-nav-l2, không còn NavGroup lồng ở giữa) */
+.mud-drawer .mud-navmenu > .mud-nav-group.pos-nav-l2 > .mud-collapse-container .mud-nav-link {
     padding-left: 20px !important;
 }
-/* L3 leaf link indent */
-.mud-drawer .mud-navmenu > .mud-nav-group > .mud-collapse-container .mud-nav-group > .mud-collapse-container .mud-nav-link {
-    padding-left: 28px !important;
+
+/* ── Sidebar visual hierarchy — theo theme_html.html ─────────────────────
+   Cập nhật 2026-07-06: L1 (CỬA HÀNG/DANH MỤC/KHUYẾN MÃI/VẬN HÀNH) đổi từ MudNavGroup bọc ngoài
+   (click để đóng/mở toàn bộ L2) sang nhãn tĩnh <div class="pos-nav-section-label"> — L2 bên dưới
+   LUÔN hiển thị ngay từ đầu, không cần click. Lý do kỹ thuật: MudNavGroup (MudBlazor 9.5.0)
+   không có tham số nào khóa group ở trạng thái "luôn mở, không phản hồi click"
+   (đã xác nhận qua XML doc — không có `Expandable`/`ReadOnly`; `Disabled` sẽ chặn cả style/L2 bên
+   trong nên không phù hợp). Riêng QUẢN TRỊ (menu phẳng L1→leaf, không có L2) GIỮ NGUYÊN cấu trúc
+   MudNavGroup cũ theo yêu cầu — do đó vẫn còn matching các rule ".mud-nav-group > .mud-nav-link"
+   (không có class .pos-nav-l2) bên dưới.
+
+   L1 (CỬA HÀNG/DANH MỤC...) → .pos-nav-section-label, nhãn tĩnh, faint, không icon, không click
+   L2 (Vận hành/Báo cáo...)   → MudNavGroup top-level, class .pos-nav-l2, CÓ ICON, sáng nhất
+   L3 (leaf)                  → chevron đồng nhất, mờ hơn L2 — sub-destination
+   QUẢN TRỊ (không đổi)       → MudNavGroup top-level KHÔNG có .pos-nav-l2 → vẫn dùng rule L1 cũ
+
+   MudBlazor 9.5.0 DOM structure sau khi flatten (VERIFIED từ MudBlazor.min.css):
+     .mud-navmenu
+       .mud-nav-group.pos-nav-l2           ← L2 NavGroup (top-level, trước đây lồng trong L1)
+         .mud-nav-link                     ← L2 title (có icon)
+         .mud-collapse-container
+           .mud-nav-item                   ← L3 wrapper
+             .mud-nav-link                 ← L3 leaf link
+       .mud-nav-group                      ← QUẢN TRỊ (không có .pos-nav-l2, không đổi)
+         .mud-nav-link                     ← title QUẢN TRỊ (HideExpandIcon=true)
+         .mud-collapse-container
+           .mud-nav-link                   ← leaf QUẢN TRỊ trực tiếp (không có L2) */
+
+/* L1 — nhãn section tĩnh (div, KHÔNG phải MudNavGroup) — style copy nguyên từ rule L1 cũ để giữ
+   đúng hình ảnh (faint, không icon, in hoa, không in đậm cỡ chữ). */
+.pos-nav-section-label {
+    display: block;
+    padding: 6px 8px 6px 20px;
+    margin-top: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.625rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.pos-nav-section-label:first-child {
+    margin-top: 0;
 }
 
-/* ── Sidebar visual hierarchy (3 cấp) — theo theme_html.html ─────────────
-   Cấu trúc mockup 2 cấp (nav-section-label + nav-item) ánh xạ sang 3 cấp:
-   L1 (CỬA HÀNG/DANH MỤC...) → faint, không icon  — như .nav-section-label
-   L2 (Vận hành/Báo cáo...)   → nav-item CÓ ICON, sáng nhất — như .nav-item
-   L3 (leaf)                  → chevron đồng nhất, mờ hơn L2 — sub-destination
-
-   MudBlazor 9.5.0 DOM structure (VERIFIED từ MudBlazor.min.css):
-     .mud-navmenu                        ← MudNavMenu (KHÔNG phải .mud-nav-menu)
-       .mud-nav-group                    ← L1 NavGroup
-         .mud-nav-link                   ← L1 title (HideExpandIcon=true)
-           .mud-nav-link-text            ← văn bản L1
-         .mud-collapse-container
-           .mud-nav-group                ← L2 NavGroup
-             .mud-nav-link              ← L2 title (có icon)
-             .mud-collapse-container
-               .mud-nav-item            ← L3 wrapper
-                 .mud-nav-link          ← L3 leaf link  */
-
-/* L1 — section header: faint, không icon, không in đậm
-   Selector: direct child .mud-nav-link của .mud-nav-group cấp 1 */
+/* L1 (QUẢN TRỊ only) — section header: faint, không icon, không in đậm
+   Selector: direct child .mud-nav-link của .mud-nav-group cấp 1. Sau khi flatten (2026-07-06),
+   chỉ còn QUẢN TRỊ là .mud-nav-group top-level (4 domain khác đã đổi sang .pos-nav-section-label
+   ở trên) nên rule này tự động chỉ còn khớp QUẢN TRỊ — không cần đổi selector. */
 .mud-drawer .mud-navmenu > .mud-nav-group > .mud-nav-link {
     font-weight: 700 !important;
     color: rgba(255, 255, 255, 0.4) !important;
@@ -222,11 +254,15 @@
 /* L2 — nav-item chính (có icon): sáng nhất trong các mục chưa active.
    QA pass 2026-07-05: line-height 1.4 (an toàn dấu tiếng Việt), padding 5px,
    margin 1px — tổng chiều cao dòng ≥ ngưỡng WCAG 2.5.8 (24×24px).
-   Selector: .mud-nav-link là title của NavGroup lồng trong collapse-container của L1. */
-.mud-drawer .mud-navmenu > .mud-nav-group > .mud-collapse-container .mud-nav-group > .mud-nav-link {
+   Cập nhật 2026-07-06: sau khi bỏ lớp NavGroup bọc L1, nhóm này (trước đây "L2 lồng trong L1")
+   nay là MudNavGroup top-level — chọn qua marker class .pos-nav-l2 (Class="pos-nav-l2" gắn trên
+   Razor) để tránh trùng với QUẢN TRỊ (cũng là .mud-nav-group top-level nhưng không có class này).
+   font-size 13px — lệch có chủ đích so với mockup theme_html.html (.nav-item{font-size:12.5px}),
+   xem .claude/rules/mudblazor-flat-ui.md §5/§11. */
+.mud-drawer .mud-navmenu > .mud-nav-group.pos-nav-l2 > .mud-nav-link {
     font-weight: 500 !important;
     color: var(--pos-drawer-text-dim) !important;
-    font-size: 0.78125rem !important;
+    font-size: 0.8125rem !important;
     line-height: 1.4 !important;
     padding-top: 5px !important;
     padding-bottom: 5px !important;
@@ -235,15 +271,16 @@
 }
 
 /* L3 — leaf link (inactive)
-   Selector: .mud-nav-link bên trong collapse-container của L2 NavGroup */
-.mud-drawer .mud-navmenu > .mud-nav-group > .mud-collapse-container .mud-nav-group > .mud-collapse-container .mud-nav-link {
+   Selector: .mud-nav-link bên trong collapse-container của .pos-nav-l2 (không còn NavGroup lồng
+   ở giữa — con trực tiếp, khác trước 2026-07-06 phải đi qua thêm 1 lớp .mud-nav-group). */
+.mud-drawer .mud-navmenu > .mud-nav-group.pos-nav-l2 > .mud-collapse-container .mud-nav-link {
     color: var(--pos-drawer-text) !important;
     font-size: 0.8125rem !important;
     font-weight: 400 !important;
 }
 
 /* L3 active — đảm bảo specificity cao hơn rule L3 inactive ở trên */
-.mud-drawer .mud-navmenu > .mud-nav-group > .mud-collapse-container .mud-nav-group > .mud-collapse-container .mud-nav-link.active {
+.mud-drawer .mud-navmenu > .mud-nav-group.pos-nav-l2 > .mud-collapse-container .mud-nav-link.active {
     color: #FFFFFF !important;
     font-weight: 600 !important;
 }
@@ -636,8 +673,9 @@
     }
 
     /* Fix specificity: L2 selector có độ ưu tiên cao hơn rule .mud-nav-link chung
-       ở trên → cần override tường minh với selector đúng MudBlazor 9.5.0. */
-    .mud-drawer .mud-navmenu > .mud-nav-group > .mud-collapse-container .mud-nav-group > .mud-nav-link {
+       ở trên → cần override tường minh. Cập nhật 2026-07-06: chọn qua .pos-nav-l2
+       (xem khối "Sidebar visual hierarchy" phía trên) sau khi bỏ lớp NavGroup bọc L1. */
+    .mud-drawer .mud-navmenu > .mud-nav-group.pos-nav-l2 > .mud-nav-link {
         padding-top: 9px !important;
         padding-bottom: 9px !important;
         margin-top: 2px !important;

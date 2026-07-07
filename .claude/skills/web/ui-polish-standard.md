@@ -16,16 +16,18 @@
                               icon + nút đi kèm dùng Size="Size.Small" (title đã thu nhỏ 1.25rem)
 □ 2. Page header chỉ title  → MudText Typo.h5 trực tiếp (không cần pos-page-header)
 □ 3. Filter panel           → MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4"
-                              + MudGrid Spacing="2" (pos-filter-panel = nền soft-tint, xem theming.md)
+                              + MudGrid Spacing="2" (pos-filter-panel = nền trắng + border, xem theming.md)
 □ 4. Filter button group    → MudItem xs="12" sm="12" md="2" Class="d-flex align-center"
                               + MudStack Row Spacing="1" w-100 + FullWidth="true" mỗi nút
-                              + mọi MudButton dùng Variant.Outlined (không Filled — xem §5, §9)
+                              + nút "Tìm" (CTA) Variant.Filled Color.Primary, nút "Xóa" (trung
+                              tính) Variant.Outlined — theo bảng Button convention CLAUDE.md §14
 □ 5. DataTable              → MudTable Dense Hover Striped HorizontalScrollbar="true"
 □ 6. Cột Trạng thái         → MudChip T="string" Size.Small Variant.Filled + màu ternary
 □ 7. NoRecordsContent       → div icon + text canh giữa (pattern §3)
 □ 8. Editor tab "Thông tin" → tách nhóm field có subtitle + divider (pattern §4)
 □ 9. Action bar Lưu/Duyệt  → MudPaper Elevation="1" pa-3 mt-4 justify-end (pattern §5),
-                              button Variant.Outlined (không Filled)
+                              "Lưu"/"Duyệt" Variant.Filled (CTA/tích cực), "Hủy" Variant.Outlined
+                              — theo bảng Button convention CLAUDE.md §14
 □ 10. Chip container        → d-flex flex-wrap gap-2 (KHÔNG thiếu flex-wrap)
 □ 11. Spacing               → chỉ mb-1..4, pa-2..4, gap-1..3 (CẤM mb-5/6, pa-5/6, gap-4+)
 □ 12. Input form            → Variant.Outlined + Margin.Dense (tất cả field)
@@ -133,20 +135,22 @@ mỗi nhóm có tiêu đề phụ + divider. **Không** di chuyển hay đổi b
 ## 5. Pattern: Action bar Lưu/Duyệt
 
 Thay `<div class="d-flex gap-2 flex-wrap mt-4">…</div>` bằng MudPaper có nền phân tách. Button
-dùng `Variant.Outlined` (cập nhật 2026-07-04 — không còn `Filled`, xem `theming.md` §"Button"):
+theo bảng Button convention v3 (`CLAUDE.md §14`, `theming.md` §"Button") — CTA/hành động tích cực
+dùng `Filled`, hành động trung tính/phá hủy dùng `Outlined`:
 
 ```razor
 @* Giữ nguyên bao ngoài @if (!_isReadonly) nếu có *@
 <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Save"
                Disabled="_saving" OnClick="SaveAsync">
         Lưu tạm
     </MudButton>
-    @* Các nút khác (Duyệt, Hủy...) — giữ nguyên OnClick/Disabled/Color, đổi Variant sang Outlined *@
+    @* Các nút khác (Duyệt, Hủy...) — giữ nguyên OnClick/Disabled; chọn Variant/Color theo bản
+       chất hành động: Duyệt = Filled/Success (tích cực, chốt luồng), Hủy = Outlined (trung tính) *@
     @if (!string.IsNullOrEmpty(_header.No))
     {
-        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
                    StartIcon="@Icons.Material.Filled.CheckCircle"
                    Disabled="_saving" OnClick="@(() => ApproveAsync(_header.No))">
             Duyệt

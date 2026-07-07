@@ -463,7 +463,6 @@ else
         if (_fromDate == null) { Snackbar.Add("Vui lòng chọn ngày bắt đầu", Severity.Warning); return; }
         if (_toDate == null) { Snackbar.Add("Vui lòng chọn ngày kết thúc", Severity.Warning); return; }
         if (_fromDate.Value.Date >= _toDate.Value.Date) { Snackbar.Add("Từ ngày phải nhỏ hơn Đến ngày", Severity.Warning); return; }
-        if (_advanced.MaxValue > 0 && _advanced.DiscountValue < _advanced.MaxValue) { Snackbar.Add("Giá trị giảm giá phải lớn hơn hoặc bằng giảm giá tối đa", Severity.Warning); return; }
 
         _model.StartingDateStr = _fromDate.Value.ToString("dd/MM/yyyy");
         _model.EndingDateStr = _toDate.Value.ToString("dd/MM/yyyy");

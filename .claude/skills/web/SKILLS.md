@@ -923,9 +923,12 @@ Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (def
 ## Theming — Custom MudBlazor Theme
 
 > **Chi tiết đầy đủ: `.claude/skills/web/theming.md`** — đọc khi cần đổi màu/typography toàn app,
-> hoặc khi tạo page/component mới cần biết chuẩn hiện hành: sidebar/appbar nền sáng, card
-> borderless, `DefaultBorderRadius=16px`, button `Variant.Outlined` mọi nơi, `pos-filter-panel`,
-> icon sidebar `Outlined` (cập nhật v2 2026-07-04 — theming.md đã đồng bộ đầy đủ).
+> hoặc khi tạo page/component mới cần biết chuẩn hiện hành (v3, theo mockup
+> `docs/web/theme/theme_html.html`): sidebar navy đậm (`DrawerBackground="#0D1B2A"`), card có
+> shadow thật (Elevation 2), radius 2 cấp (`DefaultBorderRadius=12px` cho Paper/Card/Dialog, `8px`
+> ép riêng cho Button/Chip/Input), button `Variant.Filled` cho CTA/hành động tích cực +
+> `Variant.Outlined` cho phần còn lại, `pos-filter-panel` nền trắng + border, icon sidebar
+> `Outlined`.
 > Tập trung tại `src/POS.Web/Theme/PosTheme.cs` + `<MudThemeProvider Theme="@PosTheme.Default"/>`. Lưu ý v9: `FontWeight`/`LineHeight` là string, `Shadows.Elevation` đúng 25 phần tử.
 
 ---
