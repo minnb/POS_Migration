@@ -34,4 +34,7 @@ public interface ICouponService
 
     /// <summary>Xóa coupon (guard QtyCoupon==0).</summary>
     Task<(bool Ok, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default);
+
+    /// <summary>Phát hành THÊM một lô mã Auto mới cho coupon đã tồn tại (không tạo header, không import).</summary>
+    Task<CouponSaveResult> IssueMoreAsync(CouponIssueMoreRequest request, CancellationToken ct = default);
 }

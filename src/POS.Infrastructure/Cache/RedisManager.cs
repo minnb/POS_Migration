@@ -275,6 +275,44 @@ public sealed class RedisManager : IRedisManager
         }
     }
 
+    // ──────────────────────────────────────────
+    // Distributed lock
+    // ──────────────────────────────────────────
+
+    private const string ReleaseLockScript =
+        "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
+
+    public async Task<string?> AcquireLockAsync(string key, TimeSpan ttl)
+    {
+        try
+        {
+            var token = Guid.NewGuid().ToString("N");
+            var acquired = await Db.StringSetAsync(key, token, ttl, When.NotExists, CommandFlags.PreferMaster)
+                .ConfigureAwait(false);
+            return acquired ? token : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] AcquireLockAsync failed — key: {Key}", key);
+            return null;
+        }
+    }
+
+    public async Task<bool> ReleaseLockAsync(string key, string token)
+    {
+        try
+        {
+            var result = await Db.ScriptEvaluateAsync(ReleaseLockScript,
+                new RedisKey[] { key }, new RedisValue[] { token }, CommandFlags.PreferMaster).ConfigureAwait(false);
+            return (long)result == 1;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] ReleaseLockAsync failed — key: {Key}", key);
+            return false;
+        }
+    }
+
     public Task<List<string>> GetKeysByPatternAsync(string pattern)
     {
         try

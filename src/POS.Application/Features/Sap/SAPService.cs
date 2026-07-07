@@ -16,7 +16,7 @@ public sealed class SAPService(
         // Kiểm tra toàn bộ TRƯỚC khi tạo để tránh tạo dở dang (loop tạo không có transaction).
         foreach (var item in model)
         {
-            if (string.IsNullOrWhiteSpace(item.Article_No)) continue;
+            if (string.IsNullOrWhiteSpace(item.Article_No) || item.Article_No == "10000001") continue;
             if (!await centralMDRepository.CpnVchBOMHeaderExistsAsync(item.Article_No, ct))
                 return new ResultResponse
                 {
@@ -115,7 +115,7 @@ public sealed class SAPService(
     public async Task<ResultResponse> RedeemCpnVchAsync(VoucherUpdateModel model, CancellationToken ct = default)
     {
         var serials = model.ListSeriNo!
-            .Select(x => (x.voucherNumber, x.value))
+            .Select(x => (x.VoucherNumber, x.AmountRedeem))
             .ToList();
 
         var (success, message, results) = await voucherCodeRepository.RedeemAsync(

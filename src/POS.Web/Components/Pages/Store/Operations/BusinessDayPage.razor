@@ -92,16 +92,22 @@ else if (_hasSearched && _confirmInfo != null)
         Đã xác nhận kết thúc ngày lúc @_confirmInfo.ConfirmedDate.ToString("dd/MM/yyyy HH:mm") bởi @_confirmInfo.ConfirmedBy.
     </MudAlert>
 }
-else if (_hasSearched && _staging.Count > 0 && _staging.Any(s => !s.IsClosed))
+else if (_hasSearched && _staging.Count > 0 && _canForceConfirm && _staging.Any(s => !s.IsClosed))
 {
     <MudAlert Severity="Severity.Warning" Class="mb-3">
-        @if (_canForceConfirm)
+        @($"Còn {_staging.Count(s => !s.IsClosed)} máy POS chưa đóng ngày — với quyền IT Ops bạn vẫn có thể xác nhận kết thúc ngày (force).")
+    </MudAlert>
+}
+else if (_hasSearched && _staging.Count > 0 && !_canForceConfirm && !CanConfirm)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3">
+        @if (BlockingCount > 0)
         {
-            @($"Còn {_staging.Count(s => !s.IsClosed)} máy POS chưa đóng ngày — với quyền IT Ops bạn vẫn có thể xác nhận kết thúc ngày (force).")
+            @($"Còn {BlockingCount} máy POS chưa đóng ngày — chưa thể xác nhận kết thúc ngày.")
         }
         else
         {
-            @($"Còn {_staging.Count(s => !s.IsClosed)} máy POS chưa đóng ngày — chưa thể xác nhận kết thúc ngày.")
+            @("Cửa hàng chưa có máy POS nào đóng ngày kinh doanh — chưa thể xác nhận kết thúc ngày.")
         }
     </MudAlert>
 }
@@ -214,8 +220,14 @@ else
     // ITOps/SystemAdmin được force EOD; StoreOperator chỉ khi tất cả POS đã đóng ngày.
     private bool _canForceConfirm;
 
+    // "Chưa đóng ngày" (đã có giao dịch nhưng chưa đóng ngày) luôn chặn xác nhận.
+    // "Chưa mở ca" (chưa từng có giao dịch) KHÔNG chặn — coi như không tham gia ngày kinh doanh.
+    private static bool BlocksConfirm(PosDayStagingDto s) => !s.IsClosed && s.LastSaleTime != null;
+    private int BlockingCount => _staging.Count(BlocksConfirm);
+
     private bool CanConfirm => _hasSearched && _confirmInfo == null && _staging.Count > 0
-                               && (_canForceConfirm || _staging.All(s => s.IsClosed));
+                               && (_canForceConfirm
+                                   || (_staging.Any(s => s.IsClosed) && !_staging.Any(BlocksConfirm)));
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
 

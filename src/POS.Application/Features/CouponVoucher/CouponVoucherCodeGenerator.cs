@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace POS.Application.Features.CouponVoucher;
@@ -6,7 +6,9 @@ namespace POS.Application.Features.CouponVoucher;
 /// <summary>
 /// Sinh/validate mã coupon & voucher (dùng chung cho <see cref="CouponService"/> và
 /// <see cref="VoucherService"/>). Port từ VCM.BLUEPOS SetupCouponController nhánh Auto/Import —
-/// thay <c>Thread.Sleep(1)</c> legacy bằng offset theo index để mã duy nhất, không block thread.
+/// thay <c>Thread.Sleep(1)</c> legacy bằng <see cref="RandomNumberGenerator"/> (crypto-strength,
+/// không phụ thuộc <c>UtcNow</c>) để giảm tối đa xác suất trùng mã khi nhiều request Auto-issue
+/// chạy đồng thời trong cùng millisecond.
 /// </summary>
 internal static partial class CouponVoucherCodeGenerator
 {
@@ -26,29 +28,14 @@ internal static partial class CouponVoucherCodeGenerator
         if (lenCode + pfx.Length + charOfNumber > 20)
             return ([], "Tổng ký tự đã vượt hơn 20");
 
-        var rnd = new Random();
         var list = new List<string>(quantity);
         var set = new HashSet<string>(StringComparer.Ordinal);
-        var baseUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         for (var i = 0; i < quantity; i++)
         {
-            var codeChar = charOfNumber > 0 ? RandomString(Alphabet, charOfNumber, rnd) : string.Empty;
+            var codeChar = charOfNumber > 0 ? RandomStringSecure(Alphabet, charOfNumber) : string.Empty;
+            var code = RandomStringSecure(Numbers, lenCode);
 
-            var lenNumber = lenCode;
-            var timeUnix = (baseUnix + i).ToString(CultureInfo.InvariantCulture);
-
-            var lengthCodeUnix = lenNumber;
-            var codeBlance = string.Empty;
-            if (timeUnix.Length < lenNumber)
-            {
-                lengthCodeUnix = timeUnix.Length;
-                codeBlance = RandomString(Numbers, lenNumber - timeUnix.Length, rnd);
-            }
-
-            var codeNumberFirst = codeBlance + timeUnix.Substring(timeUnix.Length - lengthCodeUnix, lengthCodeUnix);
-
-            var code = codeNumberFirst;
             if (charOfNumber > 0)
             {
                 var pos = Math.Min(Math.Max(charPosition, 0), code.Length);
@@ -102,6 +89,21 @@ internal static partial class CouponVoucherCodeGenerator
 
     private static string RandomString(string source, int length, Random rnd)
         => new(Enumerable.Range(0, length).Select(_ => source[rnd.Next(source.Length)]).ToArray());
+
+    /// <summary>
+    /// Sinh chuỗi ngẫu nhiên bằng <see cref="RandomNumberGenerator"/> (crypto-strength) — dùng cho
+    /// phần mã voucher/coupon cần đảm bảo unique, khác <see cref="RandomString"/> (dựa vào
+    /// <see cref="Random"/> thường, seed theo thời gian, chỉ đủ dùng cho Serial không unique).
+    /// </summary>
+    private static string RandomStringSecure(string alphabet, int length)
+    {
+        if (length <= 0) return string.Empty;
+        var bytes = RandomNumberGenerator.GetBytes(length);
+        var chars = new char[length];
+        for (var i = 0; i < length; i++)
+            chars[i] = alphabet[bytes[i] % alphabet.Length];
+        return new string(chars);
+    }
 
     [GeneratedRegex(@"^[0-9\-_A-Za-z]*$")]
     private static partial Regex CodeRegex();

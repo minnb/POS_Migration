@@ -1,9 +1,21 @@
-# Deploy POS.Worker trên Ubuntu (Docker) — UAT & PROD
+# Deploy POS.Worker trên Ubuntu — Model A (Cronjob Host) & Model B (Docker)
 
 > Kế thừa từ Docker setup có sẵn (`Dockerfile.worker`, `docker-compose.yml`, `docs/guide-deploy.md`
 > §3.3). File này là **runbook thao tác** dành riêng cho POS.Worker, chạy **song song** với POS.Web
 > (đã có `nginx/pos-web.conf` đứng trước) trên **cùng 1 Ubuntu host**. Không lặp lại nội dung đã có ở
 > nơi khác — chỉ trỏ tới và bổ sung phần còn thiếu (đặc biệt: `appsettings.UAT.json` cho Worker).
+
+> **Feature toggle `WorkerRoles`** (`WorkerRolesOptions.cs`) tách POS.Worker thành **2 mô hình chạy
+> đồng thời**, KHÔNG phải 2 project riêng — cùng 1 image/binary, khác cách chạy + cấu hình:
+>
+> | | Model A — Cronjob host | Model B — Docker container |
+> |---|---|---|
+> | Đảm nhiệm | `PosFileImportService` (file .zip, dùng chung `ftpbluepos` với Web/Api) | `PosSalesConsumerWorker` (RabbitMQ) + `Rpt_ReportSaleDetail_Insert` (SQL) + heartbeat |
+> | Cách chạy | `dotnet POS.Worker.dll --run-once` qua crontab, chạy 1 chu kỳ rồi thoát | `docker run`/`docker-compose` service `pos-worker`, process dài hạn |
+> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override |
+> | Mục 3-4 dưới đây | — xem **mục 5** | Docker (giữ nguyên nội dung gốc) |
+>
+> Mục 1-4 bên dưới mô tả Model B (Docker) như bản gốc; **mục 5** (mới) mô tả riêng Model A.
 
 ## 0. Vì sao KHÔNG có nginx cho POS.Worker
 
@@ -67,7 +79,11 @@ bind-mount phía host là khác giữa UAT/PROD, xem mục 3).
 > Worker **chưa có hook giải mã `enc:...`** (khác Api/Web — xem `docs/architecture/appsetting.md`).
 > Điền **plaintext thật** vào các placeholder trên, không dùng `enc:...` cho file này.
 
-## 3. Build & chạy container
+## 3. Build & chạy container (Model B — RabbitMQ + SQL, KHÔNG xử lý file)
+
+> Container **KHÔNG** còn mount `ftpbluepos` — `WorkerRoles:EnableFileProcessing=false` (đặt cứng
+> trong `appsettings.Production.json`/`UAT.json`, không cần lặp lại qua `-e` nếu dùng file đúng
+> bản mới; ví dụ dưới đây vẫn khai rõ qua env để minh bạch và để dễ đổi khi cần debug tạm thời).
 
 ```bash
 cd /đường-dẫn-tới-repo-code   # thư mục chứa Dockerfile.worker
@@ -78,68 +94,127 @@ docker build -t pos-worker:prod -f Dockerfile.worker .
 docker run -d --name pos-worker-prod \
   -e DOTNET_ENVIRONMENT=Production \
   -e TZ=Asia/Ho_Chi_Minh \
+  -e WorkerRoles__EnableFileProcessing=false \
+  -e WorkerRoles__EnableRabbitMQConsumer=true \
+  -e WorkerRoles__EnableSqlReportWorker=true \
+  -e WorkerRoles__EnableHeartbeat=true \
   --add-host host.docker.internal:host-gateway \
   -v $(pwd)/logs:/app/logs \
-  -v /srv/pos/ftpbluepos:/app/ftpbluepos \
   --restart unless-stopped \
   pos-worker:prod
 
-# ── UAT (đổi tag/tên container + path ftpbluepos + biến môi trường) ───────
+# ── UAT (đổi tag/tên container + biến môi trường) ─────────────────────────
 docker build -t pos-worker:uat -f Dockerfile.worker .
 
 docker run -d --name pos-worker-uat \
   -e DOTNET_ENVIRONMENT=UAT \
   -e TZ=Asia/Ho_Chi_Minh \
+  -e WorkerRoles__EnableFileProcessing=false \
+  -e WorkerRoles__EnableRabbitMQConsumer=true \
+  -e WorkerRoles__EnableSqlReportWorker=true \
+  -e WorkerRoles__EnableHeartbeat=true \
   --add-host host.docker.internal:host-gateway \
   -v $(pwd)/logs:/app/logs \
-  -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
   --restart unless-stopped \
   pos-worker:uat
 ```
 
 > Không cần `-p` (Worker không mở cổng nào). Không cần `-e POS_SECRET_KEY=...` (Worker chưa mã hóa
-> credentials). **PROD dùng `/srv/pos/ftpbluepos`, UAT dùng `/srv/pos/uat/ftpbluepos`** — đúng lý do
-> đã nêu ở `docs/deploy/ubuntu-guide.md` (UAT/PROD chạy chung 1 Ubuntu host, phải tách thư mục để
-> không lẫn dữ liệu sale/master-data thật). Cả 2 thư mục phải đã được tạo trước bằng
-> `deploy/linux/setup-pos-dirs.sh` (PROD: mặc định; UAT: `sudo ./deploy/linux/setup-pos-dirs.sh /srv/pos/uat`).
+> credentials). Không cần mount `ftpbluepos` nữa trong container này — việc xử lý file đã chuyển
+> sang **Model A** (mục 5).
 
-## 4. Kiểm chứng sau deploy
+## 4. Kiểm chứng sau deploy (Model B)
 
 ```bash
 # 1. Container đang chạy (không có cột "healthy" vì Worker không có HEALTHCHECK)
 docker ps --filter name=pos-worker
 
-# 2. Log khởi động — kỳ vọng thấy cả 3 dòng sau (không có exception)
+# 2. Log khởi động — kỳ vọng thấy 2 dòng sau (không có exception, KHÔNG có "[PosFileImport] Started"
+#    vì EnableFileProcessing=false trong container này)
 docker logs --tail 50 pos-worker-prod   # hoặc pos-worker-uat
 #   PosSalesConsumer ...
 #   Rpt_ReportSaleDetail_Insert ...
-#   [PosFileImport] Started ...
-
-# 3. Mount đúng chỗ (bind mount, không phải named volume)
-docker inspect pos-worker-prod --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
-#   /srv/pos/ftpbluepos -> /app/ftpbluepos
 ```
-
-**Test luồng file-import** (dùng đúng quyền `posops`, không cần sudo — xem
-`docs/deploy/ubuntu-guide.md` §4.3):
-
-```bash
-cp mau-hop-le.zip /srv/pos/ftpbluepos/SyncDataPos/Sale/Kafka/   # PROD
-# hoặc /srv/pos/uat/ftpbluepos/SyncDataPos/Sale/Kafka/          # UAT
-```
-
-Trong ≤ 30s (`PollIntervalSeconds`): file biến mất (thành công) hoặc rơi vào
-`.../SyncDataPos/Sale/error/` (lỗi định dạng — tên phải đúng `Type_PosNo_TransactionId.txt` bên
-trong zip, xem `docs/ROLLOUT.md` §O2).
 
 **Heartbeat Redis** (DB 2):
 ```bash
-redis-cli -n 2 GET Worker:Heartbeat:PosFileImport
+redis-cli -n 2 GET Worker:Heartbeat:PosSalesConsumer
 ```
-Giá trị phải vừa cập nhật (mỗi chu kỳ poll).
+Giá trị phải vừa cập nhật (mỗi 15s — xem `WorkerHeartbeatService`). **Không** kiểm tra
+`Worker:Heartbeat:PosFileImport` ở container Model B — key này chỉ được ghi bởi Model A (mục 5).
 
-## 5. Cập nhật phiên bản mới (re-deploy)
+## 5. Model A — Cronjob thật trên Ubuntu host (xử lý file, KHÔNG dùng Docker)
 
+> Chạy `PosFileImportService` bằng `dotnet POS.Worker.dll --run-once` theo lịch crontab — **1 chu kỳ
+> quét rồi thoát**, không phải process residency. Cần publish riêng POS.Worker ra host (framework-
+> dependent, không đóng gói Docker image) vì phải chạy native để đọc/ghi trực tiếp
+> `/srv/pos/ftpbluepos` bằng đường dẫn host (không qua bind-mount container).
+
+### 5.1. Cài .NET runtime trên host
+
+```bash
+# Ubuntu 22.04/24.04 — cài ASP.NET Core Runtime 10 (POS.Infrastructure dùng IHttpClientFactory)
+sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-10.0
+```
+
+### 5.2. Publish & đặt binary
+
+```bash
+cd /đường-dẫn-tới-repo-code
+dotnet publish src/POS.Worker/POS.Worker.csproj -c Release -o /srv/pos/app/worker
+```
+
+### 5.3. Quyền — user chạy cron phải thuộc group `posops`
+
+`ftpbluepos` là `chmod 2770` (setgid, không world-writable — xem `deploy/linux/setup-pos-dirs.sh`).
+User chạy crontab phải nằm trong group `posops` (gid 1654):
+
+```bash
+sudo usermod -aG posops <username>
+# đăng nhập lại hoặc `newgrp posops` để nhận quyền ngay trong phiên hiện tại
+```
+
+### 5.4. Script wrapper + crontab
+
+Script `deploy/linux/run-worker-file-import-once.sh` (đã có sẵn trong repo) — copy cùng thư mục
+publish hoặc chạy thẳng từ repo, chú ý `WORKER_DIR` phải khớp nơi publish ở bước 5.2:
+
+```bash
+cp deploy/linux/run-worker-file-import-once.sh /srv/pos/app/worker/
+chmod +x /srv/pos/app/worker/run-worker-file-import-once.sh
+
+mkdir -p /srv/pos/logs/worker-cron
+sudo chown <username>:posops /srv/pos/logs/worker-cron
+```
+
+`crontab -e` (dưới user thuộc group `posops`):
+
+```
+* * * * * /srv/pos/app/worker/run-worker-file-import-once.sh >> /srv/pos/logs/worker-cron/cron.log 2>&1
+```
+
+### 5.5. Kiểm chứng Model A
+
+```bash
+# Chạy tay 1 lần trước khi tin tưởng crontab
+DOTNET_ENVIRONMENT=CronHost dotnet /srv/pos/app/worker/POS.Worker.dll --run-once
+echo $?   # 0 = OK, khác 0 = lỗi (xem log)
+
+# Test luồng thật — thả 1 zip hợp lệ vào đúng InboxFolder host-path
+cp mau-hop-le.zip /srv/pos/ftpbluepos/SyncDataPos/Sale/Kafka/
+# chạy tay hoặc chờ cron (≤1 phút) — file biến mất (OK) hoặc rơi vào .../Sale/error/ (lỗi định dạng)
+
+# Sau khi cài crontab — xác nhận có chạy đều, không bị flock chặn liên tục
+tail -f /srv/pos/logs/worker-cron/cron.log
+```
+
+> Model A **không** ghi heartbeat Redis (`WorkerRoles:EnableHeartbeat=false` trong
+> `appsettings.CronHost.json`) — giám sát qua **exit code + log cron** (`cron.log`), không qua Redis.
+> Nếu cần alert khi cron ngừng chạy, theo dõi mốc thời gian sửa đổi cuối của `cron.log`.
+
+## 6. Cập nhật phiên bản mới (re-deploy)
+
+**Model B (Docker):**
 ```bash
 docker build -t pos-worker:prod -f Dockerfile.worker .
 docker stop pos-worker-prod && docker rm pos-worker-prod
@@ -148,35 +223,65 @@ docker run -d --name pos-worker-prod ...   # lệnh run như mục 3 (giữ nguy
 Worker không giữ state trong container (không có DataProtection-Keys như POS.Web) nên re-deploy đơn
 giản hơn — không cần lo mất key/session.
 
-## 6. Rollback nhanh
+**Model A (cron host):**
+```bash
+dotnet publish src/POS.Worker/POS.Worker.csproj -c Release -o /srv/pos/app/worker
+```
+Publish đè trực tiếp — không cần dừng gì (giữa 2 lần cron kích hoạt là "khoảng nghỉ" tự nhiên; nếu
+muốn chắc chắn không ghi đè giữa lúc 1 chu kỳ đang chạy, publish ra thư mục tạm rồi `mv` đổi tên).
 
+## 7. Rollback nhanh
+
+**Model B:**
 ```bash
 # Giữ tag image cũ trước mỗi lần deploy (vd pos-worker:prod-prev)
 docker stop pos-worker-prod && docker rm pos-worker-prod
 docker run -d --name pos-worker-prod ... pos-worker:prod-prev
 ```
 
-## 7. Vận hành & rủi ro đã biết
+**Model A:** giữ bản publish cũ ở thư mục khác (vd `/srv/pos/app/worker-prev`) trước khi publish đè;
+rollback = đổi `WORKER_DIR` trong script hoặc `cp -r` bản cũ đè lại.
 
-- **Log**: Serilog → Elasticsearch (`pos-worker-logs-*`) + file log tại `/app/logs` (bind-mounted ra
-  `./logs` trên host). Log khởi động/crash: `docker logs pos-worker-{prod|uat}`.
-- **Dừng/chạy/gỡ**: `docker stop|start|rm pos-worker-{prod|uat}` (thay cho `schtasks /End|/Run|/Delete`).
+## 8. Vận hành & rủi ro đã biết
+
+- **Log**: Serilog → Elasticsearch (`pos-worker-logs-*` cho Model B, `pos-worker-cron-logs-*` cho
+  Model A) + file log tại `/app/logs` (Model B, bind-mounted ra `./logs`) hoặc
+  `/srv/pos/logs/worker-cron` (Model A). Log khởi động/crash Model B: `docker logs
+  pos-worker-{prod|uat}`; Model A: `/srv/pos/logs/worker-cron/cron.log`.
+- **Dừng/chạy/gỡ Model B**: `docker stop|start|rm pos-worker-{prod|uat}`. **Model A**: xóa dòng
+  crontab (`crontab -e`) — không có process nào để "stop" (mỗi lượt chạy rồi tự thoát).
 - **Rủi ro chung thư mục `Sale/Kafka` với `UploadFileSale` (POS.Api)** và **dọn dẹp
   `error/`/`BackupFiles/`**: xem đầy đủ tại `docs/deploy/ubuntu-guide.md` §6-7 — không lặp lại ở đây.
-- **Đổi cấu hình `FileImport`** (bật/tắt, đổi `PollIntervalSeconds`...): sửa
-  `appsettings.{Production|UAT}.json` tương ứng → build lại image → re-deploy (mục 5). Vì giá trị đã
-  bake vào image lúc publish, **không sửa file trực tiếp trong container đang chạy**.
+  Áp dụng cho Model A dù chạy ngoài Docker (cùng thư mục vật lý `/srv/pos/ftpbluepos`).
+- **`flock -n`** trong script Model A bỏ qua lượt cron mới nếu lượt trước chưa xong — nếu thấy
+  `cron.log` có khoảng trống bất thường (>vài phút không có dòng mới), kiểm tra tiến trình
+  `dotnet POS.Worker.dll --run-once` có bị treo (SQL/network chậm) không.
+- **Đổi cấu hình `FileImport`/`WorkerRoles`**: Model B sửa `appsettings.{Production|UAT}.json` (hoặc
+  override qua `-e WorkerRoles__*`) → build lại image → re-deploy (mục 6). Model A sửa
+  `appsettings.CronHost.json` → `dotnet publish` lại (mục 6) — không sửa file trực tiếp trong thư
+  mục đang publish khi cron có thể đang chạy.
 
 ## Checklist
 
 ```
-□ deploy/linux/setup-pos-dirs.sh đã chạy cho đúng môi trường (PROD: mặc định; UAT: /srv/pos/uat)
-□ src/POS.Worker/appsettings.UAT.json đã điền hết placeholder <UAT_...> (chỉ cần cho UAT)
+Model B (Docker):
 □ docker build -t pos-worker:{prod|uat} -f Dockerfile.worker . thành công
-□ docker run với đúng -e DOTNET_ENVIRONMENT, đúng path -v ftpbluepos (PROD ≠ UAT)
-□ docker ps → container Up; docker logs → thấy 3 dòng khởi động, không exception
-□ Test thả 1 zip hợp lệ vào Sale/Kafka/ → biến mất hoặc vào error/ trong ≤30s
-□ Redis Worker:Heartbeat:PosFileImport vừa cập nhật
+□ docker run với đúng -e DOTNET_ENVIRONMENT + WorkerRoles__EnableFileProcessing=false
+□ docker ps → container Up; docker logs → thấy 2 dòng khởi động (PosSalesConsumer,
+  Rpt_ReportSaleDetail_Insert), KHÔNG có "[PosFileImport] Started", không exception
+□ Redis Worker:Heartbeat:PosSalesConsumer vừa cập nhật
+
+Model A (cron host):
+□ deploy/linux/setup-pos-dirs.sh đã chạy cho đúng môi trường (PROD: mặc định; UAT: /srv/pos/uat)
+□ aspnetcore-runtime-10.0 đã cài trên host; dotnet publish ra /srv/pos/app/worker thành công
+□ User chạy cron đã vào group posops (usermod -aG posops)
+□ appsettings.CronHost.json đúng path /srv/pos/ftpbluepos/... + ConnectionStrings:CentralSale
+□ Chạy tay 1 lần (--run-once) exit code 0, log "[Cron] PosFileImport run-once xong"
+□ Test thả 1 zip hợp lệ vào Sale/Kafka/ → biến mất hoặc vào error/ trong ≤1 phút (qua cron)
+□ crontab đã cài, cron.log có dòng mới đều đặn, không bị flock chặn kéo dài
+
+Chung:
+□ src/POS.Worker/appsettings.UAT.json đã điền hết placeholder <UAT_...> (chỉ cần cho UAT)
 □ dotnet test tests/POS.ContractTests vẫn xanh (không đổi DTO/DI ở việc deploy này)
 ```
 
@@ -186,7 +291,8 @@ docker run -d --name pos-worker-prod ... pos-worker:prod-prev
 |---|---|
 | Quy trình deploy đầy đủ POS.Api/POS.Web/POS.Worker (build, `docker run`, nginx, `POS_SECRET_KEY`) | `docs/guide-deploy.md` |
 | Thư mục dùng chung `ftpbluepos` (POS.Api ↔ POS.Worker) | `docs/deploy/ubuntu-guide.md` |
-| Cấu hình `FileImport`, định dạng file, rủi ro vận hành | `docs/ROLLOUT.md` §O2 |
+| Cấu hình `FileImport`/`WorkerRoles`, định dạng file, rủi ro vận hành, 2 mô hình A/B | `docs/ROLLOUT.md` §O2 |
 | Quy tắc mã hóa `enc:`/`POS_SECRET_KEY` (chưa áp dụng cho Worker) | `docs/architecture/appsetting.md` |
 | Deploy POS.Worker trên Windows (Task Scheduler, dev/bare-metal) | `deploy/windows/README.md` |
 | nginx cho POS.Web (không áp dụng cho Worker) | `nginx/pos-web.conf`, `nginx/pos-web.uat.conf` |
+| Ba khuôn mẫu worker (timer/consumer/one-shot) + feature toggle `WorkerRoles` | `.claude/skills/worker/SKILLS.md` |

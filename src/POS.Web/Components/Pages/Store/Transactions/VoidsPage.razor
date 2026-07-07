@@ -1,4 +1,4 @@
-﻿@page "/store/voids"
+@page "/store/voids"
 @namespace POS.Web.Components.Pages.Store
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
@@ -15,7 +15,6 @@
 @inject ICentralMDRepository MdRepo
 @inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
-@inject IDialogService DialogService
 
 <PageTitle>Hủy GD – POS Dashboard</PageTitle>
 
@@ -62,7 +61,7 @@
             }
         </MudItem>
 
-        <MudItem xs="12" sm="6" md="2">
+        <MudItem xs="12" sm="6" md="3">
             <MudDatePicker @bind-Date="_filterFromDateNullable"
                            Label="Từ ngày"
                            Variant="Variant.Outlined"
@@ -71,7 +70,7 @@
                            AutoClose="true"/>
         </MudItem>
 
-        <MudItem xs="12" sm="6" md="2">
+        <MudItem xs="12" sm="6" md="3">
             <MudDatePicker @bind-Date="_filterToDateNullable"
                            Label="Đến ngày"
                            Variant="Variant.Outlined"
@@ -81,6 +80,18 @@
         </MudItem>
 
         <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="string" @bind-Value="_filterVoidType"
+                       Label="Loại hủy"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                <MudSelectItem Value="@string.Empty">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("InvoiceVoid")">Hủy cả hóa đơn</MudSelectItem>
+                <MudSelectItem Value="@("LineVoid")">Hủy dòng</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
             <MudTextField @bind-Value="_filterOrderNo"
                           Label="Số hóa đơn"
                           Placeholder="Nhập một phần số hóa đơn..."
@@ -92,7 +103,7 @@
                           OnKeyDown="@HandleKeyDownAsync"/>
         </MudItem>
 
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="12" sm="6" md="4">
             <MudTextField @bind-Value="_filterUserVoid"
                           Label="Người hủy"
                           Placeholder="Tên/ID người hủy..."
@@ -104,7 +115,7 @@
                           OnKeyDown="@HandleKeyDownAsync"/>
         </MudItem>
 
-        <MudItem xs="12" sm="6" md="2">
+        <MudItem xs="12" sm="6" md="4">
             <MudTextField @bind-Value="_filterPosNo"
                           Label="Máy POS"
                           Placeholder="Mã máy POS..."
@@ -144,38 +155,98 @@
 @if (_hitLimit)
 {
     <MudAlert Severity="Severity.Warning" Class="mb-3" Dense="true">
-        Kết quả chỉ hiển thị tối đa 500 giao dịch hủy mới nhất. Hãy thu hẹp bộ lọc để xem đầy đủ.
+        Kết quả chỉ hiển thị tối đa @MaxRows dòng hủy mới nhất. Hãy thu hẹp bộ lọc để xem đầy đủ.
     </MudAlert>
 }
 
+@* ── KPI Row ─────────────────────────────────────────────────────────── *@
+<div class="d-flex flex-wrap gap-3 mb-4">
+    <div style="flex:1 1 200px">
+        <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@InvoiceVoidCount</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số hóa đơn hủy cả đơn</MudText>
+        </MudPaper>
+    </div>
+    <div style="flex:1 1 200px">
+        <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@FormatVND(InvoiceVoidAmount)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tiền hủy hóa đơn</MudText>
+        </MudPaper>
+    </div>
+    <div style="flex:1 1 200px">
+        <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@LineVoidCount</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số dòng hủy lẻ</MudText>
+        </MudPaper>
+    </div>
+    <div style="flex:1 1 200px">
+        <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(TotalVoidAmount)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tiền hủy dòng (mọi loại)</MudText>
+        </MudPaper>
+    </div>
+</div>
+
 @* ── Table ───────────────────────────────────────────────────────────── *@
 <MudTable Items="@_voids"
-          Hover="true" Striped="true" Dense="true"
+          Hover="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"
-          HorizontalScrollbar="true">
+          HorizontalScrollbar="true"
+          RowClassFunc="@RowClassFunc">
     <HeaderContent>
-        <MudTh><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.OrderNo)">Số hóa đơn</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.OrderDate)">Ngày hủy</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.OrderTime)">Giờ hủy</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.StoreNo)">Cửa hàng</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.POSTerminalNo)">Máy POS</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.AmountInclVAT)">Tổng tiền</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.TransactionType)">Loại GD gốc</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.CashierID ?? string.Empty)">Thu ngân</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<VoidTransactionListDto, object>(x => x.UserVoid ?? string.Empty)">Người hủy</MudTableSortLabel></MudTh>
-        <MudTh Style="text-align:center">Thành viên</MudTh>
+        <MudTh Style="text-align:center">Loại hủy</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.OrderNo)">Số hóa đơn</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center">Dòng</MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.ScanTime)">Ngày hủy</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center">Giờ hủy</MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.StoreNo ?? string.Empty)">Cửa hàng</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center"><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.POSTerminalNo ?? string.Empty)">Máy POS</MudTableSortLabel></MudTh>
+        <MudTh>Mã hàng</MudTh>
+        <MudTh>Tên hàng</MudTh>
+        <MudTh Style="text-align:right">SL</MudTh>
+        <MudTh Style="text-align:right">Đơn giá</MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.LineAmountIncVAT)">Thành tiền dòng</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:right"><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.OrderAmountInclVAT ?? 0)">Tổng hóa đơn</MudTableSortLabel></MudTh>
+        <MudTh Style="text-align:center">Loại GD gốc</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<VoidReportLineDto, object>(x => x.UserVoid ?? string.Empty)">Người hủy</MudTableSortLabel></MudTh>
         <MudTh>Ghi chú</MudTh>
-        <MudTh Style="text-align:center">Thao tác</MudTh>
     </HeaderContent>
     <RowTemplate>
+        <MudTd DataLabel="Loại hủy" Style="text-align:center">
+            @if (context.VoidType == "InvoiceVoid")
+            {
+                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">HỦY HÓA ĐƠN</MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">HỦY DÒNG</MudChip>
+            }
+        </MudTd>
         <MudTd DataLabel="Số hóa đơn">@context.OrderNo</MudTd>
-        <MudTd DataLabel="Ngày hủy" Style="text-align:center">@context.OrderDate.ToString("dd/MM/yyyy")</MudTd>
-        <MudTd DataLabel="Giờ hủy" Style="text-align:center">@context.OrderTime.ToString("HH:mm:ss")</MudTd>
-        <MudTd DataLabel="Cửa hàng" Style="text-align:center">@context.StoreNo</MudTd>
-        <MudTd DataLabel="Máy POS" Style="text-align:center">@context.POSTerminalNo</MudTd>
-        <MudTd DataLabel="Tổng tiền" Style="text-align:right; font-weight:500; color:#DC3545">
-            @FormatVND(context.AmountInclVAT)
+        <MudTd DataLabel="Dòng" Style="text-align:center">@context.LineNo</MudTd>
+        <MudTd DataLabel="Ngày hủy" Style="text-align:center">@context.ScanTime.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="Giờ hủy" Style="text-align:center">@context.ScanTime.ToString("HH:mm:ss")</MudTd>
+        <MudTd DataLabel="Cửa hàng" Style="text-align:center">@(context.StoreNo ?? "—")</MudTd>
+        <MudTd DataLabel="Máy POS" Style="text-align:center">@(context.POSTerminalNo ?? "—")</MudTd>
+        <MudTd DataLabel="Mã hàng">@(context.ItemNo ?? "—")</MudTd>
+        <MudTd DataLabel="Tên hàng">@(context.ItemName ?? "—")</MudTd>
+        <MudTd DataLabel="SL" Style="text-align:right">@context.Quantity.ToString("N0")</MudTd>
+        <MudTd DataLabel="Đơn giá" Style="text-align:right">@FormatVND(context.UnitPrice)</MudTd>
+        <MudTd DataLabel="Thành tiền dòng" Style="text-align:right; font-weight:500; color:#DC3545">
+            @FormatVND(context.LineAmountIncVAT)
+        </MudTd>
+        <MudTd DataLabel="Tổng hóa đơn" Style="text-align:right">
+            @if (context.VoidType == "InvoiceVoid")
+            {
+                <span style="font-weight:500; color:#DC3545">@FormatVND(context.OrderAmountInclVAT ?? 0)</span>
+            }
+            else
+            {
+                <MudTooltip Text="Đơn hàng gốc vẫn hoàn tất bình thường — đây KHÔNG phải tiền bị mất">
+                    <span style="color:#9e9e9e">@FormatVND(context.OrderAmountInclVAT ?? 0) <small>(đơn không hủy)</small></span>
+                </MudTooltip>
+            }
         </MudTd>
         <MudTd DataLabel="Loại GD gốc" Style="text-align:center">
             @{
@@ -183,7 +254,6 @@
             }
             <MudChip T="string" Color="@tColor" Size="Size.Small" Variant="Variant.Outlined">@tLabel</MudChip>
         </MudTd>
-        <MudTd DataLabel="Thu ngân">@(string.IsNullOrWhiteSpace(context.CashierID) ? "—" : context.CashierID)</MudTd>
         <MudTd DataLabel="Người hủy">
             @if (context.IsSelfVoid)
             {
@@ -199,9 +269,6 @@
                 @(string.IsNullOrWhiteSpace(context.UserVoid) ? "—" : context.UserVoid)
             }
         </MudTd>
-        <MudTd DataLabel="Thành viên" Style="text-align:center">
-            @(string.IsNullOrWhiteSpace(context.MemberCardNo) ? "—" : context.MemberCardNo)
-        </MudTd>
         <MudTd DataLabel="Ghi chú">
             @if (string.IsNullOrWhiteSpace(context.Note))
             {
@@ -214,19 +281,13 @@
                 </MudTooltip>
             }
         </MudTd>
-        <MudTd DataLabel="Thao tác" Style="text-align:center">
-            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                           Size="Size.Small" Color="Color.Primary"
-                           Title="Xem chi tiết"
-                           OnClick="@(() => OpenDetailAsync(context))"/>
-        </MudTd>
     </RowTemplate>
     <NoRecordsContent>
         <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
     </NoRecordsContent>
     <PagerContent>
         <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
-                       InfoFormat="{first_item}–{last_item} / {all_items} giao dịch hủy"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng hủy"
                        RowsPerPageString="Số dòng mỗi trang:"/>
     </PagerContent>
 </MudTable>
@@ -235,7 +296,7 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
-    private const int MaxRows = 500;
+    private const int MaxRows = 1000;
 
     private bool    _loading;
     private string? _errorMsg;
@@ -248,11 +309,24 @@
     private string    _filterOrderNo          = string.Empty;
     private string    _filterUserVoid         = string.Empty;
     private string    _filterPosNo            = string.Empty;
+    private string    _filterVoidType         = string.Empty;
 
-    private List<VoidTransactionListDto> _voids          = [];
-    private IReadOnlyList<string>        _userStoreCodes = [];
-    private List<StoreDto>               _allStores      = [];
-    private StoreDto?                    _selectedStore;
+    private List<VoidReportLineDto> _voids          = [];
+    private IReadOnlyList<string>   _userStoreCodes = [];
+    private List<StoreDto>          _allStores      = [];
+    private StoreDto?               _selectedStore;
+
+    // ── KPI ──────────────────────────────────────────────────────────────────
+
+    private int InvoiceVoidCount =>
+        _voids.Where(x => x.VoidType == "InvoiceVoid").Select(x => x.OrderNo).Distinct().Count();
+
+    private decimal InvoiceVoidAmount =>
+        _voids.Where(x => x.VoidType == "InvoiceVoid").DistinctBy(x => x.OrderNo).Sum(x => x.OrderAmountInclVAT ?? 0);
+
+    private int LineVoidCount => _voids.Count(x => x.VoidType == "LineVoid");
+
+    private decimal TotalVoidAmount => _voids.Sum(x => x.LineAmountIncVAT);
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -296,19 +370,20 @@
             if (from > to) to = from;
 
             var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
-            var result = await SaleRepo.GetVoidTransactionListAsync(
+            var result = await SaleRepo.GetVoidReportAsync(
                 storeNo,
                 from,
                 to,
                 string.IsNullOrWhiteSpace(_filterOrderNo)  ? null : _filterOrderNo,
                 string.IsNullOrWhiteSpace(_filterUserVoid) ? null : _filterUserVoid,
                 string.IsNullOrWhiteSpace(_filterPosNo)    ? null : _filterPosNo,
+                string.IsNullOrWhiteSpace(_filterVoidType) ? null : _filterVoidType,
                 MaxRows);
 
             _voids    = result;
             _hitLimit = result.Count == MaxRows;
 
-            FileLogger.WriteLogs($"[VoidsPage.LoadData] {storeNo ?? "all"}: Loaded {result.Count} void transactions [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+            FileLogger.WriteLogs($"[VoidsPage.LoadData] {storeNo ?? "all"}: Loaded {result.Count} void report rows [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
         }
         catch (Exception ex)
         {
@@ -328,6 +403,7 @@
         _filterOrderNo          = string.Empty;
         _filterUserVoid         = string.Empty;
         _filterPosNo            = string.Empty;
+        _filterVoidType         = string.Empty;
         if (!_isStoreOperator) _selectedStore = null;
         await LoadDataAsync();
     }
@@ -361,24 +437,19 @@
         ? $"{st.StoreNo} – {st.Name}"
         : (_filterStoreNo ?? "");
 
-    private async Task OpenDetailAsync(VoidTransactionListDto v)
-    {
-        await DialogService.ShowAsync<VoidDetailDialog>(
-            $"Chi tiết GD hủy: {v.OrderNo}",
-            new DialogParameters<VoidDetailDialog> { { x => x.Transaction, v } },
-            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true,
-                                CloseButton = true, CloseOnEscapeKey = true });
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
 
+    private string RowClassFunc(VoidReportLineDto item, int index)
+        => item.VoidType == "InvoiceVoid" ? "pos-row-invoice-void" : string.Empty;
+
     // Loại GD gốc bị hủy — màu trung tính (mọi dòng đều là GD đã hủy)
-    private static (Color Color, string Label) TransTypeDisplay(int type) => type switch
+    private static (Color Color, string Label) TransTypeDisplay(int? type) => type switch
     {
         1      => (Color.Info,    "GD bán"),
         2 or 3 => (Color.Warning, "GD trả"),
+        null   => (Color.Default, "—"),
         _      => (Color.Default, $"Loại {type}")
     };
 }

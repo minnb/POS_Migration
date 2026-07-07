@@ -57,15 +57,29 @@ public sealed class BusinessDayService(
             };
         }
 
-        var notClosed = staging.Where(s => !s.IsClosed).Select(s => s.PosTerminal).ToList();
+        // "Chưa đóng ngày" (đã có giao dịch nhưng chưa đóng ngày) luôn chặn xác nhận.
+        // "Chưa mở ca" (chưa từng có giao dịch) KHÔNG chặn — coi như không tham gia ngày kinh doanh.
+        var blocking = staging.Where(s => !s.IsClosed && s.LastSaleTime != null).Select(s => s.PosTerminal).ToList();
         // ITOps/SystemAdmin (allowForceConfirm) được force EOD kể cả khi còn POS chưa đóng ngày.
-        if (!allowForceConfirm && notClosed.Count > 0)
+        if (!allowForceConfirm)
         {
-            return new ConfirmBusinessDayResult
+            if (blocking.Count > 0)
             {
-                Success = false,
-                Message = $"Còn {notClosed.Count} máy POS chưa đóng ngày: {string.Join(", ", notClosed)}"
-            };
+                return new ConfirmBusinessDayResult
+                {
+                    Success = false,
+                    Message = $"Còn {blocking.Count} máy POS chưa đóng ngày: {string.Join(", ", blocking)}"
+                };
+            }
+
+            if (staging.All(s => !s.IsClosed))
+            {
+                return new ConfirmBusinessDayResult
+                {
+                    Success = false,
+                    Message = "Cửa hàng chưa có máy POS nào đóng ngày kinh doanh — chưa thể xác nhận kết thúc ngày."
+                };
+            }
         }
 
         var existing = await centralSaleRepository.GetBusinessDayConfirmAsync(storeNo, businessDate, ct);

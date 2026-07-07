@@ -52,29 +52,15 @@
 @* ── Filter bar ──────────────────────────────────────────────────────────── *@
 <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
-        <MudItem xs="12" sm="6" md="2">
-            <MudTextField @bind-Value="_filter.Serial" Label="Số serial"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="2">
+        <MudItem xs="12" sm="6" md="3">
             <MudTextField @bind-Value="_filter.ItemNo" Label="Mã voucher"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
         </MudItem>
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="12" sm="6" md="4">
             <MudTextField @bind-Value="_filter.ItemName" Label="Tên voucher"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
-            <MudSelect @bind-Value="_filter.ArticleType" Label="Loại"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
-                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
-                @foreach (var a in _lookup.ArticleTypes)
-                {
-                    <MudSelectItem T="string" Value="@a.Value">@a.Text</MudSelectItem>
-                }
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="1">
             <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
                        Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
@@ -82,7 +68,7 @@
                 <MudSelectItem T="string" Value="@("0")">Hết hiệu lực</MudSelectItem>
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
@@ -105,7 +91,6 @@
         <MudTh Style="width:48px">STT</MudTh>
         <MudTh>Mã</MudTh>
         <MudTh>Tên voucher/coupon</MudTh>
-        <MudTh>Loại</MudTh>
         <MudTh Style="text-align:right">Giá trị</MudTh>
         <MudTh>Giảm giá</MudTh>
         <MudTh Style="text-align:right">Giá trị tối đa</MudTh>
@@ -119,7 +104,6 @@
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
         <MudTd DataLabel="Mã">@context.ItemNo</MudTd>
         <MudTd DataLabel="Tên voucher/coupon">@context.ItemName</MudTd>
-        <MudTd DataLabel="Loại">@context.ArticleType</MudTd>
         <MudTd DataLabel="Giá trị" Style="text-align:right">@context.ValueOfVoucher.ToString("#,##0.##")</MudTd>
         <MudTd DataLabel="Giảm giá">@DiscountText(context)</MudTd>
         <MudTd DataLabel="Giá trị tối đa" Style="text-align:right">@context.MaxAmount.ToString("#,##0.##")</MudTd>
@@ -220,11 +204,9 @@
 
     private async Task ClearFilterAsync()
     {
-        _filter.Serial      = null;
-        _filter.ItemNo      = null;
-        _filter.ItemName    = null;
-        _filter.ArticleType = null;
-        _filter.Status      = "-1";
+        _filter.ItemNo   = null;
+        _filter.ItemName = null;
+        _filter.Status   = "-1";
         await _table.ReloadServerData();
     }
 
@@ -264,8 +246,8 @@
         {
             var exportFilter = new VoucherListFilter
             {
-                Serial = _filter.Serial, ItemNo = _filter.ItemNo, ItemName = _filter.ItemName,
-                ArticleType = _filter.ArticleType, Status = _filter.Status, PageSize = 100000, PageNumber = 0
+                ItemNo = _filter.ItemNo, ItemName = _filter.ItemName,
+                Status = _filter.Status, PageSize = 100000, PageNumber = 0
             };
             var (data, _) = await VoucherService.GetListAsync(exportFilter);
             var bytes = BuildXlsx(data);

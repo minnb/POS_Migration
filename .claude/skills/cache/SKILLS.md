@@ -271,3 +271,66 @@ public async Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationTo
 > Ví dụ thực tế: `CentralMDRepository.CpnVchBOMHeaderExistsAsync` (gọi từ
 > `SAPService.CreateNewVoucherAsync` — validate toàn bộ `Article_No` TRƯỚC vòng lặp tạo để tránh
 > tạo dở dang khi batch có phần tử sai).
+
+---
+
+## Pattern 6: Distributed lock (Redis) — serialize thao tác xuyên nhiều instance
+
+> Áp dụng khi: cần chặn 2 request chạy đồng thời cùng 1 đoạn code có race condition
+> (check-tồn-tại rồi insert, sinh số/mã cần unique...), và hệ thống có thể scale-out nhiều
+> instance sau load balancer → khóa in-process (`SemaphoreSlim`, xem `ISyncFileLock`) không đủ vì
+> mỗi instance có bộ nhớ riêng. Dùng `IRedisManager` (KHÔNG dùng `IRedisService` — chưa có
+> primitive lock atomic), vì Redis là external shared store, xuyên mọi instance.
+
+```csharp
+// IRedisManager — 2 method dựng sẵn (POS.Infrastructure/Cache/)
+Task<string?> AcquireLockAsync(string key, TimeSpan ttl);   // SET key token NX PX ttl (atomic)
+Task<bool> ReleaseLockAsync(string key, string token);      // Lua script: so token khớp mới DEL
+
+// Wrapper domain-specific — key CỐ ĐỊNH (không theo id) nếu muốn serialize TOÀN BỘ thao tác
+public sealed class VoucherIssueLock(IRedisManager redis) : IVoucherIssueLock
+{
+    private const string Key = "Lock:VoucherIssue";
+    private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(30);      // đủ 1 lần sinh+insert
+    private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan MaxWait = TimeSpan.FromSeconds(15); // timeout chờ
+
+    public async Task<IAsyncDisposable?> AcquireAsync(CancellationToken ct = default)
+    {
+        var deadline = DateTime.UtcNow + MaxWait;
+        while (DateTime.UtcNow < deadline)
+        {
+            var token = await redis.AcquireLockAsync(Key, Ttl);
+            if (token != null) return new Releaser(redis, token);
+            await Task.Delay(PollDelay, ct);
+        }
+        return null;   // timeout — request khác đang giữ khóa quá lâu
+    }
+
+    private sealed class Releaser(IRedisManager redis, string token) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync() => await redis.ReleaseLockAsync(Key, token);
+    }
+}
+
+// Dùng trong Service — bọc TOÀN BỘ đoạn có race (kể cả bước insert DB, không chỉ bước check)
+await using var @lock = await issueLock.AcquireAsync(ct);
+if (@lock == null) return Fail("Hệ thống đang xử lý thao tác khác, vui lòng thử lại sau.");
+```
+
+**Nguyên tắc:**
+- `SET NX PX` là atomic (built-in `StackExchange.Redis`) — không tự ghép `EXISTS` rồi `SET` riêng
+  (race giữa 2 lệnh).
+- Release PHẢI so khớp token qua Lua script trước khi `DEL` — nếu instance A hết TTL (xử lý chậm
+  bất thường) rồi bị instance B acquire, A không được tự ý xoá lock của B.
+- TTL là an toàn dự phòng nếu process giữ lock crash/restart giữa chừng — không bị deadlock vĩnh
+  viễn.
+- Lock phải bọc **đến hết bước ghi DB**, không chỉ bước check-tồn-tại — nếu chỉ lock phần check
+  rồi nhả trước khi insert, race vẫn còn nguyên.
+- Đây là lock đơn giản cho Redis StandAlone 1 node — KHÔNG cần thuật toán Redlock multi-node.
+
+> Ví dụ thực tế: `IVoucherIssueLock`/`VoucherIssueLock` (`POS.Infrastructure/Locking/`), dùng trong
+> `VoucherService.SaveIssueAsync`/`IssueMoreAsync` để chặn sinh mã Auto voucher trùng khi 2 user/2
+> instance phát hành đồng thời. Từ 2026-07-07, `CouponService.IssueMoreAsync` cũng inject và dùng
+> CHUNG lock này (key `"Lock:VoucherIssue"` không đổi — doc comment `IVoucherIssueLock` từ đầu đã
+> ghi rõ "sinh mã Auto voucher/coupon") — không tạo lock riêng cho Coupon.

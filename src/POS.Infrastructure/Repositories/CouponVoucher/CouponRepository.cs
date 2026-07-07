@@ -199,6 +199,19 @@ public sealed class CouponRepository(CentralMDConnectionFactory connectionFactor
         return row is null ? (false, "Không xóa được coupon") : (row.Deleted, row.Message ?? string.Empty);
     }
 
+    public async Task<int> IssueMoreAsync(string itemNo, IReadOnlyList<string> codes, CancellationToken ct = default)
+    {
+        var p = new DynamicParameters();
+        p.Add("@ItemNo", (itemNo ?? string.Empty).Trim());
+        p.Add("@Codes", BuildCodeTable(codes).AsTableValuedParameter("dbo.CouponCodeTVP"));
+        p.Add("@OutQuantityAdded", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("dbo.usp_SetupCoupon_IssueMore", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
+        return p.Get<int>("@OutQuantityAdded");
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────
     private static DataTable BuildCodeTable(IEnumerable<string> codes)
     {

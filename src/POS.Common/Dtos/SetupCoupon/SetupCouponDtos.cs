@@ -191,6 +191,20 @@ public sealed class CouponAdvancedSaveRequest
     public string  StoreGroupCode { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Request PHÁT HÀNH THÊM một lô mã Auto mới cho coupon ĐÃ TỒN TẠI (header không đổi).
+/// Chỉ hỗ trợ Auto — KHÔNG áp dụng cho Import. Khớp <c>VoucherIssueMoreRequest</c>.
+/// </summary>
+public sealed class CouponIssueMoreRequest
+{
+    public string ItemNo       { get; set; } = string.Empty;   // bắt buộc — coupon đã tồn tại
+    public string Prefix       { get; set; } = string.Empty;
+    public int    LenCode      { get; set; }
+    public int    CharOfNumber { get; set; }
+    public int    CharPosition { get; set; }
+    public int    Quantity     { get; set; }
+}
+
 /// <summary>Kết quả lưu coupon.</summary>
 public sealed class CouponSaveResult
 {

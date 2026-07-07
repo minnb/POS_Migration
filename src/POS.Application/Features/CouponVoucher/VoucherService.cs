@@ -1,6 +1,7 @@
 using System.Globalization;
 using POS.Common.Dtos.CentralMD;
 using POS.Common.Dtos.Voucher;
+using POS.Infrastructure.Locking;
 using POS.Infrastructure.Repositories.Interfaces;
 
 namespace POS.Application.Features.CouponVoucher;
@@ -10,10 +11,15 @@ namespace POS.Application.Features.CouponVoucher;
 /// Validate ở tầng này; persistence qua IVoucherRepository (SP). Serial-trùng do SP kiểm (trả Ok=false).
 ///
 /// IsCheckItem khớp nghĩa Coupon (đổi 2026-07-06): true = THEO SẢN PHẨM (có lines); false = TỔNG BILL (no lines).
+///
+/// Sinh mã Auto (SaveIssueAsync/IssueMoreAsync) được bọc trong <see cref="IVoucherIssueLock"/>
+/// (distributed lock qua Redis) — chặn 2 user/2 instance (sau load balancer) sinh mã đồng thời,
+/// loại bỏ race "check tồn tại rồi insert" giữa các request Auto-issue chạy song song.
 /// </summary>
 public sealed class VoucherService(
     IVoucherRepository repository,
-    ICentralMDRepository centralMDRepository) : IVoucherService
+    ICentralMDRepository centralMDRepository,
+    IVoucherIssueLock issueLock) : IVoucherService
 {
     public Task<(List<VoucherListItemDto> Items, int Total)> GetListAsync(
         VoucherListFilter filter, CancellationToken ct = default)
@@ -130,26 +136,43 @@ public sealed class VoucherService(
 
         // ── Sinh/validate mã (chỉ khi tạo mới hoặc chưa có mã trong DB) ──
         var needCodes = string.IsNullOrWhiteSpace(request.ItemNo) || request.QuantityCodeInDB == 0;
-        List<string> codes = [];
-        if (needCodes)
+        if (!needCodes)
         {
-            string? err;
-            if (string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase))
-                (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
-                    request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);
-            else
-                (codes, err) = CouponVoucherCodeGenerator.ValidateImportCodes(request.ImportCodes);
-
-            if (err != null) return Fail(err);
-
-            var existing = (await repository.CheckCodesExistAsync(codes, ct)).Distinct().ToList();
-            if (existing.Count > 0)
+            try
             {
-                var msg = string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase)
-                    ? $"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng chờ trong ít phút để tạo lại"
-                    : $"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng kiểm tra lại file Excel";
-                return Fail(msg);
+                var itemNoNoCodes = await repository.SaveIssueAsync(request, [], ct);
+                return new VoucherSaveResult
+                    { Ok = true, Message = $"Phát hành thành công voucher {itemNoNoCodes}", ItemNo = itemNoNoCodes };
             }
+            catch (Exception ex)
+            {
+                return Fail(ex.Message);
+            }
+        }
+
+        // Có sinh/insert mã mới → bọc trong distributed lock: chặn 2 request Auto/Import cùng
+        // check-tồn-tại rồi insert đồng thời (race), kể cả khi POS.Web chạy nhiều instance.
+        await using var @lock = await issueLock.AcquireAsync(ct);
+        if (@lock == null)
+            return Fail("Hệ thống đang xử lý phát hành voucher khác, vui lòng thử lại sau.");
+
+        string? err;
+        List<string> codes;
+        if (string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase))
+            (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
+                request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);
+        else
+            (codes, err) = CouponVoucherCodeGenerator.ValidateImportCodes(request.ImportCodes);
+
+        if (err != null) return Fail(err);
+
+        var existing = (await repository.CheckCodesExistAsync(codes, ct)).Distinct().ToList();
+        if (existing.Count > 0)
+        {
+            var msg = string.Equals(request.IssueType, "Auto", StringComparison.OrdinalIgnoreCase)
+                ? $"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng chờ trong ít phút để tạo lại"
+                : $"Mã voucher trùng trong DB ({string.Join(",", existing)}), vui lòng kiểm tra lại file Excel";
+            return Fail(msg);
         }
 
         try
@@ -172,6 +195,10 @@ public sealed class VoucherService(
     {
         if (string.IsNullOrWhiteSpace(request.ItemNo))
             return Fail("Thiếu mã phát hành (ItemNo)");
+
+        await using var @lock = await issueLock.AcquireAsync(ct);
+        if (@lock == null)
+            return Fail("Hệ thống đang xử lý phát hành voucher khác, vui lòng thử lại sau.");
 
         var (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
             request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);

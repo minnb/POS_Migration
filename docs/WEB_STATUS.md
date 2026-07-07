@@ -320,10 +320,11 @@ src/POS.Web/
 │       │   │   ├── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live) — filter mặc định "Có hiệu lực"; modal Xem chi tiết 6 tab; nút Deactive (Status=2+Counter=MAX+1 qua usp_OfferHeader_Deactivate — chưa chạy SP trên DB thật)
 │       │   │   └── Dialogs/ (SiteGroupSetupDialog — modal "Cài đặt nhóm cửa hàng": tạo mới nhóm CH/ST + danh sách filter/phân trang/xem chi tiết store/chọn gắn vào CTKM; ItemGroupSetupDialog — modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get "Nhóm SP": tạo mới nhóm + danh sách filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng; OfferDetailDialog — modal "Xem chi tiết" 6 tab Header/Buy/Benefits/Get/Site/Priority cho 1 offer LIVE, lazy-load theo tab active, export Excel riêng Buy/Get/Site)
 │       │   └── CouponVoucher/
-│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list+xóa / phát hành Auto·Import — 1 form gộp đủ field, không qua dialog nâng cao)
-│       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export)
+│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list — bỏ filter/cột "Loại" / phát hành Auto·Import — Prefix/LenCode/CharOfNumber/CharPosition/Quantity thu thập qua dialog CouponIssueMoreDialog khi Lưu (Auto+chưa có mã), nút "PHÁT HÀNH THÊM" ở trang Xem để thêm lô mã Auto mới cho coupon đã có — khớp VoucherIssuePage)
+│       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export — bỏ filter "Số serial"/"Loại" + cột "Loại")
 │       │       ├── VouchersPublishedPage.razor                       ← 8.4 Tra cứu Voucher phát hành (CentralSales per-store)
-│       │       └── Dialogs/ (CouponItemPickerDialog, VoucherFormDialog, VoucherItemPickerDialog,
+│       │       └── Dialogs/ (CouponItemPickerDialog, CouponIssueMoreDialog — MỚI, phát hành mã Auto (mới/thêm),
+│       │                      VoucherFormDialog, VoucherIssueMoreDialog, VoucherItemPickerDialog,
 │       │                      CouponAdvancedDialog — không còn dùng, giữ code cho thiết kế lại sau)
 │       └── Store/
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)

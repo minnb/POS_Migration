@@ -169,10 +169,10 @@
         <MudTd DataLabel="PosID" Style="text-align:center">@context.PosTerminal</MudTd>
         <MudTd DataLabel="Ngày kinh doanh" Style="text-align:center">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
         <MudTd DataLabel="Ca" Style="text-align:center">@context.ShiftNumber</MudTd>
-        <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
+        <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("dd/MM/yyyy HH:mm:ss") ?? "—")</MudTd>
         <MudTd DataLabel="Số GD" Style="text-align:center">@context.TransactionCount</MudTd>
         <MudTd DataLabel="Tiền hệ thống" Style="text-align:right">@FormatVND(context.TienHeThong)</MudTd>
-        <MudTd DataLabel="T/G đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("HH:mm dd/MM") ?? "—")</MudTd>
+        <MudTd DataLabel="T/G đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("dd/MM/yyyy HH:mm:ss") ?? "—")</MudTd>
         <MudTd DataLabel="Trạng thái" Style="text-align:center">
             @if (context.IsShiftClosed)
             {

@@ -1,6 +1,7 @@
 using System.Globalization;
 using POS.Common.Dtos.CentralMD;
 using POS.Common.Dtos.SetupCoupon;
+using POS.Infrastructure.Locking;
 using POS.Infrastructure.Repositories.Interfaces;
 
 namespace POS.Application.Features.CouponVoucher;
@@ -9,10 +10,14 @@ namespace POS.Application.Features.CouponVoucher;
 /// 8.1/8.2 Setup Coupon — port từ VCM.BLUEPOS SetupCouponController + SetupCouponData.
 /// Sinh mã Auto &amp; validate ở tầng này (business, qua <see cref="CouponVoucherCodeGenerator"/>);
 /// persistence qua ICouponRepository (SP). Item picker tái dùng ICentralMDRepository.GetProductListAsync (migrate 6.1).
+///
+/// Sinh mã Auto cho "phát hành thêm" (IssueMoreAsync) được bọc trong <see cref="IVoucherIssueLock"/>
+/// (distributed lock qua Redis, dùng chung với Voucher) — chặn 2 user/2 instance sinh mã đồng thời.
 /// </summary>
 public sealed class CouponService(
     ICouponRepository repository,
-    ICentralMDRepository centralMDRepository) : ICouponService
+    ICentralMDRepository centralMDRepository,
+    IVoucherIssueLock issueLock) : ICouponService
 {
     public Task<(List<CouponListItemDto> Items, int Total)> GetListAsync(
         CouponListFilter filter, CancellationToken ct = default)
@@ -146,6 +151,38 @@ public sealed class CouponService(
     {
         var (deleted, message) = await repository.DeleteAsync(itemNo, ct);
         return (deleted, message);
+    }
+
+    public async Task<CouponSaveResult> IssueMoreAsync(CouponIssueMoreRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.ItemNo))
+            return Fail("Thiếu mã phát hành (ItemNo)");
+
+        await using var @lock = await issueLock.AcquireAsync(ct);
+        if (@lock == null)
+            return Fail("Hệ thống đang xử lý phát hành coupon khác, vui lòng thử lại sau.");
+
+        var (codes, err) = CouponVoucherCodeGenerator.GenerateAutoCodes(
+            request.Quantity, request.LenCode, request.Prefix, request.CharOfNumber, request.CharPosition);
+        if (err != null) return Fail(err);
+
+        var existing = (await repository.CheckCodesExistAsync(codes, ct)).Distinct().ToList();
+        if (existing.Count > 0)
+            return Fail($"Mã coupon trùng trong DB ({string.Join(",", existing)}), vui lòng thử lại");
+
+        try
+        {
+            var added = await repository.IssueMoreAsync(request.ItemNo, codes, ct);
+            return new CouponSaveResult
+            {
+                Ok = true, ItemNo = request.ItemNo,
+                Message = $"Phát hành thêm {added} mã thành công cho coupon {request.ItemNo}"
+            };
+        }
+        catch (Exception ex)
+        {
+            return Fail(ex.Message);
+        }
     }
 
     private static DateTime ParseDmy(string? dmy)

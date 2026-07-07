@@ -13,13 +13,13 @@
 @inject IFileLogHelper FileLogger
 @inject NavigationManager Nav
 
-<PageTitle>Danh sách Coupon / Voucher – POS Dashboard</PageTitle>
+<PageTitle>Danh sách Coupon – POS Dashboard</PageTitle>
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
     <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
         <MudIcon Icon="@Icons.Material.Filled.ConfirmationNumber" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
-        Danh sách Coupon / Voucher
+        Danh sách Coupon
     </MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
@@ -32,21 +32,11 @@
 @* ── Filter bar ──────────────────────────────────────────────────────────── *@
 <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
-        <MudItem xs="12" sm="6" md="4">
+        <MudItem xs="12" sm="6" md="5">
             <MudTextField @bind-Value="_filter.KeyWord" Label="Từ khóa (mã / tên / mã coupon)"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
         </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudSelect @bind-Value="_filter.ArticleType" Label="Loại"
-                       Variant="Variant.Outlined" Margin="Margin.Dense">
-                <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
-                <MudSelectItem T="string" Value="@("ZCPN")">Coupon</MudSelectItem>
-                <MudSelectItem T="string" Value="@("ZVCN")">Voucher</MudSelectItem>
-                <MudSelectItem T="string" Value="@("ZVCO")">Voucher (cũ)</MudSelectItem>
-                <MudSelectItem T="string" Value="@("ZCOU")">Coupon (cũ)</MudSelectItem>
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="12" sm="6" md="4">
             <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
                        Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
@@ -54,7 +44,7 @@
                 <MudSelectItem T="string" Value="@("1")">Hết hiệu lực</MudSelectItem>
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
@@ -78,7 +68,6 @@
         <MudTh Style="width:80px; text-align:center">Thao tác</MudTh>
         <MudTh>Mã</MudTh>
         <MudTh>Tên</MudTh>
-        <MudTh>Loại</MudTh>
         <MudTh>Loại giảm</MudTh>
         <MudTh Style="text-align:right">Giá trị giảm</MudTh>
         <MudTh Style="text-align:right">SL tối đa</MudTh>
@@ -97,7 +86,6 @@
         </MudTd>
         <MudTd DataLabel="Mã"><b>@context.ItemNo</b></MudTd>
         <MudTd DataLabel="Tên">@context.ItemName</MudTd>
-        <MudTd DataLabel="Loại">@context.ArticleType</MudTd>
         <MudTd DataLabel="Loại giảm">@DiscountTypeText(context.ArticleType, context.DiscountType)</MudTd>
         <MudTd DataLabel="Giá trị giảm" Style="text-align:right">@context.DiscountValue.ToString("#,##0")</MudTd>
         <MudTd DataLabel="SL tối đa" Style="text-align:right">@context.LimitQty.ToString("#,##0")</MudTd>
@@ -166,9 +154,8 @@
 
     private async Task ClearFilterAsync()
     {
-        _filter.KeyWord     = null;
-        _filter.ArticleType = null;
-        _filter.Status      = "0";
+        _filter.KeyWord = null;
+        _filter.Status  = "0";
         await _table.ReloadServerData();
     }
 

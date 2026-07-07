@@ -17,7 +17,7 @@
 | O4 | Log request/response toàn cục (POS.Api) | Mặc định TẮT (`RequestLogging:Enabled=false`) — chỉ bật khi cần debug 1 đợt cụ thể; `PersistToFile=true` mặc định vì chưa cài Elasticsearch | LOW (opt-in khi cần) | [§O4](#o4--log-requestresponse-toàn-cục-posapi) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
-| D3 | SP Setup Coupon (8.1/8.2) | Chạy 4 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list) | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
+| D3 | SP Setup Coupon (8.1/8.2) | Chạy 5 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list + `SetupCoupon_IssueMore.sql` cho nút "PHÁT HÀNH THÊM") | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
 | D4 | SP Voucher (8.3) + reuse (8.4) | Chạy 3 script SQL tạo SP + TVP trên CentralMD; 8.4 tái dùng SP CentralSales | REQUIRED (cho `/promotion/vouchers`) | [§D4](#d4--stored-procedures-voucher-8384) |
 | D5 | SP Setup Giá (9.3) | Chạy script SQL tạo TVP + SP lưu bảng giá trên CentralMD | REQUIRED (cho `/catalog/price-setup`) | [§D5](#d5--stored-procedures-setup-giá-93) |
 | D6 | Gộp SAP Voucher vào CpnVchBOMCodeIssue | Chạy 5 script SQL (extend schema, 2 SP mới + TVP, migrate data, rename legacy) trên CentralMD, đúng thứ tự, có cửa sổ bảo trì. **+D6.1**: chạy thêm 4 script vá đồng bộ dữ liệu Coupon↔SAP Voucher (ItemNo hardening, SetupCoupon_Save/Voucher_Read/Voucher_Save bản mới) | CRITICAL (cho `api/sap/*`, 5.000 POS) | [§D6](#d6--gộp-sap-internal-voucher-vào-cpnvchbomcodeissue) |
@@ -247,11 +247,14 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   mà POS.Api đang phục vụ** — chung UNC share (Windows) hoặc chung bind-mount/volume (Docker).
   Nếu 2 app không chia sẻ thư mục này → file sinh ra máy POS **không thấy để tải**.
   (Thư mục đích dựng qua `MapFtpPath` = `FtpRootPath` + `SyncDataPos\POS\CHANGE\{site}\{terminal}` — KHÔNG dùng `FolderShare`.)
-- **Hiện trạng cần sửa khi go-live**:
-  - DEV (`appsettings.json`): `POS.Web:FtpRootPath` = `D:\ROOT\FTPBLUEPOS` — đã khớp POS.Api.
-  - UAT/PROD (`appsettings.UAT.json` / `appsettings.Production.json` của POS.Web): `FtpRootPath` đang **rỗng**
-    → phải điền path chỉ đến chung thư mục POS.Api phục vụ. Với Docker, POS.Web phải mount **cùng volume** `ftpbluepos`
-    của POS.Api và đặt path container-side tương ứng (vd `/app/ftpbluepos`).
+- **Hiện trạng (2026-07-07 — đã fix)**:
+  - DEV (`appsettings.json`): `POS.Web:FtpRootPath` = `D:\ROOT\FTPBLUEPOS` — khớp POS.Api.
+  - UAT/PROD (`appsettings.UAT.json`/`appsettings.Production.json` của POS.Web): `FtpRootPath` đã đặt
+    sẵn `/app/ftpbluepos` (khớp POS.Api) — **không cần sửa file appsettings nữa**. Việc còn lại của
+    người vận hành: đảm bảo `docker run` POS.Web có mount **cùng volume** `ftpbluepos` với POS.Api ở
+    container-side path `/app/ftpbluepos` (xem `docs/guide-deploy.md` §3.2 — đã có sẵn dòng `-v` mẫu).
+    Thiếu mount này → path đúng nhưng trỏ vào thư mục rỗng trong container, lỗi vẫn xảy ra tương tự
+    như khi `FtpRootPath` rỗng.
 - **Idempotent theo ngày**: bấm lại trong cùng ngày trả nhanh zip đã có (không sinh lại). Sang ngày mới tự sinh lại
   (`DateInZipName=true`).
 - **Không cần** cấu hình SysWebApi/X-API (vì gọi trực tiếp, không qua HTTP).
@@ -262,14 +265,28 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 
 ## O2 — Worker nạp sale từ file .zip (POS.Worker)
 
-> `PosFileImportWorker` là **đường nạp sale thứ hai** (song song với `PosSalesConsumerWorker` đọc RabbitMQ).
-> Worker quét `InboxFolder`, gặp `.zip` thì giải nén ra các `.txt` (mỗi file = 1 `KafkaMessageDto`) và insert DB
-> qua đúng luồng `ICentralSaleRepository.InInsertToTableByJson` (source = `FILE` để truy vết trong `DataRawJson`).
+> `PosFileImportService`/`PosFileImportWorker` là **đường nạp sale thứ hai** (song song với
+> `PosSalesConsumerWorker` đọc RabbitMQ). Quét `InboxFolder`, gặp `.zip` thì giải nén ra các `.txt`
+> (mỗi file = 1 message) và insert DB qua đúng luồng `ICentralSaleRepository.InInsertToTableByJson`
+> (source = `FILE` để truy vết trong `DataRawJson`).
 
-- **Docker (SIT/UAT/PROD)**: `InboxFolder`/`ErrorFolder`/`WorkFolder` nằm **lồng bên trong** cùng bind
-  mount `ftpbluepos` dùng chung với POS.Api (KHÔNG phải volume `/app/fileimport` riêng như trước đây) —
-  xem `docs/deploy/ubuntu-guide.md` để biết đầy đủ path/quyền/setup. `deploy/linux/setup-pos-dirs.sh` tạo
-  sẵn `SyncDataPos/Sale/{Kafka,BackupFiles,error,_work}` + cấp quyền, không cần tạo tay.
+> **2 mô hình chạy đồng thời (feature toggle `WorkerRoles`, xem `WorkerRolesOptions.cs`)**:
+> - **Model A — cronjob thật trên Ubuntu host**: `dotnet POS.Worker.dll --run-once`
+>   (`DOTNET_ENVIRONMENT=CronHost`) chạy **1 chu kỳ** quét file rồi thoát, lịch do crontab quyết định
+>   (`deploy/linux/run-worker-file-import-once.sh`). Đảm nhiệm riêng việc xử lý file — dùng chung
+>   `/srv/pos/ftpbluepos` với POS.Api/POS.Web.
+> - **Model B — Docker container dài hạn** (service `pos-worker` trong `docker-compose.yml`):
+>   `WorkerRoles:EnableFileProcessing=false` — chỉ chạy `PosSalesConsumerWorker` (RabbitMQ) +
+>   `Rpt_ReportSaleDetail_Insert` (SQL polling) + heartbeat, không đụng file, không mount `ftpbluepos`.
+> - Chi tiết setup từng mô hình: `docs/deploy/pos-worker-ubuntu-guide.md`.
+
+- **Docker (SIT/UAT/PROD, Model B)**: `InboxFolder`/`ErrorFolder`/`WorkFolder` trong
+  `appsettings.Production.json`/`appsettings.UAT.json` vẫn giữ path container `/app/ftpbluepos/...`
+  cho tương thích, nhưng **không còn dùng** vì `WorkerRoles:EnableFileProcessing=false` — việc xử lý
+  file đã chuyển hẳn sang Model A (cron host, `appsettings.CronHost.json`, path
+  `/srv/pos/ftpbluepos/...` tuyệt đối trên host). `deploy/linux/setup-pos-dirs.sh` tạo sẵn
+  `SyncDataPos/Sale/{Kafka,BackupFiles,error,_work}` + cấp quyền (group `posops`, gid 1654), dùng
+  chung cho cả 2 mô hình.
 - **Dev/bare-metal (Windows)**: 3 thư mục theo path cấu hình trong `appsettings.json` — worker tự tạo khi
   chạy, chỉ cần ổ đĩa tồn tại + tài khoản chạy có quyền ghi (xem `deploy/windows/README.md`).
   - `InboxFolder` — nơi hệ thống nguồn đặt file `.zip` cần nạp.
@@ -384,7 +401,7 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 > `CpnVchBOMCodeIssue`, `CpnVchBOMLine`, `CpnVchBOMStore` được xác nhận **đã có sẵn**.
 > ⚠️ Legacy dùng **EF LINQ trực tiếp** (không có SP) — các SP dưới đây là **mới**, viết lại cho .NET 10.
 
-- **BẮT BUỘC chạy 4 script** trên `RPOSMasterData` trước khi dùng trang:
+- **BẮT BUỘC chạy 5 script** trên `RPOSMasterData` trước khi dùng trang:
   - `docs/sql/CpnVchBOMHeader_GetList.sql` — `usp_CpnVchBOMHeader_GetList` (danh sách master
     Coupon/Voucher: list **thẳng** `CpnVchBOMHeader`, KHÔNG join IssueRule, mọi ArticleType, filter
     KeyWord/Type/Status, Status theo EndingDate). **Đây là SP mà trang `/promotion/coupons` dùng** (port
@@ -397,7 +414,13 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
     insert Codes 1 lần, replace Lines/Stores, tự sinh ItemNo `C7...`, transaction) +
     `usp_SetupCoupon_SaveAdvanced` (upsert field nâng cao: discount/limit/blocked...).
   - `docs/sql/SetupCoupon_Delete.sql` — `usp_SetupCoupon_Delete` (guard: chỉ xóa khi QtyCoupon==0, trả Deleted+Message).
+  - `docs/sql/SetupCoupon_IssueMore.sql` — **MỚI**: `usp_SetupCoupon_IssueMore` (thêm 1 lô mã Auto mới cho
+    coupon đã tồn tại, không đổi header, không guard tồn tại mã — khác `usp_SetupCoupon_SaveIssue` chỉ insert
+    mã 1 lần duy nhất). Tái dùng TVP `dbo.CouponCodeTVP` đã tạo ở `SetupCoupon_Save.sql`. Phục vụ nút
+    "PHÁT HÀNH THÊM" ở trang Xem coupon (`/promotion/coupons/issue?...&mode=view`) — khớp
+    `usp_SetupVoucher_IssueMore` (§D4) của Voucher.
 - **Sinh mã Auto** chạy ở tầng Application (`CouponService`, C#) — không nằm trong SP; SP chỉ nhận danh sách mã qua TVP.
+  Sinh mã cho "PHÁT HÀNH THÊM" được bọc trong `IVoucherIssueLock` (Redis distributed lock, dùng chung với Voucher).
 - **Nếu chưa chạy script** → trang báo lỗi khi tải/lưu/xóa (SP không tồn tại); service nuốt lỗi, hiện snackbar đỏ.
 - Store áp dụng: `StoreGroupCode='ALL'` → 1 dòng `StoreNo='ALL'`; ngược lại bung theo `dbo.StoreGroup` (GroupCode).
 

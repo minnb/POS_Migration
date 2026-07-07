@@ -6,6 +6,189 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-07] Coupon "Phát hành thêm mã" — mirror VoucherIssuePage.IssueMoreAsync + gộp/ẩn field form
+
+**Layer:** POS.Common, POS.Application, POS.Infrastructure, POS.Web
+**Loại:** Feature (áp dụng lại pattern đã có, không phải pattern mới) + UI refactor
+
+**Bối cảnh:** `VoucherIssuePage.razor` đã có sẵn cơ chế "phát hành thêm 1 lô mã Auto mới cho
+voucher đã tồn tại" (nút PHÁT HÀNH ở trang Xem + dialog thu thập Prefix/LenCode/CharOfNumber/
+CharPosition/Quantity, tách khỏi form chính). Coupon (`CouponIssuePage.razor`) chưa có khả năng
+tương ứng — `SaveIssueAsync` chỉ sinh mã khi tạo mới/coupon chưa có mã, không thể thêm mã cho
+coupon đã phát hành. Theo yêu cầu người dùng, port nguyên cơ chế này sang Coupon.
+
+**Thay đổi:**
+- `POS.Common/Dtos/SetupCoupon/SetupCouponDtos.cs`: thêm `CouponIssueMoreRequest` (ItemNo/Prefix/
+  LenCode/CharOfNumber/CharPosition/Quantity) — khớp `VoucherIssueMoreRequest`.
+- `ICouponRepository`/`CouponRepository`: thêm `IssueMoreAsync(itemNo, codes, ct)` → SP mới
+  `usp_SetupCoupon_IssueMore`.
+- `docs/sql/SetupCoupon_IssueMore.sql` (**MỚI — CHƯA CHẠY trên DB nào**, xem "Lưu ý" bên dưới): SP
+  thêm 1 lô mã Auto vào coupon đã tồn tại, không đổi header, không guard tồn tại mã (khác
+  `usp_SetupCoupon_SaveIssue` chỉ insert 1 lần) — mirror `usp_SetupVoucher_IssueMore`, có thêm
+  `Value`/`VoucherType` snapshot theo `DiscountValue`/`CpnVchType` của Header (khác Voucher dùng
+  `DiscountValue`/`ArticleType`) để khớp field "chụp nhanh" mà `usp_SetupCoupon_SaveAdvanced` đồng
+  bộ cho các mã cũ.
+- `ICouponService`/`CouponService`: thêm `IssueMoreAsync(request, ct)` — inject thêm
+  `IVoucherIssueLock` (Redis distributed lock, dùng CHUNG với Voucher, không tạo lock riêng) để
+  chặn sinh mã Auto đồng thời.
+- `src/POS.Web/.../Dialogs/CouponIssueMoreDialog.razor` (**MỚI**): dialog thu thập Prefix/LenCode/
+  CharOfNumber/CharPosition/Quantity — tái dùng cho CẢ 2 luồng (thu thập tham số trước khi tạo mới,
+  và phát hành thêm cho coupon đã có), khớp `VoucherIssueMoreDialog`.
+- `CouponIssuePage.razor`: (1) bỏ 5 field Prefix/LenCode/CharOfNumber/CharPosition/Quantity khỏi
+  form chính (nay chỉ nhập qua dialog) — khác Voucher, Coupon có thêm state "Sửa" (IsEditing=true,
+  IsViewMode=false) không chỉ "Xem", nên điều kiện mở dialog trước khi Lưu dùng `NeedsCodeDialog`
+  (Auto + (ItemNo rỗng HOẶC chưa có mã)) — rộng hơn điều kiện `!IsEditing` của Voucher; (2) nút
+  "PHÁT HÀNH THÊM" mới ở header, chỉ hiện khi `IsViewMode` (theo yêu cầu người dùng); (3) gộp group
+  "Thời gian hiệu lực" + "Cấu hình mã & giảm giá" thành 1 group; (4) ẩn field "Giới hạn số lượng"
+  (`LimitQty`, cố định `199999999` — đổi từ `999999999` cũ) + "Số lần sử dụng" (`LimitQtyUsed`, cố
+  định `1`) + checkbox "Sử dụng nhiều lần" (`IsMultiUsed`, cố định `false`) khỏi form — 3 giá trị
+  này nay hardcode ở mọi nơi gán (`SetDefaultsForNewCoupon`/`LoadDetailAsync`/`SaveAsync`), không
+  còn đọc từ DB khi load coupon đã có (luôn ép về giá trị cố định trước khi lưu).
+- `docs/CURRENT_STRUCTURE.md`, `docs/ROLLOUT.md` (§D3 — 4→5 script), `docs/WEB_STATUS.md`,
+  `.claude/skills/cache/SKILLS.md` (ghi chú `IVoucherIssueLock` nay dùng chung Coupon+Voucher): cập
+  nhật theo thay đổi trên.
+
+**Pattern mới:** Không có pattern mới — áp dụng lại 2 pattern đã có (`IVoucherIssueLock` dùng chung
+domain Coupon/Voucher; dialog `{Domain}IssueMoreRequest`/`{Domain}IssueMoreDialog` tái dùng cho cả
+luồng tạo mới và luồng phát hành thêm).
+
+**Lưu ý cho session sau:**
+- **BẮT BUỘC chạy `docs/sql/SetupCoupon_IssueMore.sql` trên RPOSMasterData** (dev/UAT/PROD) trước
+  khi nút "PHÁT HÀNH THÊM" hoạt động — SP `usp_SetupCoupon_IssueMore` chưa tồn tại trên DB nào.
+- `docs/WEB_STATUS.md` và phần đầu file này vẫn còn **conflict marker Git chưa resolve**
+  (`<<<<<<< HEAD`/`=======`/`>>>>>>>`, đã ghi nhận từ entry 2026-07-07 "Fix rule sai..." bên dưới) —
+  KHÔNG đụng tới trong task này (ngoài phạm vi), chỉ sửa các dòng nằm ngoài vùng conflict
+  (`WEB_STATUS.md` dòng ~322-327, phần cây thư mục Coupon/Voucher). Cần dọn riêng trước khi tin
+  tưởng phần đầu 2 file này.
+
+---
+
+## [2026-07-07] Dọn UI danh sách Coupon/Voucher + format thời gian đầy đủ (EosShiftsPage)
+
+**Layer:** POS.Web
+**Loại:** UI cleanup
+
+**Thay đổi:**
+- `CouponsPage.razor` (`/promotion/coupons`): đổi title "Danh sách Coupon / Voucher" →
+  "Danh sách Coupon"; bỏ filter + cột "Loại".
+- `VouchersPage.razor` (`/promotion/vouchers`): bỏ filter "Số serial" + "Loại"; bỏ cột "Loại"
+  trong `MudTable` (giữ nguyên cột "Loại" trong file Excel export — chỉ yêu cầu bỏ ở filter/table).
+- `BusinessDayPage.razor` (`/store/business-day`): cột "Thời gian kết thúc ngày" đã sẵn đúng format
+  `dd/MM/yyyy HH:mm:ss` — không cần sửa.
+- `EosShiftsPage.razor` (`/store/eos-shifts`): cột "Mở ca" (`HH:mm` → `dd/MM/yyyy HH:mm:ss`) và
+  "T/G đóng ca" (`HH:mm dd/MM` → `dd/MM/yyyy HH:mm:ss`) — hiện đủ ngày/giờ/giây.
+
+**Pattern mới:** Không có.
+
+**Lưu ý cho session sau:** Không có gì đặc biệt — các thay đổi độc lập, không ảnh hưởng
+service/repository layer.
+
+---
+
+## [2026-07-07] Chống trùng mã Auto voucher (concurrency + Redis distributed lock)
+
+**Layer:** POS.Application, POS.Infrastructure
+**Loại:** Bug fix (rủi ro tiềm ẩn, chưa xảy ra trong prod) + Pattern mới
+
+**Bối cảnh:** Phân tích `VoucherIssuePage.razor` → `VoucherService.SaveIssueAsync`/`IssueMoreAsync`
+phát hiện thuật toán sinh mã Auto (`CouponVoucherCodeGenerator.GenerateAutoCodes`) dựa vào
+`UtcNow.ToUnixTimeMilliseconds() + i` (dễ trùng khi 2 request Auto-issue chạy cùng millisecond) và
+luồng check-tồn-tại-rồi-insert tách thành 2 round-trip DB riêng (race window nếu 2 request chạy
+song song). Yêu cầu bổ sung: giải pháp phải hoạt động cả khi POS.Web scale-out nhiều instance sau
+load balancer → khóa in-process (`SemaphoreSlim`/`ISyncFileLock`) không đủ, cần Redis.
+
+**Thay đổi:**
+- `CouponVoucherCodeGenerator.cs`: đổi `Random` (seed theo `UtcNow`) → `RandomNumberGenerator`
+  (crypto-strength) cho phần số/ký tự của mã Auto — loại bỏ nguồn trùng chính khi 2 request rơi
+  cùng millisecond. `GenerateRandomSerial` (Serial, không cần unique) giữ `Random` cũ.
+- `IRedisManager`/`RedisManager.cs` (`POS.Infrastructure/Cache/`): thêm `AcquireLockAsync`/
+  `ReleaseLockAsync` — `SET key token NX PX ttl` atomic + Lua script release (so khớp token trước
+  `DEL`, tránh xoá nhầm lock của instance khác).
+- `IVoucherIssueLock`/`VoucherIssueLock.cs` (MỚI, `POS.Infrastructure/Locking/`): Redis distributed
+  lock, key cố định `"Lock:VoucherIssue"` (TTL 30s, poll 300ms, timeout chờ 15s) — đăng ký Singleton
+  trong `DependencyInjection.cs`.
+- `VoucherService.cs`: bọc toàn bộ đoạn sinh mã + check-tồn-tại + insert (`SaveIssueAsync` nhánh có
+  sinh mã, và `IssueMoreAsync`) trong `IVoucherIssueLock.AcquireAsync` — loại bỏ hoàn toàn race
+  check-then-insert vì không còn 2 request nào chạy đồng thời đoạn này.
+- `docs/CURRENT_STRUCTURE.md`: thêm cây `Locking/`, chữ ký `IRedisManager` mới, entry
+  `IVoucherIssueLock` vào bảng Interface/DI.
+
+**Pattern mới:** Distributed lock qua Redis (`IRedisManager.AcquireLockAsync`/`ReleaseLockAsync` +
+wrapper domain-specific như `VoucherIssueLock`) → đã cập nhật `.claude/skills/cache/SKILLS.md`
+(Pattern 6).
+
+**Lưu ý cho session sau:** Không sửa 2 stored procedure `usp_SetupVoucher_SaveIssue`/
+`usp_SetupVoucher_IssueMore` để retry-on-duplicate — vì với lock toàn cục, race đã bị loại trừ nên
+không cần thêm phức tạp ở SP; DB unique constraint (`UX_CpnVchBOMCodeIssue_Code`) vẫn là lưới an
+toàn cuối cho mã trùng với dữ liệu lịch sử. `CouponService` dùng chung
+`CouponVoucherCodeGenerator` + bảng `CpnVchBOMCodeIssue` nên có cùng loại rủi ro nhưng **chưa**
+được bọc `IVoucherIssueLock` (ngoài phạm vi task này — cân nhắc áp dụng tương tự nếu cần).
+
+---
+
+## [2026-07-07] Fix rule sai + thêm validate % cho Coupon/Voucher (Giá trị giảm giá)
+
+**Layer:** POS.Web
+**Loại:** Bug fix + Business rule mới
+
+**Thay đổi:**
+- `CouponIssuePage.razor` (`/promotion/coupons/issue`): xoá rule sai trong `SaveAsync` —
+  `if (_advanced.MaxValue > 0 && _advanced.DiscountValue < _advanced.MaxValue)` so sánh trực tiếp
+  `DiscountValue` (%) với `MaxValue` (VNĐ), sai đơn vị khi `DiscountType == 1` (Percent), luôn chặn
+  lưu vô lý.
+- `CouponIssuePage.razor` + `VoucherIssuePage.razor`: thêm rule mới — khi `DiscountType == 1` (%),
+  `DiscountValue` phải thoả `0 < DiscountValue <= 100`. Validate ở `SaveAsync`
+  (Coupon)/`ValidateHeaderFields()` (Voucher, dùng chung cho cả luồng Import và luồng dialog
+  "PHÁT HÀNH VOUCHER" Auto) + set `Max` động trên `MudNumericField` (property `DiscountValueMax`,
+  `100` khi Percent / `MaxValue` kiểu số khi Amount) để giới hạn ngay từ UI.
+
+**Pattern mới:** `MudNumericField` validate/giới hạn theo giá trị 1 field khác (Percent vs Amount) →
+đã cập nhật `.claude/skills/web/form-input.md` §5a.
+
+**Lưu ý cho session sau:** `CouponAdvancedDialog.razor` (`Submit()`) đã có sẵn đúng rule 0-100%
+này từ trước — không cần sửa, chỉ 2 page chính (`CouponIssuePage`/`VoucherIssuePage`) thiếu.
+Ngoài ra, `docs/WEB_STATUS.md` và phần dưới `docs/CHANGELOG.md` đang có **conflict marker Git
+chưa resolve** (`<<<<<<< HEAD`/`=======`/`>>>>>>>`) committed thẳng vào nội dung file — không phải
+do task này gây ra, nhưng cần dọn riêng trước khi tin tưởng nội dung phần đó.
+
+---
+
+## [2026-07-07] Fix rule chặn xác nhận EOD — phân biệt "Chưa mở ca" vs "Chưa đóng ngày"
+
+**Layer:** POS.Application, POS.Web
+**Loại:** Bug fix (business rule)
+
+**Bối cảnh:** `docs/web/logic/eod.md` §3 mô tả rule cũ: chặn xác nhận (StoreOperator, không force)
+hễ có ≥1 máy POS `IsClosed=false`, không phân biệt "Chưa mở ca" (`LastSaleTime=null`, chưa từng
+bán hàng) hay "Chưa đóng ngày" (đã bán hàng nhưng chưa đóng ngày). User yêu cầu tách rõ: cửa hàng
+có 1 số máy "Chưa mở ca" nhưng các máy còn lại đã "Đã đóng ngày" hết vẫn phải được xác nhận —
+chỉ "Chưa đóng ngày" mới thực sự chặn; ngoại lệ: nếu KHÔNG có máy nào đã đóng ngày (toàn bộ "Chưa
+mở ca") thì vẫn chặn.
+
+**Thay đổi:**
+- `src/POS.Application/Features/StoreActivities/BusinessDayService.cs`: `ConfirmBusinessDayAsync`
+  — thay điều kiện chặn `staging.Any(!IsClosed)` bằng 2 check: (1) `blocking` = máy có
+  `LastSaleTime != null && !IsClosed` → luôn chặn; (2) `staging.All(!IsClosed)` (không máy nào
+  đóng ngày) → chặn riêng, message khác.
+- `src/POS.Web/Components/Pages/Store/Operations/BusinessDayPage.razor`: `CanConfirm` đổi thành
+  `staging.Any(IsClosed) && !staging.Any(BlocksConfirm)` cho nhánh StoreOperator (không force);
+  thêm helper `BlocksConfirm`/`BlockingCount`; tách alert cảnh báo thành 2 nhánh rõ lý do chặn.
+- `docs/web/logic/eod.md`: cập nhật §2 (điều kiện bật nút Xác nhận) và §3 (note rule chặn) khớp
+  logic mới.
+
+**Lưu ý cho session sau:**
+1. ITOps/SystemAdmin (`allowForceConfirm=true`) không đổi hành vi — vẫn force được bất kể trạng
+   thái các máy POS.
+2. Chưa verify qua UI/DB thực tế (không có môi trường CentralSale/CentralMD trong phiên) — chỉ
+   verify bằng build (`dotnet build src/POS.Web/POS.Web.csproj` 0 lỗi) + `dotnet test
+   tests/POS.ContractTests` (25/25 xanh) + đối chiếu tay 3 ví dụ nghiệp vụ user đưa ra.
+3. Phát hiện phụ (KHÔNG sửa, ngoài phạm vi task): `docs/WEB_STATUS.md` đang có conflict marker
+   Git chưa resolve (dòng 2, 114-117, 186-201 — tìm `<<<<<<<`/`=======`/`>>>>>>>`), đã tồn tại từ
+   trước (không nằm trong `git status` diff của session này) — cần dọn riêng, không tự ý resolve
+   khi không rõ ý đồ 2 nhánh.
+
+---
+
 ## [2026-07-06] Runbook deploy POS.Worker lên Ubuntu (Docker) + appsettings.UAT.json
 
 **Layer:** Deployment (`deploy/`, `docs/deploy/`), POS.Worker (config)

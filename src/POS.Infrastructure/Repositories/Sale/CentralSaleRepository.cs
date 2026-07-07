@@ -980,12 +980,15 @@ public sealed class CentralSaleRepository(
         }
     }
 
-    // ── Void Transaction Dashboard ────────────────────────────────────────────
+    // ── Void Transaction Dashboard (InvoiceVoid + LineVoid hợp nhất) ───────────
+    // TransVoidLine là driving table (grain mịn nhất — 1 dòng = 1 sản phẩm bị hủy).
+    // LEFT JOIN TransVoidHeader để phân loại VoidType; LEFT JOIN TransHeader để lấy context
+    // (Store/POS/ngày/số tiền đơn gốc) cho các dòng LineVoid (đơn không bị hủy cả hóa đơn).
 
-    public async Task<List<VoidTransactionListDto>> GetVoidTransactionListAsync(
+    public async Task<List<VoidReportLineDto>> GetVoidReportAsync(
         string? storeNo, DateTime fromDate, DateTime toDate,
-        string? orderNo, string? userVoid = null, string? posNo = null,
-        int maxRows = 500, CancellationToken ct = default)
+        string? orderNo = null, string? userVoid = null, string? posNo = null,
+        string? voidType = null, int maxRows = 1000, CancellationToken ct = default)
     {
         try
         {
@@ -993,20 +996,36 @@ public sealed class CentralSaleRepository(
             string? normalizedOrderNo = string.IsNullOrWhiteSpace(orderNo) ? null : orderNo.Trim();
             string? normalizedUserVoid = string.IsNullOrWhiteSpace(userVoid) ? null : userVoid.Trim();
             string? normalizedPosNo = string.IsNullOrWhiteSpace(posNo) ? null : posNo.Trim();
+            string? normalizedVoidType = string.IsNullOrWhiteSpace(voidType) ? null : voidType.Trim();
 
-            var sql = $@"
+            const string sql = @"
                 SELECT TOP (@MaxRows)
-                    OrderNo, OrderDate, OrderTime, StoreNo, POSTerminalNo,
-                    ISNULL(DiscountAmount, 0) AS DiscountAmount,
-                    AmountInclVAT, TransactionType, CreatedDate, MemberCardNo,
-                    UserVoid, Note, CashierID, ShiftNo
-                FROM TransVoidHeader (NOLOCK)
-                WHERE CAST(OrderDate AS DATE) >= @FromDate AND CAST(OrderDate AS DATE) <= @ToDate
-                  AND (@StoreNo IS NULL OR StoreNo = @StoreNo)
-                  AND (@OrderNo IS NULL OR OrderNo LIKE '%' + @OrderNo + '%')
-                  AND (@UserVoid IS NULL OR UserVoid LIKE '%' + @UserVoid + '%')
-                  AND (@PosNo IS NULL OR POSTerminalNo = @PosNo)
-                ORDER BY CreatedDate DESC;";
+                    vl.DocumentNo                                                 AS OrderNo,
+                    vl.LineNo,
+                    CASE WHEN vh.OrderNo IS NOT NULL THEN 'InvoiceVoid' ELSE 'LineVoid' END AS VoidType,
+                    vl.ScanTime,
+                    COALESCE(vh.StoreNo, th.StoreNo)                              AS StoreNo,
+                    COALESCE(vh.POSTerminalNo, th.POSTerminalNo, vl.OrigTransPos) AS POSTerminalNo,
+                    vl.ItemNo, vl.Description AS ItemName, vl.UnitOfMeasure,
+                    vl.Quantity, vl.UnitPrice, ISNULL(vl.DiscountAmount, 0) AS DiscountAmount,
+                    vl.VATPercent, vl.VATAmount, vl.LineAmountIncVAT,
+                    COALESCE(vh.AmountInclVAT, th.AmountInclVAT)                  AS OrderAmountInclVAT,
+                    COALESCE(vh.TransactionType, th.TransactionType)              AS TransactionType,
+                    COALESCE(vh.UserVoid, vl.StaffID)                            AS UserVoid,
+                    vh.CashierID, vh.ShiftNo,
+                    COALESCE(vh.Note, vl.Note)                                    AS Note,
+                    COALESCE(vh.MemberCardNo, th.MemberCardNo)                    AS MemberCardNo,
+                    vl.DivisionCode, vl.Barcode
+                FROM TransVoidLine vl (NOLOCK)
+                LEFT JOIN TransVoidHeader vh (NOLOCK) ON vh.OrderNo = vl.DocumentNo
+                LEFT JOIN TransHeader th (NOLOCK) ON th.OrderNo = vl.DocumentNo
+                WHERE CAST(vl.ScanTime AS DATE) >= @FromDate AND CAST(vl.ScanTime AS DATE) <= @ToDate
+                  AND (@StoreNo IS NULL OR COALESCE(vh.StoreNo, th.StoreNo) = @StoreNo)
+                  AND (@OrderNo IS NULL OR vl.DocumentNo LIKE '%' + @OrderNo + '%')
+                  AND (@UserVoid IS NULL OR COALESCE(vh.UserVoid, vl.StaffID) LIKE '%' + @UserVoid + '%')
+                  AND (@PosNo IS NULL OR COALESCE(vh.POSTerminalNo, th.POSTerminalNo, vl.OrigTransPos) = @PosNo)
+                  AND (@VoidType IS NULL OR CASE WHEN vh.OrderNo IS NOT NULL THEN 'InvoiceVoid' ELSE 'LineVoid' END = @VoidType)
+                ORDER BY vl.ScanTime DESC;";
 
             var param = new
             {
@@ -1016,7 +1035,8 @@ public sealed class CentralSaleRepository(
                 StoreNo  = normalizedStore,
                 OrderNo  = normalizedOrderNo,
                 UserVoid = normalizedUserVoid,
-                PosNo    = normalizedPosNo
+                PosNo    = normalizedPosNo,
+                VoidType = normalizedVoidType
             };
 
             // Route to store shard when storeNo specified; otherwise use central connection
@@ -1026,36 +1046,14 @@ public sealed class CentralSaleRepository(
 
             using (conn)
             {
-                var data = await conn.QueryAsync<VoidTransactionListDto>(
+                var data = await conn.QueryAsync<VoidReportLineDto>(
                     new CommandDefinition(sql, param, commandTimeout: Timeout, cancellationToken: ct));
                 return [.. data];
             }
         }
         catch (Exception ex)
         {
-            fileLogHelper.WriteExpLogs("GetVoidTransactionList", ex);
-            return [];
-        }
-    }
-
-    public async Task<List<ValidateTransactionLine>> GetVoidTransLinesAsync(string orderNo, CancellationToken ct = default)
-    {
-        try
-        {
-            var siteCode = orderNo.Substring(0, 4);
-            using var conn = await connectionFactory.CreateOpenConnectionAsync(siteCode, ct: ct);
-            const string sql = @"SELECT DISTINCT [LineNo], ItemNo, [Description] ItemName, UnitOfMeasure, Quantity, UnitPrice,
-                                        DiscountAmount, VATPercent, VATAmount, LineAmountIncVAT, DivisionCode, Barcode
-                                 FROM TransVoidLine (NOLOCK)
-                                 WHERE DocumentNo = @OrderNo
-                                 ORDER BY [LineNo]";
-            var data = await conn.QueryAsync<ValidateTransactionLine>(
-                new CommandDefinition(sql, new { OrderNo = orderNo }, commandTimeout: Timeout, cancellationToken: ct));
-            return [.. data];
-        }
-        catch (Exception ex)
-        {
-            fileLogHelper.WriteExpLogs("GetVoidTransLines", ex);
+            fileLogHelper.WriteExpLogs("GetVoidReport", ex);
             return [];
         }
     }

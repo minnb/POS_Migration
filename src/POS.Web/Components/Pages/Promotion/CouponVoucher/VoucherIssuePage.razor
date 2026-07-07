@@ -237,7 +237,7 @@ else
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
                         <MudNumericField T="decimal" @bind-Value="_model.DiscountValue" Label="Giá trị giảm giá (%/VNĐ)" Variant="Variant.Outlined"
-                                         Min="0" Step="0.1m" Required="true" RequiredError="Vui lòng nhập giá trị giảm giá"
+                                         Min="0" Max="@DiscountValueMax" Step="0.1m" Required="true" RequiredError="Vui lòng nhập giá trị giảm giá"
                                          Margin="Margin.Dense"/>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
@@ -380,7 +380,7 @@ else
     // ArticleType/UnitOfMeasure/MaxAmount/LimitQty ẩn khỏi form → dùng default ngầm ("ZVCN"/"CAI"/0/0).
     private VoucherIssueSaveRequest _model = new()
     {
-        IssueType = "Auto", DiscountType = 1, ArticleType = "ZVCN", UnitOfMeasure = "CAI", MaxAmount = 0, LimitQty = 0
+        IssueType = "Auto", DiscountType = 1, ArticleType = "ZVCN", UnitOfMeasure = "CAI", MaxAmount = 0, LimitQty = 999999999
     };
     private List<VoucherLineDto> _items = [];
     private DateTime? _fromDate;
@@ -404,6 +404,9 @@ else
 
     // Xem voucher: NGOẠI LỆ DUY NHẤT được sửa là Blocked. Nút Lưu chỉ bật khi giá trị này đổi.
     private bool BlockedChanged => IsEditing && _model.Blocked != _originalBlocked;
+
+    // Kiểu giảm giá = Percent (1) → giá trị giảm giá tối đa 100%; Amount (2) → không giới hạn theo %.
+    private decimal DiscountValueMax => _model.DiscountType == 1 ? 100m : decimal.MaxValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -468,6 +471,11 @@ else
         if (_fromDate == null) { Snackbar.Add("Vui lòng chọn ngày bắt đầu", Severity.Warning); return false; }
         if (_toDate == null) { Snackbar.Add("Vui lòng chọn ngày kết thúc", Severity.Warning); return false; }
         if (_fromDate.Value.Date > _toDate.Value.Date) { Snackbar.Add("Từ ngày không lớn hơn Đến ngày", Severity.Warning); return false; }
+        if (_model.DiscountType == 1 && (_model.DiscountValue <= 0 || _model.DiscountValue > 100))
+        {
+            Snackbar.Add("Giá trị giảm giá theo % phải lớn hơn 0 và không vượt quá 100", Severity.Warning);
+            return false;
+        }
         return true;
     }
 

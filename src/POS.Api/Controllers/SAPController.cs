@@ -104,6 +104,7 @@ public sealed class SAPController(ISAPService sapService) : BaseController
         try
         {
             model.ForEach(v => v.VoucherType = $"BNMH");
+            model.ForEach(v => v.Article_No = $"10000001");
             var result = await _sapService.CreateNewVoucherAsync(model, ct);
             return StatusCode((int)result.Status, result);
         }

@@ -21,6 +21,10 @@ RUN apt-get update \
 
 COPY --from=build /app/publish .
 
+# Tạo thư mục ftpbluepos với đúng owner trước khi switch sang non-root user — dùng CHUNG với
+# POS.Api (cùng bind-mount host /srv/pos/ftpbluepos, xem docs/guide-deploy.md §3.2)
+RUN mkdir -p /app/ftpbluepos && chown app:app /app/ftpbluepos
+
 RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
     && chown -R app:app /home/app/.aspnet
 

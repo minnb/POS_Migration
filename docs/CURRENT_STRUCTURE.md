@@ -127,7 +127,7 @@ src/
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, SyncAction? (override Action mọi batch: Web Sync="DELETE-INSERT", null=TRUNC-INSERT→INSERT)
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
-│   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
+│   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/IssueMore/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
 │   │   ├── Voucher/SetupVoucherDtos.cs      ← 8.3/8.4 (VoucherList/Detail/Save/IssueSave/IssueMoreRequest + VoucherPublished lookup)
 │   │   ├── CXVoucher/CXVoucherDto.cs
 │   │   ├── DRW/UpdateStatusSfaffDiscountDto.cs
@@ -251,6 +251,8 @@ src/
     │   ├── IFileArchiveService.cs / FileArchiveService.cs   ← ZipFile.CreateFromDirectory (Singleton, MasterDataSyncOptions.ZipCompressionLevel)
     │   ├── ISyncFileLock.cs / SyncFileLock.cs               ← keyed SemaphoreSlim (Singleton), chống sinh zip trùng
     │   └── MasterDataSyncOptions.cs                         ← bind section "MasterDataSync": SqlCommandTimeoutSeconds, BatchSizePerFile, MaxParallelTables, ZipCompressionLevel, KeepZipDays, DateInZipName
+    ├── Locking/
+    │   └── IVoucherIssueLock.cs / VoucherIssueLock.cs       ← Redis distributed lock (Singleton), key "Lock:VoucherIssue" — chặn sinh mã Auto voucher đồng thời (multi-instance)
     ├── Logging/
     │   ├── ElasticsearchOptions.cs
     │   ├── FileLogHelper.cs
@@ -287,7 +289,7 @@ src/
         │   ├── IOfferStaffRepository.cs / OfferStaffRepository.cs
         │   └── IWincodeRepository.cs / WincodeRepository.cs
         ├── CouponVoucher/                  ← 8.1–8.4 + SAP Voucher (dùng chung bảng CpnVchBOMCodeIssue, cột Source)
-        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_* + GetHeaderListAsync→usp_CpnVchBOMHeader_GetList cho master list, Source='COUPON')
+        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_* + GetHeaderListAsync→usp_CpnVchBOMHeader_GetList cho master list, Source='COUPON'; IssueMoreAsync→usp_SetupCoupon_IssueMore, thêm lô mã, không guard tồn tại)
         │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
         │   ├── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
         │   └── IVoucherCodeRepository.cs / VoucherCodeRepository.cs         ← SAP Internal Voucher real-time (CentralMD, SP usp_Voucher_*, CpnVchBOMCodeIssue Source='SAP'; thay ISAPVoucherRepository/bảng Internal_Voucher cũ, nay LEGACY)
@@ -366,6 +368,7 @@ src/
 | `IFtpFileTransfer` | `FtpFileTransfer` | `POS.Infrastructure.Files` | POS.Infrastructure |
 | `IFileArchiveService` | `FileArchiveService` | `POS.Infrastructure.Files` | POS.Infrastructure |
 | `ISyncFileLock` | `SyncFileLock` | `POS.Infrastructure.Files` | POS.Infrastructure |
+| `IVoucherIssueLock` | `VoucherIssueLock` | `POS.Infrastructure.Locking` | POS.Infrastructure |
 | `IDbConnectionFactory` | `CentralMDConnectionFactory`, `LoyaltyConnectionFactory`, `StagingDbConnectionFactory`, `StoreRoutedConnectionFactory` | `POS.Infrastructure.Database` | POS.Infrastructure |
 
 ---
@@ -387,7 +390,7 @@ src/
 | `ISAPService` → `SAPService` | Scoped | SAP voucher/coupon |
 | `IGiftService` → `GiftService` | Scoped | Gift barcode |
 | `IMasterDataSyncService` → `MasterDataSyncService` | Scoped | Sinh zip master data + log download |
-| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher) |
+| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher); IssueMoreAsync — phát hành thêm 1 lô mã Auto cho coupon đã tồn tại (dùng chung IVoucherIssueLock) |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items; IssueMoreAsync — phát hành thêm 1 lô mã Auto cho voucher đã tồn tại |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
@@ -411,13 +414,14 @@ src/
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
 | `IVoucherCodeRepository` → `VoucherCodeRepository` | Scoped | SAP voucher real-time (CpnVchBOMCodeIssue, Source='SAP') |
-| `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD) |
+| `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD); IssueMoreAsync — SP usp_SetupCoupon_IssueMore (thêm lô mã, không guard tồn tại) |
 | `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD); IssueMoreAsync — SP usp_SetupVoucher_IssueMore (thêm lô mã, không guard tồn tại) |
 | `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
 | `IPriceRepository` → `PriceRepository` | Scoped | 9.1/9.3 Bảng giá (CentralMD) |
 | `ISyncRepository` → `SyncRepository` | Scoped | SP1 GetSyncTables (Redis cache) + SP2 StreamTableToFiles |
 | `IFileArchiveService` → `FileArchiveService` | Singleton | ZipFile.CreateFromDirectory (compression level configurable) |
 | `ISyncFileLock` → `SyncFileLock` | Singleton | keyed SemaphoreSlim chống sinh zip trùng |
+| `IVoucherIssueLock` → `VoucherIssueLock` | Singleton | Redis distributed lock, chặn sinh mã Auto voucher đồng thời (multi-instance) |
 | `IRedisManager` → `RedisManager` | Singleton | StackExchange.Redis low-level |
 | `IRedisService` → `RedisService` | Singleton | High-level Redis wrapper (sử dụng trong code) |
 | `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
@@ -538,6 +542,12 @@ Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string pos
 Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default)
 Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
 Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default)
+
+// Void Transaction Dashboard — hợp nhất InvoiceVoid (TransVoidHeader) + LineVoid (TransVoidLine),
+// driving table TransVoidLine LEFT JOIN TransVoidHeader + TransHeader, dùng bởi VoidsPage.razor
+Task<List<VoidReportLineDto>> GetVoidReportAsync(string? storeNo, DateTime fromDate, DateTime toDate,
+    string? orderNo = null, string? userVoid = null, string? posNo = null, string? voidType = null,
+    int maxRows = 1000, CancellationToken ct = default)
 
 // Business Day Confirm (Xác nhận kết thúc ngày) — connection per-store qua StoreRoutedConnectionFactory
 Task<List<PosDayStagingDto>> GetPosDayStagingAsync(string storeNo, DateTime businessDate, CancellationToken ct = default)
@@ -859,7 +869,22 @@ Task<long> ListRightPushAsync(string key, string value)
 Task<bool> KeyExistsAsync(string key)
 Task<bool> KeyExpireAsync(string key, TimeSpan expiry)
 Task<List<string>> GetKeysByPatternAsync(string pattern)
+
+// Distributed lock (SET NX + TTL, release an toàn bằng so khớp token qua Lua script)
+Task<string?> AcquireLockAsync(string key, TimeSpan ttl)   // trả token nếu acquire được, null nếu đang bị giữ
+Task<bool> ReleaseLockAsync(string key, string token)      // chỉ xoá nếu token khớp
 ```
+
+#### `IVoucherIssueLock` (`POS.Infrastructure.Locking`)
+
+```csharp
+Task<IAsyncDisposable?> AcquireAsync(CancellationToken ct = default)   // null nếu timeout (15s) chờ khóa
+```
+
+> Redis distributed lock, key cố định `"Lock:VoucherIssue"` (TTL 30s) — chặn TOÀN BỘ request sinh
+> mã Auto/Import voucher (`VoucherService.SaveIssueAsync`/`IssueMoreAsync`) chạy đồng thời, kể cả
+> khi POS.Web scale-out nhiều instance sau load balancer (khác `ISyncFileLock` — chỉ trong 1
+> process). Dùng `IRedisManager.AcquireLockAsync`/`ReleaseLockAsync` bên trong.
 
 #### `IKibanaService` (`POS.Infrastructure.Logging`)
 
@@ -1053,6 +1078,7 @@ File này chứa nhiều model dùng cho CommonController:
 | `BusinessDayConfirmDto` | BusinessDayConfirmDto.cs | `StoreNo`, `BusinessDate`, `TotalRevenue`, `TotalShifts`, `ConfirmedBy`, `ConfirmedDate` — map bảng `dbo.BusinessDayConfirm` (DB CentralSale theo store, KHÔNG phải CentralMD) |
 | `ConfirmBusinessDayRequest` | ConfirmBusinessDayRequest.cs | `StoreNo`, `BusinessDate`, `TotalRevenue`, `TotalShifts`, `ConfirmedBy` |
 | `ConfirmBusinessDayResult` | ConfirmBusinessDayResult.cs | `Success` (bool), `Message`, `NewBusinessDate` |
+| `VoidReportLineDto` | VoidReportLineDto.cs | Grain = 1 dòng sản phẩm bị hủy (từ `TransVoidLine`): `OrderNo`, `LineNo`, `VoidType` ("InvoiceVoid"\|"LineVoid"), `ScanTime`, `StoreNo`, `POSTerminalNo`, `ItemNo`, `ItemName`, `Quantity`, `UnitPrice`, `LineAmountIncVAT`, `OrderAmountInclVAT`, `TransactionType`, `UserVoid`, `CashierID`, `ShiftNo`, `Note`, `MemberCardNo`, computed `IsSelfVoid` — dùng bởi `GetVoidReportAsync`, hiển thị ở `VoidsPage.razor` (thay thế `VoidTransactionListDto` đã xóa) |
 
 ### Các domain DTO khác (có file, chưa đọc chi tiết)
 

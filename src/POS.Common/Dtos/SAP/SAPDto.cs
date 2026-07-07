@@ -39,12 +39,16 @@ public class VoucherUpdateSerial
 {
     public string CompanyCode { get; set; } = string.Empty;
     public string Partner { get; set; } = string.Empty;
-    public string voucherNumber { get; set; } = string.Empty;
-    public bool isVoucher { get; set; }
-    public double value { get; set; }
-    public string articleNo { get; set; } = string.Empty;
-    public string articleType { get; set; } = string.Empty;
-    public string status { get; set; } = string.Empty;
+    public string VoucherNumber { get; set; } = string.Empty;
+    public bool IsVoucher { get; set; }
+    public double Value { get; set; }
+    public string ArticleNo { get; set; } = string.Empty;
+    public string ArticleType { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public double AmountRedeem
+    {
+        get { return Value; }
+    }
 }
 
 public class VoucherUpdateRequest

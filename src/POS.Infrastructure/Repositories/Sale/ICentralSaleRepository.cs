@@ -39,13 +39,11 @@ public interface ICentralSaleRepository
     Task<List<ValidateTransactionLine>> GetTransLinesAsync(string orderNo, CancellationToken ct = default);
     Task<List<TransPaymentEntryDto>> GetTransPaymentEntriesAsync(string orderNo, CancellationToken ct = default);
 
-    // ── Void Transaction Dashboard ────────────────────────────────────────────
-    Task<List<VoidTransactionListDto>> GetVoidTransactionListAsync(
+    // ── Void Transaction Dashboard (InvoiceVoid + LineVoid hợp nhất) ───────────
+    Task<List<VoidReportLineDto>> GetVoidReportAsync(
         string? storeNo, DateTime fromDate, DateTime toDate,
-        string? orderNo, string? userVoid = null, string? posNo = null,
-        int maxRows = 500, CancellationToken ct = default);
-
-    Task<List<ValidateTransactionLine>> GetVoidTransLinesAsync(string orderNo, CancellationToken ct = default);
+        string? orderNo = null, string? userVoid = null, string? posNo = null,
+        string? voidType = null, int maxRows = 1000, CancellationToken ct = default);
 
     // ── EOS Shift Dashboard ───────────────────────────────────────────────────
     Task<List<EosShiftDto>> GetEosShiftListAsync(

@@ -4,7 +4,7 @@ using POS.Infrastructure.Workers;
 namespace POS.ContractTests;
 
 /// <summary>
-/// Khóa convention tên file mà PosFileImportWorker dựa vào: <c>Type_PosNo_TransactionId.txt</c>
+/// Khóa convention tên file mà PosFileImportService dựa vào: <c>Type_PosNo_TransactionId.txt</c>
 /// (đã bỏ .txt trước khi parse), với StoreNo = LEFT(PosNo, 4). Đổi cách parse mà quên cập nhật
 /// nguồn sinh file → test đỏ.
 /// </summary>
@@ -20,7 +20,7 @@ public class PosFileImportFileNameTests
     public void TryParseFileName_ValidNames_ParsesParts(
         string stem, string expType, string expPos, string expTx, string expStore)
     {
-        var ok = PosFileImportWorker.TryParseFileName(stem, out var type, out var posNo, out var txId);
+        var ok = PosFileImportService.TryParseFileName(stem, out var type, out var posNo, out var txId);
 
         Assert.True(ok);
         Assert.Equal(expType, type);
@@ -38,7 +38,7 @@ public class PosFileImportFileNameTests
     [InlineData("SALE_120101_")]         // TransactionId rỗng
     public void TryParseFileName_InvalidNames_ReturnsFalse(string stem)
     {
-        var ok = PosFileImportWorker.TryParseFileName(stem, out _, out _, out _);
+        var ok = PosFileImportService.TryParseFileName(stem, out _, out _, out _);
         Assert.False(ok);
     }
 }

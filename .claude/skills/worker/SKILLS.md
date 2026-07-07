@@ -25,12 +25,20 @@ heartbeat key cùng convention.
 
 ---
 
-## Hai khuôn mẫu worker
+## Ba khuôn mẫu worker
 
 | Pattern | Khi nào dùng | Ví dụ tham chiếu |
 |---|---|---|
 | **Message consumer (push)** | Nhận message từ RabbitMQ/Kafka liên tục | `PosSalesConsumerWorker.cs` |
 | **Timer polling** | Chạy định kỳ (gọi SP, sync, cleanup) | `Rpt_ReportSaleDetail_Insert.cs` |
+| **One-shot / cron-triggered** | Chạy 1 chu kỳ rồi thoát, lịch do crontab/systemd timer ngoài process quyết định — dùng khi worker cần chạy như 1 tiến trình riêng biệt trên host (không phải container dài hạn), vd tách theo mô hình deploy | `PosFileImportService.RunOnceAsync` (gọi từ `Program.cs --run-once`) |
+
+> Pattern thứ 3 **không kế thừa `BackgroundService`** — tách phần logic "1 chu kỳ" ra 1 class
+> service thường (constructor injection, không cần `IHostedService`), rồi gọi trực tiếp từ
+> `Program.cs` (thoát bằng `return <exit-code>` sau khi xong) HOẶC bọc trong vòng lặp
+> `BackgroundService` nếu vẫn muốn chạy liên tục ở môi trường khác — cùng 1 class logic dùng được
+> cho cả 2 cách gọi. Xem `PosFileImportWorker.cs` (wrapper vòng lặp) +
+> `PosFileImportService.cs` (logic 1 chu kỳ, dùng chung).
 
 ---
 
@@ -289,6 +297,13 @@ builder.Build().Run();
 ```
 
 > `AddInfrastructure` đã đăng ký repositories, Redis, RabbitMQ, DB factories — worker chỉ cần resolve.
+
+**Feature toggle (`WorkerRoles`)**: `Program.cs` thật của dự án đọc section `WorkerRoles`
+(`WorkerRolesOptions.cs`) để quyết định `AddHostedService<>` nào chạy — dùng khi cần tách 1 codebase
+POS.Worker thành nhiều mô hình deploy (vd Docker container chỉ chạy RabbitMQ/SQL vs cronjob host chỉ
+chạy file processing). Thêm worker mới cần bật/tắt độc lập theo môi trường → thêm cờ vào
+`WorkerRolesOptions` + nhánh `if (roles.EnableX) AddHostedService<XWorker>()`, KHÔNG hardcode
+`AddHostedService` vô điều kiện như ví dụ trên.
 
 ---
 

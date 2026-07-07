@@ -34,6 +34,9 @@ public interface ICouponRepository
     /// <summary>SP usp_SetupCoupon_SaveAdvanced — upsert field nâng cao. Trả ItemNo.</summary>
     Task<string> SaveAdvancedAsync(CouponAdvancedSaveRequest request, CancellationToken ct = default);
 
+    /// <summary>SP usp_SetupCoupon_IssueMore — thêm 1 lô mã Auto mới cho coupon đã tồn tại (không đổi header/lines). Trả số mã đã thêm.</summary>
+    Task<int> IssueMoreAsync(string itemNo, IReadOnlyList<string> codes, CancellationToken ct = default);
+
     /// <summary>SP usp_SetupCoupon_Delete — xóa (guard QtyCoupon==0). Trả (Deleted, Message).</summary>
     Task<(bool Deleted, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default);
 }

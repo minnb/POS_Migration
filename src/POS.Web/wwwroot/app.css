@@ -698,3 +698,10 @@
 .pos-row-syncing td {
     animation: pos-row-sync-pulse 1.2s ease-in-out infinite;
 }
+
+/* ── Tô nền dòng "HỦY HÓA ĐƠN" trong bảng hợp nhất Void (VoidsPage) ───────
+   Phân biệt trực quan với dòng "HỦY DÒNG" (không tô) khi cuộn ngang. */
+.pos-row-invoice-void td {
+    background-color: rgba(220, 53, 69, 0.06);
+    border-left: 3px solid var(--mud-palette-error);
+}

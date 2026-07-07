@@ -25,7 +25,8 @@ User mở /store/business-day
       → BusinessDayService.GetConfirmStatusAsync(storeNo, businessDate)
   → hiển thị bảng 1 dòng / 1 máy POS (chỉ POS Status=1) + trạng thái xác nhận hiện tại
   → nút "Xác nhận" bật khi CHƯA xác nhận trước đó VÀ (role ITOps/SystemAdmin — force được kể cả
-    khi còn POS chưa đóng ngày; HOẶC StoreOperator + TẤT CẢ máy POS đã "Đã đóng ngày")
+    khi còn POS chưa đóng ngày; HOẶC StoreOperator + có ít nhất 1 máy POS "Đã đóng ngày" VÀ
+    không còn máy nào ở trạng thái "Chưa đóng ngày" — máy "Chưa mở ca" KHÔNG chặn xác nhận)
   → bấm "Xác nhận" → MudMessageBox confirm → BusinessDayService.ConfirmBusinessDayAsync(..., allowForceConfirm)
       → chặn lại lần cuối (re-validate) nếu còn POS chưa đóng ngày (BỎ QUA khi allowForceConfirm=
         true, tức ITOps/SystemAdmin), hoặc đã xác nhận rồi
@@ -42,8 +43,12 @@ User mở /store/business-day
 | Không có dòng `POSEOD_API` **và** chưa từng có `TransHeader` trong ngày (`LastSaleTime = null`) | **Chưa mở ca** | Default (xám) |
 | Không có dòng `POSEOD_API` **nhưng** đã có giao dịch (`LastSaleTime != null`) | **Chưa đóng ngày** | Warning (cam) |
 
-> Rule chặn xác nhận chỉ dựa vào cột `IsClosed` (có/không có `POSEOD_API`) — cả "Chưa mở ca" lẫn
-> "Chưa đóng ngày" đều chặn xác nhận như nhau. 3 mức chỉ khác nhau ở **nhãn hiển thị**.
+> Rule chặn xác nhận (áp dụng cho StoreOperator, không áp dụng khi ITOps/SystemAdmin force):
+> - **"Chưa đóng ngày"** (đã có giao dịch — `LastSaleTime != null` — nhưng chưa đóng ngày) →
+>   **LUÔN chặn xác nhận**, bất kể còn bao nhiêu máy khác đã đóng ngày.
+> - **"Chưa mở ca"** (`LastSaleTime == null`, chưa từng bán hàng) → **KHÔNG chặn xác nhận**, coi
+>   như máy đó không tham gia ngày kinh doanh này — TRỪ KHI **toàn bộ** máy POS của cửa hàng đều
+>   ở trạng thái này (không có máy nào "Đã đóng ngày") → khi đó vẫn chặn (không có gì để xác nhận).
 
 ## 4. Database & Procedure
 

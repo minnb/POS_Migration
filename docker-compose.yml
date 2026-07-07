@@ -9,7 +9,7 @@
 #
 # QUAN TRỌNG — chuyển đổi MỘT LẦN từ named volume ftpbluepos_data sang bind mount thư mục host
 # thật (dễ cấp quyền/backup hơn) — xem hướng dẫn đầy đủ tại docs/deploy/ubuntu-guide.md:
-#   1. sudo docker compose stop webapp worker
+#   1. sudo docker compose stop webapp pos-worker
 #   2. sudo ./deploy/linux/setup-pos-dirs.sh
 #   3. Di trú dữ liệu cũ từ named volume ftpbluepos_data sang /srv/pos/ftpbluepos (xem ubuntu-guide.md)
 #   4. sudo docker compose up -d --build
@@ -62,8 +62,9 @@ services:
       - ./logs:/app/logs
       # Root sync file (SOD/master-data zip, sale upload, log upload, upgrade tool) — bind mount thư
       # mục thật trên Ubuntu host (thay named volume ftpbluepos_data cũ) để ops truy cập trực tiếp
-      # qua shell (ls/scp/chmod) thay vì phải chui vào /var/lib/docker/volumes. Cùng thư mục này được
-      # mount vào CẢ service `worker` bên dưới (PosFileImportWorker dùng chung subfolder Sale/Kafka).
+      # qua shell (ls/scp/chmod) thay vì phải chui vào /var/lib/docker/volumes. Việc quét file .zip
+      # (PosFileImportWorker) giờ chạy dưới dạng cronjob thật trên host (Model A, ngoài compose này —
+      # xem docs/deploy/pos-worker-ubuntu-guide.md), KHÔNG còn qua service `pos-worker` bên dưới.
       # Setup 1 lần trên host: deploy/linux/setup-pos-dirs.sh — xem docs/deploy/ubuntu-guide.md.
       - /srv/pos/ftpbluepos:/app/ftpbluepos
       # Giữ key DataProtection qua các lần rebuild — tắt cảnh báo "Storing keys in a
@@ -71,7 +72,12 @@ services:
       - dp-keys:/home/app/.aspnet/DataProtection-Keys
     restart: unless-stopped
 
-  worker:
+  # Model B — chạy dài hạn trong container: RabbitMQ consumer (PosSalesConsumerWorker) + SQL
+  # polling (Rpt_ReportSaleDetail_Insert) + heartbeat. KHÔNG xử lý file (EnableFileProcessing=false)
+  # — việc quét file .zip chung với webapp giờ chạy dưới dạng cronjob thật trên Ubuntu host (Model A,
+  # "dotnet POS.Worker.dll --run-once" — xem docs/deploy/pos-worker-ubuntu-guide.md), nên container
+  # này KHÔNG cần mount /srv/pos/ftpbluepos nữa.
+  pos-worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
@@ -84,11 +90,12 @@ services:
     mem_limit: 512m
     environment:
       DOTNET_ENVIRONMENT: Production
+      WorkerRoles__EnableFileProcessing: "false"
+      WorkerRoles__EnableRabbitMQConsumer: "true"
+      WorkerRoles__EnableSqlReportWorker: "true"
+      WorkerRoles__EnableHeartbeat: "true"
     volumes:
       - ./logs:/app/logs
-      # CÙNG thư mục host với service `webapp` ở trên (không phải volume riêng) — PosFileImportWorker
-      # quét SyncDataPos/Sale/Kafka, đúng folder mà UploadFileSale (POS.Api) đang ghi file vào.
-      - /srv/pos/ftpbluepos:/app/ftpbluepos
     restart: unless-stopped
 
 volumes:

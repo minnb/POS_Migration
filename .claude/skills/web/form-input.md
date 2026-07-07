@@ -208,6 +208,40 @@ raw HTML). Thêm `Class="mt-1"` cho `MudGrid` bên trong để field không dín
 > Nếu **cần chặn Save thật** (yêu cầu rõ ràng): bọc `<MudForm @ref="_form">`, gọi `await _form.Validate()`
 > + kiểm `_form.IsValid` đầu `SaveAsync`. Đây là thay đổi `@code` — chỉ làm khi được yêu cầu.
 
+### 5a. Business rule phụ thuộc field khác (vd Percent vs Amount)
+
+> Chốt từ `CouponIssuePage.razor`/`VoucherIssuePage.razor` — field "Giá trị giảm giá" đơn vị đổi
+> theo field "Kiểu giảm giá" (`DiscountType`): `1` = Percent (%, giới hạn `0 < x <= 100`), `2` =
+> Amount (VNĐ, không giới hạn %). **KHÔNG** so sánh trực tiếp field này với field khác đơn vị
+> khác (vd VNĐ) khi đang ở chế độ %.
+
+```csharp
+// Property tính Max động cho MudNumericField — đặt cạnh IsAuto/IsEditing trong @code
+private double DiscountValueMax => _model.DiscountType == 1 ? 100 : double.MaxValue;
+```
+
+```razor
+<MudNumericField @bind-Value="_model.DiscountValue" Label="Giá trị giảm giá (%/VNĐ)"
+                 Variant="Variant.Outlined" Min="0" Max="@DiscountValueMax" Step="0.1"
+                 Required="true" RequiredError="Vui lòng nhập giá trị giảm giá" Margin="Margin.Dense"/>
+```
+
+```csharp
+// Validate chặn Save thật (business rule, khác Required trực quan §5) — đặt đầu SaveAsync/ValidateHeaderFields
+if (_model.DiscountType == 1 && (_model.DiscountValue <= 0 || _model.DiscountValue > 100))
+{
+    Snackbar.Add("Giá trị giảm giá theo % phải lớn hơn 0 và không vượt quá 100", Severity.Warning);
+    return;
+}
+```
+
+- `Max` động trên `MudNumericField` chỉ giới hạn UX (spinner/nhập tay không tự chặn hết mọi cách
+  gõ) — **vẫn bắt buộc** validate lại đầu `SaveAsync` để chặn Save thật.
+- Không thêm rule so sánh 2 field khác đơn vị (vd "giảm tối đa VNĐ" so với "% giảm giá") — sai
+  nghiệp vụ, luôn false hoặc luôn true tuỳ giá trị nhập, gây chặn/bỏ sót vô lý.
+
+> Ví dụ thực tế: `CouponIssuePage.razor`, `VoucherIssuePage.razor`.
+
 ---
 
 ## 6. Action bar (Lưu / nút chính)
@@ -377,7 +411,7 @@ private async Task SaveExceptionFieldAsync()
 |---|---|
 | Form mẫu chuẩn (5 tab, nhiều section MudCard) | `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor` |
 | Dialog form (trả DTO đầy đủ cho audit) | `src/POS.Web/Components/Pages/Ops/Dialogs/PosDataSetupFormDialog.razor` |
-| Nhóm con bo viền trong 1 MudCard + MudNumericField Variant theo kiểu dữ liệu (§4a) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/CouponIssuePage.razor` |
+| Nhóm con bo viền trong 1 MudCard + MudNumericField Variant theo kiểu dữ liệu (§4a) + Business rule phụ thuộc field khác (§5a) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/CouponIssuePage.razor` |
 | Placeholder vs HelperText (§4b), Chế độ CHỈ XEM + field ngoại lệ có nút Lưu điều kiện (§9, §10) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/VoucherIssuePage.razor` |
 | Polish markup-only (tooltip/validation/loading) | `.claude/skills/web/ui-polish-standard.md` §8 |
 | Audit CRUD sau khi lưu | `.claude/skills/web/audit-logging.md` |

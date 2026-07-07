@@ -6,6 +6,7 @@ using POS.Infrastructure.AppServices.Partner;
 using POS.Infrastructure.Cache;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Files;
+using POS.Infrastructure.Locking;
 using POS.Infrastructure.Logging;
 using POS.Infrastructure.Messaging;
 using POS.Infrastructure.Redis;
@@ -83,6 +84,9 @@ public static class DependencyInjection
         services.AddScoped<Repositories.Interfaces.ISyncRepository, Repositories.SyncRepository>();
         services.AddSingleton<IFileArchiveService, FileArchiveService>();
         services.AddSingleton<ISyncFileLock, SyncFileLock>();
+
+        // ── Distributed lock (Redis) — chặn phát hành Auto voucher/coupon đồng thời qua scale-out ──
+        services.AddSingleton<IVoucherIssueLock, VoucherIssueLock>();
 
         // ── File import (PosFileImportWorker: .zip → .txt → insert DB) ────────
         var fileImportOptions =

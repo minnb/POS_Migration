@@ -20,4 +20,11 @@ public interface IRedisManager
     Task<bool> KeyExistsAsync(string key);
     Task<bool> KeyExpireAsync(string key, TimeSpan expiry);
     Task<List<string>> GetKeysByPatternAsync(string pattern);
+
+    // Distributed lock (SET NX + TTL, release an toàn bằng so khớp token qua Lua script)
+    /// <summary>Thử lấy khóa <paramref name="key"/> (atomic SET NX PX). Trả token nếu thành công, null nếu đang bị giữ.</summary>
+    Task<string?> AcquireLockAsync(string key, TimeSpan ttl);
+
+    /// <summary>Nhả khóa — chỉ xoá nếu <paramref name="token"/> khớp token đang giữ (tránh xoá nhầm lock của process khác).</summary>
+    Task<bool> ReleaseLockAsync(string key, string token);
 }

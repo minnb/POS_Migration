@@ -85,6 +85,7 @@ docker run -d --name pos-web-uat \
   --add-host host.docker.internal:host-gateway \
   -p 5002:8080 \
   -v $(pwd)/logs:/app/logs \
+  -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
   -v pos-web-dpkeys-uat:/home/app/.aspnet/DataProtection-Keys \
   --restart unless-stopped \
   pos-web:uat
@@ -92,6 +93,13 @@ docker run -d --name pos-web-uat \
 > ⚠️ Volume `DataProtection-Keys` BẮT BUỘC giữ qua các lần rebuild — nếu mất key, cookie đăng nhập cũ vô hiệu (user phải login lại).
 > Cổng host (`5002`) phải khớp `proxy_pass` trong `nginx/pos-web.uat.conf`.
 > `-e POS_SECRET_KEY=...`: khóa AES giải mã `enc:...` — **cùng giá trị** với khóa dùng cho POS.Api (khóa dùng chung, xem §C4 `docs/ROLLOUT.md`). Bỏ qua nếu appsettings còn plaintext.
+> ⚠️ **Mount `ftpbluepos` dùng CHUNG với POS.Api** (`AppSettings:FtpRootPath` = `/app/ftpbluepos` ở
+> cả 2 project) — nút "Đẩy dữ liệu đầu ngày" (`/catalog/pos-setup`) ghi file master-data vào đây, máy
+> POS tải lại qua `DowloadFileStream` của POS.Api; thiếu mount này thì 2 container không cùng thư mục
+> vật lý, file sinh ra ở POS.Web sẽ không thấy được ở POS.Api. **PROD đổi path** giống §3.1: dùng
+> `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG tiền tố `uat` — UAT/PROD chạy chung host, không dùng
+> chung thư mục). Tạo + cấp quyền bằng `deploy/linux/setup-pos-dirs.sh` (xem
+> `docs/deploy/ubuntu-guide.md`) TRƯỚC khi chạy `docker run` lần đầu.
 
 ### 3.3. POS.Worker
 
@@ -227,6 +235,8 @@ docker run -d --name pos-web-uat ... pos-web:uat-prev   # chạy lại image cũ
 □ Build image đúng Dockerfile từng service
 □ Run với đúng biến môi trường (Api/Web: ASPNETCORE_ENVIRONMENT | Worker: DOTNET_ENVIRONMENT)
 □ POS.Web: mount volume DataProtection-Keys (giữ qua rebuild)
+□ POS.Web: mount /app/ftpbluepos (CHUNG thư mục với POS.Api, xem §3.2) — thiếu → nút "Đẩy dữ liệu
+  đầu ngày" ghi file lệch chỗ, POS không tải được
 □ Cổng host (-p) khớp proxy_pass trong nginx
 □ nginx -t OK → systemctl reload nginx
 □ docker ps = healthy + /health trả "healthy"
