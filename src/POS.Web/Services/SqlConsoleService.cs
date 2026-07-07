@@ -76,11 +76,25 @@ public sealed class SqlConsoleService(
         var hasUpdate = false;
         var hasDelete = false;
         var hasProc = false;
+        var hasTableDdl = false;
+        var hasOther = false;
         var hasWhere = true;
         string? procName = null;
+        var tableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var stmt in statements)
         {
+            // Blacklist tuyệt đối: DROP (mọi loại) và TRUNCATE TABLE — chặn trước khi phân loại.
+            var typeName = stmt.GetType().Name;
+            if (typeName.StartsWith("Drop", StringComparison.Ordinal) ||
+                typeName.StartsWith("Truncate", StringComparison.Ordinal))
+            {
+                var blockedName = typeName.Replace("Statement", "", StringComparison.Ordinal).ToUpperInvariant();
+                return new SqlValidation(false,
+                    $"Không cho phép lệnh {blockedName} — DROP/TRUNCATE bị chặn tuyệt đối trong SQL Console.",
+                    StatementKind.Invalid, false);
+            }
+
             switch (stmt)
             {
                 case SelectStatement:
@@ -110,28 +124,33 @@ public sealed class SqlConsoleService(
                     hasProc = true;
                     procName = coa.ProcedureReference?.Name?.BaseIdentifier?.Value;
                     break;
+                case CreateTableStatement ct:
+                    hasTableDdl = true;
+                    if (ct.SchemaObjectName?.BaseIdentifier?.Value is { } ctName) tableNames.Add(ctName);
+                    break;
+                case AlterTableStatement alt:
+                    hasTableDdl = true;
+                    if (alt.SchemaObjectName?.BaseIdentifier?.Value is { } altName) tableNames.Add(altName);
+                    break;
                 default:
-                    var stmtName = stmt.GetType().Name
-                        .Replace("Statement", "", StringComparison.Ordinal)
-                        .ToUpperInvariant();
-                    return new SqlValidation(false,
-                        $"Chỉ cho phép SELECT, INSERT, UPDATE, DELETE và CREATE/ALTER PROCEDURE. Phát hiện lệnh không được phép: {stmtName}.",
-                        StatementKind.Invalid, false);
+                    hasOther = true;
+                    break;
             }
         }
 
-        // Proc DDL phải đứng riêng — không trộn với DML/SELECT trong cùng lần chạy.
-        if (hasProc && (hasInsert || hasUpdate || hasDelete || statements.Count > 1))
-            return new SqlValidation(false,
-                "CREATE/ALTER PROCEDURE phải chạy riêng, không trộn với câu lệnh khác.",
-                StatementKind.Invalid, false);
-
-        var kind = hasProc   ? StatementKind.CreateProcedure
-                 : hasUpdate ? StatementKind.Update
-                 : hasDelete ? StatementKind.Delete
-                 : hasInsert ? StatementKind.Insert
+        var kind = hasProc      ? StatementKind.CreateProcedure
+                 : hasTableDdl  ? StatementKind.TableDdl
+                 : hasUpdate    ? StatementKind.Update
+                 : hasDelete    ? StatementKind.Delete
+                 : hasInsert    ? StatementKind.Insert
+                 : hasOther     ? StatementKind.Other
                  : StatementKind.Select;
-        return new SqlValidation(true, null, kind, hasWhere, procName);
+
+        var objectName = hasProc     ? procName
+                        : hasTableDdl ? (tableNames.Count > 0 ? string.Join(", ", tableNames) : null)
+                        : null;
+
+        return new SqlValidation(true, null, kind, hasWhere, objectName);
     }
 
     public async Task<SqlQueryResult> ExecuteSelectAsync(

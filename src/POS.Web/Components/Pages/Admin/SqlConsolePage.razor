@@ -29,10 +29,11 @@
 }
 
 <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4">
-    Cho phép <strong>SELECT</strong>, <strong>INSERT</strong>, <strong>UPDATE</strong>,
-    <strong>DELETE</strong> và <strong>CREATE/ALTER PROCEDURE</strong>.
-    Lệnh ghi chạy trong <strong>transaction</strong> — bạn xem kết quả rồi quyết định
-    <strong>Commit</strong> hoặc <strong>Rollback</strong>.
+    Cho phép hầu hết các lệnh SQL (<strong>SELECT</strong>, <strong>INSERT</strong>,
+    <strong>UPDATE</strong>, <strong>DELETE</strong>, <strong>CREATE/ALTER PROCEDURE</strong>,
+    <strong>CREATE/ALTER TABLE</strong>...). Chặn tuyệt đối <strong>DROP</strong> (mọi loại) và
+    <strong>TRUNCATE TABLE</strong>. Lệnh ghi chạy trong <strong>transaction</strong> — bạn xem
+    kết quả rồi quyết định <strong>Commit</strong> hoặc <strong>Rollback</strong>.
 </MudAlert>
 
 @* ── Input form ────────────────────────────────────────────────────── *@
@@ -57,7 +58,7 @@
         @* SQL textarea *@
         <MudItem xs="12">
             <MudTextField @bind-Value="_sql"
-                          Lines="12"
+                          Lines="18"
                           Variant="Variant.Outlined"
                           Placeholder="SELECT TOP 10 * FROM TableName (NOLOCK)"
                           Style="font-family: 'Consolas', 'Courier New', monospace; font-size: 13px"
@@ -134,6 +135,18 @@
             {
                 <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
                     Sẽ tạo/sửa stored procedure @(_pending.ObjectName ?? "(không xác định)")
+                </MudChip>
+            }
+            else if (_pending.Kind == StatementKind.TableDdl)
+            {
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                    Sẽ tạo/sửa bảng @(_pending.ObjectName ?? "(không xác định)")
+                </MudChip>
+            }
+            else if (_pending.Kind == StatementKind.Other)
+            {
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                    Sẽ thực thi thay đổi khác (DDL/Script) — kiểm tra kỹ trước khi Commit
                 </MudChip>
             }
             else
