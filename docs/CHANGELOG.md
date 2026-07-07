@@ -6,6 +6,7 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+<<<<<<< HEAD
 ## [2026-07-06] Danh mục nhóm giá (StorePriceGroup) — CRUD mới trong menu Giá bán
 
 **Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common + SQL
@@ -97,6 +98,295 @@ mẫu từ query DB thật hoặc để trống ItemNo/UOM ở dòng mẫu trong
 
 ---
 
+=======
+<<<<<<< HEAD
+## [2026-07-06] Bổ sung check Validity_From_Date cho SAP CheckVoucher
+
+**Layer:** POS.Application
+**Loại:** Bug fix nghiệp vụ (bổ sung điều kiện còn thiếu)
+
+**Bối cảnh:** `SAPService.CheckVoucherAsync` (dùng chung bởi `SAPController.CheckVoucher` và
+`CheckReturnVoucher`) chỉ so sánh `Expiry_Date` (hết hạn) mà chưa từng so sánh `Validity_From_Date`
+(ngày hiệu lực bắt đầu) — voucher có `Validity_From_Date` ở tương lai vẫn pass qua và trả về
+`Status = OK`, sai nghiệp vụ. Đã kiểm tra `src/legacy/` (VCM.BLUEPOS), không có logic tương đương
+để tham chiếu — đây là bổ sung nghiệp vụ mới, không phải port.
+
+**Thay đổi:**
+- `src/POS.Application/Features/Sap/SAPService.cs` (`CheckVoucherAsync`): thêm nhánh kiểm tra
+  `Validity_From_Date` ngay sau khối `isExpired`, trước khối `AVL`. Voucher hợp lệ khi
+  `Validity_From_Date <= hôm nay <= Expiry_Date`.
+  - Parse fail/rỗng `Validity_From_Date` → `404 NotFound`, `"Mã Voucher/Coupon không tồn tại"`
+    (khác hành vi hiện tại của `Expiry_Date` khi parse fail — quyết định có chủ đích của user).
+  - `Validity_From_Date > hôm nay` → `400 BadRequest`, `"Voucher/coupon chưa đến ngày hiệu lực"`,
+    set `data.Return = "1"` và ghi đè `data.Status = "EXP"` (tái dùng mã có sẵn, không thêm status mới).
+
+**Lưu ý cho session sau:** Đây là bổ sung điều kiện nghiệp vụ mới cho `CheckVoucherAsync`, không
+đổi contract JSON (không thêm/đổi tên field response) — chỉ đổi giá trị `Status`/`Return`/`Message`
+trong 2 case lỗi mới. Không cần cập nhật DTO hay `CURRENT_STRUCTURE.md` vì không có
+class/method/interface mới được tạo.
+
+---
+
+## [2026-07-06] Đổi ngữ nghĩa IsCheckItem Voucher khớp Coupon (đảo bit)
+
+**Layer:** POS.Web, POS.Application, POS.Common
+**Loại:** Bug fix nghiệp vụ (đảo ngữ nghĩa cột, có data migration)
+
+**Bối cảnh:** người dùng báo checkbox "Áp dụng theo danh sách sản phẩm" trên `VoucherIssuePage.razor`
+có vẻ gán ngược `IsCheckItem`. Điều tra kỹ (2 vòng Explore đối chiếu 7 nguồn: legacy Controller,
+legacy View/checkbox thực tế `chk-total-bill`, `VoucherService.cs`, SP `usp_SetupVoucher_Save`/
+`SaveIssue` — logic thật không chỉ comment, `docs/architecture/database-schema.md`) xác nhận code
+CŨ **không phải bug** — nó khớp đúng quy ước legacy Voucher (`IsCheckItem=1`=tổng bill), chỉ NGƯỢC
+với Coupon (`IsCheckItem=1`=theo sản phẩm) vì 2 module viết độc lập ở legacy VCM.BLUEPOS. Sau khi
+trình bày bằng chứng, **người dùng quyết định đổi ngữ nghĩa Voucher khớp Coupon** (chấp nhận rủi ro
+đã nêu: cần data migration + rủi ro chưa xác nhận được 100% liệu `CpnVchBOMHeader` có nằm trong
+`SyncTableList` hay không — không có bằng chứng POS client tự đọc field này).
+
+**Thay đổi:**
+- `VoucherIssuePage.razor`: bỏ đảo `!` — `_applyPerItem = d.IsCheckItem` (load) và
+  `_model.IsCheckItem = _applyPerItem` (save), khớp pattern Coupon không đảo.
+- `SetupVoucherDtos.cs`: sửa toàn bộ comment "NGƯỢC coupon" → mô tả nghĩa mới (4 vị trí).
+- `VoucherService.cs`: đảo điều kiện validate `SaveAsync`/`SaveIssueAsync` (require Items khi
+  `IsCheckItem=true`, clear Items khi `false`) — khớp chính xác `CouponService.cs`.
+- `VouchersPage.razor`: đảo điều kiện hiển thị chip + export Excel cột "Tổng bill" (giữ nguyên
+  label hiển thị, chỉ đảo biểu thức boolean để khớp data sau migration).
+- SP `docs/sql/SetupVoucher_Save.sql` + `docs/sql/SetupVoucher_SaveIssue.sql`: đảo branch
+  `IF @IsCheckItem = 1` (từ `=0`) khi quyết định insert `CpnVchBOMLine` — **CHƯA chạy trên DB
+  thật**, cần chạy lại 2 script này trên `RPOSMasterData` SAU khi deploy code.
+- **File SQL mới** `docs/sql/Voucher_FlipIsCheckItem_Migration.sql` — data migration 1 lần, đảo
+  bit `IsCheckItem` CHỈ cho `ArticleType IN ('ZVCN','ZVCO')` (Coupon giữ nguyên), có SELECT COUNT
+  đối chiếu trước/sau + transaction.
+- `docs/architecture/database-schema.md`: cập nhật comment cột `IsCheckItem` (dòng ~1682),
+  `CpnVchBOMLine` (dòng ~1766), SP `usp_SetupVoucher_Save`/`SaveIssue` — nay Coupon & Voucher
+  dùng chung 1 nghĩa.
+- `docs/ROLLOUT.md` — thêm mục **D10** (CRITICAL): thứ tự bắt buộc deploy code → chạy lại 2 SP →
+  chạy migration data, kèm cảnh báo hậu quả nếu sai thứ tự.
+
+**Lưu ý cho session sau:** `VoucherService.SaveAsync` (khác `SaveIssueAsync`) hiện KHÔNG có caller
+nào trong `POS.Web`/`POS.Api` (orphaned) nhưng vẫn được đồng bộ đảo logic cho nhất quán — nếu sau
+này dùng lại, hành vi đã đúng khớp Coupon. Verify: `dotnet build` (POS.Web/POS.Application/
+POS.Common) 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25 Passed. **Chưa verify trên DB
+thật** (chưa chạy SP + migration script) — bắt buộc theo đúng thứ tự D10 trước khi coi voucher cũ
+hiển thị đúng.
+
+---
+
+## [2026-07-06] usp_Product_Save: giới hạn ItemNo 8 ký tự + VariantCode/Pkey Barcodes
+
+**Layer:** POS.Infrastructure (SQL script)
+**Loại:** Feature/tuning nghiệp vụ theo yêu cầu người dùng
+
+**Bối cảnh:** người dùng xác nhận Lưu sản phẩm chạy được sau fix `usp_Product_Save` (TRY_CAST,
+entry trước), yêu cầu thêm 2 điều chỉnh nghiệp vụ khi tạo sản phẩm.
+
+**Thay đổi** (gộp vào cùng `docs/sql/Product_Save.sql`, không đổi code C#/Razor):
+- `ItemNo` tự sinh giới hạn **tối đa 8 ký tự** — seed `1000000001` (10 chữ số) → `10000001`
+  (8 chữ số); mệnh đề `WHERE LEN(No) <= 8` khi tính `MAX` để bỏ qua các `No` dài hơn có sẵn
+  (từ seed cũ hoặc dữ liệu legacy), giữ dãy số tự sinh luôn nằm trong không gian 8 chữ số.
+- `dbo.Barcodes.VariantCode` — trước insert rỗng `''`, nay lưu **cùng giá trị** với
+  `UnitOfMeasureCode` (ĐVT chọn trên UI cho từng dòng Barcode).
+- `dbo.Barcodes.Pkey` — trước = `BarcodeNo` (một mình), nay = `"{ItemNo}-{BarcodeNo}"`, khớp
+  convention Pkey ghép đã dùng ở các bảng khác (vd `dbo.ItemBlock`).
+
+**Lưu ý cho session sau:** vẫn chỉ 1 file script (`docs/sql/Product_Save.sql`, đã gộp cả 2 đợt
+fix trong ngày 2026-07-06) — **BẮT BUỘC chạy lại trên RPOSMasterData** để áp cả 2 thay đổi này
+(xem D9 `docs/ROLLOUT.md`), script idempotent an toàn chạy đè SP cũ.
+
+---
+
+## [2026-07-06] FIX nghiêm trọng: usp_Product_Save chặn tạo mới MỌI sản phẩm (CAST→TRY_CAST)
+
+**Layer:** POS.Web, POS.Infrastructure (SQL script)
+**Loại:** Bug fix (nghiêm trọng — chặn hoàn toàn 1 chức năng)
+
+**Bối cảnh:** người dùng test tạo sản phẩm mới ở `/catalog/products`, dialog báo "Lỗi hệ thống. Vui
+lòng thử lại." Đọc trực tiếp log thật `D:\ROOT\Logs\POS.Web\Exception\log-20260706.txt` (không đoán)
+xác nhận: `Microsoft.Data.SqlClient.SqlException: Error converting data type nvarchar to bigint`
+(Error 8114), stack trace trỏ thẳng `CentralMDRepository.CreateProductAsync` → `dbo.usp_Product_Save`.
+
+**Root cause:** `docs/sql/Product_Save.sql` bước sinh `ItemNo` tự động dùng
+`CAST(No AS BIGINT)` chạy trên **toàn bộ** `dbo.Item`. SQL Server evaluate `CAST` cho mọi dòng
+trước khi `MAX()` — chỉ cần 1 dòng `No` cũ không phải số thuần (mã hàng alphanumeric còn tồn tại
+trong dữ liệu thật) là toàn câu lệnh throw, chặn tạo mới **mọi** sản phẩm chứ không riêng gì 1
+trường hợp cụ thể.
+
+**Thay đổi:**
+- `docs/sql/Product_Save.sql`: `CAST(No AS BIGINT)` → `TRY_CAST(No AS BIGINT)` (trả `NULL` thay vì
+  throw khi không convert được; `MAX` tự bỏ qua `NULL`). Script vẫn idempotent (`DROP`+`CREATE`).
+- `docs/ROLLOUT.md`: thêm D9 — **BẮT BUỘC chạy lại script đã fix trên RPOSMasterData**, mức CRITICAL.
+- `docs/WEB_STATUS.md`: K2 cập nhật ⚠️ CRITICAL, changelog đầu file.
+
+**Tiện thể (cùng session, theo yêu cầu người dùng):** gộp 2 dropdown "Đơn vị cơ sở"/"Đơn vị bán"
+trong `ProductDetailDialog.razor` thành 1 "Đơn vị tính" (bản chất chỉ 1 UOM) — `SaveAsync` tự gán
+`_model.SalesUnitOfMeasure = _model.BaseUnitOfMeasure` trước khi gọi `CreateProductAsync`, không
+đổi `ProductCreateDto`/SP.
+
+**Pattern/lưu ý cho session sau:** khi debug lỗi "Lỗi hệ thống" chung chung trong POS.Web, **luôn
+đọc file log thật** (`{FileLogDirectory}/Exception/log-{yyyyMMdd}.txt`, ví dụ
+`D:\ROOT\Logs\POS.Web\Exception\`) trước khi đoán nguyên nhân từ code — message hiển thị trên UI
+luôn bị generic hóa (`_errorMsg = "Lỗi hệ thống..."`) để không lộ chi tiết SQL cho end-user, nhưng
+log file có đầy đủ `SqlException`/stack trace/Error Number. Cũng cần cảnh giác `CAST`/không dùng
+`TRY_CAST`/`TRY_CONVERT` trên cột lưu mã hỗn hợp số+chữ (`No`, `ItemNo`...) khi tính `MAX`/aggregate
+— dữ liệu legacy thường không thuần nhất định dạng.
+
+---
+
+## [2026-07-06] Fix hardcode ArticleType khi phát hành Coupon/Voucher
+
+**Layer:** POS.Web, POS.Application
+**Loại:** Bug fix
+
+**Bối cảnh:** yêu cầu đảm bảo `ArticleType` luôn được gán đúng giá trị mặc định trước khi lưu
+xuống DB cho luồng Phát hành Coupon (`ZCPN`) và Phát hành Voucher (`ZVCN`). Dò luồng phát hiện
+`CouponIssuePage.razor`/`CouponRepository.cs` đã default đúng `"ZCPN"` từ trước (DTO default +
+repository guard); nhưng `VoucherIssuePage.razor` đang hardcode sai giá trị **`"ZTRD"`** — không
+khớp convention hệ thống (`VoucherROPEnum.ZVCN=2`, `SAPService.cs`, `CouponsPage.razor` filter đều
+dùng `"ZVCN"` cho Voucher).
+
+**Thay đổi:**
+- `CouponIssuePage.razor` (`SaveAsync`): thêm `_model.ArticleType = "ZCPN"` hardcode ngay trước
+  khi gọi `CouponService.SaveIssueAsync`.
+- `CouponService.cs` (`SaveIssueAsync`/`SaveAdvancedAsync`): thêm defensive-assign
+  `request.ArticleType = string.IsNullOrWhiteSpace(...) ? "ZCPN" : request.ArticleType` — lớp bảo
+  vệ thứ 2 nếu có caller khác gọi trực tiếp Service không qua UI.
+- `VoucherIssuePage.razor`: đổi toàn bộ hardcode sai `"ZTRD"` → `"ZVCN"` (model init, `SetDefaultsForNew`,
+  `LoadDetailAsync` fallback) + thêm `_model.ArticleType = "ZVCN"` trong `SaveAsync()` trước khi
+  gọi Service.
+- `VoucherService.cs` (`SaveIssueAsync` — method thực sự được `VoucherIssuePage` gọi): đổi validate
+  bắt buộc chọn loại voucher thành defensive-assign default `"ZVCN"`.
+  **Không đổi** `VoucherService.SaveAsync` (method khác dùng chung Coupon/Voucher qua
+  `VoucherSaveRequest`) vì hiện không có caller nào trong `POS.Web`/`POS.Api` — ngoài phạm vi task.
+
+**Pattern (không mới, tái khẳng định):** default field bắt buộc trước khi lưu DB nên đặt tối
+thiểu ở 2 lớp — UI (hardcode/không cho user sửa) + Service/Repository (defensive-assign) — không
+phụ thuộc 1 lớp duy nhất.
+
+**Lưu ý cho session sau:** nếu thấy `VoucherService.SaveAsync`/`VoucherSaveRequest` cần dùng thật
+(hiện orphaned), phải review lại default `ArticleType` cho nó — có thể cần cho user chọn giữa
+`ZCPN`/`ZVCN` tùy ngữ cảnh thay vì hardcode 1 giá trị. Verify: `dotnet build` (POS.Web +
+POS.Application) 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25 Passed.
+
+---
+
+## [2026-07-06] Gap Analysis OffersPage (Danh mục khuyến mãi) + Modal Xem chi tiết + Deactive
+
+**Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common
+**Loại:** Gap Analysis + Feature (port thiếu) + Feature mới (Deactive)
+
+**Bối cảnh:** đối chiếu `OffersPage.razor` (`/promotion/offers`) với legacy
+`PromotionController.PromotionList` (`src/legacy/VCM.BLUEPOS`) — phát hiện port thiếu 3 gap, xử lý
+trong task này (KHÔNG động tới `CheckPromotionList`/"Tra cứu khuyến mãi" — hoãn sang giai đoạn sau
+theo quyết định người dùng: khi làm sẽ chỉ port nhánh SERVER, bỏ nhánh "Nguồn = POS" kết nối SQL
+trực tiếp máy POS bằng credential hard-code + raw SQL string-replace — rủi ro SQL injection).
+
+**Thay đổi (port thiếu từ legacy):**
+- `OffersPage.razor`: `BuildXlsx` thêm 2 cột Voucher (`VoucherFromDate`/`VoucherToDate`, DTO đã
+  có field sẵn) + thêm cột "Hình thức bán" (`SalesTypeName`) vào lưới chính — dữ liệu có sẵn,
+  không đổi DTO/Service/Repository.
+- **Modal "Xem chi tiết" 6 tab** (gap lớn nhất — trước đó icon chỉ trang trí, không có `OnClick`):
+  - `OfferHeaderDto.cs`: 6 DTO mới — `OfferHeaderDetailDto` (~68 field khớp `dbo.OfferHeader`),
+    `OfferBuyDetailLineDto`, `OfferGetDetailLineDto`, `OfferBenefitLineDto`,
+    `OfferSiteLineDetailDto`, `OfferPriorityLineDto`.
+  - `IPromotionRepository`/`PromotionRepository`: 6 method mới — SQL Dapper trực tiếp trên
+    `dbo.OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority` (KHÔNG qua SP như
+    lưới chính, vì legacy cũng dùng EF LINQ trực tiếp cho phần detail — đã tra đúng bảng/cột
+    trong `docs/architecture/database-schema.md` trước khi viết).
+  - `IPromotionService`/`PromotionService`: 6 method thin-wrapper; riêng `GetOfferSiteDetailAsync`
+    map thêm `StyleProfileName` (VM→WinMart, VMP→WinMart+, FS→FlagShip, KS→Kiosk — hardcode switch,
+    xác nhận KHÔNG có bảng danh mục backing trong DB).
+  - File mới `Dialogs/OfferDetailDialog.razor` — `MudDialog`+`MudTabs`, lazy-load theo tab active
+    (cải tiến so với legacy vốn load lại cả 6 bảng mỗi lần đổi tab), export Excel riêng cho tab
+    Buy/Get/Site.
+
+**Thay đổi (feature MỚI, không có ở legacy — theo yêu cầu bổ sung):**
+- Nút "Deactive" 1 offer LIVE trên `OffersPage.razor`. **Phát hiện & sửa mâu thuẫn quan trọng**:
+  yêu cầu gốc mô tả set `Status=0` để deactive, nhưng bằng chứng code/doc (SP gốc
+  `Setup_Promotion_Insert`, SP `GetPromotionOfferHeaderList`, `LOGIC_APPROVE_CTKM.md`) đều xác
+  nhận `Status=0`=Active, `Status=2`=Deactivated — đã research + xác nhận lại với người dùng
+  trước khi implement (tránh bug ngược nghĩa: set Active thay vì tắt).
+- SP mới `docs/sql/OfferHeader_Deactivate.sql` (`usp_OfferHeader_Deactivate`) — set `Status=2` +
+  `Counter=MAX(Counter)+1` atomic trong 1 transaction (`UPDLOCK, HOLDLOCK` tránh race-condition;
+  `Counter` bắt buộc tăng để trigger delta-sync xuống ~5.000 máy POS). **Chưa chạy trên DB thật**
+  — cần chạy tay trên `RPOSMasterData` (đã ghi vào `docs/ROLLOUT.md` §D8).
+  `DeactivateOfferAsync` thêm vào `IPromotionRepository`/`PromotionRepository` +
+  `IPromotionService`/`PromotionService`. UI dùng `MudMessageBox @ref` confirm chuẩn dự án
+  (Outlined/Error vì là hành động phá hủy/không hoàn tác).
+- Cập nhật lại invariant "Bất khả nghịch" trong `docs/web/logic/LOGIC_APPROVE_CTKM.md` (nay có 1
+  ngoại lệ: Deactive).
+- Đổi filter mặc định khi vào trang từ "Tất cả" sang "Có hiệu lực" (`_filter.Status = "0"`, cả lúc
+  init và lúc bấm "Xóa" bộ lọc).
+
+**Pattern mới:**
+- "Modal chi tiết nhiều tab — lazy-load theo tab active (MudTabs mặc định)" →
+  `.claude/skills/web/SKILLS.md`.
+- "SP đổi Status trên bảng có cột `Counter` đồng bộ POS — atomic `UPDLOCK,HOLDLOCK`" →
+  `.claude/skills/database/SKILLS.md`.
+
+**Lưu ý cho session sau:** SQL của 6 query detail + SP Deactive **chưa verify trên
+`RPOSMasterData` thật** (môi trường làm việc không có quyền truy cập DB) — bắt buộc QA thủ công
+trên DEV (đối chiếu 1 `OfferNo` biết trước qua SSMS) trước khi coi tính năng là hoàn thành. Khi
+làm tiếp `CheckPromotionList` ("Tra cứu khuyến mãi") — nhớ quyết định đã chốt: chỉ port nhánh
+SERVER, không port nhánh "Nguồn = POS".
+
+---
+
+## [2026-07-06] Gap Analysis ProductList/ProductLock + Ảnh sản phẩm + Xem chi tiết SP
+
+**Layer:** POS.Web, POS.Infrastructure, POS.Common
+**Loại:** Bug fix (gap analysis) + Feature mới + Pattern mới
+
+**Bối cảnh:** người dùng yêu cầu Gap Analysis đối chiếu `ProductController.ProductList`/`ProductLock`
+(legacy `src/legacy/VCM.BLUEPOS`) với `catalog/products`/`catalog/product-lock` (POS.Web) — xác nhận
+migrate 2026-06-30 còn thiếu sót. Sau khi vá xong, người dùng yêu cầu thêm 2 tính năng mới trên cùng
+2 trang: upload ảnh sản phẩm và xem chi tiết sản phẩm (kèm barcode + ảnh).
+
+**Phần 1 — Gap Analysis fixes:**
+- `ProductsPage.razor`: thêm 2 cột lưới bị thiếu so với legacy (Tên SP (VN), ĐVT Barcode — dữ liệu
+  đã có sẵn trong `ProductListItemDto`, chỉ thiếu hiển thị); theo yêu cầu người dùng **không** thêm
+  cột `ItemNo_PLG`/`ParentCode`/`Size`. Xác nhận Export Excel đã khớp đủ 11 cột legacy (không phải
+  gap). Xóa nút Edit vô hiệu hóa vĩnh viễn + dọn code chết (`ExistingItem`/`IsEdit` trong
+  `ProductDetailDialog`) — ProductList gốc không có Edit inline (đó là màn hình `UpdateArticle`
+  riêng, ngoài phạm vi).
+- `ProductDetailDialog.razor` + `ProductLockPage.razor`: thêm `IAuditLogger` — 2 trang này là ngoại
+  lệ duy nhất trong menu Danh mục chưa ghi audit log (CREATE "Product", LOCK/UNLOCK "ProductLock").
+- **Quyết định business quan trọng** (xác nhận với người dùng, ghi lại
+  `docs/web/logic/product_lock_scope_decision.md`): **không port** tích hợp GrabFood API (tính năng
+  thực chất là "Block sản phẩm" ngừng bán, không phải đồng bộ đa kênh realtime) và **không port**
+  chế độ ghi trực tiếp CSDL máy POS qua IP terminal (Sync Master Data theo lịch đã đủ) — 2 khoảng
+  trống lớn nhất phát hiện trong Gap Analysis, cố ý không làm chứ không phải bỏ sót.
+
+**Phần 2 — Ảnh sản phẩm:** bảng mới `dbo.ProductImage` (`ItemNo`, `Uom`, `ImageBase64` — PK ghép
+`(ItemNo, Uom)`, upsert) + SP `usp_ProductImage_Save` (`docs/sql/ProductImage_Save.sql`, **chưa chạy
+trên DB thật**, xem D7 `docs/ROLLOUT.md`). DTO `ProductImageDto` + `ICentralMDRepository.SaveProductImageAsync`.
+`ProductDetailDialog.razor`: `MudFileUpload` chọn JPG/PNG ≤2MB → đọc base64 → preview `MudImage`
+ngay trong dialog trước khi Lưu; lưu ảnh sau khi tạo sản phẩm thành công, lỗi lưu ảnh không rollback
+sản phẩm đã tạo (chỉ Snackbar cảnh báo); audit log riêng "ProductImage" chỉ ghi cờ `HasImage`
+(không ghi base64 vào `DashboardAuditLog`).
+
+**Phần 3 — Xem chi tiết sản phẩm:** cột Action + nút "Xem" trên `ProductsPage.razor` → dialog mới
+`ProductViewDialog.razor` (read-only): field giống `ProductDetailDialog` + danh sách Barcode
+(`MudSimpleTable`) + ảnh nếu có. DTO `ProductDetailDto` + `ICentralMDRepository.GetProductDetailAsync`
+(đọc `dbo.Item`+`dbo.Barcodes`+`dbo.ProductImage`, trả null nếu không tồn tại). Vì không lưu MIME
+type lúc upload, dialog suy đoán PNG/JPEG từ magic-byte prefix base64 (`iVBORw0KGgo` → PNG, còn lại
+→ JPEG) khi hiển thị `data:` URI.
+
+**Pattern mới:** "Upload ảnh → base64 + preview trong dialog" — đã thêm vào
+`.claude/skills/web/SKILLS.md` (không dùng `varbinary`, không lưu cột MIME riêng, lưu ảnh là thao
+tác phụ tách khỏi transaction chính).
+
+**Lưu ý cho session sau:** SP `usp_ProductImage_Save` **chưa chạy trên DB thật** — chức năng ảnh sẽ
+lỗi (không crash, chỉ cảnh báo) cho tới khi chạy `docs/sql/ProductImage_Save.sql` trên
+`RPOSMasterData`. Chưa test UI thật trên browser (chỉ verify build + `dotnet test
+tests/POS.ContractTests` 25/25).
+
+---
+
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> dev
+>>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
 ## [2026-07-06] FIX: "Duyệt CTKM" publish dữ liệu nháp cũ khi chưa Lưu tạm lại
 
 **Layer:** POS.Web

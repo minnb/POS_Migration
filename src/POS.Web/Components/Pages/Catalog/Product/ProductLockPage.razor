@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
+@using Newtonsoft.Json
 @using POS.Common.Dtos.CentralMD
 @using POS.Infrastructure.Repositories.Interfaces
 @using POS.Infrastructure.Logging
@@ -14,6 +15,7 @@
 @inject ICentralMDRepository MdRepo
 @inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
 
 <PageTitle>Khóa sản phẩm – POS Dashboard</PageTitle>
 
@@ -323,7 +325,7 @@ else
         var confirm    = await _confirmBox!.ShowAsync();
         if (confirm != true) return;
 
-        await ExecuteLockAsync([item.ItemNo ?? string.Empty], targetLock, $"{action} sản phẩm {item.ItemNo}");
+        await ExecuteLockAsync([item], targetLock, $"{action} sản phẩm {item.ItemNo}");
     }
 
     private async Task BulkToggleAsync(bool targetLock)
@@ -334,12 +336,12 @@ else
         var confirm   = await _confirmBox!.ShowAsync();
         if (confirm != true) return;
 
-        var itemNos = _selectedItems.Select(i => i.ItemNo ?? string.Empty).ToList();
-        await ExecuteLockAsync(itemNos, targetLock, $"Bulk {action} {_selectedItems.Count} SP");
+        var items = _selectedItems.ToList();
+        await ExecuteLockAsync(items, targetLock, $"Bulk {action} {_selectedItems.Count} SP");
         _selectedItems = [];
     }
 
-    private async Task ExecuteLockAsync(List<string> itemNos, bool targetLock, string logContext)
+    private async Task ExecuteLockAsync(List<ProductLockItemDto> items, bool targetLock, string logContext)
     {
         _saving   = true;
         _errorMsg = null;
@@ -348,13 +350,21 @@ else
             var dto = new ProductLockSaveDto
             {
                 StoreNo    = _filter.StoreNo,
-                ItemNos    = itemNos,
+                ItemNos    = items.Select(i => i.ItemNo ?? string.Empty).ToList(),
                 TargetLock = targetLock,
                 Actor      = _actor
             };
             var (success, message) = await MdRepo.SaveProductLockAsync(dto);
             if (success)
             {
+                var auditAction = targetLock ? "LOCK" : "UNLOCK";
+                foreach (var item in items)
+                {
+                    await AuditLogger.LogAsync(_actor, auditAction, "ProductLock",
+                        $"{_filter.StoreNo}-{item.ItemNo}",
+                        JsonConvert.SerializeObject(new { item.ItemNo, item.ItemName, IsLocked = !targetLock }),
+                        JsonConvert.SerializeObject(new { item.ItemNo, item.ItemName, IsLocked = targetLock }));
+                }
                 var icon = targetLock ? Severity.Warning : Severity.Success;
                 Snackbar.Add(message, icon);
                 await _table.ReloadServerData();

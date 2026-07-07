@@ -21,6 +21,10 @@
 | D4 | SP Voucher (8.3) + reuse (8.4) | Chạy 3 script SQL tạo SP + TVP trên CentralMD; 8.4 tái dùng SP CentralSales | REQUIRED (cho `/promotion/vouchers`) | [§D4](#d4--stored-procedures-voucher-8384) |
 | D5 | SP Setup Giá (9.3) | Chạy script SQL tạo TVP + SP lưu bảng giá trên CentralMD | REQUIRED (cho `/catalog/price-setup`) | [§D5](#d5--stored-procedures-setup-giá-93) |
 | D6 | Gộp SAP Voucher vào CpnVchBOMCodeIssue | Chạy 5 script SQL (extend schema, 2 SP mới + TVP, migrate data, rename legacy) trên CentralMD, đúng thứ tự, có cửa sổ bảo trì. **+D6.1**: chạy thêm 4 script vá đồng bộ dữ liệu Coupon↔SAP Voucher (ItemNo hardening, SetupCoupon_Save/Voucher_Read/Voucher_Save bản mới) | CRITICAL (cho `api/sap/*`, 5.000 POS) | [§D6](#d6--gộp-sap-internal-voucher-vào-cpnvchbomcodeissue) |
+| D7 | SP Ảnh sản phẩm | Chạy 1 script SQL tạo bảng `dbo.ProductImage` + SP `usp_ProductImage_Save` trên CentralMD | REQUIRED (cho upload ảnh trong `/catalog/products`) | [§D7](#d7--stored-procedure-ảnh-sản-phẩm) |
+| D8 | SP Deactive khuyến mãi | Chạy 1 script SQL tạo SP `usp_OfferHeader_Deactivate` trên CentralMD | REQUIRED (cho nút Deactive tại `/promotion/offers`) | [§D8](#d8--stored-procedure-deactive-khuyến-mãi) |
+| D9 | FIX SP Tạo sản phẩm — CAST→TRY_CAST | Chạy lại `docs/sql/Product_Save.sql` (đã fix) trên CentralMD — SP cũ đang lỗi 8114, chặn tạo mới mọi sản phẩm | CRITICAL (đang chặn `/catalog/products` Thêm mới) | [§D9](#d9--fix-usp_product_save-cast--try_cast) |
+| D10 | Đổi ngữ nghĩa `IsCheckItem` Voucher khớp Coupon | Chạy lại 2 SP (`SetupVoucher_Save.sql`, `SetupVoucher_SaveIssue.sql`) SAU KHI deploy code, rồi chạy `Voucher_FlipIsCheckItem_Migration.sql` để đảo dữ liệu voucher đã tồn tại — ĐÚNG THỨ TỰ, có SELECT COUNT đối chiếu trước/sau | CRITICAL (đảo ngữ nghĩa dữ liệu — sai thứ tự sẽ lưu/hiển thị ngược cho `/promotion/vouchers`) | [§D10](#d10--đổi-ngữ-nghĩa-ischeckitem-voucher-khớp-coupon) |
 
 ---
 
@@ -494,6 +498,53 @@ khung giờ ít traffic SAP/POS):
    - **TODO chưa chốt ngày**: lên lịch `DROP TABLE Internal_Voucher_Legacy` sau khi hệ thống ổn
      định 2–4 tuần kể từ go-live (theo dõi riêng, không thuộc phạm vi đợt deploy code này).
 
+---
+
+## D7 — Stored Procedure Ảnh sản phẩm
+
+> `ProductDetailDialog.razor` (`/catalog/products`) — upload 1 ảnh đại diện/sản phẩm (JPG/PNG,
+> tối đa 2MB), mã hóa base64, lưu vào bảng riêng `dbo.ProductImage`.
+
+- **BẮT BUỘC chạy 1 script** trên `RPOSMasterData` (Dev trước, sau đó Production) trước khi tính
+  năng upload ảnh hoạt động:
+  - `docs/sql/ProductImage_Save.sql` — tạo bảng `dbo.ProductImage` (`ItemNo`, `Uom`,
+    `ImageBase64`, PK ghép `(ItemNo, Uom)`) + SP `usp_ProductImage_Save` (UPSERT).
+- **Nếu chưa chạy**: tạo sản phẩm vẫn thành công bình thường (không rollback), nhưng lưu ảnh sẽ
+  lỗi — dialog hiện Snackbar cảnh báo "Tạo sản phẩm thành công nhưng lưu ảnh thất bại", log qua
+  `IFileLogHelper`. Không chặn luồng tạo sản phẩm chính.
+
+---
+
+## D9 — FIX `usp_Product_Save`: CAST → TRY_CAST
+
+> Phát hiện qua test thật 2026-07-06: tạo sản phẩm mới ở `/catalog/products` báo "Lỗi hệ thống",
+> log thật (`D:\ROOT\Logs\POS.Web\Exception\log-20260706.txt`) cho thấy
+> `SqlException: Error converting data type nvarchar to bigint` (Error 8114) khi gọi
+> `dbo.usp_Product_Save`.
+
+- **Nguyên nhân**: bước sinh `ItemNo` tự động dùng `CAST(No AS BIGINT)` trên toàn bộ `dbo.Item` —
+  SQL Server evaluate `CAST` cho **mọi dòng** trước khi `MAX()`, nên chỉ cần 1 dòng `No` không phải
+  số thuần (mã hàng cũ dạng chữ/alphanumeric, còn tồn tại trong dữ liệu thật) là toàn bộ câu lệnh
+  throw exception — **chặn tạo mới MỌI sản phẩm**, không riêng gì sản phẩm cụ thể nào.
+- **Fix**: đổi `CAST` → `TRY_CAST` (trả `NULL` thay vì throw khi không convert được; `MAX` tự bỏ
+  qua `NULL`) trong `docs/sql/Product_Save.sql`.
+- **BẮT BUỘC chạy lại** `docs/sql/Product_Save.sql` (đã fix) trên `RPOSMasterData` — script
+  idempotent (`DROP PROCEDURE IF EXISTS` + `CREATE`), an toàn chạy đè lên SP cũ, không cần
+  migration dữ liệu, không cần cửa sổ bảo trì.
+- **Mức độ**: CRITICAL — tính năng "Thêm mới sản phẩm" hiện đang lỗi 100% trên môi trường đã chạy
+  `usp_Product_Save` bản cũ (mọi request tạo sản phẩm đều fail vì `MAX(CAST(No AS BIGINT))` quét
+  toàn bảng `dbo.Item`, không phụ thuộc sản phẩm đang tạo).
+
+**Bổ sung cùng ngày (theo yêu cầu người dùng, gộp vào cùng script `docs/sql/Product_Save.sql`)**:
+- `ItemNo` tự sinh giới hạn **tối đa 8 ký tự** — seed đổi `1000000001`→`10000001`, chỉ tính
+  `MAX` trên các `No` hiện có dài ≤8 ký tự (bỏ qua `No` dài hơn khi tính bước kế tiếp).
+- `dbo.Barcodes.VariantCode` — trước insert rỗng `''`, nay lưu **cùng giá trị** với
+  `UnitOfMeasureCode` (ĐVT chọn trên UI).
+- `dbo.Barcodes.Pkey` — trước = `BarcodeNo`, nay = `"{ItemNo}-{BarcodeNo}"` (khớp convention
+  Pkey ghép ở các bảng khác, vd `dbo.ItemBlock`).
+- Vẫn **chỉ cần chạy lại 1 lần** `docs/sql/Product_Save.sql` (đã gộp cả 2 đợt fix) — không cần
+  chạy 2 script riêng.
+
 **Nếu chưa chạy đủ 5 script đầu trước khi deploy** → `api/sap/*` lỗi runtime (SP không tồn tại
 hoặc bảng thiếu cột) ngay khi POS/SAP gọi vào; **không** có fallback tự động về `Internal_Voucher`
 (code cũ đã xóa khỏi solution).
@@ -521,6 +572,57 @@ hoặc bảng thiếu cột) ngay khi POS/SAP gọi vào; **không** có fallbac
 Smoke test sau khi chạy: phát hành 1 coupon test qua POS.Web → `GET api/sap/CheckVoucher` với mã
 đó phải trả `200 OK` (trước đây 404) → `POST api/sap/winlife/redeemCpnVch` phải redeem thành
 công → coupon hiện "Locked" ở tab "Mã coupon đã phát hành" (POS.Web).
+
+---
+
+## D10 — Đổi ngữ nghĩa `IsCheckItem` Voucher khớp Coupon
+
+> Phát hiện 2026-07-06: cột chung `dbo.CpnVchBOMHeader.IsCheckItem` được Coupon và Voucher dùng
+> NGƯỢC nghĩa nhau (di sản từ 2 module độc lập ở legacy VCM.BLUEPOS — xem
+> `docs/CHANGELOG.md` cùng ngày để biết đầy đủ bằng chứng đối chiếu). Coupon giữ nguyên
+> (`IsCheckItem=1` = theo sản phẩm). Voucher đổi để khớp Coupon:
+> - CŨ: `IsCheckItem=1` = tổng bill (không Lines); `=0` = theo sản phẩm (có Lines).
+> - MỚI: `IsCheckItem=1` = theo sản phẩm (có Lines); `=0` = tổng bill (không Lines).
+
+**Rủi ro đã kiểm tra**: không có API endpoint nào trả `IsCheckItem` trực tiếp cho 5.000 máy POS
+lúc bán hàng (grep `IsCheckItem` trong `src/POS.Api/` = 0 kết quả; bảng `CpnVchBOMCodeIssue` mà
+POS.Api thực đọc để check/redeem KHÔNG có cột này). **Chưa xác nhận được 100%** liệu
+`CpnVchBOMHeader` có nằm trong `SyncTableList` (đồng bộ .zip cho POS) hay không — đây là dữ liệu
+cấu hình DB, không tra được từ code. Nếu bảng có nằm trong danh sách sync, cột vẫn dump nguyên
+trạng (không đổi tên/kiểu) — chỉ rủi ro nếu có client POS tự hiểu ý nghĩa bit này, chưa có bằng
+chứng nào cho thấy điều đó.
+
+**BẮT BUỘC chạy ĐÚNG THỨ TỰ sau khi deploy code C# (POS.Web + POS.Application đã đổi logic)**:
+
+1. Chạy lại `docs/sql/SetupVoucher_Save.sql` (DROP+CREATE `usp_SetupVoucher_Save` với branch
+   `@IsCheckItem=1` mới).
+2. Chạy lại `docs/sql/SetupVoucher_SaveIssue.sql` (DROP+CREATE `usp_SetupVoucher_SaveIssue`
+   tương tự).
+3. Chạy `docs/sql/Voucher_FlipIsCheckItem_Migration.sql` — đảo bit `IsCheckItem` **CHỈ** cho dòng
+   `ArticleType IN ('ZVCN','ZVCO')` trên `CpnVchBOMHeader` (Coupon giữ nguyên). Script có
+   SELECT COUNT đối chiếu trước/sau UPDATE, bọc transaction.
+
+**Sai thứ tự** (migrate data trước khi deploy code+SP) sẽ tạo cửa sổ dữ liệu sai nghĩa: code/SP
+cũ đọc/ghi theo nghĩa cũ trên dữ liệu đã bị đảo → hiển thị/lưu ngược hoàn toàn cho mọi voucher.
+Chạy 1 lần trên `RPOSMasterData` UAT trước, xác nhận UI `/promotion/vouchers` hiển thị đúng
+"Theo SP"/"Tổng bill" cho voucher cũ, rồi mới chạy Production.
+
+---
+
+## D8 — Stored Procedure Deactive khuyến mãi
+
+> Trang `GET /promotion/offers` (POS.Web) — nút "Deactive" trên mỗi dòng để tắt hiệu lực 1 offer
+> LIVE (`dbo.OfferHeader`). Đây là **ngoại lệ duy nhất** cho phép sửa dữ liệu `OfferHeader` từ UI
+> (xem `docs/web/logic/LOGIC_APPROVE_CTKM.md` mục "Bất khả nghịch").
+
+- **BẮT BUỘC chạy 1 script** trên `RPOSMasterData` trước khi nút Deactive hoạt động:
+  - `docs/sql/OfferHeader_Deactivate.sql` — tạo SP `dbo.usp_OfferHeader_Deactivate` (set
+    `Status=2` "Ngưng áp dụng" + `Counter=MAX(Counter)+1` atomic trong transaction, dùng
+    `UPDLOCK, HOLDLOCK` tránh race-condition — `Counter` tăng bắt buộc để trigger delta-sync
+    xuống ~5.000 máy POS).
+- **Nếu chưa chạy**: bấm nút Deactive → snackbar đỏ báo lỗi (SP không tồn tại), offer KHÔNG bị
+  đổi trạng thái (Repository bắt exception, không rollback gì vì SP chưa chạy được).
+- **Một chiều**: chưa có nút "kích hoạt lại" từ UI — muốn bật lại phải thao tác trực tiếp DB.
 
 ---
 

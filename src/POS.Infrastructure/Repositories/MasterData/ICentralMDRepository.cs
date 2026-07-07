@@ -210,6 +210,19 @@ public interface ICentralMDRepository
     Task<(bool Success, string ItemNo, string Message)> CreateProductAsync(
         ProductCreateDto dto, CancellationToken ct = default);
 
+    /// <summary>
+    /// UPSERT dbo.ProductImage theo khóa ghép (ItemNo, Uom) — 1 ảnh đại diện/sản phẩm,
+    /// mã hóa base64 (nvarchar(max)). Upload lại sẽ ghi đè ảnh cũ.
+    /// </summary>
+    Task<(bool Success, string Message)> SaveProductImageAsync(
+        ProductImageDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// Chi tiết 1 sản phẩm để xem — dbo.Item + dbo.Barcodes + dbo.ProductImage (nếu có).
+    /// Trả null nếu ItemNo không tồn tại.
+    /// </summary>
+    Task<ProductDetailDto?> GetProductDetailAsync(string itemNo, CancellationToken ct = default);
+
     // ── Product Lock — Khóa sản phẩm (migrate 6.4) ───────────────────────────
 
     /// <summary>

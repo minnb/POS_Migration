@@ -156,8 +156,8 @@ else
                                        Disabled="@IsViewMode" Variant="Variant.Outlined" Margin="Margin.Dense"/>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
-                        <MudNumericField @bind-Value="_advanced.LimitQty" Label="Giới hạn số lượng (0=không giới hạn)" Variant="Variant.Text"
-                                         Min="0" ReadOnly="@IsViewMode" Margin="Margin.Dense" HideSpinButtons="true"/>
+                        <MudNumericField @bind-Value="_advanced.LimitQty" Label="Giới hạn số lượng (cố định, không giới hạn)" Variant="Variant.Text"
+                                         Min="0" Disabled="true" Margin="Margin.Dense" HideSpinButtons="true"/>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
                         <MudNumericField @bind-Value="_advanced.LimitQtyUsed" Label="Số lần sử dụng" Variant="Variant.Text"
@@ -236,10 +236,11 @@ else
                     </MudItem>
 
                     <MudItem xs="12" Class="d-flex flex-wrap gap-4 align-center">
-                        <MudCheckBox @bind-Value="_applyPerItem" Label="Áp dụng theo danh sách sản phẩm (bỏ chọn = áp dụng tổng hóa đơn)"
+                        <MudCheckBox @bind-Value="_applyPerItem" @bind-Value:after="OnApplyPerItemChanged"
+                                     Label="Áp dụng theo danh sách sản phẩm (bỏ chọn = áp dụng tổng hóa đơn)"
                                      Color="Color.Primary" Dense="true" Disabled="@IsViewMode"/>
                         <MudCheckBox @bind-Value="_advanced.IsMultiUsed" Label="Sử dụng nhiều lần" Color="Color.Primary" Dense="true" Disabled="@IsViewMode"/>
-                        <MudCheckBox @bind-Value="_advanced.IsCheckAPI" Label="Check API" Color="Color.Primary" Dense="true" Disabled="@IsViewMode"/>
+                        <MudCheckBox @bind-Value="_advanced.IsCheckAPI" Label="Check API (cố định)" Color="Color.Primary" Dense="true" Disabled="true"/>
                         <MudCheckBox @bind-Value="_advanced.Blocked" Label="Khóa (Blocked)" Color="Color.Error" Dense="true" Disabled="@IsViewMode"/>
                     </MudItem>
                 </MudGrid>
@@ -248,52 +249,56 @@ else
     </MudCard>
 
     @* ── Tabs: sản phẩm + mã coupon ─────────────────────────────────────── *@
-    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
-        <MudTabPanel Text="Danh sách sản phẩm" Icon="@Icons.Material.Filled.Inventory2">
-            @if (_items.Count > 0 && !IsViewMode)
-            {
-                <div class="d-flex justify-end mb-2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
-                </div>
-            }
-            <MudTable Items="@_items" Dense="true" Hover="true" Striped="true"
-                      Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="CouponItemLineDto">
-                <HeaderContent>
-                    <MudTh>Mã sản phẩm</MudTh>
-                    <MudTh>Barcode</MudTh>
-                    <MudTh>Tên sản phẩm</MudTh>
-                    <MudTh>ĐVT</MudTh>
-                    <MudTh Style="text-align:right; width:60px"></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Mã sản phẩm">@context.ItemNo</MudTd>
-                    <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
-                    <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
-                    <MudTd DataLabel="ĐVT">@context.UOM</MudTd>
-                    <MudTd Style="text-align:right">
-                        @if (!IsViewMode)
-                        {
-                            <MudTooltip Text="Xoá sản phẩm">
-                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
-                                               OnClick="@(() => _items.Remove(context))"/>
-                            </MudTooltip>
-                        }
-                    </MudTd>
-                </RowTemplate>
-                <NoRecordsContent>
-                    <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
-                        @if (!IsViewMode)
-                        {
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                                       OnClick="OpenItemPickerAsync" Class="mb-3">Thêm sản phẩm</MudButton>
-                        }
-                        <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
-                        <MudText Typo="Typo.body2">Chưa có sản phẩm. Coupon áp dụng tổng hóa đơn.</MudText>
+    <MudTabs @bind-ActivePanelIndex="_activeTabIndex" Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+        @* Tab sản phẩm chỉ hiện khi "Áp dụng theo danh sách sản phẩm" được tick *@
+        @if (_applyPerItem)
+        {
+            <MudTabPanel Text="Danh sách sản phẩm" Icon="@Icons.Material.Filled.Inventory2">
+                @if (_items.Count > 0 && !IsViewMode)
+                {
+                    <div class="d-flex justify-end mb-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
                     </div>
-                </NoRecordsContent>
-            </MudTable>
-        </MudTabPanel>
+                }
+                <MudTable Items="@_items" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="CouponItemLineDto">
+                    <HeaderContent>
+                        <MudTh>Mã sản phẩm</MudTh>
+                        <MudTh>Barcode</MudTh>
+                        <MudTh>Tên sản phẩm</MudTh>
+                        <MudTh>ĐVT</MudTh>
+                        <MudTh Style="text-align:right; width:60px"></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Mã sản phẩm">@context.ItemNo</MudTd>
+                        <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
+                        <MudTd DataLabel="Tên sản phẩm">@context.ItemName</MudTd>
+                        <MudTd DataLabel="ĐVT">@context.UOM</MudTd>
+                        <MudTd Style="text-align:right">
+                            @if (!IsViewMode)
+                            {
+                                <MudTooltip Text="Xoá sản phẩm">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                                   OnClick="@(() => _items.Remove(context))"/>
+                                </MudTooltip>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+                            @if (!IsViewMode)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="OpenItemPickerAsync" Class="mb-3">Thêm sản phẩm</MudButton>
+                            }
+                            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                            <MudText Typo="Typo.body2">Chưa có sản phẩm. Coupon áp dụng tổng hóa đơn.</MudText>
+                        </div>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudTabPanel>
+        }
 
         <MudTabPanel Text="Mã coupon đã phát hành" Icon="@Icons.Material.Filled.QrCode2">
             @if (!IsEditing)
@@ -354,6 +359,7 @@ else
     private DateTime? _fromDate;
     private DateTime? _toDate;
     private bool _applyPerItem;
+    private int _activeTabIndex;
     private int _quantityCodeInDb;
     private IBrowserFile? _importFile;
 
@@ -407,6 +413,8 @@ else
         _model.CharPosition = rnd.Next(1, 6);
         _model.Quantity = 1;
         _advanced.LimitQtyUsed = 1;
+        _advanced.IsCheckAPI = true;      // cố định
+        _advanced.LimitQty = 999999999;   // cố định, không giới hạn
         if (_lookup.Uoms.Any(u => u.Value == "CAI"))
             _advanced.UOM = "CAI";
         _fromDate = DateTime.Today.AddDays(1);
@@ -437,8 +445,8 @@ else
         _advanced = new CouponAdvancedSaveRequest
         {
             ItemNo = d.ItemNo, UOM = d.UOM, DiscountType = d.DiscountType == 0 ? 1 : d.DiscountType,
-            DiscountValue = (double)d.DiscountValue, MaxValue = (double)d.MaxAmount, LimitQty = d.LimitQty,
-            LimitQtyUsed = d.LimitQtyUsed, IsMultiUsed = d.IsMultiUse, IsCheckAPI = d.IsCheckAPI,
+            DiscountValue = (double)d.DiscountValue, MaxValue = (double)d.MaxAmount, LimitQty = 999999999,
+            LimitQtyUsed = d.LimitQtyUsed, IsMultiUsed = d.IsMultiUse, IsCheckAPI = true,
             Blocked = d.Blocked, CpnVchType = d.CpnVchType
         };
     }
@@ -458,6 +466,7 @@ else
         _model.EndingDateStr = _toDate.Value.ToString("dd/MM/yyyy");
         _model.IsCheckItem = _applyPerItem;
         _model.Items = _applyPerItem ? _items : [];
+        _model.ArticleType = "ZCPN";
 
         var needCodes = string.IsNullOrWhiteSpace(_model.ItemNo) || _quantityCodeInDb == 0;
         if (needCodes && !IsAuto)
@@ -501,6 +510,8 @@ else
             _advanced.StoreGroupCode = _model.StoreGroupCode;
             _advanced.StartingDateStr = _model.StartingDateStr;
             _advanced.EndingDateStr = _model.EndingDateStr;
+            _advanced.IsCheckAPI = true;
+            _advanced.LimitQty = 999999999;
 
             var advResult = await CouponService.SaveAdvancedAsync(_advanced);
             if (!advResult.Ok)
@@ -541,6 +552,8 @@ else
         _advanced.StoreGroupCode = _model.StoreGroupCode;
         _advanced.StartingDateStr = _fromDate.Value.ToString("dd/MM/yyyy");
         _advanced.EndingDateStr = _toDate.Value.ToString("dd/MM/yyyy");
+        _advanced.IsCheckAPI = true;
+        _advanced.LimitQty = 999999999;
 
         var parameters = new DialogParameters<CouponAdvancedDialog>
         {
@@ -553,6 +566,8 @@ else
         var res = await dialog.Result;
         if (res is { Canceled: false } && res.Data is CouponAdvancedSaveRequest adv)
         {
+            adv.IsCheckAPI = true;
+            adv.LimitQty = 999999999;
             _saving = true;
             try
             {
@@ -572,6 +587,14 @@ else
             }
             finally { _saving = false; }
         }
+    }
+
+    // Checked "Áp dụng theo danh sách sản phẩm" → tự active tab "Danh sách sản phẩm" (index 0),
+    // không cần user tự click.
+    private void OnApplyPerItemChanged()
+    {
+        if (_applyPerItem)
+            _activeTabIndex = 0;
     }
 
     // ── Item picker dialog ────────────────────────────────────────────────────

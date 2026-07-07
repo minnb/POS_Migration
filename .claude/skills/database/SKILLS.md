@@ -171,6 +171,7 @@ reset trạng thái đã redeem/dùng.
 
 ---
 
+<<<<<<< HEAD
 ## Pattern: SP xử lý chồng lấn khoảng ngày hiệu lực (timeline merge, set-based)
 
 > Áp dụng khi: bulk save nhiều dòng "giá trị + khoảng ngày hiệu lực" (giá bán, khuyến mãi, tỷ giá...)
@@ -197,6 +198,44 @@ riêng lẻ cho từng trường hợp chồng lấn (dễ sót case, khó test)
 > Ví dụ thực tế: `dbo.tvf_SetupSalePrice_Timeline` + `dbo.Setup_SalePrice_Get_ALL`
 > (`docs/sql/SetupSalePrice_Save.sql`) — xử lý chồng lấn khoảng `StartingDate/EndingDate` khi bulk
 > import bảng giá bán (9.3 Setup Giá).
+=======
+## Pattern: SP đổi Status trên bảng có cột `Counter` đồng bộ POS
+
+> Áp dụng khi: SP update 1 bảng thuộc nhóm `Offer*` (hoặc bảng tương tự có cột `Counter bigint`
+> dùng cho cơ chế delta-sync xuống ~5.000 máy POS — xem `docs/architecture/database-schema.md`
+> mục `OfferHeader`). Mọi lần ghi lên các bảng này **bắt buộc** tăng `Counter` để POS nhận biết
+> thay đổi (client so `Counter` mới với `LastCounter` đã lưu theo từng store để quyết định có
+> cần tải lại hay không) — quên tăng `Counter` = thay đổi "vô hình" với POS dù DB đã đổi đúng.
+
+```sql
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    DECLARE @NewCounter bigint;
+    SELECT  @NewCounter = ISNULL(MAX([Counter]), 0) + 1
+    FROM    dbo.{Table} WITH (UPDLOCK, HOLDLOCK);   -- khóa đọc-rồi-ghi, tránh 2 request giành cùng 1 Counter
+
+    UPDATE dbo.{Table}
+    SET    [Status] = @NewStatus, [Counter] = @NewCounter
+    WHERE  [No] = @Key;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+    THROW;
+END CATCH
+```
+
+- **KHÔNG** tính `MAX(Counter)+1` ở tầng C# rồi UPDATE riêng — race-condition khi nhiều request
+  ghi đồng thời (2 request đọc cùng MAX trước khi request đầu commit). Luôn làm trong 1 SP,
+  `SELECT MAX ... WITH (UPDLOCK, HOLDLOCK)` cùng transaction với `UPDATE`.
+- Giá trị `Status` con số cụ thể (0/1/2...) tra đúng trong doc nghiệp vụ liên quan (vd
+  `docs/web/logic/LOGIC_APPROVE_CTKM.md`) — **không suy đoán theo tên biến** (`Status=0` từng bị
+  hiểu nhầm là "tắt" trong khi thực ra là Active, xem case `usp_OfferHeader_Deactivate`).
+
+> Ví dụ thực tế: `docs/sql/OfferHeader_Deactivate.sql` (`usp_OfferHeader_Deactivate`).
+>>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
 
 ---
 

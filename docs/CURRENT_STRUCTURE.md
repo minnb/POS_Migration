@@ -119,7 +119,9 @@ src/
 │   │   │   ├── EmployeeDto.cs   (EmployeeListItemDto, EmployeeListFilter, EmployeeCreateDto)        ← 5.1 Danh mục NV + tạo mới/đổi mật khẩu POS
 │   │   │   ├── ProductListDto.cs (ProductListItemDto, ProductListFilter, PosVatCodeDto)             ← 6.1
 │   │   │   ├── ProductCreateDto.cs (ProductCreateDto, BarcodeRowDto, ArticleTypeDto, UnitOfMeasureDto) ← 6.2
-│   │   │   └── ProductLockDto.cs (ProductLockItemDto, ProductLockFilter, ProductLockSaveDto)        ← 6.4
+│   │   │   ├── ProductLockDto.cs (ProductLockItemDto, ProductLockFilter, ProductLockSaveDto)        ← 6.4
+│   │   │   ├── ProductImageDto.cs (ProductImageDto: ItemNo, Uom, ImageBase64)                       ← ảnh sản phẩm (dbo.ProductImage, 2026-07-06)
+│   │   │   └── ProductDetailDto.cs (ProductDetailDto: header + List<BarcodeRowDto> + ImageBase64?)  ← xem chi tiết SP (2026-07-06)
 │   │   ├── DataSync/
 │   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName)
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, SyncAction? (override Action mọi batch: Web Sync="DELETE-INSERT", null=TRUNC-INSERT→INSERT)
@@ -518,6 +520,8 @@ Task<List<PosVatCodeDto>> GetPosVatCodesAsync(CancellationToken ct = default)   
 Task<List<ArticleTypeDto>> GetArticleTypesAsync(CancellationToken ct = default)                  // cache MD:ArticleTypes 12h
 Task<List<UnitOfMeasureDto>> GetUnitOfMeasuresAsync(CancellationToken ct = default)              // cache MD:UnitOfMeasures 12h
 Task<(bool Success, string ItemNo, string Message)> CreateProductAsync(ProductCreateDto dto, CancellationToken ct = default)
+Task<(bool Success, string Message)> SaveProductImageAsync(ProductImageDto dto, CancellationToken ct = default)  // UPSERT dbo.ProductImage theo (ItemNo, Uom)
+Task<ProductDetailDto?> GetProductDetailAsync(string itemNo, CancellationToken ct = default)  // dbo.Item + dbo.Barcodes + dbo.ProductImage, null nếu không tồn tại
 // ── Product Lock (migrate 6.4) — dbo.ItemBlock, Pkey="{StoreNo}-{ItemNo}" ──
 Task<(List<ProductLockItemDto> Items, int Total)> GetProductLockListAsync(ProductLockFilter filter, CancellationToken ct = default)
 Task<(bool Success, string Message)> SaveProductLockAsync(ProductLockSaveDto dto, CancellationToken ct = default)
@@ -619,6 +623,15 @@ Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(string groupCode, stri
 Task<(bool Ok, string Message)> SaveItemGroupAsync(ItemGroupSaveRequest request, string actor, CancellationToken ct = default)   // SP usp_SetupGroupItem_Save
 Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
 Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(string groupCode, string itemNo, string itemName, CancellationToken ct = default)
+
+// Modal "Xem chi tiết" 1 offer đã publish (dbo.OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority) — dùng bởi OfferDetailDialog.razor
+Task<OfferHeaderDetailDto?> GetOfferHeaderDetailAsync(string offerNo, CancellationToken ct = default)
+Task<(List<OfferBuyDetailLineDto> Items, int Total)> GetOfferBuyDetailAsync(string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferBenefitLineDto> Items, int Total)> GetOfferBenefitDetailAsync(string offerNo, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferGetDetailLineDto> Items, int Total)> GetOfferGetDetailAsync(string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferSiteLineDetailDto> Items, int Total)> GetOfferSiteDetailAsync(string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)   // JOIN dbo.Store lấy StyleProfile thô
+Task<(List<OfferPriorityLineDto> Items, int Total)> GetOfferPriorityDetailAsync(string offerType, int pageNumber, int pageSize, CancellationToken ct = default)   // lọc theo offerType, KHÔNG phải offerNo
+Task<(bool Ok, string Message)> DeactivateOfferAsync(string offerNo, CancellationToken ct = default)   // SP usp_OfferHeader_Deactivate — Status=2 + Counter=MAX+1 atomic
 ```
 
 ---
@@ -737,6 +750,15 @@ Task<List<SiteGroupStoreItemDto>> GetSiteGroupStoresAsync(string groupCode, stri
 Task<(bool Ok, string Message)> SaveItemGroupAsync(ItemGroupSaveRequest request, string actor, CancellationToken ct = default)
 Task<(List<ItemGroupListItemDto> Items, int Total)> GetItemGroupListAsync(string groupCode, string groupName, int pageNumber, int pageSize, CancellationToken ct = default)
 Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(string groupCode, string itemNo, string itemName, CancellationToken ct = default)
+
+// Modal "Xem chi tiết" 1 offer đã publish — delegate xuống IPromotionRepository; riêng GetOfferSiteDetailAsync map thêm StyleProfileName (VM→WinMart, VMP→WinMart+, FS→FlagShip, KS→Kiosk)
+Task<OfferHeaderDetailDto?> GetOfferHeaderDetailAsync(string offerNo, CancellationToken ct = default)
+Task<(List<OfferBuyDetailLineDto> Items, int Total)> GetOfferBuyDetailAsync(string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferBenefitLineDto> Items, int Total)> GetOfferBenefitDetailAsync(string offerNo, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferGetDetailLineDto> Items, int Total)> GetOfferGetDetailAsync(string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferSiteLineDetailDto> Items, int Total)> GetOfferSiteDetailAsync(string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(List<OfferPriorityLineDto> Items, int Total)> GetOfferPriorityDetailAsync(string offerType, int pageNumber, int pageSize, CancellationToken ct = default)
+Task<(bool Ok, string Message)> DeactivateOfferAsync(string offerNo, CancellationToken ct = default)
 ```
 
 #### `IHealthCheckService` (`POS.Application.Interfaces`)
@@ -980,6 +1002,20 @@ File này chứa nhiều model dùng cho CommonController:
 | `DataJsonDto` | DataJsonDto.cs | JSON data payload |
 | `DataRawJsonDto` | DataRawJsonDto.cs | Raw JSON data từ POS |
 | `StagingDBConfigDto` | StagingDBConfigDto.cs | StagingDB config |
+
+### POS.Common.Dtos.Promotion (OfferHeaderDto.cs — Danh mục khuyến mãi + Modal "Xem chi tiết")
+
+| Class | Các field chính |
+|-------|----------------|
+| `OfferHeaderListItemDto` | ID, BonusbuyNo, PromotionNo, Description, OfferType, SalesType, SalesTypeName, ItemNo, ItemName, Status, StyleProfile, StartingDate, EndingDate, LocalSiteGroup, LimitQty, VoucherFromDate/ToDate, Counter, Pkey, LastDateModified, Total — 1 dòng SP GetPromotionOfferHeaderList |
+| `OfferListFilter` | TextSearch, PromotionName, Status, OfferType, ItemNo, PageNumber, PageSize |
+| `OptionItemDto` | Value, Text — dùng chung nhiều dropdown |
+| `OfferHeaderDetailDto` | ~68 field khớp bảng `dbo.OfferHeader` (tab "Offer Header" modal Xem chi tiết) — ConditionBuyStr/ConditionGetStr tính sẵn ở Repository |
+| `OfferBuyDetailLineDto` | OfferNo, LineNo, LineType, No, Description, UnitOfMeasure, DiscountType(+Str), DiscountValue, Quantity, Step, BonusBuyNo, LineGroup, ScaleType(+Str), Total — bảng `dbo.OfferBuy` (tab "Offer Buy") |
+| `OfferGetDetailLineDto` | Cùng cấu trúc `OfferBuyDetailLineDto` — bảng `dbo.OfferGet` (tab "Offer Get") |
+| `OfferBenefitLineDto` | OfferNo, LineNo, Type, No, VariantCode, Description, ValueType(+Str), Value, StepAmount, LineGroup, Quantity, UnitOfMeasure, Total — bảng `dbo.OfferBenefits` (tab "Offer Benefits") |
+| `OfferSiteLineDetailDto` | OfferNo, PriceGroupCode, StoreNo, StyleProfile, StyleProfileName (map ở Service), Total — bảng `dbo.OfferSite` JOIN `dbo.Store` (tab "Offer Site") |
+| `OfferPriorityLineDto` | OfferType, Priority, IsMember, IsDuplicate, Total — bảng `dbo.OfferPriority`, lọc theo OfferType (tab "Offer Priority") |
 
 ### POS.Common.Dtos.Promotion (PromotionSetupDto.cs — "Cài đặt CTKM")
 

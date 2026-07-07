@@ -68,4 +68,46 @@ public sealed class PromotionService(IPromotionRepository repository) : IPromoti
     public Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(
         string groupCode, string itemNo, string itemName, CancellationToken ct = default)
         => repository.GetItemGroupItemsAsync(groupCode, itemNo, itemName, ct);
+
+    // ── Modal "Xem chi tiết" 1 offer đã publish ───────────────────────────────
+    public Task<OfferHeaderDetailDto?> GetOfferHeaderDetailAsync(string offerNo, CancellationToken ct = default)
+        => repository.GetOfferHeaderDetailAsync(offerNo, ct);
+
+    public Task<(List<OfferBuyDetailLineDto> Items, int Total)> GetOfferBuyDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+        => repository.GetOfferBuyDetailAsync(offerNo, search, pageNumber, pageSize, ct);
+
+    public Task<(List<OfferBenefitLineDto> Items, int Total)> GetOfferBenefitDetailAsync(
+        string offerNo, int pageNumber, int pageSize, CancellationToken ct = default)
+        => repository.GetOfferBenefitDetailAsync(offerNo, pageNumber, pageSize, ct);
+
+    public Task<(List<OfferGetDetailLineDto> Items, int Total)> GetOfferGetDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+        => repository.GetOfferGetDetailAsync(offerNo, search, pageNumber, pageSize, ct);
+
+    // Ported from src/legacy/VCM.BLUEPOS/Views/Promotion/PromotionList.cshtml:1723-1738 (mapping tên kênh, JS hardcode)
+    public async Task<(List<OfferSiteLineDetailDto> Items, int Total)> GetOfferSiteDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        var (items, total) = await repository.GetOfferSiteDetailAsync(offerNo, search, pageNumber, pageSize, ct);
+        foreach (var item in items)
+            item.StyleProfileName = MapStyleProfileName(item.StyleProfile);
+        return (items, total);
+    }
+
+    public Task<(List<OfferPriorityLineDto> Items, int Total)> GetOfferPriorityDetailAsync(
+        string offerType, int pageNumber, int pageSize, CancellationToken ct = default)
+        => repository.GetOfferPriorityDetailAsync(offerType, pageNumber, pageSize, ct);
+
+    public Task<(bool Ok, string Message)> DeactivateOfferAsync(string offerNo, CancellationToken ct = default)
+        => repository.DeactivateOfferAsync(offerNo, ct);
+
+    private static string MapStyleProfileName(string styleProfile) => styleProfile switch
+    {
+        "VM" => "WinMart",
+        "VMP" => "WinMart+",
+        "FS" => "FlagShip",
+        "KS" => "Kiosk",
+        _ => styleProfile
+    };
 }

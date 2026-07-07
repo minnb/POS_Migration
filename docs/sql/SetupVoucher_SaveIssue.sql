@@ -5,9 +5,12 @@
      - KHÔNG ghi CpnVchBOMIssueRule → voucher vẫn nằm trong danh sách Voucher
        (usp_SetupVoucher_GetList lọc NOT EXISTS CpnVchBOMIssueRule).
      - Mã ghi vào CpnVchBOMCodeIssue với Source='VOUCHER' (nguồn thứ 3 cạnh 'COUPON'/'SAP').
-     - IsCheckItem voucher NGƯỢC coupon: 1 = tổng bill (no lines); 0 = theo sản phẩm (có lines).
+     - IsCheckItem voucher khớp coupon (đổi 2026-07-06, trước đó NGƯỢC coupon):
+       1 = theo sản phẩm (có lines); 0 = tổng bill (no lines).
    Điền đủ field dùng chung để POS.Api check/redeem (usp_Voucher_GetByCode/Redeem).
    CHẠY 1 LẦN trên RPOSMasterData (kèm chạy lại SetupVoucher_Read.sql cho GetDetail mới).
+   Đổi ngữ nghĩa IsCheckItem 2026-07-06 → CHẠY LẠI script này (DROP+CREATE) trên RPOSMasterData
+   UAT/PROD SAU KHI deploy code, kèm chạy docs/sql/Voucher_FlipIsCheckItem_Migration.sql.
    // TODO: confirm quy tắc phát hành Voucher với DBA.
    ============================================================================ */
 USE [RPOSMasterData];
@@ -95,7 +98,7 @@ CREATE PROCEDURE dbo.usp_SetupVoucher_SaveIssue
     @ValueOfVoucher  decimal(38,20),
     @MaxAmount       decimal(38,20),
     @LimitQty        int,
-    @IsCheckItem     bit,                    -- 1 = tổng bill (no lines); 0 = theo sản phẩm
+    @IsCheckItem     bit,                    -- 1 = theo sản phẩm; 0 = tổng bill (no lines)
     @Blocked         bit,
     @StartingDate    datetime,
     @EndingDate      datetime,
@@ -192,9 +195,9 @@ BEGIN
                VoucherType        = @ArticleType
         WHERE  ItemNo = @ItemNo AND Source = 'VOUCHER';
 
-        -- 3) Lines: replace. Chỉ giữ khi áp dụng theo sản phẩm (IsCheckItem = 0).
+        -- 3) Lines: replace. Chỉ giữ khi áp dụng theo sản phẩm (IsCheckItem = 1).
         DELETE FROM dbo.CpnVchBOMLine WHERE ItemNo = @ItemNo;
-        IF @IsCheckItem = 0 AND EXISTS (SELECT 1 FROM @Lines)
+        IF @IsCheckItem = 1 AND EXISTS (SELECT 1 FROM @Lines)
         BEGIN
             DECLARE @cntLine bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMLine);
             INSERT INTO dbo.CpnVchBOMLine

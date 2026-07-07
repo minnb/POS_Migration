@@ -9,7 +9,7 @@ namespace POS.Application.Features.CouponVoucher;
 /// 8.3 Danh mục Voucher — port từ VCM.BLUEPOS VoucherController + VoucherData.
 /// Validate ở tầng này; persistence qua IVoucherRepository (SP). Serial-trùng do SP kiểm (trả Ok=false).
 ///
-/// ⚠️ IsCheckItem NGƯỢC nghĩa Coupon: true = TỔNG BILL (no lines); false = THEO SẢN PHẨM (có lines).
+/// IsCheckItem khớp nghĩa Coupon (đổi 2026-07-06): true = THEO SẢN PHẨM (có lines); false = TỔNG BILL (no lines).
 /// </summary>
 public sealed class VoucherService(
     IVoucherRepository repository,
@@ -84,11 +84,11 @@ public sealed class VoucherService(
         if (request.DiscountType == 1 && request.DiscountValue > 100)
             return Fail("Giá trị phần trăm giảm giá không lớn hơn 100");
 
-        // IsCheckItem == false → áp dụng theo sản phẩm → bắt buộc có danh sách.
-        // IsCheckItem == true  → tổng bill → bỏ qua danh sách (SP tự xóa lines).
-        if (!request.IsCheckItem && request.Items.Count == 0)
+        // IsCheckItem == true  → áp dụng theo sản phẩm → bắt buộc có danh sách.
+        // IsCheckItem == false → tổng bill → bỏ qua danh sách (SP tự xóa lines).
+        if (request.IsCheckItem && request.Items.Count == 0)
             return Fail("Vui lòng thêm sản phẩm áp dụng cho voucher/coupon");
-        if (request.IsCheckItem)
+        if (!request.IsCheckItem)
             request.Items = [];
 
         return await repository.SaveAsync(request, actor, ct);
@@ -100,8 +100,7 @@ public sealed class VoucherService(
         // ── Validate nghiệp vụ ──
         if (string.IsNullOrWhiteSpace(request.ItemName))
             return Fail("Vui lòng nhập tên voucher");
-        if (string.IsNullOrWhiteSpace(request.ArticleType))
-            return Fail("Vui lòng chọn loại voucher");
+        request.ArticleType = string.IsNullOrWhiteSpace(request.ArticleType) ? "ZVCN" : request.ArticleType;
         if (string.IsNullOrWhiteSpace(request.UnitOfMeasure))
             return Fail("Vui lòng chọn đơn vị tính");
 
@@ -117,12 +116,12 @@ public sealed class VoucherService(
         if (request.DiscountType == 1 && request.DiscountValue > 100)
             return Fail("Giá trị phần trăm giảm giá không lớn hơn 100");
 
-        // ⚠️ IsCheckItem voucher NGƯỢC coupon:
-        //   false = áp dụng THEO SẢN PHẨM → bắt buộc có danh sách.
-        //   true  = áp dụng TỔNG BILL → bỏ qua danh sách (SP tự xóa lines).
-        if (!request.IsCheckItem && request.Items.Count == 0)
+        // IsCheckItem khớp coupon:
+        //   true  = áp dụng THEO SẢN PHẨM → bắt buộc có danh sách.
+        //   false = áp dụng TỔNG BILL → bỏ qua danh sách (SP tự xóa lines).
+        if (request.IsCheckItem && request.Items.Count == 0)
             return Fail("Vui lòng thêm sản phẩm áp dụng cho voucher");
-        if (request.IsCheckItem)
+        if (!request.IsCheckItem)
             request.Items = [];
 
         // Serial để trống → tự sinh ngẫu nhiên 13 ký tự (giống quy tắc sinh mã voucher).

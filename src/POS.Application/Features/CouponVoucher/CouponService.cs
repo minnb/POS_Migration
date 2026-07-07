@@ -65,6 +65,8 @@ public sealed class CouponService(
         if (string.IsNullOrWhiteSpace(request.Description))
             return Fail("Vui lòng nhập tên phát hành coupon");
 
+        request.ArticleType = string.IsNullOrWhiteSpace(request.ArticleType) ? "ZCPN" : request.ArticleType;
+
         // ── Sinh/validate danh sách mã (chỉ khi tạo mới hoặc chưa có mã trong DB) ──
         var needCodes = string.IsNullOrWhiteSpace(request.ItemNo) || request.QuantityCodeInDB == 0;
         List<string> codes = [];
@@ -124,6 +126,10 @@ public sealed class CouponService(
             return Fail("Giá trị phần trăm giảm giá không lớn hơn 100");
         if (request.IsMultiUsed && request.LimitQtyUsed == 0)
             return Fail("Vui lòng nhập số lần sử dụng");
+
+        request.ArticleType = string.IsNullOrWhiteSpace(request.ArticleType) ? "ZCPN" : request.ArticleType;
+        request.IsCheckAPI = true;      // cố định
+        request.LimitQty = 999999999;   // cố định, không giới hạn
 
         try
         {

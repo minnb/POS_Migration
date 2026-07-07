@@ -125,8 +125,8 @@
         <MudTd DataLabel="Giá trị tối đa" Style="text-align:right">@context.MaxAmount.ToString("#,##0.##")</MudTd>
         <MudTd DataLabel="Tổng bill">
             <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
-                     Color="@(context.IsCheckItem ? Color.Info : Color.Default)">
-                @(context.IsCheckItem ? "Tổng bill" : "Theo SP")
+                     Color="@(!context.IsCheckItem ? Color.Info : Color.Default)">
+                @(!context.IsCheckItem ? "Tổng bill" : "Theo SP")
             </MudChip>
         </MudTd>
         <MudTd DataLabel="Hiệu lực">
@@ -308,7 +308,7 @@
             ws.Cell(r, 9).Value  = e.DiscountValue;
             ws.Cell(r, 10).Value = e.MaxAmount;
             ws.Cell(r, 11).Value = e.LimitQty;
-            ws.Cell(r, 12).Value = e.IsCheckItem ? "Tổng bill" : "Theo sản phẩm";
+            ws.Cell(r, 12).Value = !e.IsCheckItem ? "Tổng bill" : "Theo sản phẩm";
             ws.Cell(r, 13).Value = e.StartingDate;
             ws.Cell(r, 14).Value = e.EndingDate;
             ws.Cell(r, 15).Value = e.LastDateModified;

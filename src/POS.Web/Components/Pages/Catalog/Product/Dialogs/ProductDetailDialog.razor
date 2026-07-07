@@ -1,21 +1,24 @@
 @namespace POS.Web.Components.Pages.Catalog.Product
 
 @using MudBlazor
+@using Newtonsoft.Json
 @using POS.Common.Dtos.CentralMD
 @using POS.Infrastructure.Repositories.Interfaces
 @using POS.Infrastructure.Logging
 @using POS.Web.Auth
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 
 @inject ICentralMDRepository MdRepo
 @inject IFileLogHelper FileLogger
+@inject IAuditLogger AuditLogger
+@inject ISnackbar Snackbar
 
 <MudDialog>
     <TitleContent>
         <MudText Typo="Typo.h6">
-            <MudIcon Icon="@(IsEdit ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)"
-                     Class="mr-2" Style="vertical-align:middle"/>
-            @(IsEdit ? "Chỉnh sửa sản phẩm" : "Thêm mới sản phẩm")
+            <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" Style="vertical-align:middle"/>
+            Thêm mới sản phẩm
         </MudText>
     </TitleContent>
     <DialogContent>
@@ -38,11 +41,11 @@
                           MaxLength="100"/>
         </MudItem>
 
-        <MudItem xs="12" md="4">
+        <MudItem xs="12" md="6">
             <MudSelect @bind-Value="_model.BaseUnitOfMeasure"
-                       Label="Đơn vị cơ sở *"
+                       Label="Đơn vị tính *"
                        Variant="Variant.Outlined" Margin="Margin.Dense"
-                       Required="true" RequiredError="Vui lòng chọn đơn vị cơ sở"
+                       Required="true" RequiredError="Vui lòng chọn đơn vị tính"
                        Disabled="@(_unitOfMeasures.Count == 0)">
                 <MudSelectItem Value="@string.Empty" Disabled="true">-- Chọn --</MudSelectItem>
                 @foreach (var u in _unitOfMeasures)
@@ -51,20 +54,7 @@
                 }
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" md="4">
-            <MudSelect @bind-Value="_model.SalesUnitOfMeasure"
-                       Label="Đơn vị bán *"
-                       Variant="Variant.Outlined" Margin="Margin.Dense"
-                       Required="true" RequiredError="Vui lòng chọn đơn vị bán"
-                       Disabled="@(_unitOfMeasures.Count == 0)">
-                <MudSelectItem Value="@string.Empty" Disabled="true">-- Chọn --</MudSelectItem>
-                @foreach (var u in _unitOfMeasures)
-                {
-                    <MudSelectItem Value="@(u.Code ?? string.Empty)">@u.Code</MudSelectItem>
-                }
-            </MudSelect>
-        </MudItem>
-        <MudItem xs="12" md="4">
+        <MudItem xs="12" md="6">
             <MudSelect @bind-Value="_model.ItemFamilyCode"
                        Label="Loại hàng *"
                        Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -159,6 +149,30 @@
         </MudGrid>
     }
 
+    @* ── Ảnh sản phẩm ──────────────────────────────────────────────────────── *@
+    <MudDivider Class="my-4"/>
+    <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Ảnh sản phẩm</strong></MudText>
+    <div class="d-flex align-center gap-3 flex-wrap">
+        <MudFileUpload T="IBrowserFile" FilesChanged="OnImageSelectedAsync"
+                       Accept=".jpg,.jpeg,.png" MaximumFileCount="1">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Image">
+                    @(_imageFile?.Name ?? "Chọn ảnh (JPG/PNG, tối đa 2MB)")
+                </MudButton>
+            </ActivatorContent>
+        </MudFileUpload>
+        @if (_imagePreviewSrc != null)
+        {
+            <MudImage Src="@_imagePreviewSrc" Width="80" Height="80"
+                      ObjectFit="ObjectFit.Cover" Class="rounded"/>
+        }
+    </div>
+    @if (_imageError != null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_imageError</MudAlert>
+    }
+
     @if (_errorMsg != null)
     {
         <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_errorMsg</MudAlert>
@@ -184,12 +198,6 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
-    // ExistingItem reserved for future Edit; currently only Create is implemented.
-    [Parameter]
-    public ProductListItemDto? ExistingItem { get; set; }
-
-    private bool IsEdit => ExistingItem is not null;
-
     private readonly ProductCreateDto _model = new();
     private readonly List<BarcodeRowDto> _barcodes = [new()];
     private bool _memberPoints;
@@ -203,6 +211,13 @@
     private List<ArticleTypeDto>   _articleTypes   = [];
     private List<UnitOfMeasureDto> _unitOfMeasures = [];
     private List<PosVatCodeDto>    _vatCodes       = [];
+
+    private const long MaxImageSizeBytes = 2 * 1024 * 1024; // 2MB
+
+    private IBrowserFile? _imageFile;
+    private string?       _imageBase64;
+    private string?       _imagePreviewSrc;
+    private string?       _imageError;
 
     private string _actor = "unknown";
 
@@ -267,6 +282,42 @@
         return null;
     }
 
+    private async Task OnImageSelectedAsync(IBrowserFile? file)
+    {
+        _imageError      = null;
+        _imageFile       = null;
+        _imageBase64     = null;
+        _imagePreviewSrc = null;
+        if (file is null) return;
+
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+        if (ext != ".jpg" && ext != ".jpeg" && ext != ".png")
+        {
+            _imageError = "Chỉ chấp nhận file JPG hoặc PNG.";
+            return;
+        }
+        if (file.Size > MaxImageSizeBytes)
+        {
+            _imageError = "Kích thước ảnh tối đa 2MB.";
+            return;
+        }
+
+        try
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(MaxImageSizeBytes).CopyToAsync(ms);
+            _imageBase64 = Convert.ToBase64String(ms.ToArray());
+            var mime = ext == ".png" ? "image/png" : "image/jpeg";
+            _imagePreviewSrc = $"data:{mime};base64,{_imageBase64}";
+            _imageFile = file;
+        }
+        catch (Exception ex)
+        {
+            _imageError = "Không đọc được file ảnh.";
+            FileLogger.WriteExpLogs("ProductDetailDialog.OnImageSelected", ex);
+        }
+    }
+
     private async Task SaveAsync()
     {
         await _form.ValidateAsync();
@@ -297,13 +348,23 @@
         _errorMsg = null;
         try
         {
-            _model.BlockedVINID = _memberPoints ? (byte)1 : (byte)0;
-            _model.CreatedUser  = _actor;
-            _model.Barcodes     = _barcodes;
+            _model.BlockedVINID       = _memberPoints ? (byte)1 : (byte)0;
+            _model.CreatedUser        = _actor;
+            _model.Barcodes           = _barcodes;
+            // Gộp Đơn vị cơ sở/Đơn vị bán thành 1 lựa chọn trên UI — usp_Product_Save vẫn cần cả 2 tham số.
+            _model.SalesUnitOfMeasure = _model.BaseUnitOfMeasure;
 
             var (success, itemNo, message) = await MdRepo.CreateProductAsync(_model);
             if (success)
+            {
+                await AuditLogger.LogAsync(_actor, "CREATE", "Product", itemNo,
+                    null, JsonConvert.SerializeObject(_model));
+
+                if (!string.IsNullOrEmpty(_imageBase64))
+                    await SaveImageAsync(itemNo);
+
                 MudDialog.Close(DialogResult.Ok(itemNo));
+            }
             else
             {
                 _errorMsg = message;
@@ -317,6 +378,34 @@
         finally
         {
             _saving = false;
+        }
+    }
+
+    private async Task SaveImageAsync(string itemNo)
+    {
+        try
+        {
+            var (imgSuccess, imgMessage) = await MdRepo.SaveProductImageAsync(new ProductImageDto
+            {
+                ItemNo      = itemNo,
+                Uom         = _model.BaseUnitOfMeasure,
+                ImageBase64 = _imageBase64!
+            });
+
+            if (imgSuccess)
+            {
+                await AuditLogger.LogAsync(_actor, "CREATE", "ProductImage", $"{itemNo}-{_model.BaseUnitOfMeasure}",
+                    null, JsonConvert.SerializeObject(new { ItemNo = itemNo, Uom = _model.BaseUnitOfMeasure, HasImage = true }));
+            }
+            else
+            {
+                Snackbar.Add($"Tạo sản phẩm thành công nhưng lưu ảnh thất bại: {imgMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Tạo sản phẩm thành công nhưng lưu ảnh thất bại.", Severity.Warning);
+            FileLogger.WriteExpLogs("ProductDetailDialog.SaveImage", ex);
         }
     }
 

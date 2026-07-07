@@ -6,9 +6,9 @@ namespace POS.Common.Dtos.Voucher;
 // 8.3 Danh mục Voucher + 8.4 Tra cứu Voucher Phát hành (migrate VCM.BLUEPOS Voucher).
 // Newtonsoft.Json; PascalCase giữ nguyên tên field.
 //
-// ⚠️ IsCheckItem (8.3) NGƯỢC nghĩa với Coupon:
-//    true  = áp dụng TỔNG BILL  → KHÔNG có dòng sản phẩm
-//    false = áp dụng THEO SẢN PHẨM → có dòng sản phẩm
+// IsCheckItem (8.3) khớp nghĩa với Coupon (đổi 2026-07-06, trước đó NGƯỢC coupon):
+//    true  = áp dụng THEO SẢN PHẨM → có dòng sản phẩm
+//    false = áp dụng TỔNG BILL  → KHÔNG có dòng sản phẩm
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── 8.3 Danh mục Voucher ─────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ public sealed class VoucherSaveRequest
     public decimal ValueOfVoucher  { get; set; }
     public decimal MaxAmount       { get; set; }
     public int     LimitQty        { get; set; } = 99999999;
-    public bool    IsCheckItem     { get; set; }                  // true = tổng bill (no lines)
+    public bool    IsCheckItem     { get; set; }                  // true = theo sản phẩm (có lines), khớp Coupon
     public bool    Blocked         { get; set; }
     public string  StartingDateStr { get; set; } = string.Empty;  // dd/MM/yyyy
     public string  EndingDateStr   { get; set; } = string.Empty;  // dd/MM/yyyy
@@ -114,7 +114,7 @@ public sealed class VoucherSaveResult
 /// Request PHÁT HÀNH voucher (8.3 nâng cấp) — sinh N mã (Auto) hoặc import Excel → CpnVchBOMCodeIssue
 /// (Source='VOUCHER'). ItemNo rỗng = tạo mới. ImportCodes chỉ dùng khi IssueType="Import".
 ///
-/// ⚠️ IsCheckItem voucher NGƯỢC coupon: true = TỔNG BILL (no lines); false = THEO SẢN PHẨM (có lines).
+/// IsCheckItem voucher khớp coupon: true = THEO SẢN PHẨM (có lines); false = TỔNG BILL (no lines).
 /// </summary>
 public sealed class VoucherIssueSaveRequest
 {
@@ -128,7 +128,7 @@ public sealed class VoucherIssueSaveRequest
     public decimal ValueOfVoucher  { get; set; }
     public decimal MaxAmount       { get; set; }
     public int     LimitQty        { get; set; } = 99999999;
-    public bool    IsCheckItem     { get; set; }                  // true = tổng bill (no lines)
+    public bool    IsCheckItem     { get; set; }                  // true = theo sản phẩm (có lines), khớp Coupon
     public bool    Blocked         { get; set; }
     public string  StartingDateStr { get; set; } = string.Empty;  // dd/MM/yyyy
     public string  EndingDateStr   { get; set; } = string.Empty;  // dd/MM/yyyy

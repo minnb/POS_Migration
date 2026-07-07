@@ -77,4 +77,35 @@ public interface IPromotionRepository
     /// <summary>Danh sách sản phẩm cụ thể trong 1 nhóm (bung JSON ListItemNo, JOIN dbo.Item), lọc theo mã/tên.</summary>
     Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(
         string groupCode, string itemNo, string itemName, CancellationToken ct = default);
+
+    // ── Modal "Xem chi tiết" 1 offer đã publish (dbo.OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority) ──
+
+    /// <summary>Chi tiết đầy đủ 1 offer (tab "Offer Header"). Null nếu không tồn tại.</summary>
+    Task<OfferHeaderDetailDto?> GetOfferHeaderDetailAsync(string offerNo, CancellationToken ct = default);
+
+    /// <summary>Danh sách dòng "Sản phẩm mua" (tab "Offer Buy"), lọc theo Mã sản phẩm + phân trang server-side.</summary>
+    Task<(List<OfferBuyDetailLineDto> Items, int Total)> GetOfferBuyDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Danh sách dòng "Quà tặng/lợi ích" (tab "Offer Benefits"), phân trang server-side.</summary>
+    Task<(List<OfferBenefitLineDto> Items, int Total)> GetOfferBenefitDetailAsync(
+        string offerNo, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Danh sách dòng "Sản phẩm khuyến mãi" (tab "Offer Get"), lọc theo Mã sản phẩm + phân trang server-side.</summary>
+    Task<(List<OfferGetDetailLineDto> Items, int Total)> GetOfferGetDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Danh sách cửa hàng áp dụng (tab "Offer Site", JOIN dbo.Store lấy StyleProfile), phân trang server-side.</summary>
+    Task<(List<OfferSiteLineDetailDto> Items, int Total)> GetOfferSiteDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Danh sách độ ưu tiên theo Loại CTKM (tab "Offer Priority") — lọc theo offerType, KHÔNG phải offerNo.</summary>
+    Task<(List<OfferPriorityLineDto> Items, int Total)> GetOfferPriorityDetailAsync(
+        string offerType, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deactivate 1 offer LIVE: SP [dbo].[usp_OfferHeader_Deactivate] — set Status=2 (Ngưng áp dụng)
+    /// + Counter=MAX(Counter)+1 atomic trong transaction (bắt buộc để trigger delta-sync xuống POS).
+    /// </summary>
+    Task<(bool Ok, string Message)> DeactivateOfferAsync(string offerNo, CancellationToken ct = default);
 }

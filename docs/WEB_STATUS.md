@@ -1,4 +1,5 @@
 # POS.Web — Báo cáo hiện trạng
+<<<<<<< HEAD
 > Cập nhật: 2026-07-06 (PriceGroupsPage `/catalog/price-groups` — chức năng MỚI "Danh mục nhóm giá"
 > trong menu Giá bán: CRUD nhóm giá (header dbo.StorePriceGroupHeader + chi tiết store dbo.StorePriceGroup
 > link qua PriceGroupCode). Trang danh sách (filter mã/tên + MudTable ServerData, cột Độ ưu tiên/Số cửa
@@ -42,6 +43,124 @@
 > `SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet test tests/POS.ContractTests` 25/25 (build
 > POS.Web bị khoá file do instance đang chạy — không phải lỗi biên dịch). Chi tiết: `docs/CHANGELOG.md`)
 > Trước đó 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
+=======
+<<<<<<< HEAD
+> Cập nhật: 2026-07-06 (Đổi ngữ nghĩa `IsCheckItem` trên `VoucherIssuePage.razor`/`VouchersPage.razor`
+> `/promotion/vouchers*`: sau điều tra xác nhận code cũ khớp đúng legacy nhưng NGƯỢC nghĩa Coupon —
+> theo quyết định người dùng, đổi Voucher khớp Coupon (`IsCheckItem=1`=theo sản phẩm). Đã sửa
+> C#/Razor + 2 SP script + docs; **CHƯA chạy SP/migration data trên DB thật** — xem D10
+> `docs/ROLLOUT.md`, BẮT BUỘC đúng thứ tự (deploy code → 2 SP → migration data) trước khi voucher
+> cũ hiển thị đúng trên UI. Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests`
+> 25/25. Chưa test UI thật trên browser vì phụ thuộc DB migration chưa chạy.)
+> Trước đó 2026-07-06 (Người dùng xác nhận Lưu sản phẩm đã chạy được sau fix `usp_Product_Save`
+> (TRY_CAST) — tiếp tục 2 điều chỉnh nghiệp vụ theo yêu cầu, gộp vào cùng
+> `docs/sql/Product_Save.sql` (đã fix trước đó, chưa cần chạy lại thêm script riêng): (1) `ItemNo`
+> tự sinh giới hạn **tối đa 8 ký tự** — seed `1000000001`→`10000001`, chỉ tính `MAX` trên `No` hiện
+> có dài ≤8 ký tự; (2) `dbo.Barcodes`: `VariantCode` (trước rỗng) nay lưu cùng giá trị với
+> `UnitOfMeasureCode` (ĐVT từ UI); `Pkey` (trước = BarcodeNo) nay = `"{ItemNo}-{BarcodeNo}"`. Chỉ
+> sửa SQL script — không đổi code C#/Razor (`CentralMDRepository.CreateProductAsync` gọi
+> `usp_Product_Save` nguyên trạng). **BẮT BUỘC chạy lại `docs/sql/Product_Save.sql` trên
+> RPOSMasterData** để áp 2 thay đổi này — xem D9 `docs/ROLLOUT.md`. Chưa test lại UI sau fix (chờ
+> chạy SQL).)
+> Trước đó 2026-07-06 (FIX nghiêm trọng: `usp_Product_Save` chặn tạo mới MỌI sản phẩm —
+> `ProductDetailDialog.razor` `/catalog/products` báo "Lỗi hệ thống" khi Lưu. Log thật
+> (`D:\ROOT\Logs\POS.Web\Exception\log-20260706.txt`) xác nhận
+> `SqlException: Error converting data type nvarchar to bigint` (8114) trong
+> `dbo.usp_Product_Save`: bước sinh `ItemNo` tự động dùng `CAST(No AS BIGINT)` trên toàn bộ
+> `dbo.Item` — chỉ cần 1 dòng `No` cũ không phải số thuần (mã hàng alphanumeric legacy) là throw,
+> chặn tạo mới không phân biệt sản phẩm nào. Fix: `CAST`→`TRY_CAST` trong
+> `docs/sql/Product_Save.sql` (`MAX` tự bỏ qua `NULL`). **BẮT BUỘC chạy lại script đã fix trên
+> RPOSMasterData** — xem D9 `docs/ROLLOUT.md`, script idempotent, an toàn chạy đè SP cũ. Ngoài ra
+> gộp 2 dropdown "Đơn vị cơ sở"/"Đơn vị bán" thành 1 "Đơn vị tính" trên UI theo yêu cầu người dùng
+> (bản chất chỉ 1 UOM) — `SaveAsync` tự gán `SalesUnitOfMeasure = BaseUnitOfMeasure` trước khi gọi
+> SP (không đổi contract `ProductCreateDto`/SP). Verify: `dotnet build` 0 lỗi,
+> `dotnet test tests/POS.ContractTests` 25/25. Chưa test lại UI sau fix (chờ chạy SQL).)
+> Trước đó 2026-07-06 (Fix hardcode `ArticleType` khi phát hành Coupon/Voucher —
+> `CouponIssuePage.razor` `/promotion/coupons/issue` đã đúng `"ZCPN"` từ trước, bổ sung hardcode +
+> defensive-assign ở Service cho chắc; `VoucherIssuePage.razor` `/promotion/vouchers/issue` phát
+> hiện hardcode SAI `"ZTRD"` → sửa thành `"ZVCN"` đúng convention hệ thống. Verify: `dotnet build`
+> 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25.)
+> Trước đó 2026-07-06 (Gap Analysis + vá `OffersPage.razor` `/promotion/offers` — đối chiếu với
+> legacy `PromotionController.PromotionList` (`src/legacy/VCM.BLUEPOS`), phát hiện port thiếu: (1)
+> Excel export thiếu 2 cột Voucher (`VoucherFromDate`/`VoucherToDate`, DTO đã có field) + thiếu cột
+> "Hình thức bán" trên lưới chính — đã thêm cả 2, không đổi DTO/Service/Repository; (2) modal "Xem
+> chi tiết" 6 tab (Header/Buy/Benefits/Get/Site/Priority) — trước đó icon chỉ trang trí, không có
+> logic — đã port đầy đủ: 6 DTO mới (`OfferHeaderDetailDto` ~68 field, `OfferBuyDetailLineDto`,
+> `OfferGetDetailLineDto`, `OfferBenefitLineDto`, `OfferSiteLineDetailDto`, `OfferPriorityLineDto`
+> trong `OfferHeaderDto.cs`), 6 method Repository (SQL Dapper trực tiếp trên `dbo.OfferHeader/
+> OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority` — KHÔNG qua SP như lưới chính, đã tra
+> đúng tên bảng/cột trong `database-schema.md`), 6 method Service tương ứng (`GetOfferSiteDetailAsync`
+> map thêm `StyleProfileName`: VM→WinMart/VMP→WinMart+/FS→FlagShip/KS→Kiosk), dialog mới
+> `Dialogs/OfferDetailDialog.razor` (`MudDialog`+`MudTabs`, lazy-load theo tab active — pattern mới
+> ghi vào `.claude/skills/web/SKILLS.md`), export Excel riêng cho tab Buy/Get/Site. Phạm vi
+> CheckPromotionList (trang "Tra cứu khuyến mãi", chưa tồn tại) hoãn sang giai đoạn sau theo quyết
+> định người dùng (chỉ port nhánh SERVER, bỏ nhánh POS kết nối trực tiếp SQL máy POS — rủi ro SQL
+> injection). Sau đó thêm tính năng MỚI (không có ở legacy): nút "Deactive" 1 offer LIVE — phát
+> hiện & sửa mâu thuẫn quan trọng trong yêu cầu gốc (đề bài ghi "Status=0" nhưng bằng chứng
+> code/doc xác nhận Status=0=Active, Status=2=Deactivated; đã xác nhận lại với người dùng trước
+> khi làm), SP mới `usp_OfferHeader_Deactivate` (`docs/sql/OfferHeader_Deactivate.sql` — **chưa
+> chạy trên DB thật**, cần chạy tay trên RPOSMasterData DEV) set `Status=2`+`Counter=MAX(Counter)+1`
+> atomic (`UPDLOCK,HOLDLOCK`, bắt buộc để trigger delta-sync xuống POS — pattern mới ghi vào
+> `.claude/skills/database/SKILLS.md`), `DeactivateOfferAsync` ở Repository/Service, confirm dialog
+> `MudMessageBox @ref` chuẩn dự án; cập nhật lại invariant "Bất khả nghịch" trong
+> `docs/web/logic/LOGIC_APPROVE_CTKM.md`. Cuối cùng: đổi filter mặc định khi vào trang từ "Tất cả"
+> sang "Có hiệu lực". Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25.
+> Chưa verify SQL 6 query detail + SP Deactive trên `RPOSMasterData` thật (không có quyền truy cập
+> DB trong môi trường làm việc) — cần QA thủ công trên DEV trước khi coi là hoàn thành.)
+> Trước đó 2026-07-06 (Xem chi tiết sản phẩm — thêm cột Action + nút "Xem" trên `ProductsPage`
+> `/catalog/products`, mở dialog mới `ProductViewDialog.razor` (read-only): hiển thị đầy đủ field
+> giống `ProductDetailDialog` (tên/ĐVT/loại hàng/thuế suất/trạng thái/tích điểm), kèm danh sách
+> Barcode (Barcode, ĐVT) và ảnh sản phẩm nếu có. DTO mới `ProductDetailDto` + repository method
+> `ICentralMDRepository.GetProductDetailAsync` (JOIN đọc `dbo.Item` + `dbo.Barcodes` +
+> `dbo.ProductImage`, trả null nếu ItemNo không tồn tại). Vì không lưu MIME type lúc upload, dialog
+> suy đoán PNG/JPEG từ magic-byte prefix của chuỗi base64 (`iVBORw0KGgo` → PNG, còn lại → JPEG) khi
+> hiển thị `data:` URI — không thêm cột DB mới. Verify: `dotnet build` 0 lỗi,
+> `dotnet test tests/POS.ContractTests` 25/25. Chưa test UI thật trên browser.)
+> Trước đó 2026-07-06 (Thêm ảnh sản phẩm — `ProductDetailDialog.razor` `/catalog/products`: bảng
+> mới `dbo.ProductImage` (ItemNo, Uom, ImageBase64 — PK ghép ItemNo+Uom, upsert), SP mới
+> `dbo.usp_ProductImage_Save` (`docs/sql/ProductImage_Save.sql` — **chưa chạy trên DB thật**, cần
+> chạy tay trên RPOSMasterData DEV trước khi test UI); DTO `ProductImageDto` +
+> `ICentralMDRepository.SaveProductImageAsync`. UI: `MudFileUpload` chọn JPG/PNG tối đa 2MB, đọc
+> vào `MemoryStream` → base64, preview `MudImage` ngay trong dialog trước khi Lưu (theo mẫu đọc
+> file của `PriceSetupPage.ReadImportFileAsync`); ảnh là 1 ảnh duy nhất/sản phẩm với
+> `Uom=BaseUnitOfMeasure`, lưu sau khi `CreateProductAsync` thành công, lỗi lưu ảnh không rollback
+> sản phẩm đã tạo (chỉ Snackbar cảnh báo); audit log riêng "ProductImage" (chỉ ghi cờ `HasImage`,
+> không ghi base64 vào `DashboardAuditLog`). Chưa có màn hình xem/sửa lại ảnh sau khi tạo (ngoài
+> phạm vi — xem plan). Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25.
+> Chưa test UI thật trên browser (cần chạy SQL script trước).)
+> Trước đó 2026-07-06 (Gap Analysis + vá `ProductsPage`/`ProductLockPage` `/catalog/products`,
+> `/catalog/product-lock` — đối chiếu lại với legacy `ProductController.ProductList`/`ProductLock`
+> (`src/legacy/VCM.BLUEPOS`), phát hiện migrate 6.30 thiếu sót. Đã vá: (1) `ProductsPage` thêm 2
+> cột lưới bị thiếu dù DTO đã có field (`ItemName2`→"Tên SP (VN)", `BarcodeUnit`→"ĐVT Barcode");
+> theo yêu cầu người dùng KHÔNG thêm cột `ItemNo_PLG`/`ParentCode`/`Size` (giữ nguyên, không hiển
+> thị); (2) xóa nút Edit vô hiệu hóa vĩnh viễn ("chưa hỗ trợ") cùng tham số `ExistingItem`/`IsEdit`
+> chết trong `ProductDetailDialog` — ProductList gốc không có Edit inline (đó là màn hình
+> `UpdateArticle` riêng, ngoài phạm vi 2 action ban đầu); (3) thêm `IAuditLogger` cho
+> `ProductDetailDialog` (CREATE "Product") và `ProductLockPage` (LOCK/UNLOCK "ProductLock" theo
+> từng item) — trước đó 2 trang này là ngoại lệ duy nhất trong toàn bộ menu Danh mục không ghi
+> audit log. Xác nhận với business 2 khoảng trống lớn nhất phát hiện trong Gap Analysis KHÔNG cần
+> port: tích hợp GrabFood API (tính năng thực chất là "Block sản phẩm" ngừng bán, không phải đồng
+> bộ đa kênh bán realtime kiểu GrabFood) và chế độ ghi trực tiếp CSDL máy POS qua IP terminal (Sync
+> Master Data theo lịch đã đủ) — quyết định ghi tại
+> `docs/web/logic/product_lock_scope_decision.md`. Verify: `dotnet build` 0 lỗi,
+> `dotnet test tests/POS.ContractTests` 25/25. Chưa xác nhận trực quan trên browser thật.)
+> Trước đó 2026-07-06 (FIX nghiêm trọng: `PromotionSetupPage` `/promotion/setup` — nút "Duyệt
+> CTKM" trong editor publish nhầm dữ liệu nháp CŨ khi user sửa Buy/Get/Site sau lần Lưu tạm gần
+> nhất rồi bấm Duyệt thẳng, không Lưu tạm lại — do nút chỉ điều kiện theo `_header.No` khác rỗng,
+> không kiểm tra dữ liệu hiện tại đã lưu chưa; `ApproveAsync`/SP Duyệt không nhận Buy/Get/Site,
+> chỉ publish lại đúng bảng nháp đã có sẵn. Fix: thêm `ApproveFromEditorAsync()` — nút Duyệt
+> trong editor LUÔN Lưu tạm state hiện tại trước (`SaveAsync` đổi trả `Task<bool>`), chỉ Duyệt
+> tiếp nếu Lưu thành công; tách `ApproveCoreAsync(bbynr)` dùng chung. Nút Duyệt nhanh ở màn danh
+> sách giữ nguyên (không Lưu tạm — không có state Buy/Get/Site của đúng CTKM trong bộ nhớ trang).
+> Cập nhật `docs/web/logic/LOGIC_APPROVE_CTKM.md`. Verify: `dotnet build` 0 lỗi,
+> `dotnet test tests/POS.ContractTests` 25/25. Chưa test UI thật (chờ người dùng tự test lại theo
+> đúng kịch bản đã gặp bug). Chi tiết: `docs/CHANGELOG.md`)
+> Trước đó 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
+=======
+<<<<<<< HEAD
+> Cập nhật: 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
+>>>>>>> dev
+>>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
 > (1) **Typography pixel-perfect**: `PosTheme.cs` (`Default.LineHeight` 1.45→1.5, `Button.FontSize`
 > thêm 12px + bỏ letter-spacing thừa, `Body1.FontSize` 12px→12.5px), `app.css` (sidebar L1/L2 size,
 > `.mud-table-body .mud-table-cell` 12.5px mới, `.mud-input-label-inputcontrol` uppercase/bold mới,
@@ -216,9 +335,10 @@ src/POS.Web/
 │       │                  PosDataSetupFormDialog)
 │       ├── Catalog/
 │       │   └── Product/
-│       │       ├── ProductsPage.razor               ← /catalog/products — danh sách + thêm mới + xuất Excel
+│       │       ├── ProductsPage.razor               ← /catalog/products — danh sách + thêm mới + xuất Excel + xem chi tiết
 │       │       ├── ProductLockPage.razor             ← /catalog/product-lock — khóa/mở khóa SP theo cửa hàng
-│       │       └── Dialogs/ (ProductDetailDialog — form tạo SP mới, dynamic barcode rows)
+│       │       └── Dialogs/ (ProductDetailDialog — form tạo SP mới, dynamic barcode rows, upload ảnh;
+│       │                      ProductViewDialog — xem chi tiết SP + barcode list + ảnh, read-only)
 │       │   └── Price/
 │       │       ├── PricesPage.razor                   ← /catalog/prices — 9.1 Danh mục Bảng giá (list + filter + Export)
 │       │       ├── PriceSetupPage.razor               ← /catalog/price-setup — 9.3 Setup giá Bulk Import (import Excel + lưới preview)
@@ -227,8 +347,8 @@ src/POS.Web/
 │       │   ├── Offers/
 │       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (header cố định ngoài 4 tab: Thông tin chung=bảng lịch giờ/Mon-Sun, Sản phẩm mua/khuyến mãi=bulk-add+ScaleType+MinValue/TotalDiscount, Cửa hàng áp dụng, Cài đặt nâng cao=voucher delay+MemberCode autocomplete — khớp 100% field legacy SetupMain.cshtml)
 │       │   │   ├── SpecialComboPage.razor      ← /promotion/special-combo — Special Combo
-│       │   │   ├── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live)
-│       │   │   └── Dialogs/ (SiteGroupSetupDialog — modal "Cài đặt nhóm cửa hàng": tạo mới nhóm CH/ST + danh sách filter/phân trang/xem chi tiết store/chọn gắn vào CTKM; ItemGroupSetupDialog — modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get "Nhóm SP": tạo mới nhóm + danh sách filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng)
+│       │   │   ├── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live) — filter mặc định "Có hiệu lực"; modal Xem chi tiết 6 tab; nút Deactive (Status=2+Counter=MAX+1 qua usp_OfferHeader_Deactivate — chưa chạy SP trên DB thật)
+│       │   │   └── Dialogs/ (SiteGroupSetupDialog — modal "Cài đặt nhóm cửa hàng": tạo mới nhóm CH/ST + danh sách filter/phân trang/xem chi tiết store/chọn gắn vào CTKM; ItemGroupSetupDialog — modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get "Nhóm SP": tạo mới nhóm + danh sách filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng; OfferDetailDialog — modal "Xem chi tiết" 6 tab Header/Buy/Benefits/Get/Site/Priority cho 1 offer LIVE, lazy-load theo tab active, export Excel riêng Buy/Get/Site)
 │       │   └── CouponVoucher/
 │       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list+xóa / phát hành Auto·Import — 1 form gộp đủ field, không qua dialog nâng cao)
 │       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export)
@@ -360,9 +480,10 @@ src/POS.Web/
 | J2 | PosDataSetupFormDialog – Add/Edit form, trả DTO đầy đủ | Pages/Ops/Dialogs/PosDataSetupFormDialog.razor | ✅ | Code read-only khi Edit; trả DialogResult.Ok(_model) (không Ok(true)) để page có newValue; duplicate Code → thông báo thân thiện |
 | J3 | migration_dashboard_audit_log.sql – bảng DashboardAuditLog + 3 index | Auth/migration_dashboard_audit_log.sql | ⚠️ | Script idempotent — **PHẢI CHẠY trên RPOSMasterData trước deploy**; chưa chạy → log fail silently |
 | J4 | audit-logging.md – rule audit CRUD chuẩn hóa cho toàn dự án | .claude/skills/web/audit-logging.md | ✅ | Pattern: snapshot oldValue từ item đã có, await LogAsync sau DB success, dialog trả DTO, checklist 12 mục |
-| K1 | ProductsPage – /catalog/products + OpsAndAbove | Pages/Catalog/Product/ProductsPage.razor | ✅ | Danh sách SP/Barcode — SP GetProductList server-side paging; filter (mã/tên/barcode/thuế suất); nút Thêm mới + dialog tạo SP; Export Excel (ClosedXML); pos-page-header. Migrate 6.1+6.2+6.3 |
-| K2 | ProductDetailDialog – form tạo sản phẩm mới | Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor | ✅ | 8 field (ItemName/Full/UoM/SalesUoM/FamilyCode/TaxCode/Blocked/BlockedVINID) + dynamic barcode table; INSERT dbo.Item + dbo.Barcode trong transaction; auto ItemNo (Max+1). Edit button disabled pending UPDATE route |
-| K3 | ProductLockPage – /catalog/product-lock + OpsAndAbove | Pages/Catalog/Product/ProductLockPage.razor | ✅ | Khóa/mở khóa SP theo cửa hàng — StoreNo bắt buộc; MudTable server-side + MultiSelection + chip màu; toggle đơn + bulk action; MudMessageBox @ref confirm; UPSERT dbo.ItemBlock. Migrate 6.4 (Central mode) |
+| K1 | ProductsPage – /catalog/products + OpsAndAbove | Pages/Catalog/Product/ProductsPage.razor | ✅ | Danh sách SP/Barcode — SP GetProductList server-side paging; filter (mã/tên/barcode/thuế suất); nút Thêm mới + dialog tạo SP; Export Excel (ClosedXML); pos-page-header; grid 9 cột + cột Action (nút Xem → ProductViewDialog, 2026-07-06). Migrate 6.1+6.2+6.3 |
+| K6 | ProductViewDialog – xem chi tiết SP (read-only) | Pages/Catalog/Product/Dialogs/ProductViewDialog.razor | ⚠️ | Header field read-only giống ProductDetailDialog + danh sách Barcode (MudSimpleTable) + ảnh (nếu có); GetProductDetailAsync đọc dbo.Item+dbo.Barcodes+dbo.ProductImage (2026-07-06) — phần ảnh phụ thuộc `dbo.ProductImage` **chưa chạy SP trên DB thật** (xem K2/D7 docs/ROLLOUT.md), tạm thời sẽ không có ảnh cho tới khi chạy script |
+| K2 | ProductDetailDialog – form tạo sản phẩm mới | Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor | ⚠️ | 7 field (ItemName/Full/1 UOM chung "Đơn vị tính"/FamilyCode/TaxCode/Blocked/BlockedVINID — gộp UoM/SalesUoM thành 1 dropdown 2026-07-06, `SaveAsync` tự set `SalesUnitOfMeasure=BaseUnitOfMeasure`) + dynamic barcode table; INSERT dbo.Item + dbo.Barcode trong transaction; auto ItemNo (Max+1). Chỉ Create (Edit inline đã bỏ 2026-07-06 — ngoài phạm vi ProductList gốc); audit log CREATE "Product". Thêm upload ảnh sản phẩm (JPG/PNG ≤2MB, preview trước Lưu) → UPSERT dbo.ProductImage qua usp_ProductImage_Save — **2 SP chưa chạy/chưa fix trên DB thật**: `usp_Product_Save` (bug CAST→TRY_CAST, xem D9) **CRITICAL đang chặn Tạo mới**, `usp_ProductImage_Save` chưa chạy lần nào (D7). Xem docs/ROLLOUT.md |
+| K3 | ProductLockPage – /catalog/product-lock + OpsAndAbove | Pages/Catalog/Product/ProductLockPage.razor | ✅ | Khóa/mở khóa SP theo cửa hàng — StoreNo bắt buộc; MudTable server-side + MultiSelection + chip màu; toggle đơn + bulk action; MudMessageBox @ref confirm; UPSERT dbo.ItemBlock; audit log LOCK/UNLOCK "ProductLock" theo item (2026-07-06). Migrate 6.4 — chỉ chế độ Central, KHÔNG tích hợp GrabFood / KHÔNG ghi trực tiếp máy POS, quyết định business xác nhận tại docs/web/logic/product_lock_scope_decision.md |
 | J5 | IKibanaService → IFileLogHelper — migration toàn POS.Web | 24 .razor + 3 .cs (PendingUpdate, SqlConsoleService, DbAuditLogger) | ✅ | LogInfo → WriteLogs(`[{fn}] {entity}: {msg}`); LogException có ex → WriteExpLogs; LogException không có ex → WriteLogs(`[EXCEPTION][{fn}] msg`) |
 | J6 | Audit log UsersPage (CREATE/UPDATE/LOCK/UNLOCK) + PosMapPage (UPDATE PosTerminal, chained dialog) | UsersPage.razor / UserFormDialog.razor / PosMapPage.razor / PosTerminalEditDialog.razor / PosTerminalDetailDialog.razor / PosTerminalSavePayload.cs (mới) | ✅ | UserFormDialog trả DTO đầy đủ (PasswordHash masked); DetailDialog forward result.Data!; PosMapPage capture oldJson trước dialog |
 | K4 | PricesPage – /catalog/prices + OpsAndAbove | Pages/Catalog/Price/PricesPage.razor | ✅ | 9.1 Danh mục Bảng giá — reuse SP `GetSalesPriceList`/`_Export` (Dapper server-side paging); filter mã/tên + combobox "Hình thức bán hàng"/"Nhóm giá" (reuse `GetSetupLookupAsync`) + "Còn hiệu lực" (mặc định off); cột Hình thức + Trạng thái (MudChip); format nghìn khi sửa giá; Sửa/Xóa định vị bằng `SalesGroupCode`+`SalesTypeCode` (mã gốc, không dùng cột hiển thị); Export Excel (ClosedXML); pos-page-header. Migrate 9.1 (2026-07-06: fix bug Sửa/Xóa sai dòng) |
@@ -373,10 +494,13 @@ src/POS.Web/
 
 ## Tóm tắt
 
-- ✅ Hoàn thành: **92 / 94 hạng mục**
-- ⚠️ Có vấn đề: **2 hạng mục** (B9 — SQL seed hash placeholder; J3 — migration chưa chạy trên DB)
+- ✅ Hoàn thành: **91 / 95 hạng mục**
+- ⚠️ Có vấn đề: **4 hạng mục** (B9 — SQL seed hash placeholder; J3 — migration chưa chạy trên DB;
+  K2 — **CRITICAL**: `usp_Product_Save` lỗi 8114 (CAST→TRY_CAST) chặn Tạo mới sản phẩm (D9) **+**
+  `usp_ProductImage_Save`/bảng `dbo.ProductImage` chưa chạy trên DB (D7); K6 — phụ thuộc K2 (ảnh))
 - ❌ Còn thiếu: **0 hạng mục**
 
+> +1 hạng mục mới (session 2026-07-06): K6 (ProductViewDialog — xem chi tiết SP + barcode + ảnh).
 > +2 hạng mục mới (session 2026-07-01): K4 (PricesPage 9.1), K5 (PriceSetupPage 9.3 + PriceItemPickerDialog). ⚠️ SP `docs/sql/SetupSalePrice_Save.sql` phải chạy trên RPOSMasterData trước khi dùng 9.3.
 > +3 hạng mục (session 2026-06-30): K1 (ProductsPage 6.1+6.2+6.3), K2 (ProductDetailDialog), K3 (ProductLockPage 6.4).
 > Previous +2 (session 2026-06-28 Phase1+2): J5, J6. Previous +5: G24, J1-J4. Previous: S1-S7, G16-G23, I1-I12.

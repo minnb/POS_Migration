@@ -566,6 +566,196 @@ public sealed class PromotionRepository(
         return (await QueryAsync<ItemGroupItemDto>(sql, new { itemNos, no, name }, ct: ct)).ToList();
     }
 
+    // ── Modal "Xem chi tiết" 1 offer đã publish (dbo.OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority) ──
+    // Ported from src/legacy/VCM.BLUEPOS.Data/Promotion/PromotionData.cs:115-731 (EF LINQ trực tiếp trên bảng,
+    // không qua SP như bảng chính GetOfferHeaderListAsync). Viết SQL Dapper trực tiếp — bảng chỉ đọc, đã có
+    // tiền lệ GetSetupListAsync/GetSetupDetailAsync ở trên trong cùng file, không cần SP mới.
+
+    public async Task<OfferHeaderDetailDto?> GetOfferHeaderDetailAsync(string offerNo, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  [No] AS OfferNo, [Type], [Description], [Status], [OfferType], [PriceGroup],
+                    [RoundingMethod], [CurrencyCode], [LastDateModified], [ValidationPeriodID],
+                    [ValidationDescription], [StartingDate], [EndingDate],
+                    CAST([BlockPeriodicDiscount] AS bit) AS BlockPeriodicDiscount,
+                    [DealPrice], [ShowDealLines], [SalesTypeFilter], [SelectionType], [CustomerDiscGroup],
+                    [MemberValue], [DiscountTrackingNo], [CouponCode], [CouponQtyNeeded], [MemberType],
+                    [MemberAttribute], [MemberAttributeValue],
+                    CAST([BlockSalesCommission] AS bit) AS BlockSalesCommission,
+                    CAST([BlockManualPriceChange] AS bit) AS BlockManualPriceChange,
+                    CAST([BlockInfoCodeDiscount] AS bit) AS BlockInfoCodeDiscount,
+                    CAST([BlockLineDiscountOffer] AS bit) AS BlockLineDiscountOffer,
+                    CAST([BlockTotalDiscountOffer] AS bit) AS BlockTotalDiscountOffer,
+                    CAST([BlockTenderTypeDiscount] AS bit) AS BlockTenderTypeDiscount,
+                    CAST([BlockMemberPoints] AS bit) AS BlockMemberPoints,
+                    [ConditionBuy],
+                    CASE WHEN [ConditionBuy] = 1 THEN 'OR' ELSE 'AND' END AS ConditionBuyStr,
+                    CAST([MemberOnly] AS bit) AS MemberOnly,
+                    [ConditionGet],
+                    CASE WHEN [ConditionGet] = 1 THEN 'OR' ELSE 'AND' END AS ConditionGetStr,
+                    [NoSeries], [FromTime], [ToTime],
+                    CAST([Mon] AS bit) AS Mon, CAST([Tue] AS bit) AS Tue, CAST([Wed] AS bit) AS Wed,
+                    CAST([Thu] AS bit) AS Thu, CAST([Fri] AS bit) AS Fri, CAST([Sat] AS bit) AS Sat,
+                    CAST([Sun] AS bit) AS Sun,
+                    [NumOfDays], [DayOfWeek], [TenderTypeCode], [TenderTypeValue], [TenderTypeOfferPercent],
+                    [TenderTypeOfferAmount], [BankCode], [LocalSiteGroup], [LimitQty],
+                    [VoucherFromDate], [VoucherToDate], [VoucherValidDay], [VoucherLimitNumber],
+                    [PromotionNo], [PriorityBBY], [Counter], [Pkey], [MinValue], [TotalDiscountType],
+                    [TotalDiscountValue], [IsVoucher], [IsTotalBill], [IsGift], [MemberCode],
+                    [DiscountAmountMax], [IsFullPrice], [Remark], [SalesType]
+            FROM    dbo.OfferHeader (NOLOCK)
+            WHERE   [No] = @offerNo";
+        return await QueryFirstOrDefaultAsync<OfferHeaderDetailDto>(sql, new { offerNo }, commandTimeout: 60, ct: ct);
+    }
+
+    public async Task<(List<OfferBuyDetailLineDto> Items, int Total)> GetOfferBuyDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  a.[OfferNo], a.[LineNo], a.[LineType], a.[No], a.[Description], a.[UnitOfMeasure],
+                    a.[DiscountType],
+                    CASE a.[DiscountType] WHEN 0 THEN N'%' WHEN 1 THEN N'Amount' WHEN 2 THEN N'Price' ELSE '' END AS DiscountTypeStr,
+                    a.[DiscountValue], a.[Quantity], a.[Step], a.[BonusBuyNo], a.[LineGroup], a.[ScaleType],
+                    CASE a.[ScaleType] WHEN 'A' THEN 'From' WHEN 'B' THEN 'UpTo' WHEN 'C' THEN 'Equal' ELSE ISNULL(a.[ScaleType],'') END AS ScaleTypeStr,
+                    a.[Counter], a.[Pkey],
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.OfferBuy (NOLOCK) a
+            WHERE   a.[OfferNo] = @offerNo
+              AND   (@search = '' OR a.[No] LIKE '%' + @search + '%')
+            ORDER BY a.[LineNo]
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var items = (await QueryAsync<OfferBuyDetailLineDto>(sql, new
+        {
+            offerNo,
+            search = (search ?? string.Empty).Trim(),
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, commandTimeout: 60, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<(List<OfferBenefitLineDto> Items, int Total)> GetOfferBenefitDetailAsync(
+        string offerNo, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  a.[OfferNo], a.[LineNo], a.[Type], a.[No], a.[VariantCode], a.[Description],
+                    a.[ValueType],
+                    CASE a.[ValueType] WHEN 0 THEN N'%' WHEN 1 THEN N'Amount' WHEN 2 THEN N'Price' ELSE '' END AS ValueTypeStr,
+                    a.[Value], a.[StepAmount], a.[LineGroup], a.[Quantity], a.[UnitOfMeasure],
+                    a.[Counter], a.[Pkey],
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.OfferBenefits (NOLOCK) a
+            WHERE   a.[OfferNo] = @offerNo
+            ORDER BY a.[LineNo]
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var items = (await QueryAsync<OfferBenefitLineDto>(sql, new
+        {
+            offerNo,
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, commandTimeout: 60, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<(List<OfferGetDetailLineDto> Items, int Total)> GetOfferGetDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  a.[OfferNo], a.[LineNo], a.[LineType], a.[No], a.[Description], a.[UnitOfMeasure],
+                    a.[DiscountType],
+                    CASE a.[DiscountType] WHEN 0 THEN N'%' WHEN 1 THEN N'Amount' WHEN 2 THEN N'Price' ELSE '' END AS DiscountTypeStr,
+                    a.[DiscountValue], a.[Quantity], a.[Step], a.[BonusBuyNo], a.[LineGroup], a.[ScaleType],
+                    CASE a.[ScaleType] WHEN 'A' THEN 'From' WHEN 'B' THEN 'UpTo' WHEN 'C' THEN 'Equal' ELSE ISNULL(a.[ScaleType],'') END AS ScaleTypeStr,
+                    a.[Counter], a.[Pkey],
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.OfferGet (NOLOCK) a
+            WHERE   a.[OfferNo] = @offerNo
+              AND   (@search = '' OR a.[No] LIKE '%' + @search + '%')
+            ORDER BY a.[LineNo]
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var items = (await QueryAsync<OfferGetDetailLineDto>(sql, new
+        {
+            offerNo,
+            search = (search ?? string.Empty).Trim(),
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, commandTimeout: 60, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<(List<OfferSiteLineDetailDto> Items, int Total)> GetOfferSiteDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  a.[OfferNo], a.[PriceGroupCode], a.[StoreNo], ISNULL(c.[StyleProfile],'') AS StyleProfile,
+                    a.[Counter], a.[Pkey],
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.OfferSite (NOLOCK) a
+            LEFT JOIN dbo.Store (NOLOCK) c ON c.[No] = a.[StoreNo]
+            WHERE   a.[OfferNo] = @offerNo
+              AND   (@search = '' OR a.[StoreNo] LIKE '%' + @search + '%')
+            ORDER BY a.[StoreNo]
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var items = (await QueryAsync<OfferSiteLineDetailDto>(sql, new
+        {
+            offerNo,
+            search = (search ?? string.Empty).Trim(),
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, commandTimeout: 60, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<(List<OfferPriorityLineDto> Items, int Total)> GetOfferPriorityDetailAsync(
+        string offerType, int pageNumber, int pageSize, CancellationToken ct = default)
+    {
+        const string sql = @"
+            SELECT  a.[OfferType], a.[Priority], a.[IsMember], a.[IsDuplicate], a.[Counter], a.[Pkey],
+                    COUNT(*) OVER() AS Total
+            FROM    dbo.OfferPriority (NOLOCK) a
+            WHERE   a.[OfferType] = @offerType
+            ORDER BY a.[Priority]
+            OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var items = (await QueryAsync<OfferPriorityLineDto>(sql, new
+        {
+            offerType,
+            PageSize = Math.Max(1, pageSize),
+            PageNumber = Math.Max(0, pageNumber)
+        }, commandTimeout: 60, ct: ct)).ToList();
+
+        var total = items.Count > 0 ? items[0].Total : 0;
+        return (items, total);
+    }
+
+    public async Task<(bool Ok, string Message)> DeactivateOfferAsync(string offerNo, CancellationToken ct = default)
+    {
+        try
+        {
+            using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+            await conn.ExecuteAsync(new CommandDefinition(
+                "dbo.usp_OfferHeader_Deactivate", new { OfferNo = offerNo },
+                commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
+            return (true, $"Đã deactive khuyến mãi {offerNo}");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
     private static int CountItemNos(string listItemNoRaw)
     {
         try

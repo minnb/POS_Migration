@@ -83,6 +83,20 @@ public sealed class SAPService(
                 return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = $"Mã Voucher/Coupon {voucherNumber} đã hết hạn", Data = data };
             }
 
+            if (!DateTime.TryParseExact(data.Validity_From_Date, "dd/MM/yyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var validFromDate))
+            {
+                return new ResultResponse { Status = HttpStatusCode.NotFound, Message = "Mã Voucher/Coupon không tồn tại" };
+            }
+
+            if (validFromDate.Date > DateTime.Today)
+            {
+                data.Return = "1";
+                data.Status = "EXP";
+                return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = "Voucher/coupon chưa đến ngày hiệu lực", Data = data };
+            }
+
             if (data.Status == "AVL")
             {
                 return new ResultResponse { Status = HttpStatusCode.BadRequest, Message = $"Mã Voucher/Coupon {voucherNumber} chưa được kích hoạt", Data = data };

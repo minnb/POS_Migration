@@ -1,0 +1,141 @@
+@namespace POS.Web.Components.Pages.Catalog.Product
+
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Visibility" Class="mr-2" Style="vertical-align:middle"/>
+            Chi tiết sản phẩm: @ItemNo
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
+        }
+        else if (_detail is null)
+        {
+            <MudAlert Severity="Severity.Warning">Không tìm thấy sản phẩm.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField Value="@_detail.ItemName" Label="Tên sản phẩm"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField Value="@_detail.ItemNameFull" Label="Tên đầy đủ"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField Value="@_detail.BaseUnitOfMeasure" Label="Đơn vị cơ sở"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField Value="@_detail.SalesUnitOfMeasure" Label="Đơn vị bán"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField Value="@_detail.ItemFamilyCode" Label="Loại hàng"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField Value="@(string.IsNullOrEmpty(_detail.TaxGroupCode) ? "Không có thuế" : _detail.TaxGroupCode)"
+                                  Label="Thuế suất" Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField Value="@(_detail.Blocked == 0 ? "Đang hoạt động" : "Ngừng hoạt động")"
+                                  Label="Trạng thái" Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField Value="@(_detail.BlockedVINID == 1 ? "Có" : "Không")"
+                                  Label="Tích điểm thành viên" Variant="Variant.Outlined" Margin="Margin.Dense" ReadOnly="true"/>
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4"/>
+            <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Danh sách Barcode</strong></MudText>
+            @if (_detail.Barcodes.Count == 0)
+            {
+                <MudText Color="Color.Secondary" Typo="Typo.body2">Chưa có barcode.</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr><th>Barcode</th><th>ĐVT</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in _detail.Barcodes)
+                        {
+                            <tr>
+                                <td>@b.BarcodeNo</td>
+                                <td>@b.UnitOfMeasureCode</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+
+            <MudDivider Class="my-4"/>
+            <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Ảnh sản phẩm</strong></MudText>
+            @if (!string.IsNullOrEmpty(_detail.ImageBase64))
+            {
+                <MudImage Src="@GetImageSrc(_detail.ImageBase64)" Width="160" Height="160"
+                          ObjectFit="ObjectFit.Cover" Class="rounded"/>
+            }
+            else
+            {
+                <MudText Color="Color.Secondary" Typo="Typo.body2">Chưa có ảnh.</MudText>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Outlined">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string ItemNo { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private ProductDetailDto? _detail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _detail = await MdRepo.GetProductDetailAsync(ItemNo);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("ProductViewDialog.Init", ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // Không lưu MIME type khi upload (xem plan) — suy đoán từ magic-byte prefix của base64
+    // (PNG luôn bắt đầu "iVBORw0KGgo", còn lại mặc định JPEG).
+    private static string GetImageSrc(string imageBase64)
+    {
+        var mime = imageBase64.StartsWith("iVBORw0KGgo", StringComparison.Ordinal) ? "image/png" : "image/jpeg";
+        return $"data:{mime};base64,{imageBase64}";
+    }
+
+    private void Close() => MudDialog.Close();
+}

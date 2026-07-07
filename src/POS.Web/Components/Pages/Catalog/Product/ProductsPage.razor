@@ -34,7 +34,7 @@
     <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
                Class="pos-page-header-btn"
-               OnClick="@(() => OpenDialogAsync(null))">
+               OnClick="OpenDialogAsync">
         Thêm mới
     </MudButton>
 </div>
@@ -138,8 +138,10 @@
         <MudTh Style="width:55px">STT</MudTh>
         <MudTh>Mã SP</MudTh>
         <MudTh>Tên sản phẩm</MudTh>
+        <MudTh>Tên SP (VN)</MudTh>
         <MudTh Style="width:80px">ĐVT</MudTh>
         <MudTh>Barcode</MudTh>
+        <MudTh Style="width:90px">ĐVT Barcode</MudTh>
         <MudTh Style="width:80px">Thuế suất</MudTh>
         <MudTh Style="width:110px">Ngày cập nhật</MudTh>
         <MudTh Style="width:55px"></MudTh>
@@ -148,15 +150,18 @@
         <MudTd DataLabel="STT">@context.ID</MudTd>
         <MudTd DataLabel="Mã SP">@context.ItemNo</MudTd>
         <MudTd DataLabel="Tên sản phẩm">@context.ItemName1</MudTd>
+        <MudTd DataLabel="Tên SP (VN)">@context.ItemName2</MudTd>
         <MudTd DataLabel="ĐVT">@context.SalesUnit</MudTd>
         <MudTd DataLabel="Barcode">@context.BarcodeNo</MudTd>
+        <MudTd DataLabel="ĐVT Barcode">@context.BarcodeUnit</MudTd>
         <MudTd DataLabel="Thuế suất">@context.TaxGroupCode</MudTd>
         <MudTd DataLabel="Ngày cập nhật">@context.LastDateModifiedStr</MudTd>
         <MudTd>
-            <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                           Size="Size.Small" Color="Color.Primary"
-                           Title="Chỉnh sửa (chưa hỗ trợ)"
-                           Disabled="true"/>
+            <MudTooltip Text="Xem chi tiết">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                               Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => OpenViewDialogAsync(context.ItemNo))"/>
+            </MudTooltip>
         </MudTd>
     </RowTemplate>
     <PagerContent>
@@ -314,14 +319,10 @@
         }
     }
 
-    private async Task OpenDialogAsync(ProductListItemDto? item)
+    private async Task OpenDialogAsync()
     {
         var dialog = await DialogService.ShowAsync<ProductDetailDialog>(
-            item is null ? "Thêm mới sản phẩm" : $"Chỉnh sửa: {item.ItemNo}",
-            new DialogParameters<ProductDetailDialog>
-            {
-                { x => x.ExistingItem, item }
-            },
+            "Thêm mới sản phẩm",
             new DialogOptions
             {
                 MaxWidth = MaxWidth.Large, FullWidth = true,
@@ -336,6 +337,23 @@
                 Snackbar.Add($"Tạo thành công sản phẩm: {newItemNo}", Severity.Success);
             await _table.ReloadServerData();
         }
+    }
+
+    private async Task OpenViewDialogAsync(string? itemNo)
+    {
+        if (string.IsNullOrEmpty(itemNo)) return;
+
+        await DialogService.ShowAsync<ProductViewDialog>(
+            $"Chi tiết sản phẩm: {itemNo}",
+            new DialogParameters<ProductViewDialog>
+            {
+                { x => x.ItemNo, itemNo }
+            },
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium, FullWidth = true,
+                CloseButton = true, CloseOnEscapeKey = true
+            });
     }
 
     public void Dispose() { }

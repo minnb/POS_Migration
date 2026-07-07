@@ -1,0 +1,483 @@
+@namespace POS.Web.Components.Pages.Promotion.Offers
+@using Microsoft.JSInterop
+@using MudBlazor
+@using POS.Application.Features.Promotion
+@using POS.Common.Dtos.Promotion
+@using POS.Infrastructure.Logging
+@using POS.Web.Services
+@using ClosedXML.Excel
+
+@inject IPromotionService PromotionService
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+@* Ported from src/legacy/VCM.BLUEPOS/Views/Promotion/PromotionList.cshtml:169-1628
+   (modal #modal-view-detail-promotion, 6 tab). Khác legacy: mỗi tab chỉ load dữ liệu khi
+   được kích hoạt lần đầu (MudTabs mặc định không giữ panel không active trong DOM), thay vì
+   load lại cả 6 bảng mỗi lần đổi tab. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Visibility" Class="mr-2" Style="vertical-align:middle"/>
+            Thông tin chi tiết khuyến mãi — @OfferNo
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTabs Outlined="true" PanelClass="pa-3">
+            <MudTabPanel Text="Offer Header" Icon="@Icons.Material.Filled.Info">
+                @if (_headerLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary"/>
+                }
+                else if (_header == null)
+                {
+                    <MudAlert Severity="Severity.Warning">Không tìm thấy dữ liệu Offer Header.</MudAlert>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Style="max-height:60vh;overflow-y:auto">
+                        <tbody>
+                            @foreach (var (label, value) in BuildHeaderRows(_header))
+                            {
+                                <tr>
+                                    <td style="width:280px;font-weight:600">@label</td>
+                                    <td>@value</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudTabPanel>
+
+            <MudTabPanel Text="Offer Buy" Icon="@Icons.Material.Filled.ShoppingCart">
+                <div class="d-flex flex-wrap gap-2 mb-2 align-center">
+                    <MudTextField @bind-Value="_buySearch" Label="Tìm theo Mã sản phẩm (No)" Clearable="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
+                                  OnKeyUp="@(async e => { if (e.Key == "Enter") await _buyTable.ReloadServerData(); })"/>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_buyExporting"
+                               OnClick="ExportBuyAsync">@(_buyExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
+                </div>
+                <MudTable @ref="_buyTable" ServerData="LoadBuyAsync" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferBuyDetailLineDto">
+                    <HeaderContent>
+                        <MudTh>Line</MudTh><MudTh>Mã</MudTh><MudTh style="white-space:normal">Tên</MudTh>
+                        <MudTh>ĐVT</MudTh><MudTh>Loại giảm giá</MudTh><MudTh>Giá trị</MudTh>
+                        <MudTh>Số lượng</MudTh><MudTh>Điều kiện áp dụng</MudTh><MudTh>Bonus Buy No</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Line">@context.LineNo</MudTd>
+                        <MudTd DataLabel="Mã">@context.No</MudTd>
+                        <MudTd DataLabel="Tên" Style="white-space:normal">@context.Description</MudTd>
+                        <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
+                        <MudTd DataLabel="Loại giảm giá">@context.DiscountTypeStr</MudTd>
+                        <MudTd DataLabel="Giá trị" Style="text-align:right">@context.DiscountValue</MudTd>
+                        <MudTd DataLabel="Số lượng" Style="text-align:right">@context.Quantity</MudTd>
+                        <MudTd DataLabel="Điều kiện áp dụng">@context.ScaleTypeStr</MudTd>
+                        <MudTd DataLabel="Bonus Buy No">@context.BonusBuyNo</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-2">Không có dữ liệu.</MudText></NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                                       RowsPerPageString="Số dòng mỗi trang:"/>
+                    </PagerContent>
+                </MudTable>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Offer Benefits" Icon="@Icons.Material.Filled.CardGiftcard">
+                <MudTable @ref="_benefitTable" ServerData="LoadBenefitAsync" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferBenefitLineDto">
+                    <HeaderContent>
+                        <MudTh>Line</MudTh><MudTh>Mã</MudTh><MudTh style="white-space:normal">Tên</MudTh>
+                        <MudTh>ĐVT</MudTh><MudTh>Loại giá trị</MudTh><MudTh>Giá trị</MudTh>
+                        <MudTh>Số lượng</MudTh><MudTh>Step Amount</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Line">@context.LineNo</MudTd>
+                        <MudTd DataLabel="Mã">@context.No</MudTd>
+                        <MudTd DataLabel="Tên" Style="white-space:normal">@context.Description</MudTd>
+                        <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
+                        <MudTd DataLabel="Loại giá trị">@context.ValueTypeStr</MudTd>
+                        <MudTd DataLabel="Giá trị" Style="text-align:right">@context.Value</MudTd>
+                        <MudTd DataLabel="Số lượng" Style="text-align:right">@context.Quantity</MudTd>
+                        <MudTd DataLabel="Step Amount" Style="text-align:right">@context.StepAmount</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-2">Không có dữ liệu.</MudText></NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                                       RowsPerPageString="Số dòng mỗi trang:"/>
+                    </PagerContent>
+                </MudTable>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Offer Get" Icon="@Icons.Material.Filled.Redeem">
+                <div class="d-flex flex-wrap gap-2 mb-2 align-center">
+                    <MudTextField @bind-Value="_getSearch" Label="Tìm theo Mã sản phẩm (No)" Clearable="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
+                                  OnKeyUp="@(async e => { if (e.Key == "Enter") await _getTable.ReloadServerData(); })"/>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_getExporting"
+                               OnClick="ExportGetAsync">@(_getExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
+                </div>
+                <MudTable @ref="_getTable" ServerData="LoadGetAsync" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferGetDetailLineDto">
+                    <HeaderContent>
+                        <MudTh>Line</MudTh><MudTh>Mã</MudTh><MudTh style="white-space:normal">Tên</MudTh>
+                        <MudTh>ĐVT</MudTh><MudTh>Loại giảm giá</MudTh><MudTh>Giá trị</MudTh>
+                        <MudTh>Số lượng</MudTh><MudTh>Điều kiện áp dụng</MudTh><MudTh>Bonus Buy No</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Line">@context.LineNo</MudTd>
+                        <MudTd DataLabel="Mã">@context.No</MudTd>
+                        <MudTd DataLabel="Tên" Style="white-space:normal">@context.Description</MudTd>
+                        <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
+                        <MudTd DataLabel="Loại giảm giá">@context.DiscountTypeStr</MudTd>
+                        <MudTd DataLabel="Giá trị" Style="text-align:right">@context.DiscountValue</MudTd>
+                        <MudTd DataLabel="Số lượng" Style="text-align:right">@context.Quantity</MudTd>
+                        <MudTd DataLabel="Điều kiện áp dụng">@context.ScaleTypeStr</MudTd>
+                        <MudTd DataLabel="Bonus Buy No">@context.BonusBuyNo</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-2">Không có dữ liệu.</MudText></NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                                       RowsPerPageString="Số dòng mỗi trang:"/>
+                    </PagerContent>
+                </MudTable>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Offer Site" Icon="@Icons.Material.Filled.Store">
+                <div class="d-flex flex-wrap gap-2 mb-2 align-center">
+                    <MudTextField @bind-Value="_siteSearch" Label="Tìm theo Mã cửa hàng" Clearable="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
+                                  OnKeyUp="@(async e => { if (e.Key == "Enter") await _siteTable.ReloadServerData(); })"/>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_siteExporting"
+                               OnClick="ExportSiteAsync">@(_siteExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
+                </div>
+                <MudTable @ref="_siteTable" ServerData="LoadSiteAsync" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferSiteLineDetailDto">
+                    <HeaderContent>
+                        <MudTh>Mã cửa hàng</MudTh><MudTh>Price Group</MudTh><MudTh>Kênh</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Mã cửa hàng">@context.StoreNo</MudTd>
+                        <MudTd DataLabel="Price Group">@context.PriceGroupCode</MudTd>
+                        <MudTd DataLabel="Kênh">@context.StyleProfileName</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-2">Không có dữ liệu.</MudText></NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                                       RowsPerPageString="Số dòng mỗi trang:"/>
+                    </PagerContent>
+                </MudTable>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Offer Priority" Icon="@Icons.Material.Filled.LowPriority">
+                <MudTable @ref="_priorityTable" ServerData="LoadPriorityAsync" Dense="true" Hover="true" Striped="true"
+                          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferPriorityLineDto">
+                    <HeaderContent>
+                        <MudTh>Loại CTKM</MudTh><MudTh>Priority</MudTh><MudTh>Is Member</MudTh><MudTh>Is Duplicate</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Loại CTKM">@context.OfferType</MudTd>
+                        <MudTd DataLabel="Priority">@context.Priority</MudTd>
+                        <MudTd DataLabel="Is Member">@(context.IsMember == true ? "Có" : "Không")</MudTd>
+                        <MudTd DataLabel="Is Duplicate">@(context.IsDuplicate == true ? "Có" : "Không")</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-2">Không có dữ liệu.</MudText></NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                                       RowsPerPageString="Số dòng mỗi trang:"/>
+                    </PagerContent>
+                </MudTable>
+            </MudTabPanel>
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Outlined">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string OfferNo { get; set; } = string.Empty;
+    [Parameter] public string OfferType { get; set; } = string.Empty;
+
+    // Không phân trang khi export sub-tab (giữ đúng hành vi legacy "Export To Excel" lấy toàn bộ).
+    private const int ExportPageSize = 100_000;
+
+    private OfferHeaderDetailDto? _header;
+    private bool _headerLoading = true;
+
+    private MudTable<OfferBuyDetailLineDto> _buyTable = null!;
+    private MudTable<OfferBenefitLineDto> _benefitTable = null!;
+    private MudTable<OfferGetDetailLineDto> _getTable = null!;
+    private MudTable<OfferSiteLineDetailDto> _siteTable = null!;
+    private MudTable<OfferPriorityLineDto> _priorityTable = null!;
+
+    private string? _buySearch;
+    private string? _getSearch;
+    private string? _siteSearch;
+
+    private bool _buyExporting;
+    private bool _getExporting;
+    private bool _siteExporting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _header = await PromotionService.GetOfferHeaderDetailAsync(OfferNo);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.LoadHeader", ex);
+        }
+        finally
+        {
+            _headerLoading = false;
+        }
+    }
+
+    private async Task<TableData<OfferBuyDetailLineDto>> LoadBuyAsync(TableState state, CancellationToken ct)
+    {
+        try
+        {
+            var (items, total) = await PromotionService.GetOfferBuyDetailAsync(OfferNo, _buySearch, state.Page, state.PageSize, ct);
+            return new TableData<OfferBuyDetailLineDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.LoadBuy", ex);
+            return new TableData<OfferBuyDetailLineDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task<TableData<OfferBenefitLineDto>> LoadBenefitAsync(TableState state, CancellationToken ct)
+    {
+        try
+        {
+            var (items, total) = await PromotionService.GetOfferBenefitDetailAsync(OfferNo, state.Page, state.PageSize, ct);
+            return new TableData<OfferBenefitLineDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.LoadBenefit", ex);
+            return new TableData<OfferBenefitLineDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task<TableData<OfferGetDetailLineDto>> LoadGetAsync(TableState state, CancellationToken ct)
+    {
+        try
+        {
+            var (items, total) = await PromotionService.GetOfferGetDetailAsync(OfferNo, _getSearch, state.Page, state.PageSize, ct);
+            return new TableData<OfferGetDetailLineDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.LoadGet", ex);
+            return new TableData<OfferGetDetailLineDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task<TableData<OfferSiteLineDetailDto>> LoadSiteAsync(TableState state, CancellationToken ct)
+    {
+        try
+        {
+            var (items, total) = await PromotionService.GetOfferSiteDetailAsync(OfferNo, _siteSearch, state.Page, state.PageSize, ct);
+            return new TableData<OfferSiteLineDetailDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.LoadSite", ex);
+            return new TableData<OfferSiteLineDetailDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task<TableData<OfferPriorityLineDto>> LoadPriorityAsync(TableState state, CancellationToken ct)
+    {
+        try
+        {
+            var (items, total) = await PromotionService.GetOfferPriorityDetailAsync(OfferType, state.Page, state.PageSize, ct);
+            return new TableData<OfferPriorityLineDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.LoadPriority", ex);
+            return new TableData<OfferPriorityLineDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    // Ported from src/legacy/VCM.BLUEPOS/Controllers/PromotionController.cs (ExportToExcel_PromotionOfferBuy/Get/Site)
+    private async Task ExportBuyAsync()
+    {
+        if (_buyExporting) return;
+        _buyExporting = true;
+        try
+        {
+            var (items, _) = await PromotionService.GetOfferBuyDetailAsync(OfferNo, _buySearch, 0, ExportPageSize);
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("OfferBuy");
+            string[] headers = ["OfferNo", "LineNo", "LineType", "No", "Description", "UnitOfMeasure",
+                "DiscountTypeStr", "DiscountValue", "Quantity", "Step", "BonusBuyNo", "LineGroup", "ScaleTypeStr"];
+            for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+            ws.Row(1).Style.Font.Bold = true;
+            var r = 2;
+            foreach (var e in items)
+            {
+                ws.Cell(r, 1).Value = e.OfferNo; ws.Cell(r, 2).Value = e.LineNo; ws.Cell(r, 3).Value = e.LineType;
+                ws.Cell(r, 4).Value = e.No; ws.Cell(r, 5).Value = e.Description; ws.Cell(r, 6).Value = e.UnitOfMeasure;
+                ws.Cell(r, 7).Value = e.DiscountTypeStr; ws.Cell(r, 8).Value = e.DiscountValue; ws.Cell(r, 9).Value = e.Quantity;
+                ws.Cell(r, 10).Value = e.Step; ws.Cell(r, 11).Value = e.BonusBuyNo; ws.Cell(r, 12).Value = e.LineGroup;
+                ws.Cell(r, 13).Value = e.ScaleTypeStr;
+                r++;
+            }
+            ws.Columns().AdjustToContents();
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            await JS.SaveAsFileAsync($"OfferBuyList_{DateTime.Now:yyyyMMddHHmmss}.xlsx", ms.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.ExportBuy", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally
+        {
+            _buyExporting = false;
+        }
+    }
+
+    private async Task ExportGetAsync()
+    {
+        if (_getExporting) return;
+        _getExporting = true;
+        try
+        {
+            var (items, _) = await PromotionService.GetOfferGetDetailAsync(OfferNo, _getSearch, 0, ExportPageSize);
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("OfferGet");
+            string[] headers = ["OfferNo", "LineNo", "LineType", "No", "Description", "UnitOfMeasure",
+                "DiscountTypeStr", "DiscountValue", "Quantity", "Step", "BonusBuyNo", "LineGroup", "ScaleTypeStr"];
+            for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+            ws.Row(1).Style.Font.Bold = true;
+            var r = 2;
+            foreach (var e in items)
+            {
+                ws.Cell(r, 1).Value = e.OfferNo; ws.Cell(r, 2).Value = e.LineNo; ws.Cell(r, 3).Value = e.LineType;
+                ws.Cell(r, 4).Value = e.No; ws.Cell(r, 5).Value = e.Description; ws.Cell(r, 6).Value = e.UnitOfMeasure;
+                ws.Cell(r, 7).Value = e.DiscountTypeStr; ws.Cell(r, 8).Value = e.DiscountValue; ws.Cell(r, 9).Value = e.Quantity;
+                ws.Cell(r, 10).Value = e.Step; ws.Cell(r, 11).Value = e.BonusBuyNo; ws.Cell(r, 12).Value = e.LineGroup;
+                ws.Cell(r, 13).Value = e.ScaleTypeStr;
+                r++;
+            }
+            ws.Columns().AdjustToContents();
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            await JS.SaveAsFileAsync($"OfferGetList_{DateTime.Now:yyyyMMddHHmmss}.xlsx", ms.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.ExportGet", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally
+        {
+            _getExporting = false;
+        }
+    }
+
+    private async Task ExportSiteAsync()
+    {
+        if (_siteExporting) return;
+        _siteExporting = true;
+        try
+        {
+            var (items, _) = await PromotionService.GetOfferSiteDetailAsync(OfferNo, _siteSearch, 0, ExportPageSize);
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("OfferSite");
+            string[] headers = ["OfferNo", "PriceGroupCode", "StoreNo", "Kênh"];
+            for (var c = 0; c < headers.Length; c++) ws.Cell(1, c + 1).Value = headers[c];
+            ws.Row(1).Style.Font.Bold = true;
+            var r = 2;
+            foreach (var e in items)
+            {
+                ws.Cell(r, 1).Value = e.OfferNo; ws.Cell(r, 2).Value = e.PriceGroupCode;
+                ws.Cell(r, 3).Value = e.StoreNo; ws.Cell(r, 4).Value = e.StyleProfileName;
+                r++;
+            }
+            ws.Columns().AdjustToContents();
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            await JS.SaveAsFileAsync($"OfferSiteList_{DateTime.Now:yyyyMMddHHmmss}.xlsx", ms.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("OfferDetailDialog.ExportSite", ex);
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+        }
+        finally
+        {
+            _siteExporting = false;
+        }
+    }
+
+    private static List<(string Label, string Value)> BuildHeaderRows(OfferHeaderDetailDto h) =>
+    [
+        ("OfferNo", h.OfferNo), ("Type", h.Type.ToString()), ("Description", h.Description),
+        ("Status", h.Status.ToString()), ("OfferType", h.OfferType), ("PriceGroup", h.PriceGroup),
+        ("RoundingMethod", h.RoundingMethod), ("CurrencyCode", h.CurrencyCode),
+        ("LastDateModified", h.LastDateModified.ToString("dd/MM/yyyy HH:mm")),
+        ("ValidationPeriodID", h.ValidationPeriodID), ("ValidationDescription", h.ValidationDescription),
+        ("StartingDate", h.StartingDate.ToString("dd/MM/yyyy")), ("EndingDate", h.EndingDate.ToString("dd/MM/yyyy")),
+        ("BlockPeriodicDiscount", h.BlockPeriodicDiscount ? "Có" : "Không"),
+        ("DealPrice", h.DealPrice?.ToString() ?? ""), ("ShowDealLines", h.ShowDealLines.ToString()),
+        ("SalesTypeFilter", h.SalesTypeFilter), ("SelectionType", h.SelectionType.ToString()),
+        ("CustomerDiscGroup", h.CustomerDiscGroup), ("MemberValue", h.MemberValue),
+        ("DiscountTrackingNo", h.DiscountTrackingNo), ("CouponCode", h.CouponCode),
+        ("CouponQtyNeeded", h.CouponQtyNeeded?.ToString() ?? ""), ("MemberType", h.MemberType.ToString()),
+        ("MemberAttribute", h.MemberAttribute), ("MemberAttributeValue", h.MemberAttributeValue),
+        ("BlockSalesCommission", h.BlockSalesCommission ? "Có" : "Không"),
+        ("BlockManualPriceChange", h.BlockManualPriceChange ? "Có" : "Không"),
+        ("BlockInfoCodeDiscount", h.BlockInfoCodeDiscount ? "Có" : "Không"),
+        ("BlockLineDiscountOffer", h.BlockLineDiscountOffer ? "Có" : "Không"),
+        ("BlockTotalDiscountOffer", h.BlockTotalDiscountOffer ? "Có" : "Không"),
+        ("BlockTenderTypeDiscount", h.BlockTenderTypeDiscount ? "Có" : "Không"),
+        ("BlockMemberPoints", h.BlockMemberPoints ? "Có" : "Không"),
+        ("ConditionBuy (điều kiện áp dụng Mua)", h.ConditionBuyStr), ("MemberOnly", h.MemberOnly ? "Có" : "Không"),
+        ("ConditionGet (điều kiện áp dụng Nhận)", h.ConditionGetStr), ("NoSeries", h.NoSeries),
+        ("FromTime", h.FromTime), ("ToTime", h.ToTime),
+        ("Áp dụng T2-CN", $"{(h.Mon ? "T2 " : "")}{(h.Tue ? "T3 " : "")}{(h.Wed ? "T4 " : "")}{(h.Thu ? "T5 " : "")}{(h.Fri ? "T6 " : "")}{(h.Sat ? "T7 " : "")}{(h.Sun ? "CN" : "")}"),
+        ("NumOfDays", h.NumOfDays.ToString()), ("DayOfWeek", h.DayOfWeek),
+        ("TenderTypeCode", h.TenderTypeCode), ("TenderTypeValue", h.TenderTypeValue?.ToString() ?? ""),
+        ("TenderTypeOfferPercent", h.TenderTypeOfferPercent?.ToString() ?? ""),
+        ("TenderTypeOfferAmount", h.TenderTypeOfferAmount?.ToString() ?? ""), ("BankCode", h.BankCode),
+        ("LocalSiteGroup", h.LocalSiteGroup), ("LimitQty", h.LimitQty?.ToString() ?? ""),
+        ("VoucherFromDate", h.VoucherFromDate?.ToString("dd/MM/yyyy") ?? ""),
+        ("VoucherToDate", h.VoucherToDate?.ToString("dd/MM/yyyy") ?? ""),
+        ("VoucherValidDay", h.VoucherValidDay?.ToString() ?? ""),
+        ("VoucherLimitNumber", h.VoucherLimitNumber?.ToString() ?? ""), ("PromotionNo", h.PromotionNo ?? ""),
+        ("PriorityBBY", h.PriorityBBY?.ToString() ?? ""), ("Counter", h.Counter?.ToString() ?? ""),
+        ("Pkey", h.Pkey ?? ""), ("MinValue", h.MinValue?.ToString() ?? ""),
+        ("TotalDiscountType", h.TotalDiscountType?.ToString() ?? ""),
+        ("TotalDiscountValue", h.TotalDiscountValue?.ToString() ?? ""),
+        ("IsVoucher", h.IsVoucher == true ? "Có" : "Không"), ("IsTotalBill", h.IsTotalBill == true ? "Có" : "Không"),
+        ("IsGift", h.IsGift == true ? "Có" : "Không"), ("MemberCode", h.MemberCode ?? ""),
+        ("DiscountAmountMax", h.DiscountAmountMax?.ToString() ?? ""),
+        ("IsFullPrice", h.IsFullPrice == true ? "Có" : "Không"), ("Remark", h.Remark ?? ""),
+        ("SalesType", h.SalesType ?? "")
+    ];
+
+    private void Close() => MudDialog.Close();
+}

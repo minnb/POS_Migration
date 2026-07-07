@@ -51,4 +51,25 @@ public interface IPromotionService
 
     Task<List<ItemGroupItemDto>> GetItemGroupItemsAsync(
         string groupCode, string itemNo, string itemName, CancellationToken ct = default);
+
+    // ── Modal "Xem chi tiết" 1 offer đã publish ───────────────────────────────
+    Task<OfferHeaderDetailDto?> GetOfferHeaderDetailAsync(string offerNo, CancellationToken ct = default);
+
+    Task<(List<OfferBuyDetailLineDto> Items, int Total)> GetOfferBuyDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    Task<(List<OfferBenefitLineDto> Items, int Total)> GetOfferBenefitDetailAsync(
+        string offerNo, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    Task<(List<OfferGetDetailLineDto> Items, int Total)> GetOfferGetDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Danh sách cửa hàng áp dụng — StyleProfileName được map ở đây (display logic, không phải SQL).</summary>
+    Task<(List<OfferSiteLineDetailDto> Items, int Total)> GetOfferSiteDetailAsync(
+        string offerNo, string? search, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    Task<(List<OfferPriorityLineDto> Items, int Total)> GetOfferPriorityDetailAsync(
+        string offerType, int pageNumber, int pageSize, CancellationToken ct = default);
+
+    Task<(bool Ok, string Message)> DeactivateOfferAsync(string offerNo, CancellationToken ct = default);
 }
