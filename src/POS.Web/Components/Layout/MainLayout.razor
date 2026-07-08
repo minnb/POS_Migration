@@ -29,7 +29,7 @@
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always">
-        <div class="pos-sidebar-brand">
+        <div class="pos-sidebar-brand" style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/store/dashboard"))" title="Về Dashboard">
             <div class="pos-sidebar-brand-name">RPOS</div>
             <div class="pos-sidebar-brand-sub">Quản lý bán hàng</div>
         </div>
@@ -195,6 +195,10 @@
 </MudLayout>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool _isStoreOperator;
     private bool _drawerOpen;          // init = false; OnAfterRenderAsync set theo viewport
     private bool _expandStoreOps;
     private bool _expandStoreTx;
@@ -221,6 +225,8 @@
     // về fallback "RPOS Dashboard" tĩnh (xem markup AppBar phía trên).
     private static readonly Dictionary<string, (string Section, string Label)> BreadcrumbMap = new()
     {
+        // CỬA HÀNG / Dashboard
+        ["/store/dashboard"]        = ("CỬA HÀNG", "Tổng quan"),
         // CỬA HÀNG / Vận hành
         ["/store/business-day"]     = ("CỬA HÀNG", "Xác nhận kết thúc ngày"),
         ["/store/eos-shifts"]       = ("CỬA HÀNG", "Kết thúc ca"),
@@ -283,8 +289,12 @@
         ["/admin/encrypt-secret"]   = ("QUẢN TRỊ", "Mã hóa Secret"),
     };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        var state = await AuthState;
+        var role  = state.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+        _isStoreOperator = role == WebRoles.StoreOperator;
+
         UpdateExpanded(Nav.Uri);
         UpdateBreadcrumb(Nav.Uri);
         Nav.LocationChanged += OnLocationChanged;
@@ -324,9 +334,21 @@
     private void UpdateExpanded(string uri)
     {
         var u = uri.ToLowerInvariant();
-        _expandStoreOps    = u.Contains("/store/business-day") || u.Contains("/store/eos-shifts") || u.Contains("/store/shift-summary");
-        _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids");
-        _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
+
+        if (_isStoreOperator)
+        {
+            // StoreOperator chỉ thấy đúng 3 group "CỬA HÀNG" — mở sẵn cả 3 (không theo route)
+            // để sidebar trải đều leaf link, nhìn cân đối thay vì co cụm 1 group đang active.
+            _expandStoreOps    = true;
+            _expandStoreTx     = true;
+            _expandStoreReport = true;
+        }
+        else
+        {
+            _expandStoreOps    = u.Contains("/store/business-day") || u.Contains("/store/eos-shifts") || u.Contains("/store/shift-summary");
+            _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids");
+            _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
+        }
         _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues");
         _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/activity-log");
         _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores") || u.Contains("/ops/pos-data-setup");

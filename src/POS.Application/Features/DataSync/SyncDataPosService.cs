@@ -288,9 +288,19 @@ public sealed class SyncDataPosService(
         };
 
         // Tái dùng nguyên logic sinh file txt/zip hiện có của POS.Api — KHÔNG sửa đổi.
-        var result = await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);
+        // EnsureMasterDataFileAsync trả 1 phần tử/zip (1 "common" + 1/bảng IsSingleFile=1) — gộp lại
+        // thành 1 GetMasterDataFileResult vì đây là contract public của ISyncDataPosService (PosMapPage.razor).
+        var results = await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);
+        var result = new GetMasterDataFileResult
+        {
+            Success = results.All(r => r.Success),
+            FileName = string.Join(", ", results.Select(r => r.FileName)),
+            RelativePath = results.FirstOrDefault()?.RelativePath,
+            TableCount = results.Sum(r => r.TableCount),
+            Message = results.Count > 0 ? "OK" : "Không có bảng nào có dữ liệu"
+        };
         kibanaService.LogResponse("PushStartOfDayData", posTerminal, 0, "",
-            $"EnsureMasterDataFile {result.Success} ({result.Message}), {result.TableCount} tables, siteCode {siteCode}, dir {targetDir}");
+            $"EnsureMasterDataFile {result.Success} ({results.Count} files: {result.FileName}), {result.TableCount} tables, siteCode {siteCode}, dir {targetDir}");
         return result;
     }
 

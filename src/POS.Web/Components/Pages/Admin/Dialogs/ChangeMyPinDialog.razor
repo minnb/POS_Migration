@@ -1,0 +1,164 @@
+@namespace POS.Web.Components.Pages.Admin
+@using MudBlazor
+@using POS.Web.Auth
+
+@inject IWebUserService UserService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Lock" Class="mr-2" Style="vertical-align:middle"/>
+            Đổi mã PIN
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Style="color:var(--pos-text-muted)" Class="mb-3">
+                Mã PIN dùng để xác thực khi truy cập SQL Console — chỉ áp dụng cho tài khoản của
+                bạn (<strong>@Username</strong>).
+            </MudText>
+            <MudForm @ref="_form" @bind-IsValid="_formValid">
+                <MudGrid Spacing="2">
+                    @if (_hasExistingPin)
+                    {
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_model.CurrentPin"
+                                          Label="Mã PIN hiện tại"
+                                          InputType="InputType.Password"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Required="true"
+                                          RequiredError="Vui lòng nhập mã PIN hiện tại"
+                                          Immediate="true"/>
+                        </MudItem>
+                    }
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.NewPin"
+                                      Label="Mã PIN mới"
+                                      InputType="InputType.Password"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Required="true"
+                                      RequiredError="Vui lòng nhập mã PIN mới"
+                                      Validation="@((Func<string?, string?>)ValidateNewPin)"
+                                      Immediate="true"/>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.ConfirmPin"
+                                      Label="Xác nhận mã PIN mới"
+                                      InputType="InputType.Password"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Required="true"
+                                      RequiredError="Vui lòng xác nhận mã PIN mới"
+                                      Validation="@((Func<string?, string?>)ValidateConfirmPin)"
+                                      Immediate="true"/>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+
+            @if (_errorMsg != null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton OnClick="Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_saving || _loading)"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+            }
+            Lưu
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    private ChangePinModel _model = new();
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _saving;
+    private bool _loading = true;
+    private bool _hasExistingPin;
+    private string? _errorMsg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = await UserService.GetByUsernameAsync(Username);
+            _hasExistingPin = !string.IsNullOrEmpty(user?.PinHash);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string? ValidateNewPin(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Vui lòng nhập mã PIN mới";
+        if (value.Length < 6) return "Mã PIN phải có ít nhất 6 ký tự";
+        return null;
+    }
+
+    private string? ValidateConfirmPin(string? value)
+        => value == _model.NewPin ? null : "Xác nhận không khớp với mã PIN mới";
+
+    private async Task Submit()
+    {
+        await _form.ValidateAsync();
+        if (!_formValid) return;
+
+        _saving = true;
+        _errorMsg = null;
+        try
+        {
+            if (_hasExistingPin)
+            {
+                var check = await UserService.VerifyPinAsync(Username, _model.CurrentPin ?? string.Empty);
+                if (!check.Ok)
+                {
+                    _errorMsg = check.Error;
+                    return;
+                }
+            }
+
+            var ok = await UserService.SetPinAsync(Username, _model.NewPin!);
+            if (ok)
+                MudDialog.Close(DialogResult.Ok(true));
+            else
+                _errorMsg = "Đổi mã PIN thất bại. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private sealed class ChangePinModel
+    {
+        public string? CurrentPin { get; set; }
+        public string? NewPin     { get; set; }
+        public string? ConfirmPin { get; set; }
+    }
+}

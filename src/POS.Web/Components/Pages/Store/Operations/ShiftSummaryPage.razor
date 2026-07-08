@@ -5,7 +5,6 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
-@using MudBlazor.Charts
 @using POS.Common.Dtos.CentralMD
 @using POS.Common.Dtos.CentralSale
 @using POS.Infrastructure.Repositories.Interfaces
@@ -119,13 +118,13 @@
         </div>
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h4" Class="pos-kpi-value" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số GD</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h4" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
                     @_summaries.Sum(s => s.OpenCount)
                 </MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Ca chưa đóng</MudText>
@@ -133,7 +132,7 @@
         </div>
         <div style="flex:1 1 120px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h4" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
                     @_summaries.Sum(s => s.DiscrepancyCount)
                 </MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Ca có chênh lệch</MudText>
@@ -149,11 +148,20 @@
         </MudText>
         @if (!_isEmpty)
         {
-            <Bar T="double"
-                 ChartSeries="@_barSeries"
-                 ChartLabels="@_barLabels"
-                 Width="100%" Height="220px"
-                 ChartOptions="@_barOptions"/>
+            <div class="d-flex flex-column gap-3">
+                @foreach (var s in _summaries.OrderBy(x => x.ShiftNumber))
+                {
+                    <div class="d-flex align-center gap-3">
+                        <MudText Typo="Typo.body2" Style="width:64px; flex-shrink:0; font-weight:600">Ca @s.ShiftNumber</MudText>
+                        <MudTooltip Text="@FormatVND(s.TotalRevenue)">
+                            <div class="pos-hbar-track">
+                                <div class="pos-hbar-fill" style="width:@(GetBarPct(s.TotalRevenue).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                            </div>
+                        </MudTooltip>
+                        <MudText Typo="Typo.body2" Style="min-width:110px; text-align:right; font-weight:600">@FormatVND(s.TotalRevenue)</MudText>
+                    </div>
+                }
+            </div>
         }
     </MudPaper>
 
@@ -298,10 +306,8 @@ else if (!_loading && _summaries.Count == 0)
     private StoreDto?                   _selectedStore;
 
     // Chart state
-    private bool _isEmpty = true;
-    private List<ChartSeries<double>> _barSeries = [];
-    private string[] _barLabels = [];
-    private BarChartOptions _barOptions = new() { ShowLegend = false };
+    private bool   _isEmpty = true;
+    private double _maxShiftRevenue;
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
 
@@ -381,33 +387,11 @@ else if (!_loading && _summaries.Count == 0)
     private void BuildChart()
     {
         _isEmpty = _summaries.Count == 0 || _summaries.All(s => s.TotalRevenue == 0);
-        if (_isEmpty) return;
-
-        _barLabels = _summaries.Select(s => $"Ca {s.ShiftNumber}").ToArray();
-        var revenueValues = _summaries.Select(s => (double)s.TotalRevenue).ToArray();
-        _barSeries =
-        [
-            new ChartSeries<double> { Name = "Doanh thu", Data = new ChartData<double>(revenueValues) }
-        ];
-
-        var (yMax, yTick) = CalcYAxis(revenueValues);
-        _barOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
+        _maxShiftRevenue = _isEmpty ? 0 : (double)_summaries.Max(s => s.TotalRevenue);
     }
 
-    // Margin ~5% quanh giá trị max — cột luôn sát đỉnh trục Y (đồng bộ RevenuePage/RevenueHourlyPage).
-    // Ghi chú: YAxisTicks (MudBlazor) là khoảng cách giữa gridline, kiểu Int32 → với max rất nhỏ
-    // (vd <10), spacing tối thiểu =1 có thể tạo margin thực tế lớn hơn 5% (giới hạn kỹ thuật của
-    // thư viện, không khắc phục được bằng công thức tính toán).
-    private static (double YMax, int YTick) CalcYAxis(double[] values, double marginPct = 0.05, int gridLines = 5)
-    {
-        var max = values.Length > 0 ? values.Max() : 0;
-        if (max <= 0) return (5, 1);
-
-        var target = max * (1 + marginPct);
-        var tick   = Math.Max(1, (int)Math.Ceiling(target / gridLines));
-        var yMax   = tick * (int)Math.Ceiling(target / tick);
-        return (yMax, tick);
-    }
+    private double GetBarPct(decimal revenue) =>
+        _maxShiftRevenue <= 0 ? 0 : Math.Round((double)revenue / _maxShiftRevenue * 100, 1);
 
     private async Task ResetFilterAsync()
     {

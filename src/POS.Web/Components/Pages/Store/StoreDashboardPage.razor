@@ -1,0 +1,412 @@
+@page "/store/dashboard"
+@namespace POS.Web.Components.Pages.Store
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+@implements IDisposable
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using MudBlazor.Charts
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.CentralSale
+@using POS.Common.Dtos.RptCentralSale
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@inject IRptCentralSaleRepository RptRepo
+@inject ICentralSaleRepository SaleRepo
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+
+<PageTitle>@HeaderTitle – POS Dashboard</PageTitle>
+
+@* ── Header ──────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-1">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Outlined.Dashboard" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
+        @HeaderTitle
+    </MudText>
+    <div class="d-flex align-center gap-2 flex-wrap">
+        @if (!_isStoreOperator)
+        {
+            <MudAutocomplete T="StoreDto"
+                             Value="_selectedStore"
+                             ValueChanged="@OnStoreChangedAsync"
+                             Label="Cửa hàng"
+                             Placeholder="Tất cả cửa hàng"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             SearchFunc="@SearchStoreAsync"
+                             ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                             Clearable="true"
+                             AdornmentIcon="@Icons.Material.Filled.Store"
+                             Adornment="Adornment.Start"
+                             MinCharacters="0"
+                             MaxItems="50"
+                             Style="min-width:220px"/>
+        }
+        <MudSelect T="int" Value="_autoRefreshSec" ValueChanged="OnAutoRefreshChanged"
+                   Label="Tự động" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Style="min-width:130px">
+            <MudSelectItem Value="0">Tắt</MudSelectItem>
+            <MudSelectItem Value="60">60 giây</MudSelectItem>
+            <MudSelectItem Value="120">120 giây</MudSelectItem>
+            <MudSelectItem Value="300">5 phút</MudSelectItem>
+        </MudSelect>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
+}
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+@* ── KPI Cards ─────────────────────────────────────────────────────── *@
+<div class="d-flex flex-wrap gap-3 mb-4">
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_kpi.NetRevenue)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Doanh thu hôm nay</MudText>
+        </MudPaper>
+    </div>
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_kpi.TotalOrders.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng Bill hôm nay</MudText>
+        </MudPaper>
+    </div>
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@VoidTotalCount.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Void hôm nay (@VoidRatePct.ToString("F1")% tổng bill)</MudText>
+        </MudPaper>
+    </div>
+</div>
+
+@* ── Hourly chart + 7-day chart (cùng 1 hàng, tỉ lệ 50:50) ─────────────── *@
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12" lg="6">
+        <MudPaper Elevation="2" Class="pa-4" Style="height:100%">
+            <MudText Typo="Typo.subtitle1" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1"/>
+                Doanh thu theo khung giờ (triệu đồng)
+            </MudText>
+            @if (_hourlyEmpty)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Chưa có dữ liệu hôm nay.</MudAlert>
+            }
+            else
+            {
+                <Bar T="double"
+                     ChartSeries="@_hourlySeries"
+                     ChartLabels="@_hourlyLabels"
+                     Width="100%" Height="260px"
+                     ChartOptions="@_hourlyBarOptions"/>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="6">
+        <MudPaper Elevation="2" Class="pa-4" Style="height:100%">
+            <MudText Typo="Typo.subtitle1" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1"/>
+                Doanh thu 7 ngày gần nhất (triệu đồng)
+            </MudText>
+            @if (_dailyEmpty)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Chưa có dữ liệu.</MudAlert>
+            }
+            else
+            {
+                <Bar T="double"
+                     ChartSeries="@_dailySeries"
+                     ChartLabels="@_dailyLabels"
+                     Width="100%" Height="260px"
+                     ChartOptions="@_dailyBarOptions"/>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* ── Void gần nhất ─────────────────────────────────────────────────── *@
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <div class="d-flex align-center justify-space-between mb-3 flex-wrap gap-2">
+        <MudText Typo="Typo.subtitle1">
+            <MudIcon Icon="@Icons.Material.Filled.Cancel" Size="Size.Small" Class="mr-1"/>
+            Giao dịch Void gần nhất
+        </MudText>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Href="/store/voids">Xem tất cả</MudButton>
+    </div>
+    <MudTable Items="@_recentVoids" Dense="true" Hover="true" HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh Style="text-align:center">Giờ</MudTh>
+            <MudTh Style="text-align:center">Loại</MudTh>
+            <MudTh>Số hóa đơn</MudTh>
+            <MudTh style="text-align:center">Máy POS</MudTh>
+            <MudTh>Người hủy</MudTh>
+            <MudTh Style="text-align:right">Giá trị</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Giờ" Style="text-align:center">@context.ScanTime.ToString("HH:mm:ss")</MudTd>
+            <MudTd DataLabel="Loại" Style="text-align:center">
+                @if (context.VoidType == "InvoiceVoid")
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">HỦY HÓA ĐƠN</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">HỦY DÒNG</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Số hóa đơn">@context.OrderNo</MudTd>
+            <MudTd DataLabel="Máy POS" Style="text-align:center">@(context.POSTerminalNo ?? "—")</MudTd>
+            <MudTd DataLabel="Người hủy">@(string.IsNullOrWhiteSpace(context.UserVoid) ? "—" : context.UserVoid)</MudTd>
+            <MudTd DataLabel="Giá trị" Style="text-align:right; color:#DC3545; font-weight:500">@FormatVND(context.LineAmountIncVAT)</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <div class="d-flex flex-column align-center pa-4" style="color:#9e9e9e">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+                <MudText>Không có giao dịch hủy hôm nay</MudText>
+            </div>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    // ── Auth / Store ─────────────────────────────────────────────────────────
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private bool       _isStoreOperator;
+    private StoreDto?  _selectedStore;
+    private List<StoreDto> _allStores = [];
+    private string?    EffectiveStoreNo => _isStoreOperator ? _userStoreCodes.FirstOrDefault() : _selectedStore?.StoreNo;
+
+    private string HeaderTitle
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(EffectiveStoreNo)) return "Dashboard – Tất cả cửa hàng";
+            var name = _allStores.FirstOrDefault(s => s.StoreNo == EffectiveStoreNo)?.Name;
+            return string.IsNullOrEmpty(name) ? $"Cửa hàng {EffectiveStoreNo}" : $"Cửa hàng {EffectiveStoreNo}-{name}";
+        }
+    }
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private bool      _loading;
+    private string?   _errorMsg;
+    private int       _autoRefreshSec = 120;
+    private PeriodicTimer? _timer;
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+    private SaleByTimeKpiDto        _kpi            = new();
+    private List<VoidReportLineDto> _voids          = [];
+    private List<VoidReportLineDto> _recentVoids    => _voids.OrderByDescending(v => v.ScanTime).Take(10).ToList();
+
+    // ── Hourly chart ─────────────────────────────────────────────────────────
+    private List<ChartSeries<double>> _hourlySeries =
+        [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(Array.Empty<double>()) }];
+    private readonly string[] _hourlyLabels = Enumerable.Range(0, 24).Select(h => $"{h}h").ToArray();
+    private bool             _hourlyEmpty       = true;
+    private BarChartOptions  _hourlyBarOptions  = new() { ShowLegend = false };
+
+    // ── 7-day chart ──────────────────────────────────────────────────────────
+    private List<ChartSeries<double>> _dailySeries =
+        [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(Array.Empty<double>()) }];
+    private string[]        _dailyLabels      = [];
+    private bool             _dailyEmpty      = true;
+    private BarChartOptions  _dailyBarOptions = new() { ShowLegend = false };
+
+    // ── KPI derived ──────────────────────────────────────────────────────────
+    private int VoidTotalCount =>
+        _voids.Where(x => x.VoidType == "InvoiceVoid").Select(x => x.OrderNo).Distinct().Count()
+        + _voids.Count(x => x.VoidType == "LineVoid");
+
+    private decimal VoidRatePct => _kpi.TotalOrders > 0
+        ? _voids.Where(x => x.VoidType == "InvoiceVoid").Select(x => x.OrderNo).Distinct().Count() / (decimal)_kpi.TotalOrders * 100m
+        : 0m;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+
+        // Luôn tải để lấy tên cửa hàng hiển thị trên header (StoreOperator) hoặc
+        // làm nguồn Autocomplete (ITOps/Admin).
+        try { _allStores = await MdRepo.GetStoreListAsync(); }
+        catch (Exception ex) { FileLogger.WriteExpLogs("StoreDashboardPage.LoadStores", ex); }
+
+        // StoreOperator luôn có storeNo cụ thể; ITOps/Admin mặc định null = "tất cả cửa hàng"
+        // (đúng pattern GetSaleByTimeAsync/GetVoidReportAsync đã hỗ trợ storeNo=null ở các
+        // trang report khác — không cần user chọn cửa hàng trước khi xem dữ liệu).
+        await LoadDataAsync();
+        StartAutoRefresh();
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+
+    private async Task LoadDataAsync()
+    {
+        if (_loading) return;
+        var storeNo = EffectiveStoreNo;   // null = tất cả cửa hàng (ITOps/Admin chưa chọn)
+
+        _loading  = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            var today    = DateTime.Today;
+            var weekFrom = today.AddDays(-6);
+
+            var tSaleByTimeHour  = RptRepo.GetSaleByTimeAsync(today, today, storeNo, "HOUR", includeKpi: true);
+            var tSaleByTimeDaily = RptRepo.GetSaleByTimeAsync(weekFrom, today, storeNo, "DAY", includeKpi: false);
+            var tVoids           = SaleRepo.GetVoidReportAsync(storeNo, today, today, maxRows: 1000);
+
+            await Task.WhenAll(tSaleByTimeHour, tSaleByTimeDaily, tVoids);
+
+            var (kpi, hourSeries) = tSaleByTimeHour.Result;
+            _kpi   = kpi;
+            _voids = tVoids.Result;
+
+            BuildHourChart(hourSeries);
+            BuildDailyChart(tSaleByTimeDaily.Result.Series, weekFrom, today);
+
+            FileLogger.WriteLogs($"[StoreDashboardPage.LoadData] {storeNo}: NetRevenue={kpi.NetRevenue:N0}, Orders={kpi.TotalOrders}, Void={VoidTotalCount}");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu Dashboard. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("StoreDashboardPage.LoadData", ex);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void BuildHourChart(List<SaleByTimeSeriesDto> hourSeries)
+    {
+        var hourMap = hourSeries
+            .GroupBy(r => r.SortOrder)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.NetRevenue));
+
+        var values = Enumerable.Range(0, 24)
+            .Select(h => Math.Round((double)(hourMap.GetValueOrDefault(h, 0) / 1_000_000m), 2))
+            .ToArray();
+
+        _hourlyEmpty  = values.All(v => v == 0);
+        _hourlySeries = [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(values) }];
+
+        var (yMax, yTick) = CalcYAxis(values);
+        _hourlyBarOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
+    }
+
+    // SP trả TimeLabel cho groupBy=DAY dạng "dd/MM/yyyy" (giống RevenueHourlyPage.BuildLineChart)
+    // — zero-fill toàn dải weekFrom..today để luôn đủ 7 cột kể cả ngày không có giao dịch.
+    private void BuildDailyChart(List<SaleByTimeSeriesDto> dailySeries, DateTime from, DateTime to)
+    {
+        var byDate = dailySeries
+            .Select(r => (Date: DateTime.TryParseExact(r.TimeLabel, "dd/MM/yyyy",
+                              System.Globalization.CultureInfo.InvariantCulture,
+                              System.Globalization.DateTimeStyles.None, out var d) ? d : (DateTime?)null,
+                          r.NetRevenue))
+            .Where(x => x.Date.HasValue)
+            .GroupBy(x => x.Date!.Value.Date)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.NetRevenue));
+
+        var days   = Enumerable.Range(0, (to.Date - from.Date).Days + 1).Select(i => from.Date.AddDays(i)).ToList();
+        _dailyLabels = days.Select(d => d.ToString("dd/MM")).ToArray();
+        var values   = days.Select(d => Math.Round((double)(byDate.GetValueOrDefault(d, 0) / 1_000_000m), 2)).ToArray();
+
+        _dailyEmpty  = values.All(v => v == 0);
+        _dailySeries = [new ChartSeries<double> { Name = "DT Thuần", Data = new ChartData<double>(values) }];
+
+        var (yMax, yTick) = CalcYAxis(values);
+        _dailyBarOptions = new BarChartOptions { ShowLegend = false, YAxisSuggestedMax = yMax, YAxisTicks = yTick };
+    }
+
+    // Margin ~5% (đồng bộ RevenuePage/RevenueHourlyPage/ShiftSummaryPage).
+    private static (double YMax, int YTick) CalcYAxis(double[] values, double marginPct = 0.05, int gridLines = 5)
+    {
+        var max = values.Length > 0 ? values.Max() : 0;
+        if (max <= 0) return (5, 1);
+
+        var target = max * (1 + marginPct);
+        var tick   = Math.Max(1, (int)Math.Ceiling(target / gridLines));
+        var yMax   = tick * (int)Math.Ceiling(target / tick);
+        return (yMax, tick);
+    }
+
+    // ── Store picker (ITOps/Admin) ──────────────────────────────────────────
+
+    private async Task OnStoreChangedAsync(StoreDto? store)
+    {
+        _selectedStore = store;   // store == null → user bấm Clear → về "tất cả cửa hàng"
+        await LoadDataAsync();
+        StartAutoRefresh();
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    // ── Auto-refresh ─────────────────────────────────────────────────────────
+
+    private void OnAutoRefreshChanged(int value)
+    {
+        _autoRefreshSec = value;
+        StartAutoRefresh();
+    }
+
+    private void StartAutoRefresh()
+    {
+        _timer?.Dispose();
+        _timer = null;
+        if (_autoRefreshSec <= 0) return;
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(_autoRefreshSec));
+        _ = Task.Run(async () =>
+        {
+            while (await _timer.WaitForNextTickAsync())
+                await InvokeAsync(LoadDataAsync);
+        });
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static string FormatVND(decimal amount) => amount switch
+    {
+        >= 1_000_000_000m => $"{amount / 1_000_000_000m:N1} tỷ",
+        >= 1_000_000m     => $"{amount / 1_000_000m:N0} triệu",
+        _                 => $"{amount:N0} ₫"
+    };
+}

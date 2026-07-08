@@ -47,28 +47,26 @@
     var active   = _allItems.Count(x => x.IsActive);
     var closed   = total - active;
 
-    <MudGrid Spacing="3" Class="mb-4">
-        <MudItem xs="6" md="4">
-            <MudPaper Elevation="2" Class="pa-3 text-center">
-                <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng cửa hàng</MudText>
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@total</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng cửa hàng</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="6" md="4">
-            <MudPaper Elevation="2" Class="pa-3 text-center"
-                      Style="border-left:3px solid var(--pos-success)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@active</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Đang hoạt động</MudText>
+        </div>
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@active</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Đang hoạt động</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="6" md="4">
-            <MudPaper Elevation="2" Class="pa-3 text-center"
-                      Style="border-left:3px solid var(--pos-danger)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@closed</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Đã đóng</MudText>
+        </div>
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@closed</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Đã đóng</MudText>
             </MudPaper>
-        </MudItem>
-    </MudGrid>
+        </div>
+    </div>
 }
 
 @* ── Filter bar ──────────────────────────────────────────────────────── *@

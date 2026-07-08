@@ -6,6 +6,23 @@
 
 ---
 
+## Reserved keyword — BẮT BUỘC bracket-quote `[ ]`
+
+> Áp dụng cho **mọi** SQL trong dự án — SP mới, script `docs/sql/*.sql`, và Dapper inline query
+> trong Repository — không giới hạn riêng SP.
+
+Trước khi dùng bất kỳ tên cột/bảng nào làm identifier trong SQL Server, nếu trùng với 1 từ khoá
+reserved → viết `[TênCột]`. Case cụ thể đã gặp: cột `LineNo` trong `TransVoidLine`
+(`CentralSaleRepository.cs` → `GetVoidReportAsync`) gây lỗi `Msg 156 "Incorrect syntax near the
+keyword 'LineNo'"` khi không bracket-quote — sửa thành `vl.[LineNo]`. Dự án đã có tiền lệ tương tự
+với `[Source]` trong `CentralSaleRepository.cs` (`GetDataRawJsonListAsync`).
+
+**Dấu hiệu nhận biết**: SQL Server báo lỗi **156** "Incorrect syntax near the keyword 'X'" mà cột
+`X` **có tồn tại thật** trong bảng (khác lỗi **207** "Invalid column name 'X'", là lỗi tên cột sai/
+không tồn tại) → chắc chắn là reserved keyword, bracket-quote ngay `[X]`, không cần đoán thêm.
+
+---
+
 ## Quy tắc đặt tên — BẮT BUỘC
 
 **Mọi stored procedure mới PHẢI đặt tên theo:**

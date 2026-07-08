@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
 using POS.Common.Dtos.DataSync;
@@ -12,6 +13,8 @@ namespace POS.Application.Features.DataSync;
 /// <summary>
 /// Orchestrate sinh file master data .zip. Business logic ở đây; I/O (DB stream, zip, khóa) ở Infrastructure.
 /// Định dạng file: JSON envelope SyncTableList (bám convention DataRawService.CreateFileSODFakeAsync).
+/// Bảng có SyncTableList.IsSingleFile=1 → đóng gói riêng 1 zip/bảng (giảm kích thước zip cho POS
+/// tải, tránh timeout với bảng lớn); các bảng còn lại gom chung 1 zip "common" (hành vi gốc).
 /// </summary>
 public sealed class MasterDataSyncService(
     ISyncRepository syncRepository,
@@ -27,6 +30,9 @@ public sealed class MasterDataSyncService(
     private const string ActionTruncInsert = "TRUNC-INSERT";
     // Bảng lớn tách nhiều file: batch đầu TRUNC-INSERT, các batch sau INSERT (append) — tránh truncate sạch batch trước.
     private const string ActionInsert = "INSERT";
+
+    // Thư mục con tạm chứa file .txt của các bảng IsSingleFile=0 (gom chung 1 zip).
+    private const string CommonGroupFolder = "_common";
 
     public async Task LogDownloadAsync(
         string? fileName, string? filePath, long fileSizeBytes, long durationMs,
@@ -54,44 +60,65 @@ public sealed class MasterDataSyncService(
         }
     }
 
-    public async Task<GetMasterDataFileResult> EnsureMasterDataFileAsync(
+    public async Task<List<GetMasterDataFileResult>> EnsureMasterDataFileAsync(
         GetMasterDataFileRequest req, CancellationToken ct = default)
     {
         var dateSuffix = _opt.DateInZipName ? $"_{DateTime.Now:yyyyMMdd}" : string.Empty;
         var timeSuffix = _opt.DateInZipName ? $"_{DateTime.Now:HHmmssfff}" : string.Empty;
-        var zipName = $"{req.SiteCode}_{req.TypeSync}_{req.PosTerminal}{dateSuffix}_{timeSuffix}.zip";
-        var zipPath = Path.Combine(req.TargetDir, zipName);
 
-        // 1. File hợp lệ trong ngày đã có → trả ngay (R1: file cũ bị xóa trong IsTodayZipValid).
-        if (IsTodayZipValid(zipPath))
-            return Success(zipName, req);
+        string CommonZipName() => $"{req.SiteCode}_{req.TypeSync}_{req.PosTerminal}{dateSuffix}_{timeSuffix}.zip";
+        string SingleZipName(string tableName) =>
+            $"{req.SiteCode}_{req.TypeSync}_{req.PosTerminal}_{SanitizeTableNameForFolder(tableName)}{dateSuffix}_{timeSuffix}.zip";
+
+        // Cần biết trước danh sách bảng (SP1) để tính toàn bộ tên zip dự kiến của lượt chạy này
+        // (1 common + 1/bảng IsSingleFile=1) — phục vụ short-circuit "đã hợp lệ hôm nay" all-or-nothing.
+        var tables = await syncRepository.GetSyncTablesAsync(ct);
+        var tableEntries = tables
+            .Where(t => !string.IsNullOrWhiteSpace(t.TableName))
+            .Select((t, idx) => (Table: t, Index: idx + 1))
+            .ToList();
+
+        var singleTableNames = tableEntries
+            .Where(e => e.Table.IsSingleFile)
+            .Select(e => e.Table.TableName!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var expectedZipNames = new List<string> { CommonZipName() };
+        expectedZipNames.AddRange(singleTableNames.Select(SingleZipName));
+
+        // 1. Toàn bộ zip dự kiến đã hợp lệ trong ngày → trả ngay (R1: file cũ bị xóa trong IsTodayZipValid).
+        if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
+            return expectedZipNames.Select(z => Success(z, req)).ToList();
 
         // 2. Khóa theo terminal (bounded) + double-check.
         var lockKey = $"{req.TypeSync}_{req.SiteCode}_{req.PosTerminal}";
         using var lockHandle = await syncFileLock.AcquireAsync(lockKey, ct);
-        if (IsTodayZipValid(zipPath))
-            return Success(zipName, req);
+        if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
+            return expectedZipNames.Select(z => Success(z, req)).ToList();
 
         Directory.CreateDirectory(req.TargetDir);
         var tmpDir = Path.Combine(req.TargetDir, $"_tmp_{Guid.NewGuid():N}");
-        var tmpZip = Path.Combine(req.TargetDir, $"{Guid.NewGuid():N}.zip");
         var tableCount = 0;
         try
         {
             Directory.CreateDirectory(tmpDir);
 
-            var tables = await syncRepository.GetSyncTablesAsync(ct);
-            var processId = StringHelper.InitRandomString(req.SiteCode);
+            var commonDir = Path.Combine(tmpDir, CommonGroupFolder);
+            Directory.CreateDirectory(commonDir);
+            var singleTableDirs = singleTableNames.ToDictionary(
+                t => t,
+                t => Path.Combine(tmpDir, SanitizeTableNameForFolder(t)),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var dir in singleTableDirs.Values)
+                Directory.CreateDirectory(dir);
 
-            // Precompute (table, index) trước khi song song hóa để tableIndex ổn định và không race.
-            var tableEntries = tables
-                .Where(t => !string.IsNullOrWhiteSpace(t.TableName))
-                .Select((t, idx) => (Table: t, Index: idx + 1))
-                .ToList();
+            var processId = StringHelper.InitRandomString(req.SiteCode);
 
             // Song song hóa SP2: mỗi bảng dùng SqlConnection riêng → thread-safe.
             // MaxParallelTables ≤ 0 → sequential (fallback an toàn).
             var skippedCount = 0; // đếm bảng SP2 trả 0 dòng (thread-safe qua Interlocked)
+            var writtenTables = new ConcurrentBag<string>(); // bảng thực sự có dữ liệu (rowCount > 0)
             await Parallel.ForEachAsync(tableEntries, new ParallelOptions
             {
                 MaxDegreeOfParallelism = _opt.MaxParallelTables > 0 ? _opt.MaxParallelTables : 1,
@@ -101,6 +128,7 @@ public sealed class MasterDataSyncService(
                 // Random 1 LẦN/bảng (KHÔNG mỗi batch) để các file cùng bảng chung prefix + sắp đúng thứ tự.
                 var rnd = StringHelper.InitRandomString(string.Empty);
                 var tableIndex = entry.Index;
+                var tableOutDir = entry.Table.IsSingleFile ? singleTableDirs[entry.Table.TableName!] : commonDir;
 
                 // Tên file mỗi batch: {Site}_{Table}_{rnd}_{tableIndex}_{batchNo:D3}.txt (batchNo zero-pad để sort đúng).
                 string FileNameFor(int batchNo) =>
@@ -133,7 +161,7 @@ public sealed class MasterDataSyncService(
                 try
                 {
                     var (_, rowCount) = await syncRepository.StreamTableToFilesAsync(
-                        entry.Table, tmpDir, FileNameFor, ActionFor, processId, counter, _opt.BatchSizePerFile,
+                        entry.Table, tableOutDir, FileNameFor, ActionFor, processId, counter, _opt.BatchSizePerFile,
                         filterColumn, filterValue, token);
 
                     if (rowCount == 0)
@@ -143,6 +171,10 @@ public sealed class MasterDataSyncService(
                         kibanaService.LogInfo("MasterDataSync.EmptyTable", req.PosTerminal,
                             $"Bảng '{entry.Table.TableName}' SP2 trả 0 dòng " +
                             $"(filter: [{filterColumn}]='{filterValue}') — bỏ qua, không tạo file.");
+                    }
+                    else
+                    {
+                        writtenTables.Add(entry.Table.TableName!);
                     }
                 }
                 catch (Exception exTable)
@@ -156,38 +188,92 @@ public sealed class MasterDataSyncService(
             });
             tableCount = tableEntries.Count;
 
-            // Nén thư mục tạm → zip tạm → File.Move sang tên chính thức (publish atomic).
-            fileArchiveService.CreateZipFromDirectory(tmpDir, tmpZip);
-            File.Move(tmpZip, zipPath, overwrite: true);
+            var writtenSet = new HashSet<string>(writtenTables, StringComparer.OrdinalIgnoreCase);
+            var publishedZipNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var results = new List<GetMasterDataFileResult>();
 
-            // SHA-256 companion file: ops/monitoring verify integrity bằng `sha256sum`.
-            // POS có thể download {zipName}.sha256 để self-verify sau khi tải zip (tùy chọn).
-            var hash = await ComputeSha256HexAsync(zipPath, ct);
-            await File.WriteAllTextAsync(zipPath + ".sha256", hash, ct);
+            // Zip "common" — chỉ publish nếu có ít nhất 1 bảng IsSingleFile=0 thực sự có dữ liệu.
+            var commonTableCount = tableEntries.Count(e => !e.Table.IsSingleFile && writtenSet.Contains(e.Table.TableName!));
+            if (commonTableCount > 0)
+            {
+                var zipName = CommonZipName();
+                await PublishZipAsync(req, zipName, commonDir, ct);
+                publishedZipNames.Add(zipName);
+                results.Add(Success(zipName, req, commonTableCount));
+            }
 
-            CleanupSiblingZips(req, zipName);
+            // Zip riêng cho từng bảng IsSingleFile=1 thực sự có dữ liệu.
+            foreach (var tableName in singleTableNames)
+            {
+                if (!writtenSet.Contains(tableName)) continue; // SP2 trả 0 dòng — không publish zip rỗng.
+                var zipName = SingleZipName(tableName);
+                await PublishZipAsync(req, zipName, singleTableDirs[tableName], ct);
+                publishedZipNames.Add(zipName);
+                results.Add(Success(zipName, req, 1));
+            }
+
+            // Dọn zip mồ côi cùng terminal (khác lượt chạy này, hoặc bảng vừa bị tắt IsSingleFile).
+            CleanupSiblingZips(req, publishedZipNames);
 
             if (skippedCount == tableCount && tableCount > 0)
                 kibanaService.LogInfo("MasterDataSync.AllEmpty", req.PosTerminal,
-                    $"Cảnh báo: {zipName} được publish nhưng TẤT CẢ {tableCount} bảng SP2 trả 0 dòng — zip rỗng!");
+                    $"Cảnh báo: lượt sinh master data nhưng TẤT CẢ {tableCount} bảng SP2 trả 0 dòng — không zip nào được publish!");
 
             kibanaService.LogInfo("MasterDataSync.Ensure", req.PosTerminal,
-                $"Generated {zipName} ({tableCount} tables, {skippedCount} empty skipped) at {req.TargetDir}");
-            return Success(zipName, req, tableCount);
+                $"Generated {publishedZipNames.Count} zip(s) [{string.Join(", ", publishedZipNames)}] " +
+                $"({tableCount} tables, {skippedCount} empty skipped) at {req.TargetDir}");
+            return results;
         }
         catch (Exception ex)
         {
             // error-cleanup: KHÔNG publish file thiếu bảng — cleanup ở finally, log + throw.
             kibanaService.LogException("MasterDataSync.Ensure", req.PosTerminal, 0, "",
-                $"Generate {zipName} failed: {ex.Message}");
+                $"Generate master data failed: {ex.Message}");
             fileLogHelper.WriteExpLogs("MasterDataSyncService.EnsureMasterDataFileAsync", ex);
             throw;
         }
         finally
         {
             TryDeleteDirectory(tmpDir);
+        }
+    }
+
+    /// <summary>Nén <paramref name="sourceDir"/> → zip tạm → publish atomic (File.Move) + sha256 companion.</summary>
+    private async Task PublishZipAsync(GetMasterDataFileRequest req, string zipName, string sourceDir, CancellationToken ct)
+    {
+        var zipPath = Path.Combine(req.TargetDir, zipName);
+        var tmpZip = Path.Combine(req.TargetDir, $"{Guid.NewGuid():N}.zip");
+        try
+        {
+            fileArchiveService.CreateZipFromDirectory(sourceDir, tmpZip);
+            File.Move(tmpZip, zipPath, overwrite: true);
+
+            // SHA-256 companion file: ops/monitoring verify integrity bằng `sha256sum`.
+            // POS có thể download {zipName}.sha256 để self-verify sau khi tải zip (tùy chọn).
+            var hash = await ComputeSha256HexAsync(zipPath, ct);
+            await File.WriteAllTextAsync(zipPath + ".sha256", hash, ct);
+        }
+        finally
+        {
             TryDeleteFile(tmpZip);
         }
+    }
+
+    /// <summary>Loại ký tự không hợp lệ cho tên thư mục/file — TableName vốn là identifier SQL, phòng vệ tối thiểu.</summary>
+    private static string SanitizeTableNameForFolder(string tableName)
+        => Path.GetInvalidFileNameChars().Aggregate(tableName, (current, c) => current.Replace(c, '_'));
+
+    /// <summary>Toàn bộ <paramref name="zipNames"/> đều hợp lệ trong ngày hôm nay hay không (all-or-nothing).
+    /// Duyệt hết danh sách (không short-circuit) để mọi file cũ đều được dọn qua IsTodayZipValid.</summary>
+    private bool AreAllTodayZipsValid(string targetDir, IEnumerable<string> zipNames)
+    {
+        var allValid = true;
+        foreach (var zipName in zipNames)
+        {
+            if (!IsTodayZipValid(Path.Combine(targetDir, zipName)))
+                allValid = false;
+        }
+        return allValid;
     }
 
     /// <summary>
@@ -213,10 +299,13 @@ public sealed class MasterDataSyncService(
     }
 
     /// <summary>
-    /// Xóa zip cùng prefix (cùng terminal) có tên ≠ file hôm nay → folder chỉ còn 1 file/ngày (R1).
+    /// Xóa zip cùng prefix (cùng terminal) không thuộc <paramref name="currentZipNames"/> (vừa publish
+    /// trong lượt chạy này) → folder chỉ còn đúng bộ zip hôm nay (R1). Áp dụng cho cả zip "common" lẫn
+    /// zip riêng theo bảng — cùng 1 prefix `{Site}_{Type}_{Terminal}_` nên dùng chung 1 lượt quét; nhờ đó
+    /// zip mồ côi của 1 bảng vừa bị tắt IsSingleFile cũng được dọn tự động.
     /// Thêm: xóa file cũ hơn KeepZipDays (lưới an toàn cho file mồ côi).
     /// </summary>
-    private void CleanupSiblingZips(GetMasterDataFileRequest req, string currentZipName)
+    private void CleanupSiblingZips(GetMasterDataFileRequest req, IReadOnlySet<string> currentZipNames)
     {
         try
         {
@@ -224,7 +313,7 @@ public sealed class MasterDataSyncService(
             foreach (var file in Directory.GetFiles(req.TargetDir, $"{prefix}*.zip"))
             {
                 var name = Path.GetFileName(file);
-                if (string.Equals(name, currentZipName, StringComparison.OrdinalIgnoreCase))
+                if (currentZipNames.Contains(name))
                     continue;
 
                 var isOld = (DateTime.Now - new FileInfo(file).LastWriteTime).TotalDays > _opt.KeepZipDays;

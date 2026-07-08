@@ -11,6 +11,7 @@
 | C1 | HTTPS + Cookie.Secure | Có TLS → đặt `Security:RequireHttps=true` | CRITICAL (khi ra internet) | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | H2 | AllowedHosts | Đặt domain dashboard thật thay cho `"*"` | HIGH | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
 | H1 | SQL Console | Cân nhắc `Security:EnableSqlConsole=false` | HIGH | [§Cấu hình khác](#cấu-hình-production-khác-cần-thực-hiện-khi-go-live) |
+| H1b | PIN cho SQL Console | Chạy migration 004 + `UPDATE DashboardUsers.PinHash` cho từng SystemAdmin cần dùng SQL Console | REQUIRED (từ khi thêm PIN gate) | [§H1b](#h1b--pin-riêng-cho-sql-console) |
 | O1 | Master data sync (POS.Api) | Đảm bảo `FtpRootPath` ghi được + tinh chỉnh `MasterDataSync` | MEDIUM | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
 | O2 | File import worker (POS.Worker) | Tạo 3 thư mục inbox/error/_work + cấp quyền ghi + điền path `FileImport` | MEDIUM | [§O2](#o2--worker-nạp-sale-từ-file-zip-posworker) |
 | O3 | Nút SyncData trên POS.Web (`/catalog/pos-setup`) | Đặt `FtpRootPath` của **POS.Web** = ĐÚNG thư mục vật lý POS.Api phục vụ (chung share/volume) | MEDIUM | [§O3](#o3--nút-syncdata-đẩy-dữ-liệu-đầu-ngày-posweb) |
@@ -165,6 +166,30 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   ```
   → trang `/admin/sql-console` báo "đã bị tắt" và service từ chối mọi lệnh (gate cả 2 lớp).
 
+### H1b — PIN riêng cho SQL Console
+
+> Từ khi SQL Console được mở gần như toàn quyền (SELECT/INSERT/UPDATE/DELETE/CREATE·ALTER
+> PROCEDURE/CREATE·ALTER TABLE — chỉ chặn DROP/TRUNCATE), `SqlConsolePage.razor` thêm lớp bảo mật
+> thứ 2: mỗi tài khoản `SystemAdmin` phải nhập đúng **PIN riêng** (lưu ở
+> `DashboardUsers.PinHash`, BCrypt hash) trước khi thấy nội dung trang — **mỗi lần vào trang đều
+> phải nhập lại**, không lưu trạng thái mở khoá.
+
+**Bắt buộc trước khi admin nào dùng được `/admin/sql-console`:**
+
+1. Chạy migration `src/POS.Web/Database/Migrations/004_DashboardUsers_AddPinHash.sql` trên
+   `RPOSMasterData` (từng môi trường Dev/UAT/Prod riêng — cột `PinHash`, không dùng chung config).
+2. Với từng tài khoản `SystemAdmin` cần dùng SQL Console: sinh BCrypt hash cho PIN đã chọn (tái
+   dùng cơ chế hash của skill `/web-gen-hash`, `BCrypt.HashPassword(pin, workFactor: 11)`), rồi
+   chạy thủ công:
+   ```sql
+   UPDATE DashboardUsers SET PinHash = '<hash>' WHERE Username = '<username>';
+   ```
+   — **hash không bao giờ commit vào git**, chỉ chạy trực tiếp trên DB từng môi trường.
+3. Tài khoản chưa có `PinHash` (NULL) sẽ bị chặn truy cập với thông báo "PIN chưa được thiết lập
+   cho tài khoản này" (fail closed).
+4. Khuyến nghị PIN ≥ 6 ký tự, không dùng 1111/1234; đổi PIN định kỳ bằng `UPDATE` lại cột này.
+   Khoá tạm 15 phút sau 5 lần nhập sai (đếm theo Redis key `SqlConsolePin:Attempts:{username}`).
+
 ### (Tham khảo) Nếu chuyển sang chạy SAU reverse proxy
 - Đổi `"Security": { "Mode": "BehindProxy" }` và khai báo IP proxy thật:
   ```json
@@ -226,10 +251,29 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   location /api/posblue/GetFileFromFTP { proxy_read_timeout 120s; }
   location /api/posblue/DowloadFileStream { proxy_buffering off; proxy_read_timeout 600s; proxy_send_timeout 600s; }
   ```
+  ⚠️ **Caveat (2026-07-08 — chưa verify được)**: đoạn cấu hình trên là **khuyến nghị**, giả định có
+  nginx (hoặc reverse proxy tương đương) đứng trước POS.Api. Trong repo này, `docker-compose.yml`
+  map thẳng service `webapp` (POS.Api) ra `80:80` (không qua proxy), và không tìm thấy route
+  `posblue` nào trong `nginx/*.conf` hiện có (chỉ có config cho POS.Web). Người vận hành **cần tự
+  kiểm tra topology Production/UAT thật** (có proxy nào khác nằm ngoài repo này không) trước khi áp
+  dụng đoạn cấu hình trên — nếu không có proxy, đoạn này không áp dụng được và có thể bỏ qua.
 - **Redis key `MD:SyncTableList`** (SP1 cache, TTL 1h): tự invalidate. Nếu DBA thay đổi cấu hình
   `SyncTableList` và cần hiệu lực ngay → `DEL MD:SyncTableList` trên Redis.
 - **Bảng `IsByStore=1`** lọc theo `siteCode` qua `ColumnFilter` (SP2 đã mở rộng) — đảm bảo cột filter
   (`Store.No`, `Staff.StoreNo`…) có index để seek nhanh.
+- **⚠️ 2026-07-08 — tách zip theo `SyncTableList.IsSingleFile` (fix timeout download POS với site
+  nhiều dữ liệu)**: **BẮT BUỘC apply** `docs/sql/SyncTableList_AddIsSingleFile.sql` trên `CentralMD`
+  (thêm cột `IsSingleFile BIT DEFAULT 0` + cập nhật SP `[SyncTable_Get]` trả thêm cột này).
+  Backward-compatible (default 0 → mọi bảng vẫn gom chung 1 zip "common" như trước, không đổi hành
+  vi cho đến khi DBA chủ động bật cờ). Sau khi apply:
+  1. `DEL MD:SyncTableList` trên Redis để SP1 đọc cột mới ngay (không đợi hết TTL 1h).
+  2. DBA tự quyết định bảng cần tách riêng dựa theo kích thước dữ liệu thực tế của từng site, ví dụ:
+     ```sql
+     UPDATE dbo.SyncTableList SET IsSingleFile = 1 WHERE TableName IN ('Barcodes', 'Item', 'SalesPrice');
+     ```
+     (điều chỉnh danh sách theo dữ liệu thật — KHÔNG hardcode trong appsettings/code, chỉ ở DB).
+  3. Không cần deploy lại app khi đổi danh sách bảng — chỉ cần `UPDATE` lại `SyncTableList` +
+     `DEL MD:SyncTableList`.
 
 ---
 

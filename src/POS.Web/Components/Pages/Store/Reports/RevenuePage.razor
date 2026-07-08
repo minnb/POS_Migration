@@ -36,32 +36,26 @@
 </MudText>
 
 @* ── KPI Cards ─────────────────────────────────────────────────────── *@
-<MudGrid Spacing="3" Class="mb-4">
-    <MudItem xs="12" sm="4">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-primary);">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Doanh thu hôm nay</MudText>
-            <MudText Typo="Typo.h5" Color="Color.Primary" Class="mt-1">
-                @FormatVND(_summary.TodayRevenue)
-            </MudText>
+<div class="d-flex flex-wrap gap-3 mb-4">
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_summary.TodayRevenue)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Doanh thu hôm nay</MudText>
         </MudPaper>
-    </MudItem>
-    <MudItem xs="12" sm="4">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-success);">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Số hóa đơn bán</MudText>
-            <MudText Typo="Typo.h5" Color="Color.Success" Class="mt-1">
-                @_summary.TodayOrders.ToString("N0")
-            </MudText>
+    </div>
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_summary.TodayOrders.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số hóa đơn bán</MudText>
         </MudPaper>
-    </MudItem>
-    <MudItem xs="12" sm="4">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-error);">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Số hóa đơn trả</MudText>
-            <MudText Typo="Typo.h5" Color="Color.Error" Class="mt-1">
-                @_summary.TodayReturns.ToString("N0")
-            </MudText>
+    </div>
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@_summary.TodayReturns.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số hóa đơn trả</MudText>
         </MudPaper>
-    </MudItem>
-</MudGrid>
+    </div>
+</div>
 
 @* ── Filter ───────────────────────────────────────────────────────── *@
 <MudPaper Elevation="0" Class="mb-4 d-flex align-center gap-2 flex-wrap" Style="background:transparent;">

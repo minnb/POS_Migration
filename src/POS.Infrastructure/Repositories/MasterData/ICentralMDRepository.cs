@@ -85,8 +85,11 @@ public interface ICentralMDRepository
     /// <summary>
     /// Danh sách POS từ POSTerminal (master config) LEFT JOIN POSMonitor (live heartbeat) —
     /// dùng cho page ops/pos-map. Không cache (real-time).
+    /// storeNo = null → toàn bộ hệ thống (hành vi cũ, dùng cho ops/pos-map);
+    /// storeNo có giá trị → chỉ terminal của 1 cửa hàng (dùng cho Store Dashboard, tránh quét
+    /// toàn bộ ~5.000 terminal chỉ để lấy 2-6 dòng liên quan).
     /// </summary>
-    Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default);
+    Task<List<PosTerminalListDto>> GetPosTerminalListAsync(string? storeNo = null, CancellationToken ct = default);
 
     /// <summary>Cập nhật 3 field cho phép Admin sửa: IPAddress, Status, BillNoseri.</summary>
     Task<bool> UpdatePosTerminalAsync(

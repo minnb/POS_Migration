@@ -9,4 +9,5 @@ public sealed class DashboardUser
     public string  Role         { get; set; } = string.Empty;
     public string? StoreCodes   { get; set; }
     public bool    IsActive     { get; set; }
+    public string? PinHash      { get; set; }
 }

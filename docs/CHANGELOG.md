@@ -6,6 +6,246 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-08] Fix DowloadFileStream bị Kestrel ngắt khi mạng POS chậm + tài liệu verify SHA-256
+
+**Layer:** POS.Api
+**Loại:** Bug fix + Pattern mới
+
+**Bối cảnh:** Rà soát tiếp `GetFileFromFTP`/`DowloadFileStream` (sau task tách zip IsSingleFile) để
+trả lời 3 câu hỏi: mức nén zip đã tối ưu chưa, cách POS verify SHA-256, còn lỗ hổng nào khiến POS
+tải file mất dữ liệu/lỗi file. Kết luận: nén giữ nguyên `Fastest` (đã lossless, đổi mức chỉ đổi
+CPU/tốc độ chứ không đổi an toàn dữ liệu — user chọn không đổi). Phát hiện 2 vấn đề thật trong
+`DowloadFileStream`: (1) Kestrel `MinResponseDataRate` mặc định (240 byte/giây sau 5s) chưa được
+override — server có thể tự ngắt kết nối khi mạng POS chậm dù đang gửi đúng dữ liệu; (2)
+`Content-Type` hardcode `application/x-zip-compressed` cho mọi file kể cả khi POS tải file
+`.sha256` (text) qua cùng endpoint.
+
+**Thay đổi:**
+- `src/POS.Api/Controllers/SyncDataPosController.cs` (`DowloadFileStream`): thêm
+  `HttpContext.Features.Get<IHttpMinResponseDataRateFeature>().MinDataRate = null` trước khi stream
+  (chỉ tắt cho request này, không đụng `Program.cs`/Kestrel global); `Content-Type` chọn theo phần
+  mở rộng file (`.sha256` → `text/plain`, còn lại giữ `application/x-zip-compressed`).
+- `CLAUDE.md` (mục "Sinh file master data .zip cho POS"): thêm hướng dẫn verify SHA-256 phía POS
+  (suy tên `{FileName}.sha256`, tải qua `DowloadFileStream`, so sánh hash, mismatch → hủy & tải
+  lại) + cảnh báo rõ đây là **integrity** (chống lỗi truyền), không phải **authenticity** (không
+  chống giả mạo có chủ đích — cần TLS/HMAC nếu muốn vậy).
+- `docs/ROLLOUT.md` (§O1): thêm caveat — cấu hình nginx timeout cho 2 route này chỉ là khuyến nghị,
+  chưa xác nhận có reverse proxy thật nào đứng trước POS.Api (repo hiện map thẳng port 80, không có
+  route `posblue` trong `nginx/*.conf`) — người vận hành cần tự đối chiếu topology Production thật.
+
+**Pattern mới:** "Tắt Kestrel MinResponseDataRate cho 1 request stream file lớn" → đã thêm vào
+`.claude/skills/api/SKILLS.md`.
+
+**Lưu ý cho session sau:**
+- Hiệu quả thực tế của việc tắt `MinResponseDataRate` chưa verify được (cần môi trường throttle
+  mạng để test) — chỉ verify được build + `dotnet test tests/POS.ContractTests` (25/25 xanh).
+- HTTP Range/206 (resume download dở dang) tiếp tục bị hoãn theo quyết định của user (ưu tiên giải
+  pháp tách zip nhỏ ở task trước) — nếu sau này cần resume thật, đây là việc chưa làm.
+
+---
+
+## [2026-07-08] Tách zip master data theo cờ SyncTableList.IsSingleFile (fix timeout download POS)
+
+**Layer:** POS.Api, POS.Application, POS.Common
+**Loại:** Bug fix + Pattern mới
+
+**Bối cảnh:** Máy POS gọi `GetFileFromFTP?typeSync=ALL` rồi `DowloadFileStream` để tải zip master
+data đầu ngày; với site nhiều dữ liệu, zip vượt >10MB khiến client POS (code cũ
+`StorePos.InitDataPos`, `WebClient.DownloadFile`, timeout mặc định ~100s — codebase này KHÔNG nằm
+trong repo, không sửa được) báo lỗi `The operation has timed out`. Giải pháp: giảm kích thước từng
+file tải bằng cách tách các bảng nặng dữ liệu ra zip riêng, phần còn lại vẫn gom 1 zip như cũ.
+Quyết định của user: điều khiển việc tách bằng 1 cột DB (`SyncTableList.IsSingleFile`), KHÔNG dùng
+appsettings — vì đây là quyết định vận hành (DBA đổi theo dữ liệu thực tế từng site), không phải
+quyết định lúc code/deploy.
+
+**Thay đổi:**
+- `docs/sql/SyncTableList_AddIsSingleFile.sql` (mới): thêm cột `IsSingleFile BIT DEFAULT 0` vào
+  `dbo.SyncTableList` + cập nhật SP `[SyncTable_Get]` trả thêm cột này (áp dụng thủ công CentralMD).
+- `src/POS.Common/Dtos/DataSync/SyncTableInfo.cs`: thêm field `IsSingleFile` (Dapper tự map).
+- `src/POS.Application/Features/DataSync/MasterDataSyncService.cs`: refactor
+  `EnsureMasterDataFileAsync` — mỗi bảng ghi `.txt` vào sub-folder riêng (`_common` hoặc theo tên
+  bảng) trong CÙNG 1 lần `Parallel.ForEachAsync` (không đổi hiệu năng sinh dữ liệu), sau đó zip
+  riêng từng sub-folder có dữ liệu. Idempotent **all-or-nothing** trên toàn bộ danh sách zip dự
+  kiến của lượt chạy; cleanup dùng chung 1 prefix + HashSet "vừa publish" nên tự dọn zip mồ côi khi
+  1 bảng bị tắt cờ. Trả về `List<GetMasterDataFileResult>` thay vì 1 kết quả đơn (DTO nội bộ,
+  không phải HTTP body → an toàn đổi signature).
+- `src/POS.Application/Features/DataSync/IMasterDataSyncService.cs`: cập nhật signature interface.
+- `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`PushStartOfDayDataAsync`): gộp
+  `List<GetMasterDataFileResult>` thành 1 kết quả tổng hợp — giữ nguyên contract đơn cho
+  `PosMapPage.razor` (POS.Web, phát hiện khi build lỗi do đổi signature `IMasterDataSyncService`).
+- `src/POS.Api/Controllers/SyncDataPosController.cs` (`GetFileFromFTP`): cập nhật logging tổng hợp
+  qua list — **KHÔNG đổi** response HTTP cho POS (`GetFileFromServerApiAsync` đã liệt kê mọi `*.zip`
+  trong thư mục nên tự động hỗ trợ nhiều file, không cần sửa).
+
+**Pattern mới:** "Tách N file output theo cờ DB (thay vì appsettings) — idempotent
+all-or-nothing" → đã thêm vào `.claude/skills/api/SKILLS.md`.
+
+**Lưu ý cho session sau:**
+- Mặc định `IsSingleFile=0` cho mọi bảng → hành vi **không đổi** (1 zip common như cũ) cho đến khi
+  DBA chủ động `UPDATE SyncTableList SET IsSingleFile=1 WHERE TableName IN (...)` + `DEL
+  MD:SyncTableList` trên Redis (xem `docs/ROLLOUT.md` §O1). Chưa xác nhận được tên bảng chính xác
+  cần tách (Barcodes/Item/SalesPrice...) — DBA tự quyết định theo dữ liệu thực tế, không hardcode.
+- Chưa verify được hành vi runtime end-to-end (không có DB CentralMD + FtpRootPath thật trong
+  phiên làm việc) — chỉ verify được build + `dotnet test tests/POS.ContractTests` (25/25 xanh).
+
+---
+
+## [2026-07-08] Fix VoidsPage rỗng dữ liệu (SQL reserved keyword) + đồng bộ UI + rule mới
+
+**Layer:** POS.Web, POS.Infrastructure
+**Loại:** Bug fix + UI polish + Pattern mới (rule dự án)
+
+**Bối cảnh:** Người dùng xác nhận `TransVoidHeader`/`TransVoidLine` có dữ liệu thật nhưng
+`/store/voids` tìm kiếm luôn ra rỗng, không báo lỗi nào trên UI. Điều tra qua log file
+(`D:\ROOT\Logs\POS.Web\Exception\log-20260708.txt`) phát hiện `SqlException` Msg 156 "Incorrect
+syntax near the keyword 'LineNo'" trong `GetVoidReportAsync`, bị `catch`-log-return-`[]` nuốt âm
+thầm (đúng pattern chung toàn `CentralSaleRepository.cs`) nên không lộ ra UI.
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Repositories/Sale/CentralSaleRepository.cs` (`GetVoidReportAsync`):
+  `vl.LineNo,` → `vl.[LineNo],` — `LineNo` là reserved keyword MS SQL, cần bracket-quote (đã
+  loại trừ nguyên nhân khác: không phải ký tự ẩn, không phải cột không tồn tại — Msg 156 khác
+  Msg 207 "Invalid column name").
+- `src/POS.Web/Components/Pages/Store/Transactions/VoidsPage.razor`: đồng bộ UI theo chuẩn
+  `PosMapPage.razor` (file mẫu dự án) — filter panel `pa-3` (khớp mẫu), loading bar chỉ hiện khi
+  chưa có dữ liệu (`_loading && !_voids.Any()`, tránh giật UI mỗi lần bấm Tìm), `MudTable` thêm
+  `Striped="true"` bỏ `Elevation="2"` thừa, thay toàn bộ hex màu cứng (`#DC3545`/`#9e9e9e`) sang
+  CSS token theme (`var(--pos-danger)`/`var(--pos-text-muted)`), 4 KPI card thêm viền trái theo
+  màu ngữ nghĩa (danger/danger/warning/primary) khớp cách `PosMapPage.razor` phân loại KPI.
+- `.claude/skills/database/SKILLS.md` + `CLAUDE.md` (mục "Quy tắc Stored Procedure"): thêm rule
+  mới "Reserved keyword — BẮT BUỘC bracket-quote `[ ]`", áp dụng cho **mọi** SQL trong dự án (SP
+  mới, script `docs/sql/*.sql`, Dapper inline query trong Repository) — không giới hạn riêng SP.
+
+**Pattern mới:** Reserved keyword bracket-quote khi viết/sửa SQL → đã cập nhật
+`.claude/skills/database/SKILLS.md` + tham chiếu ngắn trong `CLAUDE.md`.
+
+**Lưu ý cho session sau:**
+- `SqlException` Msg **156** "Incorrect syntax near the keyword 'X'" mà cột `X` **tồn tại thật**
+  trong bảng (khác Msg **207** "Invalid column name") → chắc chắn là reserved keyword,
+  bracket-quote `[X]` ngay, không cần đoán thêm. Dự án đã có tiền lệ `[Source]` trong
+  `GetDataRawJsonListAsync` trước case `[LineNo]` này.
+- Repository catch-log-return-default (pattern chung `CentralSaleRepository.cs`) khiến lỗi SQL
+  KHÔNG BAO GIỜ lên UI — khi 1 trang "tìm không ra lỗi nhưng cũng không có data", luôn đọc file
+  log Exception (`{FileLogDirectory}/Exception/log-{yyyyMMdd}.txt`) trước khi nghi ngờ logic
+  filter/routing/kiến trúc sharding.
+- Trong lúc điều tra, phát hiện tính năng `SyncTableList.IsSingleFile` (tách zip master data
+  riêng theo bảng, theo đề xuất người dùng — xem `docs/sql/SyncTableList_AddIsSingleFile.sql`,
+  `MasterDataSyncService.cs`) **đã được code + tài liệu hóa đầy đủ** (`docs/ROLLOUT.md` §O1,
+  `CLAUDE.md` mục "Sinh file master data .zip") trong lúc phiên làm việc này diễn ra — không rõ
+  bởi tiến trình nào, chỉ xác nhận lại bằng cách đọc trực tiếp code/build/test, không phải do
+  session này viết. Build toàn solution (`POS.Api`) 0 lỗi, `dotnet test tests/POS.ContractTests`
+  25/25 xanh sau tất cả thay đổi trên.
+
+---
+
+## [2026-07-07] Dashboard mặc định cho role Cửa hàng (StoreOperator) — /store/dashboard
+
+**Layer:** POS.Web, POS.Infrastructure, POS.Application
+**Loại:** Feature (landing page mới) + Bug fix (resolve git-conflict marker tồn đọng trong docs)
+
+**Bối cảnh:** StoreOperator đăng nhập trước đây bị redirect vào `/store/revenue` — một trang báo
+cáo đơn thuần, không phải dashboard tổng quan. Thiết kế qua `/plan` (đã đánh giá performance kỹ —
+loại `GetPosTerminalListAsync()` full-scan ~5.000 dòng khỏi trang mặc định, ưu tiên nguồn cached
+`GetSaleByTimeAsync` thay cho `GetRevenueSummaryAsync`/`GetRevenueHourlyAsync` không cache) rồi
+triển khai qua nhiều lượt chỉnh UI theo yêu cầu người dùng.
+
+**Thay đổi:**
+- `src/POS.Web/Components/Pages/Store/StoreDashboardPage.razor` (MỚI): 3 KPI card (Doanh thu/
+  Tổng Bill/Void+tỷ lệ, chuẩn `RevenuePage.razor` — `MudGrid xs=12 sm=4` + border-left 4px) +
+  2 bar chart cùng hàng tỉ lệ 50:50 (theo giờ hôm nay + 7 ngày gần nhất, cùng nguồn
+  `IRptCentralSaleRepository.GetSaleByTimeAsync`) + `MudTable` Void gần nhất (top 10). Header
+  động `HeaderTitle` = "Cửa hàng {StoreNo}-{Name}"; ITOps/Admin mặc định xem **TẤT CẢ cửa hàng**
+  (`storeNo=null`, không chặn bằng alert "chọn cửa hàng" — đúng pattern `storeNo=null` đã hỗ trợ
+  sẵn ở `GetSaleByTimeAsync`/`GetVoidReportAsync`). Auto-refresh `PeriodicTimer` mặc định 120s.
+- `ICentralMDRepository.GetPosTerminalListAsync`: thêm tham số `storeNo` optional (mặc định
+  `null` = giữ hành vi cũ cho `PosMapPage.razor`) — filter `WHERE pt.StoreNo=@storeNo` tại DB.
+  `BusinessDayService.cs` cập nhật truyền `storeNo`, bỏ `.Where()` client-side thừa.
+- `MainLayout.razor`: click logo `pos-sidebar-brand` ("RPOS – Quản lý bán hàng") điều hướng tới
+  `/store/dashboard` (không có menu link riêng); role StoreOperator luôn mở sẵn cả 3 sub-group
+  "CỬA HÀNG" (Vận hành/Giao dịch/Báo cáo) trong `UpdateExpanded()`, ITOps/Admin giữ logic cũ
+  (chỉ mở nhánh khớp route).
+- `Index.razor`: StoreOperator redirect `/store/dashboard` (thay `/store/revenue`).
+- **Fix phụ**: resolve git-conflict marker lồng nhiều lớp (HEAD/dev/minhnb/7ff26a6...) tồn đọng
+  từ trước trong `docs/WEB_STATUS.md` + `docs/CHANGELOG.md` (phát hiện khi chạy `/task-done`) —
+  giữ nguyên toàn bộ nội dung 2 bên, chỉ bỏ marker + 1 dòng header trùng lặp thật.
+
+**Pattern mới:** Đã cập nhật `docs/architecture` — không có pattern code mới ngoài phạm vi đã ghi
+ở `.claude/skills/web/SKILLS.md` (Store Selector Dual Mode, PeriodicTimer auto-refresh đã có sẵn
+từ `PosMapPage.razor`/`HealthPage.razor`, tái dùng nguyên).
+
+**Lưu ý cho session sau:**
+1. Khi thêm trang landing/auto-refresh mới, ưu tiên `IRptCentralSaleRepository.GetSaleByTimeAsync`
+   (cached Redis, SP-based) hơn các method uncached trong `ICentralSaleRepository`
+   (`GetRevenueSummaryAsync`/`GetRevenueHourlyAsync`) — tránh nhân tần suất query không cache lên
+   theo số lượt đăng nhập.
+2. `docs/WEB_STATUS.md`/`docs/CHANGELOG.md` từng bị 2 phiên Claude Code khác nhau ghi đồng thời
+   gây conflict marker kẹt trong file (git status không báo vì không phải merge thật đang chờ —
+   marker bị gõ thành nội dung thường). Nếu thấy dòng bắt đầu bằng `<<<<<<<`/`=======`/`>>>>>>>`
+   trong bất kỳ file `.md` nào, dừng lại kiểm tra trước khi ghi tiếp — khả năng cao có phiên khác
+   đang chạy song song trên cùng repo.
+3. Chưa verify UI thật trên browser (không có credentials StoreOperator/Admin thật trong môi
+   trường làm việc) — chỉ verify qua `dotnet build`/`dotnet test` + smoke-test HTTP status routing.
+
+---
+
+## [2026-07-07] SQL Console — mở rộng sang blacklist + syntax highlighting + PIN gate 2 lớp + fix crash
+
+**Layer:** POS.Web
+**Loại:** Feature + Pattern mới + Bug fix
+
+**Bối cảnh:** `SqlConsolePage.razor` ban đầu chỉ whitelist SELECT/INSERT/UPDATE/DELETE/CREATE·ALTER
+PROCEDURE, chặn cả CREATE TABLE hợp lệ của người dùng. Theo yêu cầu, đổi hẳn sang mô hình blacklist
+(chỉ chặn DROP/TRUNCATE) — nhưng vì console giờ gần như toàn quyền SQL, người dùng (đúng) yêu cầu
+thêm PIN gate làm lớp bảo mật thứ 2. Trong lúc build thêm phát hiện 1 bug nghiêm trọng: nhập sai PIN
+làm treo UI vô hạn.
+
+**Thay đổi:**
+- `src/POS.Web/Services/{ISqlConsoleService,SqlConsoleService}.cs`: `Validate()` đổi từ whitelist
+  AST switch sang blacklist — chặn mọi statement `Drop*`/`Truncate*` (theo tên class ScriptDom,
+  không liệt kê từng loại), cho phép còn lại. Thêm `StatementKind.TableDdl` (CREATE/ALTER TABLE) và
+  `StatementKind.Other` (mọi statement khác không có case riêng).
+- `wwwroot/js/sql-console-highlight.js` (**MỚI**): syntax highlighting vanilla JS cho ô SQL — kỹ
+  thuật textarea overlay (xem pattern trong `.claude/skills/web/SKILLS.md`), không dùng thư viện
+  ngoài (Monaco/CodeMirror). `app.css` thêm `.pos-sql-editor` + màu token `.sql-kw/.sql-str/...`.
+- `src/POS.Web/Database/Migrations/004_DashboardUsers_AddPinHash.sql` (**MỚI**): thêm cột
+  `PinHash NVARCHAR(200) NULL` vào `DashboardUsers` — PIN riêng từng tài khoản SystemAdmin (không
+  tạo bảng mới theo yêu cầu người dùng).
+- `src/POS.Web/Auth/{DashboardUser,IWebUserService,WebUserService}.cs`: thêm `PinHash` property,
+  `VerifyPinAsync` (BCrypt.Verify + khoá 5 lần sai/15 phút qua Redis counter — `IRedisService`
+  không có increment nguyên tử, dùng read-modify-write), `SetPinAsync` (đổi PIN, hash bằng
+  `BCrypt.HashPassword` work factor mặc định 11 khớp `PasswordHash`).
+- `SqlConsolePage.razor`: toàn bộ nội dung bọc sau `@if (_pinVerified)` — mỗi lần vào trang phải
+  nhập lại PIN, không persist trạng thái mở khoá (quyết định người dùng — an toàn nhất trong các
+  phương án đã hỏi).
+- `Components/Pages/Admin/Dialogs/ChangeMyPinDialog.razor` (**MỚI**) + `UsersPage.razor`: nút "Đổi
+  mã PIN" tự phục vụ cho chính tài khoản đang đăng nhập — **bắt buộc nhập đúng PIN cũ trước khi đổi**
+  (trừ lần đầu, `PinHash` còn NULL) để tránh 1 cookie bị đánh cắp tự đặt lại PIN rồi vượt qua chính
+  lớp bảo vệ vừa thêm.
+- **Fix bug nghiêm trọng**: nhập sai PIN làm nút "Xác nhận" quay vô hạn — nguyên nhân là
+  `BCrypt.Verify()` ném exception khi `PinHash` không đúng định dạng BCrypt (dễ xảy ra nếu set PIN
+  thủ công bằng `UPDATE` plaintext thay vì qua dialog), exception này không được `catch` ở
+  `SqlConsolePage.razor.VerifyPinAsync()` (chỉ có `try/finally`) nên lan ra ngoài event handler,
+  **crash Blazor Server circuit** — UI kẹt vĩnh viễn ở khung hình cuối vì server chết không gửi lại
+  re-render được nữa. Đã thêm `catch` đầy đủ ở cả `WebUserService.VerifyPinAsync` (bọc riêng
+  `BCrypt.Verify`) và `SqlConsolePage.razor.VerifyPinAsync()` (catch-all phòng ngừa). Tiện thể sửa
+  luôn `redis.Delete(attemptsKey)` (sync-blocking, `.GetAwaiter().GetResult()` bên trong — rủi ro
+  treo circuit tương tự) → đổi sang `await redis.StringSetAsync(key, 0, ttlSeconds:...)`.
+
+**Pattern mới:** "Textarea overlay syntax highlighting" + "PIN/step-up gate cho trang nhạy cảm" +
+2 anti-pattern (sync method của `IRedisService` trong Blazor Server component; `try/finally` không
+đủ cho input nhạy cảm, cần `try/catch/finally`) → đã cập nhật `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:**
+- **KHÔNG BAO GIỜ** gọi method sync của `IRedisService` (`Delete`, `HashGet`, `StringSet`...) từ
+  trong Razor component Blazor Server — luôn dùng bản `...Async`. Đây là bug lớp đã xảy ra thật.
+- `docs/WEB_STATUS.md` đang có **merge conflict markers chưa resolve** (dòng 2, 114-117, 186, 201 —
+  `<<<<<<< HEAD` / `=======` / `>>>>>>>`), không liên quan session này — **CHƯA cập nhật file này**,
+  cần resolve conflict trước khi ghi thêm (xem báo cáo cuối task-done).
+- Go-live cần chạy migration 004 + `UPDATE DashboardUsers.PinHash` cho từng SystemAdmin — xem
+  `docs/ROLLOUT.md` §H1b. Hash không bao giờ commit vào git.
+
+---
+
 ## [2026-07-07] Coupon "Phát hành thêm mã" — mirror VoucherIssuePage.IssueMoreAsync + gộp/ẩn field form
 
 **Layer:** POS.Common, POS.Application, POS.Infrastructure, POS.Web
@@ -266,7 +506,6 @@ browser** (không có môi trường DB/POS.Web chạy thật trong phiên này)
 
 ---
 
-<<<<<<< HEAD
 ## [2026-07-06] Bổ sung check Validity_From_Date cho SAP CheckVoucher
 
 **Layer:** POS.Application
@@ -548,11 +787,6 @@ tests/POS.ContractTests` 25/25).
 
 ---
 
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> dev
 ## [2026-07-06] FIX: "Duyệt CTKM" publish dữ liệu nháp cũ khi chưa Lưu tạm lại
 
 **Layer:** POS.Web
@@ -593,7 +827,6 @@ dùng tự test lại theo đúng kịch bản đã gặp bug).
 
 ---
 
->>>>>>> minhnb
 ## [2026-07-06] Topbar/AppBar breadcrumb + Typography pixel-perfect theo mockup `theme_html.html`
 
 **Layer:** POS.Web
@@ -822,7 +1055,9 @@ size/family/weight), phải set trên TỪNG variant cần áp dụng — không
 xuống. Còn ~15 page report có inline `font-size` bespoke cho KPI-number/badge (không phải font-
 family) — cố ý chưa đổi vì là tuning riêng từng page, không phải lỗi theme. Chưa xác nhận trực
 quan trên browser thật trong session này (không có công cụ browser) — cần người dùng tự chạy app.
-=======
+
+---
+
 ## [2026-07-06] Danh mục Bảng giá (9.1) — cột Hình thức/Trạng thái, filter combobox, fix bug Sửa/Xóa sai dòng
 
 **Layer:** POS.Web, POS.Common, POS.Infrastructure + SQL
@@ -859,7 +1094,6 @@ quan trên browser thật trong session này (không có công cụ browser) —
 **Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
 
 **Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `database-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
->>>>>>> 7ff26a64942c307f60c821c0812ddb403e305471
 
 ---
 

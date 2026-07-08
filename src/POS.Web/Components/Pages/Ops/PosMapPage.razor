@@ -70,35 +70,32 @@
     var needsUpdate = _allItems.Count(x => x.NeedsUpdate);
     var disabled    = _allItems.Count(x => !x.IsEnabled);
 
-    <MudGrid Spacing="3" Class="mb-4">
-        <MudItem xs="6" md="3">
-            <MudPaper Elevation="2" Class="pa-3 text-center">
-                <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng máy POS</MudText>
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@total</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng máy POS</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="6" md="3">
-            <MudPaper Elevation="2" Class="pa-3 text-center"
-                      Style="border-left:3px solid var(--pos-success)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@online</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">● Online</MudText>
+        </div>
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@online</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">● Online</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="6" md="3">
-            <MudPaper Elevation="2" Class="pa-3 text-center"
-                      Style="border-left:3px solid var(--pos-danger)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@offline</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">● Offline</MudText>
+        </div>
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@offline</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">● Offline</MudText>
             </MudPaper>
-        </MudItem>
-        <MudItem xs="6" md="3">
-            <MudPaper Elevation="2" Class="pa-3 text-center"
-                      Style="border-left:3px solid var(--pos-warning)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-warning)">@needsUpdate</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">⚠ Cần cập nhật</MudText>
+        </div>
+        <div style="flex:1 1 140px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@needsUpdate</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">⚠ Cần cập nhật</MudText>
             </MudPaper>
-        </MudItem>
-    </MudGrid>
+        </div>
+    </div>
 }
 
 @* ── Filter bar ──────────────────────────────────────────────────────── *@

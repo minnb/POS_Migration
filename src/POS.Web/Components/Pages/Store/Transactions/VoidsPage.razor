@@ -18,7 +18,7 @@
 
 <PageTitle>Hủy GD – POS Dashboard</PageTitle>
 
-@if (_loading)
+@if (_loading && !_voids.Any())
 {
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
 }
@@ -29,7 +29,7 @@
 </MudText>
 
 @* ── Filter Panel ────────────────────────────────────────────────────── *@
-<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+<MudPaper Elevation="1" Class="pos-filter-panel pa-3 mb-4">
     <MudGrid Spacing="2">
 
         <MudItem xs="12" sm="6" md="3">
@@ -162,25 +162,25 @@
 @* ── KPI Row ─────────────────────────────────────────────────────────── *@
 <div class="d-flex flex-wrap gap-3 mb-4">
     <div style="flex:1 1 200px">
-        <MudPaper Elevation="2" Class="pa-4 text-center">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@InvoiceVoidCount</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số hóa đơn hủy cả đơn</MudText>
         </MudPaper>
     </div>
     <div style="flex:1 1 200px">
-        <MudPaper Elevation="2" Class="pa-4 text-center">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@FormatVND(InvoiceVoidAmount)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tiền hủy hóa đơn</MudText>
         </MudPaper>
     </div>
     <div style="flex:1 1 200px">
-        <MudPaper Elevation="2" Class="pa-4 text-center">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@LineVoidCount</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số dòng hủy lẻ</MudText>
         </MudPaper>
     </div>
     <div style="flex:1 1 200px">
-        <MudPaper Elevation="2" Class="pa-4 text-center">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(TotalVoidAmount)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tiền hủy dòng (mọi loại)</MudText>
         </MudPaper>
@@ -189,8 +189,8 @@
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
 <MudTable Items="@_voids"
-          Hover="true" Dense="true"
-          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Hover="true" Dense="true" Striped="true"
+          Breakpoint="Breakpoint.Sm"
           Loading="@_loading" LoadingProgressColor="Color.Primary"
           HorizontalScrollbar="true"
           RowClassFunc="@RowClassFunc">
@@ -233,18 +233,18 @@
         <MudTd DataLabel="Tên hàng">@(context.ItemName ?? "—")</MudTd>
         <MudTd DataLabel="SL" Style="text-align:right">@context.Quantity.ToString("N0")</MudTd>
         <MudTd DataLabel="Đơn giá" Style="text-align:right">@FormatVND(context.UnitPrice)</MudTd>
-        <MudTd DataLabel="Thành tiền dòng" Style="text-align:right; font-weight:500; color:#DC3545">
+        <MudTd DataLabel="Thành tiền dòng" Style="text-align:right; font-weight:500; color:var(--pos-danger)">
             @FormatVND(context.LineAmountIncVAT)
         </MudTd>
         <MudTd DataLabel="Tổng hóa đơn" Style="text-align:right">
             @if (context.VoidType == "InvoiceVoid")
             {
-                <span style="font-weight:500; color:#DC3545">@FormatVND(context.OrderAmountInclVAT ?? 0)</span>
+                <span style="font-weight:500; color:var(--pos-danger)">@FormatVND(context.OrderAmountInclVAT ?? 0)</span>
             }
             else
             {
                 <MudTooltip Text="Đơn hàng gốc vẫn hoàn tất bình thường — đây KHÔNG phải tiền bị mất">
-                    <span style="color:#9e9e9e">@FormatVND(context.OrderAmountInclVAT ?? 0) <small>(đơn không hủy)</small></span>
+                    <span style="color:var(--pos-text-muted)">@FormatVND(context.OrderAmountInclVAT ?? 0) <small>(đơn không hủy)</small></span>
                 </MudTooltip>
             }
         </MudTd>
@@ -258,7 +258,7 @@
             @if (context.IsSelfVoid)
             {
                 <MudTooltip Text="Tự hủy: người hủy trùng thu ngân lập đơn">
-                    <span class="d-inline-flex align-center gap-1" style="color:#DC3545; font-weight:500">
+                    <span class="d-inline-flex align-center gap-1" style="color:var(--pos-danger); font-weight:500">
                         <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small"/>
                         @context.UserVoid
                     </span>
@@ -272,7 +272,7 @@
         <MudTd DataLabel="Ghi chú">
             @if (string.IsNullOrWhiteSpace(context.Note))
             {
-                <span style="color:#9e9e9e">—</span>
+                <span style="color:var(--pos-text-muted)">—</span>
             }
             else
             {

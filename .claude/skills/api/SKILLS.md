@@ -389,6 +389,64 @@ private static async Task<string> ComputeSha256HexAsync(string filePath, Cancell
 
 ---
 
+## Pattern: Tắt Kestrel MinResponseDataRate cho 1 request stream file lớn
+
+> Áp dụng khi: endpoint stream file lớn (zip, export...) cho client mạng chậm/không ổn định (vd máy
+> POS ở cửa hàng) — Kestrel mặc định tự ngắt kết nối nếu tốc độ gửi xuống dưới 240 byte/giây quá 5
+> giây (`MinResponseDataRate`), dù server vẫn đang gửi đúng dữ liệu. Ngắt giữa chừng → client nhận
+> file thiếu/lỗi, dễ nhầm là bug server trong khi thực ra là Kestrel chủ động cắt.
+
+```csharp
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
+
+// Trước khi bắt đầu stream — CHỈ tắt cho request này, KHÔNG đụng Program.cs/Kestrel global
+// (tránh tắt bảo vệ chống slowloris cho toàn bộ API).
+var minRateFeature = HttpContext.Features.Get<IHttpMinResponseDataRateFeature>();
+if (minRateFeature != null)
+    minRateFeature.MinDataRate = null;
+
+await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
+```
+
+**Vì sao scope theo request, không sửa `Program.cs`:** endpoint public khác vẫn cần Kestrel bảo vệ
+khỏi slow-loris; chỉ endpoint stream file lớn cho client mạng yếu mới cần nới lỏng.
+
+> Ví dụ thực tế: `src/POS.Api/Controllers/SyncDataPosController.cs` — `DowloadFileStream`.
+
+---
+
+## Pattern: Tách N file output theo cờ DB (thay vì appsettings) — idempotent all-or-nothing
+
+> Áp dụng khi: 1 batch job sinh ra nhiều file, và "cái gì tách riêng" là quyết định **vận hành** (DBA
+> đổi theo dữ liệu thực tế của từng thời điểm), KHÔNG phải quyết định lúc code/deploy → đặt cờ trên
+> chính bảng metadata nguồn (SP1) thay vì `appsettings.json`, để đổi hành vi KHÔNG cần deploy lại app.
+
+```csharp
+// 1. Metadata row có thêm cờ (SyncTableInfo.IsSingleFile) — Dapper tự map cột SP mới, không cần sửa Repository.
+var outDir = row.IsSingleFile ? Path.Combine(tmpDir, SanitizeForFolder(row.Key)) : Path.Combine(tmpDir, "_common");
+
+// 2. Idempotent check phải là ALL-OR-NOTHING trên TOÀN BỘ danh sách output dự kiến của lượt chạy
+//    (tính được ngay sau khi có metadata, TRƯỚC khi chạy job) — không regenerate lẻ từng file.
+var expectedNames = new List<string> { CommonName() };
+expectedNames.AddRange(singleKeys.Select(SingleName));
+if (expectedNames.All(n => IsTodayValid(Path.Combine(targetDir, n))))
+    return expectedNames.Select(n => Success(n)).ToList();
+
+// 3. Publish + cleanup dùng CHUNG 1 prefix, loại trừ theo HashSet "vừa publish lượt này"
+//    → tự dọn được file mồ côi khi cờ IsSingleFile bị TẮT lại (không cần logic cleanup riêng cho case này).
+CleanupSiblingZips(req, publishedNamesThisRun);
+```
+
+**Vì sao KHÔNG dùng appsettings cho việc này:** cấu hình trong `appsettings.json` cần deploy/restart để
+đổi; cờ trên bảng DB cho phép DBA `UPDATE` trực tiếp + `DEL` cache Redis liên quan để có hiệu lực ngay,
+phù hợp khi danh sách "cái gì cần tách riêng" thay đổi theo dữ liệu thực tế từng site/thời điểm.
+
+> Ví dụ thực tế: `src/POS.Application/Features/DataSync/MasterDataSyncService.cs` —
+> `EnsureMasterDataFileAsync` tách zip theo `SyncTableList.IsSingleFile`
+> (`docs/sql/SyncTableList_AddIsSingleFile.sql`), fix timeout download POS với zip quá lớn.
+
+---
+
 ## Pattern: Middleware xác thực request từ POS (X-API key)
 
 > Áp dụng khi: cần validate MỌI request đến POS.Api ở tầng pipeline (không gắn `[Attribute]` từng controller).

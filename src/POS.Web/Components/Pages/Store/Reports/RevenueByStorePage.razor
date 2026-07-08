@@ -129,25 +129,25 @@
 {
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #1976D2">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_totalItems.ToString("N0")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng hóa đơn</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #7B1FA2">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:#7B1FA2">@FormatVND((decimal)(_grand.SumTruocVAT ?? 0m))</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-tertiary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Tertiary">@FormatVND((decimal)(_grand.SumTruocVAT ?? 0m))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Trước thuế</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 130px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #F57C00">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:#F57C00">@FormatVND((decimal)(_grand.SumVAT ?? 0m))</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@FormatVND((decimal)(_grand.SumVAT ?? 0m))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Thuế VAT</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #388E3C">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND((decimal)(_grand.SumSauVAT ?? 0m))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Sau thuế</MudText>
             </MudPaper>

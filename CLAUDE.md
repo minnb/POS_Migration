@@ -358,6 +358,10 @@ return data;
 > **Chi tiết đầy đủ: `.claude/skills/database/SKILLS.md`** — đọc file này trước khi tạo
 > bất kỳ stored procedure mới nào cho `RPOSMasterData`, hoặc khi chuyển script Dapper
 > inline (INSERT/UPDATE) sang SP.
+>
+> **Reserved keyword**: mọi SQL (SP, script `docs/sql/*.sql`, Dapper inline query) — nếu tên
+> cột trùng từ khoá reserved MS SQL, BẮT BUỘC bracket-quote `[TênCột]` (vd `[LineNo]`, `[Source]`
+> đã có tiền lệ) — xem `.claude/skills/database/SKILLS.md` mục "Reserved keyword".
 
 ### Nguyên tắc cốt lõi
 
@@ -545,6 +549,18 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
   `{site}_{table}_{rnd}_{idx}_{batchNo:D3}.txt` (random tạo 1 lần/bảng để cùng prefix + sort đúng). **Batch đầu
   `Action="TRUNC-INSERT"`, các batch sau `Action="INSERT"`** (append) → POS truncate 1 lần rồi nối, tránh mất dữ liệu.
   Vẫn stream từng dòng (constant memory). `BatchSizePerFile <= 0` → không tách (1 file/bảng).
+- **Tách nhiều zip theo `SyncTableList.IsSingleFile`** (cập nhật 2026-07-08, fix timeout download
+  POS với site nhiều dữ liệu): bảng có `IsSingleFile=1` → đóng gói **riêng 1 zip/bảng**
+  (`{siteCode}_{typeSync}_{posTerminal}_{TableName}_{yyyyMMdd}_{HHmmssfff}.zip`); các bảng còn lại
+  (`IsSingleFile=0`, mặc định) → gom chung 1 zip **"common"** (tên như cũ, không đổi khi chưa có
+  bảng nào bật cờ → an toàn rollout). `EnsureMasterDataFileAsync` trả `List<GetMasterDataFileResult>`
+  (1 phần tử/zip đã publish) thay vì 1 kết quả đơn — DTO này không phải HTTP body nên không ảnh
+  hưởng contract JSON với POS. `GetFileFromServerApiAsync` không cần sửa vì đã liệt kê **mọi**
+  `*.zip` trong thư mục đích. Cột `IsSingleFile` + SP `[SyncTable_Get]` cập nhật qua
+  `docs/sql/SyncTableList_AddIsSingleFile.sql` (áp dụng thủ công trên CentralMD, DBA tự
+  `UPDATE ... SET IsSingleFile=1` cho bảng cần tách — không cấu hình trong appsettings/code).
+  All-or-nothing: nếu **bất kỳ** zip nào trong lượt (common + từng bảng single) thiếu/không hợp lệ
+  hôm nay → regenerate **toàn bộ** lượt đó (không regenerate lẻ từng zip).
 - **Tên zip**: `{siteCode}_{typeSync}_{posTerminal}_{yyyyMMdd}.zip` → sang ngày mới tự sinh lại (daily-refresh).
 - **Atomic publish**: ghi `{guid}.zip` tạm → `File.Move(..., overwrite:true)` sang tên chính thức. POS không bao giờ
   tải file ghi dở. Lỗi giữa chừng → cleanup `_tmp`/zip tạm, **KHÔNG** publish, log + throw.
@@ -554,13 +570,29 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
   → thread-safe. `≤ 0` = sequential an toàn. Tăng nếu SQL Server còn headroom; mục tiêu 15–25s cho 85 bảng.
 - **SHA-256 companion file**: sau khi publish zip, API tự tạo `{zipName}.sha256` cùng thư mục. Ops verify
   bằng `sha256sum`; POS có thể download để self-verify (tùy chọn). Cleanup tự xóa `.sha256` cùng zip.
+  - **Xác thực phía POS (hướng dẫn tích hợp, 2026-07-08)**: `.sha256` KHÔNG xuất hiện trong response
+    `GetFileFromFTP` (`GetFileFromServerApiAsync` chỉ liệt kê `*.zip`) — POS tự suy tên theo quy ước
+    `{FileName}.sha256`, rồi gọi `DowloadFileStream?filePath=...&fileName={FileName}.sha256` để lấy
+    nội dung (text, 64 ký tự hex, lowercase; `DowloadFileStream` trả `Content-Type: text/plain` cho
+    file này, `application/x-zip-compressed` cho `.zip`). Quy trình verify khuyến nghị: (1) tải
+    `.sha256` trước hoặc sau khi tải zip; (2) tính SHA-256 của file zip đã tải về (BCL `SHA256` .NET,
+    hoặc `SHA256CryptoServiceProvider` trên .NET Framework cũ); (3) so sánh hex (không phân biệt hoa
+    thường) với nội dung `.sha256`; (4) khớp → cho phép unzip/import; lệch → **hủy file, tải lại**,
+    KHÔNG import dữ liệu nghi ngờ corrupt.
+  - **Giới hạn phạm vi bảo vệ — BẮT BUỘC hiểu đúng**: cơ chế này là **integrity** (phát hiện file bị
+    corrupt/truncate do lỗi mạng/disk khi truyền), **KHÔNG PHẢI authenticity** (chứng minh đúng
+    nguồn gốc, chống giả mạo có chủ đích) — vì hash được phát cùng kênh HTTP với file zip, kẻ tấn
+    công có khả năng chặn/sửa response thì cũng sửa được cả 2. Muốn chống giả mạo thật cần HMAC
+    (khóa bí mật chia sẻ) hoặc dựa vào TLS (HTTPS) để đảm bảo kênh truyền không bị can thiệp.
 - **Redis cache SP1** (`MD:SyncTableList`, TTL 3600s): metadata 85 bảng cache Redis — tránh SP1 mỗi request.
   Invalidate thủ công: `DEL MD:SyncTableList` khi DBA thay đổi cấu hình `SyncTableList`.
-- **Khóa**: keyed `SemaphoreSlim` Singleton, key = `{typeSync}_{siteCode}_{posTerminal}` (KHÔNG kèm ngày →
-  bounded theo terminal) + double-check `File.Exists` sau khóa.
+- **Khóa**: keyed `SemaphoreSlim` Singleton, key = `{typeSync}_{siteCode}_{posTerminal}` (KHÔNG kèm ngày,
+  KHÔNG kèm tên bảng → 1 lock bao trọn cả lượt sinh N zip) + double-check trước khi sinh.
 - **Daily-refresh / dọn file cũ**: `GetFileFromServerApiAsync` liệt kê **mọi** .zip trong folder → sau khi publish,
-  xóa zip cùng prefix có tên ≠ ngày hôm nay (tránh POS nhận file cũ). Khi đọc file đã tồn tại: kiểm tra
-  `LastWriteTime.Date == hôm nay`, nếu cũ → xóa và sinh lại.
+  xóa zip cùng prefix (`{siteCode}_{typeSync}_{posTerminal}_`, dùng chung cho cả zip common lẫn zip riêng theo
+  bảng) không thuộc bộ zip vừa publish trong lượt này (tránh POS nhận file cũ, đồng thời dọn zip mồ côi của
+  bảng vừa bị tắt `IsSingleFile`). Khi đọc file đã tồn tại: kiểm tra `LastWriteTime.Date == hôm nay`, nếu cũ →
+  xóa và sinh lại.
 - **SP1**: `@IsChange='A'` → bỏ qua `@IsByStore`/`@GroupName` (default SP). `@POSLastCounter=0` khi
   `typeSync==ALL` hoặc `IsFirstDataAll=1`.
 - **Filter per-store** (bảng `IsByStore=1`): SP2 `[SyncGetDataByTable]` đã được mở rộng 2 tham số
@@ -579,6 +611,7 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
 | Infra files | `POS.Infrastructure/Files/{IFileArchiveService,FileArchiveService,ISyncFileLock,SyncFileLock,MasterDataSyncOptions}.cs` | `POS.Infrastructure.Files` |
 | App service | `POS.Application/Features/DataSync/{I}MasterDataSyncService.cs` | `POS.Application.Features.DataSync` |
 | Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`) | — |
+| DB script | `docs/sql/SyncTableList_AddIsSingleFile.sql` — cột `SyncTableList.IsSingleFile` + SP `[SyncTable_Get]` | CentralMD (áp dụng thủ công) |
 
 > Thư mục đích dùng `AppSettings:FtpRootPath` qua `MapFtpPath` — KHÔNG thêm `RootPath` riêng.
 
@@ -587,6 +620,41 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
 ## POS.Web — Blazor Server Dashboard
 
 > Webapp quản trị nội bộ: `src/POS.Web/` — .NET 10, Blazor Server, MudBlazor 9.5.0
+
+### 0. 🔒 LUẬT THÉP — BẮT BUỘC TUYỆT ĐỐI khi thiết kế UI trang/component mới
+
+> Áp dụng cho **MỌI** page hoặc component UI mới trong `src/POS.Web/` — không có ngoại lệ, không
+> tự sáng tạo pattern riêng, không suy đoán "chắc dùng cái này cũng được". Vi phạm mục này coi như
+> task **CHƯA XONG** dù build/test xanh.
+
+**Cổng chặn bắt buộc (theo đúng thứ tự, giống "Cổng chặn trùng lặp" ở đầu file):**
+
+1. **TRƯỚC khi viết markup** cho page/component mới → đọc `.claude/skills/web/SKILLS.md` (pattern
+   page bắt buộc, roles/policy, loading/error/empty state, DataTable chuẩn) và
+   `.claude/rules/mudblazor-flat-ui.md` mục 0 (mapping HTML mockup → MudBlazor Component).
+2. **Nếu page có KPI/summary card** → **BẮT BUỘC** dùng đúng "KPI card — khuôn mẫu chuẩn" ở
+   `.claude/rules/mudblazor-flat-ui.md` mục 11 — **KHÔNG** tự viết `MudGrid`/`MudPaper` inline tùy
+   ý như trước đây. Cụ thể:
+   - Wrapper KPI row: `<div class="d-flex flex-wrap gap-3 mb-4"><div style="flex:1 1 Npx">...`
+     (KHÔNG `MudGrid`/`MudItem`).
+   - Value: `MudText Typo="Typo.h5" Class="pos-kpi-value"`; Label: `MudText Typo="Typo.body2"
+     Class="pos-kpi-label"`. Accent (nếu có): `border-left:4px solid var(--mud-palette-{semantic})`
+     — luôn 4px, luôn token theme, KHÔNG hex cứng.
+   - Card có icon minh họa (Ops/Admin) → dùng Variant B: `Class="pa-4 pos-kpi-card-icon"` +
+     `MudIcon Class="pos-kpi-icon"`.
+   - Có trend/delta (%) → dùng `<PosDeltaBadge Current="..." Previous="..." Enabled="..."/>`
+     (`src/POS.Web/Components/Shared/PosDeltaBadge.razor`) — **KHÔNG** tự viết
+     `RenderFragment TrendBadge()` cục bộ trong `@code` của page (đã xảy ra thật 3 lần, gộp lại
+     2026-07-08 — xem "Trạng thái rollout" trong `mudblazor-flat-ui.md`).
+3. **Mọi thành phần UI khác** (page header, filter panel, button, table, chip trạng thái, dialog
+   xác nhận, typography KPI/card-title/section-label...) → áp dụng đúng checklist tại
+   `.claude/rules/mudblazor-flat-ui.md` mục 11.1 và `.claude/skills/web/ui-polish-standard.md`
+   mục 1 — **KHÔNG** phát minh class/spacing/màu mới khi đã có sẵn.
+4. **Không chắc** một pattern UI đã có chuẩn chưa → tìm trong 2 file rule trên trước, **KHÔNG**
+   đoán rồi tự viết CSS/markup mới. Pattern thật sự chưa có → thêm vào đúng file rule **trong
+   cùng commit** (không tạo file rule song song khác).
+5. Dùng lệnh `/web-add-feature` khi tạo page hoàn toàn mới, `/web-ui-kpi-row` khi chỉ thêm KPI
+   row vào page đã có — cả 2 command đã cập nhật theo khuôn mẫu chuẩn này (2026-07-08).
 
 ### 1. Stack & Packages
 

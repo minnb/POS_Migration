@@ -66,22 +66,20 @@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 150px">
             <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Style="font-weight:700">@total</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng máy</MudText>
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@total</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng máy</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center"
-                      Style="border-left:3px solid var(--pos-success)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-success)">@online</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">● Online</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@online</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">● Online</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center"
-                      Style="border-left:3px solid var(--pos-danger)">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--pos-danger)">@offline</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">● Offline</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@offline</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">● Offline</MudText>
             </MudPaper>
         </div>
     </div>

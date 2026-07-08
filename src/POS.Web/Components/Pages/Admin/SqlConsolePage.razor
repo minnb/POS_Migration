@@ -7,11 +7,49 @@
 @using POS.Infrastructure.Logging
 
 @inject ISqlConsoleService ConsoleService
+@inject IWebUserService WebUserService
 @inject IFileLogHelper FileLogger
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>SQL Console – POS Dashboard</PageTitle>
 
+@if (!_pinVerified)
+{
+    @* ── PIN gate — bắt buộc nhập lại mỗi lần vào trang, PIN riêng theo tài khoản ── *@
+    <div class="d-flex justify-center" style="margin-top: 10vh">
+        <MudPaper Elevation="4" Class="pa-6" Style="max-width: 380px; width:100%">
+            <MudText Typo="Typo.h6" Class="mb-4 d-flex align-center">
+                <MudIcon Icon="@Icons.Material.Filled.Lock" Class="mr-2"/>
+                Xác thực để truy cập SQL Console
+            </MudText>
+            <MudTextField @bind-Value="_pinInput"
+                          Label="Mã PIN"
+                          InputType="InputType.Password"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Disabled="@_pinChecking"
+                          @onkeydown="OnPinKeyDown"
+                          Class="mb-3"/>
+            @if (_pinError != null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_pinError</MudAlert>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       OnClick="@VerifyPinAsync"
+                       Disabled="@(_pinChecking || string.IsNullOrEmpty(_pinInput))">
+                @if (_pinChecking)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                }
+                Xác nhận
+            </MudButton>
+        </MudPaper>
+    </div>
+}
+else
+{
 @* ── Header ────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
     <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
@@ -55,15 +93,18 @@
             </MudSelect>
         </MudItem>
 
-        @* SQL textarea *@
+        @* SQL textarea — có syntax highlighting (xem wwwroot/js/sql-console-highlight.js) *@
         <MudItem xs="12">
-            <MudTextField @bind-Value="_sql"
-                          Lines="18"
-                          Variant="Variant.Outlined"
-                          Placeholder="SELECT TOP 10 * FROM TableName (NOLOCK)"
-                          Style="font-family: 'Consolas', 'Courier New', monospace; font-size: 13px"
-                          Disabled="@(_running || _pending != null)"
-                          Immediate="false"/>
+            <div class="pos-sql-editor @(_running || _pending != null ? "pos-sql-editor-disabled" : "")">
+                <pre class="pos-sql-editor-highlight" aria-hidden="true"><code id="sql-console-highlight"></code></pre>
+                <textarea id="sql-console-input"
+                          class="pos-sql-editor-textarea"
+                          rows="27"
+                          placeholder="SELECT TOP 10 * FROM TableName (NOLOCK)"
+                          disabled="@(_running || _pending != null)"
+                          @bind="_sql"
+                          @bind:event="onchange"></textarea>
+            </div>
         </MudItem>
 
         @* Action buttons *@
@@ -257,6 +298,8 @@
     }
 }
 
+}
+
 @code {
     private IReadOnlyList<DbOption> _databases = [];
     private string _connKey = string.Empty;
@@ -274,6 +317,11 @@
 
     private string _actor = string.Empty;
 
+    private bool _pinVerified;
+    private string _pinInput = string.Empty;
+    private string? _pinError;
+    private bool _pinChecking;
+
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
@@ -287,6 +335,14 @@
 
         var state = await AuthState;
         _actor = state.User.Identity?.Name ?? "unknown";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync("posSqlHighlightBind", "sql-console-input", "sql-console-highlight");
+        else
+            await JS.InvokeVoidAsync("posSqlHighlightRefresh", "sql-console-input", "sql-console-highlight");
     }
 
     private async Task RunAsync()
@@ -341,6 +397,34 @@
             _running = false;
             _cts.Dispose();
             _cts = null;
+        }
+    }
+
+    private async Task OnPinKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_pinChecking && !string.IsNullOrEmpty(_pinInput))
+            await VerifyPinAsync();
+    }
+
+    private async Task VerifyPinAsync()
+    {
+        _pinChecking = true;
+        _pinError = null;
+        try
+        {
+            var result = await WebUserService.VerifyPinAsync(_actor, _pinInput, CancellationToken.None);
+            if (result.Ok) _pinVerified = true;
+            else _pinError = result.Error;
+        }
+        catch (Exception ex)
+        {
+            _pinError = "Lỗi không mong đợi khi xác thực PIN.";
+            FileLogger.WriteExpLogs("SqlConsolePage.VerifyPin", ex);
+        }
+        finally
+        {
+            _pinInput = string.Empty;
+            _pinChecking = false;
         }
     }
 

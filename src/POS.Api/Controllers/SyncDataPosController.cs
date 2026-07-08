@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Newtonsoft.Json;
 using POS.Application.Features.DataSync;
 using POS.Common;
@@ -91,9 +92,13 @@ public sealed class SyncDataPosController(
                 };
                 try
                 {
-                    var genResult = await masterDataSyncService.EnsureMasterDataFileAsync(genRequest, HttpContext.RequestAborted);
+                    // 1 phần tử/zip đã publish (1 zip "common" + 1 zip/bảng SyncTableList.IsSingleFile=1).
+                    var genResults = await masterDataSyncService.EnsureMasterDataFileAsync(genRequest, HttpContext.RequestAborted);
+                    var genSuccess = genResults.All(r => r.Success);
+                    var genTableCount = genResults.Sum(r => r.TableCount);
+                    var genFileNames = string.Join(", ", genResults.Select(r => r.FileName));
                     kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
-                        $"EnsureMasterDataFile {genResult.Success} ({genResult.Message}), {genResult.TableCount} tables, siteCode {siteCode}");
+                        $"EnsureMasterDataFile {genSuccess} ({genResults.Count} files: {genFileNames}), {genTableCount} tables, siteCode {siteCode}");
                 }
                 catch (Exception exGen)
                 {
@@ -379,6 +384,19 @@ public sealed class SyncDataPosController(
             if (System.IO.File.Exists(localPath))
             {
                 System.IO.File.Delete(localPath);
+
+                // Companion .sha256 — best-effort, không ảnh hưởng response chính nếu xóa thất bại/không tồn tại.
+                var sha256Path = localPath + ".sha256";
+                try
+                {
+                    if (System.IO.File.Exists(sha256Path))
+                        System.IO.File.Delete(sha256Path);
+                }
+                catch (Exception exSha)
+                {
+                    fileLogHelper.WriteLogs($"DeleteFileFromFTP: Xóa companion .sha256 {sha256Path} lỗi {JsonConvert.SerializeObject(exSha)}");
+                }
+
                 return HttpResponseData(HttpStatusCode.OK, $"Delete file IPserver {ipServerHost} success", "");
             }
 
@@ -444,9 +462,20 @@ public sealed class SyncDataPosController(
             var clientIp = GetIpServer();
             var status = "Success";
 
-            Response.ContentType = "application/x-zip-compressed";
+            // Companion .sha256 (text) cũng tải qua endpoint này (POS tự suy tên {zip}.sha256) — Content-Type
+            // đúng theo loại file, không hardcode zip cho mọi trường hợp.
+            Response.ContentType = fullLocal.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase)
+                ? "text/plain"
+                : "application/x-zip-compressed";
             Response.ContentLength = fileSize;
             Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
+
+            // Mạng POS chậm/chập chờn có thể tụt dưới ngưỡng mặc định Kestrel MinResponseDataRate
+            // (240 byte/giây sau 5s grace) → server chủ động ngắt kết nối giữa chừng dù đã gửi đúng
+            // dữ liệu. Tắt ngưỡng này CHỈ cho request download (không đụng Program.cs/Kestrel global).
+            var minRateFeature = HttpContext.Features.Get<IHttpMinResponseDataRateFeature>();
+            if (minRateFeature != null)
+                minRateFeature.MinDataRate = null;
 
             try
             {

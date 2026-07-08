@@ -268,19 +268,37 @@ label — do từng page tự chọn `Typo=` nên sửa theme global sẽ ảnh 
 .pos-kpi-label    { font-size:0.6875rem; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; }
 .pos-card-title   { font-size:0.8125rem; font-weight:700; }
 .pos-section-label{ font-size:0.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:0.7px; padding-bottom:6px; border-bottom:1px solid var(--pos-border); margin-bottom:10px; }
+/* KPI card icon variant (Ops/Admin — PosDataSetupPage, UsersPage): nhãn+giá trị trái, icon minh họa lớn mờ phải */
+.pos-kpi-card-icon{ display:flex; justify-content:space-between; align-items:flex-start; }
+.pos-kpi-icon     { font-size:2.5rem; opacity:0.18; }
 ```
+
+### KPI card — khuôn mẫu chuẩn (golden standard, chốt 2026-07-08)
+
+- **Wrapper**: luôn `<div class="d-flex flex-wrap gap-3 mb-4"><div style="flex:1 1 Npx">...`
+  (KHÔNG `MudGrid`/`MudItem` cho KPI row — xem mục "KPI card row" ở Density Standard).
+- **Variant A (không icon)**: `MudPaper Elevation="2" Class="pa-4 text-center"` + accent
+  `Style="border-left:4px solid var(--mud-palette-{semantic})"` (luôn 4px, luôn token theme khớp
+  `Color=` của value — KHÔNG hex cứng) + `MudText Typo.h5 Class="pos-kpi-value"` (value) +
+  `MudText Typo.body2 Class="pos-kpi-label"` (label).
+- **Variant B (icon minh họa, Ops/Admin)**: `MudPaper Class="pa-4 pos-kpi-card-icon"` bọc `<div>`
+  chứa label+value (label trên, value dưới) + `MudIcon Class="pos-kpi-icon"` cạnh bên phải.
+- **Delta/trend badge**: dùng chung component `Components/Shared/PosDeltaBadge.razor`
+  (`Current`/`Previous`/`Enabled`/`LowerIsBetter`/`AsPercentPoint`) — render `.pos-delta-up`/
+  `.pos-delta-down` đã có sẵn trong `app.css`. KHÔNG tự viết `RenderFragment TrendBadge()` cục bộ
+  trong từng page (đã gộp 3 bản trùng lặp — xem "Trạng thái rollout").
 
 Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hiện có trên `MudText`
 (giữ nguyên Typo để không đổi hành vi ngữ nghĩa, CSS class chỉ ép lại giá trị hiển thị).
 
-- **Đã áp dụng làm mẫu chuẩn** (2 page, KHÔNG rollout toàn bộ):
-  `RevenueByStorePage.razor`, `ShiftSummaryPage.razor` (đều ở `Store/Reports|Operations/`) —
-  `.pos-kpi-value` trên `MudText` giá trị KPI, `.pos-kpi-label` trên `MudText Typo.body2` nhãn KPI.
-- **CHƯA áp dụng**: mọi page KPI/card-title/section-label khác (~80 file còn lại dùng
-  `Typo.h5/h6/body2/caption` cho mục đích tương tự) — đây là chuẩn tham chiếu cho đợt polish kế
-  tiếp, KHÔNG phải đã đồng bộ 100% toàn app. `.pos-card-title`/`.pos-section-label` mới chỉ định
-  nghĩa trong `app.css`, chưa áp dụng vào page nào (chưa xác định page nào đang dùng "card title"
-  theo đúng nghĩa mockup — cần rà soát riêng nếu muốn rollout).
+- **Đã rollout đầy đủ cho mọi page có KPI card** (cập nhật 2026-07-08, chiến dịch chuẩn hóa KPI
+  card — xem "Trạng thái rollout" bên dưới): toàn bộ 15 file có KPI/summary card trong
+  `Store/Reports`, `Store/Operations`, `Store/Transactions`, `Store/StoreDashboardPage`, `Ops`,
+  `Admin/UsersPage`, `Catalog/PosDevices/BankPosPage` đều dùng `.pos-kpi-value`/`.pos-kpi-label`
+  đúng chuẩn: value `Typo.h5` + `Class="pos-kpi-value"`, label `Typo.body2` + `Class="pos-kpi-label"`.
+- **CHƯA áp dụng**: `.pos-card-title`/`.pos-section-label` — mới chỉ định nghĩa trong `app.css`,
+  chưa áp dụng vào page nào (chưa xác định page nào đang dùng "card title" theo đúng nghĩa mockup —
+  cần rà soát riêng nếu muốn rollout).
 
 ### 11.1 Checklist Typography — BẮT BUỘC áp dụng ngay khi tạo page/component mới
 
@@ -295,6 +313,7 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
 | Field label (label của input) | Không cần làm gì — `.mud-input-label-inputcontrol` đã ép uppercase/bold/11px toàn cục | Tự động |
 | **KPI value** (số lớn trong KPI card) | `<MudText Typo="Typo.h5" Class="pos-kpi-value" ...>` — giữ `Typo=` hiện có, thêm `Class` | **[Tự làm]** |
 | **KPI label** (nhãn nhỏ dưới KPI value) | `<MudText Typo="Typo.body2" Class="pos-kpi-label" ...>` | **[Tự làm]** |
+| **KPI trend/delta badge** | Dùng `<PosDeltaBadge Current="..." Previous="..." Enabled="..."/>` — KHÔNG viết `RenderFragment TrendBadge()` riêng trong page | **[Tự làm]** |
 | **Card title** (tiêu đề trong `MudPaper`/`MudCard`, không phải page header) | Thêm `Class="pos-card-title"` vào `MudText` tiêu đề card | **[Tự làm]** |
 | **Section label** (nhãn phân nhóm trong form, có gạch chân) | Thêm `Class="pos-section-label"` vào `MudText` | **[Tự làm]** |
 | Page header title | Dùng `div.pos-page-header` + `.pos-page-header-title` sẵn có — KHÔNG dùng 4 class ở trên (page header là style riêng, không thuộc mockup `.card-title`/`.kpi-value`) | Đã có class riêng |
@@ -336,8 +355,30 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
   trước — quyết định có chủ đích từ v2, chưa thay đổi ở v3.
 - **Typography audit** (2026-07-06, xem mục 11): `PosTheme.cs` (line-height/Button/Body1) +
   `app.css` (sidebar label, MudTable body cell, field label) sửa toàn cục — build + test xanh.
-  Class `.pos-kpi-value`/`.pos-kpi-label` mới chỉ áp mẫu trên 2 page; `.pos-card-title`/
-  `.pos-section-label` mới định nghĩa, chưa áp dụng page nào.
+- **Chuẩn hóa KPI card** (2026-07-08, chiến dịch riêng — xem mục 11 "KPI card — khuôn mẫu chuẩn"):
+  rà soát toàn bộ `src/POS.Web/Components/Pages/**/*.razor`, tìm ra 19 file có KPI card, chuẩn hóa
+  15 file lệch chuẩn (3 file đã chuẩn từ trước không cần sửa, 1 file không có KPI card thật ngoài
+  giai đoạn rà soát ban đầu):
+  - Thêm class `.pos-kpi-value`/`.pos-kpi-label` cho toàn bộ card còn thiếu; chuẩn hóa `Typo` (value
+    luôn `h5`, label luôn `body2` — trước đó lẫn lộn `h4/h5/h6` và `body2/caption`).
+  - Chuẩn hóa wrapper KPI row về **`d-flex flex-wrap`** (bỏ `MudGrid`/`MudItem` — 6 file trước đó
+    dùng MudGrid: `RevenueHourlyPage`, `TopProductPage`, `RevenuePage`, `StoreDashboardPage`,
+    `Ops/StorePage`, `Ops/PosMapPage`).
+  - Chuẩn hóa accent `border-left` về **4px** + `var(--mud-palette-{semantic})` (bỏ hex cứng như
+    `#1976D2`/`#7B1FA2`/`#F57C00`/`#388E3C`/`#2051A3`/`#27AE60`/`#DC3545`, bỏ 3px lẻ tẻ).
+  - Thêm 2 class mới `.pos-kpi-card-icon`/`.pos-kpi-icon` (codify lại inline-style đã copy-paste ở
+    `PosDataSetupPage.razor`/`UsersPage.razor`) — "Variant B" cho KPI card có icon minh họa.
+  - Tạo `Components/Shared/PosDeltaBadge.razor` (đăng ký `@using` toàn cục trong `_Imports.razor`),
+    gộp 3 bản `RenderFragment TrendBadge()` trùng lặp gần giống hệt nhau (từng nằm rải rác trong
+    `RevenueHourlyPage`, `PaymentBreakdownPage`, `TopProductPage` — hardcode màu inline thay vì dùng
+    `.pos-delta-up`/`.pos-delta-down` sẵn có) thành 1 component dùng chung, hỗ trợ cả delta dạng %
+    tăng trưởng lẫn delta "điểm %" (`AsPercentPoint`, dùng cho card "Tỷ lệ KHÔNG tiền mặt" trong
+    `PaymentBreakdownPage`). Đây là ngoại lệ `@code` DUY NHẤT trong chiến dịch — mọi thay đổi khác
+    chỉ ở markup.
+  - Build + `dotnet test tests/POS.ContractTests` xanh sau mỗi batch (3 batch: Store/Reports →
+    Store/Operations+Transactions+Dashboard → Ops+Admin+Catalog).
+  - **Chưa verify bằng mắt** (chạy app thật) — sandbox không có `POS_SECRET_KEY`/DB/Redis nên
+    `dotnet run` không khởi động được; chỉ verify qua build + contract test.
 
 ## 10. CSS Isolation — khi nào dùng `.razor.css`
 
@@ -368,6 +409,8 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
   trước khi làm (ảnh hưởng ~40+ page).
 - `Shadows.Elevation[6..25]` chưa đổi tint sang navy mới (`rgba(13,27,42,x)`) — vẫn giữ tint cũ
   `rgba(26,43,69,x)`, rủi ro thấp vì chưa có ví dụ cụ thể từ mockup cho elevation cao.
-- `.pos-kpi-value`/`.pos-kpi-label` (mục 11) chưa rollout ngoài 2 page mẫu; `.pos-card-title`/
-  `.pos-section-label` chưa áp dụng vào page nào — cần rà soát ~80 file dùng `Typo.h5/h6/body2`
-  cho KPI/card-title/section-label để rollout đầy đủ nếu muốn đồng bộ 100% toàn app.
+- `.pos-card-title`/`.pos-section-label` chưa áp dụng vào page nào — cần rà soát riêng nếu muốn
+  rollout (khác `.pos-kpi-value`/`.pos-kpi-label` đã rollout đầy đủ 2026-07-08, xem "Trạng thái
+  rollout").
+- Chuẩn hóa KPI card (2026-07-08) mới verify qua build + contract test, **chưa chạy app thật để
+  xem bằng mắt** — cần verify lại khi có môi trường đủ `POS_SECRET_KEY` + DB + Redis.

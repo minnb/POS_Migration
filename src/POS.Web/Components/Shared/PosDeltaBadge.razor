@@ -1,0 +1,21 @@
+@if (ShowValue.HasValue)
+{
+    <div class="@(IsGood ? "pos-delta-up" : "pos-delta-down") @Class">
+        @(Delta >= 0 ? "▲" : "▼") @Math.Abs(Delta).ToString("F1")@(AsPercentPoint ? " điểm" : "%") vs kỳ trước
+    </div>
+}
+
+@code {
+    [Parameter] public decimal Current { get; set; }
+    [Parameter] public decimal? Previous { get; set; }
+    [Parameter] public bool LowerIsBetter { get; set; }
+    [Parameter] public bool Enabled { get; set; } = true;
+    [Parameter] public bool AsPercentPoint { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private decimal? ShowValue => Enabled && Previous.HasValue && (AsPercentPoint || Previous.Value != 0) ? Previous : null;
+    private decimal Delta => Previous is not { } prev ? 0
+        : AsPercentPoint ? Current - prev
+        : prev != 0 ? (Current - prev) / prev * 100m : 0;
+    private bool IsGood => LowerIsBetter ? Delta <= 0 : Delta >= 0;
+}

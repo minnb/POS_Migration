@@ -412,9 +412,12 @@ public sealed class CentralMDRepository(
         return (await QueryAsync<PosMonitorStatusDto>(sql, ct: ct)).ToList();
     }
 
-    public async Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default)
+    public async Task<List<PosTerminalListDto>> GetPosTerminalListAsync(string? storeNo = null, CancellationToken ct = default)
     {
-        const string sql = @"SELECT pt.[No], pt.StoreNo, pt.IPAddress, pt.MACAddress, pt.Description,
+        // storeNo null → toàn bộ hệ thống (ops/pos-map, hành vi cũ).
+        // storeNo có giá trị → WHERE lọc ngay tại DB, tránh quét full ~5.000 terminal chỉ để
+        // lấy 2-6 dòng của 1 cửa hàng (Store Dashboard gọi mỗi lượt đăng nhập).
+        var sql = @"SELECT pt.[No], pt.StoreNo, pt.IPAddress, pt.MACAddress, pt.Description,
                                     pt.Placement, pt.PrintReceiptLogo, pt.CustomerDisplayText1, pt.CustomerDisplayText2,
                                     pt.StyleProfile, pt.BillNoseri, pt.DefaultPriceGroup, pt.TerminalNetworkID,
                                     pt.AutoLogoffAfter_Min, pt.[Status], pt.LastDateModified,
@@ -428,9 +431,12 @@ public sealed class CentralMDRepository(
                                  FROM POSMonitor m WITH (NOLOCK)
                                  WHERE m.StoreNo = pt.StoreNo AND m.PosTerminalID = pt.[No]
                                  ORDER BY m.DateTimePos DESC
-                             ) pm
-                             ORDER BY pt.StoreNo, pt.[No];";
-        return (await QueryAsync<PosTerminalListDto>(sql, commandTimeout: 120, ct: ct)).ToList();
+                             ) pm";
+        if (!string.IsNullOrWhiteSpace(storeNo))
+            sql += " WHERE pt.StoreNo = @storeNo";
+        sql += " ORDER BY pt.StoreNo, pt.[No];";
+
+        return (await QueryAsync<PosTerminalListDto>(sql, new { storeNo }, commandTimeout: 120, ct: ct)).ToList();
     }
 
     public async Task<bool> UpdatePosTerminalAsync(

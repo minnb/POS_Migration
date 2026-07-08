@@ -1001,7 +1001,7 @@ public sealed class CentralSaleRepository(
             const string sql = @"
                 SELECT TOP (@MaxRows)
                     vl.DocumentNo                                                 AS OrderNo,
-                    vl.LineNo,
+                    vl.[LineNo],
                     CASE WHEN vh.OrderNo IS NOT NULL THEN 'InvoiceVoid' ELSE 'LineVoid' END AS VoidType,
                     vl.ScanTime,
                     COALESCE(vh.StoreNo, th.StoreNo)                              AS StoreNo,

@@ -626,6 +626,17 @@
     text-transform: uppercase;
     letter-spacing: 0.6px;
 }
+/* KPI card — icon variant (Ops/Admin, vd PosDataSetupPage, UsersPage):
+   nhãn+giá trị bên trái, icon minh họa lớn mờ bên phải. */
+.pos-kpi-card-icon {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.pos-kpi-icon {
+    font-size: 2.5rem;
+    opacity: 0.18;
+}
 .pos-card-title {
     font-size: 0.8125rem;  /* 13px, mockup .card-title */
     font-weight: 700;
@@ -638,6 +649,22 @@
     padding-bottom: 6px;
     border-bottom: 1px solid var(--pos-border);
     margin-bottom: 10px;
+}
+
+/* ── Custom horizontal bar list (thay cho MudBlazor <Bar> khi category ít,
+   vd ShiftSummaryPage — MudBlazor Bar chart không có option orientation ngang) */
+.pos-hbar-track {
+    flex: 1 1 auto;
+    height: 22px;
+    background: var(--pos-bg-alt);
+    border-radius: var(--pos-radius-sm);
+    overflow: hidden;
+}
+.pos-hbar-fill {
+    height: 100%;
+    background: var(--pos-primary);
+    border-radius: var(--pos-radius-sm);
+    transition: width .3s ease;
 }
 
 /* ── Mobile safety — tap targets & readability (xs ≤ 599px) ─────────────
@@ -705,3 +732,60 @@
     background-color: rgba(220, 53, 69, 0.06);
     border-left: 3px solid var(--mud-palette-error);
 }
+
+/* ── SQL Console — editor tô màu cú pháp (SqlConsolePage.razor) ──────────
+   Kỹ thuật overlay: <pre><code> tô màu nằm dưới (pointer-events:none),
+   <textarea> thật nằm trên với chữ trong suốt (chỉ còn caret + selection hiển
+   thị) — người dùng gõ vào textarea, mắt thấy chữ tô màu của <pre> hiện xuyên
+   qua. JS đồng bộ nội dung + scroll: xem wwwroot/js/sql-console-highlight.js. */
+.pos-sql-editor {
+    position: relative;
+    border: 1px solid var(--pos-border-strong);
+    border-radius: var(--pos-radius-sm);
+    background-color: var(--pos-surface);
+    overflow: hidden;
+}
+.pos-sql-editor:focus-within {
+    border-color: var(--pos-primary);
+}
+.pos-sql-editor.pos-sql-editor-disabled {
+    background-color: var(--pos-bg-alt);
+    opacity: 0.7;
+}
+.pos-sql-editor-highlight,
+.pos-sql-editor-textarea {
+    margin: 0;
+    padding: 8px 12px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    box-sizing: border-box;
+}
+.pos-sql-editor-highlight {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    color: var(--pos-text-body);
+}
+.pos-sql-editor-textarea {
+    position: relative;
+    width: 100%;
+    display: block;
+    border: none;
+    outline: none;
+    resize: vertical;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--pos-text-body);
+}
+.pos-sql-editor-textarea::selection {
+    background: rgba(38, 96, 164, 0.25);
+}
+.sql-kw   { color: var(--pos-primary); font-weight: 600; }
+.sql-str  { color: var(--pos-success); }
+.sql-num  { color: var(--pos-warning); }
+.sql-com  { color: var(--pos-text-muted); font-style: italic; }
+.sql-ident{ color: var(--pos-purple); }

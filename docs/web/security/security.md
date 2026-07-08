@@ -90,7 +90,18 @@ script-src 'self'; connect-src 'self'; frame-src 'self' blob:; form-action 'self
 ## 6. SQL Console (H1)
 
 - Chỉ `Policy = AdminOnly` (SystemAdmin).
-- Whitelist `SELECT/INSERT/UPDATE/CREATE|ALTER PROCEDURE`; lệnh ghi chạy trong transaction (Commit/Rollback).
+- **Blacklist** (không phải whitelist nữa): cho phép hầu hết mọi lệnh SQL (SELECT/INSERT/UPDATE/
+  DELETE/CREATE·ALTER PROCEDURE/CREATE·ALTER TABLE/...); chỉ chặn tuyệt đối **DROP** (mọi loại:
+  TABLE/PROCEDURE/INDEX/VIEW/DATABASE/LOGIN...) và **TRUNCATE TABLE**. Lệnh ghi chạy trong
+  transaction (Commit/Rollback), GO-batch được tách và chạy tuần tự trong cùng transaction.
+- **PIN gate (H1b)**: trước khi thấy nội dung trang, mỗi tài khoản SystemAdmin phải nhập đúng PIN
+  riêng của mình (`DashboardUsers.PinHash`, BCrypt hash — không lưu trong appsettings để tránh
+  commit hash vào git). **Không persist trạng thái mở khoá** — mỗi lần vào trang đều phải nhập
+  lại. Khoá tạm 15 phút sau 5 lần nhập sai (Redis key `SqlConsolePin:Attempts:{username}`, không
+  bền — reset về 0 nếu Redis restart, rủi ro chấp nhận được). PIN là lớp thứ 2 độc lập với cookie
+  đăng nhập — chống được cookie/session bị đánh cắp, KHÔNG chống được insider biết cả cookie lẫn
+  PIN của chính tài khoản đó (vẫn dựa vào `SqlConsoleAuditLog.Actor` để review sau). Xem
+  `docs/ROLLOUT.md` §H1b để thiết lập PIN ban đầu cho từng admin.
 - **Mask** `password|pwd|token|secret|apikey` (literal `'...'`) trước khi ghi audit DB + Kibana log — KHÔNG lưu plaintext credential.
 - Cờ `Security:EnableSqlConsole` gate **cả service lẫn page** (defense-in-depth). Đặt `false` ở Production expose internet nếu không thực sự cần.
 

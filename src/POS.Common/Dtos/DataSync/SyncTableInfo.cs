@@ -26,4 +26,7 @@ public sealed class SyncTableInfo
 
     /// <summary>true → luôn lấy toàn bộ dữ liệu (POSLastCounter = 0) bất kể typeSync.</summary>
     public bool IsFirstDataAll { get; set; }
+
+    /// <summary>true → bảng này đóng gói riêng 1 file .zip khi sinh master data; false (mặc định) → gom chung zip "common".</summary>
+    public bool IsSingleFile { get; set; }
 }

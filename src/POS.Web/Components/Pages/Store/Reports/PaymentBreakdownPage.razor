@@ -109,38 +109,38 @@
 @* ── KPI Cards (equal height) ──────────────────────────────────────────────── *@
 <div class="d-flex flex-wrap gap-3 mb-4">
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-primary); height:100%;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng tiền thu (thuần)</MudText>
-            <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-1">@FormatVND(_kpi.TotalPaymentAmount)</MudText>
-            @TrendBadge(_kpi.TotalPaymentAmount, _kpiPrev?.TotalPaymentAmount)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@_kpi.TotalPaymentMethods hình thức thanh toán</MudText>
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_kpi.TotalPaymentAmount)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tiền thu (thuần)</MudText>
+            <PosDeltaBadge Current="(decimal)_kpi.TotalPaymentAmount" Previous="(decimal?)_kpiPrev?.TotalPaymentAmount" Enabled="_compareEnabled" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">@_kpi.TotalPaymentMethods hình thức thanh toán</MudText>
         </MudPaper>
     </div>
 
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-info); height:100%;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Tỷ lệ KHÔNG tiền mặt</MudText>
-            <MudText Typo="Typo.h4" Color="Color.Info" Class="mt-1">@_kpi.NonCashPct.ToString("0.0")%</MudText>
-            @TrendBadge(_kpi.NonCashPct, _kpiPrev?.NonCashPct, isPercentPoint: true)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatVND(_kpi.NonCashAmount)</MudText>
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Info">@_kpi.NonCashPct.ToString("0.0")%</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tỷ lệ KHÔNG tiền mặt</MudText>
+            <PosDeltaBadge Current="(decimal)_kpi.NonCashPct" Previous="(decimal?)_kpiPrev?.NonCashPct" Enabled="_compareEnabled" AsPercentPoint="true" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">@FormatVND(_kpi.NonCashAmount)</MudText>
         </MudPaper>
     </div>
 
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-success); height:100%;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Tiền mặt</MudText>
-            <MudText Typo="Typo.h6" Class="mt-1" Style="color:var(--mud-palette-success)">@FormatVND(_kpi.CashAmount)</MudText>
-            @TrendBadge(_kpi.CashAmount, _kpiPrev?.CashAmount)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@_kpi.CashPct.ToString("0.0")% trên tổng</MudText>
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND(_kpi.CashAmount)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tiền mặt</MudText>
+            <PosDeltaBadge Current="(decimal)_kpi.CashAmount" Previous="(decimal?)_kpiPrev?.CashAmount" Enabled="_compareEnabled" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">@_kpi.CashPct.ToString("0.0")% trên tổng</MudText>
         </MudPaper>
     </div>
 
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid var(--mud-palette-secondary); height:100%;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Số hóa đơn</MudText>
-            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-1">@_kpi.TotalOrders.ToString("N0")</MudText>
-            @TrendBadge(_kpi.TotalOrders, _kpiPrev?.TotalOrders)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Hóa đơn có thanh toán</MudText>
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-secondary)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Secondary">@_kpi.TotalOrders.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số hóa đơn</MudText>
+            <PosDeltaBadge Current="_kpi.TotalOrders" Previous="_kpiPrev?.TotalOrders" Enabled="_compareEnabled" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">Hóa đơn có thanh toán</MudText>
         </MudPaper>
     </div>
 </div>
@@ -610,32 +610,6 @@
         "POINT"   => "#9C27B0",
         _         => "#9E9E9E"
     };
-
-    // Trend badge: prev là số tuyệt đối. isPercentPoint=true → so sánh điểm % (pp), không phải tăng trưởng %.
-    private RenderFragment TrendBadge(double current, double? prev, bool isPercentPoint = false) => builder =>
-    {
-        if (!_compareEnabled || !prev.HasValue) return;
-        string text; string color; string arrow;
-        if (isPercentPoint)
-        {
-            var diff = current - prev.Value;
-            color = diff >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
-            arrow = diff >= 0 ? "▲" : "▼";
-            text  = $"{arrow} {Math.Abs(diff):F1} điểm vs kỳ trước";
-        }
-        else
-        {
-            if (prev.Value == 0) return;
-            var pct = (current - prev.Value) / Math.Abs(prev.Value) * 100d;
-            color = pct >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
-            arrow = pct >= 0 ? "▲" : "▼";
-            text  = $"{arrow} {Math.Abs(pct):F1}% vs kỳ trước";
-        }
-        builder.AddMarkupContent(0, $"<div style=\"font-size:0.73rem;color:{color};margin:2px 0\">{text}</div>");
-    };
-
-    private RenderFragment TrendBadge(int current, int? prev) =>
-        TrendBadge(current, prev.HasValue ? (double?)prev.Value : null);
 
     private static string FormatVND(double amount)
     {

@@ -55,36 +55,30 @@ else
     @* ── KPI Row ─────────────────────────────────────────────────────── *@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #2051A3">
-                <div class="d-flex align-center justify-space-between">
-                    <div>
-                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Tổng cấu hình</MudText>
-                        <MudText Style="font-size:1.75rem; font-weight:700; color:#2051A3; line-height:1.2" Class="mt-1">@_kpiTotal</MudText>
-                    </div>
-                    <MudIcon Icon="@Icons.Material.Filled.Settings" Style="font-size:2.5rem; color:#2051A3; opacity:0.18"/>
+            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-primary)">
+                <div>
+                    <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng cấu hình</MudText>
+                    <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_kpiTotal</MudText>
                 </div>
+                <MudIcon Icon="@Icons.Material.Filled.Settings" Class="pos-kpi-icon" Style="color:var(--mud-palette-primary)"/>
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #27AE60">
-                <div class="d-flex align-center justify-space-between">
-                    <div>
-                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Số cửa hàng</MudText>
-                        <MudText Style="font-size:1.75rem; font-weight:700; color:#27AE60; line-height:1.2" Class="mt-1">@_kpiStores</MudText>
-                    </div>
-                    <MudIcon Icon="@Icons.Material.Filled.Store" Style="font-size:2.5rem; color:#27AE60; opacity:0.18"/>
+            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-success)">
+                <div>
+                    <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số cửa hàng</MudText>
+                    <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_kpiStores</MudText>
                 </div>
+                <MudIcon Icon="@Icons.Material.Filled.Store" Class="pos-kpi-icon" Style="color:var(--mud-palette-success)"/>
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4" Style="border-left:4px solid #E67E22">
-                <div class="d-flex align-center justify-space-between">
-                    <div>
-                        <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em">Thiếu Value</MudText>
-                        <MudText Style="font-size:1.75rem; font-weight:700; color:#E67E22; line-height:1.2" Class="mt-1">@_kpiMissingValue</MudText>
-                    </div>
-                    <MudIcon Icon="@Icons.Material.Filled.Warning" Style="font-size:2.5rem; color:#E67E22; opacity:0.18"/>
+            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-warning)">
+                <div>
+                    <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Thiếu Value</MudText>
+                    <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@_kpiMissingValue</MudText>
                 </div>
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Class="pos-kpi-icon" Style="color:var(--mud-palette-warning)"/>
             </MudPaper>
         </div>
     </div>

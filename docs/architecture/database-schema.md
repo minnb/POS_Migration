@@ -2234,6 +2234,9 @@ IsApplyDel        bit                NULL
 GroupName         varchar(50)        NULL
 ColumnFilter      varchar(50)        NULL   -- tên cột filter khi IsByStore=1 (vd 'No' → Store.No)
 IsFirstDataAll    bit                NULL   -- default 0
+IsSingleFile      bit                NOT NULL   -- default 0 — 1 = đóng gói riêng 1 file .zip khi
+                                                 -- sinh master data, 0 = gom chung zip "common"
+                                                 -- (xem docs/sql/SyncTableList_AddIsSingleFile.sql)
 ```
 
 ### SyncTableFromPOS

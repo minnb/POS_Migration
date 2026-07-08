@@ -11,8 +11,8 @@ public sealed class BusinessDayService(
         string storeNo, DateTime businessDate, CancellationToken ct = default)
     {
         var staging = await centralSaleRepository.GetPosDayStagingAsync(storeNo, businessDate, ct);
-        var terminals = (await centralMDRepository.GetPosTerminalListAsync(ct))
-            .Where(t => t.StoreNo == storeNo && t.Status == true)
+        var terminals = (await centralMDRepository.GetPosTerminalListAsync(storeNo, ct))
+            .Where(t => t.Status == true)
             .ToList();
 
         // Terminal master (CentralMD) là gốc — đảm bảo hiện đủ máy POS đang hoạt động của store,

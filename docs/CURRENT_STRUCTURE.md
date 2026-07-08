@@ -59,7 +59,7 @@ src/
 │       │   ├── IDataRawService.cs / DataRawService.cs
 │       │   ├── ISyncDataPosService.cs / SyncDataPosService.cs
 │       │   ├── IKafkaService.cs / KafkaService.cs
-│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync (Parallel SP2 × MaxParallelTables) + LogDownloadAsync
+│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync trả List<GetMasterDataFileResult> (Parallel SP2 × MaxParallelTables; bảng SyncTableList.IsSingleFile=1 → zip riêng/bảng, còn lại gom zip "common") + LogDownloadAsync
 │       ├── Sap/
 │       │   └── ISAPService.cs / SAPService.cs
 │       └── Gift/
@@ -123,7 +123,7 @@ src/
 │   │   │   ├── ProductImageDto.cs (ProductImageDto: ItemNo, Uom, ImageBase64)                       ← ảnh sản phẩm (dbo.ProductImage, 2026-07-06)
 │   │   │   └── ProductDetailDto.cs (ProductDetailDto: header + List<BarcodeRowDto> + ImageBase64?)  ← xem chi tiết SP (2026-07-06)
 │   │   ├── DataSync/
-│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName)
+│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip)
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, SyncAction? (override Action mọi batch: Web Sync="DELETE-INSERT", null=TRUNC-INSERT→INSERT)
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
@@ -489,7 +489,7 @@ Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = defa
 Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
 // ── Web admin: danh sách POS monitor / terminal ──
 Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default)
-Task<List<PosTerminalListDto>> GetPosTerminalListAsync(CancellationToken ct = default)
+Task<List<PosTerminalListDto>> GetPosTerminalListAsync(string? storeNo = null, CancellationToken ct = default)   // storeNo null = toàn bộ (ops/pos-map); có giá trị = filter tại DB (Store Dashboard)
 Task<bool> UpdatePosTerminalAsync(string posNo, string ipAddress, bool? status, string? billNoseri, string updatedBy, CancellationToken ct = default)
 Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default)
 Task<bool> StoreCodeExistsAsync(string storeNo, CancellationToken ct = default)                 // check trùng mã CH
@@ -731,7 +731,7 @@ void DequeueSodRequest(string fullKey)
 Task UploadFileLogToFtpAsync(string pathFileApi, string pathFtpServer, CancellationToken ct = default)
 Task<List<PathFileAPIModel>> DownloadFileUpgradeToolShareFolderAsync(string ipServer, CancellationToken ct = default)
 Task DeleteFileExistAsync(List<PathFileAPIModel> model, string ipServerHost)
-Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)  // POS.Web nút SyncData: sinh zip full-data ALL vào {FtpRootPath}\SyncDataPos\POS\CHANGE\{site}\{terminal} (MapFtpPath, bám controller); delegate IMasterDataSyncService.EnsureMasterDataFileAsync (không đổi logic sinh file)
+Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)  // POS.Web nút SyncData: sinh zip full-data ALL vào {FtpRootPath}\SyncDataPos\POS\CHANGE\{site}\{terminal} (MapFtpPath, bám controller); delegate IMasterDataSyncService.EnsureMasterDataFileAsync (gộp List<GetMasterDataFileResult> trả về thành 1 kết quả tổng hợp — PosMapPage.razor dùng contract đơn)
 string ResolveFtpPhysicalPath(string? posPath)  // UNC POS gửi (\\ip\FTPBLUEPOS\...) → physical path local dưới FtpRootPath; dùng chung DowloadFileStream + DeleteFileFromFTP
 ```
 

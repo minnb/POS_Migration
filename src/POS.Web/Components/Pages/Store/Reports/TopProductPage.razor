@@ -128,34 +128,34 @@
 }
 
 @* ── KPI Cards ─────────────────────────────────────────────────────────────── *@
-<MudGrid Spacing="3" Class="mb-4">
-    <MudItem xs="12" sm="4">
-        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-primary);">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">DT Top @_kpi.FilterTopN SP</MudText>
-            <MudText Typo="Typo.h6" Color="Color.Primary" Class="mt-1">@FormatVND(_kpi.TopN_TotalNetRevenue)</MudText>
-            @TrendBadge(_kpi.TopN_TotalNetRevenue, _kpiPrev?.TopN_TotalNetRevenue)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@_kpi.TopN_RevenueSharePct.ToString("F1")% trên tổng DT</MudText>
+<div class="d-flex flex-wrap gap-3 mb-4">
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_kpi.TopN_TotalNetRevenue)</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">DT Top @_kpi.FilterTopN SP</MudText>
+            <PosDeltaBadge Current="_kpi.TopN_TotalNetRevenue" Previous="_kpiPrev?.TopN_TotalNetRevenue" Enabled="_compareEnabled" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">@_kpi.TopN_RevenueSharePct.ToString("F1")% trên tổng DT</MudText>
         </MudPaper>
-    </MudItem>
+    </div>
 
-    <MudItem xs="12" sm="4">
-        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-info);">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">SL Top @_kpi.FilterTopN SP</MudText>
-            <MudText Typo="Typo.h6" Color="Color.Info" Class="mt-1">@_kpi.TopN_TotalQty.ToString("N0")</MudText>
-            @TrendBadge(_kpi.TopN_TotalQty, _kpiPrev?.TopN_TotalQty)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Tổng số lượng bán</MudText>
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Info">@_kpi.TopN_TotalQty.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">SL Top @_kpi.FilterTopN SP</MudText>
+            <PosDeltaBadge Current="_kpi.TopN_TotalQty" Previous="_kpiPrev?.TopN_TotalQty" Enabled="_compareEnabled" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">Tổng số lượng bán</MudText>
         </MudPaper>
-    </MudItem>
+    </div>
 
-    <MudItem xs="12" sm="4">
-        <MudPaper Elevation="2" Class="pa-3" Style="border-left:4px solid var(--mud-palette-success);">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Số SKU bán được</MudText>
-            <MudText Typo="Typo.h6" Color="Color.Success" Class="mt-1">@_kpi.TopN_SKUCount.ToString("N0")</MudText>
-            @TrendBadge(_kpi.TopN_SKUCount, _kpiPrev?.TopN_SKUCount)
-            <MudText Typo="Typo.caption" Color="Color.Secondary">SKU trong Top N</MudText>
+    <div style="flex:1 1 160px">
+        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_kpi.TopN_SKUCount.ToString("N0")</MudText>
+            <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số SKU bán được</MudText>
+            <PosDeltaBadge Current="_kpi.TopN_SKUCount" Previous="_kpiPrev?.TopN_SKUCount" Enabled="_compareEnabled" Class="mt-1"/>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1 d-block">SKU trong Top N</MudText>
         </MudPaper>
-    </MudItem>
-</MudGrid>
+    </div>
+</div>
 
 @* ── Visual A — CSS bar list (Top SP) ─────────────────────────────────────── *@
 <MudPaper Elevation="1" Class="pa-4 mb-4">
@@ -522,19 +522,6 @@
     private static decimal DiscountPct(TopProductDto p)   => p.GrossRevenue > 0 ? p.TotalDiscount / p.GrossRevenue * 100m : 0m;
     private static string  DiscountPctText(TopProductDto p) => p.GrossRevenue > 0 ? $"{DiscountPct(p):F1}%" : "—";
     private static string  DiscountColor(TopProductDto p)   => DiscountPct(p) > 20m ? "var(--mud-palette-warning)" : "inherit";
-
-    private RenderFragment TrendBadge(decimal current, decimal? prev) => builder =>
-    {
-        if (!_compareEnabled || !prev.HasValue || prev.Value == 0) return;
-        var pct   = (current - prev.Value) / prev.Value * 100m;
-        var color = pct >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
-        var arrow = pct >= 0 ? "▲" : "▼";
-        builder.AddMarkupContent(0,
-            $"<div style=\"font-size:0.73rem;color:{color};margin:2px 0\">{arrow} {Math.Abs(pct):F1}% vs kỳ trước</div>");
-    };
-
-    private RenderFragment TrendBadge(int current, int? prev) =>
-        TrendBadge((decimal)current, prev.HasValue ? (decimal?)prev.Value : null);
 
     private static string FormatVND(decimal amount) => amount switch
     {

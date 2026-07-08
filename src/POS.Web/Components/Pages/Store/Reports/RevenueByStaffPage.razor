@@ -139,21 +139,21 @@
 {
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 130px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #1976D2">
-                <MudText Typo="Typo.h5" Color="Color.Primary">@_items.Count</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Nhân viên</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_items.Count</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Nhân viên</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #388E3C">
-                <MudText Typo="Typo.h5" Color="Color.Success">@FormatVND(_totalRevenue)</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng doanh số</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND(_totalRevenue)</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh số</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 130px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid #F57C00">
-                <MudText Typo="Typo.h5" Color="Color.Warning">@_totalOrders.ToString("N0")</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng hóa đơn</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@_totalOrders.ToString("N0")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng hóa đơn</MudText>
             </MudPaper>
         </div>
     </div>

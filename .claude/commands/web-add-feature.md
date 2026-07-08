@@ -76,6 +76,9 @@ Hỏi từng câu Yes/No, nếu Yes hỏi thêm chi tiết:
 **6. Có KPI row không?**
 - Nếu có: bao nhiêu KPI? (2–4)
 - Mỗi KPI: tên label + property name + format (`currency` | `number` | `percent`)
+- **BẮT BUỘC** sinh theo khuôn mẫu chuẩn ở `/web-ui-kpi-row` (`.claude/commands/web-ui-kpi-row.md`)
+  — KHÔNG tự viết `MudGrid`/`MudPaper` tùy ý. Xem chi tiết ở
+  `.claude/rules/mudblazor-flat-ui.md` mục 11 "KPI card — khuôn mẫu chuẩn".
 
 **7. Có chart không?**
 - Nếu có: loại `Line` / `Bar` / Cả hai
@@ -98,9 +101,11 @@ Tạo 3 file theo đúng thứ tự:
 Cấu trúc layout (theo thứ tự phần đã chọn):
 1. Page header: `MudText Typo.h5` + nút **Làm mới** (nếu phù hợp)
 2. Date filter (nếu chọn) — chip nhanh và/hoặc date picker
-3. KPI row (nếu chọn) — `MudGrid` + `MudPaper` inline (Shared chưa có)
+3. KPI row (nếu chọn) — **BẮT BUỘC** theo khuôn mẫu `/web-ui-kpi-row`: `d-flex flex-wrap` wrapper +
+   `.pos-kpi-value`/`.pos-kpi-label` + `PosDeltaBadge` nếu có trend (xem
+   `.claude/rules/mudblazor-flat-ui.md` mục 11) — KHÔNG `MudGrid`/`MudPaper` tùy ý
 4. Chart (nếu chọn) — `<Line T="double">` / `<Bar T="double">` theo MudBlazor v9
-5. Data table (nếu chọn) — `MudDataGrid<TModel>`
+5. Data table (nếu chọn) — `MudTable<T>` (KHÔNG `MudDataGrid` — xem `datatable.md`)
 
 Bắt buộc có đủ theo checklist SKILLS.md:
 - `@page`, `@attribute [Authorize(Policy = WebPolicies.XXX)]`, `@rendermode InteractiveServer`

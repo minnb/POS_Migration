@@ -26,12 +26,16 @@
 
 ## Quy tắc cốt lõi
 
-**4 nguyên tắc không được vi phạm:**
+**5 nguyên tắc không được vi phạm:**
 
 1. Toàn bộ UI dùng **MudBlazor** — không dùng raw HTML/CSS thuần (inline style nhỏ được chấp nhận)
 2. Serialization dùng **Newtonsoft.Json** (`JsonConvert.*`) — **TUYỆT ĐỐI KHÔNG** dùng `System.Text.Json`
 3. Mọi page phải có `@attribute [Authorize(Policy = ...)]` và `@rendermode InteractiveServer`
 4. Mọi page có thao tác **Create / Update / Delete** — **BẮT BUỘC** đọc và áp dụng `.claude/skills/web/audit-logging.md`
+5. **LUẬT THÉP** — mọi page/component UI mới **BẮT BUỘC** tuân thủ `.claude/rules/mudblazor-flat-ui.md`
+   (mapping component + khuôn mẫu KPI card mục 11 + checklist typography mục 11.1) và
+   `.claude/skills/web/ui-polish-standard.md` — xem CLAUDE.md §"POS.Web" mục 0. KHÔNG tự viết
+   `MudGrid`/`MudPaper` tùy ý cho KPI card khi đã có khuôn mẫu chuẩn.
 
 ---
 
@@ -340,10 +344,13 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 | Component / Class | File | Dùng cho |
 |---|---|---|
 | DataTable | — dùng `MudTable<T>` built-in (xem `datatable.md`) | Bảng dữ liệu sort/paginate (KHÔNG còn base class) |
-| `PosKpiCard` | Chưa tạo — dùng `MudPaper` + `MudText` inline tạm | KPI card |
+| KPI card | Chưa có component riêng — dùng khuôn mẫu `MudPaper` + `.pos-kpi-value`/`.pos-kpi-label` ở `.claude/rules/mudblazor-flat-ui.md` mục 11 | KPI/summary card — **BẮT BUỘC** theo khuôn mẫu này, không tự viết |
+| `PosDeltaBadge` | `Components/Shared/PosDeltaBadge.razor` (đăng ký `@using` toàn cục trong `_Imports.razor`) | Trend/delta badge (%) trong KPI card — dùng `.pos-delta-up`/`.pos-delta-down` |
 | `PosStatusChip` | Chưa tạo — dùng `MudChip T="string"` inline tạm | Status badge |
 
-> Ví dụ inline KPI card: `src/POS.Web/Components/Pages/Store/RevenuePage.razor` — `MudPaper` + border-left + `MudText`.
+> Ví dụ KPI card đã chuẩn hóa (2026-07-08): `src/POS.Web/Components/Pages/Store/Reports/RevenueByStorePage.razor`
+> (không icon), `src/POS.Web/Components/Pages/Ops/PosDataSetupPage.razor` (có icon minh họa),
+> `src/POS.Web/Components/Pages/Store/Reports/RevenueHourlyPage.razor` (có `PosDeltaBadge`).
 
 ---
 
@@ -419,7 +426,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | Bảng server-side paging | `MudTable<T>` với `ServerData` + `@ref` + `ReloadServerData()` |
 | Biểu đồ đường | `<Line T="double">` (v9 — cần `@using MudBlazor.Charts`) |
 | Biểu đồ cột | `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
-| Số liệu tổng quan | `MudPaper` + `MudText` (xem RevenuePage KPI cards) |
+| Số liệu tổng quan (KPI card) | `MudPaper` + `.pos-kpi-value`/`.pos-kpi-label` — **BẮT BUỘC** theo khuôn mẫu `.claude/rules/mudblazor-flat-ui.md` mục 11, KHÔNG tự viết |
 | Thông báo popup | `ISnackbar` (inject, gọi `Snackbar.Add(...)`) |
 | Dialog xác nhận đơn giản | `MudMessageBox @ref="_msgBox"` trong Razor + `await _msgBox!.ShowAsync()` trong code |
 | Dialog form đầy đủ | `IDialogService` + `DialogService.ShowAsync<T>()` |
@@ -639,6 +646,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 - ❌ Đặt dialog component lẫn với page file trong cùng folder — dialog không có `@page`, đặt vào `{Section}/Dialogs/`
 - ❌ Gọi `IDialogService.ShowMessageBox(...)` cho confirm đơn giản → không có overload đó trong MudBlazor v9. Dùng `MudMessageBox @ref` trong Razor + `await _msgBox!.ShowAsync()` (xem pattern bên dưới)
 - ❌ Gọi `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)` cho confirm dialog → render nút Yes bằng markup mặc định của MudBlazor, không có `<YesButton>` slot để chỉnh Variant/Color theo bản chất hành động (CLAUDE.md §14). Luôn dùng `MudMessageBox @ref` (xem pattern bên dưới) — lỗi này đã xảy ra thật ở 8 page, khó phát hiện bằng grep vì nút không nằm trong markup của page.
+- ❌ Gọi method **sync** của `IRedisService` (`Delete`, `HashGet`, `HashSet`, `HashDelete`, `StringSet`, `StringSetRaw`, `StringGetRaw`, `KeyExists`, `GetKeysByPattern`) từ trong component/event handler Blazor Server (`InteractiveServer`) → các method này block đồng bộ bằng `.GetAwaiter().GetResult()` bên trong (`RedisService.cs`), rủi ro treo circuit khi Redis chậm/không phản hồi. **Luôn dùng bản `...Async`** (`StringGetAsync`, `StringSetAsync`, `HashGetAsync`, `HashSetAsync`) khi gọi từ Razor component — đã sửa lỗi thật ở `WebUserService.VerifyPinAsync` (dùng `redis.Delete()` sync, đổi sang `await redis.StringSetAsync(key, 0, ttlSeconds:...)`).
+- ❌ Chỉ dùng `try { ... } finally { ... }` (không có `catch`) trong async event handler xử lý input nhạy cảm (PIN/password verify) → nếu có exception không lường trước (vd `BCrypt.Verify` ném lỗi khi hash lưu DB sai định dạng), exception vẫn lan ra ngoài event handler dù `finally` đã chạy → **crash Blazor Server circuit**, UI kẹt vĩnh viễn ở khung hình cuối (nút spinner/disabled) vì server chết không còn gửi được re-render nào nữa. Luôn dùng `try/catch/finally` đầy đủ, `catch` set thông báo lỗi thân thiện + log qua `IFileLogHelper.WriteExpLogs`. Lỗi thật đã xảy ra ở `SqlConsolePage.razor.VerifyPinAsync()`.
 
 ### Pattern: `MudMessageBox @ref` — confirm dialog đơn giản
 > Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete/approve/retry mà không cần
@@ -1072,10 +1081,78 @@ private void UpdateBreadcrumb(string uri)
 ## SQL Console hardening
 > Áp dụng khi: trang chạy SQL trực tiếp (AdminOnly). Phải mask secret khi log + cho phép tắt.
 
+- **Blacklist, không phải whitelist**: `SqlConsoleService.Validate()` dùng ScriptDom (`TSql160Parser`)
+  parse AST rồi cho phép hầu hết statement type, chỉ chặn tuyệt đối statement có tên class bắt đầu
+  bằng `Drop`/`Truncate` (`stmt.GetType().Name.StartsWith("Drop"/"Truncate")`) — bắt được ~70 biến
+  thể DROP mà không cần liệt kê từng loại. `CreateTableStatement`/`AlterTableStatement` (base class,
+  bắt mọi biến thể ALTER TABLE) map sang `StatementKind.TableDdl`; mọi statement khác không rơi vào
+  case cụ thể → `StatementKind.Other` (vẫn cho chạy, không có chip UI riêng).
 - Mask `password|pwd|token|secret|apikey` (literal `'...'`) **trước khi** ghi audit DB + Kibana log — tránh lưu plaintext.
 - Cờ `Security:EnableSqlConsole` (mặc định true) gate **cả service lẫn page** (defense-in-depth): service trả lỗi/throw, page hiện alert + disable. Nên đặt `false` ở Production expose internet.
+- **PIN gate thứ 2** (độc lập với cookie login): mỗi tài khoản SystemAdmin có PIN riêng
+  (`DashboardUsers.PinHash`, BCrypt) — trang ẩn toàn bộ nội dung sau màn hình nhập PIN, không
+  persist trạng thái mở khoá (mỗi lần vào trang phải nhập lại). Xem pattern "PIN/step-up gate" bên
+  dưới. Tự đổi PIN qua dialog `ChangeMyPinDialog` (trên `UsersPage.razor`) — bắt buộc nhập đúng PIN
+  cũ trước khi đổi (trừ lần đầu thiết lập, `PinHash` còn NULL).
 
-> Ví dụ thực tế: `src/POS.Web/Services/SqlConsoleService.cs` (`MaskSecrets`, `IsEnabled`), `Components/Pages/Admin/SqlConsolePage.razor`
+> Ví dụ thực tế: `src/POS.Web/Services/SqlConsoleService.cs` (`MaskSecrets`, `IsEnabled`, `Validate`), `Components/Pages/Admin/SqlConsolePage.razor`, `src/POS.Web/Auth/WebUserService.cs` (`VerifyPinAsync`, `SetPinAsync`)
+
+---
+
+## Pattern: Textarea overlay syntax highlighting (không dùng thư viện ngoài)
+> Áp dụng khi: cần tô màu cú pháp (SQL/code) cho 1 ô nhập text lớn mà không muốn thêm dependency
+> ngoài MudBlazor (Monaco/CodeMirror quá nặng cho 1 ô nhập trong 1 trang admin nội bộ).
+
+Kỹ thuật: `<pre><code>` tô màu nằm PHÍA SAU (`position:absolute`, `pointer-events:none`), `<textarea>`
+thật nằm PHÍA TRƯỚC với `color:transparent; background:transparent; caret-color:<màu thật>` — người
+dùng gõ vào textarea như bình thường, mắt thấy chữ tô màu của `<pre>` hiện xuyên qua. JS (vanilla,
+không lib ngoài) lắng nghe `input`/`scroll` của textarea để re-render `<pre>` + đồng bộ scroll:
+
+```js
+window.posSqlHighlightBind = (textareaId, codeId) => {
+    const textarea = document.getElementById(textareaId);
+    const code = document.getElementById(codeId);
+    if (!textarea || !code) return;   // no-op an toàn nếu gọi trước khi phần tử tồn tại
+    const render = () => { code.innerHTML = highlight(textarea.value) + '\n'; };
+    textarea.addEventListener('input', render);
+    textarea.addEventListener('scroll', () => { code.parentElement.scrollTop = textarea.scrollTop; });
+    render();
+};
+```
+- Tokenizer dùng **1 regex duy nhất có alternation** (comment/string/bracket/number/keyword) quét
+  1 lượt — tránh bug tô màu chồng khi thay thế tuần tự nhiều regex khác nhau (comment/string bị
+  match lại bởi rule keyword).
+- Escape HTML (`&`/`<`/`>`) TRƯỚC khi build `innerHTML` — bắt buộc, tránh injection nếu nội dung
+  người dùng gõ có ký tự đặc biệt.
+- Gọi từ C#: `OnAfterRenderAsync(firstRender)` → `bind` lần đầu, `refresh` các lần sau (đồng bộ lại
+  khi Blazor tự đổi `value` của textarea, vd nút "Xóa" clear nội dung).
+- Giữ nguyên `Immediate="false"`/`@bind:event="onchange"` cho phần bind C# (không đổi hành vi
+  round-trip sẵn có) — highlight chạy HOÀN TOÀN client-side qua JS, không cần round-trip SignalR
+  mỗi phím gõ.
+
+> Ví dụ thực tế: `wwwroot/js/sql-console-highlight.js`, `Components/Pages/Admin/SqlConsolePage.razor` (`.pos-sql-editor` trong `app.css`)
+
+---
+
+## Pattern: PIN/step-up gate cho trang nhạy cảm
+> Áp dụng khi: 1 trang Admin cần thêm lớp xác thực thứ 2 độc lập với cookie login (bảo vệ trường
+> hợp cookie/session bị đánh cắp) — vd trang thực thi SQL trực tiếp, thao tác DB nguy hiểm.
+
+- PIN lưu **BCrypt hash trong DB** (cột `PinHash` trên bảng user đã có, KHÔNG tạo bảng mới nếu
+  không cần — KHÔNG lưu trong `appsettings` vì cơ chế `enc:` chỉ dành cho secret cần giải mã lại,
+  hash 1 chiều không cần và không nên đi qua đó).
+- Toàn bộ nội dung trang bọc trong `@if (_pinVerified) { ... } else { <PIN card> }` — không render
+  BẤT KỲ phần nào của trang thật (kể cả banner cảnh báo) trước khi verify xong.
+- Khoá tạm sau N lần sai (5 lần/15 phút) bằng Redis counter key riêng — **không có method increment
+  nguyên tử trong `IRedisService`**, dùng read-modify-write (`StringGetAsync<int>` rồi
+  `StringSetAsync` lại) — chấp nhận được vì tần suất gõ PIN thấp, không cần atomic thật.
+- **Đổi PIN bắt buộc nhập đúng PIN CŨ trước** (trừ lần đầu thiết lập) — nếu bỏ qua bước này, 1
+  cookie/session bị đánh cắp đủ để tự đặt lại PIN theo ý kẻ tấn công rồi vượt qua chính lớp bảo vệ
+  vừa thêm, phá vỡ hoàn toàn mục đích của PIN gate.
+- **BẮT BUỘC `try/catch/finally` đầy đủ** quanh lời gọi verify (xem anti-pattern ở mục "KHÔNG làm")
+  — `try/finally` không đủ, exception không lường trước (hash sai định dạng...) sẽ crash circuit.
+
+> Ví dụ thực tế: `Components/Pages/Admin/SqlConsolePage.razor` (PIN card + `VerifyPinAsync`), `src/POS.Web/Auth/WebUserService.cs` (`VerifyPinAsync`, `SetPinAsync`), `Components/Pages/Admin/Dialogs/ChangeMyPinDialog.razor`
 
 ---
 

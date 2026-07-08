@@ -1,6 +1,10 @@
 # POS.Web — Báo cáo hiện trạng
-<<<<<<< HEAD
-> Cập nhật: 2026-07-06 (Đổi ngữ nghĩa `IsCheckItem` trên `VoucherIssuePage.razor`/`VouchersPage.razor`
+> Cập nhật: 2026-07-08 (VoidsPage — fix lỗi SQL reserved keyword `LineNo` khiến trang luôn rỗng +
+> đồng bộ UI theo chuẩn `PosMapPage.razor`, xem G20. Chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-07 (Dashboard mặc định cho role Cửa hàng `/store/dashboard` — landing page mới
+> thay `/store/revenue` cho StoreOperator, xem G24. Kèm resolve git-conflict marker tồn đọng trong
+> file này + `docs/CHANGELOG.md` — xem chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-06 (Đổi ngữ nghĩa `IsCheckItem` trên `VoucherIssuePage.razor`/`VouchersPage.razor`
 > `/promotion/vouchers*`: sau điều tra xác nhận code cũ khớp đúng legacy nhưng NGƯỢC nghĩa Coupon —
 > theo quyết định người dùng, đổi Voucher khớp Coupon (`IsCheckItem=1`=theo sản phẩm). Đã sửa
 > C#/Razor + 2 SP script + docs; **CHƯA chạy SP/migration data trên DB thật** — xem D10
@@ -111,10 +115,6 @@
 > `dotnet test tests/POS.ContractTests` 25/25. Chưa test UI thật (chờ người dùng tự test lại theo
 > đúng kịch bản đã gặp bug). Chi tiết: `docs/CHANGELOG.md`)
 > Trước đó 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
-=======
-<<<<<<< HEAD
-> Cập nhật: 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
->>>>>>> dev
 > (1) **Typography pixel-perfect**: `PosTheme.cs` (`Default.LineHeight` 1.45→1.5, `Button.FontSize`
 > thêm 12px + bỏ letter-spacing thừa, `Body1.FontSize` 12px→12.5px), `app.css` (sidebar L1/L2 size,
 > `.mud-table-body .mud-table-cell` 12.5px mới, `.mud-input-label-inputcontrol` uppercase/bold mới,
@@ -183,8 +183,7 @@
 > web/SKILLS.md` (pattern per-variant FontFamily + MudMessageBox YesButton). Verify: `dotnet build`
 > 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25. Chưa xác nhận trực quan trên browser thật —
 > cần tự chạy app kiểm tra. Chi tiết: `docs/CHANGELOG.md`)
-=======
-> Cập nhật: 2026-07-06 (PricesPage `/catalog/prices` — nâng cấp 9.1 Danh mục Bảng giá: (1) thêm
+> Trước đó 2026-07-06 (PricesPage `/catalog/prices` — nâng cấp 9.1 Danh mục Bảng giá: (1) thêm
 > cột "Hình thức" (SaleTypeName) trước "Nhóm giá" + cột "Trạng thái" (Hiệu lực/Chưa hiệu lực/Hết
 > hiệu lực, MudChip màu, tính client-side theo Start/EndingDateStr); (2) ngày `01/01/9999` hiển thị
 > "Vô thời hạn"; (3) filter Barcode/SalesCode (text tự do) → combobox "Hình thức bán hàng"/"Nhóm
@@ -198,7 +197,6 @@
 > SP cần chạy tay: `GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`,
 > `SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet test tests/POS.ContractTests` 25/25 (build
 > POS.Web bị khoá file do instance đang chạy — không phải lỗi biên dịch). Chi tiết: `docs/CHANGELOG.md`)
->>>>>>> 7ff26a64942c307f60c821c0812ddb403e305471
 > Trước đó 2026-07-05 (BusinessDayPage `/store/business-day` — 4 điều chỉnh: (1) FIX crash
 > "duplicate key" khi tìm kiếm — SP `GetSalesEODConfirm` trả cột tên legacy (`TerminalID`,
 > `AmountTotal`…) ≠ property DTO → Dapper để trống `PosTerminal`, thêm class trung gian
@@ -327,6 +325,7 @@ src/POS.Web/
 │       │                      VoucherFormDialog, VoucherIssueMoreDialog, VoucherItemPickerDialog,
 │       │                      CouponAdvancedDialog — không còn dùng, giữ code cho thiết kế lại sau)
 │       └── Store/
+│           ├── StoreDashboardPage.razor  ← /store/dashboard — Dashboard mặc định StoreOperator (landing page)
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
 │           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)
 │           ├── Operations/ (BusinessDayPage, EosShiftsPage, ShiftSummaryPage)
@@ -396,7 +395,7 @@ src/POS.Web/
 | F0 | PosTheme.cs – custom MudTheme (navy primary, teal accent, semantic colors) | Theme/PosTheme.cs | ✅ | Primary=#2051A3, **Drawer/Appbar=#FFFFFF** (v2 — đổi từ navy #1B3A5C, chữ tint navy), **BorderRadius=16px** (v2 — tăng từ 4px), **LineHeight=1.45**, Button.TextTransform=none, **Body1=0.75rem + FontWeight=400** (v2 — giảm ~15% từ 0.875rem, không đậm), **Shadows E1-E5="none"** (v2 — borderless, thay hairline `0 0 0 1px`; E6+ giữ nguyên cho dropdown/dialog) |
 | F1 | MainLayout – MudThemeProvider **Theme="@PosTheme.Default"** + providers | Layout/MainLayout.razor | ✅ | Đã truyền custom theme |
 | F2 | MainLayout – MudAppBar: toggle drawer + hiển thị tên user + logout | Layout/MainLayout.razor | ✅ | Href="/logout" trên MudIconButton. **v2:** `Color="Color.Default"` (đổi từ `Color.Primary`) để ăn theo AppbarBackground sáng; title đổi "POS Dashboard – POSMaster"→"RPOS Dashboard"; icon Menu/Logout đổi `Filled`→`Outlined` |
-| F3 | MainLayout – Sidebar "Cửa hàng" (Policy=StoreAndAbove) | Layout/MainLayout.razor | ✅ | 3 sub-group (Vận hành/Giao dịch/Báo cáo) + 12 leaf links — icon sub-group (cấp 2) đổi đồng nhất về `ChevronRight` giống leaf (cấp 3), `HideExpandIcon="true"` ẩn mũi tên expand mặc định bên phải |
+| F3 | MainLayout – Sidebar "Cửa hàng" (Policy=StoreAndAbove) | Layout/MainLayout.razor | ✅ | 3 sub-group (Vận hành/Giao dịch/Báo cáo) + 12 leaf links — icon sub-group (cấp 2) đổi đồng nhất về `ChevronRight` giống leaf (cấp 3), `HideExpandIcon="true"` ẩn mũi tên expand mặc định bên phải. **Role StoreOperator**: cả 3 sub-group luôn mở sẵn (`UpdateExpanded` bỏ qua route-match, ép `true`) để sidebar trải đều — ITOps/Admin vẫn theo route như cũ. Không còn menu "Dashboard" riêng — truy cập `/store/dashboard` qua click `pos-sidebar-brand` (logo "RPOS – Quản lý bán hàng", `@onclick Nav.NavigateTo`) |
 | F4 | MainLayout – Sidebar "Vận hành" (Policy=OpsAndAbove) | Layout/MainLayout.razor | ✅ | 2 sub-group: Giám sát (4 links) + Nhật ký (2 links) — icon sub-group `ChevronRight` giống leaf, `HideExpandIcon="true"` |
 | F5 | MainLayout – Sidebar "Quản trị" (Policy=AdminOnly) | Layout/MainLayout.razor | ✅ | 4 nav link, `HideExpandIcon="true"` |
 | F6 | EmptyLayout – layout căn giữa cho Login | Layout/EmptyLayout.razor | ✅ | flex + align-items:center + **background:var(--mud-palette-background)** (không còn hardcode #f0f2f5), có MudBlazor providers + PosTheme |
@@ -408,7 +407,7 @@ src/POS.Web/
 | G6 | Login.razor – DoLogin gọi ValidateLoginAsync | Pages/Login.razor | ✅ | |
 | G7 | Login.razor – DoLogin tạo ClaimsPrincipal + gọi SignInAsync | Pages/Login.razor | ✅ | Claims: Name, Role, full_name, store_codes |
 | G8 | Index.razor – @page "/" + [Authorize] | Pages/Index.razor | ✅ | |
-| G9 | Index.razor – redirect theo role | Pages/Index.razor | ✅ | SystemAdmin→/admin/users, ITOps→/ops/health, other→/store/revenue |
+| G9 | Index.razor – redirect theo role | Pages/Index.razor | ✅ | SystemAdmin→/admin/users, ITOps→/ops/health, StoreOperator→/store/dashboard (đổi từ /store/revenue) |
 | G10 | RevenuePage – /store/revenue + StoreAndAbove + InteractiveServer | Pages/Store/RevenuePage.razor | ✅ | |
 | G11 | HealthPage – /ops/health + OpsAndAbove + InteractiveServer | Pages/Ops/HealthPage.razor | ✅ | |
 | G12 | UsersPage – /admin/users + AdminOnly + InteractiveServer | Pages/Admin/UsersPage.razor | ✅ | KPI row (3 cards: tổng/active/locked) + filter panel (search+role+status) + MudTable LINQ filter |
@@ -419,10 +418,12 @@ src/POS.Web/
 | G17 | BusinessDayPage – /store/business-day + StoreAndAbove | Pages/Store/Operations/BusinessDayPage.razor | ✅ | "Xác nhận kết thúc ngày" — port từ legacy StoreActivitiesController. Chọn 1 store (bắt buộc, mặc định store đầu theo StoreNo) + ngày kinh doanh, bấm Tìm kiếm mới load; lưới per-POS-terminal (staging) + nút Xác nhận (chặn nếu còn POS chưa đóng ngày hoặc đã xác nhận) → advance `BussinessDateOpen` +1 ngày cho máy POS |
 | G18 | ShiftSummaryPage – /store/shift-summary + StoreAndAbove | Pages/Store/ShiftSummaryPage.razor | ✅ | Stub — Tổng kết ca (UI construction in progress) |
 | G19 | RefundsPage – /store/refunds + StoreAndAbove | Pages/Store/RefundsPage.razor | ✅ | Stub — Hoàn trả (UI construction in progress) |
-| G20 | VoidsPage – /store/voids + StoreAndAbove | Pages/Store/VoidsPage.razor | ✅ | Stub — Hủy GD (UI construction in progress) |
+| G20 | VoidsPage – /store/voids + StoreAndAbove | Pages/Store/Transactions/VoidsPage.razor | ✅ | Lịch sử hủy giao dịch — filter panel + 4 KPI card + MudTable (chuẩn UI đồng bộ `PosMapPage.razor`). Fix 2026-07-08: `GetVoidReportAsync` lỗi SQL `LineNo` (reserved keyword) khiến trang luôn rỗng dù DB có dữ liệu, đã bracket-quote `[LineNo]` |
 | G21 | RevenueHourlyPage – /store/revenue-hourly + StoreAndAbove | Pages/Store/RevenueHourlyPage.razor | ✅ | Doanh thu theo giờ — KPI + Line/Bar charts + MudTable (FooterContent dòng Tổng) + store combobox. **Tối ưu 10M dòng:** Redis cache repo (TTL theo độ mới) + includeKpi + CancellationToken + guard re-entrancy + hoãn load khỏi prerender + clamp 92 ngày khi all-stores |
 | G22 | PaymentBreakdownPage – /store/payment-breakdown + StoreAndAbove | Pages/Store/PaymentBreakdownPage.razor | ✅ | Stub — Phân tích thanh toán (UI construction in progress) |
 | G23 | TopProductPage – /store/top-product + StoreAndAbove | Pages/Store/TopProductPage.razor | ✅ | Top sản phẩm bán chạy — sp_ReportTopProduct (cache Pattern 4, clamp 92 ngày). KPI 3 card + CSS bar list + MudTable drill-through (ProductOrdersDialog). **BA/BI:** surface metrics (trả%/giá TB/độ phủ/giảm%) + so sánh cấp SP (Δ hạng/NEW). Ngành hàng ẩn tạm (SP chưa JOIN Item master) |
+| G24 | StoreDashboardPage – /store/dashboard + StoreAndAbove + InteractiveServer | Pages/Store/StoreDashboardPage.razor | ✅ | Dashboard mặc định StoreOperator (landing page, thay /store/revenue). 3 KPI card (Doanh thu/Tổng Bill/Void+tỷ lệ) — chuẩn hóa theo `RevenuePage.razor` (`MudGrid` `xs=12 sm=4` + `MudPaper border-left 4px` + caption/h5, KHÔNG dùng flex+pos-kpi-value như bản đầu). `Task.WhenAll` 3 call: `RptRepo.GetSaleByTimeAsync(..,"HOUR")` (cache Redis sẵn, gộp KPI+chart giờ), `RptRepo.GetSaleByTimeAsync(..,"DAY")` (7 ngày gần nhất, không cần KPI), `SaleRepo.GetVoidReportAsync`. Auto-refresh PeriodicTimer mặc định 120s (giống PosMapPage). 2 bar chart FULL WIDTH xếp chồng (theo giờ hôm nay + 7 ngày gần nhất — bỏ layout `lg=7/lg=5` cạnh nhau để trục giờ dễ nhìn hơn) + MudTable Void gần nhất (top 10, link "Xem tất cả" → /store/voids). Tiêu đề header động `HeaderTitle` = "Cửa hàng {StoreNo}-{Name}" (tra `_allStores` — nay load cho MỌI role, kể cả StoreOperator, để lấy Name) thay vì "Dashboard Cửa hàng" tĩnh. **Đã bỏ**: KPI/panel trạng thái máy POS + ca làm việc (không còn gọi `GetPosTerminalListAsync`/`GetEosShiftListAsync` từ trang này); dòng caption "StoreNo · Lần cuối HH:mm:ss" (field `_lastLoaded` xóa luôn); menu "Dashboard" trên sidebar (`MainLayout.razor`) — truy cập qua click logo `pos-sidebar-brand` ("RPOS – Quản lý bán hàng") thay vì nav link |
+| — | `ICentralMDRepository.GetPosTerminalListAsync` thêm tham số `storeNo` (optional, mặc định null) | Repositories/MasterData/CentralMDRepository.cs | ✅ | Trước đây luôn quét full `POSTerminal` (~5.000 dòng); nay filter `WHERE pt.StoreNo=@storeNo` tại DB khi có giá trị. Hiện dùng bởi `BusinessDayService` (đã filter theo store); `PosMapPage.razor` giữ hành vi cũ (không truyền storeNo). StoreDashboardPage không còn gọi method này (đã bỏ panel POS status) |
 | I1 | DataTable standard – `MudTable<T>` built-in | (mọi page có bảng) | ✅ | MudTableSortLabel + MudTablePager + ServerData; PosTableBase ĐÃ XÓA. Chi tiết: `.claude/skills/web/datatable.md` |
 | I2 | `.pos-table*` CSS – nay chỉ cho pivot report | wwwroot/app.css | ✅ | pos-table/pos-table-wrap còn dùng cho `rpt-pivot-table` (SalesByCategoryPage) |
 | I3 | Sidebar accordion – tự mở/đóng theo route | Layout/MainLayout.razor | ✅ | NavigationManager.LocationChanged + @bind-Expanded + IAsyncDisposable; mọi `MudNavGroup` (cấp 1+2) thêm `HideExpandIcon="true"` ẩn mũi tên expand phải, chỉ còn icon trái làm chỉ báo |
