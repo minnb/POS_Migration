@@ -1,25 +1,35 @@
 using System.Net;
 using System.Security.Cryptography;
-using System.Text;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using POS.Common;
 using POS.Infrastructure.Logging;
 using POS.Infrastructure.Repositories.Interfaces;
+using POS.Infrastructure.Security;
 
 namespace POS.Api.Middleware;
 
 /// <summary>
 /// Xác thực request từ máy POS theo hai hình thức:
-///   1. Header X-API  → validate MD5(privateKey).ToUpper() vs giá trị POSDataSetup[X-API]
+///   1. Header X-Request-Id + X-Timestamp + X-Checksum + X-Pos-No → verify timestamp window rồi
+///      SHA-256(RequestId|Timestamp|Secret+PosNo), so sánh bằng thời gian cố định
+///      (CryptographicOperations.FixedTimeEquals qua PosApiKeyChecksum). Secret lấy từ Redis cache
+///      MD:POSDataSetup (12h TTL, tự invalidate khi admin sửa DB); giải mã token enc:... qua
+///      SecretProtector nếu giá trị DB đã được mã hóa.
 ///   2. Authorization: Basic → pass-through, BasicAuthHandler xử lý (/api/v2/*)
 ///   3. Authorization: Bearer → pass-through (pending triển khai)
-/// Private key lấy từ Redis cache MD:POSDataSetup (12h TTL), tự invalidate khi admin sửa DB.
+///
+/// Rủi ro tồn dư đã được chấp nhận (xem docs/API_CONTRACT.md): không chống replay trong cửa sổ
+/// timestamp; secret dùng chung cho toàn bộ POS (không phải secret riêng theo từng PosNo).
 /// </summary>
-public sealed class PosApiKeyMiddleware(RequestDelegate next)
+public sealed class PosApiKeyMiddleware(RequestDelegate next, IOptions<PosApiKeyAuthOptions> options)
 {
-    private const string XApiHeader       = "X-API";
-    private const string PosDataSetupCode = "X-API";
+    private const string RequestIdHeader = "X-Request-Id";
+    private const string TimestampHeader = "X-Timestamp";
+    private const string ChecksumHeader  = "X-Checksum";
+    private const string PosNoHeader     = "X-Pos-No";
+    private const string SecretCode      = "X-API";
 
     private static readonly JsonSerializerSettings JsonSettings = new()
     {
@@ -42,33 +52,85 @@ public sealed class PosApiKeyMiddleware(RequestDelegate next)
             return;
         }
 
-        var xApiValue = context.Request.Headers[XApiHeader].FirstOrDefault();
+        var requestId = context.Request.Headers[RequestIdHeader].FirstOrDefault();
+        var timestamp = context.Request.Headers[TimestampHeader].FirstOrDefault();
+        var checksum  = context.Request.Headers[ChecksumHeader].FirstOrDefault();
+        var posNo     = context.Request.Headers[PosNoHeader].FirstOrDefault();
 
-        if (!string.IsNullOrEmpty(xApiValue))
+        if (!string.IsNullOrEmpty(requestId) && !string.IsNullOrEmpty(timestamp) &&
+            !string.IsNullOrEmpty(checksum) && !string.IsNullOrEmpty(posNo))
         {
-            // POS request qua X-API header — validate
-            var setupList = await centralMDRepo.GetPOSDataSetupAsync(context.RequestAborted);
-            var privateKey = setupList?
-                .FirstOrDefault(x => string.Equals(x.Code, PosDataSetupCode,
-                                                   StringComparison.OrdinalIgnoreCase))
-                ?.Value;
+            var clientIp = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                           ?? context.Connection.RemoteIpAddress?.ToString()
+                           ?? "unknown";
 
-            if (string.IsNullOrEmpty(privateKey))
+            if (!long.TryParse(timestamp, out var timestampUnixSeconds))
             {
                 fileLogHelper.WriteLogs(
-                    $"[PosApiKey] X-API chưa cấu hình trong POSDataSetup | Path={path}");
+                    $"[PosApiKey] X-Timestamp không hợp lệ | Path={path} | IP={clientIp} | PosNo={posNo}");
+                await WriteUnauthorizedAsync(context, "Chưa xác thực");
+                return;
+            }
+
+            if (!PosApiKeyChecksum.IsWithinWindow(timestampUnixSeconds, DateTimeOffset.UtcNow,
+                    options.Value.TimestampWindowMinutes))
+            {
+                fileLogHelper.WriteLogs(
+                    $"[PosApiKey] X-Timestamp lệch quá {options.Value.TimestampWindowMinutes} phút | " +
+                    $"Path={path} | IP={clientIp} | PosNo={posNo} | RequestId={requestId}");
+                await WriteUnauthorizedAsync(context, "Chưa xác thực");
+                return;
+            }
+
+            var setupList = await centralMDRepo.GetPOSDataSetupAsync(context.RequestAborted);
+            var secretRaw = setupList?
+                .FirstOrDefault(x => string.Equals(x.Code, SecretCode, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            if (string.IsNullOrEmpty(secretRaw))
+            {
+                fileLogHelper.WriteLogs(
+                    $"[PosApiKey] X-API chưa cấu hình trong POSDataSetup | Path={path} | PosNo={posNo}");
                 await WriteUnauthorizedAsync(context, "Cấu hình X-API chưa được thiết lập");
                 return;
             }
 
-            var expectedHash = ComputeMd5Upper(privateKey);
-            if (!string.Equals(xApiValue, expectedHash, StringComparison.Ordinal))
+            string secret;
+            if (SecretProtector.HasToken(secretRaw))
             {
-                var clientIp = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                               ?? context.Connection.RemoteIpAddress?.ToString()
-                               ?? "unknown";
+                var secretKey = Environment.GetEnvironmentVariable("POS_SECRET_KEY");
+                if (string.IsNullOrWhiteSpace(secretKey))
+                {
+                    fileLogHelper.WriteLogs(
+                        $"[PosApiKey] Thiếu POS_SECRET_KEY để giải mã X-API | Path={path} | PosNo={posNo}");
+                    await WriteUnauthorizedAsync(context, "Cấu hình X-API chưa được thiết lập");
+                    return;
+                }
+
+                try
+                {
+                    secret = SecretProtector.DecryptTokens(secretRaw, secretKey);
+                }
+                catch (CryptographicException ex)
+                {
+                    // Không log secretRaw/token mã hóa — chỉ log message lỗi giải mã
+                    fileLogHelper.WriteLogs(
+                        $"[PosApiKey] Giải mã X-API thất bại | Path={path} | PosNo={posNo} | {ex.Message}");
+                    await WriteUnauthorizedAsync(context, "Cấu hình X-API chưa được thiết lập");
+                    return;
+                }
+            }
+            else
+            {
+                secret = secretRaw;
+            }
+
+            var expected = PosApiKeyChecksum.Compute(requestId, timestampUnixSeconds, secret, posNo);
+            if (!PosApiKeyChecksum.Verify(expected, checksum))
+            {
                 fileLogHelper.WriteLogs(
-                    $"[PosApiKey] X-API không hợp lệ | Path={path} | IP={clientIp} | Received={xApiValue}");
+                    $"[PosApiKey] X-Checksum không hợp lệ | Path={path} | IP={clientIp} | " +
+                    $"PosNo={posNo} | RequestId={requestId}");
                 await WriteUnauthorizedAsync(context, "Chưa xác thực");
                 return;
             }
@@ -77,7 +139,7 @@ public sealed class PosApiKeyMiddleware(RequestDelegate next)
             return;
         }
 
-        // Không có X-API → kiểm tra Authorization header
+        // Không đủ header POS mới → kiểm tra Authorization header
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
 
         if (!string.IsNullOrEmpty(authHeader))
@@ -87,15 +149,9 @@ public sealed class PosApiKeyMiddleware(RequestDelegate next)
             return;
         }
 
-        // Thiếu cả X-API lẫn Authorization → TỪ CHỐI (fail-closed)
-        fileLogHelper.WriteLogs($"[PosApiKey] Thiếu X-API và Authorization | Path={path}");
+        // Thiếu cả header POS mới lẫn Authorization → TỪ CHỐI (fail-closed)
+        fileLogHelper.WriteLogs($"[PosApiKey] Thiếu header xác thực | Path={path}");
         await WriteUnauthorizedAsync(context, "Chưa xác thực");
-    }
-
-    private static string ComputeMd5Upper(string input)
-    {
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexString(bytes); // .NET 5+ — uppercase hex
     }
 
     private static async Task WriteUnauthorizedAsync(HttpContext context, string message)

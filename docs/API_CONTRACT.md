@@ -46,6 +46,50 @@ Tất cả endpoint trả về `ResultResponse` (trừ HomeController là MVC):
 | Basic Auth (outbound) | `VoucherController`, `PLGController`, `SAPController` | Gọi ra CrownX / PLH API với `Authorization: Basic Base64(user:pass)` |
 | HMAC SHA256 (outbound) | `VoucherTopUpVinIDController` | Gọi ra VinID — header: `X-Key-Code`, `X-Timestamp`, `X-Nonce`, `X-Signature`, `X-Request-ID`; raw data = `"{url};{method};{X-Nonce};{X-Timestamp};{X-Key-Code};[body]"` → SHA256 |
 | Bearer Token (outbound) | `PLGController` (Giftee) | `Authorization: Bearer {GifteeToken}` |
+| Checksum + Timestamp window (inbound, global) | `PosApiKeyMiddleware` (`src/POS.Api/Middleware/`) | Áp dụng **toàn bộ** route trừ `/health`, `/swagger/*`, và route dùng `Authorization: Basic/Bearer` (pass-through không đổi). Xem §2.1. |
+
+### 2.1 Xác thực máy POS — `PosApiKeyMiddleware` (cập nhật 2026-07-08)
+
+> Thay thế hoàn toàn scheme `X-API` (MD5) cũ — **cutover, không có giai đoạn dual-mode**. Mọi máy
+> POS gọi trực tiếp (không qua `Authorization: Basic/Bearer`) **bắt buộc** gửi đủ 4 header sau kể
+> từ khi middleware được bật lại trong `Program.cs`.
+
+**Header bắt buộc:**
+
+| Header | Kiểu | Ý nghĩa |
+|---|---|---|
+| `X-Request-Id` | string | Định danh duy nhất mỗi request (POS tự sinh, ví dụ GUID) |
+| `X-Timestamp` | long (Unix epoch **giây**) | Thời điểm tạo request phía POS |
+| `X-Pos-No` | string | Mã máy POS (PosNo) |
+| `X-Checksum` | string (hex, SHA-256 = 64 ký tự) | Xem công thức bên dưới — không phân biệt hoa/thường |
+
+**Công thức checksum:**
+
+```
+raw      = "{X-Request-Id}|{X-Timestamp}|{Secret}{X-Pos-No}"
+Checksum = SHA256(raw)   // hex string
+```
+
+- `Secret` = giá trị `POSDataSetup.Value` tại `Code = 'X-API'` (bảng `RPOSMasterData.dbo.POSDataSetup`)
+  — **CÙNG một secret cho toàn bộ 5.000 POS** (không phải secret riêng theo từng máy). Server cache
+  Redis 12h (`MD:POSDataSetup`), tự invalidate khi admin sửa DB.
+- Secret có thể lưu ở DB dạng mã hóa `enc:...` (AES-256-GCM qua `SecretProtector`, xem
+  `docs/architecture/appsetting.md`) hoặc plaintext — server tự nhận diện qua prefix `enc:`.
+
+**Điều kiện pass:**
+
+1. `|now - X-Timestamp| ≤ PosApiKeyAuth:TimestampWindowMinutes` (mặc định 10 phút, cấu hình trong
+   `appsettings.json`). Sai định dạng hoặc lệch quá window → `401`.
+2. `Checksum` gửi lên khớp checksum server tự tính (so sánh bằng
+   `CryptographicOperations.FixedTimeEquals`, chống timing attack) → `401` nếu sai.
+
+**Rủi ro tồn dư đã biết (chấp nhận có chủ đích, xem lịch sử quyết định 2026-07-08):**
+
+- **Không chống replay** trong cửa sổ `TimestampWindowMinutes`: 1 request hợp lệ bị bắt lại (network
+  sniff) trong cửa sổ đó vẫn pass. Không có Redis nonce-tracking cho `X-Request-Id` ở đợt này.
+- **Secret dùng chung**: vì secret giống nhau cho mọi PosNo, kẻ tấn công biết secret có thể tự tính
+  checksum hợp lệ cho BẤT KỲ `X-Pos-No` nào — `X-Pos-No` trong checksum chỉ ràng buộc tính toàn vẹn
+  của header đó trong 1 request, KHÔNG phải cơ chế per-device key thật sự.
 
 ---
 

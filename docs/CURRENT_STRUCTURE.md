@@ -38,7 +38,9 @@ src/
 │   ├── Middleware/
 │   │   ├── BasicAuthHandler.cs
 │   │   ├── ExceptionHandlingMiddleware.cs   ← G3 global exception → ResultResponse (UsePosExceptionHandling)
-│   │   ├── PosApiKeyMiddleware.cs           ← Xác thực X-API (MD5) / Authorization, fail-closed (UsePosApiKeyAuth)
+│   │   ├── PosApiKeyMiddleware.cs           ← Xác thực X-Request-Id/X-Timestamp/X-Checksum/X-Pos-No (SHA-256, FixedTimeEquals) / Authorization, fail-closed (UsePosApiKeyAuth)
+│   │   ├── PosApiKeyAuthOptions.cs          ← Options cho middleware trên (TimestampWindowMinutes, section "PosApiKeyAuth")
+│   │   ├── PosApiKeyChecksum.cs             ← Pure logic Compute/Verify/IsWithinWindow (tách khỏi middleware để unit test)
 │   │   ├── RequestResponseLoggingMiddleware.cs ← Log request/response MỌI API qua IKibanaService, cấu hình RequestLogging:Enabled (UseRequestResponseLogging, đặt ngoài cùng pipeline)
 │   │   └── RequestLoggingOptions.cs         ← Options cho middleware trên (Enabled/MaxBodyBytes/ExcludePaths)
 │   ├── Program.cs
@@ -454,7 +456,8 @@ src/
 | `ApiBehaviorOptions.SuppressModelStateInvalidFilter = true` | — | Cho phép ValidateModelFilter kiểm soát hoàn toàn |
 | `MemoryCache` | Singleton | Đã đăng ký, chưa wire vào biz logic (xem TODO trong `BasicAuthHandler.cs`) |
 | Authentication `"BasicAuth"` → `BasicAuthHandler` | — | Chỉ áp dụng route api/v2/... |
-| `PosApiKeyMiddleware` (`UsePosApiKeyAuth`) | — | Sau Serilog, trước UseAuthentication. Validate X-API (MD5 vs POSDataSetup[X-API]); fail-closed — miễn `/health` + `/swagger/*` |
+| `PosApiKeyMiddleware` (`UsePosApiKeyAuth`) | — | Sau Serilog, trước UseAuthentication. Validate X-Request-Id/X-Timestamp/X-Checksum/X-Pos-No (SHA-256 + FixedTimeEquals, timestamp window cấu hình `PosApiKeyAuth:TimestampWindowMinutes`); Authorization Basic/Bearer pass-through không đổi; fail-closed — miễn `/health` + `/swagger/*`. Xem `docs/API_CONTRACT.md` §Xác thực POS |
+| `PosApiKeyAuthOptions` | Options | `services.Configure<PosApiKeyAuthOptions>(...)`, section `"PosApiKeyAuth"` |
 | `HttpClient` (generic factory) | — | `IHttpClientFactory` |
 | Swagger | — | Chỉ đăng ký khi `IsDevelopment()` |
 | `app.MapGet("/health", ...)` | — | Health endpoint public (Docker HEALTHCHECK) |

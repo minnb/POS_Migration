@@ -16,6 +16,7 @@
 | O2 | File import worker (POS.Worker) | Tạo 3 thư mục inbox/error/_work + cấp quyền ghi + điền path `FileImport` | MEDIUM | [§O2](#o2--worker-nạp-sale-từ-file-zip-posworker) |
 | O3 | Nút SyncData trên POS.Web (`/catalog/pos-setup`) | Đặt `FtpRootPath` của **POS.Web** = ĐÚNG thư mục vật lý POS.Api phục vụ (chung share/volume) | MEDIUM | [§O3](#o3--nút-syncdata-đẩy-dữ-liệu-đầu-ngày-posweb) |
 | O4 | Log request/response toàn cục (POS.Api) | Mặc định TẮT (`RequestLogging:Enabled=false`) — chỉ bật khi cần debug 1 đợt cụ thể; `PersistToFile=true` mặc định vì chưa cài Elasticsearch | LOW (opt-in khi cần) | [§O4](#o4--log-requestresponse-toàn-cục-posapi) |
+| O5 | Bật lại `PosApiKeyMiddleware` — scheme mới (POS.Api) | Mã hóa `POSDataSetup.Value` (`Code='X-API'`) bằng `SecretProtector` (khuyến nghị) + đảm bảo **MỌI POS đã update firmware gửi đủ 4 header mới** trước khi deploy (cutover, không dual-mode) | CRITICAL (breaking change cho toàn bộ 5.000 POS) | [§O5](#o5--bật-lại-posapikeymiddleware-scheme-mới-posapi) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 5 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list + `SetupCoupon_IssueMore.sql` cho nút "PHÁT HÀNH THÊM") | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
@@ -397,6 +398,38 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 - Body request/response bị cắt theo `RequestLogging:MaxBodyBytes` (mặc định 8192 byte); multipart
   upload (`UploadFileLogJob`, `UploadFileSale`) và response nhị phân (`DowloadFileStream`, zip) chỉ
   log metadata, không capture nội dung file.
+
+---
+
+## O5 — Bật lại `PosApiKeyMiddleware` (scheme mới, POS.Api)
+
+> Cập nhật 2026-07-08: `app.UsePosApiKeyAuth()` (`src/POS.Api/Program.cs`) được bật lại với scheme
+> mới — thay hoàn toàn header `X-API` (MD5) cũ bằng `X-Request-Id` + `X-Timestamp` + `X-Checksum` +
+> `X-Pos-No` (SHA-256, so sánh `CryptographicOperations.FixedTimeEquals`). Chi tiết công thức
+> checksum, danh sách header, rủi ro tồn dư: **`docs/API_CONTRACT.md` §2.1**.
+
+- ⚠️ **CUTOVER — không có giai đoạn dual-mode.** Kể từ khi deploy bản này, middleware KHÔNG còn
+  chấp nhận header `X-API` cũ. Mọi máy POS gọi trực tiếp (không qua `Authorization: Basic/Bearer`)
+  **bắt buộc** đã có firmware gửi đủ 4 header mới **TRƯỚC KHI** deploy, nếu không toàn bộ request
+  từ POS chưa update sẽ nhận `401`.
+- **Migrate secret tại DB (khuyến nghị, không bắt buộc để chạy được)**: mã hóa
+  `POSDataSetup.Value` (`Code = 'X-API'`) bằng trang `/admin/encrypt-secret` (POS.Web, đã có sẵn,
+  dùng chung `POS_SECRET_KEY` với tính năng mã hóa credentials ở §C4), rồi:
+  ```sql
+  UPDATE POSDataSetup SET Value = 'enc:...' WHERE Code = 'X-API';
+  ```
+  Middleware tự nhận diện prefix `enc:` và giải mã khi đọc secret ra khỏi cache — **không cần
+  đổi code**. Nếu chưa migrate, giá trị plaintext hiện tại vẫn hoạt động bình thường (không bắt
+  buộc phải mã hóa mới chạy được, nhưng khuyến nghị làm sớm để giảm rủi ro lộ secret qua DB dump).
+- **Cấu hình cửa sổ thời gian hợp lệ**: `appsettings.json` → `"PosApiKeyAuth": {
+  "TimestampWindowMinutes": 10 }` (mặc định 10 phút — chỉnh nếu đồng hồ POS lệch nhiều so với
+  server hoặc cần siết chặt hơn).
+- **Rủi ro tồn dư đã biết** (xem đầy đủ tại `docs/API_CONTRACT.md` §2.1): không chống replay trong
+  cửa sổ timestamp; secret dùng chung cho toàn bộ POS (không phải per-device key). Đây là quyết
+  định có chủ đích, không phải thiếu sót.
+- **Xác minh sau khi bật**: gọi 1 endpoint bất kỳ (ngoài `/health`, `/swagger`) không có đủ 4
+  header mới và không có `Authorization` → phải nhận `401`. Gọi lại với đủ 4 header tính đúng
+  công thức → phải qua được middleware (200/lỗi nghiệp vụ bình thường, không phải 401 do auth).
 
 ---
 

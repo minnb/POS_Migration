@@ -69,6 +69,10 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<RequestLoggingOptions>(
     builder.Configuration.GetSection(RequestLoggingOptions.SectionName));
 
+// ── PosApiKeyMiddleware options (timestamp window) ────────────────────────
+builder.Services.Configure<PosApiKeyAuthOptions>(
+    builder.Configuration.GetSection(PosApiKeyAuthOptions.SectionName));
+
 // ── Application services ──────────────────────────────────────────────────
 builder.Services.AddApplication();
 
@@ -133,7 +137,7 @@ app.UseRequestResponseLogging();
 // ── Lưới an toàn cuối: bắt mọi exception chưa xử lý, trả đúng ResultResponse ──
 app.UsePosExceptionHandling();
 app.UseSerilogRequestLogging();
-//app.UsePosApiKeyAuth();
+app.UsePosApiKeyAuth();
 app.UseAuthentication();
 app.UseAuthorization();
 
