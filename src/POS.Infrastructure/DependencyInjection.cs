@@ -95,9 +95,13 @@ public static class DependencyInjection
         services.AddSingleton(Options.Create(fileImportOptions));
 
         // ── Logging ───────────────────────────────────────────────────────────
-        // FileLogHelper nhận baseDirectory từ config, không inject IConfiguration trực tiếp.
+        // FileLogHelper nhận baseDirectory + retentionDays từ config, không inject IConfiguration trực tiếp.
         var logDir = configuration["Logging:FileLogDirectory"] ?? "Logs";
-        services.AddSingleton<IFileLogHelper>(_ => new FileLogHelper(logDir));
+        var logRetentionOptions =
+            configuration.GetSection(LogRetentionOptions.SectionName).Get<LogRetentionOptions>()
+            ?? new LogRetentionOptions();
+        services.AddSingleton(Options.Create(logRetentionOptions));
+        services.AddSingleton<IFileLogHelper>(_ => new FileLogHelper(logDir, logRetentionOptions.RawLogRetentionDays));
 
         // KibanaService dùng Serilog + Elasticsearch — Singleton an toàn vì chỉ
         // inject ILogger<KibanaService> (Singleton-safe).

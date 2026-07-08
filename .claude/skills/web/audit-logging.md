@@ -233,7 +233,11 @@ private static bool IsSensitiveKey(string code) =>
     code.Contains("CREDENTIAL", StringComparison.OrdinalIgnoreCase);
 ```
 
-> **Hiện tại** helper toàn cục chưa có — mỗi page tự inline nếu cần, đánh dấu `// TODO: extract to helper`.
+> **Cập nhật**: helper dùng chung đã có tại `POS.Infrastructure.Logging.SensitiveDataMasker`
+> (`IsSensitiveKey(string)` / `Mask(IReadOnlyDictionary<string, object?>)`) — dùng cho
+> `IKibanaService.LogException(..., Exception ex, context)` khi cần log chi tiết tham số lỗi qua
+> Serilog `{@Context}`. Cho audit log entity (mục này) vẫn có thể tái dùng
+> `SensitiveDataMasker.IsSensitiveKey` thay vì tự viết `IsSensitiveKey` inline như ví dụ trên.
 > Nếu entity **không có** trường nhạy cảm (vd POSDataSetup.Value là config POS), serialize trực tiếp.
 
 ---

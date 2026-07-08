@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Common;
 using POS.Common.Dtos;
+using POS.Common.Helpers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
@@ -145,5 +146,34 @@ public abstract class BaseController : ControllerBase
         {
             return null;
         }
+    }
+    public void LogClientRequest(POS.Infrastructure.Logging.IFileLogHelper fileLogHelper, string action, object? body = null)
+    {
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"=== REQUEST: {action} | {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} ===");
+            sb.AppendLine($"Method: {Request.Method} | Path: {Request.Path} | IP: {GetIpAddressClient()}");
+
+            sb.AppendLine("--- Headers ---");
+            foreach (var header in Request.Headers)
+                sb.AppendLine($"  {header.Key}: {header.Value}");
+
+            if (Request.Query.Any())
+            {
+                sb.AppendLine("--- Query Params ---");
+                foreach (var q in Request.Query)
+                    sb.AppendLine($"  {q.Key}: {q.Value}");
+            }
+
+            if (body != null)
+            {
+                sb.AppendLine("--- Body ---");
+                sb.AppendLine(JsonConvert.SerializeObject(body));
+            }
+
+            fileLogHelper.WriteLogs(sb.ToString());
+        }
+        catch { /* logging must never throw */ }
     }
 }

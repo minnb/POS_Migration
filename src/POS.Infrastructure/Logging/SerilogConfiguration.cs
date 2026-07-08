@@ -23,9 +23,12 @@ public static class SerilogConfiguration
         var esOptions = builder.Configuration
             .GetSection(ElasticsearchOptions.SectionName)
             .Get<ElasticsearchOptions>() ?? new ElasticsearchOptions();
+        var retentionOptions = builder.Configuration
+            .GetSection(LogRetentionOptions.SectionName)
+            .Get<LogRetentionOptions>() ?? new LogRetentionOptions();
 
         builder.Host.UseSerilog((context, services, loggerConfig) =>
-            ConfigureSerilogCore(loggerConfig, services, context.Configuration, esOptions));
+            ConfigureSerilogCore(loggerConfig, services, context.Configuration, esOptions, retentionOptions));
 
         return builder;
     }
@@ -39,9 +42,12 @@ public static class SerilogConfiguration
         var esOptions = builder.Configuration
             .GetSection(ElasticsearchOptions.SectionName)
             .Get<ElasticsearchOptions>() ?? new ElasticsearchOptions();
+        var retentionOptions = builder.Configuration
+            .GetSection(LogRetentionOptions.SectionName)
+            .Get<LogRetentionOptions>() ?? new LogRetentionOptions();
 
         builder.Services.AddSerilog((services, loggerConfig) =>
-            ConfigureSerilogCore(loggerConfig, services, builder.Configuration, esOptions));
+            ConfigureSerilogCore(loggerConfig, services, builder.Configuration, esOptions, retentionOptions));
 
         return builder;
     }
@@ -50,15 +56,15 @@ public static class SerilogConfiguration
         LoggerConfiguration loggerConfig,
         IServiceProvider services,
         IConfiguration configuration,
-        ElasticsearchOptions esOptions)
+        ElasticsearchOptions esOptions,
+        LogRetentionOptions retentionOptions)
     {
+        // MinimumLevel (Default + Override) đọc từ appsettings "Serilog:MinimumLevel" qua
+        // ReadFrom.Configuration — KHÔNG hardcode ở đây để từng host (Api/Web/Worker) tự cấu hình
+        // mức log riêng qua appsettings của chính nó mà không ảnh hưởng 2 host còn lại.
         loggerConfig
             .ReadFrom.Configuration(configuration)
             .ReadFrom.Services(services)
-            .MinimumLevel.Information()
-            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-            .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-            .MinimumLevel.Override("System", LogEventLevel.Warning)
             .Enrich.FromLogContext()
             .Enrich.WithMachineName()
             .Enrich.WithThreadId()
@@ -73,7 +79,7 @@ public static class SerilogConfiguration
         {
             const string outputTemplate =
                 "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}";
-            var filePath = Path.Combine(fileLogDir, "pos-.log"); // → pos-yyyyMMdd.log
+            var filePath = Path.Combine(fileLogDir, "rpos-.log"); // → pos-yyyyMMdd.log
 
             // RequestLogging:PersistToFile=true (mặc định — chưa cài Elasticsearch): File sink nhận
             // MỌI loại log như trước giờ, không đổi hành vi cũ.
@@ -87,7 +93,8 @@ public static class SerilogConfiguration
                 loggerConfig.WriteTo.File(
                     path: filePath,
                     rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 14,
+                    retainedFileCountLimit: retentionOptions.SerilogRetainedFileCountLimit,
+                    fileSizeLimitBytes: retentionOptions.SerilogFileSizeLimitBytes,
                     shared: true,                                // nhiều instance ghi chung an toàn
                     flushToDiskInterval: TimeSpan.FromSeconds(1),
                     outputTemplate: outputTemplate);
@@ -101,7 +108,8 @@ public static class SerilogConfiguration
                     .WriteTo.File(
                         path: filePath,
                         rollingInterval: RollingInterval.Day,
-                        retainedFileCountLimit: 14,
+                        retainedFileCountLimit: retentionOptions.SerilogRetainedFileCountLimit,
+                        fileSizeLimitBytes: retentionOptions.SerilogFileSizeLimitBytes,
                         shared: true,
                         flushToDiskInterval: TimeSpan.FromSeconds(1),
                         outputTemplate: outputTemplate));

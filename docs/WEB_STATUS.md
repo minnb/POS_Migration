@@ -1,5 +1,15 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-08 (Thêm `RedisDashboardPage` — /ops/redis (OpsAndAbove): tìm key theo pattern
+> Cập nhật: 2026-07-08 (Serilog reconfig riêng POS.Web — giảm phình log Production: bỏ hardcode
+> `MinimumLevel` trong `SerilogConfiguration.cs` (dùng chung Api/Web/Worker) để `Serilog:MinimumLevel`
+> trong appsettings có hiệu lực thật; POS.Web Dev = `Warning`, Production = `Error`
+> (`Microsoft`/`System` cũng `Error`, giữ `Microsoft.Hosting.Lifetime=Information`). Không đổi
+> POS.Api/POS.Worker. Thêm capability mới `IKibanaService.LogException(..., Exception ex, context)`
+> — structured `{@Context}`, tự mask field nhạy cảm qua `SensitiveDataMasker` mới (không migrate
+> ~150 call site `WriteExpLogs` hiện có, out of scope). Verify: `dotnet build` POS.Web + solution 0
+> lỗi, `dotnet test tests/POS.ContractTests` 39/39, verify thủ công qua console app tạm xác nhận
+> log Info/Warning bị lọc, log Error lọt qua, và `Password`/`Pin` trong context bị mask `"***"`
+> trong khi `StoreNo` giữ nguyên. Chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-08 (Thêm `RedisDashboardPage` — /ops/redis (OpsAndAbove): tìm key theo pattern
 > (SCAN cap 1000, chặn `*` cần confirm), xem giá trị (pretty JSON), xóa key (confirm + audit log),
 > status card + 5 KPI card (Bộ nhớ/Clients/Tổng Key/Cache Hit %/Uptime) kiểu `HealthPage.razor`.
 > Backend mới: `IRedisManagementService` (POS.Application.Features.Redis), mở rộng `IRedisManager`

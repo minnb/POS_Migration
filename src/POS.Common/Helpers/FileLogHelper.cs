@@ -50,4 +50,5 @@ public sealed class FileLogHelper : IFileLogHelper
             // ghi log thất bại không được ném exception ra ngoài
         }
     }
+
 }

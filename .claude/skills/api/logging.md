@@ -37,9 +37,11 @@ public interface IFileLogHelper
 }
 ```
 
-- Backing store: `File.AppendAllText` — **đồng bộ, mở/ghi/đóng file mỗi lần gọi**. Bọc try/catch
-  nuốt lỗi ("logging must never throw"). Đăng ký Singleton, `baseDirectory` từ
-  `Logging:FileLogDirectory`.
+- Backing store: `File.AppendAllText` — **đồng bộ, mở/ghi/đóng file mỗi lần gọi**, bọc `lock` riêng
+  cho từng loại file (`debug`/`Exception`) để tránh 2 thread cùng process ghi trùng thời điểm bị
+  `IOException` nuốt lặng lẽ trong try/catch. Bọc try/catch nuốt lỗi ("logging must never throw").
+  Đăng ký Singleton, `baseDirectory` từ `Logging:FileLogDirectory`, `retentionDays` từ
+  `LogRetention:RawLogRetentionDays` — xem mục 5 "Cách cấu hình số ngày lưu Log trên Server".
 - **Anti-pattern đã gặp thực tế**: gọi `File.AppendAllText` (hoặc tương tự) cho MỌI request của MỌI
   endpoint (thay vì vài chỗ nghiệp vụ) → bottleneck I/O dưới tải 5.000 POS. Đây là lý do
   `RequestResponseLoggingMiddleware` KHÔNG dùng `IFileLogHelper` mà dùng `IKibanaService` (đẩy qua
@@ -114,6 +116,9 @@ else
         .WriteTo.File(path: filePath, ...));   // loại trừ riêng Request/Response, Exception/Info vẫn ghi đủ
 }
 ```
+
+`retainedFileCountLimit`/`fileSizeLimitBytes` của `WriteTo.File` đọc từ `LogRetentionOptions`
+(section `LogRetention`), không còn hardcode — xem mục 5.
 
 - **Mặc định `true`** — vì Elasticsearch **hiện chưa được cài đặt** trong dự án, cần bản ghi trên
   đĩa server (`pos-*.log`) làm nơi tra cứu duy nhất. Đổi sang `false` sau khi Elasticsearch go-live
@@ -193,6 +198,56 @@ giá trị `RequestLogging:Enabled` đang hiệu lực trước khi nghi ngờ c
 
 ---
 
+## 5. Cách cấu hình số ngày lưu Log trên Server
+
+`src/POS.Infrastructure/Logging/LogRetentionOptions.cs` — options class bind từ section
+`LogRetention`, dùng chung cho cả 2 loại output file log (Serilog `pos-*.log` và `IFileLogHelper`
+`debug/`+`Exception/` `.txt`):
+
+```json
+"LogRetention": {
+  "SerilogRetainedFileCountLimit": 7,
+  "SerilogFileSizeLimitBytes": null,
+  "RawLogRetentionDays": 7
+}
+```
+
+| Key | Ảnh hưởng output nào | Ý nghĩa | Mặc định nếu bỏ trống section |
+|---|---|---|---|
+| `SerilogRetainedFileCountLimit` | Serilog File sink (`pos-*.log`, `RollingInterval.Day` → mỗi file ≈ 1 ngày) | Giữ tối đa N file gần nhất, file cũ hơn tự xóa khi Serilog roll sang file mới | `14` |
+| `SerilogFileSizeLimitBytes` | Serilog File sink | Giới hạn dung lượng/file trước khi Serilog tự roll thêm file phụ trong cùng ngày. `null` = không giới hạn | `null` (không giới hạn) |
+| `RawLogRetentionDays` | `IFileLogHelper` (`debug/log-*.txt`, `Exception/log-*.txt`) | Xóa file cũ hơn N ngày. `<= 0` = tắt cleanup | `30` |
+
+**Giá trị hiện tại của dự án**: Dev = 7 ngày, Production = 10 ngày (`appsettings.json` /
+`appsettings.Production.json` của POS.Api, POS.Web, POS.Worker) — điều chỉnh theo dung lượng ổ đĩa
+thực tế của từng server, không có con số "đúng" cố định.
+
+### Cách đổi trên server đang chạy (không cần rebuild)
+
+1. Sửa section `LogRetention` trong `appsettings.Production.json` (hoặc override qua biến môi
+   trường, vd `LogRetention__RawLogRetentionDays=45`).
+2. **Restart lại process** — Serilog đọc `LogRetentionOptions` lúc bootstrap (`AddSerilogWithElastic`),
+   `FileLogHelper` đọc lúc `AddInfrastructure` dựng DI container — cả 2 đều chỉ đọc 1 lần lúc khởi
+   động, không tự động áp dụng nếu chỉ sửa file mà không restart.
+
+### Cơ chế dọn dẹp thực tế
+
+- **Serilog**: dùng tính năng có sẵn của Serilog.Sinks.File (`retainedFileCountLimit`,
+  `fileSizeLimitBytes`) — Serilog tự xóa file thừa mỗi khi roll sang file mới (đầu ngày mới, hoặc
+  khi đạt `fileSizeLimitBytes` nếu có set).
+- **`IFileLogHelper`**: **không dùng worker/cron riêng** — mỗi lần `WriteLogs`/`WriteExpLogs` được
+  gọi, class tự kiểm tra đã quá 24h kể từ lần dọn dẹp trước chưa; nếu đúng, quét
+  `debug/log-*.txt` và `Exception/log-*.txt`, xóa file có `LastWriteTimeUtc` cũ hơn
+  `RawLogRetentionDays`. Lý do chọn cách này thay vì 1 `BackgroundService` trong POS.Worker: mọi
+  process host `FileLogHelper` (POS.Api, POS.Web, POS.Worker) tự có retention mà không phụ thuộc
+  POS.Worker có đang chạy hay không (`--run-once` cron mode của POS.Worker không đăng ký hosted
+  service nào), và không cần POS.Worker nhìn thấy thư mục log vật lý khác của POS.Api/POS.Web.
+- **Bỏ trống toàn bộ section `LogRetention`** → giữ nguyên hành vi trước khi có tính năng này
+  (Serilog 14 ngày/không giới hạn size, `IFileLogHelper` không tự dọn) — thay đổi này là cộng thêm,
+  tương thích ngược hoàn toàn.
+
+---
+
 ## Checklist khi thêm log mới
 
 - [ ] Log 1 dòng debug/exception cụ thể trong 1 method → `IFileLogHelper` (không dùng cho log chạy
@@ -217,6 +272,7 @@ giá trị `RequestLogging:Enabled` đang hiệu lực trước khi nghi ngờ c
 | File log thô | `src/POS.Infrastructure/Logging/IFileLogHelper.cs`, `FileLogHelper.cs` |
 | Structured log Kibana | `src/POS.Infrastructure/Logging/IKibanaService.cs`, `KibanaService.cs` |
 | Serilog pipeline + `PersistToFile` | `src/POS.Infrastructure/Logging/SerilogConfiguration.cs` |
+| Log Retention Policy (mục 5) | `src/POS.Infrastructure/Logging/LogRetentionOptions.cs`, section `LogRetention` trong `appsettings*.json` của POS.Api/POS.Web/POS.Worker |
 | Middleware log toàn cục | `src/POS.Api/Middleware/RequestResponseLoggingMiddleware.cs`, `RequestLoggingOptions.cs` |
 | Đăng ký pipeline | `src/POS.Api/Program.cs` |
 | Config | `src/POS.Api/appsettings*.json` (section `RequestLogging`), `docs/ROLLOUT.md` §O4 |

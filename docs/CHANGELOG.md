@@ -6,6 +6,94 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-08] Serilog Error-only reconfig cho POS.Web + Rich Exception Logging capability
+
+**Layer:** POS.Infrastructure, POS.Web
+**Loại:** Bug fix (dead config) + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Logging/SerilogConfiguration.cs`: bỏ hardcode
+  `.MinimumLevel.Information()` + 3 `.MinimumLevel.Override(...)` chạy SAU
+  `ReadFrom.Configuration(configuration)` — trước đây các dòng hardcode này **luôn đè** giá trị đọc
+  từ `appsettings.json` (`Serilog:MinimumLevel`), khiến section đó **vô tác dụng** trên cả 3 host
+  (Api/Web/Worker), chỉ "hoạt động" nhờ trùng giá trị ngẫu nhiên. Giờ để `ReadFrom.Configuration` tự
+  đọc — mỗi host tự cấu hình mức log qua appsettings riêng, không ảnh hưởng lẫn nhau.
+- `src/POS.Web/appsettings.json`: `Serilog:MinimumLevel:Default` = `Information` → `Warning`.
+- `src/POS.Web/appsettings.Production.json`: thêm section `Serilog:MinimumLevel` mới (`Default` +
+  `Microsoft`/`System` = `Error`, giữ `Microsoft.Hosting.Lifetime` = `Information` vì khối lượng
+  log thấp và hữu ích để biết app start/stop qua file log).
+- `src/POS.Web/appsettings.UAT.json`: đồng bộ thêm section `Serilog:MinimumLevel` (copy từ DEV,
+  `Default: Warning`) — trước đó UAT không có section này, ngầm dùng DEV base.
+- `src/POS.Infrastructure/Logging/SensitiveDataMasker.cs` (mới, static): `IsSensitiveKey(key)` +
+  `Mask(IReadOnlyDictionary<string, object?>)` — mở rộng từ khóa nhạy cảm trong
+  `.claude/skills/web/audit-logging.md` §7 (`PASSWORD/SECRET/TOKEN/KEY/PWD/CREDENTIAL`), thêm
+  `PIN`/`PINCODE`/`APIKEY`. **Helper mask dùng chung đầu tiên trong solution** — trước đây mỗi page
+  tự inline `IsSensitiveKey` riêng.
+- `IKibanaService.cs`/`KibanaService.cs`: thêm overload
+  `LogException(string endpoint, string posNo, int errorCode, string note, Exception ex, IReadOnlyDictionary<string, object?>? context = null)`
+  — dùng Serilog structured destructuring `{@Context}` (thay vì string interpolation), tự mask
+  context qua `SensitiveDataMasker` **trước khi** vào `Task.Run` fire-and-forget, giữ nguyên
+  `Exception` object đầy đủ (stack trace + inner exception) thay vì chỉ nhận `ex.Message` như
+  overload cũ. **Overload cũ giữ nguyên 100%** — không breaking change cho `RevenueByStaffPage.razor`
+  hay bất kỳ consumer POS.Api nào.
+- `.claude/skills/api/logging.md`: thêm mục "5. Cách cấu hình số ngày lưu Log trên Server" (từ task
+  Log Retention trước đó cùng ngày) + ghi chú `retainedFileCountLimit`/`fileSizeLimitBytes` đọc từ
+  `LogRetentionOptions`.
+- `.claude/skills/web/audit-logging.md` §7: trỏ về `SensitiveDataMasker` thay vì khuyến nghị tự
+  inline `IsSensitiveKey` mỗi page.
+- `docs/CURRENT_STRUCTURE.md`: thêm `SensitiveDataMasker.cs` vào cây `Logging/`, thêm chữ ký
+  overload `LogException` mới + `SensitiveDataMasker` vào mục D/E.
+
+**Pattern mới:** Structured exception logging với masking tự động (`{@Context}` +
+`SensitiveDataMasker`) → đã ghi trong `docs/CURRENT_STRUCTURE.md`; chưa thêm vào
+`.claude/skills/api/SKILLS.md` (cân nhắc thêm nếu pattern này được dùng lại ở nơi khác).
+
+**Lưu ý cho session sau:**
+- `SerilogConfiguration.cs` dùng chung cho Api/Web/Worker — muốn đổi mức log CHỈ 1 host, sửa
+  `Serilog:MinimumLevel` trong appsettings của đúng host đó, KHÔNG sửa code chung (nay đã config-driven
+  hoàn toàn, không còn hardcode nào đè).
+- Còn ~150 call site `IFileLogHelper.WriteExpLogs` trong POS.Web (~52 file) ghi thẳng `.txt`,
+  KHÔNG qua Serilog — không bị ảnh hưởng bởi `MinimumLevel`, không lên Elasticsearch. Đã xác nhận
+  với user là **out of scope** cho task này — cần task migrate riêng nếu muốn đồng bộ.
+- `RevenueByStaffPage.razor` là nơi DUY NHẤT dùng `IKibanaService.LogException` trong POS.Web,
+  vẫn dùng overload cũ (`ex.Message`, mất stack trace) — có thể fast-follow sang overload mới.
+
+---
+
+## [2026-07-08] Log Retention Policy — POS.Api/POS.Web/POS.Worker
+
+**Layer:** POS.Infrastructure, POS.Api, POS.Web, POS.Worker
+**Loại:** Feature + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Logging/LogRetentionOptions.cs` (mới): bind section `LogRetention`
+  (`SerilogRetainedFileCountLimit`, `SerilogFileSizeLimitBytes`, `RawLogRetentionDays`) — default
+  giữ nguyên hành vi cũ nếu bỏ trống section (14 ngày Serilog/không giới hạn size, FileLogHelper
+  không tự dọn).
+- `src/POS.Infrastructure/Logging/SerilogConfiguration.cs`: `retainedFileCountLimit`/
+  `fileSizeLimitBytes` của Serilog File sink đọc từ `LogRetentionOptions` thay vì hardcode `14`.
+- `src/POS.Infrastructure/Logging/FileLogHelper.cs`: thêm `retentionDays` vào constructor + sweep
+  cơ hội (tối đa 1 lần/24h, kích hoạt bởi lần `WriteLogs`/`WriteExpLogs` kế tiếp) dọn
+  `debug/log-*.txt` + `Exception/log-*.txt` cũ hơn `retentionDays`. Không dùng `BackgroundService`
+  riêng vì POS.Worker không đảm bảo luôn chạy (`--run-once` cron mode) và không nhìn thấy thư mục
+  log vật lý của POS.Api/POS.Web. Đồng thời thêm 2 `lock` riêng (`_debugLock`/`_expLock`) cho
+  `WriteLogs`/`WriteExpLogs` — fix rủi ro `IOException` bị nuốt lặng lẽ khi nhiều thread cùng ghi.
+- `src/POS.Infrastructure/DependencyInjection.cs`: đăng ký `IOptions<LogRetentionOptions>`, truyền
+  `RawLogRetentionDays` vào factory `IFileLogHelper`.
+- appsettings (`appsettings.json`/`appsettings.Production.json`/`appsettings.UAT.json`) của cả 3
+  project: thêm section `LogRetention` — Dev/UAT = 7 ngày, Production = 10 ngày (đã chốt với user).
+- `.claude/skills/api/logging.md`, `docs/CURRENT_STRUCTURE.md`, `docs/ROLLOUT.md` (§O6): tài liệu
+  hoá cơ chế + hướng dẫn đổi retention trên server đang chạy (sửa config + restart).
+
+**Pattern mới:** Sweep cơ hội trong chính class ghi log (thay vì `BackgroundService` riêng) khi
+class đó được host bởi nhiều process không đồng nhất về vòng đời — đã ghi trong
+`docs/CURRENT_STRUCTURE.md` + `.claude/skills/api/logging.md` mục 5.
+
+**Lưu ý cho session sau:** Retention chỉ xóa đúng pattern `debug/log-*.txt`/`Exception/log-*.txt`
+— không xóa toàn bộ thư mục; giả định `Logging:FileLogDirectory` chỉ chứa log do 2 cơ chế này ghi.
+
+---
+
 ## [2026-07-08] Thêm Redis Management Dashboard — /ops/redis (RedisDashboardPage)
 
 **Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web

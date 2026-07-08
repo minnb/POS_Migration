@@ -88,6 +88,38 @@ public sealed class KibanaService(ILogger<KibanaService> logger) : IKibanaServic
         });
     }
 
+    public void LogException(string endpoint, string posNo, int errorCode, string note, Exception ex,
+        IReadOnlyDictionary<string, object?>? context = null)
+    {
+        var (traceId, spanId) = GetTraceIds();
+        // Mask đồng bộ, TRƯỚC khi vào Task.Run — dữ liệu nhạy cảm không được giữ trong closure
+        // dạng chưa mask dù chỉ trong khoảnh khắc, kể cả khi phần log bên dưới lỗi.
+        var maskedContext = context != null ? SensitiveDataMasker.Mask(context) : null;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                using (LogContext.PushProperty("HttpContext", "Exception"))
+                using (LogContext.PushProperty("WebApi", endpoint))
+                using (LogContext.PushProperty("PosNo", posNo ?? HostName))
+                using (LogContext.PushProperty("ErrorCode", errorCode))
+                using (LogContext.PushProperty("DeveloperMessage", note))
+                using (LogContext.PushProperty("trace_id", traceId))
+                using (LogContext.PushProperty("span_id", spanId))
+                {
+                    // {@Context} destructure — tách field trên Elasticsearch/Kibana; ex truyền
+                    // riêng cho Serilog để giữ đầy đủ stack trace + inner exception.
+                    logger.LogError(ex, "{Endpoint} exception [{ErrorCode}] {Note}: {@Context}",
+                        endpoint, errorCode, note, maskedContext);
+                }
+            }
+            catch (Exception logEx)
+            {
+                logger.LogError(logEx, "Error in KibanaService.LogException fire-and-forget");
+            }
+        });
+    }
+
     public void LogInfo(string endpoint, string posNo, string message)
     {
         var (traceId, spanId) = GetTraceIds();

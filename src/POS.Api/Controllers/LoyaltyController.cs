@@ -1,11 +1,12 @@
-using System.Diagnostics;
-using System.Net;
+using Elastic.Transport;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Application.Features.Partner;
 using POS.Common;
 using POS.Common.Dtos.Loyalty;
 using POS.Infrastructure.Logging;
+using System.Diagnostics;
+using System.Net;
 
 namespace POS.Api.Controllers;
 
@@ -19,6 +20,55 @@ public sealed class LoyaltyController(
     private readonly IKibanaService _kibanaService = kibanaService;
     private readonly IFileLogHelper _fileLogHelper = fileLogHelper;
     private readonly IAkaChainLoyaltyService _akaChainLoyaltyService = akaChainLoyaltyService;
+    
+    [HttpGet]
+    [Route("vinid/GetInfoMember")]//Thông tin khách hàng cũ VINID
+    public async Task<IActionResult> GetInfoMember_Old(string numberCard, string posID, string storeNo, string clubCode = "", bool isLog = true)
+    {
+        var sw = Stopwatch.StartNew();
+        var endpoint = "api/vinid/GetInfoMember";
+        if (string.IsNullOrEmpty(numberCard) || numberCard.Length < 9)
+        {
+            return BadRequestResult("Số điện thoại/số thẻ đang bị trống hoặc không đủ chiều dài ký tự");
+        }
+
+        try
+        {
+            var res = await _akaChainLoyaltyService.GetMemberProfileAsync("Phone", numberCard);
+            sw.Stop();
+
+            ResultResponse result;
+            if (res.Status == HttpStatusCode.OK)
+            {
+                result = new ResultResponse
+                {
+                    Data = res.Data,
+                    Message = "OK",
+                    Status = HttpStatusCode.OK,
+                    MessageTechnical = clubCode
+                };
+            }
+            else
+            {
+                result = new ResultResponse
+                {
+                    Data = res.Data,
+                    Message = res.Message,
+                    Status = res.Status,
+                    MessageTechnical = res.MessageTechnical
+                };
+            }
+
+            _kibanaService.LogResponse(endpoint, posID, sw.ElapsedMilliseconds, "", JsonConvert.SerializeObject(result));
+            return StatusCode((int)result.Status, result);
+        }
+        catch (Exception ex)
+        {
+            _fileLogHelper.WriteExpLogs("LoyaltyController.GetCustomerDetail", ex);
+            _kibanaService.LogException(endpoint, posID, 0, "", ex.Message);
+            return BadRequestResult(ex);
+        }
+    }
 
     [HttpGet]
     [Route("v2/loyalty/customer/get")]
@@ -27,7 +77,7 @@ public sealed class LoyaltyController(
         string clubCode = "", bool isMobile = false, bool isLog = true)
     {
         var sw = Stopwatch.StartNew();
-        var endpoint = "api/common/v2/loyalty/customer/get";
+        var endpoint = "api/v2/loyalty/customer/get";
 
         if (string.IsNullOrEmpty(numberCard) || numberCard.Length < 9)
         {

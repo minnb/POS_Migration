@@ -17,6 +17,7 @@
 | O3 | Nút SyncData trên POS.Web (`/catalog/pos-setup`) | Đặt `FtpRootPath` của **POS.Web** = ĐÚNG thư mục vật lý POS.Api phục vụ (chung share/volume) | MEDIUM | [§O3](#o3--nút-syncdata-đẩy-dữ-liệu-đầu-ngày-posweb) |
 | O4 | Log request/response toàn cục (POS.Api) | Mặc định TẮT (`RequestLogging:Enabled=false`) — chỉ bật khi cần debug 1 đợt cụ thể; `PersistToFile=true` mặc định vì chưa cài Elasticsearch | LOW (opt-in khi cần) | [§O4](#o4--log-requestresponse-toàn-cục-posapi) |
 | O5 | Bật lại `PosApiKeyMiddleware` — scheme mới (POS.Api) | Mã hóa `POSDataSetup.Value` (`Code='X-API'`) bằng `SecretProtector` (khuyến nghị) + đảm bảo **MỌI POS đã update firmware gửi đủ 4 header mới** trước khi deploy (cutover, không dual-mode) | CRITICAL (breaking change cho toàn bộ 5.000 POS) | [§O5](#o5--bật-lại-posapikeymiddleware-scheme-mới-posapi) |
+| O6 | Log Retention Policy (POS.Api, POS.Web, POS.Worker) | Xác nhận/điều chỉnh `LogRetention:SerilogRetainedFileCountLimit` + `RawLogRetentionDays` theo dung lượng ổ đĩa thực tế của từng server trước khi deploy `appsettings.Production.json` | MEDIUM | [§O6](#o6--log-retention-policy-posapi-posweb-posworker) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 5 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list + `SetupCoupon_IssueMore.sql` cho nút "PHÁT HÀNH THÊM") | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
@@ -398,6 +399,34 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 - Body request/response bị cắt theo `RequestLogging:MaxBodyBytes` (mặc định 8192 byte); multipart
   upload (`UploadFileLogJob`, `UploadFileSale`) và response nhị phân (`DowloadFileStream`, zip) chỉ
   log metadata, không capture nội dung file.
+
+---
+
+## O6 — Log Retention Policy (POS.Api, POS.Web, POS.Worker)
+
+> `LogRetentionOptions` (`src/POS.Infrastructure/Logging/LogRetentionOptions.cs`, section
+> `LogRetention`) giới hạn số ngày/dung lượng lưu 2 loại file log: Serilog (`pos-*.log`) và
+> `IFileLogHelper` (`debug/`+`Exception/` `.txt`) — xem chi tiết cơ chế tại
+> `.claude/skills/api/logging.md` mục 5.
+
+```json
+"LogRetention": {
+  "SerilogRetainedFileCountLimit": 10,
+  "SerilogFileSizeLimitBytes": null,
+  "RawLogRetentionDays": 10
+}
+```
+
+- **Giá trị hiện tại**: Dev = 7 ngày, Production = 10 ngày, áp dụng cho cả POS.Api, POS.Web,
+  POS.Worker — đây là con số khởi điểm, **cần điều chỉnh theo dung lượng ổ đĩa thực tế của từng
+  server** trước khi go-live (server disk nhỏ → giảm số ngày; server có dung lượng lớn/cần giữ log
+  lâu để điều tra sự cố → tăng lên, vd 15-30 ngày).
+  Đổi trực tiếp trong `appsettings.Production.json` của từng project.
+- Đổi xong **phải restart lại process** — cả Serilog lẫn `FileLogHelper` chỉ đọc section này 1 lần
+  lúc khởi động (bootstrap), sửa file mà không restart sẽ không có hiệu lực.
+- Bỏ trống toàn bộ section này (không xóa key lẻ) → về mặc định cũ (Serilog giữ 14 ngày, không giới
+  hạn size; `IFileLogHelper` không tự dọn) — an toàn, tương thích ngược, không phải hành động bắt
+  buộc nếu chưa có nhu cầu tùy chỉnh.
 
 ---
 

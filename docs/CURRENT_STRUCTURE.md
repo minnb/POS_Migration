@@ -264,11 +264,13 @@ src/
     │   └── IVoucherIssueLock.cs / VoucherIssueLock.cs       ← Redis distributed lock (Singleton), key "Lock:VoucherIssue" — chặn sinh mã Auto voucher đồng thời (multi-instance)
     ├── Logging/
     │   ├── ElasticsearchOptions.cs
-    │   ├── FileLogHelper.cs
+    │   ├── FileLogHelper.cs                                  ← lock riêng debug/Exception + retention sweep cơ hội (24h)
     │   ├── IFileLogHelper.cs
     │   ├── IKibanaService.cs
     │   ├── KibanaService.cs
-    │   └── SerilogConfiguration.cs
+    │   ├── LogRetentionOptions.cs                            ← bind section "LogRetention": SerilogRetainedFileCountLimit, SerilogFileSizeLimitBytes, RawLogRetentionDays
+    │   ├── SensitiveDataMasker.cs                            ← static, mask field nhạy cảm (PASSWORD/TOKEN/PIN...) trước khi log {@Context}
+    │   └── SerilogConfiguration.cs                           ← MinimumLevel đọc từ "Serilog:MinimumLevel" (appsettings), KHÔNG hardcode
     ├── Messaging/
     │   ├── IKafkaProducer.cs
     │   ├── IRabbitMQProducer.cs
@@ -438,7 +440,8 @@ src/
 | `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
 | `IKafkaProducer` → `KafkaProducer` | Singleton | IProducer thread-safe |
 | `IFtpFileTransfer` → `FtpFileTransfer` | Singleton | Upload zip qua FluentFTP (managed, chạy trên Linux) |
-| `IFileLogHelper` → `FileLogHelper` (factory) | Singleton | baseDirectory từ `Logging:FileLogDirectory` |
+| `IFileLogHelper` → `FileLogHelper` (factory) | Singleton | baseDirectory từ `Logging:FileLogDirectory`, retentionDays từ `LogRetention:RawLogRetentionDays` |
+| `IOptions<LogRetentionOptions>` | Singleton (`Options.Create`) | bind section `LogRetention` |
 | `IKibanaService` → `KibanaService` | Singleton | Serilog → Elasticsearch |
 | Named HttpClient `"FMV"` | — | UseCookies=false, BaseAddress per-request |
 | Named HttpClient `"GotIT"` | — | BaseAddress per-request |
@@ -931,7 +934,15 @@ Task<IAsyncDisposable?> AcquireAsync(CancellationToken ct = default)   // null n
 void LogRequest(string endpoint, string posNo, string requestBody)
 void LogResponse(string endpoint, string posNo, long responseTimeMs, string note, string responseBody)
 void LogException(string endpoint, string posNo, int errorCode, string note, string errorDetail)
+void LogException(string endpoint, string posNo, int errorCode, string note, Exception ex, IReadOnlyDictionary<string, object?>? context = null)  // overload structured — {@Context} destructure, tự mask field nhạy cảm qua SensitiveDataMasker, giữ Exception đầy đủ (stack trace)
 void LogInfo(string endpoint, string posNo, string message)
+```
+
+#### `SensitiveDataMasker` (`POS.Infrastructure.Logging`, static)
+
+```csharp
+bool IsSensitiveKey(string key)   // true nếu key chứa PASSWORD/SECRET/TOKEN/PWD/CREDENTIAL/PIN/PINCODE/APIKEY
+IReadOnlyDictionary<string, object?> Mask(IReadOnlyDictionary<string, object?> context)  // trả dict mới, value nhạy cảm → "***"
 ```
 
 #### `IFileLogHelper` (`POS.Infrastructure.Logging`)
@@ -1220,6 +1231,9 @@ _(Nguồn: `src/POS.Api/appsettings.json` — giá trị nhạy cảm đã ẩn)
 | `RequestLogging:PersistToFile` | bool | `true` — có ghi thêm log Request/Response vào File sink (`pos-*.log`) hay chỉ Elasticsearch; đọc riêng trong `SerilogConfiguration.cs`, không qua `RequestLoggingOptions` |
 | `RequestLogging:MaxBodyBytes` | int | `8192` — cắt bớt body log quá dài |
 | `RequestLogging:ExcludePaths` | string[] | `["/health", "/swagger"]` |
+| `LogRetention:SerilogRetainedFileCountLimit` | int | `7` (Dev)/`10` (Prod) — số file `pos-*.log` giữ lại, mặc định `14` nếu bỏ section |
+| `LogRetention:SerilogFileSizeLimitBytes` | long? | `null` — không giới hạn dung lượng/file |
+| `LogRetention:RawLogRetentionDays` | int | `7` (Dev)/`10` (Prod) — số ngày giữ file `.txt` của `IFileLogHelper`, mặc định `30` nếu bỏ section |
 | `Redis:Mode` | string | `"StandAlone"` |
 | `Redis:SentinelHosts` | string[] | `["10.x.x.x:6379"]` |
 | `Redis:MasterName` | string | `"mymaster"` |
