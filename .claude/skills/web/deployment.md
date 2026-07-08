@@ -176,6 +176,45 @@ dotnet publish src/POS.Web/POS.Web.csproj -c Release -r linux-x64 --self-contain
 
 ---
 
+## Pattern: Serilog PHẢI được wire tường minh trong từng `Program.cs` — không tự "kế thừa" giữa project
+
+> Áp dụng khi: tạo project host mới (`Program.cs` của POS.Api/POS.Web/POS.Worker) hoặc audit vì sao
+> log không xuất hiện ở `Logging:FileLogDirectory`/Elasticsearch dù `appsettings` đã cấu hình đúng.
+
+**Root cause đã gặp thật (2026-07-08):** `src/POS.Web/Program.cs` thiếu hẳn dòng
+`builder.AddSerilogWithElastic()` (có ở `src/POS.Api/Program.cs`) — không phải lỗi cấu hình, không
+phải lỗi quyền thư mục. `KibanaService` (dùng ở ~50 trang POS.Web theo convention chuẩn) inject
+`ILogger<KibanaService>` (abstraction `Microsoft.Extensions.Logging`, không phải `Serilog.Log.Logger`
+tĩnh) — provider thật của `ILogger<T>` chỉ đổi sang Serilog (kèm File sink + Elasticsearch sink) khi
+có `builder.Host.UseSerilog(...)`, chính là việc `AddSerilogWithElastic()` làm. Thiếu dòng này →
+`ILogger<T>` toàn bộ project rơi về default provider ASP.NET Core (Console-only trên Linux) — log
+**biến mất hoàn toàn**, không lỗi, không cảnh báo lúc khởi động.
+
+```csharp
+// Program.cs — BẮT BUỘC có ở MỌI project host (Api/Web), đặt SAU bước giải mã enc:...,
+// TRƯỚC mọi builder.Services.Add...() khác:
+using POS.Infrastructure.Logging;
+
+builder.AddSerilogWithElastic();
+```
+
+**Checklist khi tạo project host mới hoặc audit logging:**
+- Grep `AddSerilogWithElastic|UseSerilog` trong `Program.cs` của project — phải có đúng 1 lần.
+- Không có `Serilog.Debugging.SelfLog.Enable(...)` nào trong repo — nếu nghi ngờ Serilog tự nuốt lỗi
+  ghi file (permission denied...), tạm thêm dòng này để lộ lỗi qua console/journalctl khi debug.
+- `IFileLogHelper.WriteLogs/WriteExpLogs` (`POS.Infrastructure.Logging.FileLogHelper`) là cơ chế ghi
+  file THỦ CÔNG, tách biệt hoàn toàn khỏi Serilog/`ILogger<T>` — vẫn hoạt động dù thiếu
+  `AddSerilogWithElastic()`, nhưng tự nuốt lỗi im lặng (`catch { }`) nên không phải chỗ để tin tưởng
+  chẩn đoán "log có ghi được không".
+
+> Anti-pattern: ❌ giả định Serilog tự áp dụng cho mọi project chỉ vì `POS.Infrastructure` có sẵn
+> `SerilogConfiguration.AddSerilogWithElastic()` — đây là extension method, PHẢI được gọi tường minh
+> ở từng `Program.cs`, không tự động chạy theo `AddInfrastructure()`.
+> Ví dụ thực tế: `src/POS.Web/Program.cs`, `src/POS.Api/Program.cs`,
+> `src/POS.Infrastructure/Logging/SerilogConfiguration.cs`.
+
+---
+
 ## Pattern: DataProtection keys trong Docker
 
 > Áp dụng khi: app chạy trong Docker container với non-root user (`USER $APP_UID`).

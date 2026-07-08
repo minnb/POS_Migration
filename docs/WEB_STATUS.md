@@ -1,5 +1,27 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-08 (VoidsPage — fix lỗi SQL reserved keyword `LineNo` khiến trang luôn rỗng +
+> Cập nhật: 2026-07-08 (Thêm `RedisDashboardPage` — /ops/redis (OpsAndAbove): tìm key theo pattern
+> (SCAN cap 1000, chặn `*` cần confirm), xem giá trị (pretty JSON), xóa key (confirm + audit log),
+> status card + 5 KPI card (Bộ nhớ/Clients/Tổng Key/Cache Hit %/Uptime) kiểu `HealthPage.razor`.
+> Backend mới: `IRedisManagementService` (POS.Application.Features.Redis), mở rộng `IRedisManager`
+> với `PingAsync`/`GetServerInfoAsync`/`GetDbSizeAsync`/`GetKeysByPatternAsync(pattern,maxResults)`/
+> `GetKeyTtlSecondsAsync`/`GetKeyTypeAsync`/`GetKeyRawValueAsync` (POS.Infrastructure.Cache), 4 DTO
+> mới `RedisKeyInfoDto`/`RedisKeyValueDto`/`RedisKeySearchResultDto`/`RedisServerStatusDto`
+> (POS.Common.Dtos.Redis). Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests`
+> 25/25. Chưa verify UI thật (sandbox không có Redis/DB thật) — cần tự `dotnet run` kiểm tra. Chi
+> tiết: `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-08 (`DataRawLogPage` — fix Retry văng "network-related... SQL Server" trên
+> UAT/Prod: `CentralSaleRepository.InInsertToTableByJson` đổi từ `StoreRoutedConnectionFactory`
+> (route theo `StoreSetServer`, ServerIP 1 số store không còn kết nối được) sang
+> `directConnectionFactory` cố định — khớp với các hàm đọc log vốn đã dùng connection cố định.
+> Áp dụng cho mọi caller (Web/Worker/FileImport/Kafka). Thêm `CancellationTokenSource(100s)` +
+> catch `OperationCanceledException` riêng cho Retry. Verify: `dotnet build` POS.Infrastructure 0
+> lỗi, `dotnet test tests/POS.ContractTests` 25/25 (build POS.Web bị khóa file bởi instance đang
+> chạy, chưa build lại được — cần verify lại). Chi tiết: `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-08 (Fix production logging: `Program.cs` thiếu `builder.AddSerilogWithElastic()`
+> khiến toàn bộ `ILogger<T>`/`KibanaService` không ghi được vào `Logging:FileLogDirectory` hay
+> Elasticsearch — chỉ ra Console. Đã thêm dòng gọi đúng vị trí như POS.Api. Chi tiết
+> `docs/CHANGELOG.md`, pattern ghi ở `.claude/skills/web/deployment.md`.)
+> Trước đó 2026-07-08 (VoidsPage — fix lỗi SQL reserved keyword `LineNo` khiến trang luôn rỗng +
 > đồng bộ UI theo chuẩn `PosMapPage.razor`, xem G20. Chi tiết `docs/CHANGELOG.md`.)
 > Trước đó 2026-07-07 (Dashboard mặc định cho role Cửa hàng `/store/dashboard` — landing page mới
 > thay `/store/revenue` cho StoreOperator, xem G24. Kèm resolve git-conflict marker tồn đọng trong
@@ -298,9 +320,10 @@ src/POS.Web/
 │       │   ├── HealthPage.razor / AlertsPage.razor / QueuesPage.razor
 │       │   ├── LogsPage.razor / DataRawLogPage.razor / StorePage.razor / PosMapPage.razor
 │       │   ├── PosDataSetupPage.razor         ← /ops/pos-data-setup — CRUD cấu hình POS
+│       │   ├── RedisDashboardPage.razor       ← /ops/redis — Redis Management Dashboard (search key theo pattern + status card/KPI + xem giá trị + xóa key, OpsAndAbove)
 │       │   ├── PosTerminalSavePayload.cs      ← shared record: payload chain PosMapPage→DetailDialog→EditDialog
 │       │   └── Dialogs/ (PosTerminalDetailDialog, PosTerminalEditDialog, StoreDetailDialog,
-│       │                  PosDataSetupFormDialog)
+│       │                  PosDataSetupFormDialog, RedisKeyValueDialog)
 │       ├── Catalog/
 │       │   └── Product/
 │       │       ├── ProductsPage.razor               ← /catalog/products — danh sách + thêm mới + xuất Excel + xem chi tiết
@@ -448,6 +471,7 @@ src/POS.Web/
 | S6 | SQL Console hardening (H1) | SqlConsoleService.cs / SqlConsolePage.razor | ✅ | Mask `password/token/secret/...` trong audit+Kibana; cờ `Security:EnableSqlConsole` gate service+page |
 | S7 | AllowedHosts = domain thật (H2) | appsettings.Production.json | ⚠️ | Còn `"*"` — cần đặt domain dashboard khi go-live (docs/ROLLOUT.md) |
 | G24 | PosDataSetupPage – /ops/pos-data-setup + OpsAndAbove | Pages/Ops/PosDataSetupPage.razor | ✅ | CRUD cấu hình POS — KPI 3 cards (pre-computed) + filter panel + MudTable + Add/Edit dialog; Redis invalidate sau mỗi write |
+| G25 | RedisDashboardPage – /ops/redis + OpsAndAbove | Pages/Ops/RedisDashboardPage.razor | ✅ | Redis Management Dashboard — status card (kiểu HealthPage, border-left màu + chip ONLINE/OFFLINE + latency) + 5 KPI card (Bộ nhớ/Clients/Tổng Key/Cache Hit %/Uptime, không auto-refresh) + filter panel (pattern SCAN, chặn `*` cần confirm) + MudTable (Key/Type/TTL) + xem giá trị (RedisKeyValueDialog, pretty JSON) + xóa key (confirm + audit log). Backend: `IRedisManagementService` (POS.Application.Features.Redis) → `IRedisManager` mở rộng PingAsync/GetServerInfoAsync/GetDbSizeAsync (POS.Infrastructure.Cache) |
 | J1 | IAuditLogger / DbAuditLogger — audit CRUD vào DashboardAuditLog | Auth/IAuditLogger.cs | ✅ | LogAsync(actor, action, entityType, entityKey, oldValueJson?, newValueJson?); ghi DB + Kibana; try/catch nội bộ; đăng ký Scoped trong Program.cs |
 | J2 | PosDataSetupFormDialog – Add/Edit form, trả DTO đầy đủ | Pages/Ops/Dialogs/PosDataSetupFormDialog.razor | ✅ | Code read-only khi Edit; trả DialogResult.Ok(_model) (không Ok(true)) để page có newValue; duplicate Code → thông báo thân thiện |
 | J3 | migration_dashboard_audit_log.sql – bảng DashboardAuditLog + 3 index | Auth/migration_dashboard_audit_log.sql | ⚠️ | Script idempotent — **PHẢI CHẠY trên RPOSMasterData trước deploy**; chưa chạy → log fail silently |
@@ -461,6 +485,7 @@ src/POS.Web/
 | K4 | PricesPage – /catalog/prices + OpsAndAbove | Pages/Catalog/Price/PricesPage.razor | ✅ | 9.1 Danh mục Bảng giá — reuse SP `GetSalesPriceList`/`_Export` (Dapper server-side paging); filter mã/tên + combobox "Hình thức bán hàng"/"Nhóm giá" (reuse `GetSetupLookupAsync`) + "Còn hiệu lực" (mặc định off); cột Hình thức + Trạng thái (MudChip); format nghìn khi sửa giá; Sửa/Xóa định vị bằng `SalesGroupCode`+`SalesTypeCode` (mã gốc, không dùng cột hiển thị); Export Excel (ClosedXML); pos-page-header. Migrate 9.1 (2026-07-06: fix bug Sửa/Xóa sai dòng) |
 | K5 | PriceSetupPage + PriceItemPickerDialog – /catalog/price-setup + OpsAndAbove | Pages/Catalog/Price/PriceSetupPage.razor + Dialogs/PriceItemPickerDialog.razor | ✅ | 9.3 Setup giá (streamlined) — chọn Hình thức bán + cửa hàng → import Excel (MudFileUpload+ClosedXML) → ValidateImportAsync → lưới preview MudTable sửa inline (giá/ngày) + RowStyleFunc highlight lỗi + item picker thêm dòng → Lưu (block khi còn lỗi) + audit log. SP mới `usp_SetupSalePrice_Save` (TVP, ủy quyền Setup_SalePrice_Get_ALL). Migrate 9.3 |
 | H1 | Build pass (0 error, 14 warning pre-existing) | — | ✅ | `dotnet build POS.Web` → Build succeeded. 0 Error(s). ContractTests 23/23 pass (DI validation xanh). |
+| L1 | LogFilePage – /admin/logs + AdminOnly + InteractiveServer | Pages/Admin/LogFilePage.razor | ✅ | Quản lý Log Server — liệt kê + tải file `.txt`/`.log` dưới thư mục cha của `Logging:FileLogDirectory` (vd Prod `/srv/pos/logs/web` → root `/srv/pos/logs`, gồm cả `api/`, `web/`...), đệ quy toàn bộ subfolder. `ILogFileService`/`LogFileService` (Services/) — service riêng của POS.Web (như `IWebUserService`), whitelist extension `.txt`/`.log` cả lúc list lẫn download, chống path traversal bằng `Path.GetFullPath` + so khớp prefix root (cùng pattern `SyncDataPosController.DowloadFileStream`); mọi lỗi bọc try/catch ghi `IFileLogHelper.WriteExpLogs`, không throw ra UI. Download qua `JS.SaveAsFileAsync` (byte[], JS interop có sẵn) — không qua controller HTTP. Đăng ký `AddScoped<ILogFileService, LogFileService>()` trong Program.cs; nav item nằm trong nhóm "VẬN HÀNH" → L2 "Nhật ký" (cạnh Interface Error/DataRawJson Log/Nhật ký thao tác, `_expandOpsLog` đã thêm `/admin/logs`) — do L2 "Nhật ký" chỉ yêu cầu `OpsAndAbove` (ITOps thấy được) trong khi trang `/admin/logs` là `AdminOnly` (chỉ SystemAdmin), leaf link bọc riêng `<AuthorizeView Policy="@WebPolicies.AdminOnly">` để ITOps không thấy link 403. Verify: build 0 error + ContractTests 25/25 xanh + script standalone xác nhận 6 ca path-traversal/extension đều chặn đúng (traversal `../`, nested `../../`, absolute path ngoài root, extension `.dll`) — **chưa chạy app thật trên trình duyệt** (sandbox thiếu POS_SECRET_KEY/DB/Redis). |
 
 ---
 

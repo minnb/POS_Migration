@@ -53,24 +53,24 @@
         code.parentElement.scrollLeft = textarea.scrollLeft;
     }
 
+    // Idempotent: an toàn gọi lại nhiều lần (mỗi OnAfterRenderAsync) — chỉ gắn listener
+    // 1 lần duy nhất (đánh dấu qua dataset), nhưng luôn render lại nội dung hiện tại. Cần
+    // idempotent vì lần OnAfterRenderAsync(firstRender=true) đầu tiên chạy khi textarea CHƯA
+    // tồn tại (còn đang ở màn hình PIN gate) — phải gọi lại sau khi PIN xác thực xong.
     window.posSqlHighlightBind = (textareaId, codeId) => {
         const textarea = document.getElementById(textareaId);
         const code = document.getElementById(codeId);
         if (!textarea || !code) return;
 
-        const onRender = () => render(textarea, code);
-        textarea.addEventListener('input', onRender);
-        textarea.addEventListener('scroll', () => {
-            code.parentElement.scrollTop = textarea.scrollTop;
-            code.parentElement.scrollLeft = textarea.scrollLeft;
-        });
-        onRender();
-    };
-
-    window.posSqlHighlightRefresh = (textareaId, codeId) => {
-        const textarea = document.getElementById(textareaId);
-        const code = document.getElementById(codeId);
-        if (!textarea || !code) return;
+        if (!textarea.dataset.posSqlBound) {
+            textarea.dataset.posSqlBound = '1';
+            const onRender = () => render(textarea, code);
+            textarea.addEventListener('input', onRender);
+            textarea.addEventListener('scroll', () => {
+                code.parentElement.scrollTop = textarea.scrollTop;
+                code.parentElement.scrollLeft = textarea.scrollLeft;
+            });
+        }
         render(textarea, code);
     };
 })();

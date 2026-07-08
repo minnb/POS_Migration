@@ -295,7 +295,9 @@ public sealed class CentralSaleRepository(
                 return (true, "Continue");
             }
 
-            using var conn = await connectionFactory.CreateOpenConnectionAsync(storeNo ?? "", ct: ct);
+            // Luôn dùng CentralSale cố định — bỏ StoreSetServer routing (gây network error khi
+            // ServerIP của store không còn kết nối được trên UAT/Prod).
+            using var conn = await directConnectionFactory.CreateOpenConnectionAsync(ct);
 
             var parameters = new DynamicParameters();
             parameters.Add("@Type", data.Type);

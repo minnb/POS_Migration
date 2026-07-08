@@ -138,12 +138,16 @@
                     <MudNavLink Href="/ops/health" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
                     <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
                     <MudNavLink Href="/ops/queues" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Queue monitor</MudNavLink>
+                    <MudNavLink Href="/ops/redis" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Redis Cache</MudNavLink>
                 </MudNavGroup>
 
                 <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Outlined.Article" Class="pos-nav-l2" @bind-Expanded="_expandOpsLog">
                     <MudNavLink Href="/ops/logs" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Interface Error</MudNavLink>
                     <MudNavLink Href="/ops/data-raw-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">DataRawJson Log</MudNavLink>
                     <MudNavLink Href="/ops/activity-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhật ký thao tác</MudNavLink>
+                    <AuthorizeView Policy="@WebPolicies.AdminOnly" Context="adminCtx">
+                        <MudNavLink Href="/admin/logs" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhật ký hệ thống</MudNavLink>
+                    </AuthorizeView>
                 </MudNavGroup>
 
                 <MudNavGroup Title="Cấu hình" Icon="@Icons.Material.Outlined.Tune" Class="pos-nav-l2" @bind-Expanded="_expandOpsConfig">
@@ -273,6 +277,7 @@
         ["/ops/health"]             = ("VẬN HÀNH", "System health"),
         ["/ops/alerts"]             = ("VẬN HÀNH", "Alerts"),
         ["/ops/queues"]             = ("VẬN HÀNH", "Queue monitor"),
+        ["/ops/redis"]              = ("VẬN HÀNH", "Redis Cache"),
         // VẬN HÀNH / Nhật ký
         ["/ops/logs"]               = ("VẬN HÀNH", "Interface Error"),
         ["/ops/data-raw-log"]       = ("VẬN HÀNH", "DataRawJson Log"),
@@ -349,8 +354,8 @@
             _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids");
             _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
         }
-        _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues");
-        _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/activity-log");
+        _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues") || u.Contains("/ops/redis");
+        _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/activity-log") || u.Contains("/admin/logs");
         _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores") || u.Contains("/ops/pos-data-setup");
         _expandCatOrg      = u.Contains("/catalog/employees") || u.Contains("/catalog/stores") || u.Contains("/catalog/provinces");
         _expandCatPos      = u.Contains("/catalog/pos-setup") || u.Contains("/catalog/bank-pos") || u.Contains("/catalog/pos-versions") || u.Contains("/catalog/print-setup") || u.Contains("/catalog/posweb-users");

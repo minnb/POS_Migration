@@ -6,6 +6,186 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-08] Thêm Redis Management Dashboard — /ops/redis (RedisDashboardPage)
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Application, POS.Web
+**Loại:** Feature + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Common/Dtos/Redis/` (mới): `RedisKeyInfoDto` (Key/Type/TtlSeconds), `RedisKeyValueDto`
+  (+ Value pretty JSON), `RedisKeySearchResultDto` (Keys + IsTruncated), `RedisServerStatusDto`
+  (IsOnline/PingMs/Role/Target/DatabaseIndex/UsedMemoryHuman/ConnectedClients/TotalKeys/
+  HitRatePercent/UptimeSeconds/ErrorMessage).
+- `src/POS.Infrastructure/Cache/{IRedisManager,RedisManager}.cs`: thêm
+  `GetKeysByPatternAsync(pattern, maxResults)` (SCAN dừng sớm, trả `IsTruncated`),
+  `GetKeyTtlSecondsAsync`, `GetKeyTypeAsync`, `GetKeyRawValueAsync` (đọc theo type: string/hash/
+  list/set/zset), và mới nhất `PingAsync`/`GetServerInfoAsync`/`GetDbSizeAsync`/`DefaultDatabase`
+  cho khu vực trạng thái/KPI — **lần đầu tiên codebase gọi Redis `PING`/`INFO` thật** (trước đó
+  `HealthCheckService.CheckRedisAsync` chỉ round-trip `StringSet`/`StringGetAsync`). Pattern mới
+  ghi ở `.claude/skills/cache/SKILLS.md` (Pattern 7).
+- `src/POS.Application/Features/Redis/{IRedisManagementService,RedisManagementService}.cs` (mới):
+  `SearchKeysAsync` (cap 1000 key/lần quét), `GetKeyValueAsync` (pretty-print JSON qua
+  `JToken.Parse`), `DeleteKeyAsync`, `GetServerStatusAsync` (orchestrate Ping+Info+DbSize, tính
+  `HitRatePercent`). Inject thẳng `IRedisManager` — không qua AppService 3 lớp vì đây không phải
+  external HTTP client.
+- `src/POS.Web/Components/Pages/Ops/RedisDashboardPage.razor` (mới, `/ops/redis`,
+  `OpsAndAbove` = ITOps/SystemAdmin): status card (style copy từ `HealthPage.razor` —
+  `CardStyle(bool)`/`LatencyDisplay(long,bool)`, border-left màu + chip ONLINE/OFFLINE + latency
+  chip) + 5 KPI card chuẩn `.pos-kpi-value`/`.pos-kpi-label` (Bộ nhớ/Clients/Tổng Key/Cache Hit %/
+  Uptime, không auto-refresh — chỉ nút "Làm mới" thủ công) + filter panel (pattern SCAN, bắt buộc
+  confirm `MudMessageBox` nếu pattern đúng bằng `"*"`) + `MudTable` (Key/Type/TTL, phân trang
+  client-side) + `Dialogs/RedisKeyValueDialog.razor` (xem giá trị, pretty JSON) + xóa key (confirm
+  `MudMessageBox @ref` + `IAuditLogger.LogAsync` ghi oldValue trước khi xóa).
+- `src/POS.Web/Components/Layout/MainLayout.razor`: thêm "Redis Cache" vào nhóm VẬN HÀNH/Giám sát
+  + breadcrumb.
+- **Bảo mật đã áp dụng theo yêu cầu**: không có method Flush/Clear-all ở bất kỳ đâu (chỉ xóa từng
+  key); pattern `*` tuyệt đối bắt buộc xác nhận riêng; SCAN cap cứng 1000 key/lần + cảnh báo
+  truncation (không refactor `IRedisManager` sang cursor-based SCAN — tránh ảnh hưởng các nơi
+  khác đang gọi `GetKeysByPatternAsync(pattern)` 1 tham số).
+
+**Pattern mới:** Server diagnostics PING/INFO/DBSIZE (khác cache-data pattern 1-6) →
+`.claude/skills/cache/SKILLS.md` Pattern 7.
+
+**Lưu ý cho session sau:** Layout KPI đã duyệt qua `AskUserQuestion` với người dùng trước khi code
+(status card riêng + KPI row bên dưới, không auto-refresh) — nếu cần thêm dashboard "trạng thái +
+KPI" cho service khác (RabbitMQ, Kafka...), tái dùng đúng khuôn `CardStyle`/`LatencyDisplay` này
+thay vì tự nghĩ layout mới. Verify: `dotnet build` 0 lỗi, `dotnet test tests/POS.ContractTests`
+25/25. **Chưa verify UI thật** (sandbox không có Redis/DB thật/`POS_SECRET_KEY`) — cần tự
+`dotnet run` kiểm tra trước khi coi là hoàn thành 100%.
+
+---
+
+## [2026-07-08] Fix: Retry DataRaw Log lỗi "network-related... SQL Server" (ops/data-raw-log)
+
+**Layer:** POS.Infrastructure, POS.Web
+**Loại:** Bug fix
+
+**Nguyên nhân:** `InInsertToTableByJson` (CentralSaleRepository) dùng `StoreRoutedConnectionFactory`
+routing theo `StoreSetServer` để mở connection riêng cho từng store — khi `ServerIP` của 1 store
+không còn kết nối được (UAT/Prod), Retry văng "network-related or instance-specific error", trong
+khi các hàm đọc log (`GetDataRawJsonSummaryAsync`/`GetDataRawJsonListAsync`) dùng connection cố
+định `CentralSale` nên vẫn đọc bình thường.
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Repositories/Sale/CentralSaleRepository.cs`: `InInsertToTableByJson`
+  đổi sang luôn dùng `directConnectionFactory` (CentralSale cố định) — bỏ hẳn
+  `StoreRoutedConnectionFactory`/`StoreSetServer` cho method này (quyết định của user, tránh rủi
+  ro ghi nhầm shard nếu tự động fallback). Áp dụng thống nhất cho mọi caller:
+  `DataRawLogPage.razor` (Retry), `PosSalesConsumerWorker`, `PosFileImportService`, `KafkaAppService`.
+- `src/POS.Web/Components/Pages/Ops/DataRawLogPage.razor`: `RetryAsync` thêm
+  `CancellationTokenSource(100s)` truyền vào `InInsertToTableByJson` + catch riêng
+  `OperationCanceledException` (UI không treo vô hạn khi DB phản hồi chậm).
+- Dự án này không dùng EF Core/DbContext — không áp dụng `IDbContextFactory`; connection Dapper
+  đã mở/đóng đúng chuẩn qua `using` trong từng method.
+
+## [2026-07-08] Thêm "Quản lý Log Server" — /admin/logs (LogFilePage)
+
+**Layer:** POS.Web
+**Loại:** Feature + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Web/Services/LogFileInfo.cs` (mới): record DTO (RelativePath/FileName/FolderName/SizeBytes/LastModifiedUtc).
+- `src/POS.Web/Services/ILogFileService.cs` + `LogFileService.cs` (mới): service riêng POS.Web
+  (như `IWebUserService`) — liệt kê + tải file `.txt`/`.log` dưới thư mục cha của
+  `Logging:FileLogDirectory` (vd Production `/srv/pos/logs/web` → root `/srv/pos/logs`, gồm cả
+  `api/`, `web/`...), đệ quy toàn bộ subfolder. Whitelist extension + chống Path Traversal
+  (`Path.GetFullPath` + so khớp prefix root có separator) cả lúc liệt kê lẫn lúc tải; mọi lỗi bọc
+  try/catch ghi `IFileLogHelper.WriteExpLogs`, không throw ra UI.
+- `src/POS.Web/Components/Pages/Admin/LogFilePage.razor` (mới): trang `/admin/logs`, `AdminOnly`,
+  `MudTable` chuẩn v3 (Dense + HorizontalScrollbar + Elevation=2), tải file qua
+  `JS.SaveAsFileAsync` (JS interop có sẵn, không qua controller HTTP).
+- `src/POS.Web/Program.cs`: đăng ký `AddScoped<ILogFileService, LogFileService>()`.
+- `src/POS.Web/Components/Layout/MainLayout.razor`: nav item nằm trong nhóm "VẬN HÀNH" → L2
+  "Nhật ký" (cùng Interface Error/DataRawJson Log/Nhật ký thao tác) thay vì "QUẢN TRỊ" — theo yêu
+  cầu người dùng di chuyển sau khi review. Vì L2 "Nhật ký" chỉ yêu cầu `OpsAndAbove` (ITOps thấy
+  được) trong khi trang vẫn `AdminOnly` (chỉ SystemAdmin), leaf link bọc riêng
+  `<AuthorizeView Policy="@WebPolicies.AdminOnly">` để ITOps không thấy link rồi bấm vào bị 403.
+  `_expandOpsLog` thêm điều kiện `/admin/logs` để nhóm tự mở đúng route.
+- `.claude/skills/web/SKILLS.md`: thêm pattern mới "Đọc/tải file trên server an toàn (whitelist
+  extension + chống Path Traversal)" — codify lại 3 bước guard + anti-pattern (StartsWith có
+  separator, không dùng `Contains`; check extension ở cả list lẫn download; không leak exception
+  ra UI).
+- `docs/WEB_STATUS.md`: thêm dòng L1 ghi nhận trang + vị trí menu.
+
+**Pattern mới:** "Đọc/tải file trên server an toàn" → đã ghi vào `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:** `dotnet build src/POS.Web/POS.Web.csproj` 0 lỗi,
+`dotnet test tests/POS.ContractTests` 25/25 xanh. Guard chống path traversal đã verify độc lập
+qua script `dotnet run` standalone (6/6 case pass: file hợp lệ, traversal `../`, traversal
+`web/../../`, absolute path ngoài root, file không tồn tại, extension `.dll` bị chặn) — **chưa
+chạy app thật trên trình duyệt** để xem UI/luồng đăng nhập SystemAdmin (sandbox thiếu
+`POS_SECRET_KEY`/DB/Redis). Không đi qua POS.Common/Infrastructure/Application/contract test —
+đây là tiện ích nội bộ POS.Web đọc filesystem của chính máy chạy Web, không phải response cho
+5.000 POS.
+
+---
+
+## [2026-07-08] Fix POS.Web không ghi log file/Elasticsearch — thiếu `AddSerilogWithElastic()`
+
+**Layer:** POS.Web
+**Loại:** Bug fix (production logging pipeline)
+
+**Bối cảnh:** User báo log Production không xuất hiện tại `Logging:FileLogDirectory` đã cấu hình
+(`/srv/pos/logs/api` cho Api, `/srv/pos/logs/web` cho Web, Ubuntu native/systemd, KHÔNG Docker).
+Điều tra đối chiếu `appsettings.Production.json` vs `Program.cs` phát hiện root cause **thuần code**
+cho POS.Web: `src/POS.Web/Program.cs` **thiếu hẳn** `builder.AddSerilogWithElastic()` (có ở
+`src/POS.Api/Program.cs:40`) — không phải lỗi cấu hình hay quyền thư mục. `KibanaService` (dùng ở
+~50 trang POS.Web) inject `ILogger<KibanaService>`, provider chỉ đổi sang Serilog (File + Elasticsearch
+sink) khi có `builder.Host.UseSerilog(...)` — thiếu dòng này khiến `ILogger<T>` toàn bộ POS.Web rơi
+về default provider ASP.NET Core (Console-only trên Linux), log biến mất không dấu vết.
+
+**Thay đổi:**
+- `src/POS.Web/Program.cs`: thêm `using POS.Infrastructure.Logging;` + gọi
+  `builder.AddSerilogWithElastic();` ngay sau block giải mã `enc:...`, trước mọi
+  `builder.Services.Add...()` khác — khớp đúng vị trí tương ứng trong `src/POS.Api/Program.cs`.
+- `.claude/skills/web/deployment.md`: thêm pattern mới "Serilog PHẢI được wire tường minh trong
+  từng `Program.cs`" — ghi lại root cause + checklist audit cho session sau.
+
+**Pattern mới:** đã ghi vào `.claude/skills/web/deployment.md` (mục "Serilog PHẢI được wire tường
+minh...").
+
+**Lưu ý cho session sau:** `dotnet build src/POS.Web/POS.Web.csproj` 0 lỗi,
+`dotnet test tests/POS.ContractTests` 25/25 xanh. **Chưa verify runtime thật** trên server Production
+(không có quyền truy cập) — sau khi deploy cần xác nhận `/srv/pos/logs/web/pos-*.log` thực sự được
+tạo. Phần POS.Api (đã có `AddSerilogWithElastic()` sẵn, code không lỗi) — nếu log API vẫn thiếu, nghi
+vấn chuyển sang `ASPNETCORE_ENVIRONMENT` thật của systemd unit hoặc quyền ghi
+`/srv/pos/logs/api` (chưa verify được, cần user tự kiểm tra trên server — xem hướng dẫn lệnh
+`systemctl cat`/`namei -om` đã trao đổi trong session). Repo hiện **không có**
+`Serilog.Debugging.SelfLog.Enable(...)` ở đâu — nếu cần chẩn đoán sâu hơn lỗi ghi file bị Serilog
+nuốt, đây là việc cần làm thêm (chưa làm, vì có sửa code dù nhỏ, cần user xác nhận trước).
+
+---
+
+## [2026-07-08] DeleteFileFromFTP tự dọn companion .sha256
+
+**Layer:** POS.Api
+**Loại:** Bug fix (giải phóng dung lượng đĩa)
+
+**Bối cảnh:** Mỗi zip masterdata publish bởi `MasterDataSyncService` có 1 file đồng hành
+`{zipName}.sha256` để POS verify integrity. Endpoint `DeleteFileFromFTP` (POS gọi để dọn `.zip`
+sau khi xử lý xong) trước đây chỉ xóa đúng file `.zip` theo `filePath`, để lại `.sha256` mồ côi
+vĩnh viễn trên đĩa API server — không có cleanup job nào dọn riêng phần này ngoài daily-refresh
+tự động (`CleanupSiblingZips`, chỉ chạy khi có publish mới).
+
+**Thay đổi:**
+- `src/POS.Api/Controllers/SyncDataPosController.cs` (`DeleteFileFromFTP`, dòng 367-406): sau khi
+  xóa `.zip` thành công, thêm bước xóa `{localPath}.sha256` (best-effort, try/catch riêng, log lỗi
+  qua `fileLogHelper.WriteLogs`, không ảnh hưởng `body.Status`/`Message` của response chính).
+- `docs/api/Masterdata_Sync_Flow.md`: cập nhật mục 1 (tổng quan), sequence diagram, mục 5 (chi
+  tiết API #3 — thêm phần "Companion .sha256 — tự động dọn kèm"), và bảng tổng hợp HTTP status
+  (mục 7) để phản ánh hành vi mới.
+
+**Pattern áp dụng (đã có sẵn, không phải pattern mới):** tái dùng đúng convention
+`TryDeleteFile(zipPath + ".sha256")` đã tồn tại 2 lần trong `MasterDataSyncService.cs`
+(`IsTodayZipValid`, `CleanupSiblingZips`) — không thêm entry vào SKILLS.md.
+
+**Lưu ý cho session sau:** build (`dotnet build src/POS.Api/POS.Api.csproj`) và
+`dotnet test tests/POS.ContractTests` đã xanh; **chưa verify runtime thật** (gọi endpoint với cặp
+file `.zip`+`.sha256` thật) do môi trường sandbox thiếu `POS_SECRET_KEY`/DB/Redis để chạy
+`POS.Api`.
+
+---
+
 ## [2026-07-08] Fix DowloadFileStream bị Kestrel ngắt khi mạng POS chậm + tài liệu verify SHA-256
 
 **Layer:** POS.Api

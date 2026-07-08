@@ -18,8 +18,9 @@ POS thực hiện tuần tự:
    tương ứng (POS tự suy tên, không có trong danh sách trả về ở bước 1).
 3. *(Không phải HTTP API — xử lý phía POS)* Verify SHA-256 → giải nén `.zip` → update database
    local.
-4. **`GET DeleteFileFromFTP`** — yêu cầu server xóa file `.zip` (và nên xóa luôn `.sha256`) vừa
-   xử lý xong.
+4. **`GET DeleteFileFromFTP`** — yêu cầu server xóa file `.zip` vừa xử lý xong. Server tự động
+   xóa luôn companion `.sha256` tương ứng (best-effort) để giải phóng dung lượng — POS chỉ cần
+   gọi 1 lần với `filePath` của `.zip`, **không cần** gọi thêm lần nữa cho `.sha256`.
 
 ### ⚠️ Lưu ý contract quan trọng — HTTP status vs field `Status` trong body
 
@@ -89,8 +90,9 @@ sequenceDiagram
         POS->>POS: Giải nén .zip, update database local
         POS->>API: GET DeleteFileFromFTP?filePath (zip vừa xử lý xong)
         activate API
-        API->>FS: Xóa file nếu tồn tại (trong FtpRootPath)
-        API-->>POS: 200 OK, body.Status = 200 (hoặc 400 nếu không tồn tại/lỗi)
+        API->>FS: Xóa file .zip nếu tồn tại (trong FtpRootPath)
+        API->>FS: Xóa companion {filePath}.sha256 (best-effort, không ảnh hưởng response chính)
+        API-->>POS: 200 OK, body.Status = 200 (hoặc 400 nếu .zip không tồn tại/lỗi)
         deactivate API
     end
 ```
@@ -185,13 +187,13 @@ public class PathFileAPIModel
 
 ## 5. Chi tiết API #3 — DeleteFileFromFTP
 
-`GET api/posblue/DeleteFileFromFTP` — `SyncDataPosController.cs:367-400`
+`GET api/posblue/DeleteFileFromFTP` — `SyncDataPosController.cs:367-406`
 
 ### Parameters (query string)
 
 | Tên | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
-| `filePath` | `string?` | **Có** | UNC path giống API #2, resolve qua cùng `ResolveFtpPhysicalPath` |
+| `filePath` | `string?` | **Có** | UNC path của file **`.zip`**, giống API #2, resolve qua cùng `ResolveFtpPhysicalPath` |
 
 ### Response
 
@@ -199,18 +201,33 @@ HTTP status thực tế: **luôn 200 OK**. Body `ResultResponse`:
 
 | `Status` (body) | Khi nào |
 |---|---|
-| `200 OK` | Xóa thành công — `Message = "Delete file IPserver {ip} success"` |
+| `200 OK` | Xóa `.zip` thành công (kèm dọn `.sha256` nếu có) — `Message = "Delete file IPserver {ip} success"` |
 | `400 BadRequest` | Path traversal (resolve ra ngoài FTP root) |
-| `400 BadRequest` | File không tồn tại trên server — `Message = "...fail, do không tồn tại file trên FTP"` |
-| `400 BadRequest` | Exception khi xóa (IO lock, permission...) |
+| `400 BadRequest` | File `.zip` không tồn tại trên server — `Message = "...fail, do không tồn tại file trên FTP"` |
+| `400 BadRequest` | Exception khi xóa `.zip` (IO lock, permission...) |
+
+### Companion `.sha256` — tự động dọn kèm (cập nhật 2026-07-08)
+
+Sau khi xóa thành công file `.zip` theo `filePath`, server **tự động thử xóa thêm**
+`{filePath}.sha256` (cùng thư mục, đúng convention đặt tên đã mô tả ở mục 4) để giải phóng dung
+lượng — POS **không cần** gọi thêm request riêng cho `.sha256`.
+
+- Đây là hành vi **best-effort**: nếu `.sha256` không tồn tại hoặc xóa lỗi (IO lock, permission),
+  server chỉ ghi log nội bộ (`fileLogHelper.WriteLogs`), **không** làm thay đổi `body.Status`/
+  `Message` của response chính — response vẫn `200 OK` như khi chỉ xóa `.zip` thành công.
+- Ngược lại, nếu `.zip` **không tồn tại** → response vẫn `400 BadRequest` như cũ và **không** đụng
+  tới `.sha256` (giữ nguyên logic gốc, chỉ thêm bước dọn phụ trợ khi nhánh xóa `.zip` thành công).
+- Không có field riêng trong `ResultResponse` báo việc xóa `.sha256` thành công hay không — POS
+  không cần và không nên dựa vào kết quả xóa `.sha256` để quyết định logic tiếp theo.
 
 ### Ghi chú vận hành
 
 Cơ chế xóa theo yêu cầu POS này **độc lập** với cơ chế daily-refresh tự động phía server
-(`MasterDataSyncService.CleanupSiblingZips` — dòng 308-332): server tự dọn zip cũ/mồ côi mỗi khi
-publish lượt zip mới, không phụ thuộc POS có gọi `DeleteFileFromFTP` hay không. Vì vậy POS **nên**
-vẫn gọi API này ngay sau khi xử lý xong để giải phóng dung lượng sớm, nhưng nếu bỏ qua (mất kết
-nối, crash...) hệ thống vẫn tự dọn được ở lượt sync kế tiếp.
+(`MasterDataSyncService.CleanupSiblingZips` — dòng 308-332): server tự dọn cả `.zip` lẫn `.sha256`
+cũ/mồ côi mỗi khi publish lượt zip mới, không phụ thuộc POS có gọi `DeleteFileFromFTP` hay không.
+Vì vậy POS **nên** vẫn gọi API này ngay sau khi xử lý xong để giải phóng dung lượng sớm (nay dọn
+được cả cặp `.zip` + `.sha256` trong 1 lần gọi), nhưng nếu bỏ qua (mất kết nối, crash...) hệ thống
+vẫn tự dọn được ở lượt sync kế tiếp.
 
 ## 6. Góc chú ý cho Dev POS (Best Practices)
 
@@ -270,8 +287,8 @@ Quy trình khuyến nghị (theo đúng note đã có trong `CLAUDE.md` phần "
 | `GetFileFromFTP` | 200 | 500 | Exception ngoài dự kiến |
 | `DowloadFileStream` | 200 | *(không có body JSON — raw stream)* | Đã bắt đầu stream (có thể `Aborted`/`Error` phía server log, POS tự phát hiện qua độ dài dữ liệu + SHA-256) |
 | `DowloadFileStream` | **400** | JSON `ResultResponse` | Path traversal / file không tồn tại / exception trước khi stream |
-| `DeleteFileFromFTP` | 200 | 200 | Xóa thành công |
-| `DeleteFileFromFTP` | 200 | 400 | File không tồn tại / path traversal / exception khi xóa |
+| `DeleteFileFromFTP` | 200 | 200 | Xóa `.zip` thành công (kèm tự dọn `.sha256` best-effort) |
+| `DeleteFileFromFTP` | 200 | 400 | File `.zip` không tồn tại / path traversal / exception khi xóa `.zip` |
 
 ---
 

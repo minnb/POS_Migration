@@ -1,0 +1,339 @@
+@page "/ops/redis"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using Newtonsoft.Json
+@using POS.Application.Features.Redis
+@using POS.Common.Dtos.Redis
+@using POS.Web.Auth
+@using POS.Web.Components.Pages.Ops.Dialogs
+@using POS.Infrastructure.Logging
+
+@inject IRedisManagementService RedisMgmtService
+@inject IAuditLogger AuditLogger
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IFileLogHelper FileLogger
+
+<PageTitle>Redis Cache Management – POS Dashboard</PageTitle>
+
+<MudMessageBox @ref="_confirmScanAllBox" Title="Xác nhận quét toàn bộ" CancelText="Hủy">
+    <MessageContent>
+        Pattern <code>*</code> sẽ quét TOÀN BỘ key trong Redis — có thể ảnh hưởng hiệu năng hệ
+        thống cache dùng chung cho ~5.000 máy POS. Bạn có chắc muốn tiếp tục?
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error">Vẫn quét</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+<MudMessageBox @ref="_confirmDeleteBox" Title="Xác nhận xóa key" CancelText="Hủy">
+    <MessageContent>@_confirmDeleteMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+@* ── Header ─────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
+        Redis Cache Management
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="LoadStatusAsync"
+               Disabled="_statusLoading"
+               Class="pos-page-header-btn">
+        @if (_statusLoading)
+        { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/> }
+        Làm mới
+    </MudButton>
+</div>
+
+@* ── Trạng thái Redis ───────────────────────────────────────────────── *@
+@if (_status != null)
+{
+    <MudPaper Elevation="2" Class="pa-3 mb-4" Style="@CardStyle(_status.IsOnline)">
+        <MudStack Spacing="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600">Redis Cache</MudText>
+                <div class="d-flex align-center gap-2">
+                    <MudChip T="string" Size="Size.Small" Color="@(_status.IsOnline ? Color.Success : Color.Error)"
+                             Variant="Variant.Filled">
+                        @(_status.IsOnline ? "ONLINE" : "OFFLINE")
+                    </MudChip>
+                    @{
+                        var (latColor, latText) = LatencyDisplay(_status.PingMs, _status.IsOnline);
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@latColor" Variant="Variant.Text">
+                        ⚡ @latText
+                    </MudChip>
+                </div>
+            </MudStack>
+            <MudText Typo="Typo.caption" Color="@(_status.IsOnline ? Color.Secondary : Color.Error)"
+                     Style="font-style:italic">
+                @if (_status.IsOnline)
+                {
+                    @($"{_status.Target} · DB {_status.DatabaseIndex} · Vai trò: {_status.Role}")
+                }
+                else
+                {
+                    @($"{_status.Target} — {_status.ErrorMessage}")
+                }
+            </MudText>
+        </MudStack>
+    </MudPaper>
+
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? _status.UsedMemoryHuman : "—")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Bộ nhớ đã dùng</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? _status.ConnectedClients.ToString() : "—")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Client kết nối</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? _status.TotalKeys.ToString("N0") : "—")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số Key</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline && _status.HitRatePercent.HasValue ? $"{_status.HitRatePercent:0.0} %" : "—")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tỷ lệ Cache Hit</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 150px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? FormatUptime(_status.UptimeSeconds) : "—")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Uptime</MudText>
+            </MudPaper>
+        </div>
+    </div>
+}
+
+@* ── Filter Panel ───────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="8" md="6">
+            <MudTextField @bind-Value="_pattern"
+                          Label="Pattern tìm kiếm"
+                          Placeholder="vd: POS:*, MD:SyncTableList"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_isTruncated)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
+        Chỉ hiển thị @MaxScanResults kết quả đầu tiên (đã bị cắt bớt) — thu hẹp pattern để xem đầy đủ.
+    </MudAlert>
+}
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+
+<MudTable Items="@_keys"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<RedisKeyInfoDto, object>(x => x.Key)">Key</MudTableSortLabel></MudTh>
+        <MudTh>Type</MudTh>
+        <MudTh Style="text-align:right">TTL</MudTh>
+        <MudTh Style="text-align:right; width:100px"></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Key">
+            <MudText Style="font-family:monospace; font-size:0.85rem">@context.Key</MudText>
+        </MudTd>
+        <MudTd DataLabel="Type">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@context.Type</MudChip>
+        </MudTd>
+        <MudTd DataLabel="TTL" Style="text-align:right">
+            @(context.TtlSeconds.HasValue ? FormatTtl(context.TtlSeconds.Value) : "Không hết hạn")
+        </MudTd>
+        <MudTd DataLabel="" Style="text-align:right">
+            <MudTooltip Text="Xem giá trị">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => ViewValueAsync(context.Key))"/>
+            </MudTooltip>
+            <MudTooltip Text="Xóa key">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => ConfirmDeleteAsync(context.Key))"/>
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không tìm thấy key nào — nhập pattern rồi bấm "Tìm".</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} key"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private const int MaxScanResults = 1000;
+
+    private bool    _loading = false;
+    private string? _errorMsg;
+    private string  _pattern = string.Empty;
+    private string  _currentActor = "unknown";
+    private bool    _isTruncated;
+
+    private MudMessageBox? _confirmScanAllBox;
+    private MudMessageBox? _confirmDeleteBox;
+    private string _confirmDeleteMsg = string.Empty;
+
+    private List<RedisKeyInfoDto> _keys = [];
+
+    private RedisServerStatusDto? _status;
+    private bool _statusLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+        await LoadStatusAsync();
+    }
+
+    private async Task LoadStatusAsync()
+    {
+        _statusLoading = true;
+        try
+        {
+            _status = await RedisMgmtService.GetServerStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("RedisDashboardPage.LoadStatus", ex);
+        }
+        finally
+        {
+            _statusLoading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        var pattern = _pattern.Trim();
+        if (string.IsNullOrEmpty(pattern))
+        {
+            Snackbar.Add("Vui lòng nhập pattern tìm kiếm.", Severity.Warning);
+            return;
+        }
+
+        if (pattern == "*")
+        {
+            var confirmed = await _confirmScanAllBox!.ShowAsync();
+            if (confirmed != true) return;
+        }
+
+        _loading = true;
+        _errorMsg = null;
+        try
+        {
+            var result = await RedisMgmtService.SearchKeysAsync(pattern);
+            _keys = result.Keys;
+            _isTruncated = result.IsTruncated;
+            FileLogger.WriteLogs($"[RedisDashboardPage.Search] {_currentActor}: pattern={pattern}, found={_keys.Count}, truncated={_isTruncated}");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tìm kiếm key. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("RedisDashboardPage.Search", ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ViewValueAsync(string key)
+    {
+        var parameters = new DialogParameters<RedisKeyValueDialog> { { x => x.Key, key } };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            CloseButton      = true,
+            MaxWidth         = MaxWidth.Medium,
+            FullWidth        = true,
+        };
+        await DialogService.ShowAsync<RedisKeyValueDialog>($"Giá trị: {key}", parameters, options);
+    }
+
+    private async Task ConfirmDeleteAsync(string key)
+    {
+        _confirmDeleteMsg = $"Bạn có chắc muốn xóa key \"{key}\"? Hành động này không thể hoàn tác.";
+        var confirmed = await _confirmDeleteBox!.ShowAsync();
+        if (confirmed != true) return;
+
+        var oldValue = await RedisMgmtService.GetKeyValueAsync(key);
+        var ok = await RedisMgmtService.DeleteKeyAsync(key);
+        if (ok)
+        {
+            await AuditLogger.LogAsync(_currentActor, "DELETE", "RedisKey", key,
+                oldValueJson: oldValue != null ? JsonConvert.SerializeObject(oldValue) : null,
+                newValueJson: null);
+            Snackbar.Add($"Đã xóa key \"{key}\".", Severity.Info);
+            _keys = _keys.Where(k => k.Key != key).ToList();
+        }
+        else
+        {
+            Snackbar.Add("Xóa thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+    }
+
+    private static string FormatTtl(long seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}h {ts.Minutes}p" : $"{ts.Minutes}p {ts.Seconds}s";
+    }
+
+    // ── Status card helpers (đồng nhất logic với HealthPage.razor) ────────────
+
+    private static string CardStyle(bool ok) =>
+        ok ? "border-left:3px solid var(--pos-success)" : "border-left:3px solid var(--pos-danger)";
+
+    private static (Color Color, string Text) LatencyDisplay(long ms, bool ok)
+    {
+        if (!ok) return (Color.Error, "N/A");
+        return ms switch
+        {
+            < 100 => (Color.Success, $"{ms} ms"),
+            < 500 => (Color.Warning, $"{ms} ms"),
+            _     => (Color.Error, $"{ms} ms"),
+        };
+    }
+
+    private static string FormatUptime(long seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalDays >= 1 ? $"{(int)ts.TotalDays}d {ts.Hours}h" : $"{(int)ts.TotalHours}h {ts.Minutes}m";
+    }
+}

@@ -768,7 +768,7 @@
     inset: 0;
     overflow: hidden;
     pointer-events: none;
-    color: var(--pos-text-body);
+    color: #000000;
 }
 .pos-sql-editor-textarea {
     position: relative;
@@ -779,7 +779,7 @@
     resize: vertical;
     background: transparent;
     color: transparent;
-    caret-color: var(--pos-text-body);
+    caret-color: #000000;
 }
 .pos-sql-editor-textarea::selection {
     background: rgba(38, 96, 164, 0.25);

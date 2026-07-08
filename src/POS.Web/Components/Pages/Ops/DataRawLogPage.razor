@@ -398,7 +398,9 @@ else
             var state    = await AuthState;
             var userName = state.User.Identity?.Name ?? "unknown";
 
-            var (ok, msg) = await SaleRepo.InInsertToTableByJson(storeNo, posNo, row.TransactionId ?? "", row.Message ?? "", "WEB");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(100));
+            var (ok, msg) = await SaleRepo.InInsertToTableByJson(
+                storeNo, posNo, row.TransactionId ?? "", row.Message ?? "", "WEB", cts.Token);
             if (ok)
             {
                 Snackbar.Add($"Retry thành công: {row.TransactionId}", Severity.Success);
@@ -411,6 +413,11 @@ else
                 Snackbar.Add($"Retry thất bại: {msg}", Severity.Error);
                 FileLogger.WriteLogs($"[EXCEPTION][DataRawLogPage.Retry] actor={userName}: {row.TransactionId}: {msg}");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Snackbar.Add($"Retry quá thời gian chờ, vui lòng thử lại: {row.TransactionId}", Severity.Error);
+            FileLogger.WriteLogs($"[TIMEOUT][DataRawLogPage.Retry] {row.TransactionId}");
         }
         catch (Exception ex)
         {

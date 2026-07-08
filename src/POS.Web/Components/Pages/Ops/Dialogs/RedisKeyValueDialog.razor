@@ -1,0 +1,57 @@
+@namespace POS.Web.Components.Pages.Ops.Dialogs
+@using MudBlazor
+@using POS.Application.Features.Redis
+@using POS.Common.Dtos.Redis
+
+@inject IRedisManagementService RedisMgmtService
+
+<MudDialog>
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+        }
+        else if (_value is null)
+        {
+            <MudAlert Severity="Severity.Warning">Key không tồn tại (có thể đã hết hạn hoặc bị xóa).</MudAlert>
+        }
+        else
+        {
+            <div class="d-flex align-center gap-2 flex-wrap mb-4">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@_value.Type</MudChip>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                    TTL: @(_value.TtlSeconds.HasValue ? $"{_value.TtlSeconds}s" : "Không hết hạn")
+                </MudChip>
+            </div>
+            <MudTextField T="string" Value="@_value.Value" ReadOnly="true" Lines="20"
+                          Variant="Variant.Outlined"
+                          Style="font-family:monospace; font-size:0.8rem"/>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string Key { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private RedisKeyValueDto? _value;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _value = await RedisMgmtService.GetKeyValueAsync(Key);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void CloseDialog() => MudDialog.Close();
+}

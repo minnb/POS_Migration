@@ -222,6 +222,14 @@ private async Task InsertDataRawJsonAsync(string transactionId, string dataType,
 
 **Anti-pattern:** Gọi log function ở từng return path riêng lẻ → dễ bỏ sót khi thêm nhánh mới.
 
+**Gotcha (2026-07-08):** `InInsertToTableByJson` từng mở connection chính (không phải audit log)
+qua `StoreRoutedConnectionFactory` (route theo `StoreSetServer`) — khi `ServerIP` của 1 store
+không còn kết nối được trên UAT/Prod, method throw "network-related... SQL Server" dù các hàm đọc
+cùng bảng vẫn chạy bình thường (chúng dùng `directConnectionFactory` cố định). Đã đổi sang luôn
+dùng `directConnectionFactory`. Bài học: chỉ dùng `StoreRoutedConnectionFactory` khi thật sự cần
+ghi vào bảng **sharded theo store** (TransHeader...); nếu SP/bảng đích không phụ thuộc shard, ưu
+tiên `directConnectionFactory` để tránh thêm 1 điểm lỗi mạng không cần thiết.
+
 ---
 
 ## Pattern: POS.Worker — Background worker project độc lập

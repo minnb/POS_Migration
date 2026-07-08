@@ -72,6 +72,10 @@ public sealed class RedisManager : IRedisManager
             ConnectTimeout = _options.ConnectTimeout,
             SyncTimeout = _options.SyncTimeout,
             DefaultDatabase = _options.DefaultDatabase,
+            // AllowAdmin: cần cho INFO (server diagnostics) — KEYS/DBSIZE/PING không cần nhưng INFO có.
+            // Không tự động cho phép lệnh phá hủy (FLUSHALL/FLUSHDB/SHUTDOWN...) — codebase không gọi
+            // các lệnh đó ở bất kỳ đâu (đã grep xác nhận); AllowAdmin chỉ NỚI QUYỀN gọi, không tự thực thi.
+            AllowAdmin = true,
         };
         if (!string.IsNullOrEmpty(_options.Password))
             masterConfig.Password = _options.Password;
@@ -91,6 +95,8 @@ public sealed class RedisManager : IRedisManager
             ConnectTimeout = _options.ConnectTimeout,
             SyncTimeout = _options.SyncTimeout,
             DefaultDatabase = _options.DefaultDatabase,
+            // AllowAdmin: cần cho INFO (server diagnostics) — xem giải thích ở CreateSentinelConnection.
+            AllowAdmin = true,
         };
         if (!string.IsNullOrEmpty(_options.Password))
             config.Password = _options.Password;
@@ -334,6 +340,190 @@ public sealed class RedisManager : IRedisManager
         {
             _logger.LogError(ex, "[Redis] GetKeysByPatternAsync failed — pattern: {Pattern}", pattern);
             return Task.FromResult(new List<string>());
+        }
+    }
+
+    public Task<(List<string> Keys, bool IsTruncated)> GetKeysByPatternAsync(string pattern, int maxResults)
+    {
+        try
+        {
+            var conn = _lazyConnection.Value;
+            var result = new List<string>();
+            var truncated = false;
+            foreach (var endpoint in conn.GetEndPoints())
+            {
+                var server = conn.GetServer(endpoint);
+                if (server.IsReplica) continue;
+                foreach (var key in server.Keys(_options.DefaultDatabase, pattern))
+                {
+                    if (result.Count >= maxResults)
+                    {
+                        truncated = true;
+                        break;
+                    }
+                    result.Add(key.ToString());
+                }
+                if (truncated) break;
+            }
+            return Task.FromResult((result, truncated));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetKeysByPatternAsync(maxResults) failed — pattern: {Pattern}", pattern);
+            return Task.FromResult((new List<string>(), false));
+        }
+    }
+
+    public async Task<long?> GetKeyTtlSecondsAsync(string key)
+    {
+        try
+        {
+            var ttl = await Db.KeyTimeToLiveAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
+            return ttl.HasValue ? (long)ttl.Value.TotalSeconds : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetKeyTtlSecondsAsync failed — key: {Key}", key);
+            return null;
+        }
+    }
+
+    public async Task<string> GetKeyTypeAsync(string key)
+    {
+        try
+        {
+            var type = await Db.KeyTypeAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
+            return type switch
+            {
+                RedisType.String => "string",
+                RedisType.Hash => "hash",
+                RedisType.List => "list",
+                RedisType.Set => "set",
+                RedisType.SortedSet => "zset",
+                RedisType.Stream => "stream",
+                _ => "none",
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetKeyTypeAsync failed — key: {Key}", key);
+            return "none";
+        }
+    }
+
+    public async Task<string?> GetKeyRawValueAsync(string key, string redisType)
+    {
+        try
+        {
+            var db = Db;
+            switch (redisType)
+            {
+                case "string":
+                {
+                    var value = await db.StringGetAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
+                    return value.IsNullOrEmpty ? null : value.ToString();
+                }
+                case "hash":
+                {
+                    var entries = await db.HashGetAllAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
+                    var dict = entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString());
+                    return JsonConvert.SerializeObject(dict, Formatting.Indented);
+                }
+                case "list":
+                {
+                    var items = await db.ListRangeAsync(key, 0, -1, CommandFlags.PreferReplica).ConfigureAwait(false);
+                    return JsonConvert.SerializeObject(items.Select(v => v.ToString()), Formatting.Indented);
+                }
+                case "set":
+                {
+                    var members = await db.SetMembersAsync(key, CommandFlags.PreferReplica).ConfigureAwait(false);
+                    return JsonConvert.SerializeObject(members.Select(v => v.ToString()), Formatting.Indented);
+                }
+                case "zset":
+                {
+                    var members = await db.SortedSetRangeByScoreWithScoresAsync(key, order: Order.Descending,
+                        flags: CommandFlags.PreferReplica).ConfigureAwait(false);
+                    return JsonConvert.SerializeObject(
+                        members.Select(m => new { Member = m.Element.ToString(), m.Score }),
+                        Formatting.Indented);
+                }
+                default:
+                    return $"Không hỗ trợ xem giá trị kiểu \"{redisType}\".";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetKeyRawValueAsync failed — key: {Key}, type: {Type}", key, redisType);
+            return null;
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // Server diagnostics
+    // ──────────────────────────────────────────
+
+    private IServer? GetPrimaryServer()
+    {
+        var conn = _lazyConnection.Value;
+        foreach (var endpoint in conn.GetEndPoints())
+        {
+            var server = conn.GetServer(endpoint);
+            if (!server.IsReplica) return server;
+        }
+        return null;
+    }
+
+    public int DefaultDatabase => _options.DefaultDatabase;
+
+    public async Task<(bool IsOnline, long PingMs, string? Endpoint, string? Error)> PingAsync()
+    {
+        try
+        {
+            var server = GetPrimaryServer();
+            if (server is null) return (false, 0, null, "Không tìm thấy server Redis khả dụng.");
+
+            var latency = await server.PingAsync().ConfigureAwait(false);
+            return (true, (long)latency.TotalMilliseconds, server.EndPoint.ToString(), null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] PingAsync failed");
+            return (false, 0, null, ex.Message);
+        }
+    }
+
+    public async Task<IDictionary<string, string>> GetServerInfoAsync()
+    {
+        var result = new Dictionary<string, string>();
+        try
+        {
+            var server = GetPrimaryServer();
+            if (server is null) return result;
+
+            var sections = await server.InfoAsync().ConfigureAwait(false);
+            foreach (var section in sections)
+            foreach (var entry in section)
+                result[entry.Key] = entry.Value;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetServerInfoAsync failed");
+        }
+        return result;
+    }
+
+    public async Task<long> GetDbSizeAsync()
+    {
+        try
+        {
+            var server = GetPrimaryServer();
+            if (server is null) return 0;
+            return await server.DatabaseSizeAsync(_options.DefaultDatabase).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] GetDbSizeAsync failed");
+            return 0;
         }
     }
 }

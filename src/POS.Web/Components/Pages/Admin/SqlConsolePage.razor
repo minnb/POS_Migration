@@ -99,7 +99,7 @@ else
                 <pre class="pos-sql-editor-highlight" aria-hidden="true"><code id="sql-console-highlight"></code></pre>
                 <textarea id="sql-console-input"
                           class="pos-sql-editor-textarea"
-                          rows="27"
+                          rows="13"
                           placeholder="SELECT TOP 10 * FROM TableName (NOLOCK)"
                           disabled="@(_running || _pending != null)"
                           @bind="_sql"
@@ -339,10 +339,9 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-            await JS.InvokeVoidAsync("posSqlHighlightBind", "sql-console-input", "sql-console-highlight");
-        else
-            await JS.InvokeVoidAsync("posSqlHighlightRefresh", "sql-console-input", "sql-console-highlight");
+        // posSqlHighlightBind tự idempotent (an toàn gọi lại mỗi lần render) — bắt buộc gọi
+        // lại mỗi lần vì lần firstRender chạy khi textarea chưa tồn tại (còn ở màn hình PIN gate).
+        await JS.InvokeVoidAsync("posSqlHighlightBind", "sql-console-input", "sql-console-highlight");
     }
 
     private async Task RunAsync()

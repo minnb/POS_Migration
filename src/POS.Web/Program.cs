@@ -6,6 +6,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using POS.Application;
 using POS.Infrastructure;
+using POS.Infrastructure.Logging;
 using POS.Web.Auth;
 using POS.Web.Components;
 using POS.Web.Services;
@@ -54,6 +55,12 @@ var builder = WebApplication.CreateBuilder(args);
         builder.Configuration.AddInMemoryCollection(overrides);
     }
 }
+
+// ── Serilog ───────────────────────────────────────────────────────────────
+// Thiếu dòng này khiến mọi ILogger<T> (kể cả KibanaService.LogInfo/LogException dùng ở
+// hầu hết page) rơi về default provider của ASP.NET Core (Console-only trên Linux) — log
+// KHÔNG bao giờ chạm "Logging:FileLogDirectory" hay Elasticsearch dù appsettings đã cấu hình đúng.
+builder.AddSerilogWithElastic();
 
 // ── Security mode (config-driven topology) ───────────────────────────
 // Mode điều khiển cách xử lý forwarded headers cho 3 kịch bản triển khai:
@@ -117,6 +124,7 @@ builder.Services.AddScoped<IWebUserService, WebUserService>();
 builder.Services.AddScoped<ISqlConsoleService, SqlConsoleService>();
 builder.Services.AddSingleton<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IAuditLogger, DbAuditLogger>();
+builder.Services.AddScoped<ILogFileService, LogFileService>();
 
 // ── Authentication: Cookie cho browser session ─────────────────────────
 // TÁCH BIỆT với BasicAuth của POS.Api (không ảnh hưởng nhau)

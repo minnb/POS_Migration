@@ -1099,6 +1099,46 @@ private void UpdateBreadcrumb(string uri)
 
 ---
 
+## Pattern: Đọc/tải file trên server an toàn (whitelist extension + chống Path Traversal)
+> Áp dụng khi: page cần liệt kê/tải file từ 1 thư mục gốc trên server (log viewer, file browser nội
+> bộ...) — KHÔNG expose toàn bộ filesystem, chỉ 1 subtree cụ thể + đúng loại file cho phép.
+
+- Tính `_rootDir` **1 lần trong constructor** bằng `Path.GetFullPath(...)` (không tính lại mỗi
+  request) — nguồn gốc thường là 1 config path sẵn có (vd `Logging:FileLogDirectory`) rồi lấy
+  `Directory.GetParent(...)` để mở rộng phạm vi nếu cần liệt kê nhiều thư mục con cùng cấp.
+- **Whitelist extension** (không phải blacklist) — check ở CẢ lúc liệt kê (lọc
+  `Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)`) LẪN lúc tải (từ chối nếu
+  extension không khớp dù path hợp lệ).
+- **Chống Path Traversal** — bắt buộc đủ 3 bước theo đúng thứ tự (thiếu bước nào là có lỗ hổng):
+  ```csharp
+  var fullPath = Path.GetFullPath(Path.Combine(_rootDir, relativePath));   // resolve .. trước
+  var rootWithSep = _rootDir.EndsWith(Path.DirectorySeparatorChar) ? _rootDir : _rootDir + Path.DirectorySeparatorChar;
+  if (!fullPath.StartsWith(rootWithSep, StringComparison.OrdinalIgnoreCase)) return null; // so khớp PREFIX có separator, không phải fullPath.Contains(_rootDir)
+  if (!AllowedExtensions.Contains(Path.GetExtension(fullPath), StringComparer.OrdinalIgnoreCase)) return null;
+  if (!File.Exists(fullPath)) return null;
+  ```
+  So khớp prefix phải có `DirectorySeparatorChar` ở cuối `_rootDir` — nếu không, `/srv/pos/logs2`
+  vẫn "StartsWith" `/srv/pos/logs` dù nằm ngoài root (off-by-one thư mục anh em).
+- Toàn bộ logic đọc file bọc `try/catch`, lỗi ghi qua `IFileLogHelper.WriteExpLogs(...)` — KHÔNG
+  throw ra UI, trả `null`/danh sách rỗng để page tự xử lý thông báo.
+- Không dùng controller/endpoint HTTP riêng cho POS.Web (khác POS.Api) — page inject service qua DI
+  đọc `byte[]` rồi gọi `JS.SaveAsFileAsync(fileName, bytes, contentType)` (JS interop có sẵn ở
+  `src/POS.Web/Services/JsDownloadExtensions.cs`), giống mọi download khác trong POS.Web (Excel
+  template, PDF...).
+
+> Anti-pattern:
+> - ❌ `fullPath.Contains(_rootDir)` thay vì `StartsWith` + separator — chuỗi con khớp bất kỳ đâu
+>   trong path, không phải chỉ ở đầu, dễ bypass bằng path dựng khéo.
+> - ❌ Chỉ check extension lúc liệt kê, bỏ qua lúc tải — endpoint tải file vẫn nhận input tuỳ ý từ
+>   client, phải tự validate lại độc lập, không tin danh sách đã lọc trước đó.
+> - ❌ Trả `FileNotFoundException`/stack trace ra UI khi lỗi filesystem (quyền, đường dẫn không tồn
+>   tại) — bọc try/catch, log nội bộ, trả kết quả rỗng/null.
+>
+> Ví dụ thực tế: `src/POS.Web/Services/LogFileService.cs` (`GetLogFilesAsync`,
+> `DownloadLogFileAsync`), page dùng: `Components/Pages/Admin/LogFilePage.razor`.
+
+---
+
 ## Pattern: Textarea overlay syntax highlighting (không dùng thư viện ngoài)
 > Áp dụng khi: cần tô màu cú pháp (SQL/code) cho 1 ô nhập text lớn mà không muốn thêm dependency
 > ngoài MudBlazor (Monaco/CodeMirror quá nặng cho 1 ô nhập trong 1 trang admin nội bộ).

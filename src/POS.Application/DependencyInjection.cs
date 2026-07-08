@@ -5,6 +5,7 @@ using POS.Application.Features.DataSync;
 using POS.Application.Features.Gift;
 using POS.Application.Features.Partner;
 using POS.Application.Features.Promotion;
+using POS.Application.Features.Redis;
 using POS.Application.Features.Sap;
 using POS.Application.Features.StoreActivities;
 
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IVoucherService, VoucherService>();
         services.AddScoped<IVoucherPublishedService, VoucherPublishedService>();
         services.AddScoped<IBusinessDayService, BusinessDayService>();
+        services.AddScoped<IRedisManagementService, RedisManagementService>();
         return services;
     }
 }

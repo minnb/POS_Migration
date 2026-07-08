@@ -334,3 +334,37 @@ if (@lock == null) return Fail("Hệ thống đang xử lý thao tác khác, vui
 > instance phát hành đồng thời. Từ 2026-07-07, `CouponService.IssueMoreAsync` cũng inject và dùng
 > CHUNG lock này (key `"Lock:VoucherIssue"` không đổi — doc comment `IVoucherIssueLock` từ đầu đã
 > ghi rõ "sinh mã Auto voucher/coupon") — không tạo lock riêng cho Coupon.
+
+---
+
+## Pattern 7: Server diagnostics (PING/INFO/DBSIZE) — cho admin dashboard, KHÔNG phải cache data
+
+> Áp dụng khi: cần biết **tình trạng vận hành** của chính Redis instance (online/offline, bộ nhớ,
+> số client, uptime, tỷ lệ cache hit) — khác hẳn Pattern 1-6 (cache *data* từ DB). Trước
+> 2026-07-08, codebase chưa từng gọi `PING`/`INFO` thật — `HealthCheckService.CheckRedisAsync` chỉ
+> đo latency bằng round-trip `StringSet`/`StringGetAsync`, không phản ánh bộ nhớ/uptime/hit-rate.
+
+```csharp
+// IRedisManager (POS.Infrastructure/Cache/) — do IConnectionMultiplexer/IDatabase KHÔNG public,
+// các method diagnostics này lấy IServer nội bộ qua endpoint non-replica đầu tiên
+Task<(bool IsOnline, long PingMs, string? Endpoint, string? Error)> PingAsync();
+Task<IDictionary<string, string>> GetServerInfoAsync();   // INFO, flatten mọi section thành field→value
+Task<long> GetDbSizeAsync();                              // DBSIZE tại DefaultDatabase
+int DefaultDatabase { get; }                               // passthrough RedisOptions.DefaultDatabase
+
+// Field cần đọc từ GetServerInfoAsync() cho dashboard vận hành:
+// used_memory_human, connected_clients, uptime_in_seconds, keyspace_hits, keyspace_misses, role
+```
+
+**Nguyên tắc:**
+- Không expose `IConnectionMultiplexer`/`IDatabase`/`IServer` ra ngoài `IRedisManager` — chỉ trả
+  dữ liệu đã parse (tuple/dictionary/primitive), giữ nguyên tắc "IRedisManager là lớp bọc duy nhất
+  chạm StackExchange.Redis trực tiếp" của toàn bộ file này.
+- `HitRatePercent` tính ở tầng gọi (`hits/(hits+misses)*100`), **không** tính trong `IRedisManager`
+  — manager chỉ trả field thô, business logic (tính %, format Dto) thuộc Application layer.
+- Offline (`PingAsync` throw/false) → toàn bộ field số trả mặc định (0/null), **không** ném
+  exception lên UI — dashboard hiển thị trạng thái OFFLINE + message, không crash trang.
+
+> Ví dụ thực tế: `IRedisManagementService.GetServerStatusAsync` (`POS.Application/Features/Redis/`)
+> dùng cho `RedisDashboardPage.razor` (`/ops/redis`) — status card + KPI row (Bộ nhớ/Clients/Tổng
+> Key/Cache Hit %/Uptime), style tái dùng từ `HealthPage.razor` (`CardStyle`/`LatencyDisplay`).

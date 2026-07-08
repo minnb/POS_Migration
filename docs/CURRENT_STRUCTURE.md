@@ -62,8 +62,10 @@ src/
 │       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync trả List<GetMasterDataFileResult> (Parallel SP2 × MaxParallelTables; bảng SyncTableList.IsSingleFile=1 → zip riêng/bảng, còn lại gom zip "common") + LogDownloadAsync
 │       ├── Sap/
 │       │   └── ISAPService.cs / SAPService.cs
-│       └── Gift/
-│           └── IGiftService.cs / GiftService.cs
+│       ├── Gift/
+│       │   └── IGiftService.cs / GiftService.cs
+│       └── Redis/
+│           └── IRedisManagementService.cs / RedisManagementService.cs   ← SearchKeysAsync (cap 1000, IsTruncated)/GetKeyValueAsync (pretty JSON)/DeleteKeyAsync — dùng cho POS.Web /ops/redis, inject IRedisManager trực tiếp (không qua AppService layer vì không phải external HTTP)
 │
 ├── POS.Common/
 │   ├── ResultResponse.cs
@@ -161,6 +163,11 @@ src/
 │   │   │   ├── Common/CommonDtos.cs
 │   │   │   └── Gift/GiftBarcodeRequest.cs
 │   │   ├── RabbitMessageDto.cs (root — đã liệt kê)
+│   │   ├── Redis/
+│   │   │   ├── RedisKeyInfoDto.cs      ← Key, Type, TtlSeconds (nullable)
+│   │   │   ├── RedisKeyValueDto.cs     ← + Value (string, pretty JSON nếu parse được)
+│   │   │   ├── RedisKeySearchResultDto.cs  ← List<RedisKeyInfoDto> Keys + bool IsTruncated
+│   │   │   └── RedisServerStatusDto.cs ← IsOnline, PingMs, Role, Target, DatabaseIndex, UsedMemoryHuman, ConnectedClients, TotalKeys, HitRatePercent (nullable), UptimeSeconds, ErrorMessage
 │   │   ├── Request/RequestDto.cs
 │   │   ├── Reward/RewardDto.cs
 │   │   ├── ROP/ROPDto.cs
@@ -323,6 +330,7 @@ src/
 | `IVoucherPublishedService` | `VoucherPublishedService` | `POS.Application.Features.CouponVoucher` | POS.Application |
 | `IPriceService` | `PriceService` | `POS.Application.Features.Price` | POS.Application |
 | `IBusinessDayService` | `BusinessDayService` | `POS.Application.Features.StoreActivities` | POS.Application |
+| `IRedisManagementService` | `RedisManagementService` | `POS.Application.Features.Redis` | POS.Application |
 
 ### POS.Infrastructure — Repositories
 
@@ -395,6 +403,7 @@ src/
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
 | `IBusinessDayService` → `BusinessDayService` | Scoped | Xác nhận kết thúc ngày — merge `ICentralMDRepository.GetPosTerminalListAsync` (master POS) + `ICentralSaleRepository.GetPosDayStagingAsync` (staging shard); validate rule "tất cả POS đã đóng ngày" trước khi gọi `ConfirmBusinessDayAsync` |
+| `IRedisManagementService` → `RedisManagementService` | Scoped | Quản trị cache Redis (POS.Web `/ops/redis`) — inject `IRedisManager` trực tiếp; SearchKeysAsync cap 1000 key/lần quét |
 
 ### `POS.Infrastructure.DependencyInjection.AddInfrastructure()`
 
@@ -541,7 +550,8 @@ Task<List<SaleTableModel>> GetOrderInfoAsync(string orderNo, CancellationToken c
 Task<List<POSDocumentNoModel>> ListPOSDocumentNoAsync(string storeNo, string posTerminal, CancellationToken ct = default)
 Task<List<TransHeaderOrderModel>> GetTopOrderNoAsync(string storeNo, string posNo, CancellationToken ct = default)
 Task<bool> UpdatePOSEODAsync(POSEOD_APIModel model, CancellationToken ct = default)
-Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, CancellationToken ct = default)
+Task<(bool, string)> InInsertToTableByJson(string storeNo, string posNo, string transactionId, string message, string source, CancellationToken ct = default)
+// 2026-07-08: dùng directConnectionFactory (CentralSale cố định) — KHÔNG route qua StoreRoutedConnectionFactory/StoreSetServer nữa (gây network error khi ServerIP của store không kết nối được, UAT/Prod)
 
 // Void Transaction Dashboard — hợp nhất InvoiceVoid (TransVoidHeader) + LineVoid (TransVoidLine),
 // driving table TransVoidLine LEFT JOIN TransVoidHeader + TransHeader, dùng bởi VoidsPage.razor
@@ -789,6 +799,22 @@ Task<ConfirmBusinessDayResult> ConfirmBusinessDayAsync(string storeNo, DateTime 
 ```
 > `allowForceConfirm=true` (role ITOps/SystemAdmin) bỏ qua guard "còn POS chưa đóng ngày" (force EOD); StoreOperator luôn `false`.
 
+#### `IRedisManagementService` (`POS.Application.Features.Redis`)
+
+```csharp
+Task<RedisKeySearchResultDto> SearchKeysAsync(string pattern, CancellationToken ct = default)
+Task<RedisKeyValueDto?> GetKeyValueAsync(string key, CancellationToken ct = default)
+Task<bool> DeleteKeyAsync(string key, CancellationToken ct = default)
+Task<RedisServerStatusDto> GetServerStatusAsync(CancellationToken ct = default)
+```
+> Dùng cho POS.Web `/ops/redis` (Redis Management Dashboard, role ITOps/SystemAdmin). `SearchKeysAsync`
+> cap tối đa 1000 key/lần quét (`MaxScanResults` const trong service) qua
+> `IRedisManager.GetKeysByPatternAsync(pattern, maxResults)` — không refactor sang cursor-based SCAN.
+> Không có method Flush/Clear-all — chỉ hỗ trợ xóa từng key, có audit log qua `IAuditLogger` ở page.
+> `GetServerStatusAsync` — PING + INFO + DBSIZE cho khu vực KPI/trạng thái (status card kiểu
+> `HealthPage.razor` + 5 KPI card `.pos-kpi-value`/`.pos-kpi-label`: Bộ nhớ, Clients, Tổng Key,
+> Cache Hit %, Uptime). Offline → trả `IsOnline=false` + `ErrorMessage`, các field số mặc định 0.
+
 ### Infrastructure — AppServices
 
 #### `IAkaChainLoyaltyAppService` (`POS.Infrastructure.AppServices.Interfaces`)
@@ -869,6 +895,16 @@ Task<long> ListRightPushAsync(string key, string value)
 Task<bool> KeyExistsAsync(string key)
 Task<bool> KeyExpireAsync(string key, TimeSpan expiry)
 Task<List<string>> GetKeysByPatternAsync(string pattern)
+Task<(List<string> Keys, bool IsTruncated)> GetKeysByPatternAsync(string pattern, int maxResults)   // SCAN dừng sớm khi đủ maxResults — dùng cho Redis dashboard
+Task<long?> GetKeyTtlSecondsAsync(string key)              // null = không hết hạn / không tồn tại
+Task<string> GetKeyTypeAsync(string key)                  // string/hash/list/set/zset/stream/none
+Task<string?> GetKeyRawValueAsync(string key, string redisType)  // đọc giá trị thô theo type, serialize JSON (hash/list/set/zset)
+
+// Server diagnostics (Redis Management Dashboard)
+Task<(bool IsOnline, long PingMs, string? Endpoint, string? Error)> PingAsync()
+Task<IDictionary<string, string>> GetServerInfoAsync()     // INFO, flatten field→value (Memory/Clients/Server/Stats/Replication)
+Task<long> GetDbSizeAsync()                                // DBSIZE tại DefaultDatabase
+int DefaultDatabase { get; }                               // passthrough RedisOptions.DefaultDatabase
 
 // Distributed lock (SET NX + TTL, release an toàn bằng so khớp token qua Lua script)
 Task<string?> AcquireLockAsync(string key, TimeSpan ttl)   // trả token nếu acquire được, null nếu đang bị giữ
