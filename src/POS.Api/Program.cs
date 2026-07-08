@@ -137,7 +137,7 @@ app.UseRequestResponseLogging();
 // ── Lưới an toàn cuối: bắt mọi exception chưa xử lý, trả đúng ResultResponse ──
 app.UsePosExceptionHandling();
 app.UseSerilogRequestLogging();
-app.UsePosApiKeyAuth();
+//app.UsePosApiKeyAuth();
 app.UseAuthentication();
 app.UseAuthorization();
 
