@@ -144,7 +144,7 @@ builder.Services.Configure<RequestLoggingOptions>(
 ...
 app.UseRequestResponseLogging();   // NGOÀI CÙNG — trước UsePosExceptionHandling()
 app.UsePosExceptionHandling();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options => { options.GetLevel = ...; });  // xem mục 4.1
 ```
 
 ### Cơ chế capture — pass-through, KHÔNG buffer file lớn
@@ -195,6 +195,57 @@ private sealed class CappedCapturingStream(Stream inner, int maxBytes) : Stream
 qua biến môi trường PowerShell tạm — không lưu vào file config nào. Lần chạy sau (không set lại env
 var) tưởng middleware không hoạt động, thực ra cấu hình quay về mặc định `false`. **Luôn kiểm tra
 giá trị `RequestLogging:Enabled` đang hiệu lực trước khi nghi ngờ code không log.**
+
+---
+
+### 4.1 `UseSerilogRequestLogging` — GetLevel tùy biến để chặn nhiễu INF (2026-07-08)
+
+> Áp dụng khi: `MinimumLevel:Default` đã hạ xuống `Warning` (xem mục 3) nhưng vẫn cần
+> `UseSerilogRequestLogging()` (middleware `Serilog.AspNetCore`, KHÔNG phải
+> `RequestResponseLoggingMiddleware` ở mục 4) ghi log 5xx/4xx thật sự có giá trị tra cứu, đồng
+> thời không nuốt luôn log lỗi vì `Default=Warning` chặn hết mức `Information` mặc định của nó.
+
+**Vấn đề gốc**: gọi `app.UseSerilogRequestLogging();` (không tham số) khiến middleware này tự log
+ở mức `Information` cho MỌI request kể cả 2xx/3xx/404 — đây là nguồn sinh ra các dòng
+`HTTP GET / responded 404`/`responded 200` ngập log, **độc lập** với `RequestResponseLoggingMiddleware`
+(middleware mục 4, tắt qua `RequestLogging:Enabled=false`) — tắt middleware đó KHÔNG tắt được
+nguồn nhiễu này.
+
+**Giải pháp** — truyền `GetLevel` tùy biến, chỉ tại `src/POS.Api/Program.cs` (nơi duy nhất gọi
+`UseSerilogRequestLogging`):
+
+```csharp
+using Serilog.Events;
+
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (httpContext, elapsed, ex) =>
+    {
+        if (ex is not null || httpContext.Response.StatusCode >= 500)
+            return LogEventLevel.Error;
+
+        if (httpContext.Response.StatusCode is >= 400 and not 404)
+            return LogEventLevel.Warning;
+
+        // 2xx/3xx thành công + 404 dò tìm thông thường: hạ xuống Debug — bị chặn
+        // tự động bởi MinimumLevel.Default=Warning, không cần Filter.ByExcluding riêng.
+        return LogEventLevel.Debug;
+    };
+});
+```
+
+**Quan trọng**:
+- Không sửa `SerilogConfiguration.cs` cho việc này — `UseSerilogRequestLogging` chỉ được gọi ở
+  `POS.Api/Program.cs` (POS.Web không dùng nó — Blazor Server, không có API pipeline tương tự;
+  POS.Worker không có HTTP host nên không áp dụng được).
+- 404 cố ý **loại trừ** khỏi nhánh `>= 400` để không biến log dò quét đường dẫn thông thường
+  thành nhiễu ở mức Warning — chỉ 4xx nghiệp vụ thật (401/403/422...) mới lên Warning.
+- Đi kèm thay đổi `Serilog:MinimumLevel:Default` từ `Information` → `Warning` trong
+  `appsettings*.json` của **cả 3 project** (Api/Web/Worker) — xem bảng ở mục 3 và
+  `docs/CHANGELOG.md` entry tương ứng. `Microsoft.Hosting.Lifetime` giữ nguyên `Information` để
+  vẫn thấy log lúc start/stop.
+
+> Ví dụ thực tế: `src/POS.Api/Program.cs`
 
 ---
 

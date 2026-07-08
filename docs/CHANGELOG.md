@@ -6,6 +6,75 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-08] Giảm nhiễu log INF — MinimumLevel Warning + GetLevel tùy biến cho UseSerilogRequestLogging
+
+**Layer:** POS.Api, POS.Web, POS.Worker
+**Loại:** Pattern mới (giảm nhiễu log) + Bug fix (config)
+
+**Thay đổi:**
+- `src/POS.Api/Program.cs`: thêm `using Serilog.Events;`, `app.UseSerilogRequestLogging()` → truyền
+  `GetLevel` tùy biến (exception/5xx → `Error`, 4xx trừ 404 → `Warning`, 2xx/3xx thành công + 404 →
+  `Debug`, tự bị chặn bởi `MinimumLevel.Default=Warning`).
+- `src/POS.Api/appsettings.json`, `appsettings.UAT.json`: `Serilog:MinimumLevel:Default`
+  `Information` → `Warning` (`Microsoft.Hosting.Lifetime` giữ `Information`).
+- `src/POS.Worker/appsettings.json`, `appsettings.UAT.json`: tương tự `Default` → `Warning`.
+- `src/POS.Web/appsettings.Production.json`: `Default` từ `Error` → `Warning` — **bug thực tế phát
+  hiện lúc khảo sát**: giá trị `Error` cũ chặt hơn yêu cầu, làm mất toàn bộ log Warning ở Production
+  (không phải chỉ đổi Information→Warning như 2 project kia, đây là sửa 1 giá trị sai hướng ngược).
+- `appsettings.Development.json`/`appsettings.Production.json` (Api, Worker) và
+  `appsettings.Development.json`/`appsettings.UAT.json` (Web) — **không đổi**, vì không có section
+  `Serilog` riêng, tự kế thừa `Default` mới từ file base.
+
+**Pattern mới:** `UseSerilogRequestLogging` GetLevel tùy biến theo status code — đã ghi vào
+`.claude/skills/api/logging.md` mục 4.1 (bao gồm lý do 404 bị loại trừ khỏi nhánh Warning, và vì
+sao không sửa `SerilogConfiguration.cs` mà sửa tại `Program.cs`).
+
+**Verify:** `dotnet build POS.slnx` (0 error) + `dotnet test tests/POS.ContractTests` (39/39 pass).
+**Chưa verify runtime thật** (gọi `/health`, 404, lỗi 4xx/5xx thật để xem log console/file) — sandbox
+không có `POS_SECRET_KEY`/DB/Redis nên không chạy `dotnet run` được.
+
+**Lưu ý cho session sau:** `UseSerilogRequestLogging()` (Serilog.AspNetCore) và
+`RequestResponseLoggingMiddleware` (custom, `RequestLogging:Enabled`) là **2 cơ chế độc lập** —
+tắt middleware custom không tắt được log INF mặc định của `UseSerilogRequestLogging()`. Nếu sau
+này thấy log 404/200 ngập trở lại, kiểm tra cả 2 nơi, không chỉ 1.
+
+---
+
+## [2026-07-08] Fix WebSocket SignalR bị rớt qua subdomain HTTPS + đồng bộ Security:Mode UAT
+
+**Layer:** POS.Web
+**Loại:** Bug fix (config) — root cause chính nằm ngoài repo (hạ tầng)
+
+**Thay đổi:**
+- `src/POS.Web/appsettings.UAT.json`: `Security:Mode` đổi từ `"Internet"` → `"BehindProxy"` —
+  UAT thực tế chạy sau **2 tầng reverse proxy** (SSL vhost ngoài không có trong repo → nginx
+  `pos-web.uat.conf` trong repo → Kestrel), nhưng `Mode="Internet"` khiến
+  `ForwardedHeadersOptions`/`app.UseForwardedHeaders()` (`Program.cs:74-83,184-225`) **không bao
+  giờ chạy**, sai với topology thật. Khớp với `appsettings.Production.json` (đã đúng `BehindProxy`
+  từ trước).
+
+**Phân tích root cause (đọc trực tiếp, không suy đoán):**
+- Console browser báo `Failed to start the transport 'WebSockets'... check that sticky sessions
+  are enabled` khi truy cập qua subdomain HTTPS. Đã loại trừ nguyên nhân "nhiều backend thiếu
+  sticky session" — xác nhận với người dùng chỉ chạy **1 instance** POS.Web.
+- Đọc toàn bộ `nginx/pos-web.conf` + `nginx/pos-web.uat.conf` (tầng 2, trong repo) — đã cấu hình
+  đúng chuẩn Blazor Server WebSocket (`location /_blazor` riêng, `proxy_http_version 1.1`,
+  `Upgrade`/`Connection` header, timeout 86400s) → **không phải nguyên nhân**.
+- Root cause thực sự nằm ở **tầng 1 (SSL vhost ngoài terminate subdomain)** — file này KHÔNG có
+  trong repo, không SSH được vào server để tự sửa/verify. Đã cung cấp template nginx đầy đủ +
+  lệnh `curl -i -N`/`nginx -T` để người vận hành tự vá và tự verify — xem `docs/ROLLOUT.md` §O7.
+
+**Pattern mới:** không có pattern code mới — đây là phát hiện kiến trúc hạ tầng (2 tầng reverse
+proxy cho subdomain), đã ghi vào `docs/ROLLOUT.md` §O7 làm checklist go-live.
+
+**Lưu ý cho session sau:** khi POS.Web báo lỗi WebSocket/SignalR sau khi đổi domain hoặc thêm tầng
+proxy mới, luôn hỏi rõ **có bao nhiêu tầng reverse proxy và TLS terminate ở tầng nào** trước khi
+kết luận — mỗi tầng proxy trên đường đi đều phải tự khai báo lại `Upgrade`/`Connection`/
+`proxy_http_version 1.1`, không tự kế thừa từ tầng trước. Không tự suy diễn "thiếu sticky session"
+chỉ từ nội dung thông báo lỗi của SignalR JS client — đó là thông báo chung cho mọi lỗi transport.
+
+---
+
 ## [2026-07-08] Serilog Error-only reconfig cho POS.Web + Rich Exception Logging capability
 
 **Layer:** POS.Infrastructure, POS.Web

@@ -9,6 +9,7 @@ using POS.Infrastructure;
 using POS.Infrastructure.Logging;
 using POS.Infrastructure.Security;
 using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -136,7 +137,21 @@ app.UseRequestResponseLogging();
 
 // ── Lưới an toàn cuối: bắt mọi exception chưa xử lý, trả đúng ResultResponse ──
 app.UsePosExceptionHandling();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    // Chỉ ghi log request ở mức có giá trị tra cứu — request thành công (2xx/3xx) và
+    // 404 dò tìm thông thường hạ xuống Debug (bị chặn bởi MinimumLevel.Default=Warning).
+    options.GetLevel = (httpContext, elapsed, ex) =>
+    {
+        if (ex is not null || httpContext.Response.StatusCode >= 500)
+            return LogEventLevel.Error;
+
+        if (httpContext.Response.StatusCode is >= 400 and not 404)
+            return LogEventLevel.Warning;
+
+        return LogEventLevel.Debug;
+    };
+});
 //app.UsePosApiKeyAuth();
 app.UseAuthentication();
 app.UseAuthorization();

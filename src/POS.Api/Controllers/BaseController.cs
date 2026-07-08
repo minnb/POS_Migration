@@ -157,7 +157,7 @@ public abstract class BaseController : ControllerBase
 
             sb.AppendLine("--- Headers ---");
             foreach (var header in Request.Headers)
-                sb.AppendLine($"  {header.Key}: {header.Value}");
+                sb.AppendLine($"  {header.Key}: {string.Join(", ", header.Value.ToArray())}");
 
             if (Request.Query.Any())
             {

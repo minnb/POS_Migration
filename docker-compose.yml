@@ -24,6 +24,7 @@ services:
       - MSSQL_PID=Developer # Bản Developer đầy đủ tính năng và miễn phí cho môi trường Test
       # Chặn SQL Server nuốt ~80% RAM máy 8GB (nguyên nhân phụ làm API chậm chờn)
       - MSSQL_MEMORY_LIMIT_MB=3072
+      - TZ=Asia/Ho_Chi_Minh
     mem_limit: 4g
     ports:
       - "14333:1433" # cổng cho tools bên ngoài; API nối thẳng mssql_2019:1433 trong network

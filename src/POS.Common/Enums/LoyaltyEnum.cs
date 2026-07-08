@@ -56,3 +56,10 @@ public enum OrtherStatusLoyal
     MemberBusiness = 2,
     Mobile_enroll = 3
 }
+
+
+public enum AkaChainStateLoyaltyEnum
+{
+    Closed = 1,
+    Open = 2
+}

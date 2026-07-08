@@ -488,7 +488,7 @@ public sealed class AkaChainLoyaltyAppService(
             SimulationOfferId    = null,
             CustomEntityDataId   = null,
             ActivityCode         = activityCode,
-            State                = "Open",
+            State                = AkaChainStateLoyaltyEnum.Closed.ToString(),
             CouponCode           = [],
             ActivityData = new ActivityDataAkaChain
             {

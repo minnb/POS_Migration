@@ -1,5 +1,12 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-08 (Serilog reconfig riêng POS.Web — giảm phình log Production: bỏ hardcode
+> Cập nhật: 2026-07-08 (Fix WebSocket SignalR bị rớt qua subdomain HTTPS: xác định root cause là
+> tầng SSL vhost NGOÀI repo thiếu forward `Upgrade`/`Connection` header khi POS.Web chạy sau 2 tầng
+> reverse proxy — nginx trong repo (`pos-web.conf`/`pos-web.uat.conf`) đã đúng chuẩn, không cần sửa.
+> Đã sửa `appsettings.UAT.json`: `Security:Mode` `Internet`→`BehindProxy` cho khớp topology thật.
+> Checklist vá tầng ngoài + lệnh verify: `docs/ROLLOUT.md` §O7. **CHƯA VERIFY trên server thật**
+> (không có quyền SSH production/UAT) — cần người vận hành tự áp dụng và xác nhận bằng F12 Network
+> tab thấy `_blazor` status `101`. Chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-08 (Serilog reconfig riêng POS.Web — giảm phình log Production: bỏ hardcode
 > `MinimumLevel` trong `SerilogConfiguration.cs` (dùng chung Api/Web/Worker) để `Serilog:MinimumLevel`
 > trong appsettings có hiệu lực thật; POS.Web Dev = `Warning`, Production = `Error`
 > (`Microsoft`/`System` cũng `Error`, giữ `Microsoft.Hosting.Lifetime=Information`). Không đổi

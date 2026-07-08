@@ -18,6 +18,7 @@
 | O4 | Log request/response toàn cục (POS.Api) | Mặc định TẮT (`RequestLogging:Enabled=false`) — chỉ bật khi cần debug 1 đợt cụ thể; `PersistToFile=true` mặc định vì chưa cài Elasticsearch | LOW (opt-in khi cần) | [§O4](#o4--log-requestresponse-toàn-cục-posapi) |
 | O5 | Bật lại `PosApiKeyMiddleware` — scheme mới (POS.Api) | Mã hóa `POSDataSetup.Value` (`Code='X-API'`) bằng `SecretProtector` (khuyến nghị) + đảm bảo **MỌI POS đã update firmware gửi đủ 4 header mới** trước khi deploy (cutover, không dual-mode) | CRITICAL (breaking change cho toàn bộ 5.000 POS) | [§O5](#o5--bật-lại-posapikeymiddleware-scheme-mới-posapi) |
 | O6 | Log Retention Policy (POS.Api, POS.Web, POS.Worker) | Xác nhận/điều chỉnh `LogRetention:SerilogRetainedFileCountLimit` + `RawLogRetentionDays` theo dung lượng ổ đĩa thực tế của từng server trước khi deploy `appsettings.Production.json` | MEDIUM | [§O6](#o6--log-retention-policy-posapi-posweb-posworker) |
+| O7 | Fix WebSocket SignalR bị rớt qua subdomain HTTPS (POS.Web) | Vá tầng SSL vhost NGOÀI (không nằm trong repo) thêm `proxy_http_version 1.1` + `Upgrade`/`Connection` header cho mọi request tới POS.Web, đối chiếu bằng `nginx -T` trên server thật | CRITICAL (khi POS.Web chạy sau ≥2 tầng reverse proxy qua subdomain) | [§O7](#o7--fix-websocket-signalr-bị-rớt-qua-subdomain-https-posweb) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 5 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list + `SetupCoupon_IssueMore.sql` cho nút "PHÁT HÀNH THÊM") | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
@@ -427,6 +428,37 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 - Bỏ trống toàn bộ section này (không xóa key lẻ) → về mặc định cũ (Serilog giữ 14 ngày, không giới
   hạn size; `IFileLogHelper` không tự dọn) — an toàn, tương thích ngược, không phải hành động bắt
   buộc nếu chưa có nhu cầu tùy chỉnh.
+
+---
+
+## O7 — Fix WebSocket SignalR bị rớt qua subdomain HTTPS (POS.Web)
+
+> Phát hiện 2026-07-08: POS.Web (Blazor Server) chạy sau **2 tầng reverse proxy** khi expose qua
+> subdomain HTTPS (vd `https://uat-web.rpos.top`):
+> `Browser → [tầng 1] SSL vhost ngoài (không nằm trong repo) → [tầng 2] nginx/pos-web*.conf (trong
+> repo) → Kestrel`. Triệu chứng: console browser báo
+> `Failed to start the transport 'WebSockets'... check that sticky sessions are enabled` dù chỉ
+> chạy **1 instance** POS.Web (không phải lỗi sticky session giữa nhiều backend).
+
+- **Nguyên nhân xác nhận qua code**: `nginx/pos-web.conf` / `nginx/pos-web.uat.conf` (tầng 2,
+  trong repo) đã cấu hình đúng chuẩn `/_blazor` (WebSocket upgrade header, `proxy_http_version
+  1.1`, timeout 86400s) — **KHÔNG cần sửa**. Tầng 1 (SSL vhost ngoài) không có trong repo, rất có
+  khả năng thiếu forward `Upgrade`/`Connection` header hoặc dùng `proxy_http_version` mặc định
+  (1.0) → hạ cấp request WebSocket trước khi tới tầng 2.
+- **Việc người vận hành PHẢI làm khi go-live/deploy qua subdomain HTTPS**: thêm đúng 3 phần bắt
+  buộc vào server block SSL của tầng 1 — `map $http_upgrade $connection_upgrade { default upgrade;
+  '' close; }`, `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;` +
+  `proxy_set_header Connection $connection_upgrade;`. Template đầy đủ + lệnh `curl -i -N` để tự
+  verify `101 Switching Protocols`: xem plan đã lưu, hoặc tái tạo theo cấu trúc `nginx/pos-web.conf`
+  hiện có (áp dụng thêm cho tầng ngoài).
+- **Đã sửa trong repo cùng đợt**: `src/POS.Web/appsettings.UAT.json` — `Security:Mode` đổi từ
+  `"Internet"` sang `"BehindProxy"` (nhất quán với thực tế UAT chạy sau 2 tầng nginx, khớp
+  `appsettings.Production.json`). Đây là điều kiện để `ForwardedHeadersOptions`/
+  `app.UseForwardedHeaders()` (`Program.cs`) chạy đúng — không tự sửa được lỗi WebSocket, chỉ đảm
+  bảo `HttpContext.Request.Scheme/Host` đúng với client thật.
+- **CHƯA VERIFY được trên server thật** (không có quyền SSH vào production/UAT) — người vận hành
+  phải tự chạy `nginx -T` đối chiếu tầng 1, áp bản vá, rồi verify bằng F12 Network tab thấy `_blazor`
+  status `101`. Chi tiết đầy đủ: `docs/CHANGELOG.md` entry cùng ngày.
 
 ---
 
