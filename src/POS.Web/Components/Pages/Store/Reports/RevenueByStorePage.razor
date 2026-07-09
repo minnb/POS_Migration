@@ -288,6 +288,16 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // StoreOperator chỉ có 1 cửa hàng cố định → tự load dữ liệu ngay, không cần bấm Tìm.
+        // _table chỉ sẵn sàng sau lần render đầu tiên nên phải trigger ở đây, không phải OnInitializedAsync.
+        if (firstRender && _isStoreOperator && _errorMsg == null)
+        {
+            await SearchAsync();
+        }
+    }
+
     private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
     {
         IEnumerable<StoreDto> result = string.IsNullOrWhiteSpace(value)

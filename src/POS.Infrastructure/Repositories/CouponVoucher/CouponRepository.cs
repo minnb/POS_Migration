@@ -212,6 +212,16 @@ public sealed class CouponRepository(CentralMDConnectionFactory connectionFactor
         return p.Get<int>("@OutQuantityAdded");
     }
 
+    public async Task<CouponSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default)
+    {
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        var row = await conn.QueryFirstOrDefaultAsync<CouponSaveResult>(new CommandDefinition(
+            "dbo.usp_SetupCoupon_UpdateBlocked", new { ItemNo = itemNo, Blocked = blocked },
+            commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
+        if (row != null) row.ItemNo = itemNo;
+        return row ?? new CouponSaveResult { Ok = false, Message = "Cập nhật khóa coupon thất bại", ItemNo = itemNo };
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────
     private static DataTable BuildCodeTable(IEnumerable<string> codes)
     {

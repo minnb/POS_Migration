@@ -39,4 +39,10 @@ public interface ICouponRepository
 
     /// <summary>SP usp_SetupCoupon_Delete — xóa (guard QtyCoupon==0). Trả (Deleted, Message).</summary>
     Task<(bool Deleted, string Message)> DeleteAsync(string itemNo, CancellationToken ct = default);
+
+    /// <summary>
+    /// SP usp_SetupCoupon_UpdateBlocked — cập nhật RIÊNG field Blocked trên CpnVchBOMHeader.
+    /// Dùng cho nút Xóa (soft-block) ở danh sách Coupon và checkbox Khóa ở trang Xem coupon.
+    /// </summary>
+    Task<CouponSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default);
 }

@@ -63,7 +63,7 @@ public class JsonFieldContractTests
     [Fact]
     public void CouponCodeDto_locked()
         => AssertFields(typeof(CouponCodeDto),
-            "ItemNo", "Code", "Enable");
+            "ItemNo", "Code", "Enable", "Status", "AmountUsed", "OrderUsed");
 
     // ── 8.3/8.4 Voucher (dashboard DTOs) ───────────────────────────────────
     [Fact]

@@ -6,6 +6,81 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-09] Thêm role BackOffice (giữa StoreOperator và ITOps) — quản lý Danh mục + Khuyến mãi
+
+**Layer:** POS.Web
+**Loại:** Feature (phân quyền)
+
+**Thay đổi:**
+- `src/POS.Web/Auth/WebRoles.cs`: thêm `WebRoles.BackOffice` + `WebPolicies.BackOfficeAndAbove`.
+- `src/POS.Web/Program.cs`: `StoreAndAbove` thêm `BackOffice`; thêm policy `BackOfficeAndAbove`
+  (`BackOffice + ITOps + SystemAdmin`); `OpsAndAbove` giữ nguyên (chỉ `ITOps + SystemAdmin`).
+- 31 file `.razor` dưới `Components/Pages/Catalog/**` + `Components/Pages/Promotion/**` (gồm
+  `Ops/StorePage.razor` + `Ops/PosMapPage.razor` — route thuộc catalog dù namespace `Ops`): đổi
+  `@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]` → `WebPolicies.BackOfficeAndAbove`.
+  8 page `/ops/*` thật (Health/Alerts/Queues/Logs/DataRawLog/PosDataSetup/Redis/SqlConsoleAudit)
+  **giữ nguyên** `OpsAndAbove`.
+- `Components/Layout/MainLayout.razor`: 2 khối `AuthorizeView` bọc menu DANH MỤC + KHUYẾN MÃI đổi
+  sang `BackOfficeAndAbove`; khối VẬN HÀNH (Giám sát/Nhật ký/Cấu hình) giữ nguyên `OpsAndAbove`.
+- `Components/Pages/Admin/UsersPage.razor`: thêm option `BackOffice` vào dropdown filter role +
+  case trong `RoleDisplay`.
+- `Components/Pages/Admin/Dialogs/UserFormDialog.razor`: thêm `MudSelectItem` role `BackOffice`
+  vào dropdown tạo/sửa user (đây mới là nơi thật sự gán role — `UsersPage.razor` chỉ có filter).
+  BackOffice không có `StoreCodes` scoping — xem tất cả store giống ITOps/SystemAdmin.
+- `docs/web/security/roles.md`: cập nhật bảng role (§1, 4 role) + bảng policy (§1, 4 policy),
+  tách bảng route §5.2 (`BackOfficeAndAbove` — Danh mục/Khuyến mãi) khỏi §5.3 (`OpsAndAbove` —
+  chỉ `/ops/*` thật), cập nhật §6.1/§6.2/§6.3, viết lại §6.4 thành ví dụ đã triển khai.
+- `.claude/skills/web/SKILLS.md`: cập nhật bảng "Roles và Policy mapping" (4 role/4 policy).
+- `docs/WEB_STATUS.md`: cập nhật B1 (WebRoles+WebPolicies) và D7 (Program – 4 policy).
+
+**Pattern mới:** Không phải pattern UI mới — đây là lần đầu thực thi checklist "thêm role mới"
+đã có sẵn trong `docs/web/security/roles.md` §6.4 (nay viết lại thành ví dụ tham chiếu thay vì
+"chưa có sẵn"). Không cần thêm gì vào `.claude/skills/web/SKILLS.md` ngoài bảng role/policy.
+
+**Lưu ý cho session sau:** khi cần tách quyền cho 1 nhóm route đang dùng chung policy với nhóm
+khác (như catalog/promotion từng dùng chung `OpsAndAbove` với `/ops/*`), luôn kiểm tra CẢ 3 nơi
+áp policy: `@attribute [Authorize(...)]` trên từng `.razor`, `AuthorizeView Policy=` trong
+`MainLayout.razor`, và `AddPolicy`/`RequireRole` trong `Program.cs` — thiếu 1 trong 3 sẽ tạo lỗ
+hổng (route chặn được nhưng menu vẫn hiện, hoặc ngược lại). Chưa verify bằng mắt hành vi đăng
+nhập/redirect thực tế với role BackOffice (sandbox thiếu `POS_SECRET_KEY`/DB/Redis) — chỉ verify
+qua build + `dotnet test tests/POS.ContractTests` (39/39 xanh).
+
+---
+
+## [2026-07-09] Fix bug mở nhầm dòng chi tiết Hội viên + thêm OrderTime/Transaction
+
+**Layer:** POS.Web, POS.Common, POS.Infrastructure
+**Loại:** Bug fix + Feature nhỏ
+
+**Thay đổi:**
+- `InvoiceLoyaltyDto.cs`: thêm `DateTime? OrderTime` (nullable — dữ liệu cũ chưa có cột) và
+  `string Transaction`.
+- `RptLoyaltyRepository.cs`: `SELECT` của `GetInvoiceLoyaltyListAsync` thêm `OrderTime` và
+  `[Transaction]` (bracket-quote bắt buộc — trùng reserved keyword `TRANSACTION`).
+- `MemberPointsPage.razor`: thêm cột "Thời gian Order" vào `MudTable` (sau "Số hóa đơn") + Excel
+  export. **Fix bug**: nút "Xem chi tiết" trước đó gọi `OpenDetailDialog(context.OrderNo)` rồi
+  `_currentPageItems.FirstOrDefault(x => x.OrderNo == invoiceNo)` — 1 `OrderNo` có thể sinh nhiều
+  dòng khác `ActionType` (PK composite `LoggingLoyalty`, vd `EARN` + `REDEEM` cùng hóa đơn) nên
+  luôn mở nhầm dòng đầu tiên trùng `OrderNo`. Sửa: truyền thẳng `context` (object dòng đang
+  render) vào `OpenDetailDialog(InvoiceLoyaltyDto invoice)`, bỏ hẳn tra cứu lại + field
+  `_currentPageItems` (hết tác dụng).
+- `MemberPointsDetailDialog.razor`: thêm field "Mã giao dịch" (`Invoice.Transaction`); đổi label
+  `OrderTime` từ "Thời gian Order" → "Giờ giao dịch" (theo yêu cầu, khác label cột trên bảng — cố
+  ý giữ khác nhau).
+- `docs/architecture/loyalty-schema.md`: cập nhật ghi chú cột `OrderTime`/`Transaction` trỏ đúng
+  nơi hiển thị + label hiện tại.
+- `docs/CURRENT_STRUCTURE.md`: cập nhật field list `InvoiceLoyaltyDto`.
+
+**Pattern mới:** "Truyền thẳng row object vào dialog chi tiết — KHÔNG tra cứu lại theo key đơn"
+→ đã thêm vào `.claude/skills/web/SKILLS.md` (trước pattern "Modal chi tiết nhiều tab").
+
+**Lưu ý cho session sau:** mọi dialog "Xem chi tiết" mở từ `RowTemplate` của `MudTable` PHẢI
+truyền thẳng `context` (object dòng) — KHÔNG tra cứu lại theo 1 cột đơn (id/code) trừ khi cột đó
+chắc chắn là khóa unique của tập dữ liệu đang hiển thị. Chưa verify bằng mắt trên DB Loyalty thật
+(sandbox không có DB) — cần test thủ công 1 `OrderNo` có cả EARN và REDEEM trước khi coi là xong.
+
+---
+
 ## [2026-07-09] Đổi tên `database-schema.md` → `centralMD-schema.md`
 
 **Layer:** Tài liệu (không đụng code)

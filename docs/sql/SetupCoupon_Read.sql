@@ -78,6 +78,9 @@ BEGIN
     SELECT  a.ItemNo,
             a.Code,
             CAST(ISNULL(a.Enabled, 0) AS bit) AS Enable,
+            ISNULL(a.Status, '') AS Status,
+            a.AmountUsed,
+            a.OrderUsed,
             COUNT(*) OVER() AS Total
     FROM    dbo.CpnVchBOMCodeIssue a (NOLOCK)
     WHERE   a.ItemNo = @ItemNo AND a.Source = 'COUPON'

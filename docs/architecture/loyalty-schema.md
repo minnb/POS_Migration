@@ -38,6 +38,7 @@ CustName            nvarchar(500)   NULL
 ActionType          varchar(50)     NOT NULL
 LoyaltyPoints       bigint          NOT NULL
 Transaction         nvarchar(50)    NOT NULL   -- tên cột trùng reserved keyword "TRANSACTION" → BẮT BUỘC bracket-quote [Transaction] trong SQL
+                                                -- InvoiceLoyaltyDto.Transaction hiển thị label "Mã giao dịch" trên MemberPointsDetailDialog (POS.Web).
 Status              varchar(10)     NOT NULL
 Request             nvarchar(max)   NOT NULL
 Response            nvarchar(max)   NOT NULL
@@ -48,6 +49,11 @@ StoreNo             varchar(10)     NULL   -- PENDING: chưa có trong docs/sql/
                                             -- filter theo cửa hàng cho StoreOperator. IRptLoyaltyRepository.GetInvoiceLoyaltyListAsync
                                             -- (RptLoyaltyRepository.cs) đã viết WHERE StoreNo=@StoreNo giả định cột này tồn tại —
                                             -- SẼ LỖI "Invalid column name 'StoreNo'" cho tới khi DBA apply ALTER TABLE thêm cột.
+OrderTime           datetime        NULL   -- Bổ sung 2026-07-09 (xác nhận DBA đã ALTER TABLE thêm cột): thời gian tạo
+                                            -- Order (khác CrtDate = thời gian ghi log gọi sang Loyalty). InvoiceLoyaltyDto.OrderTime
+                                            -- (nullable — dữ liệu cũ trước khi thêm cột không có giá trị) hiển thị label
+                                            -- "Giờ giao dịch" trên MemberPointsDetailDialog, "Thời gian Order" trên
+                                            -- cột bảng MemberPointsPage (POS.Web).
 ```
 > Bảng log giao dịch loyalty gửi đi/nhận về (Request/Response raw JSON hoặc XML) theo từng
 > `OrderNo` + `TransactionType` + `ActionType`. Không có cột `Counter`/`Pkey` — bảng này không

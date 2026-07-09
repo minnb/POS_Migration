@@ -117,19 +117,19 @@
     @* ── KPI Cards (4 — flex 1 dòng) ──────────────────────────────────────── *@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_summaries.Sum(s => s.TotalRevenue))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh thu</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số GD</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="@($"border-left:4px solid var(--mud-palette-{(_summaries.Sum(s => s.OpenCount) > 0 ? "error" : "success")})")">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
                     @_summaries.Sum(s => s.OpenCount)
                 </MudText>
@@ -137,7 +137,7 @@
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="@($"border-left:4px solid var(--mud-palette-{(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? "warning" : "success")})")">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
                     @_summaries.Sum(s => s.DiscrepancyCount)
                 </MudText>
@@ -147,27 +147,42 @@
     </div>
 
     @* ── Bar Chart: Doanh thu theo ca ──────────────────────────────────────── *@
-    <MudPaper Elevation="1" Class="pa-4 mb-4">
-        <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight:600">
-            <MudIcon Icon="@Icons.Material.Filled.BarChart" Class="mr-1" Style="vertical-align:middle; color:#1976d2"/>
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-1">
+            <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1"/>
             Doanh thu theo ca
         </MudText>
-        @if (!_isEmpty)
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+            Thanh = tỷ trọng so với ca cao nhất · nhãn: số tiền · % tỷ trọng
+        </MudText>
+
+        @if (_isEmpty)
         {
-            <div class="d-flex flex-column gap-3">
-                @foreach (var s in _summaries.OrderBy(x => x.ShiftNumber))
-                {
-                    <div class="d-flex align-center gap-3">
-                        <MudText Typo="Typo.body2" Style="width:64px; flex-shrink:0; font-weight:600">Ca @s.ShiftNumber</MudText>
-                        <MudTooltip Text="@FormatVND(s.TotalRevenue)">
-                            <div class="pos-hbar-track">
-                                <div class="pos-hbar-fill" style="width:@(GetBarPct(s.TotalRevenue).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
-                            </div>
-                        </MudTooltip>
-                        <MudText Typo="Typo.body2" Style="min-width:110px; text-align:right; font-weight:600">@FormatVND(s.TotalRevenue)</MudText>
+            <MudAlert Severity="Severity.Info" Dense="true">Không có dữ liệu trong khoảng thời gian này.</MudAlert>
+        }
+        else
+        {
+            var ranked = _summaries.OrderByDescending(x => x.TotalRevenue).ToList();
+            @for (var i = 0; i < ranked.Count; i++)
+            {
+                var s = ranked[i];
+                var rank = i + 1;
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                    <div style="width:30px; text-align:center; font-weight:700; color:var(--mud-palette-text-secondary);">@rank</div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; justify-content:space-between; gap:8px; font-size:0.8rem; margin-bottom:2px;">
+                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ca @s.ShiftNumber</span>
+                            <span style="white-space:nowrap; color:var(--mud-palette-text-secondary);">@FormatVND(s.TotalRevenue) · @GetSharePct(s.TotalRevenue).ToString("0.0")%</span>
+                        </div>
+                        <div style="background:var(--mud-palette-action-disabled-background); border-radius:4px; height:14px; overflow:hidden;">
+                            <div style="height:100%; width:@(GetBarPct(s.TotalRevenue).ToString(System.Globalization.CultureInfo.InvariantCulture))%; background:@BarColor(i); border-radius:4px; transition:width .3s;"></div>
+                        </div>
                     </div>
-                }
-            </div>
+                    <div style="width:78px; text-align:right; font-size:0.78rem; color:var(--mud-palette-text-secondary);">
+                        @s.TotalTransactions.ToString("N0") GD
+                    </div>
+                </div>
+            }
         }
     </MudPaper>
 
@@ -398,6 +413,17 @@ else if (!_loading && _summaries.Count == 0)
 
     private double GetBarPct(decimal revenue) =>
         _maxShiftRevenue <= 0 ? 0 : Math.Round((double)revenue / _maxShiftRevenue * 100, 1);
+
+    private double GetSharePct(decimal revenue)
+    {
+        var total = _summaries.Sum(x => x.TotalRevenue);
+        return total <= 0 ? 0 : (double)(revenue / total * 100);
+    }
+
+    private static readonly string[] ShiftBarPalette =
+        ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#1976D2", "#FF00AE", "#00BCD4", "#795548"];
+
+    private static string BarColor(int index) => ShiftBarPalette[index % ShiftBarPalette.Length];
 
     private async Task ResetFilterAsync()
     {

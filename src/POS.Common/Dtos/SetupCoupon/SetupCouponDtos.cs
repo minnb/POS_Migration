@@ -73,12 +73,15 @@ public sealed class CouponHeaderListItemDto
     [JsonIgnore] public int Total  { get; set; }               // COUNT(*) OVER() — chỉ nội bộ paging
 }
 
-/// <summary>1 mã coupon con (tab "Danh sách phát hành").</summary>
+/// <summary>1 mã coupon con (tab "Danh sách phát hành") — khớp cột SP usp_SetupCoupon_GetCodes.</summary>
 public sealed class CouponCodeDto
 {
-    public string ItemNo        { get; set; } = string.Empty;
-    public string Code          { get; set; } = string.Empty;
-    public bool   Enable        { get; set; }
+    public string  ItemNo      { get; set; } = string.Empty;
+    public string  Code        { get; set; } = string.Empty;
+    public bool    Enable      { get; set; }
+    public string  Status      { get; set; } = string.Empty;   // SOLD/RDM/EXP/AVL (CpnVchBOMCodeIssue.Status)
+    public decimal? AmountUsed { get; set; }                   // số tiền đã redeem (null nếu chưa dùng)
+    public string? OrderUsed   { get; set; }                   // OrderNo đã redeem (null nếu chưa dùng)
     [JsonIgnore] public int Total { get; set; }
 }
 

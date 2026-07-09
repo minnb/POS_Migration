@@ -1,5 +1,5 @@
-@page "/promotion/vouchers"
-@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+﻿@page "/promotion/vouchers"
+@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -155,7 +155,7 @@
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
     private MudTable<VoucherListItemDto> _table = null!;
-    private readonly VoucherListFilter _filter = new() { Status = "-1", PageSize = 10 };
+    private readonly VoucherListFilter _filter = new() { Status = "1", PageSize = 10 };
     private VoucherFormLookupDto _lookup = new();
 
     private List<VoucherListItemDto> _rows = [];
@@ -208,7 +208,7 @@
     {
         _filter.ItemNo   = null;
         _filter.ItemName = null;
-        _filter.Status   = "-1";
+        _filter.Status   = "1";
         await _table.ReloadServerData();
     }
 

@@ -22,6 +22,7 @@
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 5 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list + `SetupCoupon_IssueMore.sql` cho nút "PHÁT HÀNH THÊM") | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
+| D3b | SP Xóa (khóa) coupon + cột Status/AmountUsed/OrderUsed | Chạy `docs/sql/SetupCoupon_UpdateBlocked.sql` (SP mới `usp_SetupCoupon_UpdateBlocked`) + chạy lại `docs/sql/SetupCoupon_Read.sql` (đã sửa `usp_SetupCoupon_GetCodes` thêm cột Status/AmountUsed/OrderUsed) trên CentralMD | REQUIRED (cho nút Xóa ở `/promotion/coupons` + checkbox Khóa/4 cột mới ở `/promotion/coupons/issue`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
 | D4 | SP Voucher (8.3) + reuse (8.4) | Chạy 3 script SQL tạo SP + TVP trên CentralMD; 8.4 tái dùng SP CentralSales | REQUIRED (cho `/promotion/vouchers`) | [§D4](#d4--stored-procedures-voucher-8384) |
 | D5 | SP Setup Giá (9.3) | Chạy script SQL tạo TVP + SP lưu bảng giá trên CentralMD | REQUIRED (cho `/catalog/price-setup`) | [§D5](#d5--stored-procedures-setup-giá-93) |
 | D6 | Gộp SAP Voucher vào CpnVchBOMCodeIssue | Chạy 5 script SQL (extend schema, 2 SP mới + TVP, migrate data, rename legacy) trên CentralMD, đúng thứ tự, có cửa sổ bảo trì. **+D6.1**: chạy thêm 4 script vá đồng bộ dữ liệu Coupon↔SAP Voucher (ItemNo hardening, SetupCoupon_Save/Voucher_Read/Voucher_Save bản mới) | CRITICAL (cho `api/sap/*`, 5.000 POS) | [§D6](#d6--gộp-sap-internal-voucher-vào-cpnvchbomcodeissue) |
@@ -575,6 +576,13 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
     mã 1 lần duy nhất). Tái dùng TVP `dbo.CouponCodeTVP` đã tạo ở `SetupCoupon_Save.sql`. Phục vụ nút
     "PHÁT HÀNH THÊM" ở trang Xem coupon (`/promotion/coupons/issue?...&mode=view`) — khớp
     `usp_SetupVoucher_IssueMore` (§D4) của Voucher.
+  - `docs/sql/SetupCoupon_UpdateBlocked.sql` — **MỚI**: `usp_SetupCoupon_UpdateBlocked` (cập nhật RIÊNG
+    `CpnVchBOMHeader.Blocked` theo `ItemNo`). Dùng cho nút "Xóa" (soft-block, không hard-delete) ở
+    `/promotion/coupons` và checkbox "Khóa (Blocked)" ở trang Xem coupon — khớp
+    `usp_SetupVoucher_UpdateBlocked` (§D4) của Voucher.
+  - **Chạy lại** `docs/sql/SetupCoupon_Read.sql` (bản đã sửa) — `usp_SetupCoupon_GetCodes` bổ sung 3 cột
+    `Status`/`AmountUsed`/`OrderUsed` (đã có sẵn trên `CpnVchBOMCodeIssue`, chỉ thêm vào SELECT) để tab
+    "Mã coupon đã phát hành" hiển thị đủ 4 cột giống trang Voucher.
 - **Sinh mã Auto** chạy ở tầng Application (`CouponService`, C#) — không nằm trong SP; SP chỉ nhận danh sách mã qua TVP.
   Sinh mã cho "PHÁT HÀNH THÊM" được bọc trong `IVoucherIssueLock` (Redis distributed lock, dùng chung với Voucher).
 - **Nếu chưa chạy script** → trang báo lỗi khi tải/lưu/xóa (SP không tồn tại); service nuốt lỗi, hiện snackbar đỏ.

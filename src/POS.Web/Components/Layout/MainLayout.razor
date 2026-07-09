@@ -66,7 +66,7 @@
                 </MudNavGroup>
             </AuthorizeView>
 
-            <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
+            <AuthorizeView Policy="@WebPolicies.BackOfficeAndAbove">
                 <div class="pos-nav-section-label">DANH MỤC</div>
 
                 <MudNavGroup Title="Tổ chức" Icon="@Icons.Material.Outlined.Groups" Class="pos-nav-l2" @bind-Expanded="_expandCatOrg">
@@ -118,13 +118,15 @@
                 </MudNavGroup>
             </AuthorizeView>
 
-            <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
+            <AuthorizeView Policy="@WebPolicies.BackOfficeAndAbove">
                 <div class="pos-nav-section-label">KHUYẾN MÃI</div>
 
                 <MudNavGroup Title="Chương trình KM" Icon="@Icons.Material.Outlined.Campaign" Class="pos-nav-l2" @bind-Expanded="_expandPromoOffer">
                     <MudNavLink Href="/promotion/offers" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục</MudNavLink>
                     <MudNavLink Href="/promotion/setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt CTKM</MudNavLink>
+                    <!--
                     <MudNavLink Href="/promotion/special-combo" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Special Combo</MudNavLink>
+                    -->
                 </MudNavGroup>
 
                 <MudNavGroup Title="Coupon & Voucher" Icon="@Icons.Material.Outlined.ConfirmationNumber" Class="pos-nav-l2" @bind-Expanded="_expandPromoCoupon">

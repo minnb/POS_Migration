@@ -31,6 +31,15 @@
             </MudItem>
             <MudItem xs="12" sm="6">
                 <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Giờ giao dịch</MudText>
+                        <MudText Typo="Typo.body1">@(Invoice.OrderTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
                     <MudIcon Icon="@Icons.Material.Outlined.Sell" Size="Size.Small" Color="Color.Secondary"/>
                     <div>
                         <MudText Typo="Typo.body2" Class="pos-kpi-label">Loại hóa đơn</MudText>
@@ -44,6 +53,15 @@
                     <div>
                         <MudText Typo="Typo.body2" Class="pos-kpi-label">Hóa đơn gốc</MudText>
                         <MudText Typo="Typo.body1">@(string.IsNullOrWhiteSpace(Invoice.OrigOrderNo) ? "—" : Invoice.OrigOrderNo)</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Tag" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Mã giao dịch</MudText>
+                        <MudText Typo="Typo.body1">@(string.IsNullOrWhiteSpace(Invoice.Transaction) ? "—" : Invoice.Transaction)</MudText>
                     </div>
                 </div>
             </MudItem>

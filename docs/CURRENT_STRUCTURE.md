@@ -149,7 +149,7 @@ src/
 │   │   │   ├── WinCode/WinCodeDto.cs
 │   │   │   └── WinScore/WinScoreDto.cs
 │   │   ├── RptLoyalty/
-│   │   │   └── InvoiceLoyaltyDto.cs   ← báo cáo Hội viên (LoggingLoyalty): OrderNo, TransactionType, OrigOrderNo, MemberCardNo, StoreNo, ActionType, LoyaltyPoints, CrtDate, Total (phân trang) + MemberCardMasked (computed)
+│   │   │   └── InvoiceLoyaltyDto.cs   ← báo cáo Hội viên (LoggingLoyalty): OrderNo, TransactionType, OrigOrderNo, MemberCardNo, StoreNo, ActionType, LoyaltyPoints, CrtDate, OrderTime (nullable), Transaction, Total (phân trang) + MemberCardMasked (computed)
 │   │   ├── MSN/MSNDto.cs
 │   │   ├── Ops/
 │   │   │   ├── HealthCheckItemDto.cs
@@ -303,7 +303,7 @@ src/
         │   ├── IOfferStaffRepository.cs / OfferStaffRepository.cs
         │   └── IWincodeRepository.cs / WincodeRepository.cs
         ├── CouponVoucher/                  ← 8.1–8.4 + SAP Voucher (dùng chung bảng CpnVchBOMCodeIssue, cột Source)
-        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_* + GetHeaderListAsync→usp_CpnVchBOMHeader_GetList cho master list, Source='COUPON'; IssueMoreAsync→usp_SetupCoupon_IssueMore, thêm lô mã, không guard tồn tại)
+        │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_* + GetHeaderListAsync→usp_CpnVchBOMHeader_GetList cho master list, Source='COUPON'; IssueMoreAsync→usp_SetupCoupon_IssueMore, thêm lô mã, không guard tồn tại; UpdateBlockedAsync→usp_SetupCoupon_UpdateBlocked, cập nhật riêng Blocked)
         │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
         │   ├── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
         │   └── IVoucherCodeRepository.cs / VoucherCodeRepository.cs         ← SAP Internal Voucher real-time (CentralMD, SP usp_Voucher_*, CpnVchBOMCodeIssue Source='SAP'; thay ISAPVoucherRepository/bảng Internal_Voucher cũ, nay LEGACY)
@@ -406,7 +406,7 @@ src/
 | `ISAPService` → `SAPService` | Scoped | SAP voucher/coupon |
 | `IGiftService` → `GiftService` | Scoped | Gift barcode |
 | `IMasterDataSyncService` → `MasterDataSyncService` | Scoped | Sinh zip master data + log download |
-| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher); IssueMoreAsync — phát hành thêm 1 lô mã Auto cho coupon đã tồn tại (dùng chung IVoucherIssueLock) |
+| `ICouponService` → `CouponService` | Scoped | 8.1/8.2 Coupon — sinh mã Auto + validate + Excel + GetHeaderListAsync (master list Coupon/Voucher); IssueMoreAsync — phát hành thêm 1 lô mã Auto cho coupon đã tồn tại (dùng chung IVoucherIssueLock); UpdateBlockedAsync — cập nhật riêng Blocked (nút Xóa ở danh sách + checkbox Khóa ở trang Xem) |
 | `IVoucherService` → `VoucherService` | Scoped | 8.3 Voucher — validate serial/ngày/items; IssueMoreAsync — phát hành thêm 1 lô mã Auto cho voucher đã tồn tại |
 | `IVoucherPublishedService` → `VoucherPublishedService` | Scoped | 8.4 — thin wrapper (CentralSales per-store) |
 | `IPriceService` → `PriceService` | Scoped | 9.1/9.3 Bảng giá — validate SaveItemPrice + build Pkey; 9.1 Sửa/Xóa giá |
@@ -432,7 +432,7 @@ src/
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
 | `IVoucherCodeRepository` → `VoucherCodeRepository` | Scoped | SAP voucher real-time (CpnVchBOMCodeIssue, Source='SAP') |
-| `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD); IssueMoreAsync — SP usp_SetupCoupon_IssueMore (thêm lô mã, không guard tồn tại) |
+| `ICouponRepository` → `CouponRepository` | Scoped | 8.1/8.2 Coupon (CentralMD); IssueMoreAsync — SP usp_SetupCoupon_IssueMore (thêm lô mã, không guard tồn tại); UpdateBlockedAsync — SP usp_SetupCoupon_UpdateBlocked (cập nhật riêng Blocked trên CpnVchBOMHeader) |
 | `IVoucherRepository` → `VoucherRepository` | Scoped | 8.3 Voucher (CentralMD); IssueMoreAsync — SP usp_SetupVoucher_IssueMore (thêm lô mã, không guard tồn tại) |
 | `IVoucherPublishedRepository` → `VoucherPublishedRepository` | Scoped | 8.4 Voucher phát hành (CentralSales per-store) |
 | `IPriceRepository` → `PriceRepository` | Scoped | 9.1/9.3 Bảng giá (CentralMD) |

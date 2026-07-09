@@ -30,6 +30,8 @@ public sealed class RptLoyaltyRepository(LoyaltyConnectionFactory connectionFact
                        ELSE LoyaltyPoints
                    END AS LoyaltyPoints,
                    CrtDate,
+                   OrderTime,
+                   [Transaction],
                    COUNT(*) OVER() AS Total
             FROM [dbo].[LoggingLoyalty] (NOLOCK)
             WHERE CrtDate >= @FromDate AND CrtDate < @ToDateExclusive

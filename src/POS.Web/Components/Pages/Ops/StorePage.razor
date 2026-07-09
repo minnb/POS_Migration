@@ -1,5 +1,5 @@
-@page "/catalog/stores"
-@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+﻿@page "/catalog/stores"
+@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -49,8 +49,8 @@
 
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 140px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@total</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@total</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng cửa hàng</MudText>
             </MudPaper>
         </div>

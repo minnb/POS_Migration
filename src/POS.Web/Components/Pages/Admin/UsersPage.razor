@@ -108,6 +108,7 @@ else
                            Margin="Margin.Dense">
                     <MudSelectItem Value="@string.Empty">Tất cả vai trò</MudSelectItem>
                     <MudSelectItem Value="@WebRoles.StoreOperator">Cửa hàng</MudSelectItem>
+                    <MudSelectItem Value="@WebRoles.BackOffice">BackOffice / Vận hành nghiệp vụ</MudSelectItem>
                     <MudSelectItem Value="@WebRoles.ITOps">IT Ops</MudSelectItem>
                     <MudSelectItem Value="@WebRoles.SystemAdmin">System Admin</MudSelectItem>
                 </MudSelect>
@@ -391,6 +392,7 @@ else
     {
         WebRoles.SystemAdmin   => ("pos-status-error",   "System Admin"),
         WebRoles.ITOps         => ("pos-status-warning", "IT Ops"),
+        WebRoles.BackOffice    => ("pos-status-info",    "BackOffice"),
         WebRoles.StoreOperator => ("pos-status-info",    "Cửa hàng"),
         _                      => ("pos-status-info",    role)
     };

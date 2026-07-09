@@ -1,5 +1,24 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-09 (Đồng bộ UI toàn bộ `src/POS.Web/Components/Pages/**` theo chuẩn
+> Cập nhật: 2026-07-09 (Thêm role thứ 4 `BackOffice` (`WebRoles`/`WebPolicies` — policy mới
+> `BackOfficeAndAbove`) nằm giữa `StoreOperator` và `ITOps`: quản lý Danh mục sản phẩm + Khuyến
+> mãi (31 page `/catalog/*` + `/promotion/*` đổi policy từ `OpsAndAbove` sang
+> `BackOfficeAndAbove`), KHÔNG vào được `/ops/*` (giữ nguyên `OpsAndAbove`). Cập nhật
+> `MainLayout.razor` (2 nhóm menu DANH MỤC/KHUYẾN MÃI), `UsersPage.razor` + `UserFormDialog.razor`
+> (dropdown role), `docs/web/security/roles.md`. Verify: build + `dotnet test
+> tests/POS.ContractTests` 39/39 xanh. **CHƯA VERIFY UI bằng mắt** (sandbox thiếu
+> `POS_SECRET_KEY`/DB/Redis) — cần đăng nhập thử bằng user role BackOffice trên môi trường thật.
+> Chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-09 (`MemberPointsPage`/`MemberPointsDetailDialog`: fix bug mở nhầm dòng chi
+> tiết khi 1 `OrderNo` có nhiều `ActionType` (vd `EARN` + `REDEEM`) — `OpenDetailDialog` trước đó
+> tra cứu lại theo `OrderNo` không unique, nay truyền thẳng object dòng đang render (pattern mới,
+> xem `.claude/skills/web/SKILLS.md` "Truyền thẳng row object vào dialog chi tiết"). Thêm 2 field
+> `InvoiceLoyaltyDto.OrderTime` (nullable — cột `LoggingLoyalty.OrderTime` mới bổ sung, DBA đã
+> ALTER TABLE) và `.Transaction` (cột `[Transaction]`, reserved keyword) — hiển thị trên
+> `MemberPointsPage` (cột "Thời gian Order") và `MemberPointsDetailDialog` (field "Giờ giao dịch",
+> "Mã giao dịch"). Verify: build + `dotnet test tests/POS.ContractTests` 39/39 xanh. **CHƯA
+> VERIFY UI bằng mắt** (sandbox thiếu DB Loyalty thật) — cần test thủ công 1 `OrderNo` có cả EARN
+> và REDEEM. Chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-09 (Đồng bộ UI toàn bộ `src/POS.Web/Components/Pages/**` theo chuẩn
 > `MemberPointsPage.razor`/`MemberPointsDetailDialog.razor` — 66 page + 29 dialog. `pos-status-chip`
 > nay là CHUẨN MẶC ĐỊNH cho status badge tĩnh (thay `MudChip`, cập nhật
 > `.claude/rules/mudblazor-flat-ui.md` §4a + `.claude/skills/web/SKILLS.md` — quyết định cũ về
@@ -427,7 +446,7 @@ src/POS.Web/
 | A6 | Package BCrypt.Net-Next | POS.Web.csproj | ✅ | 4.2.0 |
 | A7 | Package Newtonsoft.Json | POS.Web.csproj | ✅ | 13.0.4 |
 | A8 | Package Microsoft.AspNetCore.Components.Authorization | POS.Web.csproj | ✅ | Không cần — built-in .NET 10, bỏ đúng để tránh NU1510 |
-| B1 | WebRoles + WebPolicies (3 const mỗi loại) | Auth/WebRoles.cs | ✅ | StoreOperator, ITOps, SystemAdmin / StoreAndAbove, OpsAndAbove, AdminOnly |
+| B1 | WebRoles + WebPolicies (4 const mỗi loại, thêm `BackOffice`/`BackOfficeAndAbove` 2026-07-09) | Auth/WebRoles.cs | ✅ | StoreOperator, BackOffice, ITOps, SystemAdmin / StoreAndAbove, BackOfficeAndAbove, OpsAndAbove, AdminOnly |
 | B2 | DashboardUser model (7 fields) | Auth/DashboardUser.cs | ✅ | Id, Username, PasswordHash, FullName, Role, StoreCodes?, IsActive |
 | B3 | IWebUserService (8 methods) | Auth/IWebUserService.cs | ✅ | ValidateLoginAsync, GetByUsernameAsync, GetStoreCodes, GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync (soft), ActivateAsync, UsernameExistsAsync |
 | B4 | WebUserService – inject CentralMDConnectionFactory (concrete) | Auth/WebUserService.cs | ✅ | Primary constructor injection, không qua interface |
@@ -448,7 +467,7 @@ src/POS.Web/
 | D4 | Program – AddApplication() | Program.cs | ✅ | |
 | D5 | Program – AddScoped\<IWebUserService, WebUserService\>() | Program.cs | ✅ | |
 | D6 | Program – Cookie authentication | Program.cs | ✅ | LoginPath=/login, SlidingExpiration, HttpOnly, **SameSite=Lax** (đổi từ Strict để fix Safari iOS) |
-| D7 | Program – 3 policy (StoreAndAbove, OpsAndAbove, AdminOnly) | Program.cs | ✅ | |
+| D7 | Program – 4 policy (StoreAndAbove, BackOfficeAndAbove, OpsAndAbove, AdminOnly) | Program.cs | ✅ | BackOfficeAndAbove thêm 2026-07-09 — Danh mục/Khuyến mãi tách khỏi OpsAndAbove |
 | D8 | Program – AddCascadingAuthenticationState() | Program.cs | ✅ | |
 | D9 | Program – Middleware order + explicit UseRouting() | Program.cs | ✅ | Host-rewrite → **UseRouting() tường minh** → UseAuthentication → UseAuthorization → UseAntiforgery → MapStaticAssets → MapRazorComponents |
 | D10 | Dockerfile – DataProtection-Keys ownership | Dockerfile | ✅ | `mkdir -p + chown app:app` TRƯỚC `USER $APP_UID` |

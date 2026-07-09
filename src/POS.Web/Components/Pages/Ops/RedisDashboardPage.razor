@@ -89,32 +89,32 @@
 
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? _status.UsedMemoryHuman : "—")</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@(_status.IsOnline ? _status.UsedMemoryHuman : "—")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Bộ nhớ đã dùng</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? _status.ConnectedClients.ToString() : "—")</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-secondary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Secondary">@(_status.IsOnline ? _status.ConnectedClients.ToString() : "—")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Client kết nối</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? _status.TotalKeys.ToString("N0") : "—")</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Info">@(_status.IsOnline ? _status.TotalKeys.ToString("N0") : "—")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số Key</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline && _status.HitRatePercent.HasValue ? $"{_status.HitRatePercent:0.0} %" : "—")</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@(_status.IsOnline && _status.HitRatePercent.HasValue ? $"{_status.HitRatePercent:0.0} %" : "—")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tỷ lệ Cache Hit</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 150px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@(_status.IsOnline ? FormatUptime(_status.UptimeSeconds) : "—")</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-tertiary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Tertiary">@(_status.IsOnline ? FormatUptime(_status.UptimeSeconds) : "—")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Uptime</MudText>
             </MudPaper>
         </div>

@@ -161,11 +161,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 
-// ── Authorization: 3 policy tương ứng 3 role ─────────────────────────
+// ── Authorization: 4 policy tương ứng 4 role ─────────────────────────
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(WebPolicies.StoreAndAbove,
-        p => p.RequireRole(WebRoles.StoreOperator, WebRoles.ITOps, WebRoles.SystemAdmin));
+        p => p.RequireRole(WebRoles.StoreOperator, WebRoles.BackOffice, WebRoles.ITOps, WebRoles.SystemAdmin));
+    options.AddPolicy(WebPolicies.BackOfficeAndAbove,
+        p => p.RequireRole(WebRoles.BackOffice, WebRoles.ITOps, WebRoles.SystemAdmin));
     options.AddPolicy(WebPolicies.OpsAndAbove,
         p => p.RequireRole(WebRoles.ITOps, WebRoles.SystemAdmin));
     options.AddPolicy(WebPolicies.AdminOnly,

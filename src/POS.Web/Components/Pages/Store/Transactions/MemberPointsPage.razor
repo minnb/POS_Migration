@@ -168,6 +168,7 @@
           HorizontalScrollbar="true">
     <HeaderContent>
         <MudTh>Số hóa đơn</MudTh>
+        <MudTh Style="text-align:center">Thời gian Order</MudTh>
         <MudTh Style="text-align:center">Loại</MudTh>
         <MudTh>Hóa đơn gốc</MudTh>
         <MudTh Style="text-align:center">Số thẻ HV</MudTh>
@@ -178,6 +179,7 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Số hóa đơn">@context.OrderNo</MudTd>
+        <MudTd DataLabel="Thời gian Order" Style="text-align:center">@(context.OrderTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
         <MudTd DataLabel="Loại" Style="text-align:center">
             @{
                 var (tCss, tLabel) = TransTypeDisplay(context.TransactionType);
@@ -200,7 +202,7 @@
             <MudIconButton Icon="@Icons.Material.Filled.Visibility"
                            Size="Size.Small" Color="Color.Primary"
                            Title="Xem chi tiết"
-                           OnClick="@(() => OpenDetailDialog(context.OrderNo))"/>
+                           OnClick="@(() => OpenDetailDialog(context))"/>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>
@@ -237,9 +239,6 @@
     private List<StoreDto>        _allStores      = [];
     private StoreDto?             _selectedStore;
     private string?               _filterStoreNo;
-
-    // Danh sách trang hiện tại (giữ lại để OpenDetailDialog không cần query lại DB).
-    private List<InvoiceLoyaltyDto> _currentPageItems = [];
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -290,8 +289,6 @@
                 _filterActionType,
                 _filterTransactionType,
                 state.PageSize, state.Page, ct);
-
-            _currentPageItems = result;
 
             FileLogger.WriteLogs($"[MemberPointsPage.LoadData] {storeNo ?? "all"}: Loaded {result.Count} invoices [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
 
@@ -349,11 +346,8 @@
         ? $"{st.StoreNo} – {st.Name}"
         : (_filterStoreNo ?? "");
 
-    private Task OpenDetailDialog(string invoiceNo)
+    private Task OpenDetailDialog(InvoiceLoyaltyDto invoice)
     {
-        var invoice = _currentPageItems.FirstOrDefault(x => x.OrderNo == invoiceNo);
-        if (invoice == null) return Task.CompletedTask;
-
         return DialogService.ShowAsync<MemberPointsDetailDialog>(
             $"Chi tiết hóa đơn: {invoice.OrderNo}",
             new DialogParameters<MemberPointsDetailDialog> { { x => x.Invoice, invoice } },
@@ -392,13 +386,14 @@
             var ws = wb.Worksheets.Add("HoiVien");
 
             ws.Cell(1, 1).Value = "Số hóa đơn";
-            ws.Cell(1, 2).Value = "Loại hóa đơn";
-            ws.Cell(1, 3).Value = "Hóa đơn gốc";
-            ws.Cell(1, 4).Value = "Số thẻ hội viên";
-            ws.Cell(1, 5).Value = "Hình thức";
-            ws.Cell(1, 6).Value = "Số điểm";
-            ws.Cell(1, 7).Value = "Thời gian";
-            var headerRange = ws.Range("A1:G1");
+            ws.Cell(1, 2).Value = "Thời gian Order";
+            ws.Cell(1, 3).Value = "Loại hóa đơn";
+            ws.Cell(1, 4).Value = "Hóa đơn gốc";
+            ws.Cell(1, 5).Value = "Số thẻ hội viên";
+            ws.Cell(1, 6).Value = "Hình thức";
+            ws.Cell(1, 7).Value = "Số điểm";
+            ws.Cell(1, 8).Value = "Thời gian";
+            var headerRange = ws.Range("A1:H1");
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#78bff5");
 
@@ -407,12 +402,13 @@
                 var item = rows[i];
                 var row  = i + 2;
                 ws.Cell(row, 1).Value = item.OrderNo;
-                ws.Cell(row, 2).Value = TransTypeDisplay(item.TransactionType).Label;
-                ws.Cell(row, 3).Value = item.OrigOrderNo ?? "";
-                ws.Cell(row, 4).Value = item.MemberCardMasked;
-                ws.Cell(row, 5).Value = ActionTypeDisplay(item.ActionType).Label;
-                ws.Cell(row, 6).Value = item.LoyaltyPoints;
-                ws.Cell(row, 7).Value = item.CrtDate.ToString("dd/MM/yyyy HH:mm:ss");
+                ws.Cell(row, 2).Value = item.OrderTime?.ToString("dd/MM/yyyy HH:mm:ss") ?? "";
+                ws.Cell(row, 3).Value = TransTypeDisplay(item.TransactionType).Label;
+                ws.Cell(row, 4).Value = item.OrigOrderNo ?? "";
+                ws.Cell(row, 5).Value = item.MemberCardMasked;
+                ws.Cell(row, 6).Value = ActionTypeDisplay(item.ActionType).Label;
+                ws.Cell(row, 7).Value = item.LoyaltyPoints;
+                ws.Cell(row, 8).Value = item.CrtDate.ToString("dd/MM/yyyy HH:mm:ss");
             }
 
             ws.Columns().AdjustToContents();

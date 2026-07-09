@@ -1,5 +1,5 @@
-@page "/catalog/pos-setup"
-@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+﻿@page "/catalog/pos-setup"
+@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 @implements IDisposable
 
@@ -19,13 +19,13 @@
 @inject ISnackbar Snackbar
 @inject IAuditLogger AuditLogger
 
-<PageTitle>POS Map – POS Dashboard</PageTitle>
+<PageTitle>POSTerminal – POS Dashboard</PageTitle>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-1">
     <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
         <MudIcon Icon="@Icons.Material.Filled.Map" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
-        POS Map
+        POSTerminal
     </MudText>
     <div class="d-flex align-center gap-2">
         <MudSelect T="int" Value="_autoRefreshSec" ValueChanged="OnAutoRefreshChanged"
@@ -73,8 +73,8 @@
 
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 140px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
-                <MudText Typo="Typo.h5" Class="pos-kpi-value">@total</MudText>
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@total</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng máy POS</MudText>
             </MudPaper>
         </div>

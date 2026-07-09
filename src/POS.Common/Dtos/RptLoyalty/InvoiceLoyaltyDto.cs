@@ -10,6 +10,8 @@ public sealed class InvoiceLoyaltyDto
     public string   ActionType      { get; set; } = string.Empty;
     public long     LoyaltyPoints   { get; set; }
     public DateTime CrtDate         { get; set; }
+    public DateTime? OrderTime      { get; set; }
+    public string   Transaction     { get; set; } = string.Empty;
 
     // COUNT(*) OVER() từ query phân trang server-side — không phải cột nghiệp vụ.
     public int Total { get; set; }

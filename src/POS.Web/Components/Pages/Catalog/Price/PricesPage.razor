@@ -1,5 +1,5 @@
-@page "/catalog/prices"
-@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+﻿@page "/catalog/prices"
+@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -68,7 +68,7 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="6" md="1" Class="d-flex align-center">
-            <MudCheckBox @bind-Value="_filter.OnlyActive" Label="Còn hiệu lực"
+            <MudCheckBox @bind-Value="_filter.OnlyActive" Label="Hiệu lực"
                          Color="Color.Primary" Dense="true"/>
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">

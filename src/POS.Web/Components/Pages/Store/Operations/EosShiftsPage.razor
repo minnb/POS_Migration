@@ -120,31 +120,31 @@
 {
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_shifts.Count</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số ca</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_closedCount</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Đã đóng ca</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@_openCount</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Chưa đóng ca</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_shifts.Sum(s => s.TotalRevenue))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh thu</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_shifts.Sum(s => s.TransactionCount)</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số GD</MudText>
             </MudPaper>

@@ -185,6 +185,9 @@ public sealed class CouponService(
         }
     }
 
+    public Task<CouponSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default)
+        => repository.UpdateBlockedAsync(itemNo, blocked, ct);
+
     private static DateTime ParseDmy(string? dmy)
         => DateTime.TryParseExact(dmy, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
             ? d : new DateTime(1900, 1, 1);

@@ -149,6 +149,15 @@
   tiền lệ này khi cần thêm biến thể badge mới, không phát minh cách khác.
 - Helper hiển thị màu trả về `(string CssClass, string Label)` thay vì `(Color Color, string Label)`
   khi dùng kiểu badge này (xem `TransTypeDisplay`/`ActionTypeDisplay` trong `MemberPointsPage.razor`).
+- **Nhãn trạng thái "còn/hết hiệu lực theo ngày"** (Coupon/Voucher/Offer/Price và mọi entity có
+  `StartingDate`/`EndingDate` tương tự) — chốt 2026-07-09: dùng ĐÚNG 2 chữ **"Hiệu lực"** (đang còn
+  hiệu lực) / **"Hết hiệu lực"** (đã hết hiệu lực) cho cả dropdown lọc lẫn badge bảng và cột Excel
+  export. **KHÔNG** tự đặt biến thể khác ("Còn hiệu lực", "Có hiệu lực", "Đang hiệu lực"...) — trước
+  đó 3 trang Coupons/Vouchers/Offers từng lệch chữ nhau, đã đồng bộ lại theo `VoucherListItemDto`
+  (`VouchersPage.razor` → `EffectDisplay(bool)`) làm tham chiếu chuẩn. Nếu status gốc đến từ 1 SP
+  legacy trả sẵn chuỗi tiếng Việt khác chữ (vd `OffersPage.razor` — SP `GetPromotionOfferHeaderList`
+  trả "Có hiệu lực"/"Hết hiệu lực") — **KHÔNG sửa SP**, suy ra `bool isActive` từ chuỗi gốc rồi map
+  qua helper `EffectDisplay(bool)` cục bộ để hiển thị đúng 2 chữ chuẩn.
 
 ## 5. Sidebar / AppBar — navy đậm, 3 cấp phân biệt icon
 

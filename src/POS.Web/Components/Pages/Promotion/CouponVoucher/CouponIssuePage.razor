@@ -1,5 +1,5 @@
-@page "/promotion/coupons/issue"
-@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+﻿@page "/promotion/coupons/issue"
+@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
@@ -41,6 +41,23 @@
                        StartIcon="@Icons.Material.Filled.QrCode2" OnClick="OpenIssueMoreDialogForExistingAsync">
                 PHÁT HÀNH THÊM
             </MudButton>
+            @* Xem coupon: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
+            @if (BlockedChanged)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
+                           OnClick="SaveBlockedAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                        <span>Đang lưu...</span>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2"/>
+                        <span>Lưu</span>
+                    }
+                </MudButton>
+            }
         }
         @if (!IsViewMode)
         {
@@ -185,7 +202,8 @@ else
                                      Label="Áp dụng theo danh sách sản phẩm (bỏ chọn = áp dụng tổng hóa đơn)"
                                      Color="Color.Primary" Dense="true" Disabled="@IsViewMode"/>
                         <MudCheckBox @bind-Value="_advanced.IsCheckAPI" Label="Check API (cố định)" Color="Color.Primary" Dense="true" Disabled="true"/>
-                        <MudCheckBox @bind-Value="_advanced.Blocked" Label="Khóa (Blocked)" Color="Color.Error" Dense="true" Disabled="@IsViewMode"/>
+                        @* Xem coupon: Blocked là ngoại lệ DUY NHẤT được sửa (khớp VoucherIssuePage) — không Disabled theo IsViewMode *@
+                        <MudCheckBox @bind-Value="_advanced.Blocked" Label="Khóa (Blocked)" Color="Color.Error" Dense="true"/>
                     </MudItem>
                 </MudGrid>
             </MudPaper>
@@ -260,16 +278,29 @@ else
                     <HeaderContent>
                         <MudTh Style="width:48px">STT</MudTh>
                         <MudTh>Mã coupon</MudTh>
-                        <MudTh>Trạng thái</MudTh>
+                        <MudTh>Trạng thái khóa</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh Style="text-align:right">Số tiền đã dùng</MudTh>
+                        <MudTh>Đơn hàng đã dùng</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="STT">@(_codeOffset + _codeRows.IndexOf(context) + 1)</MudTd>
                         <MudTd DataLabel="Mã coupon">@context.Code</MudTd>
-                        <MudTd DataLabel="Trạng thái">
+                        <MudTd DataLabel="Trạng thái khóa">
                             <span class="pos-status-chip @(context.Enable ? "pos-status-success" : "pos-status-error")">
                                 @(context.Enable ? "Active" : "Locked")
                             </span>
                         </MudTd>
+                        <MudTd DataLabel="Status">
+                            @{
+                                var (stCss, stLabel) = StatusDisplay(context.Status);
+                            }
+                            <span class="pos-status-chip @stCss">@stLabel</span>
+                        </MudTd>
+                        <MudTd DataLabel="Số tiền đã dùng" Style="text-align:right">
+                            @(context.AmountUsed.HasValue ? context.AmountUsed.Value.ToString("#,##0.##") : "—")
+                        </MudTd>
+                        <MudTd DataLabel="Đơn hàng đã dùng">@(context.OrderUsed ?? "—")</MudTd>
                     </RowTemplate>
                     <NoRecordsContent>
                         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
@@ -323,11 +354,15 @@ else
     private bool _saving;
     private string? _errorMsg;
     private string _currentActor = "unknown";
+    private bool _originalBlocked;
 
     private bool IsViewMode => string.Equals(Mode, "view", StringComparison.OrdinalIgnoreCase);
     private bool IsEditing => !string.IsNullOrWhiteSpace(_model.ItemNo);
     private bool IsAuto => string.Equals(_model.IssueType, "Auto", StringComparison.OrdinalIgnoreCase);
     private bool CodeFieldsLocked => IsEditing && _quantityCodeInDb > 0;
+
+    // Xem coupon: NGOẠI LỆ DUY NHẤT được sửa là Blocked. Nút Lưu chỉ bật khi giá trị này đổi (khớp VoucherIssuePage).
+    private bool BlockedChanged => IsViewMode && _advanced.Blocked != _originalBlocked;
 
     // Kiểu giảm giá = Percent (1) → giá trị giảm giá tối đa 100%; Amount (2) → không giới hạn theo %.
     private double DiscountValueMax => _advanced.DiscountType == 1 ? 100 : double.MaxValue;
@@ -395,6 +430,7 @@ else
             LimitQtyUsed = 1, IsMultiUsed = false, IsCheckAPI = true,   // ẩn khỏi form — cố định
             Blocked = d.Blocked, CpnVchType = d.CpnVchType
         };
+        _originalBlocked = d.Blocked;
     }
 
     // ── Save ────────────────────────────────────────────────────────────────
@@ -562,6 +598,37 @@ else
         finally { _saving = false; }
     }
 
+    // ── Xem coupon: chỉ cập nhật RIÊNG field Blocked (CpnVchBOMHeader) + audit log ─────────
+    private async Task SaveBlockedAsync()
+    {
+        if (!BlockedChanged) return;
+
+        _saving = true;
+        try
+        {
+            var oldJson = JsonConvert.SerializeObject(new { _advanced.ItemNo, Blocked = _originalBlocked });
+            var result = await CouponService.UpdateBlockedAsync(_advanced.ItemNo, _advanced.Blocked);
+            if (!result.Ok)
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+                return;
+            }
+
+            await AuditLogger.LogAsync(_currentActor, "UPDATE", "SetupCoupon", _advanced.ItemNo,
+                oldValueJson: oldJson,
+                newValueJson: JsonConvert.SerializeObject(new { _advanced.ItemNo, _advanced.Blocked }));
+
+            _originalBlocked = _advanced.Blocked;
+            Snackbar.Add(result.Message, Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("CouponIssuePage.SaveBlocked", ex);
+            Snackbar.Add("Cập nhật khóa coupon thất bại. Vui lòng thử lại.", Severity.Error);
+        }
+        finally { _saving = false; }
+    }
+
     // ── Advanced dialog ───────────────────────────────────────────────────────
     private async Task OpenAdvancedAsync()
     {
@@ -691,4 +758,17 @@ else
     private static DateTime? ParseDmy(string? dmy)
         => DateTime.TryParseExact(dmy, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    private static (string CssClass, string Label) StatusDisplay(string status)
+    {
+        var label = string.IsNullOrEmpty(status) ? "—" : status;
+        var css = status switch
+        {
+            "SOLD" => "pos-status-info",
+            "RDM"  => "pos-status-success",
+            "EXP"  => "pos-status-error",
+            _      => "pos-status-info"
+        };
+        return (css, label);
+    }
 }

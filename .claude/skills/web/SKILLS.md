@@ -44,11 +44,13 @@
 | Role constant | String value | Policy constant | Dùng cho |
 |---|---|---|---|
 | `WebRoles.StoreOperator` | `"StoreOperator"` | `WebPolicies.StoreAndAbove` | `Pages/Store/*` |
+| `WebRoles.BackOffice` | `"BackOffice"` | `WebPolicies.BackOfficeAndAbove` | `Pages/Catalog/*`, `Pages/Promotion/*` |
 | `WebRoles.ITOps` | `"ITOps"` | `WebPolicies.OpsAndAbove` | `Pages/Ops/*` |
 | `WebRoles.SystemAdmin` | `"SystemAdmin"` | `WebPolicies.AdminOnly` | `Pages/Admin/*` |
 
 **Coverage của từng policy:**
-- `StoreAndAbove` = StoreOperator + ITOps + SystemAdmin (cả 3)
+- `StoreAndAbove` = StoreOperator + BackOffice + ITOps + SystemAdmin (cả 4)
+- `BackOfficeAndAbove` = BackOffice + ITOps + SystemAdmin
 - `OpsAndAbove` = ITOps + SystemAdmin
 - `AdminOnly` = chỉ SystemAdmin
 
@@ -705,6 +707,45 @@ khóa/mở khóa sản phẩm — ternary theo nội dung `_confirmMsg` vì khô
 
 > Ví dụ thực tế (static Title/YesText): `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`,
 > `Ops/PosMapPage.razor`, `Store/Operations/BusinessDayPage.razor`.
+
+---
+
+### Pattern: Truyền thẳng row object vào dialog chi tiết — KHÔNG tra cứu lại theo key đơn
+> Áp dụng khi: nút "Xem chi tiết" trong `RowTemplate` của `MudTable` mở dialog hiển thị dữ liệu
+> của đúng dòng đã click.
+> Rút ra từ bug thực tế: `MemberPointsPage.OpenDetailDialog` tra cứu lại dòng bằng
+> `_currentPageItems.FirstOrDefault(x => x.OrderNo == invoiceNo)` — chỉ so khớp 1 cột không unique
+> (`LoggingLoyalty` có PK composite `OrderNo+ActionType+TransactionType`, 1 `OrderNo` có thể sinh
+> nhiều dòng khác `ActionType`, vd `EARN` và `REDEEM`) → luôn trả về dòng **đầu tiên** trùng
+> `OrderNo`, mở nhầm dữ liệu dòng khác khi click dòng thứ 2+.
+
+```razor
+@* SAI — tra cứu lại theo 1 cột không đảm bảo unique *@
+<MudIconButton OnClick="@(() => OpenDetailDialog(context.OrderNo))"/>
+@code {
+    private Task OpenDetailDialog(string orderNo)
+    {
+        var row = _currentPageItems.FirstOrDefault(x => x.OrderNo == orderNo); // có thể sai dòng
+        ...
+    }
+}
+
+@* ĐÚNG — truyền thẳng object đang render, không tra cứu lại *@
+<MudIconButton OnClick="@(() => OpenDetailDialog(context))"/>
+@code {
+    private Task OpenDetailDialog(MyRowDto row) =>
+        DialogService.ShowAsync<MyDetailDialog>("Chi tiết",
+            new DialogParameters<MyDetailDialog> { { x => x.Item, row } });
+}
+```
+
+- `context` trong `RowTemplate` **là chính object của dòng đó** — không có lý do gì phải tra cứu
+  lại qua danh sách trang hiện tại bằng 1 khóa đơn (id/code) rồi mới mở dialog.
+- Cách này còn loại bỏ luôn field phụ kiểu `_currentPageItems` (giữ list trang hiện tại chỉ để
+  tra cứu lại) — không cần thiết khi đã có sẵn object.
+- Tiền lệ cùng pattern: `OffersPage.razor` (`OpenDetailDialogAsync(context)`).
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/MemberPointsPage.razor`.
 
 ---
 

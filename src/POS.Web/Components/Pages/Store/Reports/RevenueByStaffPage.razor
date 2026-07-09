@@ -276,6 +276,12 @@
         {
             _loading = false;
         }
+
+        // StoreOperator chỉ có 1 cửa hàng cố định → tự load dữ liệu ngay, không cần bấm Tìm.
+        if (_isStoreOperator && _errorMsg == null)
+        {
+            await SearchAsync();
+        }
     }
 
     private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)

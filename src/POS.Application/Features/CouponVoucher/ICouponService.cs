@@ -37,4 +37,7 @@ public interface ICouponService
 
     /// <summary>Phát hành THÊM một lô mã Auto mới cho coupon đã tồn tại (không tạo header, không import).</summary>
     Task<CouponSaveResult> IssueMoreAsync(CouponIssueMoreRequest request, CancellationToken ct = default);
+
+    /// <summary>Cập nhật RIÊNG trạng thái khóa (Blocked) — dùng cho nút Xóa ở danh sách và checkbox Khóa ở trang Xem coupon.</summary>
+    Task<CouponSaveResult> UpdateBlockedAsync(string itemNo, bool blocked, CancellationToken ct = default);
 }

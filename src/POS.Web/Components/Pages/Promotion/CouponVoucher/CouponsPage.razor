@@ -1,9 +1,11 @@
-@page "/promotion/coupons"
-@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+﻿@page "/promotion/coupons"
+@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
+@using Newtonsoft.Json
 @using POS.Application.Features.CouponVoucher
 @using POS.Common.Dtos.SetupCoupon
 @using POS.Infrastructure.Logging
@@ -12,8 +14,19 @@
 @inject ICouponService CouponService
 @inject IFileLogHelper FileLogger
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
 
 <PageTitle>Danh sách Coupon – POS Dashboard</PageTitle>
+
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận thao tác" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">
+            Xác nhận
+        </MudButton>
+    </YesButton>
+</MudMessageBox>
 
 @* ── Header ─────────────────────────────────────────────────────────────── *@
 <div class="pos-page-header mb-4">
@@ -41,7 +54,7 @@
             <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
                        Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@("-1")">Tất cả</MudSelectItem>
-                <MudSelectItem T="string" Value="@("0")">Còn hiệu lực</MudSelectItem>
+                <MudSelectItem T="string" Value="@("0")">Hiệu lực</MudSelectItem>
                 <MudSelectItem T="string" Value="@("1")">Hết hiệu lực</MudSelectItem>
             </MudSelect>
         </MudItem>
@@ -66,7 +79,7 @@
           Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="CouponHeaderListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>
-        <MudTh Style="width:80px; text-align:center">Thao tác</MudTh>
+        <MudTh Style="width:1%; white-space:nowrap; text-align:center">Thao tác</MudTh>
         <MudTh>Mã</MudTh>
         <MudTh>Tên</MudTh>
         <MudTh>Loại giảm</MudTh>
@@ -79,10 +92,14 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
-        <MudTd DataLabel="Thao tác" Style="text-align:center">
+        <MudTd DataLabel="Thao tác" Style="white-space:nowrap; text-align:center">
             <MudTooltip Text="Xem chi tiết">
                 <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Primary"
                                OnClick="@(() => Nav.NavigateTo($"/promotion/coupons/issue?id={context.ItemNo}&mode=view"))"/>
+            </MudTooltip>
+            <MudTooltip Text="Xóa">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteAsync(context))"/>
             </MudTooltip>
         </MudTd>
         <MudTd DataLabel="Mã"><b>@context.ItemNo</b></MudTd>
@@ -123,12 +140,24 @@
 </MudTable>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
     private MudTable<CouponHeaderListItemDto> _table = null!;
     private readonly CouponHeaderListFilter _filter = new() { Status = "0", PageSize = 10 };
 
     private List<CouponHeaderListItemDto> _rows = [];
     private int _offset;
     private string? _errorMsg;
+    private string _currentActor = "unknown";
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _currentActor = state.User.Identity?.Name ?? "unknown";
+    }
 
     private async Task<TableData<CouponHeaderListItemDto>> LoadServerData(TableState state, CancellationToken token)
     {
@@ -151,6 +180,28 @@
         }
     }
 
+    private async Task DeleteAsync(CouponHeaderListItemDto item)
+    {
+        _confirmMsg = $"Bạn có chắc muốn xóa coupon [{item.ItemNo}]?";
+        var confirm = await _confirmBox!.ShowAsync();
+        if (confirm != true) return;
+
+        var oldJson = JsonConvert.SerializeObject(new { item.ItemNo, item.Blocked });
+        var result = await CouponService.UpdateBlockedAsync(item.ItemNo, true);
+        if (!result.Ok)
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+            return;
+        }
+
+        await AuditLogger.LogAsync(_currentActor, "DELETE", "SetupCoupon", item.ItemNo,
+            oldValueJson: oldJson,
+            newValueJson: JsonConvert.SerializeObject(new { item.ItemNo, Blocked = true }));
+
+        Snackbar.Add(result.Message, Severity.Success);
+        await _table.ReloadServerData();
+    }
+
     private async Task SearchAsync() => await _table.ReloadServerData();
 
     private async Task ClearFilterAsync()
@@ -171,5 +222,5 @@
     // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
     // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
     private static (string CssClass, string Label) EffectDisplay(bool isEffective) =>
-        isEffective ? ("pos-status-success", "Còn hiệu lực") : ("pos-status-error", "Hết hiệu lực");
+        isEffective ? ("pos-status-success", "Hiệu lực") : ("pos-status-error", "Hết hiệu lực");
 }
