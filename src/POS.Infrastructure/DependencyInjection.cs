@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IRptReportSaleDetailRepository, RptReportSaleDetailRepository>();
         services.AddScoped<IDataRawJsonRepository, DataRawJsonRepository>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
+        services.AddScoped<IRptLoyaltyRepository, RptLoyaltyRepository>();
         services.AddScoped<IOfferStaffRepository, OfferStaffRepository>();
         services.AddScoped<IPromotionRepository, PromotionRepository>();
         services.AddScoped<IPriceRepository, PriceRepository>();

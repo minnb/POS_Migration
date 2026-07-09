@@ -42,7 +42,7 @@ BEGIN
         DECLARE @cntCode bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMCodeIssue);
 
         -- Counter dùng CHUNG cho cả lô (giống usp_SetupVoucher_SaveIssue — "@cntCode+1/lô",
-        -- KHÔNG tăng theo từng dòng — khớp mô tả Counter trong database-schema.md).
+        -- KHÔNG tăng theo từng dòng — khớp mô tả Counter trong centralMD-schema.md).
         INSERT INTO dbo.CpnVchBOMCodeIssue
             (ItemNo, Code, Enabled, CreatedDate, Counter, Pkey, Source,
              ActicleNo, ActicleType, Validity_From_Date, Expiry_Date, Voucher_Currency,

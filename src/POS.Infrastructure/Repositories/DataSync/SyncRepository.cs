@@ -21,25 +21,27 @@ public sealed class SyncRepository(
 
     // Redis key cho danh sách bảng master data (metadata nhỏ, thay đổi khi DBA đổi SyncTableList).
     // TTL 1h: đủ dài để tránh SP1 lặp lại mỗi request; đủ ngắn để nhận cập nhật cấu hình trong ngày.
+    // Tách theo isChange ("A"/"W") vì Action trả về khác nhau giữa 2 nhánh SP.
     private const string SyncTableListKey = "MD:SyncTableList";
     private const int SyncTableListTtlSeconds = 3600;
 
-    public async Task<List<SyncTableInfo>> GetSyncTablesAsync(CancellationToken ct = default)
+    public async Task<List<SyncTableInfo>> GetSyncTablesAsync(string isChange = "A", CancellationToken ct = default)
     {
         // Cache SP1 metadata trong Redis — dữ liệu nhỏ (~85 record), hiếm thay đổi.
-        // Invalidate thủ công: DEL MD:SyncTableList trong Redis khi DBA cập nhật SyncTableList.
-        var cached = await redis.StringGetAsync<List<SyncTableInfo>>(SyncTableListKey);
+        // Invalidate thủ công: DEL MD:SyncTableList:A / DEL MD:SyncTableList:W khi DBA cập nhật SyncTableList.
+        var cacheKey = $"{SyncTableListKey}:{isChange}";
+        var cached = await redis.StringGetAsync<List<SyncTableInfo>>(cacheKey);
         if (cached?.Count > 0) return cached;
 
-        // Quyết định: @IsChange='A' → bỏ qua @IsByStore/@GroupName (dùng default của SP).
+        // @IsChange='A' (ALL sync) hoặc 'W' (Web Sync/push 1 POS) → bỏ qua @IsByStore/@GroupName (dùng default của SP).
         var rows = await QueryAsync<SyncTableInfo>(
             "[dbo].[SyncTable_Get] @IsChange",
-            new { IsChange = "A" },
+            new { IsChange = isChange },
             commandTimeout: _opt.SqlCommandTimeoutSeconds,
             ct: ct);
         var list = rows.ToList();
         if (list.Count > 0)
-            redis.StringSet(SyncTableListKey, list, ttlSeconds: SyncTableListTtlSeconds);
+            redis.StringSet(cacheKey, list, ttlSeconds: SyncTableListTtlSeconds);
         return list;
     }
 

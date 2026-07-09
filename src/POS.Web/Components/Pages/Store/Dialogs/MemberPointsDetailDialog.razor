@@ -1,0 +1,109 @@
+@namespace POS.Web.Components.Pages.Store
+@using MudBlazor
+@using POS.Common.Dtos.RptLoyalty
+
+<MudDialog>
+    <DialogContent>
+        @{
+            var (aCss, aLabel) = ActionTypeDisplay(Invoice.ActionType);
+            var pointColor = Invoice.LoyaltyPoints >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
+        }
+
+        @* ── Hero: số điểm + hình thức ──────────────────────────────────────── *@
+        <MudPaper Elevation="0" Class="pa-4 mb-4 text-center" Style="background:var(--mud-palette-background-grey); border-radius:var(--pos-radius-lg,12px)">
+            <MudIcon Icon="@Icons.Material.Filled.CardMembership" Color="Color.Secondary" Size="Size.Medium" Class="mb-1"/>
+            <MudText Typo="Typo.h4" Style="@($"font-weight:800;color:{pointColor}")">
+                @(Invoice.LoyaltyPoints >= 0 ? "+" : "")@Invoice.LoyaltyPoints.ToString("N0")
+            </MudText>
+            <div class="mt-1"><span class="pos-status-chip @aCss">@aLabel</span></div>
+        </MudPaper>
+
+        @* ── Chi tiết hóa đơn ─────────────────────────────────────────────────── *@
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Receipt" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Số hóa đơn</MudText>
+                        <MudText Typo="Typo.body1">@Invoice.OrderNo</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Sell" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Loại hóa đơn</MudText>
+                        <MudText Typo="Typo.body1">@TransTypeLabel(Invoice.TransactionType)</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Undo" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Hóa đơn gốc</MudText>
+                        <MudText Typo="Typo.body1">@(string.IsNullOrWhiteSpace(Invoice.OrigOrderNo) ? "—" : Invoice.OrigOrderNo)</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.CreditCard" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Số thẻ hội viên</MudText>
+                        <MudText Typo="Typo.body1">@Invoice.MemberCardMasked</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Store" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Cửa hàng</MudText>
+                        <MudText Typo="Typo.body1">@(string.IsNullOrWhiteSpace(Invoice.StoreNo) ? "—" : Invoice.StoreNo)</MudText>
+                    </div>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" Color="Color.Secondary"/>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="pos-kpi-label">Thời gian</MudText>
+                        <MudText Typo="Typo.body1">@Invoice.CrtDate.ToString("yyyy-MM-dd HH:mm:ss")</MudText>
+                    </div>
+                </div>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Size="Size.Small">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public InvoiceLoyaltyDto Invoice { get; set; } = null!;
+
+    private void CloseDialog() => MudDialog.Close();
+
+    private static string TransTypeLabel(int type) => type switch
+    {
+        1      => "Bán hàng",
+        2 or 3 => "Trả hàng",
+        _      => $"Loại {type}"
+    };
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) ActionTypeDisplay(string actionType) => actionType switch
+    {
+        "EARN"           => ("pos-status-success", "Tích điểm"),
+        "REDEEM"         => ("pos-status-error", "Tiêu điểm"),
+        "REVERSE_EARN"   => ("pos-status-warning", "Hoàn tích điểm"),
+        "REVERSE_REDEEM" => ("pos-status-warning", "Hoàn tiêu điểm"),
+        "TOPUP"          => ("pos-status-info", "Nạp điểm"),
+        _                => ("pos-status-info", actionType)
+    };
+}

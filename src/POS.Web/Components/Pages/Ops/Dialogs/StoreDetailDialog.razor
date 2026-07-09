@@ -20,16 +20,12 @@
             }
             else
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                         Color="@(Item.IsActive ? Color.Success : Color.Error)">
-                    @(Item.IsActive ? "● Hoạt động" : "● Đã đóng")
-                </MudChip>
+                var (activeCss, activeLabel) = ActiveStatusDisplay(Item.IsActive);
+                <span class="pos-status-chip @activeCss">@activeLabel</span>
             }
             @if (!string.IsNullOrWhiteSpace(Item.StyleProfile))
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">
-                    @Item.StyleProfile
-                </MudChip>
+                <span class="pos-status-chip pos-status-info">@Item.StyleProfile</span>
             }
         </div>
 
@@ -67,10 +63,11 @@
     <DialogActions>
         @if (_editMode)
         {
-            <MudButton OnClick="CancelEdit" Variant="Variant.Outlined" Disabled="@_saving">Hủy</MudButton>
+            <MudButton OnClick="CancelEdit" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup" Disabled="@_saving">Hủy</MudButton>
             <MudButton OnClick="SaveAsync"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
+                       Class="pos-btn-mockup"
                        Disabled="@_saving"
                        StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
                 @if (_saving)
@@ -82,8 +79,9 @@
         }
         else
         {
-            <MudButton OnClick="CloseDialog" Variant="Variant.Outlined">Đóng</MudButton>
+            <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
             <MudButton OnClick="StartEdit" Variant="Variant.Filled" Color="Color.Primary"
+                       Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Edit">
                 Sửa
             </MudButton>
@@ -133,6 +131,11 @@
             _saving = false;
         }
     }
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) ActiveStatusDisplay(bool isActive) =>
+        isActive ? ("pos-status-success", "● Hoạt động") : ("pos-status-error", "● Đã đóng");
 
     private RenderFragment Field(string label, string? value) => __builder =>
     {

@@ -18,20 +18,16 @@
         }
 
         @* ── Trạng thái tổng quan ───────────────────────────────────────── *@
+        @{
+            var (onlineCss, onlineLabel) = OnlineStatusDisplay(Item.IsOnline);
+            var (enabledCss, enabledLabel) = EnabledStatusDisplay(Item.IsEnabled);
+        }
         <div class="d-flex align-center gap-2 flex-wrap mb-4">
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                     Color="@(Item.IsOnline ? Color.Success : Color.Error)">
-                @(Item.IsOnline ? "● Online" : "● Offline")
-            </MudChip>
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                     Color="@(Item.IsEnabled ? Color.Success : Color.Default)">
-                @(Item.IsEnabled ? "Đang sử dụng" : "Đã tắt")
-            </MudChip>
+            <span class="pos-status-chip @onlineCss">@onlineLabel</span>
+            <span class="pos-status-chip @enabledCss">@enabledLabel</span>
             @if (Item.NeedsUpdate)
             {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning">
-                    ⚠ Cần cập nhật phần mềm
-                </MudChip>
+                <span class="pos-status-chip pos-status-warning">⚠ Cần cập nhật phần mềm</span>
             }
         </div>
 
@@ -104,9 +100,10 @@
             <MudButton OnClick="OpenEditAsync"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
+                       Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Edit">Chỉnh sửa</MudButton>
         }
-        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined">Đóng</MudButton>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -140,6 +137,14 @@
     }
 
     private void CloseDialog() => MudDialog.Close();
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) OnlineStatusDisplay(bool isOnline) =>
+        isOnline ? ("pos-status-success", "● Online") : ("pos-status-error", "● Offline");
+
+    private static (string CssClass, string Label) EnabledStatusDisplay(bool isEnabled) =>
+        isEnabled ? ("pos-status-success", "Đang sử dụng") : ("pos-status-info", "Đã tắt");
 
     private RenderFragment Field(string label, string? value) => __builder =>
     {

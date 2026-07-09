@@ -7,8 +7,11 @@ namespace POS.Infrastructure.Repositories.Interfaces;
 /// </summary>
 public interface ISyncRepository
 {
-    /// <summary>SP1 [SyncTable_Get] @IsChange='A' — danh sách bảng cần sync.</summary>
-    Task<List<SyncTableInfo>> GetSyncTablesAsync(CancellationToken ct = default);
+    /// <summary>
+    /// SP1 [SyncTable_Get] — danh sách bảng cần sync. <paramref name="isChange"/>: "A" (mặc định,
+    /// ALL sync) hoặc "W" (Web Sync/push 1 POS — Action trả về luôn "DELETE-INSERT").
+    /// </summary>
+    Task<List<SyncTableInfo>> GetSyncTablesAsync(string isChange = "A", CancellationToken ct = default);
 
     /// <summary>
     /// SP2 [SyncGetDataByTable] — STREAM SqlDataReader (SequentialAccess) ghi ra một hoặc nhiều file .txt

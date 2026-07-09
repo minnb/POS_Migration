@@ -68,7 +68,9 @@
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense"
                            DateFormat="dd/MM/yyyy"
-                           AutoClose="true"/>
+                           AutoClose="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Outlined.DateRange"/>
         </MudItem>
 
         <MudItem xs="12" sm="6" md="2">
@@ -77,19 +79,23 @@
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense"
                            DateFormat="dd/MM/yyyy"
-                           AutoClose="true"/>
+                           AutoClose="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Outlined.DateRange"/>
         </MudItem>
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -199,14 +205,14 @@
                 <MudTd DataLabel="Chưa đóng" Style="text-align:center">
                     @if (context.OpenCount > 0)
                     {
-                        <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">@context.OpenCount</MudChip>
+                        <span class="pos-status-chip pos-status-error">@context.OpenCount</span>
                     }
                     else { <span style="color:#4caf50">—</span> }
                 </MudTd>
                 <MudTd DataLabel="Có CL" Style="text-align:center">
                     @if (context.DiscrepancyCount > 0)
                     {
-                        <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">@context.DiscrepancyCount</MudChip>
+                        <span class="pos-status-chip pos-status-warning">@context.DiscrepancyCount</span>
                     }
                     else { <span style="color:#4caf50">—</span> }
                 </MudTd>
@@ -249,8 +255,8 @@
                     <MudTd DataLabel="Ca" Style="text-align:center; font-weight:600">@context.ShiftNumber</MudTd>
                     <MudTd DataLabel="Terminal">@context.PosTerminal</MudTd>
                     <MudTd DataLabel="Thu ngân" Style="text-align:center">@(context.StaffCode ?? "—")</MudTd>
-                    <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
-                    <MudTd DataLabel="Đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("HH:mm") ?? "—")</MudTd>
+                    <MudTd DataLabel="Mở ca" Style="text-align:center">@(context.OpenShiftDate?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+                    <MudTd DataLabel="Đóng ca" Style="text-align:center">@(context.CloseShiftDate?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
                     <MudTd DataLabel="Doanh thu" Style="text-align:right">@FormatVND(context.TotalRevenue)</MudTd>
                     <MudTd DataLabel="Số GD" Style="text-align:center">@context.TransactionCount</MudTd>
                     <MudTd DataLabel="CL" Style="@($"text-align:right; font-weight:600; color:{ChenLechColor(context.ChenLech)}")">
@@ -259,11 +265,11 @@
                     <MudTd DataLabel="T/T" Style="text-align:center">
                         @if (context.IsShiftClosed)
                         {
-                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Đóng</MudChip>
+                            <span class="pos-status-chip pos-status-success">Đóng</span>
                         }
                         else
                         {
-                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Mở</MudChip>
+                            <span class="pos-status-chip pos-status-error">Mở</span>
                         }
                     </MudTd>
                     <MudTd DataLabel="Chi tiết" Style="text-align:center">

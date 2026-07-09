@@ -46,8 +46,11 @@
 
                 <MudNavGroup Title="Giao dịch" Icon="@Icons.Material.Outlined.ReceiptLong" Class="pos-nav-l2" @bind-Expanded="_expandStoreTx">
                     <MudNavLink Href="/store/transactions" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh sách giao dịch</MudNavLink>
+                    <!--
                     <MudNavLink Href="/store/refunds" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Hoàn trả</MudNavLink>
+                    -->
                     <MudNavLink Href="/store/voids" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Lịch sử hủy giao dịch</MudNavLink>
+                    <MudNavLink Href="/store/member-points" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Hội viên</MudNavLink>
                 </MudNavGroup>
 
                 <MudNavGroup Title="Báo cáo" Icon="@Icons.Material.Outlined.Assessment" Class="pos-nav-l2" @bind-Expanded="_expandStoreReport">
@@ -239,6 +242,7 @@
         ["/store/transactions"]     = ("CỬA HÀNG", "Danh sách giao dịch"),
         ["/store/refunds"]          = ("CỬA HÀNG", "Hoàn trả"),
         ["/store/voids"]            = ("CỬA HÀNG", "Lịch sử hủy giao dịch"),
+        ["/store/member-points"]    = ("CỬA HÀNG", "Hội viên"),
         // CỬA HÀNG / Báo cáo
         ["/store/revenue"]          = ("CỬA HÀNG", "Tổng hợp doanh thu"),
         ["/store/revenue-by-staff"] = ("CỬA HÀNG", "Theo nhân viên"),
@@ -351,7 +355,7 @@
         else
         {
             _expandStoreOps    = u.Contains("/store/business-day") || u.Contains("/store/eos-shifts") || u.Contains("/store/shift-summary");
-            _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids");
+            _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids") || u.Contains("/store/member-points");
             _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
         }
         _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues") || u.Contains("/ops/redis");

@@ -29,4 +29,11 @@ public sealed class SyncTableInfo
 
     /// <summary>true → bảng này đóng gói riêng 1 file .zip khi sinh master data; false (mặc định) → gom chung zip "common".</summary>
     public bool IsSingleFile { get; set; }
+
+    /// <summary>
+    /// Action ghi vào envelope file .txt (vd "TRUNC-INSERT"/"INSERT"/"DELETE-INSERT") — cấu hình theo
+    /// từng bảng trong SyncTableList, KHÔNG hardcode ở C#. Null nếu SP chưa có cột này (chưa chạy
+    /// docs/sql/SyncTableList_AddAction.sql) — MasterDataSyncService fallback hằng số mặc định.
+    /// </summary>
+    public string? Action { get; set; }
 }

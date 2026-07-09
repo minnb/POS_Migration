@@ -63,13 +63,17 @@
         <MudItem xs="12" sm="6" md="2">
             <MudDatePicker @bind-Date="_fromDate" Label="Từ ngày"
                            Variant="Variant.Outlined" Margin="Margin.Dense"
-                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+                           DateFormat="dd/MM/yyyy" AutoClose="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Outlined.DateRange"/>
         </MudItem>
 
         <MudItem xs="12" sm="6" md="2">
             <MudDatePicker @bind-Date="_toDate" Label="Đến ngày"
                            Variant="Variant.Outlined" Margin="Margin.Dense"
-                           DateFormat="dd/MM/yyyy" AutoClose="true"/>
+                           DateFormat="dd/MM/yyyy" AutoClose="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Outlined.DateRange"/>
         </MudItem>
 
         <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
@@ -79,9 +83,11 @@
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync" Disabled="@_loading" FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync" Disabled="@_loading" FullWidth="true">Xóa</MudButton>
             </MudStack>
@@ -247,7 +253,7 @@
             <MudTd DataLabel="Biến động" Style="text-align:center">
                 @if (mv.IsNew)
                 {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled">NEW</MudChip>
+                    <span class="pos-status-chip pos-status-info">NEW</span>
                 }
                 else
                 {

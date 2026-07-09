@@ -102,7 +102,7 @@
     <MudDivider Class="my-4"/>
     <div class="d-flex align-center justify-space-between mb-2">
         <MudText Typo="Typo.subtitle1"><strong>Danh sách Barcode</strong> <span style="color:red">*</span></MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Add"
                    OnClick="AddBarcodeRow">
             Thêm dòng
@@ -156,7 +156,7 @@
         <MudFileUpload T="IBrowserFile" FilesChanged="OnImageSelectedAsync"
                        Accept=".jpg,.jpeg,.png" MaximumFileCount="1">
             <ActivatorContent>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Image">
                     @(_imageFile?.Name ?? "Chọn ảnh (JPG/PNG, tối đa 2MB)")
                 </MudButton>
@@ -181,8 +181,8 @@
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Disabled="@_saving">Đóng</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup" Disabled="@_saving">Đóng</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                    OnClick="SaveAsync" Disabled="@(!_formValid || _saving)"
                    StartIcon="@Icons.Material.Filled.Save">
             @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }

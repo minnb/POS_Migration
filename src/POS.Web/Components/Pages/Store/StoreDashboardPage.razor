@@ -141,9 +141,9 @@
             <MudIcon Icon="@Icons.Material.Filled.Cancel" Size="Size.Small" Class="mr-1"/>
             Giao dịch Void gần nhất
         </MudText>
-        <MudButton Variant="Variant.Outlined" Size="Size.Small" Href="/store/voids">Xem tất cả</MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="pos-btn-mockup pos-btn-secondary-mockup" Href="/store/voids">Xem tất cả</MudButton>
     </div>
-    <MudTable Items="@_recentVoids" Dense="true" Hover="true" HorizontalScrollbar="true">
+    <MudTable Items="@_recentVoids" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true">
         <HeaderContent>
             <MudTh Style="text-align:center">Giờ</MudTh>
             <MudTh Style="text-align:center">Loại</MudTh>
@@ -157,11 +157,11 @@
             <MudTd DataLabel="Loại" Style="text-align:center">
                 @if (context.VoidType == "InvoiceVoid")
                 {
-                    <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">HỦY HÓA ĐƠN</MudChip>
+                    <span class="pos-status-chip pos-status-error">HỦY HÓA ĐƠN</span>
                 }
                 else
                 {
-                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">HỦY DÒNG</MudChip>
+                    <span class="pos-status-chip pos-status-warning">HỦY DÒNG</span>
                 }
             </MudTd>
             <MudTd DataLabel="Số hóa đơn">@context.OrderNo</MudTd>

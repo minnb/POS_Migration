@@ -48,10 +48,12 @@
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="LoadDataAsync" FullWidth="true"
                            Disabled="_loading">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="ResetFilter" FullWidth="true">Xóa</MudButton>
             </MudStack>
@@ -100,7 +102,7 @@ else
                 <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary)">Lỗi gần nhất</MudText>
                 <MudText Typo="Typo.h6" Style="font-weight:700; padding-top:6px">
                     @(_summary.LastErrorAt.HasValue
-                        ? _summary.LastErrorAt.Value.ToString("HH:mm dd/MM")
+                        ? _summary.LastErrorAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
                         : "—")
                 </MudText>
             </MudPaper>

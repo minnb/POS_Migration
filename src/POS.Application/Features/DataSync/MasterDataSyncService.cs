@@ -26,10 +26,15 @@ public sealed class MasterDataSyncService(
 {
     private readonly MasterDataSyncOptions _opt = options.Value;
 
-    // TODO: confirm vs POS parser — convention trước đây dùng "DELETE-INSERT"; user yêu cầu "TRUNC-INSERT".
+    // Fallback khi SP [SyncTable_Get] CHƯA có cột Action (chưa chạy docs/sql/SyncTableList_AddAction.sql) —
+    // an toàn ngược, giữ đúng hành vi cũ cho tới khi DBA áp dụng script. Bình thường Action lấy động
+    // từ SyncTableInfo.Action (cột DB SyncTableList.Action, trả về theo từng bảng).
     private const string ActionTruncInsert = "TRUNC-INSERT";
-    // Bảng lớn tách nhiều file: batch đầu TRUNC-INSERT, các batch sau INSERT (append) — tránh truncate sạch batch trước.
+    // Bảng lớn tách nhiều file: batch đầu dùng Action theo bảng, các batch sau INSERT (append) — tránh
+    // truncate/xóa lặp lại giữa các batch cùng bảng, đây là ràng buộc kỹ thuật, không đổi theo cấu hình DB.
     private const string ActionInsert = "INSERT";
+    // Fallback cho IsChangeMode="W" (Web Sync/push 1 POS) khi SP chưa có cột Action.
+    private const string ActionDeleteInsertFallback = "DELETE-INSERT";
 
     // Thư mục con tạm chứa file .txt của các bảng IsSingleFile=0 (gom chung 1 zip).
     private const string CommonGroupFolder = "_common";
@@ -72,7 +77,7 @@ public sealed class MasterDataSyncService(
 
         // Cần biết trước danh sách bảng (SP1) để tính toàn bộ tên zip dự kiến của lượt chạy này
         // (1 common + 1/bảng IsSingleFile=1) — phục vụ short-circuit "đã hợp lệ hôm nay" all-or-nothing.
-        var tables = await syncRepository.GetSyncTablesAsync(ct);
+        var tables = await syncRepository.GetSyncTablesAsync(req.IsChangeMode, ct);
         var tableEntries = tables
             .Where(t => !string.IsNullOrWhiteSpace(t.TableName))
             .Select((t, idx) => (Table: t, Index: idx + 1))
@@ -134,10 +139,15 @@ public sealed class MasterDataSyncService(
                 string FileNameFor(int batchNo) =>
                     $"{req.SiteCode}_{entry.Table.TableName}_{rnd}_{tableIndex}_{batchNo:D3}.txt";
 
-                // SyncAction != null → dùng cho MỌI batch (Web Sync: "DELETE-INSERT").
-                // null → khuôn mặc định: batch đầu TRUNC-INSERT (truncate 1 lần), batch sau INSERT (append).
+                // Action lấy từ SP [SyncTable_Get] theo từng bảng (SyncTableList.Action) — KHÔNG hardcode.
+                // IsChangeMode="W" (Web Sync/push 1 POS): Action áp dụng cho MỌI batch (nhánh SP 'W' luôn trả "DELETE-INSERT").
+                // IsChangeMode="A" (ALL sync, mặc định): batch đầu dùng Action theo bảng, batch sau luôn
+                // "INSERT" (append kỹ thuật — tránh truncate/xóa lặp lại giữa các batch cùng bảng).
+                var tableAction = string.IsNullOrWhiteSpace(entry.Table.Action) ? null : entry.Table.Action;
                 string ActionFor(int batchNo) =>
-                    req.SyncAction ?? (batchNo == 1 ? ActionTruncInsert : ActionInsert);
+                    req.IsChangeMode == "W"
+                        ? tableAction ?? ActionDeleteInsertFallback
+                        : (batchNo == 1 ? tableAction ?? ActionTruncInsert : ActionInsert);
 
                 // @POSLastCounter = 0 khi typeSync=ALL hoặc IsFirstDataAll; ngược lại dùng POSLastCounter của bảng.
                 var counter = req.TypeSync == "ALL" || entry.Table.IsFirstDataAll ? 0L : entry.Table.POSLastCounter;

@@ -25,14 +25,14 @@
         thống cache dùng chung cho ~5.000 máy POS. Bạn có chắc muốn tiếp tục?
     </MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error">Vẫn quét</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Vẫn quét</MudButton>
     </YesButton>
 </MudMessageBox>
 
 <MudMessageBox @ref="_confirmDeleteBox" Title="Xác nhận xóa key" CancelText="Hủy">
     <MessageContent>@_confirmDeleteMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Xóa</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -46,7 +46,7 @@
                StartIcon="@Icons.Material.Filled.Refresh"
                OnClick="LoadStatusAsync"
                Disabled="_statusLoading"
-               Class="pos-page-header-btn">
+               Class="pos-page-header-btn pos-btn-mockup">
         @if (_statusLoading)
         { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1"/> }
         Làm mới
@@ -61,10 +61,10 @@
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                 <MudText Typo="Typo.subtitle2" Style="font-weight:600">Redis Cache</MudText>
                 <div class="d-flex align-center gap-2">
-                    <MudChip T="string" Size="Size.Small" Color="@(_status.IsOnline ? Color.Success : Color.Error)"
-                             Variant="Variant.Filled">
-                        @(_status.IsOnline ? "ONLINE" : "OFFLINE")
-                    </MudChip>
+                    @{
+                        var (onlineCss, onlineLabel) = OnlineStatusDisplay(_status.IsOnline);
+                    }
+                    <span class="pos-status-chip @onlineCss">@onlineLabel</span>
                     @{
                         var (latColor, latText) = LatencyDisplay(_status.PingMs, _status.IsOnline);
                     }
@@ -135,6 +135,7 @@
         </MudItem>
         <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       Class="pos-btn-mockup"
                        FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
         </MudItem>
     </MudGrid>
@@ -316,6 +317,11 @@
     }
 
     // ── Status card helpers (đồng nhất logic với HealthPage.razor) ────────────
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) OnlineStatusDisplay(bool isOnline) =>
+        isOnline ? ("pos-status-success", "ONLINE") : ("pos-status-error", "OFFLINE");
 
     private static string CardStyle(bool ok) =>
         ok ? "border-left:3px solid var(--pos-success)" : "border-left:3px solid var(--pos-danger)";

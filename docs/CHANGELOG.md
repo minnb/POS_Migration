@@ -6,6 +6,194 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-09] Đổi tên `database-schema.md` → `centralMD-schema.md`
+
+**Layer:** Tài liệu (không đụng code)
+**Loại:** Refactor tài liệu (rename)
+
+**Thay đổi:**
+- `git mv docs/architecture/database-schema.md docs/architecture/centralMD-schema.md` — tên file
+  rõ nghĩa hơn (khớp tên DB `CentralMD`/`RPOSMasterData`), phân biệt với `centralsale-schema.md`
+  và `loyalty-schema.md` cùng thư mục.
+- Cập nhật toàn bộ tham chiếu đường dẫn cũ sang tên mới (grep xác nhận không còn `database-schema`
+  nào sót lại): `CLAUDE.md`, `README.md`, `docs/CHANGELOG.md`, `docs/WEB_STATUS.md`,
+  `docs/architecture/{centralsale,loyalty}-schema.md`, `.claude/skills/{database,api}/SKILLS.md`,
+  `docs/web/logic/{promotion_technical_spec,LOGIC_APPROVE_CTKM}.md`,
+  `docs/migrations/{MIGRATION_MAP,FEATURE_SetupPrice_ANALYSIS}.md`,
+  `docs/sql/{SalesPrice_EditDelete,OfferHeader_Deactivate,SetupCoupon_IssueMore,
+  SetupVoucher_IssueMore}.sql`, `src/POS.Common/Dtos/Promotion/OfferHeaderDto.cs` (doc-comment).
+
+**Pattern mới:** không có.
+
+**Lưu ý cho session sau:** file schema DB cho `RPOSMasterData`/CentralMD nay tên
+`docs/architecture/centralMD-schema.md` (không còn `database-schema.md`) — router index trong
+`CLAUDE.md` đã trỏ đúng tên mới.
+
+---
+
+## [2026-07-09] Tách CLAUDE.md thành Router nhẹ + rule files theo module
+
+**Layer:** Tài liệu (không đụng code)
+**Loại:** Refactor tài liệu (Progressive Disclosure)
+
+**Thay đổi:**
+- `CLAUDE.md`: **1206 → 83 dòng**. Chỉ còn giữ: Quy tắc giao tiếp/báo cáo, tổng quan dự án,
+  Router Index (mục lục điều phối), Cổng chặn trùng lặp. Toàn bộ chi tiết implementation đã
+  chuyển sang file con.
+- Tạo mới `.claude/rules/legacy-migration.md` (42 dòng) ← mục "Quy tắc Migration từ src/legacy/".
+- Tạo mới `.claude/rules/architecture-layers.md` (87 dòng) ← "Cấu trúc Solution", "Quy tắc
+  AppService", "Quy ước phát triển mới (Greenfield)".
+- Tạo mới `.claude/rules/backend-api-rules.md` (126 dòng) ← quy tắc `POS.Common`
+  (Newtonsoft.Json, cấm đổi field JSON), "Quy tắc Controller" A-F, "Guardrails & Testing".
+- Tạo mới `.claude/rules/masterdata-sync.md` (104 dòng) ← toàn bộ feature spec "Sinh file
+  master data .zip cho POS".
+- Tạo mới `.claude/rules/blazor-web-app.md` (437 dòng) ← mục "POS.Web — Blazor Server
+  Dashboard" (Stack, Auth, Roles, Services inject, Template page, MudBlazor v9 breaking
+  changes, Responsive UI Standard, KHÔNG làm, Slash commands, MudAutocomplete circuit-crash,
+  Density Standard, Audit log). **Không** copy §14 "MudBlazor Theme Standard" cũ — đã xác nhận
+  trùng lặp gần 100% với `.claude/rules/mudblazor-flat-ui.md` (bản đó chi tiết + cập nhật hơn),
+  xóa hẳn khỏi CLAUDE.md thay vì copy 2 nơi.
+- `docs/architecture/centralMD-schema.md`: thêm block "Business rules" dưới `### Store` (ý
+  nghĩa cột `ClosingMethod`, lưu ý KHÔNG dùng `Blocked`, query chuẩn lấy store hoạt động) — dời
+  từ CLAUDE.md sang đây thay vì tạo file rule DB riêng, giữ đúng nguyên tắc "1 nguồn sự thật
+  cho schema DB" đã khai trong chính CLAUDE.md.
+
+**Pattern mới:** Không có pattern code mới — đây là tái tổ chức tài liệu thuần túy, không đổi
+logic/behavior nào.
+
+**Lưu ý cho session sau:** CLAUDE.md giờ chỉ là **Router** — khi cần chi tiết implementation
+(AppService pattern, Controller rules, POS.Web auth/responsive/density, master-data-sync...)
+phải mở đúng file `.claude/rules/*.md` tương ứng theo Router Index, KHÔNG còn tìm thấy trong
+CLAUDE.md nữa. Toàn bộ nội dung đã đối chiếu grep để đảm bảo không mất logic khi tách.
+
+---
+
+## [2026-07-09] Đồng bộ UI toàn bộ POS.Web theo chuẩn MemberPointsPage.razor
+
+**Layer:** POS.Web
+**Loại:** Pattern mới (chốt chuẩn) + Refactor UI diện rộng
+
+**Thay đổi:**
+- `.claude/rules/mudblazor-flat-ui.md` §4a: `pos-status-chip` đổi từ "ngoại lệ theo 1 mockup cụ
+  thể" sang **CHUẨN MẶC ĐỊNH** cho mọi status badge tĩnh — `MudChip` chỉ còn dùng khi cần tương
+  tác (multi-select/closable/trong filter). Thêm §3a mới ghi lại 2 class `pos-btn-mockup`/
+  `pos-btn-secondary-mockup` (trước đó chỉ có ở 1 file, chưa vào rule).
+- `.claude/skills/web/SKILLS.md`: đồng bộ 2 bảng component tham chiếu (Shared components,
+  bảng mapping loại UI) theo chuẩn `pos-status-chip` mới; sửa tiêu đề pattern §"Badge trạng thái
+  dot-pill" từ "khi MudChip không khớp mockup" → "(CHUẨN MẶC ĐỊNH)".
+- Rà và sửa markup **66 page + 29 dialog** trong `src/POS.Web/Components/Pages/**` (Store, Ops,
+  Promotion, Catalog, Admin, root: Login/Index/AccessDenied): status `MudChip` tĩnh → `<span
+  class="pos-status-chip pos-status-{semantic}">`; thêm `pos-btn-mockup` (mọi `MudButton`) +
+  `pos-btn-secondary-mockup` (chỉ Outlined trung tính, không đặt `Color`); chuẩn hóa
+  `Variant.Outlined`/`Margin.Dense`/`Adornment.Start` cho input filter; bổ sung
+  `Dense/Hover/Striped/HorizontalScrollbar` còn thiếu trên `MudTable`; chuẩn hóa
+  `MudTablePager PageSizeOptions` về `{10,20,50,100}`; chuẩn hóa format ngày giờ
+  `yyyy-MM-dd HH:mm:ss` cho cột lịch sử nhiều ngày (loại trừ có chủ đích: dashboard "hôm nay"
+  giữ time-only, `PricesPage`/`PriceSetupPage` giữ format string SP trả sẵn — không đổi backend).
+- Chỉ sửa Razor markup — không đổi `@code`/DTO/service, ngoại trừ thêm vài helper tĩnh
+  `(string CssClass, string Label)` cạnh helper cũ (đã xóa 2 helper cũ hết dùng ở
+  `VoidsPage.razor`/`TransactionsPage.razor` sau khi chuyển sang helper mới).
+
+**Pattern mới:** `pos-status-chip` là chuẩn mặc định status badge (đã cập nhật cả
+`mudblazor-flat-ui.md` và `.claude/skills/web/SKILLS.md`).
+
+**Lưu ý cho session sau:** Vài batch chạy qua sub-agent bị gián đoạn giữa chừng do lỗi API tạm
+thời ("hệ thống bảo mật VCM") — luôn build lại + đọc kỹ file đã sửa trước khi tin tưởng báo cáo
+"đã hoàn thành" của agent, đặc biệt kiểm tra `@{` lồng sai trong code-block đã mở (RZ1010) và
+helper method cũ còn sót lại không ai gọi. Verify: `dotnet build POS.slnx` 0 lỗi + `dotnet test
+tests/POS.ContractTests` 39/39 xanh. **CHƯA VERIFY UI bằng mắt** — sandbox thiếu
+`POS_SECRET_KEY`/DB/Redis nên không `dotnet run` được.
+
+---
+
+## [2026-07-09] Trang "Hội viên" (CỬA HÀNG → Giao dịch) + chuẩn hóa badge/button theo mockup
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Web
+**Loại:** Feature mới + Pattern mới + Bug fix (input font-size)
+
+**Thay đổi:**
+- `src/POS.Common/Dtos/RptLoyalty/InvoiceLoyaltyDto.cs` (mới): DTO báo cáo hóa đơn tích/tiêu điểm
+  hội viên (`OrderNo`, `TransactionType`, `OrigOrderNo`, `MemberCardNo`, `StoreNo`, `ActionType`,
+  `LoyaltyPoints`, `CrtDate`, `Total`) + computed `MemberCardMasked` (che 4 số cuối).
+- `src/POS.Infrastructure/Repositories/Loyalty/{I}RptLoyaltyRepository.cs` (mới): tách khỏi
+  `ILoyaltyRepository`, query trực tiếp `LoggingLoyalty` (RPOSLoyalty) — server-side paging
+  (`OFFSET/FETCH` + `COUNT(*) OVER()`), tính lại dấu `LoyaltyPoints` theo `ActionType` ngay tại SQL.
+  Đăng ký DI trong `POS.Infrastructure/DependencyInjection.cs`.
+- `src/POS.Web/Components/Pages/Store/Transactions/MemberPointsPage.razor` (mới) +
+  `src/POS.Web/Components/Pages/Store/Dialogs/MemberPointsDetailDialog.razor` (mới): trang
+  "Hội viên" — filter (Cửa hàng/Từ-Đến ngày/Hình thức/Số hóa đơn/Số thẻ HV/Loại hóa đơn) +
+  `MudTable ServerData` + Export Excel (ClosedXML) + dialog xem chi tiết (hero số điểm + chip).
+- `src/POS.Web/Components/Layout/MainLayout.razor`: thêm nav "Hội viên" vào nhóm "Giao dịch" +
+  breadcrumb + `_expandStoreTx`.
+- `src/POS.Web/wwwroot/app.css`: 3 nhóm rule mới —
+  1. `.pos-status-chip` + modifier `.pos-status-{success,error,warning,info}` (badge dot-pill theo
+     mockup `docs/web/images/status.jpg`, thay `MudChip` cho cột trạng thái/hình thức).
+  2. `.mud-input-root{font-size:0.78125rem !important}` — **fix bug thật**: input value (TextField/
+     Autocomplete/Select/DatePicker) không hề bị `Typography.Body1` chi phối như tài liệu cũ ghi
+     (verify trực tiếp `MudBlazor.min.css`: `.mud-input-root{font:inherit}` chỉ kế thừa từ `<body>`
+     = `Typography.Default`, không phải Body1) — input trước đó to hơn mockup ~0.5px + weight
+     không đảm bảo.
+  3. `.pos-btn-mockup`/`.pos-btn-secondary-mockup` — nút Tìm/Xóa/Export Excel dùng `Size.Small` nhỏ
+     hơn mockup `.btn{padding:7px 14px}`, và `Variant.Outlined` mặc định nền trong suốt khác
+     `.btn-secondary` mockup (nền xám đặc) — tái dùng token `--pos-bg-alt`/`--pos-text-body`/`--pos-border`.
+- `docs/CURRENT_STRUCTURE.md`, `docs/architecture/loyalty-schema.md`, `docs/WEB_STATUS.md`,
+  `.claude/rules/mudblazor-flat-ui.md` §4a, `.claude/skills/web/SKILLS.md`: đồng bộ tài liệu.
+
+**Pattern mới:** Badge dot-pill (`.pos-status-chip`) khi `MudChip` không khớp mockup + input
+font-size không do `Body1` chi phối như lầm tưởng trước đây → đã cập nhật
+`.claude/skills/web/SKILLS.md` (pattern cuối file) + `.claude/rules/mudblazor-flat-ui.md` §4a.
+
+**Lưu ý cho session sau:**
+- Cột `StoreNo` trên bảng `LoggingLoyalty` (RPOSLoyalty) **CHƯA TỒN TẠI** trong DB thật (script gốc
+  `docs/sql/database/Loyalty.sql` không có cột này) — `RptLoyaltyRepository` đã viết sẵn
+  `WHERE StoreNo=@StoreNo` giả định cột tồn tại (user xác nhận sẽ tự thêm cột sau, ngoài phạm vi
+  task). Trước khi cột được thêm, mọi query có `storeNo != null` sẽ lỗi SQL "Invalid column name".
+- Nếu cần sửa input font-size/weight cho MudTextField/MudSelect/MudAutocomplete/MudDatePicker, sửa
+  ở `.mud-input-root` trong `app.css`, **KHÔNG** sửa `Typography.Body1` trong `PosTheme.cs` (không
+  có tác dụng lên input, chỉ ảnh hưởng `<MudText Typo="Typo.body1">`).
+- **CHƯA VERIFY UI bằng mắt trên trình duyệt** (sandbox thiếu `POS_SECRET_KEY`/DB Loyalty/Redis) —
+  chỉ verify được qua `dotnet build` (0 lỗi) + `dotnet test tests/POS.ContractTests` (39/39).
+
+---
+
+## [2026-07-09] Action linh động theo bảng khi sinh file .txt master data sync
+
+**Layer:** POS.Api, POS.Web (indirect qua service), POS.Application, POS.Infrastructure, POS.Common
+**Loại:** Feature (bỏ hardcode) + thay đổi hành vi SP
+
+**Thay đổi:**
+- `docs/sql/SyncTableList_AddAction.sql` (mới): thêm cột `SyncTableList.Action` (default
+  `TRUNC-INSERT`) + cập nhật SP `[SyncTable_Get]` trả thêm cột `Action`; thêm nhánh **mới**
+  `@IsChange='W'` (Web Sync/push 1 POS) — Action nhánh này luôn literal `'DELETE-INSERT'`.
+- `src/POS.Common/Dtos/DataSync/SyncTableInfo.cs`: thêm property `Action` (map cột SP).
+- `src/POS.Common/Dtos/DataSync/GetMasterDataFileRequest.cs`: đổi field `SyncAction` (string?
+  override Action literal) → `IsChangeMode` (string, "A"/"W" — chọn nhánh gọi SP).
+- `src/POS.Infrastructure/Repositories/DataSync/{I}SyncRepository.cs`: `GetSyncTablesAsync` nhận
+  thêm tham số `isChange` (mặc định "A"); Redis cache tách key `MD:SyncTableList:A` /
+  `MD:SyncTableList:W` (Action khác nhau giữa 2 nhánh nên không thể dùng chung 1 cache key).
+- `src/POS.Application/Features/DataSync/MasterDataSyncService.cs`: `ActionFor` không còn hardcode
+  — batch 1 dùng `SyncTableInfo.Action` (fallback hằng số `TRUNC-INSERT` nếu SP chưa có cột), batch
+  sau luôn `INSERT` (ràng buộc kỹ thuật, không đổi theo DB); `IsChangeMode="W"` dùng Action cho MỌI
+  batch (fallback `DELETE-INSERT`).
+- `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`PushStartOfDayDataAsync`, dùng bởi
+  nút "Đồng bộ" trên `PosMapPage.razor`): đổi `SyncAction="DELETE-INSERT"` ép cứng → `IsChangeMode="W"`.
+- `docs/CURRENT_STRUCTURE.md`, `CLAUDE.md` (mục "Sinh file master data .zip cho POS"),
+  `docs/ROLLOUT.md` (thêm mục O1b): cập nhật đồng bộ theo thay đổi trên.
+
+**Pattern mới:** không phải pattern tái dùng chung (đặc thù tính năng Sync Master Data) — không
+cập nhật SKILLS.md.
+
+**Verify:** `dotnet build POS.slnx` (0 error) + `dotnet test tests/POS.ContractTests` (39/39 pass).
+**Chưa verify runtime thật** (gọi SP `[SyncTable_Get]`/`[SyncGetDataByTable]` thật, mở file `.txt`
+trong zip xem field `Action`) — sandbox không có kết nối DB CentralMD/Redis thật. Cần DBA áp dụng
+`docs/sql/SyncTableList_AddAction.sql` trên môi trường có DB trước khi test tay.
+
+**Lưu ý cho session sau:** `SyncTableList.Action` là cấu hình theo TỪNG BẢNG cho nhánh ALL sync
+(`@IsChange='A'`) — DBA chỉnh trực tiếp trên DB (`UPDATE SyncTableList SET Action=...`), KHÔNG cấu
+hình ở appsettings/code. Nhánh Web Sync (`@IsChange='W'`) luôn trả `DELETE-INSERT` bất kể cột
+`Action` trong DB (business rule cố định trong SP, không cấu hình được qua DB). Nhớ `DEL
+MD:SyncTableList:A` (và `:W` nếu liên quan) trên Redis sau khi DBA đổi cấu hình để có hiệu lực ngay.
+
 ## [2026-07-08] Giảm nhiễu log INF — MinimumLevel Warning + GetLevel tùy biến cho UseSerilogRequestLogging
 
 **Layer:** POS.Api, POS.Web, POS.Worker
@@ -822,7 +1010,7 @@ vụ mới: 1 header có thể nhận thêm nhiều lô mã Auto bất kỳ lúc
 - `VoucherIssuePage.razor`: gộp 2 nhóm form thành 1 "Thông tin chung", hiện field `MaxAmount`
   (Giảm giá tối đa — trước ẩn/hardcode 0) thành editable, thêm nút "PHÁT HÀNH VOUCHER" (tạo mới)
   và "PHÁT HÀNH" (xem chi tiết), xóa `CodeFieldsLocked` (dead code).
-- `docs/CURRENT_STRUCTURE.md`, `docs/architecture/database-schema.md`: cập nhật entry SP mới + mô
+- `docs/CURRENT_STRUCTURE.md`, `docs/architecture/centralMD-schema.md`: cập nhật entry SP mới + mô
   tả method mới.
 - `.claude/skills/database/SKILLS.md`: thêm pattern mới "SP tạo lần đầu (guard) vs SP phát hành
   thêm (append, không guard)".
@@ -878,7 +1066,7 @@ class/method/interface mới được tạo.
 **Bối cảnh:** người dùng báo checkbox "Áp dụng theo danh sách sản phẩm" trên `VoucherIssuePage.razor`
 có vẻ gán ngược `IsCheckItem`. Điều tra kỹ (2 vòng Explore đối chiếu 7 nguồn: legacy Controller,
 legacy View/checkbox thực tế `chk-total-bill`, `VoucherService.cs`, SP `usp_SetupVoucher_Save`/
-`SaveIssue` — logic thật không chỉ comment, `docs/architecture/database-schema.md`) xác nhận code
+`SaveIssue` — logic thật không chỉ comment, `docs/architecture/centralMD-schema.md`) xác nhận code
 CŨ **không phải bug** — nó khớp đúng quy ước legacy Voucher (`IsCheckItem=1`=tổng bill), chỉ NGƯỢC
 với Coupon (`IsCheckItem=1`=theo sản phẩm) vì 2 module viết độc lập ở legacy VCM.BLUEPOS. Sau khi
 trình bày bằng chứng, **người dùng quyết định đổi ngữ nghĩa Voucher khớp Coupon** (chấp nhận rủi ro
@@ -899,7 +1087,7 @@ trình bày bằng chứng, **người dùng quyết định đổi ngữ nghĩa
 - **File SQL mới** `docs/sql/Voucher_FlipIsCheckItem_Migration.sql` — data migration 1 lần, đảo
   bit `IsCheckItem` CHỈ cho `ArticleType IN ('ZVCN','ZVCO')` (Coupon giữ nguyên), có SELECT COUNT
   đối chiếu trước/sau + transaction.
-- `docs/architecture/database-schema.md`: cập nhật comment cột `IsCheckItem` (dòng ~1682),
+- `docs/architecture/centralMD-schema.md`: cập nhật comment cột `IsCheckItem` (dòng ~1682),
   `CpnVchBOMLine` (dòng ~1766), SP `usp_SetupVoucher_Save`/`SaveIssue` — nay Coupon & Voucher
   dùng chung 1 nghĩa.
 - `docs/ROLLOUT.md` — thêm mục **D10** (CRITICAL): thứ tự bắt buộc deploy code → chạy lại 2 SP →
@@ -1033,7 +1221,7 @@ trực tiếp máy POS bằng credential hard-code + raw SQL string-replace — 
   - `IPromotionRepository`/`PromotionRepository`: 6 method mới — SQL Dapper trực tiếp trên
     `dbo.OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority` (KHÔNG qua SP như
     lưới chính, vì legacy cũng dùng EF LINQ trực tiếp cho phần detail — đã tra đúng bảng/cột
-    trong `docs/architecture/database-schema.md` trước khi viết).
+    trong `docs/architecture/centralMD-schema.md` trước khi viết).
   - `IPromotionService`/`PromotionService`: 6 method thin-wrapper; riêng `GetOfferSiteDetailAsync`
     map thêm `StyleProfileName` (VM→WinMart, VMP→WinMart+, FS→FlagShip, KS→Kiosk — hardcode switch,
     xác nhận KHÔNG có bảng danh mục backing trong DB).
@@ -1244,7 +1432,7 @@ xong ("Site Group") để tái dùng.
   sản phẩm + danh sách nhóm có filter/phân trang/xem chi tiết/chọn gắn vào dòng).
 - `PromotionSetupPage.razor`: thay placeholder "(Cấu hình nhóm SP — bổ sung ở task sau)" (2 chỗ,
   bảng Buy + Get) bằng nút "Cấu hình nhóm" mở dialog, gán `GroupCode` trả về vào dòng.
-- `docs/architecture/database-schema.md`, `docs/CURRENT_STRUCTURE.md`, `docs/WEB_STATUS.md`: cập
+- `docs/architecture/centralMD-schema.md`, `docs/CURRENT_STRUCTURE.md`, `docs/WEB_STATUS.md`: cập
   nhật theo thay đổi trên.
 
 **Hạn chế legacy CHỦ Ý giữ nguyên (theo quyết định người dùng)**: cột `ListItemNo` chỉ lưu
@@ -1331,7 +1519,7 @@ không chỉ dựa vào ảnh mockup.
   `MemberCode` sang `MudAutocomplete` (gõ tự do + gợi ý).
 - `Dialogs/SiteGroupSetupDialog.razor` (mới): modal 2 sub-tab (tạo nhóm mới + danh sách nhóm có
   filter/phân trang/xem chi tiết store/chọn gắn vào CTKM).
-- `docs/architecture/database-schema.md`, `docs/CURRENT_STRUCTURE.md`, `docs/WEB_STATUS.md`: cập
+- `docs/architecture/centralMD-schema.md`, `docs/CURRENT_STRUCTURE.md`, `docs/WEB_STATUS.md`: cập
   nhật theo thay đổi trên.
 
 **Pattern mới:** không có pattern mới ngoài phạm vi đã có (dialog/SP/cache theo chuẩn dự án).
@@ -1405,7 +1593,7 @@ quan trên browser thật trong session này (không có công cụ browser) —
 - **FIX bug Sửa/Xóa giá sai dòng**: SP `GetSalesPriceList`/`_Export` (DBA sửa 2026-07-05→06) đổi trả cột `SalesCode` = **tên** nhóm giá (`PriceGroupName`) thay vì mã — code cũ dùng thẳng field này làm khoá gửi `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**) → luôn báo "Không tìm thấy dữ liệu" khi Code≠Name. Thêm cột mã gốc `SalesGroupCode`/`SalesTypeCode` vào SP (script `docs/sql/GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`), map vào `PriceListItemDto`, sửa `TryBuildKey` dùng field mã thay field hiển thị.
 - **FIX bug thứ 2 phát hiện khi review**: 1 item/uom/nhóm giá/ngày hiệu lực có thể có nhiều dòng khác nhau theo `SalesType` (hình thức bán hàng) — composite PK cũ (ItemNo, SalesCode, StartingDate, UOM) không đủ định vị. Thêm field `PriceRowKey.SalesType` + tham số `@SalesType` vào `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (script `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`).
 - `GetSalesPriceList_Export`: fix thêm 1 bug review-time không liên quan yêu cầu ban đầu — proc tham chiếu sai tên temp table (`#SalsePriceExportTemp` không tồn tại, bảng thật là `#TempSalesPrice`) → nút Xuất Excel sẽ crash runtime nếu không sửa.
-- **Đính chính schema**: `database-schema.md` từng ghi "SalesPrice KHÔNG có Id/IsActive" — SAI. Source thật của `GetSalesPriceList` (`AND S.IsActive = 1`, bắt buộc bất kể `@isCheck`) + bản `usp_SalesPrice_SoftDelete` mới (set `IsActive=0` khi xóa mềm) xác nhận bảng CÓ 2 cột này. Trước bản vá này, xóa mềm chỉ set `EndingDate` năm 7777 mà không set `IsActive=0` → dòng đã xóa có thể vẫn hiển thị khi bỏ check "Còn hiệu lực" (SP luôn yêu cầu `IsActive=1`, không điều kiện theo `@isCheck`).
+- **Đính chính schema**: `centralMD-schema.md` từng ghi "SalesPrice KHÔNG có Id/IsActive" — SAI. Source thật của `GetSalesPriceList` (`AND S.IsActive = 1`, bắt buộc bất kể `@isCheck`) + bản `usp_SalesPrice_SoftDelete` mới (set `IsActive=0` khi xóa mềm) xác nhận bảng CÓ 2 cột này. Trước bản vá này, xóa mềm chỉ set `EndingDate` năm 7777 mà không set `IsActive=0` → dòng đã xóa có thể vẫn hiển thị khi bỏ check "Còn hiệu lực" (SP luôn yêu cầu `IsActive=1`, không điều kiện theo `@isCheck`).
 - `PriceListDto.cs`: `PriceListItemDto` +`SalesGroupCode`+`SalesTypeCode`; `PriceListFilter` bỏ `Barcode`, `SalesCode`→`SaleType`+`SalesGroup` (mặc định `"ALL"`). `PriceSetupDto.cs`: `PriceRowKey` +`SalesType`. `PriceRepository.cs`: `GetListAsync`/`GetExportListAsync` đổi tham số EXEC theo SP mới + `NormalizeSalesGroup` (dịch UI sentinel `"ALL"`→`""`); `UpdatePriceAsync`/`SoftDeletePriceAsync` truyền thêm `@SalesType`.
 
 **Pattern mới:** SP đổi 1 cột từ mã sang tên hiển thị → luôn thêm cột mã gốc riêng cho composite key (không tái dùng field hiển thị để build khoá Update/Delete). Đã cập nhật `.claude/skills/api/SKILLS.md`.
@@ -1430,7 +1618,7 @@ quan trên browser thật trong session này (không có công cụ browser) —
 
 **Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
 
-**Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `database-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
+**Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `centralMD-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
 
 ---
 
@@ -1886,10 +2074,10 @@ cơ chế code đã sẵn sàng cho cả 2 project, chỉ còn chờ ops chạy 
   Helpers "chưa migrate" đối chiếu inventory đã xóa) + số liệu thống kê liên quan.
 - `docs/API_CONTRACT.md`: bỏ mục 10 "Notes cho Migration sang .NET 10" (đã hoàn thành từ lâu).
 - `.claude/skills/api/SKILLS.md`: pattern "xác minh tên bảng qua legacy EDMX"
-  (`src/legacy/*/EF/**/*.edmx`) → thay bằng tra `docs/architecture/database-schema.md`.
+  (`src/legacy/*/EF/**/*.edmx`) → thay bằng tra `docs/architecture/centralMD-schema.md`.
 - `.claude/skills/cache/SKILLS.md`, `.claude/skills/worker/SKILLS.md`: bỏ khung "migrate từ
   project cũ/IIS MemoryCache", giữ nguyên toàn bộ quy tắc kỹ thuật (Redis pattern, Worker pattern).
-- `docs/architecture/database-schema.md`, `docs/web/LOGIC_APPROVE_CTKM.md`: sửa cross-reference
+- `docs/architecture/centralMD-schema.md`, `docs/web/LOGIC_APPROVE_CTKM.md`: sửa cross-reference
   trỏ tới mục/file đã xóa.
 - `README.md`: viết lại hoàn toàn — bản cũ mô tả sai kiến trúc (POS.API/POS.Domain/POS.Shared),
   sót lại từ giai đoạn lên kế hoạch ban đầu, còn trỏ tới `POS.Backend`/`analyze-legacy.md`.
@@ -1900,7 +2088,7 @@ cơ chế code đã sẵn sàng cho cả 2 project, chỉ còn chờ ops chạy 
 
 **Lưu ý cho session sau:** `src/legacy/`, `_migration/`, `docs/PROJECT_INVENTORY.md` **không còn
 tồn tại** — đừng đề xuất đọc/grep các đường dẫn này nữa. Khi cần tra tên bảng/cột DB dùng
-`docs/architecture/database-schema.md`; khi cần tra cấu trúc code hiện có dùng
+`docs/architecture/centralMD-schema.md`; khi cần tra cấu trúc code hiện có dùng
 `docs/CURRENT_STRUCTURE.md`. Đã verify: `dotnet build` (0 lỗi) + `dotnet test tests/POS.ContractTests` (25/25 pass).
 
 ---
@@ -1974,7 +2162,7 @@ ngay trong <12h: `DEL MD:CpnVchBOMHeader`.
   (`CouponRepository.cs`, `VoucherCodeRepository.cs`, `SAPService.cs`, `SAPController.cs`).
   Không DTO nào đổi field → contract test (`VoucherStatusResponse_locked`, `CouponCodeDto_locked`)
   giữ nguyên, vẫn xanh.
-- `docs/architecture/database-schema.md`: cập nhật mô tả cột `CpnVchBOMCodeIssue` (nhiều field
+- `docs/architecture/centralMD-schema.md`: cập nhật mô tả cột `CpnVchBOMCodeIssue` (nhiều field
   nay dùng chung 2 Source thay vì chỉ SAP), 5 SP đã sửa hành vi. `docs/ROLLOUT.md` §D6.1: checklist
   chạy 4 script theo đúng thứ tự (ItemNoHardening trước tiên).
 
@@ -2058,7 +2246,7 @@ domain khác nhau vào chung 1 Repository/Service.
 - **Contract test mới**: `tests/POS.ContractTests/JsonFieldContractTests.cs` —
   `VoucherStatusResponse_locked` (DTO này trước đó CHƯA có test khóa field — lỗ hổng guardrail có
   sẵn, bổ sung vì task này động chạm trực tiếp tầng lưu trữ của DTO).
-- Cập nhật `docs/architecture/database-schema.md` (schema mới + 3 SP mới + đánh dấu
+- Cập nhật `docs/architecture/centralMD-schema.md` (schema mới + 3 SP mới + đánh dấu
   `Internal_Voucher` LEGACY), `docs/CURRENT_STRUCTURE.md` (xóa `ISAPVoucherRepository`, thêm
   `IVoucherCodeRepository`), `docs/ROLLOUT.md` §D6 (checklist go-live theo đúng thứ tự script).
 

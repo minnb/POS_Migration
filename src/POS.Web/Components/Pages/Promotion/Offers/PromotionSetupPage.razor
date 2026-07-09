@@ -23,14 +23,14 @@
 <MudMessageBox @ref="_confirmBox" Title="Duyệt CTKM" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Success">Duyệt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" Class="pos-btn-mockup">Duyệt</MudButton>
     </YesButton>
 </MudMessageBox>
 
 <MudMessageBox @ref="_confirmDiscountBox" Title="Xác nhận" CancelText="Không">
     <MessageContent>@_confirmDiscountMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error">Có</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Có</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -50,11 +50,13 @@
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6" md="3">
                 <MudTextField @bind-Value="_filter.OfferNo" Label="Mã CTKM"
-                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"/>
             </MudItem>
             <MudItem xs="12" sm="6" md="4">
                 <MudTextField @bind-Value="_filter.OfferName" Label="Tên CTKM"
-                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudSelect @bind-Value="_filter.ApproveStatus" Label="Trạng thái duyệt"
@@ -66,9 +68,9 @@
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                                FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
-                    <MudButton Variant="Variant.Outlined"
+                    <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                                FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
                 </MudStack>
             </MudItem>
@@ -96,16 +98,15 @@
             <MudTd DataLabel="Hình thức bán">@context.SalesType</MudTd>
             <MudTd DataLabel="Hiệu lực">@FmtYmd(context.ValidFrom) – @FmtYmd(context.ValidTo)</MudTd>
             <MudTd DataLabel="Trạng thái">
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                         Color="@(context.Status == "0" ? Color.Success : context.Status == "1" ? Color.Info : Color.Default)">
-                    @StatusText(context.Status)
-                </MudChip>
+                @{
+                    var (stCss, stLabel) = StatusDisplay(context.Status);
+                }
+                <span class="pos-status-chip @stCss">@stLabel</span>
             </MudTd>
             <MudTd DataLabel="Duyệt">
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                         Color="@(context.IsApprove ? Color.Success : Color.Default)">
+                <span class="pos-status-chip @(context.IsApprove ? "pos-status-success" : "pos-status-warning")">
                     @(context.IsApprove ? "Đã duyệt" : "Chưa duyệt")
-                </MudChip>
+                </span>
             </MudTd>
             <MudTd DataLabel="Thao tác" Style="text-align:center">
                 <MudTooltip Text="@(context.IsApprove ? "Xem" : "Sửa")">
@@ -145,11 +146,11 @@ else
             @(string.IsNullOrEmpty(_header.No) ? "Thêm CTKM" : $"CTKM {_header.No}")
             @if (_isReadonly)
             {
-                <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ml-2">Đã duyệt — chỉ xem</MudChip>
+                <span class="pos-status-chip pos-status-success ml-2">Đã duyệt — chỉ xem</span>
             }
         </MudText>
         <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Class="pos-page-header-btn" OnClick="BackToList">Quay lại</MudButton>
+                   Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary-mockup" OnClick="BackToList">Quay lại</MudButton>
     </div>
 
     @* ── Khối form cố định (ngoài 4 tab) — khớp SetupMain.cshtml gốc ── *@
@@ -229,7 +230,7 @@ else
         @if (!_isReadonly)
         {
             <div class="d-flex justify-end mt-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="@(() => SaveAsync(true))">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" Disabled="_saving" OnClick="@(() => SaveAsync(true))">
                     @if (_saving)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
@@ -266,10 +267,10 @@ else
                             <MudTd DataLabel="Tên CTKM">@context.Description</MudTd>
                             <MudTd DataLabel="Loại CTKM">@context.OfferType</MudTd>
                             <MudTd DataLabel="Trạng thái">
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                         Color="@(context.Status == "0" ? Color.Success : context.Status == "1" ? Color.Info : Color.Default)">
-                                    @StatusText(context.Status)
-                                </MudChip>
+                                @{
+                                    var (hStCss, hStLabel) = StatusDisplay(context.Status);
+                                }
+                                <span class="pos-status-chip @hStCss">@hStLabel</span>
                             </MudTd>
                             <MudTd DataLabel="Từ giờ">
                                 <MudTextField @bind-Value="context.FromTime" Disabled="_isReadonly" Placeholder="hh:mm"
@@ -314,7 +315,7 @@ else
                             <MudSpacer/>
                             @if (!_isReadonly)
                             {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="BulkAddBuyRows">Thêm dòng (Ctrl+A)</MudButton>
                             }
                         </ToolBarContent>
@@ -356,7 +357,7 @@ else
                                 else
                                 {
                                     <div class="d-flex align-center gap-1">
-                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" Class="pos-btn-mockup"
                                                    Disabled="_isReadonly" StartIcon="@Icons.Material.Filled.Settings"
                                                    OnClick="@(() => OpenItemGroupSetupDialogAsync(context))">Cấu hình nhóm</MudButton>
                                         @if (!string.IsNullOrEmpty(context.GroupCode))
@@ -435,7 +436,7 @@ else
                             }
                             @if (!_isReadonly && !_header.CheckTotalDiscount)
                             {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="BulkAddGetRows">Thêm dòng (Ctrl+A)</MudButton>
                             }
                         </ToolBarContent>
@@ -483,7 +484,7 @@ else
                                 else
                                 {
                                     <div class="d-flex align-center gap-1">
-                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" Class="pos-btn-mockup"
                                                    Disabled="_isReadonly" StartIcon="@Icons.Material.Filled.Settings"
                                                    OnClick="@(() => OpenItemGroupSetupDialogAsync(context))">Cấu hình nhóm</MudButton>
                                         @if (!string.IsNullOrEmpty(context.GroupCode))
@@ -554,7 +555,7 @@ else
                                              SearchFunc="SearchSiteGroupAsync" ToStringFunc="@(s => s == null ? "" : $"{s.SiteGroupCode} – {s.GroupName}")"
                                              ValueChanged="AddSite" Variant="Variant.Outlined" Margin="Margin.Dense"
                                              MaxItems="50" Style="max-width:420px" Clearable="true"/>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Settings"
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Settings"
                                        OnClick="OpenSiteGroupSetupDialogAsync">Chọn nhóm CH/ST</MudButton>
                         </div>
                     }
@@ -595,7 +596,7 @@ else
                     {
                         <MudPaper Elevation="1" Class="pa-3 mt-3">
                             <MudText Typo="Typo.subtitle2" Class="mb-2">Danh sách CH/ST — @_viewingSiteGroupCode</MudText>
-                            <MudTable Items="_viewingSiteStores" Dense="true" Hover="true" Elevation="0"
+                            <MudTable Items="_viewingSiteStores" Dense="true" Hover="true" Striped="true" Elevation="0"
                                       HorizontalScrollbar="true" T="SiteGroupStoreItemDto">
                                 <HeaderContent>
                                     <MudTh>Mã CH/ST</MudTh><MudTh>Tên CH/ST</MudTh>
@@ -731,7 +732,7 @@ else
     {
         <MudPaper Elevation="1" Class="pa-4 mt-4 d-flex justify-end gap-2 flex-wrap">
             <MudTooltip Text="Lưu tạm dữ liệu hiện tại rồi Duyệt & phát hành CTKM cho máy POS (không sửa lại được)">
-                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle"
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.CheckCircle"
                            Disabled="_saving" OnClick="ApproveFromEditorAsync">Duyệt CTKM</MudButton>
             </MudTooltip>
         </MudPaper>
@@ -1200,4 +1201,17 @@ else
         "2" => "Ngưng áp dụng",
         _ => s
     };
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) StatusDisplay(string s)
+    {
+        var css = s switch
+        {
+            "0" => "pos-status-success",
+            "1" => "pos-status-info",
+            _   => "pos-status-warning"
+        };
+        return (css, StatusText(s));
+    }
 }

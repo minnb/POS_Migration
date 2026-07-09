@@ -23,6 +23,7 @@
                     <MudTextField @bind-Value="_model.Username"
                                   Label="Tên đăng nhập"
                                   Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
                                   Disabled="@IsEdit"
                                   Required="true"
                                   RequiredError="Vui lòng nhập tên đăng nhập"
@@ -36,6 +37,7 @@
                     <MudTextField @bind-Value="_model.FullName"
                                   Label="Họ và tên"
                                   Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
                                   Required="true"
                                   RequiredError="Vui lòng nhập họ và tên"
                                   Immediate="true"
@@ -47,6 +49,7 @@
                     <MudSelect @bind-Value="_model.Role"
                                Label="Vai trò"
                                Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
                                Required="true"
                                RequiredError="Vui lòng chọn vai trò"
                                AnchorOrigin="Origin.BottomLeft">
@@ -64,6 +67,7 @@
                                       Label="Mã cửa hàng (phân cách bởi dấu phẩy)"
                                       Placeholder="POS001,POS002,POS003"
                                       Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
                                       HelperText="Để trống nếu được xem tất cả cửa hàng"
                                       Immediate="true"/>
                     </MudItem>
@@ -87,6 +91,7 @@
                                       Label="@(IsEdit ? "Mật khẩu mới" : "Mật khẩu")"
                                       InputType="@(_showPassword ? InputType.Text : InputType.Password)"
                                       Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
                                       Required="true"
                                       RequiredError="Vui lòng nhập mật khẩu"
                                       Validation="@((Func<string?, string?>)ValidatePassword)"
@@ -114,10 +119,11 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Hủy</MudButton>
         <MudButton OnClick="Submit"
                    Variant="Variant.Filled"
                    Color="Color.Primary"
+                   Class="pos-btn-mockup"
                    Disabled="@_saving"
                    StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
             @if (_saving)

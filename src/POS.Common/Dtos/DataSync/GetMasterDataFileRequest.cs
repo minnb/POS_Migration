@@ -15,8 +15,9 @@ public sealed class GetMasterDataFileRequest
     public string TargetDir { get; set; } = string.Empty;
 
     /// <summary>
-    /// Action ghi vào envelope cho MỌI batch (override khuôn mặc định TRUNC-INSERT→INSERT).
-    /// null = mặc định (POS ALL: batch1 TRUNC-INSERT, batch sau INSERT). Web Sync đặt "DELETE-INSERT".
+    /// @IsChange truyền vào SP [SyncTable_Get]. "A" = ALL sync (mặc định) — Action lấy từ SP theo
+    /// từng bảng, batch 1 dùng Action đó, batch sau luôn "INSERT" (append kỹ thuật). "W" = Web
+    /// Sync/push 1 POS — Action lấy từ SP (nhánh W luôn trả "DELETE-INSERT"), áp dụng MỌI batch.
     /// </summary>
-    public string? SyncAction { get; set; }
+    public string IsChangeMode { get; set; } = "A";
 }

@@ -129,7 +129,7 @@ public sealed class LoyaltyController(
         if (!ModelState.IsValid) return ExceptionModels();
 
         var sw = Stopwatch.StartNew();
-        var endpoint = "api/common/v2/loyalty/transaction/add";
+        var endpoint = "api/v2/loyalty/transaction/add";
 
         // TODO: extract phone validation to a helper
         if (!(model.CardNumber.Length >= 9 && model.CardNumber.Length <= 11 && model.CardNumber.All(char.IsDigit)))
@@ -164,7 +164,7 @@ public sealed class LoyaltyController(
         if (!ModelState.IsValid) return ExceptionModels();
 
         var sw = Stopwatch.StartNew();
-        var endpoint = "api/common/v2/loyalty/transaction/refund";
+        var endpoint = "api/v2/loyalty/transaction/refund";
 
         // TODO: extract phone validation to a helper
         if (!(model.CardNumber.Length >= 9 && model.CardNumber.Length <= 11 && model.CardNumber.All(char.IsDigit)))

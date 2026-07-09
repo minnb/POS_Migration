@@ -93,6 +93,29 @@
   `ProductLockPage.razor`, `UsersPage.razor` (`_confirmYesColor`). Pattern đầy đủ:
   `.claude/skills/web/SKILLS.md` §"MudMessageBox @ref".
 
+### 3a. Class CSS phụ trợ cho MudButton — `pos-btn-mockup` / `pos-btn-secondary-mockup`
+
+> Chốt 2026-07-09 (chiến dịch đồng bộ 95 file theo `MemberPointsPage.razor`). 2 class định nghĩa
+> trong `app.css:161-168`:
+> ```css
+> .pos-btn-mockup { padding: 7px 14px !important; }
+> .pos-btn-secondary-mockup { background-color: var(--pos-bg-alt) !important; color: var(--pos-text-body) !important; border: 1px solid var(--pos-border) !important; }
+> ```
+
+- **`pos-btn-mockup`**: thêm vào **MỌI** `MudButton` (Filled và Outlined, mọi Color) — chỉ chỉnh
+  padding khớp mockup `theme_html.html .btn{padding:7px 14px}`, an toàn với mọi Color.
+- **`pos-btn-secondary-mockup`**: **CHỈ** thêm vào `MudButton Variant="Variant.Outlined"` **trung
+  tính** (không đặt `Color`, ví dụ "Hủy", "Đóng", "Xóa lọc", "Export Excel") — class này ép cứng
+  `background/color/border` sang tông xám trung tính. **KHÔNG** thêm vào `Outlined` có `Color`
+  ngữ nghĩa (`Color.Error` phá hủy, `Color.Success`...) — sẽ xóa mất tín hiệu màu, phá vỡ ý nghĩa
+  "Phá hủy" ở bảng Variant/Color trên. Outlined có Color chỉ nhận `pos-btn-mockup`.
+
+```razor
+<MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" OnClick="SearchAsync">Tìm</MudButton>
+<MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup" OnClick="ClearFilter">Xóa</MudButton>
+<MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup" OnClick="DeleteAsync">Xóa</MudButton>
+```
+
 ## 4. Bảng dữ liệu (MudTable)
 
 - Luôn dùng `<MudTable>`, `Dense="true"` **bắt buộc** (Density Standard §15), `Hover="true"`,
@@ -103,6 +126,29 @@
   — khớp `th` mockup. Đây là thay đổi trực quan rõ nhất của v3 trên mọi `MudTable`.
 - `.rpt-pivot-table` (pivot report) **giữ nguyên** viền cyan cũ — ngoài phạm vi, thiết kế riêng.
 - `MudTablePager` `PageSizeOptions` luôn bắt đầu bằng `10`.
+
+### 4a. Status badge dạng dot-pill — CHUẨN MẶC ĐỊNH (cập nhật 2026-07-09, chiến dịch đồng bộ toàn app)
+
+> Chốt lần đầu 2026-07-09 khi restyle `MemberPointsPage.razor` (giới hạn ở 1 mockup cụ thể), sau đó
+> **mở rộng thành chuẩn mặc định toàn app** cùng ngày, trong chiến dịch đồng bộ 95 file
+> `Components/Pages/**/*.razor` lấy `MemberPointsPage.razor` làm page mẫu. Quyết định cũ ("MudChip
+> vẫn là mặc định, `pos-status-chip` chỉ dùng khi khớp 1 mockup cụ thể") **đã lỗi thời** — xem
+> "Trạng thái rollout" cuối file.
+
+- **`.pos-status-chip` + modifier `.pos-status-{success,error,warning,info}`** (`app.css`, đặt cạnh
+  `.pos-delta-up/.pos-delta-down`) là **CHUẨN MẶC ĐỊNH** cho mọi badge tĩnh hiển thị trạng thái/
+  phân loại/hình thức trong `MudTable` hoặc dialog chi tiết — "viên thuốc nền tint nhạt + chữ đậm
+  cùng tông + chấm tròn nhỏ bên trái". Markup: `<span class="pos-status-chip pos-status-success">
+  Label</span>` — dot vẽ bằng `::before` + `background-color:currentColor`, không cần markup con
+  riêng.
+- **`MudChip`** (`Variant="Variant.Filled"`, nền đặc + `ContrastText`) chỉ còn dùng khi chip cần
+  **tương tác thật** (multi-select, có nút đóng `OnClose`, chip trong `MudAutocomplete`/filter
+  chọn nhiều) — KHÔNG dùng cho badge tĩnh chỉ hiển thị label.
+- Precedent gốc của kỹ thuật "pill nền tint dùng token `--pos-{semantic}`/`--pos-{semantic}-bg`"
+  là `Components/Shared/PosDeltaBadge.razor` (dùng `<div>` thuần, không `MudChip`) — áp dụng đúng
+  tiền lệ này khi cần thêm biến thể badge mới, không phát minh cách khác.
+- Helper hiển thị màu trả về `(string CssClass, string Label)` thay vì `(Color Color, string Label)`
+  khi dùng kiểu badge này (xem `TransTypeDisplay`/`ActionTypeDisplay` trong `MemberPointsPage.razor`).
 
 ## 5. Sidebar / AppBar — navy đậm, 3 cấp phân biệt icon
 
@@ -379,6 +425,24 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
     Store/Operations+Transactions+Dashboard → Ops+Admin+Catalog).
   - **Chưa verify bằng mắt** (chạy app thật) — sandbox không có `POS_SECRET_KEY`/DB/Redis nên
     `dotnet run` không khởi động được; chỉ verify qua build + contract test.
+- **Đồng bộ toàn app theo `MemberPointsPage.razor`** (2026-07-09, chiến dịch lớn nhất — lấy
+  `Store/Transactions/MemberPointsPage.razor` + `Store/Dialogs/MemberPointsDetailDialog.razor` làm
+  page mẫu, khảo sát 95 file `Components/Pages/**/*.razor`, 66 page + 29 dialog):
+  - **Status badge**: đổi `MudChip` tĩnh → `.pos-status-chip pos-status-{semantic}` (xem §4a) —
+    đây là điểm khiến §4a đổi từ "MudChip mặc định" sang "pos-status-chip mặc định".
+  - **Button**: rollout `pos-btn-mockup` (mọi nút) + `pos-btn-secondary-mockup` (chỉ Outlined
+    trung tính, xem §3a) trên toàn bộ `MudButton`.
+  - **Filter/Input**: bổ sung `Adornment.Start` còn thiếu ở filter panel; giữ nguyên cấu trúc
+    `pos-filter-panel` đã đúng ở phần lớn file.
+  - **MudTable**: bổ sung `Dense/Hover/Striped/HorizontalScrollbar` còn thiếu; chuẩn hóa
+    `MudTablePager PageSizeOptions` về `{10,20,50,100}`.
+  - **Date/time**: chuẩn hóa có chọn lọc về `yyyy-MM-dd HH:mm:ss` cho cột lịch sử nhiều ngày —
+    KHÔNG đổi máy móc nơi time-only là thiết kế có chủ đích (dashboard realtime "hôm nay") hoặc
+    nơi format đến từ SP dưới dạng string đã format sẵn (`PricesPage`/`PriceSetupPage` —
+    ngoài phạm vi, cần sửa DTO/SP riêng).
+  - Batch theo domain: Store → Ops → Promotion → Catalog → Admin+root, build + contract test xanh
+    sau mỗi batch.
+  - **Chưa verify bằng mắt** — cùng lý do sandbox thiếu `POS_SECRET_KEY`/DB/Redis như batch KPI.
 
 ## 10. CSS Isolation — khi nào dùng `.razor.css`
 

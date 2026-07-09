@@ -37,6 +37,7 @@
                 <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_pinError</MudAlert>
             }
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Class="pos-btn-mockup"
                        OnClick="@VerifyPinAsync"
                        Disabled="@(_pinChecking || string.IsNullOrEmpty(_pinInput))">
                 @if (_pinChecking)
@@ -112,6 +113,7 @@ else
             <MudStack Row="true" Spacing="1" Class="flex-wrap">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.PlayArrow"
                            OnClick="@RunAsync"
                            Disabled="@(!_enabled || _running || string.IsNullOrWhiteSpace(_sql) || _pending != null)">
@@ -122,6 +124,7 @@ else
                 {
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Error"
+                               Class="pos-btn-mockup"
                                StartIcon="@Icons.Material.Filled.Stop"
                                OnClick="@CancelRun">
                         Hủy
@@ -130,6 +133,7 @@ else
 
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            OnClick="@ClearAll"
                            Disabled="@(_running || _pending != null)">
                     Xóa
@@ -212,6 +216,7 @@ else
         <MudStack Row="true" Spacing="2" Class="flex-wrap">
             <MudButton Variant="Variant.Filled"
                        Color="Color.Success"
+                       Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Check"
                        OnClick="@CommitAsync"
                        Disabled="@_committing">
@@ -223,6 +228,7 @@ else
             </MudButton>
             <MudButton Variant="Variant.Outlined"
                        Color="Color.Error"
+                       Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Undo"
                        OnClick="@RollbackAsync"
                        Disabled="@_committing">

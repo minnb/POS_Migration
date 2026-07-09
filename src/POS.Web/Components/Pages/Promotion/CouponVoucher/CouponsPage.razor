@@ -24,7 +24,7 @@
     <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
                OnClick="@(() => Nav.NavigateTo("/promotion/coupons/issue"))"
-               Class="pos-page-header-btn">
+               Class="pos-page-header-btn pos-btn-mockup">
         Phát hành coupon
     </MudButton>
 </div>
@@ -34,7 +34,8 @@
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="5">
             <MudTextField @bind-Value="_filter.KeyWord" Label="Từ khóa (mã / tên / mã coupon)"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="4">
             <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
@@ -46,9 +47,9 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
             </MudStack>
         </MudItem>
@@ -93,14 +94,14 @@
         <MudTd DataLabel="Từ ngày">@context.StartingDate.ToString("dd/MM/yyyy")</MudTd>
         <MudTd DataLabel="Đến ngày">@context.EndingDate.ToString("dd/MM/yyyy")</MudTd>
         <MudTd DataLabel="Hiệu lực">
+            @{
+                var (effCss, effLabel) = EffectDisplay(context.EndingDate.Date >= DateTime.Today);
+            }
             <div class="d-flex flex-wrap gap-1">
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                         Color="@(context.EndingDate.Date >= DateTime.Today ? Color.Success : Color.Error)">
-                    @(context.EndingDate.Date >= DateTime.Today ? "Còn hiệu lực" : "Hết hiệu lực")
-                </MudChip>
+                <span class="pos-status-chip @effCss">@effLabel</span>
                 @if (context.Blocked)
                 {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning">Blocked</MudChip>
+                    <span class="pos-status-chip pos-status-warning">Blocked</span>
                 }
             </div>
         </MudTd>
@@ -166,4 +167,9 @@
         "ZVCN" or "ZVCO" => "Amount",
         _                => string.Empty
     };
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) EffectDisplay(bool isEffective) =>
+        isEffective ? ("pos-status-success", "Còn hiệu lực") : ("pos-status-error", "Hết hiệu lực");
 }

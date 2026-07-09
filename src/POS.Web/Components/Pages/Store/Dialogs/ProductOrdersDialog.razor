@@ -61,14 +61,10 @@
                     <MudTd DataLabel="POS">@context.POSTerminalNo</MudTd>
                     <MudTd DataLabel="Thu ngân">@context.CashierID</MudTd>
                     <MudTd DataLabel="Loại" Style="text-align:center">
-                        @if (context.SalesIsReturn)
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">Trả</MudChip>
+                        @{
+                            var (typeCss, typeLabel) = OrderTypeDisplay(context.SalesIsReturn);
                         }
-                        else
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Bán</MudChip>
-                        }
+                        <span class="pos-status-chip @typeCss">@typeLabel</span>
                     </MudTd>
                     <MudTd DataLabel="SL" Style="text-align:right">@context.Quantity.ToString("N0")</MudTd>
                     <MudTd DataLabel="Đơn giá" Style="text-align:right">@context.UnitPrice.ToString("N0")</MudTd>
@@ -79,7 +75,7 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined">Đóng</MudButton>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -112,4 +108,10 @@
     }
 
     private void CloseDialog() => MudDialog.Close();
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) OrderTypeDisplay(bool isReturn) => isReturn
+        ? ("pos-status-error", "Trả")
+        : ("pos-status-success", "Bán");
 }

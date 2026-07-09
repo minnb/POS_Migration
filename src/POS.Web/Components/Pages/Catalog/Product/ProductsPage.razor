@@ -33,7 +33,7 @@
     </MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
-               Class="pos-page-header-btn"
+               Class="pos-page-header-btn pos-btn-mockup"
                OnClick="OpenDialogAsync">
         Thêm mới
     </MudButton>
@@ -87,20 +87,20 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="SearchAsync" Disabled="@_searching"
                            FullWidth="true">
                     @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Tìm
                 </MudButton>
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="ClearFilter"
                            FullWidth="true">
                     Xóa
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.FileDownload"
                            OnClick="ExportExcelAsync"
                            Disabled="@(_totalItems == 0 || _exporting)"

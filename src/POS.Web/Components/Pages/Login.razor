@@ -23,21 +23,23 @@
         <MudAlert Severity="Severity.Error" Class="mb-3" Dense="true">@_errorMsg</MudAlert>
     }
 
-    <MudTextField @bind-Value="_username" Label="Tên đăng nhập"
-                  Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+    <MudTextField @ref="_usernameField" @bind-Value="_username" Label="Tên đăng nhập"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Class="mb-3"
                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person"
-                  Immediate="true" Disabled="_loading" OnKeyDown="OnKeyDown"/>
+                  Immediate="true" Disabled="_loading" OnKeyDown="OnUsernameKeyDown"
+                  AutoFocus="true"/>
 
-    <MudTextField @bind-Value="_password" Label="Mật khẩu"
-                  Variant="Variant.Outlined" FullWidth="true" Class="mb-4"
+    <MudTextField @ref="_passwordField" @bind-Value="_password" Label="Mật khẩu"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Class="mb-4"
                   Adornment="Adornment.End"
                   AdornmentIcon="@(_showPass ? Icons.Material.Filled.Visibility
                                              : Icons.Material.Filled.VisibilityOff)"
                   OnAdornmentClick="@(() => _showPass = !_showPass)"
                   InputType="@(_showPass ? InputType.Text : InputType.Password)"
-                  Immediate="true" Disabled="_loading" OnKeyDown="OnKeyDown"/>
+                  Immediate="true" Disabled="_loading" OnKeyDown="OnPasswordKeyDown"/>
 
     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+               Class="pos-btn-mockup"
                OnClick="DoLogin" Disabled="_loading">
         @if (_loading)
         { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2"/> }
@@ -52,7 +54,16 @@
     private bool   _loading  = false;
     private bool   _showPass = false;
 
-    private async Task OnKeyDown(KeyboardEventArgs e)
+    private MudTextField<string>? _usernameField;
+    private MudTextField<string>? _passwordField;
+
+    private async Task OnUsernameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && _passwordField is not null)
+            await _passwordField.FocusAsync();
+    }
+
+    private async Task OnPasswordKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") await DoLogin();
     }

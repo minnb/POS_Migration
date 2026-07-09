@@ -1,5 +1,13 @@
 namespace POS.Common.Enums;
 
+public enum PointActionTypeEnum 
+{
+    EARN = 1,
+    REVERSE_EARN =11,
+    REDEEM = 2,
+    REVERSE_REDEEM = 22,
+    TOPUP = 4
+}
 public enum MemberTypeLoyaltyEnum
 {
     WIN,

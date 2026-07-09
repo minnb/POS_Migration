@@ -1,4 +1,5 @@
 using Elastic.CommonSchema;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using POS.Common;
 using POS.Common.Dtos;
@@ -9,12 +10,15 @@ using POS.Common.Dtos.PartnerApi;
 using POS.Common.Dtos.Vouchers;
 using POS.Common.Enums;
 using POS.Common.Helpers;
+using POS.Common.Mapping;
 using POS.Infrastructure.Logging;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 
 namespace POS.Infrastructure.AppServices.Partner;
@@ -33,7 +37,8 @@ public sealed class AkaChainLoyaltyAppService(
     IRedisService redis,
     ICentralMDRepository centralMDRepository,
     IKibanaService kibanaService,
-    IFileLogHelper fileLogHelper
+    IFileLogHelper fileLogHelper,
+    IServiceScopeFactory serviceScopeFactory
 ) : IAkaChainLoyaltyAppService
 {
     private const string TokenCacheKey = "AkaChain:FMV:AccessToken";
@@ -242,18 +247,18 @@ public sealed class AkaChainLoyaltyAppService(
             kibanaService.LogResponse(endpoint, value, 0, "", body);
 
             if (status != HttpStatusCode.OK)
-                return MakeResponse(status, status.ToString(), body);
+                return ResponseHelper.MakeResponse(status, status.ToString(), body);
 
             var data = JsonConvert.DeserializeObject<MemberProfileAkaChain>(body);
             if (data == null)
-                return MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
+                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
 
-            return MakeResponse(HttpStatusCode.OK, "Success", MappingInfoMember(data), "AkaChainLoyalty");
+            return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingInfoMember(data), "AkaChainLoyalty");
         }
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs(endpoint, ex);
-            return MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
+            return ResponseHelper.MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
         }
     }
 
@@ -266,7 +271,7 @@ public sealed class AkaChainLoyaltyAppService(
             var config = await GetFMVConfigAsync();
             var activityCode = config?.Description ?? "";
 
-            var bodyJson = JsonConvert.SerializeObject(MappingInputDataRequest(model, activityCode));
+            var bodyJson = JsonConvert.SerializeObject(AkaChainMapping.MappingInputDataRequest(model, activityCode));
             kibanaService.LogRequest(endpoint, model.PosID ?? "", bodyJson);
 
             var (status, body) = await CallApiAsync("InputDataAsync", HttpMethod.Post, bodyJson, null);
@@ -275,19 +280,103 @@ public sealed class AkaChainLoyaltyAppService(
             if (status != HttpStatusCode.OK)
             {
                 var err = JsonConvert.DeserializeObject<AkaChainErrorResponse>(body);
-                return MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
+                return ResponseHelper.MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
             }
 
             var data = JsonConvert.DeserializeObject<AddTransactionAkaChainResponse>(body);
             if (data == null)
-                return MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
+                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
 
-            return MakeResponse(HttpStatusCode.OK, "Success", MappingAddTransaction(data, model), "AkaChainLoyalty");
+            LoggingLoyaltyDto? dataLoyaltyRedeem = null;
+            if (data.UsedPoint > 0)
+            {
+                dataLoyaltyRedeem = new()
+                {
+                    AppCode = "POS",
+                    StoreNo = model.MerchantId ?? (model.StoreNo??StringHelper.Left(model.OrderNo, 4)),
+                    MemberCardNo = FormatHelper.PhoneNumberVietNam(model.CardNumber),
+                    OrderNo = model.OrderNo,
+                    TransactionType = model.TransactionType,
+                    OrigOrderNo = model.OrigOrderNo,
+                    ActionType = model.TransactionType == 1 ? PointActionTypeEnum.REDEEM.ToString() : PointActionTypeEnum.REVERSE_EARN.ToString(),
+                    CustName = "",
+                    LoyaltyPoints = (long)data.UsedPoint,
+                    Transaction = data.ActivityEntityValueId ?? "",
+                    Status = status.ToString(),
+                    Request = bodyJson,
+                    Response = body,
+                    Items = null,
+                    OrderTime = model.OrderTime,
+                    CrtDate = DateTime.Now
+                };
+            }
+
+            int pointEarn = 0;
+            if (data.OfferData != null && data.OfferData.Count > 0)
+            {
+                foreach (var offer in data.OfferData)
+                {
+                    if(offer.RuleData != null && offer.RuleData.Count > 0)
+                    {
+                        foreach (var rule in offer.RuleData) 
+                        { 
+                            if(rule.LoyaltyCurrency != null && rule.LoyaltyCurrency.Any())
+                            {
+                                foreach (var currency in rule.LoyaltyCurrency)
+                                {
+                                    pointEarn += (int)currency.Value;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            LoggingLoyaltyDto dataLoyalty = new()
+            {
+                AppCode = "POS",
+                StoreNo = model.MerchantId ?? (model.StoreNo ?? StringHelper.Left(model.OrderNo, 4)),
+                MemberCardNo = FormatHelper.PhoneNumberVietNam(model.CardNumber),
+                OrderNo = model.OrderNo,
+                TransactionType = model.TransactionType,
+                OrigOrderNo = model.OrigOrderNo,
+                ActionType = model.TransactionType == 1 ? PointActionTypeEnum.EARN.ToString() : PointActionTypeEnum.REVERSE_EARN.ToString(),
+                CustName = "",
+                LoyaltyPoints = (long)pointEarn,
+                Transaction = data.ActivityEntityValueId ?? "",
+                Status = status.ToString(),
+                Request = bodyJson,
+                Response = body,
+                Items = null,
+                OrderTime = model.OrderTime,
+                CrtDate = DateTime.Now
+            };
+
+            // Fire-and-forget: ghi LoggingLoyalty không block response POS — dùng scope DI riêng
+            // (scope của request sẽ dispose ngay khi response trả về), theo mẫu an toàn
+            // SyncDataPosController.cs UploadFileSale.
+            _ = Task.Run(async () =>
+            {
+                using var scope = serviceScopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ILoyaltyRepository>();
+                try
+                {
+                    if (dataLoyaltyRedeem != null)
+                        await repo.InsertLoggingLoyaltyAsync(dataLoyaltyRedeem);
+                    await repo.InsertLoggingLoyaltyAsync(dataLoyalty);
+                }
+                catch (Exception ex)
+                {
+                    fileLogHelper.WriteExpLogs($"{endpoint}.BackgroundInsertLoggingLoyalty", ex);
+                }
+            });
+
+            return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingAddTransaction(data, model, pointEarn), "AkaChainLoyalty");
         }
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs(endpoint, ex);
-            return MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
+            return ResponseHelper.MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
         }
     }
 
@@ -300,23 +389,22 @@ public sealed class AkaChainLoyaltyAppService(
             var config = await GetFMVConfigAsync();
             var activityCode = config?.Description ?? "";
 
-            var bodyJson = JsonConvert.SerializeObject(MappingReturnInputDataRequest(model, activityCode));
+            var bodyJson = JsonConvert.SerializeObject(AkaChainMapping.MappingReturnInputDataRequest(model, activityCode));
             kibanaService.LogRequest(endpoint, model.TerminalId ?? "", bodyJson);
 
-            var (status, body) = await CallApiAsync("InputReturnDataAsync", HttpMethod.Post, bodyJson, null);
-            kibanaService.LogResponse(endpoint, model.TerminalId ?? "", 0, "", body);
+            //var (status, body) = await CallApiAsync("InputReturnDataAsync", HttpMethod.Post, bodyJson, null);
+            //kibanaService.LogResponse(endpoint, model.TerminalId ?? "", 0, "", body);
 
-            // Giữ nguyên behavior cũ: OK case trả BadRequest (branch OK bị comment trong code gốc)
-            if (status == HttpStatusCode.OK)
-                return MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
+            //var data = JsonConvert.DeserializeObject<AddTransactionAkaChainResponse>(body);
+            //if (data == null)
+            //    return MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
 
-            var err = JsonConvert.DeserializeObject<AkaChainErrorResponse>(body);
-            return MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
+            return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingReturnTransaction(new object(), model, 0), "AkaChain"); 
         }
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs(endpoint, ex);
-            return MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
+            return ResponseHelper.MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
         }
     }
 
@@ -329,7 +417,7 @@ public sealed class AkaChainLoyaltyAppService(
             var config = await GetFMVConfigAsync();
             var activityCode = config?.Description ?? "";
 
-            var bodyJson = JsonConvert.SerializeObject(MappingCheckCouponRequest(model, activityCode));
+            var bodyJson = JsonConvert.SerializeObject(AkaChainMapping.MappingCheckCouponRequest(model, activityCode));
             kibanaService.LogRequest(endpoint, model.PosNo, bodyJson);
 
             var (status, body) = await CallApiAsync("InputDataAsync", HttpMethod.Post, bodyJson, null);
@@ -338,15 +426,15 @@ public sealed class AkaChainLoyaltyAppService(
             if (status != HttpStatusCode.OK)
             {
                 var err = JsonConvert.DeserializeObject<AkaChainErrorResponse>(body);
-                return MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
+                return ResponseHelper.MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
             }
 
             var data = JsonConvert.DeserializeObject<AddTransactionAkaChainResponse>(body);
             if (data == null)
-                return MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
+                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
 
             if (data.CouponCode == null || !data.CouponCode.Any())
-                return MakeResponse(HttpStatusCode.BadRequest, "Coupon không hợp lệ", null, JsonConvert.SerializeObject(data));
+                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "Coupon không hợp lệ", null, JsonConvert.SerializeObject(data));
 
             var coupon = data.CouponCode.First();
             var couponResult = new VoucherStatusResponse
@@ -368,235 +456,15 @@ public sealed class AkaChainLoyaltyAppService(
             };
 
             return coupon.CanUse
-                ? MakeResponse(HttpStatusCode.OK, "Success", couponResult, "AkaChainLoyalty.CheckCoupon")
-                : MakeResponse(HttpStatusCode.BadRequest,
+                ? ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", couponResult, "AkaChainLoyalty.CheckCoupon")
+                : ResponseHelper.MakeResponse(HttpStatusCode.BadRequest,
                     $"Coupon {coupon.Code} {coupon.Reason}", couponResult, "AkaChainLoyalty.CheckCoupon");
         }
         catch (Exception ex)
         {
             fileLogHelper.WriteExpLogs(endpoint, ex);
-            return MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
+            return ResponseHelper.MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
         }
     }
 
-    // ── Mapping (migrated from AkaChainMapping static class) ─────────────────
-
-    private static InfoMemberModel MappingInfoMember(MemberProfileAkaChain profile) => new()
-    {
-        CardNumber      = FormatHelper.PhoneNumberVietNam(profile.Phone ?? ""),
-        VirtualCard     = profile.ReferralCode,
-        CMND            = "",
-        MemberName      = profile.FullName,
-        Title           = "",
-        CardLevel       = "",
-        MemberCSN       = FormatHelper.PhoneNumberVietNam(profile.Phone ?? ""),
-        PhoneNumber     = FormatHelper.PhoneNumberVietNam(profile.Phone ?? ""),
-        OtherInfo       = "",
-        QRCode          = "",
-        Dob             = "",
-        DateOfBirth     = "",
-        BirthdayGiftInd = false,
-        MemberPoint     = profile.TotalCoin,
-        TotalPoint      = profile.TotalCoin,
-        RedemptionValue = profile.TotalCoin,
-        ExtraPoint      = false,
-        CurrentRate     = 0,
-        IsOfflineVinID  = false,
-        IsShowMessage   = false,
-        IsRedeem        = true,
-        Status          = "Hoạt động",
-        System          = MemberCapillaryEnum.CAP.ToString(),
-        ClubCode        = MemberCapillaryEnum.WINCARE.ToString(),
-        Email           = "",
-        Gender          = "",
-        Address         = "",
-        ExternalId      = profile.TotalPoint.ToString(),
-        AvailablePromotion = null,
-        MemberBusiness  = null,
-        OtherStatus     = null,
-        ExtendedFields  = null,
-        MemberType      = MemberCapillaryEnum.WIN.ToString(),
-        Source          = null,
-        PointsSummaries = null
-    };
-
-    private static PointModePOSResponse MappingAddTransaction(
-        AddTransactionAkaChainResponse response, VinIDSalesRequest model)
-    {
-        long pointEarn = 0;
-        var extraEarn  = new List<PointModePOSData>();
-
-        if (response.RewardBalance?.Any() == true)
-        {
-            foreach (var pair in response.RewardBalance)
-            {
-                pointEarn += (long)pair.Value;
-                extraEarn.Add(new PointModePOSData
-                {
-                    LoyaltyMerchantId = pair.CurrencyId,
-                    Amount            = 0,
-                    EarnedPoints      = (int)pair.Value,
-                    EntityType        = response.State,
-                    Type              = pair.CurrencyName
-                });
-            }
-        }
-
-        return new PointModePOSResponse
-        {
-            PointEarn           = pointEarn,
-            PointRedeem         = (long)response.UsedPoint,
-            RedemptionValue     = (long)response.MemberBalance,
-            Balance             = response.MemberBalance > 0 ? (long?)response.MemberBalance : null,
-            CurrentRate         = 0,
-            IsOfflineVinID      = false,
-            EmpCode             = null,
-            MasanerPackageInd   = null,
-            StaffPercentage     = null,
-            NormCustPercentage  = null,
-            RedemptionId        = null,
-            ReversalId          = null,
-            OrderNo             = model.OrderNo,
-            CreatedId           = response.ActivityEntityValueId,
-            ExtraEarnByCampaign = extraEarn,
-            TransLine           = null,
-            StatusCode          = 200
-        };
-    }
-
-    private static AddTransactionAkaChainRequest MappingInputDataRequest(
-        VinIDSalesRequest model, string activityCode)
-    {
-        var cartItems = (model.TransLine ?? []).Select(item => new CartItemAkaChain
-        {
-            ProductCode     = item.ItemCode ?? "",
-            ProductName     = item.Description ?? "",
-            ProductCategory = item.Size ?? "",
-            Quantity        = item.Quantity,
-            UnitPrice       = item.UnitPrice,
-            TotalAmount     = item.LineAmountIncVAT
-        }).ToList();
-
-        return new AddTransactionAkaChainRequest
-        {
-            MemberKeys = new MemberKeysAkaChain
-            {
-                Phone = "+" + FormatHelper.PhoneNumberWithCountryCode(model.CardNumber)
-            },
-            UsePoint             = 0,
-            IsSimulation         = false,
-            SimulationOfferId    = null,
-            CustomEntityDataId   = null,
-            ActivityCode         = activityCode,
-            State                = AkaChainStateLoyaltyEnum.Closed.ToString(),
-            CouponCode           = [],
-            ActivityData = new ActivityDataAkaChain
-            {
-                BusinessTime      = model.OrderTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"),
-                Description       = $"Bán hàng ngày {model.OrderTime:yyyy-MM-ddTHH:mm:ss.fffffffZ}",
-                TotalCalcAmount   = model.BillAmount,
-                OrderCode         = model.OrderNo,
-                CartItems         = cartItems,
-                StoreCode         = model.MerchantId ?? "",
-                OriginalOrderCode = null
-            },
-            TouchPointCode          = null,
-            UseBasePromotionSchemes = false
-        };
-    }
-
-    private static InputReturnDataRequest MappingReturnInputDataRequest(
-        VinIDRefundRequest model, string activityCode)
-    {
-        var cartItems = (model.TransLine ?? []).Select(item => new CartItemAkaChain
-        {
-            ProductCode     = item.ItemCode ?? "",
-            ProductName     = item.Description ?? "",
-            ProductCategory = item.Size ?? "",
-            Quantity        = item.Quantity,
-            UnitPrice       = item.UnitPrice,
-            TotalAmount     = item.LineAmountIncVAT
-        }).ToList();
-
-        return new InputReturnDataRequest
-        {
-            MemberKeys = new ReturnMemberKeysAkaChain
-            {
-                PartnerLoyaltyId = FormatHelper.PhoneNumberVietNam(model.CardNumber)
-            },
-            ActivityCode = activityCode,
-            State        = model.TransactionType == 2
-                ? ReturnState.FullReturn.ToString()
-                : ReturnState.PartialReturn.ToString(),
-            ActivityData = new ActivityDataAkaChain
-            {
-                BusinessTime      = model.OrderTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"),
-                Description       = $"Trả hàng ngày {model.OrderTime:yyyy-MM-ddTHH:mm:ss.fffffffZ}",
-                TotalCalcAmount   = model.RefundAmount,
-                OrderCode         = model.OrderNo ?? "",
-                CartItems         = cartItems,
-                StoreCode         = model.MerchantId ?? "",
-                OriginalOrderCode = model.OrigOrderNo,
-                IsReturn          = true
-            }
-        };
-    }
-
-    private static AddTransactionAkaChainRequest MappingCheckCouponRequest(
-        CheckVoucherPartnerPOSRequest model, string activityCode)
-    {
-        decimal totalAmount = 0;
-        var cartItems = (model.Items ?? []).Select(item =>
-        {
-            totalAmount += item.LineAmount;
-            return new CartItemAkaChain
-            {
-                ProductCode     = item.ItemNo ?? "",
-                ProductName     = "",
-                ProductCategory = "",
-                Quantity        = item.Qty,
-                UnitPrice       = item.UnitPrice,
-                TotalAmount     = item.LineAmount
-            };
-        }).ToList();
-
-        var coupons = (model.SerialNo ?? []).Select(c => new CouponDetailAkaChain
-        {
-            CanUse      = true,
-            Code        = c,
-            Description = "",
-            Status      = "Use"
-        }).ToList();
-
-        var now = DateTime.Now;
-        return new AddTransactionAkaChainRequest
-        {
-            MemberKeys = new MemberKeysAkaChain
-            {
-                Phone = "+" + FormatHelper.PhoneNumberWithCountryCode(model.PhoneNumber ?? "")
-            },
-            UsePoint     = 0,
-            ActivityCode = activityCode,
-            State        = "Open",
-            CouponCode   = coupons,
-            ActivityData = new ActivityDataAkaChain
-            {
-                BusinessTime      = now.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"),
-                Description       = $"Bán hàng ngày {now:yyyy-MM-ddTHH:mm:ss.fffffffZ}",
-                TotalCalcAmount   = totalAmount,
-                OrderCode         = Guid.NewGuid().ToString(),
-                CartItems         = cartItems,
-                StoreCode         = model.StoreNo,
-                OriginalOrderCode = null
-            },
-            TouchPointCode          = null,
-            UseBasePromotionSchemes = false
-        };
-    }
-
-    // ── Response helper ───────────────────────────────────────────────────────
-
-    private static ResultResponse MakeResponse(
-        HttpStatusCode status, string message, object? data, string technical = "")
-        => new() { Status = status, Message = message, Data = data, MessageTechnical = technical };
 }

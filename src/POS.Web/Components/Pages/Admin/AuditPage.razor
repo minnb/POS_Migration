@@ -55,11 +55,13 @@
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync" FullWidth="true">
                     Tìm
                 </MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            OnClick="@ResetFilter" FullWidth="true">
                     Xóa
                 </MudButton>
@@ -106,7 +108,7 @@
             @{
                 var (sc, sl) = StatusDisplay(context.Status);
             }
-            <MudChip T="string" Color="@sc" Size="Size.Small" Variant="Variant.Filled">@sl</MudChip>
+            <span class="pos-status-chip @sc">@sl</span>
         </MudTd>
         <MudTd DataLabel="RowsAffected" Style="text-align:right">@context.RowsAffected</MudTd>
         <MudTd DataLabel="HasWhere" Style="text-align:center">
@@ -249,11 +251,13 @@
         await LoadDataAsync();
     }
 
-    private static (Color Color, string Label) StatusDisplay(string status) => status switch
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) StatusDisplay(string status) => status switch
     {
-        "COMMITTED"     => (Color.Success, "COMMITTED"),
-        "ROLLED_BACK"   => (Color.Info,    "ROLLED_BACK"),
-        "AUTO_ROLLBACK" => (Color.Warning, "AUTO_ROLLBACK"),
-        _               => (Color.Default, status)
+        "COMMITTED"     => ("pos-status-success", "COMMITTED"),
+        "ROLLED_BACK"   => ("pos-status-info",    "ROLLED_BACK"),
+        "AUTO_ROLLBACK" => ("pos-status-warning", "AUTO_ROLLBACK"),
+        _               => ("pos-status-info", status)
     };
 }

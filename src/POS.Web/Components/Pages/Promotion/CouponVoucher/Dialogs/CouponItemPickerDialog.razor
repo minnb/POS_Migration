@@ -15,14 +15,16 @@
         <MudGrid Spacing="2" Class="mb-2">
             <MudItem xs="12" sm="5">
                 <MudTextField @bind-Value="_itemNo" Label="Mã sản phẩm"
-                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"/>
             </MudItem>
             <MudItem xs="12" sm="5">
                 <MudTextField @bind-Value="_itemName" Label="Tên sản phẩm"
-                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
             </MudItem>
             <MudItem xs="12" sm="2" Class="d-flex align-center">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" FullWidth="true"
                            OnClick="SearchAsync">Tìm</MudButton>
             </MudItem>
         </MudGrid>
@@ -53,8 +55,8 @@
         </MudTable>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
-        <MudButton OnClick="Select" Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Hủy</MudButton>
+        <MudButton OnClick="Select" Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Check">
             Chọn (@_selected.Count)
         </MudButton>

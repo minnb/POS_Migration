@@ -47,7 +47,7 @@
         <MudIcon Icon="@Icons.Material.Filled.Sell" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Cài đặt giá
     </MudText>
-    <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="pos-page-header-btn"
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary-mockup"
                StartIcon="@Icons.Material.Filled.FormatListBulleted"
                OnClick="@(() => Nav.NavigateTo("/catalog/prices"))">
         Danh sách giá
@@ -102,7 +102,7 @@ else
                                  Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="500"/>
             </MudItem>
             <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.PlaylistAdd" OnClick="DeclareRows">
                     Khai báo giá bán
                 </MudButton>
@@ -110,20 +110,20 @@ else
             <MudItem xs="12" sm="8" md="4" Class="d-flex align-center gap-2 flex-wrap">
                 <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
                     <ActivatorContent>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" Class="pos-btn-mockup"
                                    StartIcon="@Icons.Material.Filled.UploadFile">
                             @(_importFile?.Name ?? "Chọn file Excel")
                         </MudButton>
                     </ActivatorContent>
                 </MudFileUpload>
-                <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.PlaylistAddCheck"
                            Disabled="_importFile == null || _validating" OnClick="LoadImportAsync">
                     @(_validating ? "Đang nạp..." : "Import giá bán")
                 </MudButton>
             </MudItem>
             <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
-                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Class="pos-btn-mockup" FullWidth="true"
                            StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
                     File mẫu
                 </MudButton>
@@ -133,9 +133,9 @@ else
 
     @* ── Toolbar lưới ───────────────────────────────────────────────────── *@
     <div class="d-flex align-center gap-2 mb-2 flex-wrap">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="AddBlankRow">Thêm dòng</MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
                    Disabled="_rows.Count == 0" OnClick="ClearRows">Xóa toàn bộ bảng giá</MudButton>
         <MudSpacer/>
@@ -241,7 +241,7 @@ else
 
     @* ── Action bar ─────────────────────────────────────────────────────── *@
     <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Save"
                    Disabled="_saving || _rows.Count == 0" OnClick="SaveAsync">
             @(_saving ? "Đang lưu..." : "Lưu bảng giá")

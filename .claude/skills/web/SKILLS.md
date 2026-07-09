@@ -346,7 +346,7 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 | DataTable | — dùng `MudTable<T>` built-in (xem `datatable.md`) | Bảng dữ liệu sort/paginate (KHÔNG còn base class) |
 | KPI card | Chưa có component riêng — dùng khuôn mẫu `MudPaper` + `.pos-kpi-value`/`.pos-kpi-label` ở `.claude/rules/mudblazor-flat-ui.md` mục 11 | KPI/summary card — **BẮT BUỘC** theo khuôn mẫu này, không tự viết |
 | `PosDeltaBadge` | `Components/Shared/PosDeltaBadge.razor` (đăng ký `@using` toàn cục trong `_Imports.razor`) | Trend/delta badge (%) trong KPI card — dùng `.pos-delta-up`/`.pos-delta-down` |
-| `PosStatusChip` | Chưa tạo — dùng `MudChip T="string"` inline tạm | Status badge |
+| Status badge | Chưa có component riêng — dùng `<span class="pos-status-chip pos-status-{success,error,warning,info}">Label</span>` (helper trả `(string CssClass, string Label)`, xem `.claude/rules/mudblazor-flat-ui.md` §4a) | Status/loại/hình thức tĩnh trong `MudTable`/dialog — **CHUẨN MẶC ĐỊNH** (2026-07-09), KHÔNG dùng `MudChip` trừ khi cần tương tác (multi-select/closable/trong filter) |
 
 > Ví dụ KPI card đã chuẩn hóa (2026-07-08): `src/POS.Web/Components/Pages/Store/Reports/RevenueByStorePage.razor`
 > (không icon), `src/POS.Web/Components/Pages/Ops/PosDataSetupPage.razor` (có icon minh họa),
@@ -433,8 +433,8 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 | Input text | `MudTextField<T>` |
 | Dropdown chọn một | `MudSelect<T>` |
 | Date picker | `MudDatePicker` |
-| Chip lọc / filter | `MudChip T="string"` (bắt buộc có `T=`) |
-| Badge trạng thái | `MudChip T="string"` với `Color` |
+| Chip lọc / filter (tương tác) | `MudChip T="string"` (bắt buộc có `T=`) |
+| Badge trạng thái tĩnh | `<span class="pos-status-chip pos-status-{success,error,warning,info}">` — xem §4a `mudblazor-flat-ui.md`, KHÔNG dùng `MudChip` |
 | Loading thanh ngang | `MudProgressLinear Indeterminate="true"` |
 | Loading tròn | `MudProgressCircular Indeterminate="true"` |
 | Alert cố định | `MudAlert Severity="..."` |
@@ -1244,3 +1244,28 @@ hiển thị `###,###` ở list. Dùng `.` (vi-VN) sẽ bị parse nhầm thành
 // digits-only → long → ToString("#,##0", CultureInfo.InvariantCulture)
 ```
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/PriceSetupPage.razor` (`FormatThousands`/`OnPriceChanged`).
+
+### Pattern: Badge trạng thái dot-pill (CHUẨN MẶC ĐỊNH) + input font-size không do Body1
+> Cập nhật 2026-07-09: `.pos-status-chip` là CHUẨN MẶC ĐỊNH cho mọi status badge tĩnh (không còn
+> là ngoại lệ theo 1 mockup cụ thể) — `MudChip` chỉ dùng khi cần tương tác (multi-select/closable/
+> trong filter). Áp dụng khi: badge dạng "viên thuốc nền tint nhạt + chữ đậm cùng tông + chấm tròn
+> nhỏ", hoặc khi input value (TextField/Autocomplete/Select/DatePicker) hiển thị sai size/weight
+> so với theme_html.
+
+- **Badge dot-pill**: dùng class `.pos-status-chip` + modifier `.pos-status-{success,error,warning,info}`
+  (`app.css`, đặt cạnh `.pos-delta-up/.pos-delta-down`) — `<span class="pos-status-chip pos-status-success">Label</span>`,
+  dot vẽ bằng `::before{background-color:currentColor}`, không cần markup con. Chi tiết đầy đủ +
+  bảng so sánh với `MudChip`: `.claude/rules/mudblazor-flat-ui.md` §4a.
+- **Input value font-size SAI giả định trước đây**: đã verify trực tiếp `MudBlazor.min.css` —
+  `.mud-input-root{font:inherit}` **KHÔNG** cascade từ `Typography.Body1` (chỉ áp dụng cho class
+  `.mud-typography-body1` dùng bởi `MudText`), mà kế thừa từ `<body>` (`Typography.Default`). Nếu
+  input hiển thị to/đậm hơn mockup dù đã set `Body1`, ép trực tiếp `.mud-input-root{font-size:...
+  !important}` trong `app.css` — đừng chỉnh `Typography.Body1` (không có tác dụng lên input).
+- **Nút không khớp mockup dù đã đúng `Color`/`Variant`**: `Size="Size.Small"` của MudButton nén
+  padding chặt hơn nhiều so với mockup dạng `.btn{padding:7px 14px}`, và `Variant.Outlined` render
+  nền TRONG SUỐT (không có `.btn-secondary` nền xám đặc nào tương đương) — dùng class riêng
+  (`.pos-btn-mockup`/`.pos-btn-secondary-mockup` — ví dụ) với `!important` để ép đúng padding/nền,
+  tái dùng token `--pos-bg-alt`/`--pos-text-body`/`--pos-border` đã có, không cần token mới.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/MemberPointsPage.razor`,
+> `src/POS.Web/Components/Pages/Store/Dialogs/MemberPointsDetailDialog.razor`, `app.css`.

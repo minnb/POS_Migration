@@ -23,7 +23,8 @@
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
         <MudButton Variant="@(_confirmMsg.Contains("mở khóa") ? Variant.Filled : Variant.Outlined)"
-                   Color="@(_confirmMsg.Contains("mở khóa") ? Color.Primary : Color.Error)">
+                   Color="@(_confirmMsg.Contains("mở khóa") ? Color.Primary : Color.Error)"
+                   Class="pos-btn-mockup">
             Xác nhận
         </MudButton>
     </YesButton>
@@ -81,14 +82,14 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="SearchAsync" Disabled="@(_searching || string.IsNullOrEmpty(_filter.StoreNo))"
                            FullWidth="true">
                     @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Tìm
                 </MudButton>
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="ClearFilter"
                            FullWidth="true">
@@ -108,13 +109,13 @@
             <MudText Typo="Typo.body2" Color="Color.Secondary">
                 Đã chọn <strong>@_selectedItems.Count</strong> sản phẩm
             </MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Lock"
                        OnClick="@(() => BulkToggleAsync(true))"
                        Disabled="@_saving">
                 Khóa đã chọn
             </MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.LockOpen"
                        OnClick="@(() => BulkToggleAsync(false))"
                        Disabled="@_saving">
@@ -167,12 +168,10 @@ else
             <MudTd DataLabel="Tên SP">@context.ItemName</MudTd>
             <MudTd DataLabel="ĐVT">@context.UnitOfMeasure</MudTd>
             <MudTd DataLabel="Trạng thái">
-                <MudChip T="string"
-                         Color="@(context.IsLocked ? Color.Error : Color.Success)"
-                         Size="Size.Small"
-                         Variant="Variant.Filled">
-                    @(context.IsLocked ? "Đang bị khóa" : "Đang hoạt động")
-                </MudChip>
+                @{
+                    var (lockCss, lockLabel) = LockStatusDisplay(context.IsLocked);
+                }
+                <span class="pos-status-chip @lockCss">@lockLabel</span>
             </MudTd>
             <MudTd DataLabel="Ngày CN">
                 @(context.UpdatedDate.HasValue ? context.UpdatedDate.Value.ToString("dd/MM/yyyy HH:mm") : "–")
@@ -252,6 +251,11 @@ else
             _loading = false;
         }
     }
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) LockStatusDisplay(bool isLocked) =>
+        isLocked ? ("pos-status-error", "Đang bị khóa") : ("pos-status-success", "Đang hoạt động");
 
     private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
     {

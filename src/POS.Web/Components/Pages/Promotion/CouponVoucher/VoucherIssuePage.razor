@@ -32,12 +32,12 @@
         @(IsEditing ? $"Xem voucher {_model.ItemNo}" : "Phát hành Voucher")
     </MudText>
     <MudStack Row="true" Spacing="1" Class="pos-page-header-btn">
-        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="pos-btn-mockup pos-btn-secondary-mockup" StartIcon="@Icons.Material.Filled.ArrowBack"
                    OnClick="@(() => Nav.NavigateTo("/promotion/vouchers"))">Danh sách</MudButton>
         @* Xem voucher: nút PHÁT HÀNH luôn hiện — phát hành thêm 1 lô mã Auto mới cho voucher đã có *@
         @if (IsEditing)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
                        StartIcon="@Icons.Material.Filled.QrCode2" OnClick="OpenIssueMoreDialogForExistingAsync">
                 PHÁT HÀNH
             </MudButton>
@@ -47,7 +47,7 @@
            Xem voucher: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
         @if (!IsEditing && IsAuto)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
                        OnClick="OpenIssueMoreDialogForNewAsync">
                 @if (_saving)
                 {
@@ -63,7 +63,7 @@
         }
         @if ((!IsEditing && !IsAuto) || (IsEditing && BlockedChanged))
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
                        OnClick="@(() => IsEditing ? SaveBlockedAsync() : SaveAsync())">
                 @if (_saving)
                 {
@@ -215,13 +215,13 @@ else
                         <MudItem xs="12" sm="8" md="8" Class="d-flex align-center gap-2 flex-wrap">
                             <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
                                 <ActivatorContent>
-                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-btn-mockup"
                                                StartIcon="@Icons.Material.Filled.UploadFile">
                                         @(_importFile?.Name ?? "Chọn file Excel")
                                     </MudButton>
                                 </ActivatorContent>
                             </MudFileUpload>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                            <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="pos-btn-mockup"
                                        StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
                                 File mẫu
                             </MudButton>
@@ -272,7 +272,7 @@ else
                 @if (_items.Count > 0 && !IsEditing)
                 {
                     <div class="d-flex justify-end mb-2">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Add"
                                    OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
                     </div>
                 }
@@ -308,7 +308,7 @@ else
                             @if (!IsEditing)
                             {
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                                           OnClick="OpenItemPickerAsync" Class="mb-3">Thêm sản phẩm</MudButton>
+                                           OnClick="OpenItemPickerAsync" Class="mb-3 pos-btn-mockup">Thêm sản phẩm</MudButton>
                             }
                             <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
                             <MudText Typo="Typo.body2">Chưa có sản phẩm áp dụng.</MudText>
@@ -336,16 +336,15 @@ else
                         <MudTd DataLabel="STT">@(_codeOffset + _codeRows.IndexOf(context) + 1)</MudTd>
                         <MudTd DataLabel="Mã voucher">@context.Code</MudTd>
                         <MudTd DataLabel="Trạng thái khóa">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                     Color="@(context.Enable ? Color.Success : Color.Error)">
+                            <span class="pos-status-chip @(context.Enable ? "pos-status-success" : "pos-status-error")">
                                 @(context.Enable ? "Active" : "Locked")
-                            </MudChip>
+                            </span>
                         </MudTd>
                         <MudTd DataLabel="Status">
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
-                                     Color="@StatusColor(context.Status)">
-                                @(string.IsNullOrEmpty(context.Status) ? "—" : context.Status)
-                            </MudChip>
+                            @{
+                                var (stCss, stLabel) = StatusDisplay(context.Status);
+                            }
+                            <span class="pos-status-chip @stCss">@stLabel</span>
                         </MudTd>
                         <MudTd DataLabel="Số tiền đã dùng" Style="text-align:right">
                             @(context.AmountUsed.HasValue ? context.AmountUsed.Value.ToString("#,##0.##") : "—")
@@ -689,13 +688,20 @@ else
         => DateTime.TryParseExact(dmy, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var d) ? d : null;
 
-    private static Color StatusColor(string status) => status switch
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) StatusDisplay(string status)
     {
-        "SOLD" => Color.Info,
-        "RDM"  => Color.Success,
-        "EXP"  => Color.Error,
-        _      => Color.Default
-    };
+        var label = string.IsNullOrEmpty(status) ? "—" : status;
+        var css = status switch
+        {
+            "SOLD" => "pos-status-info",
+            "RDM"  => "pos-status-success",
+            "EXP"  => "pos-status-error",
+            _      => "pos-status-info"
+        };
+        return (css, label);
+    }
 
     private static string DiscountTypeText(int discountType)
         => discountType == 1 ? "Percent (%)" : "Amount (VNĐ)";

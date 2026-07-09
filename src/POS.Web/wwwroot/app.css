@@ -88,6 +88,34 @@
 .pos-delta-up   { color: var(--pos-success); background-color: var(--pos-success-bg); }
 .pos-delta-down { color: var(--pos-danger);  background-color: var(--pos-danger-bg); }
 
+/* Status badge dạng dot-pill (mockup docs/web/images/status.jpg): nền tint nhạt + chữ đậm cùng
+   tông + chấm tròn nhỏ bên trái (::before dùng currentColor nên không cần markup con riêng cho dot).
+   Dùng cho cột trạng thái/hình thức trong MudTable — KHÔNG dùng MudChip vì Variant Filled/Outlined/
+   Text của MudChip không có chế độ "nền tint nhạt + chữ đậm + dot" sẵn (xem PosDeltaBadge.razor —
+   precedent gốc của kỹ thuật pill nền tint này). */
+.pos-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.pos-status-chip::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    flex-shrink: 0;
+}
+.pos-status-success { color: var(--pos-success); background-color: var(--pos-success-bg); }
+.pos-status-error   { color: var(--pos-danger);  background-color: var(--pos-danger-bg); }
+.pos-status-warning { color: var(--pos-warning); background-color: var(--pos-warning-bg); }
+.pos-status-info    { color: var(--pos-info);    background-color: var(--pos-info-bg); }
+
 /* Flat button — bỏ box-shadow MudBlazor default (Elevation=2 = 0 2px 8px ...)
    Áp dụng cho mọi trạng thái: normal, hover, focus, active */
 .mud-button-root,
@@ -117,6 +145,27 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+/* Input VALUE (TextField/Autocomplete/Select/DatePicker) — verify trực tiếp MudBlazor.min.css:
+   .mud-input-root{font:inherit} KHÔNG cascade từ Typography.Body1 (chỉ áp dụng cho class
+   .mud-typography-body1, dùng bởi MudText) — input kế thừa từ <body> (Typography.Default =
+   13px), lớn hơn mockup .input,.select,.textarea{font-size:12.5px}. Ép trực tiếp đúng token. */
+.mud-input-root {
+    font-size: 0.78125rem !important;
+    font-weight: 400 !important;
+}
+
+/* Nút khớp mockup theme_html.html .btn{padding:7px 14px} — Size="Size.Small" của MudButton nén
+   chặt hơn nhiều so với mockup. Áp Class="pos-btn-mockup" lên MudButton (không viết <button> thuần). */
+.pos-btn-mockup {
+    padding: 7px 14px !important;
+}
+/* .btn-secondary mockup: nền xám nhạt ĐẶC + border, khác Variant.Outlined mặc định (nền trong suốt) */
+.pos-btn-secondary-mockup {
+    background-color: var(--pos-bg-alt) !important;
+    color: var(--pos-text-body) !important;
+    border: 1px solid var(--pos-border) !important;
 }
 
 /* AppBar shadow riêng — theme_html .topbar có shadow nhẹ khác Elevation=1

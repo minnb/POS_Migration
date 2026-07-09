@@ -31,6 +31,7 @@
             <MudSelectItem Value="300">5 phút</MudSelectItem>
         </MudSelect>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="RunCheckAsync"
                    Disabled="_checking"
@@ -100,11 +101,10 @@
                         <MudText Typo="Typo.subtitle2" Style="font-weight:600;word-break:break-all">
                             @item.Component
                         </MudText>
-                        <MudChip T="string" Size="Size.Small"
-                                 Color="@(item.Ok ? Color.Success : Color.Error)"
-                                 Variant="Variant.Filled">
-                            @(item.Ok ? "ONLINE" : "OFFLINE")
-                        </MudChip>
+                        @{
+                            var (hCss, hLabel) = HealthStatusDisplay(item.Ok);
+                        }
+                        <span class="pos-status-chip @hCss">@hLabel</span>
                     </MudStack>
 
                     @* Target endpoint *@
@@ -237,6 +237,11 @@
     private static string CardStyle(bool ok) =>
         ok ? "height:100%;border-left:3px solid var(--pos-success)"
            : "height:100%;border-left:3px solid var(--pos-danger)";
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) HealthStatusDisplay(bool ok) =>
+        ok ? ("pos-status-success", "ONLINE") : ("pos-status-error", "OFFLINE");
 
     public void Dispose() => _timer?.Dispose();
 }

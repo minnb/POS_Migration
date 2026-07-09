@@ -131,12 +131,13 @@
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -214,18 +215,14 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Loại hủy" Style="text-align:center">
-            @if (context.VoidType == "InvoiceVoid")
-            {
-                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">HỦY HÓA ĐƠN</MudChip>
+            @{
+                var (vCss, vLabel) = VoidTypeDisplay(context.VoidType);
             }
-            else
-            {
-                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">HỦY DÒNG</MudChip>
-            }
+            <span class="pos-status-chip @vCss">@vLabel</span>
         </MudTd>
         <MudTd DataLabel="Số hóa đơn">@context.OrderNo</MudTd>
         <MudTd DataLabel="Dòng" Style="text-align:center">@context.LineNo</MudTd>
-        <MudTd DataLabel="Ngày hủy" Style="text-align:center">@context.ScanTime.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="Ngày hủy" Style="text-align:center">@context.ScanTime.ToString("yyyy-MM-dd")</MudTd>
         <MudTd DataLabel="Giờ hủy" Style="text-align:center">@context.ScanTime.ToString("HH:mm:ss")</MudTd>
         <MudTd DataLabel="Cửa hàng" Style="text-align:center">@(context.StoreNo ?? "—")</MudTd>
         <MudTd DataLabel="Máy POS" Style="text-align:center">@(context.POSTerminalNo ?? "—")</MudTd>
@@ -250,9 +247,9 @@
         </MudTd>
         <MudTd DataLabel="Loại GD gốc" Style="text-align:center">
             @{
-                var (tColor, tLabel) = TransTypeDisplay(context.TransactionType);
+                var (tCss, tLabel) = TransTypeStatusDisplay(context.TransactionType);
             }
-            <MudChip T="string" Color="@tColor" Size="Size.Small" Variant="Variant.Outlined">@tLabel</MudChip>
+            <span class="pos-status-chip @tCss">@tLabel</span>
         </MudTd>
         <MudTd DataLabel="Người hủy">
             @if (context.IsSelfVoid)
@@ -444,12 +441,19 @@
     private string RowClassFunc(VoidReportLineDto item, int index)
         => item.VoidType == "InvoiceVoid" ? "pos-row-invoice-void" : string.Empty;
 
-    // Loại GD gốc bị hủy — màu trung tính (mọi dòng đều là GD đã hủy)
-    private static (Color Color, string Label) TransTypeDisplay(int? type) => type switch
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) TransTypeStatusDisplay(int? type) => type switch
     {
-        1      => (Color.Info,    "GD bán"),
-        2 or 3 => (Color.Warning, "GD trả"),
-        null   => (Color.Default, "—"),
-        _      => (Color.Default, $"Loại {type}")
+        1      => ("pos-status-info", "GD bán"),
+        2 or 3 => ("pos-status-warning", "GD trả"),
+        null   => ("pos-status-info", "—"),
+        _      => ("pos-status-info", $"Loại {type}")
+    };
+
+    private static (string CssClass, string Label) VoidTypeDisplay(string voidType) => voidType switch
+    {
+        "InvoiceVoid" => ("pos-status-error", "HỦY HÓA ĐƠN"),
+        _             => ("pos-status-warning", "HỦY DÒNG")
     };
 }

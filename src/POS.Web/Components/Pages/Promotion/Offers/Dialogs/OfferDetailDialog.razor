@@ -54,8 +54,9 @@
                 <div class="d-flex flex-wrap gap-2 mb-2 align-center">
                     <MudTextField @bind-Value="_buySearch" Label="Tìm theo Mã sản phẩm (No)" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
                                   OnKeyUp="@(async e => { if (e.Key == "Enter") await _buyTable.ReloadServerData(); })"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
                                StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_buyExporting"
                                OnClick="ExportBuyAsync">@(_buyExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
                 </div>
@@ -117,8 +118,9 @@
                 <div class="d-flex flex-wrap gap-2 mb-2 align-center">
                     <MudTextField @bind-Value="_getSearch" Label="Tìm theo Mã sản phẩm (No)" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
                                   OnKeyUp="@(async e => { if (e.Key == "Enter") await _getTable.ReloadServerData(); })"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
                                StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_getExporting"
                                OnClick="ExportGetAsync">@(_getExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
                 </div>
@@ -153,8 +155,9 @@
                 <div class="d-flex flex-wrap gap-2 mb-2 align-center">
                     <MudTextField @bind-Value="_siteSearch" Label="Tìm theo Mã cửa hàng" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Store"
                                   OnKeyUp="@(async e => { if (e.Key == "Enter") await _siteTable.ReloadServerData(); })"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
                                StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_siteExporting"
                                OnClick="ExportSiteAsync">@(_siteExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
                 </div>
@@ -200,7 +203,7 @@
         </MudTabs>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Close" Variant="Variant.Outlined">Đóng</MudButton>
+        <MudButton OnClick="Close" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 

@@ -127,8 +127,8 @@ src/
 │   │   │   ├── ProductImageDto.cs (ProductImageDto: ItemNo, Uom, ImageBase64)                       ← ảnh sản phẩm (dbo.ProductImage, 2026-07-06)
 │   │   │   └── ProductDetailDto.cs (ProductDetailDto: header + List<BarcodeRowDto> + ImageBase64?)  ← xem chi tiết SP (2026-07-06)
 │   │   ├── DataSync/
-│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip)
-│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, SyncAction? (override Action mọi batch: Web Sync="DELETE-INSERT", null=TRUNC-INSERT→INSERT)
+│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip, Action — Action theo bảng từ SyncTableList.Action, null nếu SP chưa có cột)
+│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, IsChangeMode (@IsChange SP SyncTable_Get: "A"=ALL sync mặc định, "W"=Web Sync/push 1 POS)
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
 │   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/IssueMore/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
@@ -148,6 +148,8 @@ src/
 │   │   │   ├── ProgramPoints/ProgramPointsDto.cs
 │   │   │   ├── WinCode/WinCodeDto.cs
 │   │   │   └── WinScore/WinScoreDto.cs
+│   │   ├── RptLoyalty/
+│   │   │   └── InvoiceLoyaltyDto.cs   ← báo cáo Hội viên (LoggingLoyalty): OrderNo, TransactionType, OrigOrderNo, MemberCardNo, StoreNo, ActionType, LoyaltyPoints, CrtDate, Total (phân trang) + MemberCardMasked (computed)
 │   │   ├── MSN/MSNDto.cs
 │   │   ├── Ops/
 │   │   │   ├── HealthCheckItemDto.cs
@@ -297,6 +299,7 @@ src/
         │   └── IDataRawJsonRepository.cs / DataRawJsonRepository.cs
         ├── Loyalty/
         │   ├── ILoyaltyRepository.cs / LoyaltyRepository.cs
+        │   ├── IRptLoyaltyRepository.cs / RptLoyaltyRepository.cs   ← báo cáo POS.Web (LoggingLoyalty), tách khỏi ILoyaltyRepository
         │   ├── IOfferStaffRepository.cs / OfferStaffRepository.cs
         │   └── IWincodeRepository.cs / WincodeRepository.cs
         ├── CouponVoucher/                  ← 8.1–8.4 + SAP Voucher (dùng chung bảng CpnVchBOMCodeIssue, cột Source)
@@ -307,7 +310,7 @@ src/
         ├── Price/                          ← 9.1/9.3 Bảng giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete
         └── DataSync/
-            └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync, Redis cache MD:SyncTableList) + SP2 stream (StreamTableToFilesAsync)
+            └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + SP2 stream (StreamTableToFilesAsync)
 ```
 
 ---
@@ -348,6 +351,7 @@ src/
 | `IRptReportSaleDetailRepository` | `RptReportSaleDetailRepository` | Sale/ | POS.Infrastructure |
 | `IDataRawJsonRepository` | `DataRawJsonRepository` | Sale/ | POS.Infrastructure |
 | `ILoyaltyRepository` | `LoyaltyRepository` | Loyalty/ | POS.Infrastructure |
+| `IRptLoyaltyRepository` | `RptLoyaltyRepository` | Loyalty/ | POS.Infrastructure |
 | `IOfferStaffRepository` | `OfferStaffRepository` | Loyalty/ | POS.Infrastructure |
 | `IWincodeRepository` | `WincodeRepository` | Loyalty/ | POS.Infrastructure |
 | `IVoucherCodeRepository` | `VoucherCodeRepository` | CouponVoucher/ | POS.Infrastructure |
@@ -424,6 +428,7 @@ src/
 | `IRptReportSaleDetailRepository` → `RptReportSaleDetailRepository` | Scoped | Report sale detail |
 | `IDataRawJsonRepository` → `DataRawJsonRepository` | Scoped | StagingDB |
 | `ILoyaltyRepository` → `LoyaltyRepository` | Scoped | Loyalty DB |
+| `IRptLoyaltyRepository` → `RptLoyaltyRepository` | Scoped | Report Loyalty (LoggingLoyalty, POS.Web) |
 | `IOfferStaffRepository` → `OfferStaffRepository` | Scoped | Staff discount DB |
 | `IWincodeRepository` → `WincodeRepository` | Scoped | WinCode / WinLife DB |
 | `IVoucherCodeRepository` → `VoucherCodeRepository` | Scoped | SAP voucher real-time (CpnVchBOMCodeIssue, Source='SAP') |
@@ -604,6 +609,18 @@ Task<LoggingLoyaltyDto?> InsertLoggingLoyaltyAsync(LoggingLoyaltyDto loggingLoya
 Task<GiftCodeDto?> GetGiftCodeAsync(string orderNo, string saleType, string memberCard, int amount, CancellationToken ct = default)
 Task<bool> UpdateMemoryCacheConfigAsync(string code, bool isBlocked, CancellationToken ct = default)
 Task<MemoryCacheConfig?> GetMemoryCacheConfigAsync(string code, CancellationToken ct = default)
+```
+
+### `IRptLoyaltyRepository` (`POS.Infrastructure.Repositories.Interfaces`)
+
+> Báo cáo POS.Web trên Loyalty DB (`LoggingLoyalty`) — tách khỏi `ILoyaltyRepository`. Dùng cho
+> trang CỬA HÀNG → Giao dịch → Hội viên (`MemberPointsPage.razor`).
+
+```csharp
+Task<List<InvoiceLoyaltyDto>> GetInvoiceLoyaltyListAsync(
+    string? storeNo, DateTime fromDate, DateTime toDate,
+    string? memberCardNo, string? orderNo, string? actionType, int? transactionType,
+    int pageSize, int pageNumber, CancellationToken ct = default)
 ```
 
 ### `IOfferStaffRepository` (`POS.Infrastructure.Repositories.Interfaces`)

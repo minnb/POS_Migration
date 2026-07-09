@@ -295,7 +295,7 @@ POS.Api → POS.Common
   `docs/sql/{Domain}_{Action}.sql`, apply thủ công 1 lần lên `RPOSMasterData`
   (`.claude/skills/database/SKILLS.md`) — khác hẳn cách cũ (143 SP dồn 1 file, tên không theo
   convention thống nhất, không có tài liệu tra cứu tập trung — nay có
-  `docs/architecture/database-schema.md`).
+  `docs/architecture/centralMD-schema.md`).
 - Gọi từ Repository: `DynamicParameters` + `CommandType.StoredProcedure`, TVP qua
   `AsTableValuedParameter("dbo.{Name}TVP")`, output param qua `ParameterDirection.Output` — đã
   verify pattern này xuất hiện ở 11 Repository hiện có.
@@ -321,7 +321,7 @@ POS.Api → POS.Common
 | 3 | `VCM.BLUEPOS.Data/{Domain}/XxxData.cs` (`IXxxData`+`XxxData`, EF6 SqlQuery hoặc raw ADO.NET) | DAL — gọi SP/EF | `POS.Infrastructure/Repositories/{Domain}/IXxxRepository.cs` + `XxxRepository.cs` (kế thừa `BaseRepository`, Dapper) | Bỏ EDMX; SP gọi qua Dapper `DynamicParameters` + `CommandType.StoredProcedure`; nếu SP legacy có tên tuỳ tiện → SP mới tạo phải đổi tên theo `usp_{Domain}_{Action}` (SP cũ giữ nguyên nếu tái dùng được, không đổi ngầm) |
 | 4 | `VCM.BLUEPOS.Model/{Domain}/XxxResponseModel.cs`, `XxxRequestModel.cs` | POCO — request/response/DTO | `POS.Common/Dtos/{Domain}/XxxDto.cs` (hoặc giữ tên nếu là **response DTO đã khoá contract** với POS) | **BẮT BUỘC** kiểm tra field JSON có đang được 5.000 POS parse không trước khi đổi tên bất kỳ property nào; dùng `[JsonProperty]` (Newtonsoft), không `[JsonPropertyName]` |
 | 5 | `VCM.BLUEPOS.Common/Helpers/*.cs` (hash, convert, log, constants) | Helper cross-cutting | `POS.Common/Helpers/` (nếu thuần function không phụ thuộc DI) hoặc inline tạm + `// TODO: extract to helper` nếu chưa có chỗ | Theo mục E "Helpers chưa có" trong CLAUDE.md — không tạo project Common mới, dùng đúng `POS.Common` hiện có |
-| 6 | EF6 EDMX/`DbContext` (vd `CentralMDPartnerContainer`, `CentralSaleContainer`...) | ORM Database First, per-DB context | `IDbConnectionFactory` tương ứng (`CentralMDConnectionFactory`, `CentralSaleConnectionFactory`, `LoyaltyConnectionFactory`, `StagingDbConnectionFactory`) | Đối chiếu `docs/architecture/database-schema.md` để lấy đúng tên bảng/cột — KHÔNG suy đoán từ EDMX cũ (có thể lệch) |
+| 6 | EF6 EDMX/`DbContext` (vd `CentralMDPartnerContainer`, `CentralSaleContainer`...) | ORM Database First, per-DB context | `IDbConnectionFactory` tương ứng (`CentralMDConnectionFactory`, `CentralSaleConnectionFactory`, `LoyaltyConnectionFactory`, `StagingDbConnectionFactory`) | Đối chiếu `docs/architecture/centralMD-schema.md` để lấy đúng tên bảng/cột — KHÔNG suy đoán từ EDMX cũ (có thể lệch) |
 | 7 | Cặp connection string `SetDB1_*`/`SetDB2_*` (routing per-store thủ công qua comment) | Failover/routing theo store | `StoreRoutedConnectionFactory` | Logic routing theo `storeNo` chuyển thành code thật (runtime), không còn comment tay trong config |
 | 8 | Autofac (`AutofacConfig.cs`) + `ServiceLocator` tự chế | DI container + service locator dự phòng | `Microsoft.Extensions.DependencyInjection` (`AddApplication()`/`AddInfrastructure()` trong `DependencyInjection.cs`) | Bỏ hẳn Service Locator pattern; mọi resolve phải qua constructor injection, có test `DependencyInjectionTests.cs` khoá việc quên đăng ký |
 | 9 | `Web.config` `<appSettings>`/`<connectionStrings>` (plaintext, comment-toggle env) | Config | `appsettings.json` + `ICentralMDRepository.GetSysWebApiAsync(appCode)` (config external API từ DB, cache Redis) + mã hoá `enc:`/`POS_SECRET_KEY` cho credential | KHÔNG hardcode URL/credential mới; xem `docs/architecture/appsetting.md` |

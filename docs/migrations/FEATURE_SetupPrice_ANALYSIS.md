@@ -182,13 +182,13 @@ modalListPrice (9.1 Danh sách giá)
 ## 7. ⚠️ CÁC ĐIỂM LỆCH / CHƯA PORT — cần quyết định
 
 > **CẬP NHẬT sau khi verify schema thực tế** (`docs/sql/database/CentralMD.sql` +
-> `docs/architecture/database-schema.md`). Hai kết luận thay đổi so với bản nháp đầu:
+> `docs/architecture/centralMD-schema.md`). Hai kết luận thay đổi so với bản nháp đầu:
 > **G1 rút lại (KHÔNG phải lỗi)**, **G2 bị CHẶN bởi schema — cần DBA xác nhận**.
 
 - **G1 — RÚT LẠI. Không phải defect.** Bảng danh mục `dbo.PriceGroup` của legacy **KHÔNG được
   migrate** sang `RPOSMasterData` — grep `CentralMD.sql` chỉ có `dbo.StorePriceGroup`, không có
   `dbo.PriceGroup`. Hơn nữa cột `StorePriceGroup.PriceGroupName` được **cố ý bổ sung 2026-07**
-  (`database-schema.md:129`) đúng để làm nguồn dropdown này. ➜ Bản mới lấy Nhóm giá từ
+  (`centralMD-schema.md:129`) đúng để làm nguồn dropdown này. ➜ Bản mới lấy Nhóm giá từ
   `DISTINCT StorePriceGroup` [`PriceRepository.cs:131-136`] là **thiết kế đúng cho schema hiện có**.
   **KHÔNG sửa.** (Nhận định "lệch bảng" ở bản nháp là sai do chưa đối chiếu schema mới.)
 
@@ -196,15 +196,15 @@ modalListPrice (9.1 Danh sách giá)
   chỉ list + export. Legacy có inline edit + soft-delete [R16/R17]. Nhưng **không thể port nguyên**
   vì các sự thật đã verify mâu thuẫn nhau:
   1. **Không có khoá dòng đơn.** `dbo.SalesPrice` **không có cột `Id`** (PK là composite
-     `ItemNo,SalesCode,StartingDate,UnitOfMeasureCode` — `database-schema.md:819`). Legacy Update/Delete
+     `ItemNo,SalesCode,StartingDate,UnitOfMeasureCode` — `centralMD-schema.md:819`). Legacy Update/Delete
      key theo `Id` int — **không tồn tại** ở schema mới. SP list `GetSalesPriceList` **không trả cột
      `ID`** (`Script...:4684-4699`) → `PriceListItemDto.ID` hiện luôn = 0 (không dùng được để định vị).
-  2. **Không có cột `IsActive`.** Cả DDL lẫn `database-schema.md` đều xác nhận `SalesPrice` chỉ **15
+  2. **Không có cột `IsActive`.** Cả DDL lẫn `centralMD-schema.md` đều xác nhận `SalesPrice` chỉ **15
      cột, không `IsActive`/`LastTimeUpdate`**. Legacy soft-delete = `IsActive=0` → **không áp dụng được**.
   3. **SP list legacy tham chiếu `IsActive=1`** (`Script...:4711`) — mâu thuẫn với bảng 15 cột. Nghĩa là
      SP `GetSalesPriceList` **đang deploy trên RPOSMasterData chắc chắn là bản đã sửa khác** với script
      trong `src/legacy/` (mình không có text SP thật đang chạy).
-  4. **Ý nghĩa `EndingDate` năm 7777 mâu thuẫn giữa 2 tài liệu**: `database-schema.md:837` ghi "7777 =
+  4. **Ý nghĩa `EndingDate` năm 7777 mâu thuẫn giữa 2 tài liệu**: `centralMD-schema.md:837` ghi "7777 =
      giá hiệu lực vô thời hạn"; còn `SetupSalePrice_Save.sql:11` + legacy DeletePrice (dòng comment
      `SetupPriceData.cs:657` `EndingDate=7777-07-07`) coi **7777 = đánh dấu xóa**. Trái ngược nhau.
 

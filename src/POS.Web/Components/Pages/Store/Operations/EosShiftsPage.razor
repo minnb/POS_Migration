@@ -69,7 +69,9 @@
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense"
                            DateFormat="dd/MM/yyyy"
-                           AutoClose="true"/>
+                           AutoClose="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Outlined.DateRange"/>
         </MudItem>
 
         <MudItem xs="12" sm="6" md="2">
@@ -89,12 +91,14 @@
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -176,11 +180,11 @@
         <MudTd DataLabel="Trạng thái" Style="text-align:center">
             @if (context.IsShiftClosed)
             {
-                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Đã đóng ca</MudChip>
+                <span class="pos-status-chip pos-status-success">Đã đóng ca</span>
             }
             else
             {
-                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Chưa đóng ca</MudChip>
+                <span class="pos-status-chip pos-status-error">Chưa đóng ca</span>
             }
         </MudTd>
         <MudTd DataLabel="Thao tác" Style="text-align:center; white-space:nowrap">

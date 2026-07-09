@@ -12,9 +12,11 @@
 > `docs/sql/database/CentralMD.sql` (hoặc script cập nhật mới nhất), sau đó bổ sung vào file này
 > trong cùng commit.
 >
-> Database khác (`RPOSSale`, `RPOSLoyalty`...) có script riêng — không nằm trong file này. Khi
-> có script cho các DB đó, tạo file tương ứng (`sale-schema.md`, `loyalty-schema.md`...) theo cùng
-> khuôn mẫu và thêm mục lục ở đây.
+> Database khác có script riêng — không nằm trong file này:
+> [`docs/architecture/centralsale-schema.md`](centralsale-schema.md) (`RPOSCentralSales` — giao
+> dịch bán hàng, ca/shift, EOD) và [`docs/architecture/loyalty-schema.md`](loyalty-schema.md)
+> (`RPOSLoyalty` — log giao dịch loyalty). Khi có script cho DB mới khác, tạo file tương ứng theo
+> cùng khuôn mẫu và thêm mục lục ở đây.
 
 ## Quy ước chung trong DB này
 
@@ -105,7 +107,25 @@ CustomerDefault           nvarchar(20)      NULL
 Counter                   bigint            NULL
 Pkey                      varchar(50)       NULL
 ```
-> Xem quy tắc dùng cột `ClosingMethod` (KHÔNG dùng `Blocked`) ở CLAUDE.md mục "Quy tắc DB Schema".
+**Business rules (BẮT BUỘC biết trước khi query bảng này):**
+
+| Column | Ý nghĩa | Giá trị |
+|--------|---------|---------|
+| `No` | Mã cửa hàng (primary key) | `"VIN001"`, `"VIN002"`... |
+| `Name` | Tên cửa hàng | |
+| `ClosingMethod` | Trạng thái hoạt động | `0` = đang mở cửa, `1` = đã đóng cửa |
+
+> **KHÔNG dùng `Blocked`** — column `Blocked` không tồn tại hoặc không phản ánh trạng thái hoạt động của cửa hàng trong dự án này.
+
+**Query chuẩn khi lấy danh sách cửa hàng đang hoạt động:**
+```sql
+SELECT No AS StoreNo, Name
+FROM dbo.Store (NOLOCK)
+WHERE ClosingMethod = 0
+ORDER BY No
+```
+
+**Dùng ở đâu:** `CentralMDRepository.GetStoreListAsync`, mọi query liên quan đến danh sách store picker trong POS.Web.
 
 ### StoreGroup
 PK: (none — dùng Counter/Pkey)

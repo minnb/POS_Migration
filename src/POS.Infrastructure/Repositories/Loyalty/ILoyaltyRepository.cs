@@ -9,16 +9,7 @@ namespace POS.Infrastructure.Repositories.Interfaces;
 
 public interface ILoyaltyRepository
 {
-    Task<List<StoreMappingModel>?> GetLoyaltyStoreMappingAsync(CancellationToken ct = default);
     string ConnectStringLoyaltyDb();
-
-    Task<bool> InsertWinPayAccumulateAsync(IDbConnection db, WinPayAccumulationData winPayAccumulationData, bool isRetry = false);
-
-    bool InsertMemberRemnItem(List<MemberRemnItem> memberRemnItems, string parentKeyMemberRemnItem, ref string errMess);
-
-    Task<Tuple<bool, string>> RefundMemberRemnItemAsync(string orderNo, string memberCard, CancellationToken ct = default);
-
-    bool UpdateWinMoneyConversion(WinMoneyConversion winMoneyConversion, ref string errMess);
 
     Task<bool> UpdateStatusLoggingLoyaltyAsync(LoggingLoyaltyDto loggingLoyaltyDto, CancellationToken ct = default);
 
@@ -28,9 +19,4 @@ public interface ILoyaltyRepository
 
     Task<LoggingLoyaltyDto?> InsertLoggingLoyaltyAsync(LoggingLoyaltyDto loggingLoyaltyDto, string orderNo = "", bool isRetry = false, CancellationToken ct = default);
 
-    Task<GiftCodeDto?> GetGiftCodeAsync(string orderNo, string saleType, string memberCard, int amount, CancellationToken ct = default);
-
-    Task<bool> UpdateMemoryCacheConfigAsync(string code, bool isBlocked, CancellationToken ct = default);
-
-    Task<MemoryCacheConfig?> GetMemoryCacheConfigAsync(string code, CancellationToken ct = default);
 }

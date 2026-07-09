@@ -1,0 +1,458 @@
+@page "/store/member-points"
+@namespace POS.Web.Components.Pages.Store
+@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
+@rendermode InteractiveServer
+
+@using ClosedXML.Excel
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Common.Dtos.CentralMD
+@using POS.Common.Dtos.RptLoyalty
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+@using POS.Web.Services
+
+@inject IRptLoyaltyRepository RptLoyaltyRepo
+@inject ICentralMDRepository MdRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+<PageTitle>Hội viên – POS Dashboard</PageTitle>
+
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.CardMembership" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
+        Hội viên
+    </MudText>
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.FileDownload"
+               Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary-mockup"
+               Disabled="@_exporting"
+               OnClick="ExportToExcelAsync">
+        @if (_exporting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
+        @(_exporting ? "Đang xuất..." : "Export Excel")
+    </MudButton>
+</div>
+
+@* ── Filter Panel ────────────────────────────────────────────────────── *@
+@* Dòng 1: Cửa hàng / Từ ngày / Đến ngày / Hình thức — Dòng 2: Số hóa đơn / Số thẻ hội viên / Loại hóa đơn / Tìm-Xóa *@
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+    <MudGrid Spacing="2" Class="mb-2">
+
+        <MudItem xs="12" sm="6" md="3">
+            @if (_isStoreOperator)
+            {
+                <MudTextField Value="@StoreDisplayText"
+                              Label="Cửa hàng"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              ReadOnly="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Store"/>
+            }
+            else
+            {
+                <MudAutocomplete T="StoreDto"
+                                 @bind-Value="_selectedStore"
+                                 Label="Cửa hàng"
+                                 Placeholder="Tất cả cửa hàng"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 SearchFunc="@SearchStoreAsync"
+                                 ToStringFunc="@(s => s == null ? "" : $"{s.StoreNo} – {s.Name}")"
+                                 Clearable="true"
+                                 AdornmentIcon="@Icons.Material.Outlined.Store"
+                                 Adornment="Adornment.Start"
+                                 MinCharacters="0"
+                                 MaxItems="50"/>
+            }
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker @bind-Date="_filterFromDate"
+                           Label="Từ ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker @bind-Date="_filterToDate"
+                           Label="Đến ngày"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           DateFormat="dd/MM/yyyy"
+                           AutoClose="true"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_filterActionType" Label="Hình thức" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((string?)null)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("EARN")">Tích điểm</MudSelectItem>
+                <MudSelectItem Value="@("REDEEM")">Tiêu điểm</MudSelectItem>
+                <MudSelectItem Value="@("REVERSE_EARN")">Hoàn tích điểm</MudSelectItem>
+                <MudSelectItem Value="@("REVERSE_REDEEM")">Hoàn tiêu điểm</MudSelectItem>
+                <MudSelectItem Value="@("TOPUP")">Nạp điểm</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+    </MudGrid>
+
+    <MudGrid Spacing="2">
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filterOrderNo"
+                          Label="Số hóa đơn"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Receipt"
+                          OnKeyDown="@HandleKeyDownAsync"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filterMemberCardNo"
+                          Label="Số thẻ hội viên"
+                          Placeholder="4 số cuối..."
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.CreditCard"
+                          OnKeyDown="@HandleKeyDownAsync"/>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_filterTransactionType" Label="Loại hóa đơn" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((int?)null)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@((int?)1)">Bán hàng</MudSelectItem>
+                <MudSelectItem Value="@((int?)2)">Trả hàng</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="pos-btn-mockup"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@OnSearch"
+                           FullWidth="true">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="@OnReset"
+                           FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Table ───────────────────────────────────────────────────────────── *@
+<MudTable @ref="_table"
+          ServerData="LoadServerData"
+          Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2"
+          Loading="@_loading" LoadingProgressColor="Color.Primary"
+          HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh>Số hóa đơn</MudTh>
+        <MudTh Style="text-align:center">Loại</MudTh>
+        <MudTh>Hóa đơn gốc</MudTh>
+        <MudTh Style="text-align:center">Số thẻ HV</MudTh>
+        <MudTh Style="text-align:center">Hình thức</MudTh>
+        <MudTh Style="text-align:right">Điểm</MudTh>
+        <MudTh Style="text-align:center">Thời gian</MudTh>
+        <MudTh Style="text-align:center">Thao tác</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Số hóa đơn">@context.OrderNo</MudTd>
+        <MudTd DataLabel="Loại" Style="text-align:center">
+            @{
+                var (tCss, tLabel) = TransTypeDisplay(context.TransactionType);
+            }
+            <span class="pos-status-chip @tCss">@tLabel</span>
+        </MudTd>
+        <MudTd DataLabel="Hóa đơn gốc">@(string.IsNullOrWhiteSpace(context.OrigOrderNo) ? "—" : context.OrigOrderNo)</MudTd>
+        <MudTd DataLabel="Số thẻ HV" Style="text-align:center">@context.MemberCardMasked</MudTd>
+        <MudTd DataLabel="Hình thức" Style="text-align:center">
+            @{
+                var (aCss, aLabel) = ActionTypeDisplay(context.ActionType);
+            }
+            <span class="pos-status-chip @aCss">@aLabel</span>
+        </MudTd>
+        <MudTd DataLabel="Điểm" Style="@($"text-align:right; font-weight:600; color:{(context.LoyaltyPoints >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)")}")">
+            @(context.LoyaltyPoints >= 0 ? "+" : "")@context.LoyaltyPoints.ToString("N0")
+        </MudTd>
+        <MudTd DataLabel="Thời gian" Style="text-align:center">@context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+        <MudTd DataLabel="Thao tác" Style="text-align:center">
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                           Size="Size.Small" Color="Color.Primary"
+                           Title="Xem chi tiết"
+                           OnClick="@(() => OpenDetailDialog(context.OrderNo))"/>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4" Style="color:#9e9e9e">Không có dữ liệu. Hãy điều chỉnh bộ lọc và nhấn Tìm.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} hóa đơn"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private const int MaxExportRows = 5000;
+
+    private MudTable<InvoiceLoyaltyDto> _table = null!;
+
+    private bool    _loading;
+    private bool    _exporting;
+    private string? _errorMsg;
+    private bool    _isStoreOperator;
+
+    private DateTime? _filterFromDate = DateTime.Today;
+    private DateTime? _filterToDate   = DateTime.Today;
+    private string     _filterOrderNo       = string.Empty;
+    private string     _filterMemberCardNo  = string.Empty;
+    private string?    _filterActionType;
+    private int?       _filterTransactionType;
+
+    private IReadOnlyList<string> _userStoreCodes = [];
+    private List<StoreDto>        _allStores      = [];
+    private StoreDto?             _selectedStore;
+    private string?               _filterStoreNo;
+
+    // Danh sách trang hiện tại (giữ lại để OpenDetailDialog không cần query lại DB).
+    private List<InvoiceLoyaltyDto> _currentPageItems = [];
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        var json = state.User.FindFirst("store_codes")?.Value;
+        _userStoreCodes = string.IsNullOrEmpty(json)
+            ? []
+            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json) ?? [];
+
+        _isStoreOperator = _userStoreCodes.Count > 0;
+        if (_isStoreOperator)
+            _filterStoreNo = _userStoreCodes[0];
+
+        try
+        {
+            _allStores = await MdRepo.GetStoreListAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("MemberPointsPage.LoadStoreCodes", ex);
+            if (!_isStoreOperator)
+                Snackbar.Add("Không tải được danh sách cửa hàng. Vui lòng thử lại sau.", Severity.Error);
+        }
+
+        // MudTable server-side tự gọi LoadServerData lần đầu khi render — không cần load thủ công ở đây.
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────────
+
+    private async Task<TableData<InvoiceLoyaltyDto>> LoadServerData(TableState state, CancellationToken ct)
+    {
+        _loading  = true;
+        _errorMsg = null;
+        try
+        {
+            var from = (_filterFromDate ?? DateTime.Today).Date;
+            var to   = (_filterToDate   ?? DateTime.Today).Date;
+            if (from > to) to = from;
+
+            var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
+
+            var result = await RptLoyaltyRepo.GetInvoiceLoyaltyListAsync(
+                storeNo, from, to,
+                string.IsNullOrWhiteSpace(_filterMemberCardNo) ? null : _filterMemberCardNo,
+                string.IsNullOrWhiteSpace(_filterOrderNo) ? null : _filterOrderNo,
+                _filterActionType,
+                _filterTransactionType,
+                state.PageSize, state.Page, ct);
+
+            _currentPageItems = result;
+
+            FileLogger.WriteLogs($"[MemberPointsPage.LoadData] {storeNo ?? "all"}: Loaded {result.Count} invoices [{from:dd/MM/yyyy}-{to:dd/MM/yyyy}]");
+
+            return new TableData<InvoiceLoyaltyDto> { Items = result, TotalItems = result.FirstOrDefault()?.Total ?? 0 };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu. Vui lòng thử lại.";
+            FileLogger.WriteExpLogs("MemberPointsPage.LoadData", ex);
+            return new TableData<InvoiceLoyaltyDto> { Items = [], TotalItems = 0 };
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSearch() => _table.ReloadServerData();
+
+    private Task OnReset()
+    {
+        _filterFromDate        = DateTime.Today;
+        _filterToDate          = DateTime.Today;
+        _filterOrderNo         = string.Empty;
+        _filterMemberCardNo    = string.Empty;
+        _filterActionType      = null;
+        _filterTransactionType = null;
+        if (!_isStoreOperator) _selectedStore = null;
+        return _table.ReloadServerData();
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await OnSearch();
+    }
+
+    private Task<IEnumerable<StoreDto>> SearchStoreAsync(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<StoreDto>>(_allStores.Take(50));
+
+        var v = value.Trim();
+        var matches = _allStores
+            .Where(s =>
+                (s.StoreNo?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.Name?.Contains(v, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(s => s.StoreNo?.StartsWith(v, StringComparison.OrdinalIgnoreCase) ?? false)
+            .ThenBy(s => s.StoreNo, StringComparer.OrdinalIgnoreCase)
+            .Take(50);
+
+        return Task.FromResult<IEnumerable<StoreDto>>(matches);
+    }
+
+    private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
+        ? $"{st.StoreNo} – {st.Name}"
+        : (_filterStoreNo ?? "");
+
+    private Task OpenDetailDialog(string invoiceNo)
+    {
+        var invoice = _currentPageItems.FirstOrDefault(x => x.OrderNo == invoiceNo);
+        if (invoice == null) return Task.CompletedTask;
+
+        return DialogService.ShowAsync<MemberPointsDetailDialog>(
+            $"Chi tiết hóa đơn: {invoice.OrderNo}",
+            new DialogParameters<MemberPointsDetailDialog> { { x => x.Invoice, invoice } },
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true, CloseOnEscapeKey = true });
+    }
+
+    private async Task ExportToExcelAsync()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var from = (_filterFromDate ?? DateTime.Today).Date;
+            var to   = (_filterToDate   ?? DateTime.Today).Date;
+            if (from > to) to = from;
+
+            var storeNo = _isStoreOperator ? _filterStoreNo : _selectedStore?.StoreNo;
+
+            var rows = await RptLoyaltyRepo.GetInvoiceLoyaltyListAsync(
+                storeNo, from, to,
+                string.IsNullOrWhiteSpace(_filterMemberCardNo) ? null : _filterMemberCardNo,
+                string.IsNullOrWhiteSpace(_filterOrderNo) ? null : _filterOrderNo,
+                _filterActionType,
+                _filterTransactionType,
+                MaxExportRows, 0);
+
+            if (rows.Count == 0)
+            {
+                Snackbar.Add("Không có dữ liệu để xuất.", Severity.Warning);
+                return;
+            }
+            if (rows.Count == MaxExportRows)
+                Snackbar.Add($"Chỉ xuất tối đa {MaxExportRows:N0} dòng đầu tiên. Hãy thu hẹp bộ lọc để xuất đầy đủ.", Severity.Warning);
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("HoiVien");
+
+            ws.Cell(1, 1).Value = "Số hóa đơn";
+            ws.Cell(1, 2).Value = "Loại hóa đơn";
+            ws.Cell(1, 3).Value = "Hóa đơn gốc";
+            ws.Cell(1, 4).Value = "Số thẻ hội viên";
+            ws.Cell(1, 5).Value = "Hình thức";
+            ws.Cell(1, 6).Value = "Số điểm";
+            ws.Cell(1, 7).Value = "Thời gian";
+            var headerRange = ws.Range("A1:G1");
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#78bff5");
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var item = rows[i];
+                var row  = i + 2;
+                ws.Cell(row, 1).Value = item.OrderNo;
+                ws.Cell(row, 2).Value = TransTypeDisplay(item.TransactionType).Label;
+                ws.Cell(row, 3).Value = item.OrigOrderNo ?? "";
+                ws.Cell(row, 4).Value = item.MemberCardMasked;
+                ws.Cell(row, 5).Value = ActionTypeDisplay(item.ActionType).Label;
+                ws.Cell(row, 6).Value = item.LoyaltyPoints;
+                ws.Cell(row, 7).Value = item.CrtDate.ToString("dd/MM/yyyy HH:mm:ss");
+            }
+
+            ws.Columns().AdjustToContents();
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            var bytes    = ms.ToArray();
+            var fileName = $"HoiVien_{from:yyyyMMdd}_{to:yyyyMMdd}.xlsx";
+            await JS.SaveAsFileAsync(fileName, bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Xuất Excel thất bại.", Severity.Error);
+            FileLogger.WriteExpLogs("MemberPointsPage.Export", ex);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) TransTypeDisplay(int type) => type switch
+    {
+        1      => ("pos-status-success", "Bán hàng"),
+        2 or 3 => ("pos-status-warning", "Trả hàng"),
+        _      => ("pos-status-info", $"Loại {type}")
+    };
+
+    private static (string CssClass, string Label) ActionTypeDisplay(string actionType) => actionType switch
+    {
+        "EARN"           => ("pos-status-success", "Tích điểm"),
+        "REDEEM"         => ("pos-status-error", "Tiêu điểm"),
+        "REVERSE_EARN"   => ("pos-status-warning", "Hoàn tích điểm"),
+        "REVERSE_REDEEM" => ("pos-status-warning", "Hoàn tiêu điểm"),
+        "TOPUP"          => ("pos-status-info", "Nạp điểm"),
+        _                => ("pos-status-info", actionType)
+    };
+}

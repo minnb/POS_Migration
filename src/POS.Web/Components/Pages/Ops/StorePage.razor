@@ -29,7 +29,7 @@
                Size="Size.Small"
                StartIcon="@Icons.Material.Filled.AddBusiness"
                OnClick="OpenCreateDialogAsync"
-               Class="pos-page-header-btn">
+               Class="pos-page-header-btn pos-btn-mockup">
         Thêm cửa hàng
     </MudButton>
 </div>
@@ -118,11 +118,10 @@
         <MudTd DataLabel="Address">@context.Address</MudTd>
         <MudTd DataLabel="BranchNo">@(context.BranchNo ?? "—")</MudTd>
         <MudTd DataLabel="Status">
-            <MudChip T="string" Size="Size.Small"
-                     Color="@(context.IsActive ? Color.Success : Color.Error)"
-                     Variant="Variant.Filled">
-                @(context.IsActive ? "● Hoạt động" : "● Đã đóng")
-            </MudChip>
+            @{
+                var (statusCss, statusLabel) = ActiveStatusDisplay(context.IsActive);
+            }
+            <span class="pos-status-chip @statusCss">@statusLabel</span>
         </MudTd>
         <MudTd DataLabel="LastDateModified">
             <MudText Typo="Typo.caption">
@@ -269,4 +268,9 @@
             await LoadDataAsync();
         }
     }
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) ActiveStatusDisplay(bool isActive) =>
+        isActive ? ("pos-status-success", "● Hoạt động") : ("pos-status-error", "● Đã đóng");
 }

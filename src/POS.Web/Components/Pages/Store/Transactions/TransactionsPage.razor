@@ -96,12 +96,13 @@
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -156,9 +157,9 @@
         </MudTd>
         <MudTd DataLabel="Loại đơn" Style="text-align:center">
             @{
-                var (tColor, tLabel) = TransTypeDisplay(context.TransactionType);
+                var (tCss, tLabel) = TransTypeStatusDisplay(context.TransactionType);
             }
-            <MudChip T="string" Color="@tColor" Size="Size.Small" Variant="Variant.Filled">@tLabel</MudChip>
+            <span class="pos-status-chip @tCss">@tLabel</span>
         </MudTd>
         <MudTd DataLabel="Đồng bộ" Style="text-align:center">@context.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")</MudTd>
         <MudTd DataLabel="Thao tác" Style="text-align:center">
@@ -325,10 +326,12 @@
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
 
-    private static (Color Color, string Label) TransTypeDisplay(int type) => type switch
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) TransTypeStatusDisplay(int type) => type switch
     {
-        1      => (Color.Success, "Bán hàng"),
-        2 or 3 => (Color.Warning, "Trả hàng"),
-        _      => (Color.Default, $"Loại {type}")
+        1      => ("pos-status-success", "Bán hàng"),
+        2 or 3 => ("pos-status-warning", "Trả hàng"),
+        _      => ("pos-status-info", $"Loại {type}")
     };
 }

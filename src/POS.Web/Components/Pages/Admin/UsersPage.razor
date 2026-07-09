@@ -20,7 +20,7 @@
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
         <MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)"
-                   Color="@_confirmYesColor">@_confirmYesText</MudButton>
+                   Color="@_confirmYesColor" Class="pos-btn-mockup">@_confirmYesText</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -35,7 +35,7 @@
                Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Lock"
                OnClick="@OpenChangePinDialogAsync"
-               Class="pos-page-header-btn">
+               Class="pos-page-header-btn pos-btn-mockup">
         Đổi mã PIN
     </MudButton>
     <MudButton Variant="Variant.Filled"
@@ -43,7 +43,7 @@
                Size="Size.Small"
                StartIcon="@Icons.Material.Filled.PersonAdd"
                OnClick="@(() => OpenDialogAsync(null))"
-               Class="pos-page-header-btn">
+               Class="pos-page-header-btn pos-btn-mockup">
         Thêm người dùng
     </MudButton>
 </div>
@@ -125,8 +125,10 @@ else
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               Class="pos-btn-mockup"
                                FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
                     <MudButton Variant="Variant.Outlined"
+                               Class="pos-btn-mockup pos-btn-secondary-mockup"
                                FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
                 </MudStack>
             </MudItem>
@@ -159,21 +161,15 @@ else
             <MudTd DataLabel="Họ tên">@context.FullName</MudTd>
             <MudTd DataLabel="Vai trò" Style="text-align:center">
                 @{
-                    var (rColor, rLabel) = RoleDisplay(context.Role);
+                    var (rCss, rLabel) = RoleDisplay(context.Role);
                 }
-                <MudChip T="string" Color="@rColor" Size="Size.Small" Variant="Variant.Filled">@rLabel</MudChip>
+                <span class="pos-status-chip @rCss">@rLabel</span>
             </MudTd>
             <MudTd DataLabel="Trạng thái" Style="text-align:center">
-                @if (context.IsActive)
-                {
-                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled"
-                             Icon="@Icons.Material.Filled.CheckCircle">Hoạt động</MudChip>
+                @{
+                    var (sCss, sLabel) = ActiveStatusDisplay(context.IsActive);
                 }
-                else
-                {
-                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined"
-                             Icon="@Icons.Material.Filled.Block">Tạm khóa</MudChip>
-                }
+                <span class="pos-status-chip @sCss">@sLabel</span>
             </MudTd>
             <MudTd DataLabel="" Style="text-align:right">
                 <MudTooltip Text="Sửa">
@@ -389,11 +385,16 @@ else
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static (Color Color, string Label) RoleDisplay(string role) => role switch
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) RoleDisplay(string role) => role switch
     {
-        WebRoles.SystemAdmin   => (Color.Error,   "System Admin"),
-        WebRoles.ITOps         => (Color.Warning,  "IT Ops"),
-        WebRoles.StoreOperator => (Color.Primary,  "Cửa hàng"),
-        _                      => (Color.Default,  role)
+        WebRoles.SystemAdmin   => ("pos-status-error",   "System Admin"),
+        WebRoles.ITOps         => ("pos-status-warning", "IT Ops"),
+        WebRoles.StoreOperator => ("pos-status-info",    "Cửa hàng"),
+        _                      => ("pos-status-info",    role)
     };
+
+    private static (string CssClass, string Label) ActiveStatusDisplay(bool isActive) =>
+        isActive ? ("pos-status-success", "Hoạt động") : ("pos-status-info", "Tạm khóa");
 }

@@ -283,7 +283,7 @@ public sealed class SyncDataPosService(
             FolderFile = folderFile,
             PathSync = pathSync,
             TypeSync = "ALL",          // full data (POSLastCounter=0) + zip đặt tên _ALL_
-            SyncAction = "DELETE-INSERT", // Web Sync: mọi batch ghi Action = DELETE-INSERT (khác POS ALL = TRUNC-INSERT)
+            IsChangeMode = "W",        // Web Sync: gọi SyncTable_Get @IsChange='W' — Action lấy động từ SP (nhánh W luôn trả DELETE-INSERT), áp dụng mọi batch
             TargetDir = targetDir
         };
 

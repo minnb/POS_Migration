@@ -16,166 +16,13 @@ namespace POS.Infrastructure.Repositories;
 
 public sealed class LoyaltyRepository(
     LoyaltyConnectionFactory connectionFactory,
-    IConfiguration configuration,
-    IRedisService redis)
+    IConfiguration configuration)
     : BaseRepository(connectionFactory), ILoyaltyRepository
 {
-    private const string KeyMemoryCacheConfig = "BLUEPOS:Loyalty_MemoryCacheConfig";
-    private const string ParentKeyWinPay      = "WinPayAccumulation";
     private readonly string _loyaltyConnStr   = configuration.GetConnectionString("Loyalty")
         ?? throw new InvalidOperationException("ConnectionString 'Loyalty' không tìm thấy.");
 
     public string ConnectStringLoyaltyDb() => _loyaltyConnStr;
-
-    public async Task<List<StoreMappingModel>?> GetLoyaltyStoreMappingAsync(CancellationToken ct = default)
-    {
-        const string sql = "SELECT NewStoreID,NewTerminalID,OldStoreID,OldTerminalID,OldVinPayStoreID,OldVinPayTerminalID FROM StoreMapping (NOLOCK)";
-        return (await QueryAsync<StoreMappingModel>(sql, ct: ct)).ToList();
-    }
-
-    public async Task<bool> InsertWinPayAccumulateAsync(IDbConnection db, WinPayAccumulationData data, bool isRetry = false)
-    {
-        const string query = @"INSERT INTO [dbo].[WinPayAccumulate]
-            ([StoreNo],[PosNo],[PhoneNumber],[RefCode],[Amount],[Condition],[IsSync],[OrderNo],[OrderDate],[TotalAmount]
-            ,[PaymentAmount],[TenderType],[Day],[Month],[OperationId],[TraceId],[Response],[CrtDate],[Version])
-            VALUES (@StoreNo,@PosNo,@PhoneNumber,@RefCode,@Amount,@Condition,@IsSync,@OrderNo,@OrderDate,@TotalAmount,
-                    @PaymentAmount,@TenderType,@Day,@Month,@OperationId,@TraceId,@Response,@CrtDate,@Version)";
-        try
-        {
-            if (isRetry)
-            {
-                var existing = await db.QueryFirstOrDefaultAsync<WinPayAccumulationData>(
-                    "SELECT * FROM [WinPayAccumulate] WHERE [RefCode] = @RefCode;", new { data.RefCode });
-
-                if (existing != null)
-                    await db.ExecuteAsync(
-                        "UPDATE [WinPayAccumulate] SET [TraceId]=@TraceId, IsSync=@IsSync, [Response]=@Response, [CrtDate]=getdate() WHERE [PhoneNumber]=@PhoneNumber AND OrderNo=@OrderNo;",
-                        data);
-                else
-                    await db.ExecuteAsync(query, data);
-
-                redis.HashDelete(ParentKeyWinPay, data.RefCode);
-            }
-            else
-            {
-                await db.ExecuteAsync(query, data);
-            }
-            return true;
-        }
-        catch
-        {
-            redis.HashSet(ParentKeyWinPay, data.RefCode, data, ttlSeconds: (int)TimeSpan.FromDays(3).TotalSeconds);
-            return false;
-        }
-    }
-
-    public bool InsertMemberRemnItem(List<MemberRemnItem> memberRemnItems, string parentKeyMemberRemnItem, ref string errMess)
-    {
-        const string sql = @"INSERT INTO [dbo].[MemberRemnItem]
-            ([Month],[CardLevel],[MemberCard],[ItemNo],[Uom],[MaxValue],[UsedValue],[RemnValue],[OrderNo],[CrtDate],[Type])
-            VALUES (@Month,@CardLevel,@MemberCard,@ItemNo,@Uom,@MaxValue,@UsedValue,@RemnValue,@OrderNo,@CrtDate,'S')";
-        try
-        {
-            using var conn = _connectionFactory.CreateOpenConnection();
-            using var tx   = conn.BeginTransaction();
-            try
-            {
-                conn.Execute(sql, memberRemnItems, tx, commandTimeout: 3600);
-                tx.Commit();
-                var first = memberRemnItems.First();
-                redis.HashDelete(parentKeyMemberRemnItem, $"{first.MemberCard}_{first.OrderNo}");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                tx.Rollback();
-                if (ex.Message.Contains("Violation of PRIMARY KEY constraint"))
-                {
-                    errMess = $"Đơn hàng {memberRemnItems.First().OrderNo} đã được tính HVDN";
-                    return false;
-                }
-                var first = memberRemnItems.First();
-                redis.HashSet(parentKeyMemberRemnItem, $"{first.MemberCard}_{first.OrderNo}", memberRemnItems);
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            errMess = ex.Message;
-            return false;
-        }
-    }
-
-    public async Task<Tuple<bool, string>> RefundMemberRemnItemAsync(string orderNo, string memberCard, CancellationToken ct = default)
-    {
-        const string sqlInsert = @"INSERT INTO [dbo].[MemberRemnItemRefund]
-            ([Month],[CardLevel],[MemberCard],[ItemNo],[Uom],[MaxValue],[UsedValue],[RemnValue],[OrderNo],[CrtDate],[Type])
-            VALUES (@Month,@CardLevel,@MemberCard,@ItemNo,@Uom,@MaxValue,@UsedValue,@RemnValue,@OrderNo,@CrtDate,'R')";
-        try
-        {
-            using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
-            var dataRefund = (await conn.QueryAsync<MemberRemnItem>(
-                new CommandDefinition("SELECT * FROM [MemberRemnItem] (NOLOCK) WHERE OrderNo = @orderNo AND MemberCard = @memberCard;",
-                    new { orderNo, memberCard }, cancellationToken: ct))).ToList();
-
-            if (dataRefund.Count == 0)
-                return new Tuple<bool, string>(false, $"Không tìm thấy dữ liệu refund của đơn hàng {orderNo}");
-
-            if (dataRefund.Any(x => x.Type == "R"))
-                return new Tuple<bool, string>(false,
-                    $"Đơn hàng {dataRefund[0].OrderNo} đã thực hiện refund và lúc {dataRefund[0].CrtDate:dd-MM-yyyy HH:mm:ss}");
-
-            if (!dataRefund.Any(x => x.Type == "S"))
-                return new Tuple<bool, string>(false, $"Không tìm thấy dữ liệu refund của đơn hàng {orderNo}");
-
-            using var tx = conn.BeginTransaction();
-            try
-            {
-                dataRefund.ForEach(x => { x.CrtDate = DateTime.Now; });
-                await conn.ExecuteAsync(new CommandDefinition(sqlInsert, dataRefund, tx, commandTimeout: 3600, cancellationToken: ct));
-                tx.Commit();
-                return new Tuple<bool, string>(true, "OK");
-            }
-            catch (Exception ex)
-            {
-                tx.Rollback();
-                return new Tuple<bool, string>(false, $"Rollback RefundMemberRemnItem: {ex.Message}");
-            }
-        }
-        catch (Exception ex)
-        {
-            return new Tuple<bool, string>(false, $"RefundMemberRemnItem.Exception: {ex.Message}");
-        }
-    }
-
-    public bool UpdateWinMoneyConversion(WinMoneyConversion winMoneyConversion, ref string errMess)
-    {
-        const string sql = @"UPDATE [WinMoneyConversion]
-                             SET IsSuccess=1, StoreNo=@StoreNo, PosNo=@PosNo, CashierID=@CashierID, UpdateTime=@UpdateTime
-                             WHERE PhoneNumber=@PhoneNumber;";
-        try
-        {
-            using var conn = _connectionFactory.CreateOpenConnection();
-            using var tx   = conn.BeginTransaction();
-            try
-            {
-                conn.Execute(sql, winMoneyConversion, tx, commandTimeout: 3600);
-                tx.Commit();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                tx.Rollback();
-                errMess = ex.Message;
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            errMess = ex.Message;
-            return false;
-        }
-    }
 
     public async Task<bool> UpdateStatusLoggingLoyaltyAsync(LoggingLoyaltyDto loggingLoyaltyDto, CancellationToken ct = default)
     {
@@ -200,8 +47,8 @@ public sealed class LoyaltyRepository(
     public async Task<LoggingLoyaltyDto?> InsertLoggingLoyaltyAsync(LoggingLoyaltyDto dto, string orderNo = "", bool isRetry = false, CancellationToken ct = default)
     {
         const string sqlInsert = @"INSERT INTO [dbo].[LoggingLoyalty]
-            ([AppCode],[OrderNo],[MemberCardNo],[ActionType],[LoyaltyPoints],[Transaction],[Status],[Request],[Response],[CrtDate],OrigOrderNo,Items,[TransactionType],CustName)
-            VALUES (@AppCode,@OrderNo,@MemberCardNo,@ActionType,@LoyaltyPoints,@Transaction,@Status,@Request,@Response,@CrtDate,@OrigOrderNo,@Items,@TransactionType,@CustName)";
+            ([AppCode],StoreNo,[OrderNo],[MemberCardNo],[ActionType],[LoyaltyPoints],[Transaction],[Status],[Request],[Response],[CrtDate],OrigOrderNo,Items,[TransactionType],CustName,[OrderTime])
+            VALUES (@AppCode,@StoreNo,@OrderNo,@MemberCardNo,@ActionType,@LoyaltyPoints,@Transaction,@Status,@Request,@Response,@CrtDate,@OrigOrderNo,@Items,@TransactionType,@CustName,@OrderTime)";
 
         if (!string.IsNullOrEmpty(orderNo))
         {
@@ -228,7 +75,6 @@ public sealed class LoyaltyRepository(
         try
         {
             using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
-            conn.Open(); // already opened by factory but ensuring
             using var tx = conn.BeginTransaction();
             try
             {
@@ -266,33 +112,5 @@ public sealed class LoyaltyRepository(
             return null;
         }
         return null;
-    }
-
-    public async Task<GiftCodeDto?> GetGiftCodeAsync(string orderNo, string saleType, string memberCard, int amount, CancellationToken ct = default)
-    {
-        const string sql = "EXEC SP_API_GetAndUseGiftCode @OrderNo, @MemberCard, @Amount, @SaleType";
-        return await QueryFirstOrDefaultAsync<GiftCodeDto>(sql,
-            new { OrderNo = orderNo, MemberCard = memberCard, Amount = amount, SaleType = saleType }, ct: ct);
-    }
-
-    public async Task<bool> UpdateMemoryCacheConfigAsync(string code, bool isBlocked, CancellationToken ct = default)
-    {
-        const string sql = "UPDATE MemoryCacheConfig SET Blocked = @blocked WHERE [Code] = @code;";
-        var rows = await ExecuteAsync(sql, new { code, blocked = isBlocked }, ct: ct);
-        if (rows > 0) redis.Delete(KeyMemoryCacheConfig);
-        return rows > 0;
-    }
-
-    public async Task<MemoryCacheConfig?> GetMemoryCacheConfigAsync(string code, CancellationToken ct = default)
-    {
-        var cached = redis.HashGet<MemoryCacheConfig>(KeyMemoryCacheConfig, code);
-        if (cached != null) return cached;
-
-        const string sql = "SELECT * FROM MemoryCacheConfig (NOLOCK) WHERE [Code] = @code;";
-        var data = await QueryFirstOrDefaultAsync<MemoryCacheConfig>(sql, new { code }, ct: ct)
-            ?? new MemoryCacheConfig { Code = code, Desc = "Default", MemoryCacheType = "Default", Blocked = false, ListStore = string.Empty };
-
-        redis.HashSet(KeyMemoryCacheConfig, code, data);
-        return data;
     }
 }

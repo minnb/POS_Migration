@@ -176,7 +176,7 @@ public class OfferBuyDetailLineDto
 
 /// <summary>
 /// 1 dòng điều kiện "Sản phẩm khuyến mãi" của offer đã publish (bảng OfferGet) — tab "Offer Get".
-/// Cùng cấu trúc cột với OfferBuy (xem database-schema.md). Ported from
+/// Cùng cấu trúc cột với OfferBuy (xem centralMD-schema.md). Ported from
 /// src/legacy/VCM.BLUEPOS.Model/Promotion/PromotionModel.cs:265-287 (DetailOfferGetResponseModel).
 /// </summary>
 public class OfferGetDetailLineDto

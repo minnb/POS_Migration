@@ -3,7 +3,7 @@
 > Tài liệu này được sinh tự động bằng cách đọc trực tiếp mã nguồn (2 file `.razor`, service,
 > repository, DTO) tại thời điểm 2026-07-06. Phần nội dung **bên trong** một số stored procedure
 > (SQL body thật) không nằm trong repo — SP chỉ tồn tại phía DB — nên với các SP đó tài liệu chỉ
-> nêu **tên, tham số, và mô tả** lấy từ `docs/architecture/database-schema.md`, không suy đoán logic
+> nêu **tên, tham số, và mô tả** lấy từ `docs/architecture/centralMD-schema.md`, không suy đoán logic
 > chi tiết bên trong. Các chỗ này được đánh dấu rõ ở mục 2.
 
 ## 1. Tổng quan (Overview)
@@ -70,7 +70,7 @@ thật: validate, SQL/SP, Redis cache.
 ### Stored Procedure
 
 > ⚠️ Với các SP dưới đây, tài liệu chỉ có **tên + tham số + mô tả nghiệp vụ** (đối chiếu
-> `docs/architecture/database-schema.md`). **Không có SQL body thật trong repo** để trích dẫn —
+> `docs/architecture/centralMD-schema.md`). **Không có SQL body thật trong repo** để trích dẫn —
 > SP nằm phía DB (`RPOSMasterData`), không phải object trong `POS.slnx`.
 
 | SP | Tham số | Gọi từ | Mô tả |
@@ -82,7 +82,7 @@ thật: validate, SQL/SP, Redis cache.
 | `dbo.usp_SetupGroupSite_Save` | `@GroupCode, @GroupName, @ListStore, @UserName` | `SaveSiteGroupAsync` | Upsert `SetupGroupSite` theo `GroupCode` |
 | `dbo.usp_SetupGroupItem_Save` | `@GroupCode, @GroupName, @ListItemNo, @UserName` | `SaveItemGroupAsync` | Upsert `SetupGroupItem` theo `GroupCode`; nếu group đã tồn tại chỉ update `GroupName`, **không ghi đè** `ListItemNo` (khớp giới hạn legacy) |
 
-### ⚠️ Caveat vận hành quan trọng (từ `docs/architecture/database-schema.md`)
+### ⚠️ Caveat vận hành quan trọng (từ `docs/architecture/centralMD-schema.md`)
 
 - 3 Table-Valued Parameter Type `dbo.SetupPromotionBuyTVP` / `SetupPromotionGetTVP` /
   `SetupPromotionSiteTVP` mà `SaveSetupAsync` dùng **chưa được định nghĩa** trong `CentralMD.sql` —
@@ -282,7 +282,7 @@ trực tiếp qua DI (Blazor Server, cùng process). Toàn bộ 18 method của 
   "suy luận" ở mục 5 và 2 dialog này là suy luận hợp lý theo tên, **không phải xác nhận trực tiếp**.
 - **Không có SQL body thật** của các SP trong repo (SP là object phía DB `RPOSMasterData`, không
   phải file trong `POS.slnx`) — mọi mô tả hành vi SP ở mục 2 lấy từ chú thích trong
-  `docs/architecture/database-schema.md`, không phải đọc trực tiếp T-SQL.
+  `docs/architecture/centralMD-schema.md`, không phải đọc trực tiếp T-SQL.
 - Chưa xác minh được các TVP `SetupPromotionBuyTVP/GetTVP/SiteTVP` và 3 SP mới
   (`usp_SetupGroupSite_Save`, `usp_SetupGroupItem_Save`) đã được áp dụng trên DB thật (DEV/UAT/PROD)
-  hay chưa — theo ghi chú trong `database-schema.md` thì **tại thời điểm viết tài liệu là CHƯA**.
+  hay chưa — theo ghi chú trong `centralMD-schema.md` thì **tại thời điểm viết tài liệu là CHƯA**.

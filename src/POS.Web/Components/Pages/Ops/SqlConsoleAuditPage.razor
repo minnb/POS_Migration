@@ -68,11 +68,13 @@
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            OnClick="@ResetFilter"
                            Disabled="@_loading"
                            FullWidth="true">Xóa</MudButton>
@@ -131,9 +133,9 @@
         <MudTd DataLabel="Actor">@context.Actor</MudTd>
         <MudTd DataLabel="Thao tác" Style="text-align:center">
             @{
-                var (color, label) = ActionDisplay(context.Action);
+                var (cssClass, label) = ActionDisplay(context.Action);
             }
-            <MudChip T="string" Color="@color" Size="Size.Small" Variant="Variant.Filled">@label</MudChip>
+            <span class="pos-status-chip @cssClass">@label</span>
         </MudTd>
         <MudTd DataLabel="Entity">
             <MudText Style="font-family:monospace; font-size:0.82rem">@context.EntityType</MudText>
@@ -297,11 +299,13 @@
         await LoadDataAsync();
     }
 
-    private static (Color Color, string Label) ActionDisplay(string action) => action switch
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) ActionDisplay(string action) => action switch
     {
-        "CREATE" => (Color.Success, "CREATE"),
-        "UPDATE" => (Color.Info,    "UPDATE"),
-        "DELETE" => (Color.Error,   "DELETE"),
-        _        => (Color.Default, action)
+        "CREATE" => ("pos-status-success", "CREATE"),
+        "UPDATE" => ("pos-status-info",    "UPDATE"),
+        "DELETE" => ("pos-status-error",   "DELETE"),
+        _        => ("pos-status-info", action)
     };
 }

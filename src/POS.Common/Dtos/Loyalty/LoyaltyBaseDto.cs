@@ -100,16 +100,18 @@ public class Gift_CouponValidTime
 
 public class LoggingLoyaltyDto
 {
-    public string? AppCode { get; set; }
-    public string? OrderNo { get; set; }
-    public string? MemberCardNo { get; set; }
-    public string? ActionType { get; set; }
+    public string AppCode { get; set; } = string.Empty;
+    public string StoreNo { get; set; } = string.Empty;
+    public string OrderNo { get; set; } = string.Empty;
+    public string MemberCardNo { get; set; } = string.Empty;
+    public string ActionType { get; set; } = string.Empty;
     public long LoyaltyPoints { get; set; }
     public string? Transaction { get; set; }
     public string? Status { get; set; }
     public string? Request { get; set; }
     public string? Response { get; set; }
     public DateTime CrtDate { get; set; }
+    public DateTime OrderTime { get; set; }
     public string? OrigOrderNo { get; set; }
     public string? Items { get; set; }
     public string? CustName { get; set; }

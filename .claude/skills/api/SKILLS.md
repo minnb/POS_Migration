@@ -511,11 +511,11 @@ public sealed class PosApiKeyMiddleware(RequestDelegate next)
 > `dbo.POSTerminalBank`, `dbo.Bank` (số ít). Query chạy thẳng vào production DB thật sẽ throw
 > `Invalid object name` — chỉ phát hiện lúc runtime, không phải lúc build.
 
-**Cách xác minh đúng — tra `docs/architecture/database-schema.md` (nguồn sự thật schema DB
+**Cách xác minh đúng — tra `docs/architecture/centralMD-schema.md` (nguồn sự thật schema DB
 theo quy tắc ở `CLAUDE.md`), KHÔNG suy đoán tên bảng theo convention số ít/số nhiều:**
-1. Mở `docs/architecture/database-schema.md`, tìm đúng tên bảng + cột + kiểu dữ liệu + PK.
+1. Mở `docs/architecture/centralMD-schema.md`, tìm đúng tên bảng + cột + kiểu dữ liệu + PK.
 2. Bảng cần dùng chưa có trong doc → đọc `docs/sql/database/CentralMD.sql` (nguồn gốc sinh ra
-   `database-schema.md`) để lấy tên chính xác, rồi bổ sung vào `database-schema.md` cùng commit.
+   `centralMD-schema.md`) để lấy tên chính xác, rồi bổ sung vào `centralMD-schema.md` cùng commit.
 3. **KHÔNG** tự thêm/bớt "s" theo thói quen đặt tên DbSet — luôn đối chiếu tên bảng vật lý thật.
 
 > Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`

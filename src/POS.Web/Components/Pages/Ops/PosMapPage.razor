@@ -37,6 +37,7 @@
             <MudSelectItem Value="300">5 phút</MudSelectItem>
         </MudSelect>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="LoadDataAsync" Disabled="_loading"
                    Style="align-self:center; white-space:nowrap">
@@ -143,6 +144,7 @@
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.Sync">Đẩy dữ liệu</MudButton>
     </YesButton>
 </MudMessageBox>
@@ -165,11 +167,10 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="IsOnline">
-            <MudChip T="string" Size="Size.Small"
-                     Color="@(context.IsOnline ? Color.Success : Color.Error)"
-                     Variant="Variant.Filled">
-                @(context.IsOnline ? "● Online" : "● Offline")
-            </MudChip>
+            @{
+                var (onlineCss, onlineLabel) = OnlineStatusDisplay(context.IsOnline);
+            }
+            <span class="pos-status-chip @onlineCss">@onlineLabel</span>
         </MudTd>
         <MudTd DataLabel="Action" Style="text-align:center">
             @* stopPropagation: chặn click nút kích hoạt OnRowClick (mở dialog chi tiết) *@
@@ -196,9 +197,7 @@
             @if (context.NeedsUpdate)
             {
                 <MudTooltip Text="@($"Bản mới: {context.BluePosVersionUpdate}")">
-                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
-                        ⚠ @context.BluePosVersion
-                    </MudChip>
+                    <span class="pos-status-chip pos-status-warning">⚠ @context.BluePosVersion</span>
                 </MudTooltip>
             }
             else
@@ -207,11 +206,10 @@
             }
         </MudTd>
         <MudTd DataLabel="Status">
-            <MudChip T="string" Size="Size.Small"
-                     Color="@(context.IsEnabled ? Color.Success : Color.Default)"
-                     Variant="Variant.Outlined">
-                @(context.IsEnabled ? "Bật" : "Tắt")
-            </MudChip>
+            @{
+                var (enabledCss, enabledLabel) = EnabledStatusDisplay(context.IsEnabled);
+            }
+            <span class="pos-status-chip @enabledCss">@enabledLabel</span>
         </MudTd>
         <MudTd DataLabel="DateTimePos">
             <MudText Typo="Typo.caption"
@@ -398,4 +396,14 @@
     }
 
     public void Dispose() => _timer?.Dispose();
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) OnlineStatusDisplay(bool isOnline) =>
+        isOnline ? ("pos-status-success", "● Online") : ("pos-status-error", "● Offline");
+
+    private static (string CssClass, string Label) EnabledStatusDisplay(bool isEnabled) =>
+        isEnabled ? ("pos-status-success", "Bật") : ("pos-status-info", "Tắt");
 }

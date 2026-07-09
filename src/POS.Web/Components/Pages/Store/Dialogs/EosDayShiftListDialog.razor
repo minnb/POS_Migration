@@ -15,18 +15,10 @@
             <MudText Typo="Typo.h6">
                 @StoreName — @Day.BussinessDate.ToString("dd/MM/yyyy")
             </MudText>
-            @if (Day.OpenShifts > 0)
-            {
-                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Class="ml-1">
-                    @Day.OpenShifts ca chưa đóng
-                </MudChip>
+            @{
+                var (openCss, openLabel) = OpenShiftsDisplay(Day.OpenShifts);
             }
-            else
-            {
-                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled" Class="ml-1">
-                    Đã đóng hết ca
-                </MudChip>
-            }
+            <span class="pos-status-chip @openCss ml-1">@openLabel</span>
         </div>
     </TitleContent>
 
@@ -64,14 +56,10 @@
                     <MudTd DataLabel="Doanh thu" Style="text-align:right">@FormatVND(context.TotalRevenue)</MudTd>
                     <MudTd DataLabel="Tiền hệ thống" Style="text-align:right">@FormatVND(context.TienHeThong)</MudTd>
                     <MudTd DataLabel="Trạng thái" Style="text-align:center">
-                        @if (context.IsShiftClosed)
-                        {
-                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Đã đóng</MudChip>
+                        @{
+                            var (statusCss, statusLabel) = ShiftStatusDisplay(context.IsShiftClosed);
                         }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Chưa đóng</MudChip>
-                        }
+                        <span class="pos-status-chip @statusCss">@statusLabel</span>
                     </MudTd>
                     <MudTd DataLabel="Chi tiết" Style="text-align:center">
                         <MudTooltip Text="Xem chi tiết ca">
@@ -89,7 +77,7 @@
     </DialogContent>
 
     <DialogActions>
-        <MudButton Variant="Variant.Outlined" OnClick="@(() => MudDialog.Close())">Đóng</MudButton>
+        <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup" OnClick="@(() => MudDialog.Close())">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -136,4 +124,14 @@
     }
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) OpenShiftsDisplay(int openShifts) => openShifts > 0
+        ? ("pos-status-warning", $"{openShifts} ca chưa đóng")
+        : ("pos-status-success", "Đã đóng hết ca");
+
+    private static (string CssClass, string Label) ShiftStatusDisplay(bool isShiftClosed) => isShiftClosed
+        ? ("pos-status-success", "Đã đóng")
+        : ("pos-status-error", "Chưa đóng");
 }

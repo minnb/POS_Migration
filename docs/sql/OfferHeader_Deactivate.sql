@@ -1,7 +1,7 @@
 /* ============================================================================
    Deactive 1 offer LIVE (dbo.OfferHeader) — RPOSMasterData
    Set Status=2 (Ngưng áp dụng) + Counter=MAX(Counter)+1 (bắt buộc để trigger
-   delta-sync xuống ~5.000 máy POS — xem docs/architecture/database-schema.md
+   delta-sync xuống ~5.000 máy POS — xem docs/architecture/centralMD-schema.md
    mục OfferHeader + cơ chế LastCounter theo store).
    CHẠY 1 LẦN trên RPOSMasterData.
    ============================================================================ */

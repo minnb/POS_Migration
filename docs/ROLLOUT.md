@@ -29,6 +29,7 @@
 | D8 | SP Deactive khuyến mãi | Chạy 1 script SQL tạo SP `usp_OfferHeader_Deactivate` trên CentralMD | REQUIRED (cho nút Deactive tại `/promotion/offers`) | [§D8](#d8--stored-procedure-deactive-khuyến-mãi) |
 | D9 | FIX SP Tạo sản phẩm — CAST→TRY_CAST | Chạy lại `docs/sql/Product_Save.sql` (đã fix) trên CentralMD — SP cũ đang lỗi 8114, chặn tạo mới mọi sản phẩm | CRITICAL (đang chặn `/catalog/products` Thêm mới) | [§D9](#d9--fix-usp_product_save-cast--try_cast) |
 | D10 | Đổi ngữ nghĩa `IsCheckItem` Voucher khớp Coupon | Chạy lại 2 SP (`SetupVoucher_Save.sql`, `SetupVoucher_SaveIssue.sql`) SAU KHI deploy code, rồi chạy `Voucher_FlipIsCheckItem_Migration.sql` để đảo dữ liệu voucher đã tồn tại — ĐÚNG THỨ TỰ, có SELECT COUNT đối chiếu trước/sau | CRITICAL (đảo ngữ nghĩa dữ liệu — sai thứ tự sẽ lưu/hiển thị ngược cho `/promotion/vouchers`) | [§D10](#d10--đổi-ngữ-nghĩa-ischeckitem-voucher-khớp-coupon) |
+| O1b | Action linh động theo bảng (Sync Master Data) | Chạy `docs/sql/SyncTableList_AddAction.sql` trên CentralMD (thêm cột `SyncTableList.Action` + nhánh SP `@IsChange='W'`) trước khi deploy code mới | REQUIRED (cho `GetFileFromFTP` typeSync=ALL + nút "Đồng bộ" PosMapPage) | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
 
 ---
 
@@ -260,8 +261,10 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   `posblue` nào trong `nginx/*.conf` hiện có (chỉ có config cho POS.Web). Người vận hành **cần tự
   kiểm tra topology Production/UAT thật** (có proxy nào khác nằm ngoài repo này không) trước khi áp
   dụng đoạn cấu hình trên — nếu không có proxy, đoạn này không áp dụng được và có thể bỏ qua.
-- **Redis key `MD:SyncTableList`** (SP1 cache, TTL 1h): tự invalidate. Nếu DBA thay đổi cấu hình
-  `SyncTableList` và cần hiệu lực ngay → `DEL MD:SyncTableList` trên Redis.
+- **Redis key `MD:SyncTableList:A` / `MD:SyncTableList:W`** (SP1 cache theo nhánh `@IsChange`, TTL
+  1h): tự invalidate. Nếu DBA thay đổi cấu hình `SyncTableList` và cần hiệu lực ngay →
+  `DEL MD:SyncTableList:A` và `DEL MD:SyncTableList:W` trên Redis (xóa cả 2 key, vì 2 nhánh cache
+  riêng).
 - **Bảng `IsByStore=1`** lọc theo `siteCode` qua `ColumnFilter` (SP2 đã mở rộng) — đảm bảo cột filter
   (`Store.No`, `Staff.StoreNo`…) có index để seek nhanh.
 - **⚠️ 2026-07-08 — tách zip theo `SyncTableList.IsSingleFile` (fix timeout download POS với site
@@ -276,7 +279,22 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
      ```
      (điều chỉnh danh sách theo dữ liệu thật — KHÔNG hardcode trong appsettings/code, chỉ ở DB).
   3. Không cần deploy lại app khi đổi danh sách bảng — chỉ cần `UPDATE` lại `SyncTableList` +
-     `DEL MD:SyncTableList`.
+     `DEL MD:SyncTableList:A` (và `DEL MD:SyncTableList:W` nếu đổi cấu hình ảnh hưởng nhánh Web Sync).
+- **⚠️ 2026-07-09 — Action linh động theo bảng (O1b)**: **BẮT BUỘC apply**
+  `docs/sql/SyncTableList_AddAction.sql` trên `CentralMD` TRƯỚC KHI deploy code mới (thêm cột
+  `SyncTableList.Action VARCHAR(20) DEFAULT 'TRUNC-INSERT'` + cập nhật SP `[SyncTable_Get]` trả
+  thêm cột `Action`, thêm nhánh mới `@IsChange='W'` cho Web Sync/push 1 POS — Action nhánh này luôn
+  literal `'DELETE-INSERT'`). Backward-compatible: nếu CHƯA apply, code mới vẫn chạy được nhờ
+  fallback hằng số trong `MasterDataSyncService` (`TRUNC-INSERT`/`INSERT` cho ALL sync,
+  `DELETE-INSERT` cho Web Sync — giữ đúng hành vi cũ), nhưng **cột `Action` sẽ không có ý nghĩa cho
+  đến khi apply script**. Sau khi apply:
+  1. `DEL MD:SyncTableList:A` và `DEL MD:SyncTableList:W` trên Redis để SP1 đọc cột mới ngay.
+  2. DBA tự quyết định bảng nào cần Action khác `TRUNC-INSERT` mặc định (nhánh `'A'`), ví dụ:
+     ```sql
+     UPDATE dbo.SyncTableList SET Action = 'DELETE-INSERT' WHERE TableName IN ('SomeTable');
+     ```
+  3. Không cần deploy lại app khi đổi Action theo bảng — chỉ cần `UPDATE` lại `SyncTableList` +
+     `DEL MD:SyncTableList:A`.
 
 ---
 

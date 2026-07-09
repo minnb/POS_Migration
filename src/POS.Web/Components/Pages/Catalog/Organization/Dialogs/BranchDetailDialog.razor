@@ -57,10 +57,11 @@
     <DialogActions>
         @if (_editMode)
         {
-            <MudButton OnClick="CancelEdit" Variant="Variant.Outlined" Disabled="@_saving">Hủy</MudButton>
+            <MudButton OnClick="CancelEdit" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup" Disabled="@_saving">Hủy</MudButton>
             <MudButton OnClick="SaveAsync"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
+                       Class="pos-btn-mockup"
                        Disabled="@_saving"
                        StartIcon="@(_saving ? null : Icons.Material.Filled.Save)">
                 @if (_saving)
@@ -72,8 +73,8 @@
         }
         else
         {
-            <MudButton OnClick="CloseDialog" Variant="Variant.Outlined">Đóng</MudButton>
-            <MudButton OnClick="StartEdit" Variant="Variant.Filled" Color="Color.Primary"
+            <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
+            <MudButton OnClick="StartEdit" Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Edit">
                 Sửa
             </MudButton>

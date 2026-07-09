@@ -18,9 +18,9 @@
         <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Nhật ký hệ thống
     </MudText>
-    <MudButton Variant="Variant.Outlined" Size="Size.Small"
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Refresh"
-               Class="pos-page-header-btn" OnClick="LoadFilesAsync">
+               Class="pos-page-header-btn pos-btn-mockup" OnClick="LoadFilesAsync">
         Làm mới
     </MudButton>
 </div>
@@ -39,7 +39,7 @@
         <MudTd DataLabel="Thư mục">@context.FolderName</MudTd>
         <MudTd DataLabel="Tên file">@context.FileName</MudTd>
         <MudTd DataLabel="Dung lượng">@FormatSize(context.SizeBytes)</MudTd>
-        <MudTd DataLabel="Lần cuối sửa">@context.LastModifiedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</MudTd>
+        <MudTd DataLabel="Lần cuối sửa">@context.LastModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
         <MudTd DataLabel="Hành động">
             <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
                            OnClick="@(() => DownloadAsync(context))"/>

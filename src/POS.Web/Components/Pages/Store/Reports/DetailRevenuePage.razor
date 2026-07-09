@@ -153,7 +153,9 @@
                           Label="Đơn hàng gốc"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
-                          Clearable="true"/>
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Undo"/>
         </MudItem>
 
         <MudItem xs="12" sm="6" md="2">
@@ -161,19 +163,23 @@
                           Label="Thu ngân / Nguồn"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
-                          Clearable="true"/>
+                          Clearable="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Person"/>
         </MudItem>
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
+                           Class="pos-btn-mockup"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@SearchAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -229,11 +235,9 @@
         <MudTd DataLabel="Thu ngân">@context.CashierID</MudTd>
         <MudTd DataLabel="Loại đơn" Style="text-align:center">
             @{
-                var orderTypeColor = context.OrderType?.Contains("trả") ?? false ? Color.Error : Color.Success;
+                var (otCss, otLabel) = OrderTypeDisplay(context.OrderType);
             }
-            <MudChip T="string" Color="@orderTypeColor" Size="Size.Small" Variant="Variant.Filled">
-                @(context.OrderType?.Substring(0, Math.Min(6, context.OrderType.Length)) ?? "-")
-            </MudChip>
+            <span class="pos-status-chip @otCss">@otLabel</span>
         </MudTd>
         <MudTd DataLabel="Barcode">@context.Barcode</MudTd>
         <MudTd DataLabel="Mã SP">@context.ItemNo</MudTd>
@@ -395,4 +399,13 @@
     private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _filterStoreNo) is { } st
         ? $"{st.StoreNo} – {st.Name}"
         : _filterStoreNo;
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) OrderTypeDisplay(string? orderType)
+    {
+        var label = orderType?.Substring(0, Math.Min(6, orderType.Length)) ?? "-";
+        var isReturn = orderType?.Contains("trả") ?? false;
+        return (isReturn ? "pos-status-error" : "pos-status-success", label);
+    }
 }

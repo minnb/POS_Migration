@@ -15,7 +15,7 @@ POS_Migration/
 │   └── skills/                  ← Skill chi tiết theo domain (api, cache, database, worker, web)
 ├── docs/
 │   ├── CURRENT_STRUCTURE.md     ← Bản đồ DTO/Service/Repository/Helper hiện có (đọc trước khi tạo mới)
-│   ├── architecture/database-schema.md  ← Bản đồ schema DB (RPOSMasterData/CentralMD)
+│   ├── architecture/centralMD-schema.md  ← Bản đồ schema DB (RPOSMasterData/CentralMD)
 │   ├── API_CONTRACT.md          ← Golden contract JSON cho 5.000 máy POS
 │   ├── WEB_STATUS.md, CHANGELOG.md      ← Trạng thái / lịch sử POS.Web
 │   ├── web/                     ← Tài liệu nghiệp vụ POS.Web (login-flow, coupon-flow, ...)
@@ -36,7 +36,7 @@ POS_Migration/
 `CLAUDE.md` là nguồn quy tắc chính (kiến trúc, quy ước layer, cache, worker, stored
 procedure, POS.Web...). Trước khi tạo DTO/Service/Repository mới, đọc
 `docs/CURRENT_STRUCTURE.md` để tránh trùng lặp. Trước khi viết SQL/SP đụng bảng
-`RPOSMasterData`, đọc `docs/architecture/database-schema.md`.
+`RPOSMasterData`, đọc `docs/architecture/centralMD-schema.md`.
 
 ## Tech Stack
 

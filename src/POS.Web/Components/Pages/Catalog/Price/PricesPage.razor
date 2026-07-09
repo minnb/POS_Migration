@@ -28,7 +28,7 @@
         <MudIcon Icon="@Icons.Material.Filled.PriceChange" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Danh mục Bảng giá
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-page-header-btn"
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-page-header-btn pos-btn-mockup"
                StartIcon="@Icons.Material.Filled.FileDownload"
                Disabled="_exporting" OnClick="ExportExcelAsync">
         @(_exporting ? "Đang xuất..." : "Xuất Excel")
@@ -73,9 +73,9 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
             </MudStack>
         </MudItem>
@@ -125,8 +125,8 @@
         <MudTd DataLabel="Ngày bắt đầu HL">@FormatEffDate(context.StartingDateStr)</MudTd>
         <MudTd DataLabel="Ngày hết HL">@FormatEffDate(context.EndingDateStr)</MudTd>
         <MudTd DataLabel="Trạng thái">
-            @{ var status = GetStatus(context); }
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@status.Color">@status.Text</MudChip>
+            @{ var (statusCss, statusText) = GetStatus(context); }
+            <span class="pos-status-chip @statusCss">@statusText</span>
         </MudTd>
         <MudTd DataLabel="Thao tác" Style="white-space:nowrap">
             @if (IsEditing(context))
@@ -234,20 +234,22 @@
     // "01/01/9999" = sentinel vô thời hạn (StartingDateStr/EndingDateStr format dd/MM/yyyy từ SP).
     private static string? FormatEffDate(string? dmy) => dmy == "01/01/9999" ? "Vô thời hạn" : dmy;
 
-    private static (string Text, Color Color) GetStatus(PriceListItemDto row)
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Text) GetStatus(PriceListItemDto row)
     {
         var today = DateTime.Now.Date;
         var noExpiry = row.EndingDateStr == "01/01/9999";
 
         if (DateTime.TryParseExact(row.StartingDateStr, "dd/MM/yyyy",
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var start) && today < start.Date)
-            return ("Chưa hiệu lực", Color.Info);
+            return ("pos-status-info", "Chưa hiệu lực");
 
         if (!noExpiry && DateTime.TryParseExact(row.EndingDateStr, "dd/MM/yyyy",
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var end) && today > end.Date)
-            return ("Hết hiệu lực", Color.Error);
+            return ("pos-status-error", "Hết hiệu lực");
 
-        return ("Hiệu lực", Color.Success);
+        return ("pos-status-success", "Hiệu lực");
     }
 
     private async Task ExportExcelAsync()

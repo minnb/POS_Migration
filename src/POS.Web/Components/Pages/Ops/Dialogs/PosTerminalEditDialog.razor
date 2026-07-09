@@ -18,6 +18,7 @@
                     <MudTextField @bind-Value="_ipAddress"
                                   Label="IP Address"
                                   Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
                                   Required="true"
                                   RequiredError="Vui lòng nhập IP Address"
                                   MaxLength="20"
@@ -27,6 +28,7 @@
                     <MudTextField @bind-Value="_billNoseri"
                                   Label="Mã CQT (BillNoseri)"
                                   Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
                                   MaxLength="50"
                                   Immediate="true"/>
                 </MudItem>
@@ -43,10 +45,11 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Hủy</MudButton>
         <MudButton OnClick="SubmitAsync"
                    Variant="Variant.Filled"
                    Color="Color.Primary"
+                   Class="pos-btn-mockup"
                    Disabled="@(!_formValid || _saving)">
             @if (_saving)
             {

@@ -11,11 +11,10 @@
             <MudText Typo="Typo.h6">
                 Ca @Shift.ShiftNumber — @Shift.PosTerminal
             </MudText>
-            <MudChip T="string" Size="Size.Small" Class="ml-1"
-                     Color="@(Shift.IsShiftClosed ? Color.Success : Color.Warning)"
-                     Variant="Variant.Filled">
-                @(Shift.IsShiftClosed ? "Đã đóng ca" : "Đang mở ca")
-            </MudChip>
+            @{
+                var (statusCss, statusLabel) = ShiftStatusDisplay(Shift.IsShiftClosed);
+            }
+            <span class="pos-status-chip @statusCss ml-1">@statusLabel</span>
         </div>
     </TitleContent>
 
@@ -124,8 +123,10 @@
         <MudButton StartIcon="@Icons.Material.Filled.Print"
                    Variant="Variant.Outlined"
                    Color="Color.Default"
+                   Class="pos-btn-mockup"
                    OnClick="PrintAsync">In</MudButton>
         <MudButton Variant="Variant.Outlined"
+                   Class="pos-btn-mockup pos-btn-secondary-mockup"
                    OnClick="Close">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
@@ -153,6 +154,12 @@
                                   : "inherit";
 
     private static string FormatVND(decimal v) => $"{v:N0} ₫";
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) ShiftStatusDisplay(bool isShiftClosed) => isShiftClosed
+        ? ("pos-status-success", "Đã đóng ca")
+        : ("pos-status-warning", "Đang mở ca");
 
     private void Close() => MudDialog.Close();
 

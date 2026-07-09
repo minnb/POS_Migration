@@ -4,7 +4,7 @@
 
    ⚠️ KHÁC schema legacy: bảng dbo.SalesPrice hiện KHÔNG có cột Id / IsActive / LastTimeUpdate
       (PK composite = ItemNo, SalesCode, StartingDate, UnitOfMeasureCode — xem
-      docs/architecture/database-schema.md §SalesPrice). Do đó:
+      docs/architecture/centralMD-schema.md §SalesPrice). Do đó:
         • Định vị dòng bằng composite PK (khớp CONVERT(date, StartingDate) — chịu được cột datetime
           có phần giờ; giá setup luôn 00:00:00).
         • "Xóa" = SOFT-DELETE bằng sentinel EndingDate năm 7777 (đồng bộ điều kiện

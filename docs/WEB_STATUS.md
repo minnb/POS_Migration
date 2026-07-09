@@ -1,5 +1,35 @@
 # POS.Web — Báo cáo hiện trạng
-> Cập nhật: 2026-07-08 (Fix WebSocket SignalR bị rớt qua subdomain HTTPS: xác định root cause là
+> Cập nhật: 2026-07-09 (Đồng bộ UI toàn bộ `src/POS.Web/Components/Pages/**` theo chuẩn
+> `MemberPointsPage.razor`/`MemberPointsDetailDialog.razor` — 66 page + 29 dialog. `pos-status-chip`
+> nay là CHUẨN MẶC ĐỊNH cho status badge tĩnh (thay `MudChip`, cập nhật
+> `.claude/rules/mudblazor-flat-ui.md` §4a + `.claude/skills/web/SKILLS.md` — quyết định cũ về
+> `MudChip` mặc định đã lỗi thời). Rollout class `pos-btn-mockup` (mọi `MudButton`) +
+> `pos-btn-secondary-mockup` (chỉ Outlined trung tính, KHÔNG áp cho Outlined có `Color` ngữ nghĩa
+> như Error/Success). Chuẩn hóa filter input Variant/Margin/Adornment, `MudTable`
+> Dense/Hover/Striped/HorizontalScrollbar, format ngày giờ `yyyy-MM-dd HH:mm:ss` cho cột lịch sử
+> nhiều ngày (loại trừ có chủ đích: dashboard "hôm nay" giữ time-only, `PricesPage`/`PriceSetupPage`
+> giữ format SP trả sẵn). Chỉ sửa Razor markup — không đổi `@code`/DTO/service ngoài vài helper
+> `(string CssClass, string Label)` tĩnh thêm cạnh helper cũ (đã xóa helper cũ không còn dùng).
+> Verify: `dotnet build POS.slnx` 0 lỗi, `dotnet test tests/POS.ContractTests` 39/39 xanh sau mỗi
+> batch (Store→Ops→Promotion→Catalog→Admin+root). **CHƯA VERIFY UI bằng mắt** (sandbox thiếu
+> `POS_SECRET_KEY`/DB/Redis) — cần `dotnet run` + xem trực tiếp trước khi coi là "xong" thật. Chi
+> tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-09 (Thêm `MemberPointsPage` — /store/member-points (StoreAndAbove), menu CỬA
+> HÀNG → Giao dịch → Hội viên: hóa đơn tích/tiêu điểm hội viên từ `LoggingLoyalty` (RPOSLoyalty),
+> DTO mới `InvoiceLoyaltyDto` (POS.Common.Dtos.RptLoyalty) + repository mới `IRptLoyaltyRepository`/
+> `RptLoyaltyRepository` (server-side paging, `COUNT(*) OVER()`), dialog `MemberPointsDetailDialog`.
+> Pattern mới: badge trạng thái dạng dot-pill `.pos-status-chip` (app.css, theo mockup
+> `docs/web/images/status.jpg`) thay `MudChip` khi cần nền tint + chấm tròn — đã ghi vào
+> `.claude/rules/mudblazor-flat-ui.md` §4a. Fix pixel-perfect theo `docs/web/theme/theme_html.html`:
+> input value dùng nhầm `Typography.Default` (13px) thay vì đúng token mockup 12.5px (Body1 KHÔNG
+> cascade vào `<input>` như tài liệu cũ lầm tưởng — verify trực tiếp `MudBlazor.min.css`), đã ép
+> `.mud-input-root{font-size:0.78125rem !important}`; nút Tìm/Xóa/Export Excel dùng `Size.Small`
+> nhỏ hơn mockup `.btn{padding:7px 14px}` — thêm class `.pos-btn-mockup`/`.pos-btn-secondary-mockup`.
+> **Phụ thuộc chưa xong**: cột `StoreNo` trên `LoggingLoyalty` chưa tồn tại trong DB thật (DBA tự
+> bổ sung sau, đã xác nhận với user) — query lọc theo store sẽ lỗi SQL cho tới khi cột được thêm.
+> **CHƯA VERIFY UI bằng mắt** (sandbox thiếu POS_SECRET_KEY/DB Loyalty/Redis) — chỉ verify qua
+> `dotnet build` 0 lỗi + `dotnet test tests/POS.ContractTests` 39/39. Chi tiết `docs/CHANGELOG.md`.)
+> Trước đó 2026-07-08 (Fix WebSocket SignalR bị rớt qua subdomain HTTPS: xác định root cause là
 > tầng SSL vhost NGOÀI repo thiếu forward `Upgrade`/`Connection` header khi POS.Web chạy sau 2 tầng
 > reverse proxy — nginx trong repo (`pos-web.conf`/`pos-web.uat.conf`) đã đúng chuẩn, không cần sửa.
 > Đã sửa `appsettings.UAT.json`: `Security:Mode` `Internet`→`BehindProxy` cho khớp topology thật.
@@ -87,7 +117,7 @@
 > `OfferGetDetailLineDto`, `OfferBenefitLineDto`, `OfferSiteLineDetailDto`, `OfferPriorityLineDto`
 > trong `OfferHeaderDto.cs`), 6 method Repository (SQL Dapper trực tiếp trên `dbo.OfferHeader/
 > OfferBuy/OfferGet/OfferBenefits/OfferSite/OfferPriority` — KHÔNG qua SP như lưới chính, đã tra
-> đúng tên bảng/cột trong `database-schema.md`), 6 method Service tương ứng (`GetOfferSiteDetailAsync`
+> đúng tên bảng/cột trong `centralMD-schema.md`), 6 method Service tương ứng (`GetOfferSiteDetailAsync`
 > map thêm `StyleProfileName`: VM→WinMart/VMP→WinMart+/FS→FlagShip/KS→Kiosk), dialog mới
 > `Dialogs/OfferDetailDialog.razor` (`MudDialog`+`MudTabs`, lazy-load theo tab active — pattern mới
 > ghi vào `.claude/skills/web/SKILLS.md`), export Excel riêng cho tab Buy/Get/Site. Phạm vi
@@ -171,7 +201,7 @@
 > trước: modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get chọn Loại = "Nhóm SP" (LineType=1). Đọc
 > trực tiếp `_ViewSetupGroupItemBuy/Get.cshtml`, `_ViewDataBuyGroupItem/GetGroupItem.cshtml` legacy
 > — xác nhận bảng `dbo.SetupGroupItem` đã tồn tại thật trong `src/legacy/Database/CentralMD.sql`
-> (chưa có tài liệu ở `database-schema.md`, chưa có SP nào). Port theo đúng khuôn mẫu "Site Group"
+> (chưa có tài liệu ở `centralMD-schema.md`, chưa có SP nào). Port theo đúng khuôn mẫu "Site Group"
 > đã làm đợt trước: dialog mới `ItemGroupSetupDialog.razor` (2 sub-tab: "Cài đặt nhóm sản phẩm" —
 > tạo mới, tìm sản phẩm qua autocomplete, ĐVT hiển thị read-only vì cột DB không lưu UOM; "Danh
 > sách nhóm sản phẩm" — filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng đang sửa, phục
@@ -367,9 +397,9 @@ src/POS.Web/
 │       └── Store/
 │           ├── StoreDashboardPage.razor  ← /store/dashboard — Dashboard mặc định StoreOperator (landing page)
 │           ├── Reports/ (Revenue, DetailRevenue, RevenueHourly, PaymentBreakdown, SalesByCategory, TopProduct, Loyalty)
-│           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage)
+│           ├── Transactions/ (TransactionsPage, RefundsPage, VoidsPage, MemberPointsPage)
 │           ├── Operations/ (BusinessDayPage, EosShiftsPage, ShiftSummaryPage)
-│           └── Dialogs/ (VoidDetailDialog, TransactionDetailDialog, EosDayShiftListDialog, EosShiftDetailDialog, ProductOrdersDialog)
+│           └── Dialogs/ (VoidDetailDialog, TransactionDetailDialog, EosDayShiftListDialog, EosShiftDetailDialog, ProductOrdersDialog, MemberPointsDetailDialog)
 ├── Services/
 │   ├── ISqlConsoleService.cs / SqlConsoleService.cs / PendingUpdate.cs / JsDownloadExtensions.cs
 │   └── Pdf/ (IPdfExportService, PdfExportService, PivotReportData, ReportHeaderModel)
@@ -489,6 +519,7 @@ src/POS.Web/
 | S7 | AllowedHosts = domain thật (H2) | appsettings.Production.json | ⚠️ | Còn `"*"` — cần đặt domain dashboard khi go-live (docs/ROLLOUT.md) |
 | G24 | PosDataSetupPage – /ops/pos-data-setup + OpsAndAbove | Pages/Ops/PosDataSetupPage.razor | ✅ | CRUD cấu hình POS — KPI 3 cards (pre-computed) + filter panel + MudTable + Add/Edit dialog; Redis invalidate sau mỗi write |
 | G25 | RedisDashboardPage – /ops/redis + OpsAndAbove | Pages/Ops/RedisDashboardPage.razor | ✅ | Redis Management Dashboard — status card (kiểu HealthPage, border-left màu + chip ONLINE/OFFLINE + latency) + 5 KPI card (Bộ nhớ/Clients/Tổng Key/Cache Hit %/Uptime, không auto-refresh) + filter panel (pattern SCAN, chặn `*` cần confirm) + MudTable (Key/Type/TTL) + xem giá trị (RedisKeyValueDialog, pretty JSON) + xóa key (confirm + audit log). Backend: `IRedisManagementService` (POS.Application.Features.Redis) → `IRedisManager` mở rộng PingAsync/GetServerInfoAsync/GetDbSizeAsync (POS.Infrastructure.Cache) |
+| G26 | MemberPointsPage – /store/member-points + StoreAndAbove | Pages/Store/Transactions/MemberPointsPage.razor | ⚠️ | "Hội viên" (CỬA HÀNG → Giao dịch → Hội viên) — hóa đơn tích/tiêu điểm từ `LoggingLoyalty` (RPOSLoyalty). Filter panel (Cửa hàng/Từ-Đến ngày/Hình thức + Số hóa đơn/Số thẻ HV/Loại hóa đơn) + `MudTable ServerData` (server-side paging qua `IRptLoyaltyRepository.GetInvoiceLoyaltyListAsync`, `Total` = `COUNT(*) OVER()`) + Export Excel (ClosedXML) + xem chi tiết (`MemberPointsDetailDialog`, hero số điểm + chip hình thức). Cột trạng thái dùng badge dot-pill mới `.pos-status-chip` (app.css, mockup `docs/web/images/status.jpg`) thay `MudChip` — xem `.claude/rules/mudblazor-flat-ui.md` §4a. `MemberCardNo` che 4 số cuối (`MemberCardMasked`, computed trong DTO). **Phụ thuộc chưa xong**: cột `StoreNo` trên `LoggingLoyalty` **chưa tồn tại trong DB** (script gốc `docs/sql/database/Loyalty.sql` không có) — query có `storeNo` khác null sẽ lỗi SQL "Invalid column name" cho tới khi DBA tự thêm cột (đã xác nhận với user, ngoài phạm vi task này). Chưa chạy app thật để xem UI (sandbox thiếu POS_SECRET_KEY/DB Loyalty/Redis) — chỉ verify qua build + ContractTests xanh. |
 | J1 | IAuditLogger / DbAuditLogger — audit CRUD vào DashboardAuditLog | Auth/IAuditLogger.cs | ✅ | LogAsync(actor, action, entityType, entityKey, oldValueJson?, newValueJson?); ghi DB + Kibana; try/catch nội bộ; đăng ký Scoped trong Program.cs |
 | J2 | PosDataSetupFormDialog – Add/Edit form, trả DTO đầy đủ | Pages/Ops/Dialogs/PosDataSetupFormDialog.razor | ✅ | Code read-only khi Edit; trả DialogResult.Ok(_model) (không Ok(true)) để page có newValue; duplicate Code → thông báo thân thiện |
 | J3 | migration_dashboard_audit_log.sql – bảng DashboardAuditLog + 3 index | Auth/migration_dashboard_audit_log.sql | ⚠️ | Script idempotent — **PHẢI CHẠY trên RPOSMasterData trước deploy**; chưa chạy → log fail silently |

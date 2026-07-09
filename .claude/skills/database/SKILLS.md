@@ -1,8 +1,14 @@
-# Skill: Stored Procedure — RPOSMasterData (CentralMD)
+# Skill: Stored Procedure — RPOSMasterData / RPOSCentralSales / RPOSLoyalty
 
 > **Áp dụng khi:** tạo mới bất kỳ stored procedure nào cho `RPOSMasterData` (CentralMD),
-> hoặc chuyển 1 đoạn Dapper INSERT/UPDATE inline sang SP để dễ kiểm soát lỗi. Đọc file này
-> TRƯỚC khi viết SP mới.
+> `RPOSCentralSales`, hoặc `RPOSLoyalty`, hoặc chuyển 1 đoạn Dapper INSERT/UPDATE inline sang SP
+> để dễ kiểm soát lỗi. Đọc file này TRƯỚC khi viết SP mới. Convention đặt tên/template bên dưới
+> áp dụng chung cho cả 3 database — chỉ khác file schema tra cứu tên bảng/cột (xem mục "Nơi đặt
+> script SQL").
+>
+> **Lưu ý riêng `RPOSCentralSales`**: DB này JOIN chéo sang `RPOSMasterData` trong nhiều SP hiện
+> có (vd `Store`, `Item`, `Staff`, `MCH`) — SP mới nếu cần dữ liệu master, dùng
+> `RPOSMasterData..{Table}` (three-part name), không tạo bản sao dữ liệu.
 
 ---
 
@@ -64,15 +70,24 @@ Ví dụ: `dbo.ProductBarcodeTVP`, `dbo.CouponCodeTVP`, `dbo.CouponLineTVP`.
 ## Nơi đặt script SQL
 
 Mỗi SP mới (+ TVP đi kèm nếu có) viết thành 1 file trong `docs/sql/{Domain}_{Action}.sql`,
-áp dụng **thủ công 1 lần** trên `RPOSMasterData` (không có migration tool tự động).
+áp dụng **thủ công 1 lần** trên đúng database đích (`RPOSMasterData`/`RPOSCentralSales`/
+`RPOSLoyalty` — không có migration tool tự động). Ghi rõ `USE [TênDB];` đầu script.
 
 Ví dụ đã có: `docs/sql/Product_Save.sql`, `docs/sql/SetupCoupon_Save.sql`,
 `docs/sql/SpecialCombo_Save.sql`, `docs/sql/SetupVoucher_Save.sql`.
 
-Nếu SP đụng bảng nào — **tra tên bảng/cột đúng trong `docs/architecture/database-schema.md`
-TRƯỚC khi viết**, không suy đoán tên bảng/cột (xem mục "Cổng chặn trùng lặp" trong
-`CLAUDE.md`). Bảng chưa có trong doc → đọc `docs/sql/database/CentralMD.sql`, bổ sung vào
-`database-schema.md` cùng commit.
+Nếu SP đụng bảng nào — **tra tên bảng/cột đúng trong file schema tương ứng TRƯỚC khi viết**,
+không suy đoán tên bảng/cột (xem mục "Cổng chặn trùng lặp" trong `CLAUDE.md`):
+
+| Database | File schema | Script gốc |
+|---|---|---|
+| `RPOSMasterData` (CentralMD) | `docs/architecture/centralMD-schema.md` | `docs/sql/database/CentralMD.sql` |
+| `RPOSCentralSales` | `docs/architecture/centralsale-schema.md` | `docs/sql/database/CentralSale.sql` (UTF-16) |
+| `RPOSLoyalty` | `docs/architecture/loyalty-schema.md` | `docs/sql/database/Loyalty.sql` (UTF-16) |
+
+Bảng chưa có trong doc tương ứng → đọc lại script gốc (2 file `CentralSale.sql`/`Loyalty.sql` là
+UTF-16, dùng PowerShell `Get-Content -Encoding Unicode -Raw` để đọc được, không dùng tool đọc
+text thường), bổ sung vào file schema đúng DB trong cùng commit.
 
 ---
 
@@ -191,7 +206,7 @@ reset trạng thái đã redeem/dùng.
 ## Pattern: SP đổi Status trên bảng có cột `Counter` đồng bộ POS
 
 > Áp dụng khi: SP update 1 bảng thuộc nhóm `Offer*` (hoặc bảng tương tự có cột `Counter bigint`
-> dùng cho cơ chế delta-sync xuống ~5.000 máy POS — xem `docs/architecture/database-schema.md`
+> dùng cho cơ chế delta-sync xuống ~5.000 máy POS — xem `docs/architecture/centralMD-schema.md`
 > mục `OfferHeader`). Mọi lần ghi lên các bảng này **bắt buộc** tăng `Counter` để POS nhận biết
 > thay đổi (client so `Counter` mới với `LastCounter` đã lưu theo từng store để quyết định có
 > cần tải lại hay không) — quên tăng `Counter` = thay đổi "vô hình" với POS dù DB đã đổi đúng.
@@ -287,11 +302,13 @@ END
 ## Checklist tạo SP mới
 
 1. Tên SP: `dbo.usp_{Domain}_{Action}` — tên TVP (nếu có): `dbo.{Name}TVP`.
-2. Tra đúng tên bảng/cột trong `docs/architecture/database-schema.md` trước khi viết SQL.
-3. Viết script trong `docs/sql/{Domain}_{Action}.sql` — có `TRY/CATCH` + `XACT_ABORT` +
-   rollback cho SP ghi dữ liệu.
+2. Tra đúng tên bảng/cột trong file schema đúng DB đích (bảng ở mục "Nơi đặt script SQL") trước
+   khi viết SQL.
+3. Viết script trong `docs/sql/{Domain}_{Action}.sql`, có `USE [TênDB];` đầu file — có
+   `TRY/CATCH` + `XACT_ABORT` + rollback cho SP ghi dữ liệu.
 4. Sửa Repository gọi qua `DynamicParameters` + `CommandType.StoredProcedure` (không còn
    Dapper inline INSERT/UPDATE nhiều câu rời rạc cho cùng 1 nghiệp vụ).
 5. Build + `dotnet test tests/POS.ContractTests` phải xanh.
-6. Báo cho user (hoặc ghi vào `docs/ROLLOUT.md`) **chạy script 1 lần** trên
-   `RPOSMasterData` trước khi tính năng hoạt động — app KHÔNG tự tạo SP.
+6. Báo cho user (hoặc ghi vào `docs/ROLLOUT.md`) **chạy script 1 lần** trên đúng database đích
+   (`RPOSMasterData`/`RPOSCentralSales`/`RPOSLoyalty`) trước khi tính năng hoạt động — app KHÔNG
+   tự tạo SP.

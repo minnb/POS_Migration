@@ -25,7 +25,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận kết thúc ngày" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Warning">Xác nhận</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="pos-btn-mockup">Xác nhận</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -66,12 +66,15 @@
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense"
                            DateFormat="dd/MM/yyyy"
-                           AutoClose="true"/>
+                           AutoClose="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Outlined.DateRange"/>
         </MudItem>
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
+                       Class="pos-btn-mockup"
                        StartIcon="@Icons.Material.Filled.Search"
                        OnClick="@SearchAsync"
                        Disabled="@(_loading)"
@@ -143,15 +146,15 @@ else
             <MudTd DataLabel="Trạng thái" Style="text-align:center">
                 @if (context.IsClosed)
                 {
-                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Đã đóng ngày</MudChip>
+                    <span class="pos-status-chip pos-status-success">Đã đóng ngày</span>
                 }
                 else if (context.LastSaleTime == null)
                 {
-                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Filled">Chưa mở ca</MudChip>
+                    <span class="pos-status-chip pos-status-info">Chưa mở ca</span>
                 }
                 else
                 {
-                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">Chưa đóng ngày</MudChip>
+                    <span class="pos-status-chip pos-status-warning">Chưa đóng ngày</span>
                 }
             </MudTd>
             <MudTd DataLabel="Lần bán hàng cuối cùng" Style="text-align:center">
@@ -186,6 +189,7 @@ else
 <MudPaper Elevation="1" Class="pa-3 mt-4 d-flex justify-end gap-2 flex-wrap">
     <MudButton Variant="Variant.Filled"
                Color="Color.Warning"
+               Class="pos-btn-mockup"
                StartIcon="@Icons.Material.Filled.HourglassBottom"
                OnClick="@ConfirmAsync"
                Disabled="@(!CanConfirm || _loading || _confirming)">

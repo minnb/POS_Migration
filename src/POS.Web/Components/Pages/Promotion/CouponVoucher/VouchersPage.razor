@@ -27,7 +27,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Xóa</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -38,13 +38,13 @@
         Danh mục Voucher
     </MudText>
     <div class="d-flex align-center gap-2">
-        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
                    StartIcon="@Icons.Material.Filled.FileDownload"
                    Disabled="_exporting" OnClick="ExportExcelAsync">
             @(_exporting ? "Đang xuất..." : "Xuất Excel")
         </MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                   StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn"
+                   StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn pos-btn-mockup"
                    OnClick="@(() => Nav.NavigateTo("/promotion/vouchers/issue"))">Phát hành Voucher</MudButton>
     </div>
 </div>
@@ -54,11 +54,13 @@
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="6" md="3">
             <MudTextField @bind-Value="_filter.ItemNo" Label="Mã voucher"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Sell"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="4">
             <MudTextField @bind-Value="_filter.ItemName" Label="Tên voucher"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
             <MudSelect @bind-Value="_filter.Status" Label="Hiệu lực"
@@ -70,9 +72,9 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
             </MudStack>
         </MudItem>
@@ -108,16 +110,16 @@
         <MudTd DataLabel="Giảm giá">@DiscountText(context)</MudTd>
         <MudTd DataLabel="Giá trị tối đa" Style="text-align:right">@context.MaxAmount.ToString("#,##0.##")</MudTd>
         <MudTd DataLabel="Tổng bill">
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
-                     Color="@(!context.IsCheckItem ? Color.Info : Color.Default)">
-                @(!context.IsCheckItem ? "Tổng bill" : "Theo SP")
-            </MudChip>
+            @{
+                var (scopeCss, scopeLabel) = ApplyScopeDisplay(context.IsCheckItem);
+            }
+            <span class="pos-status-chip @scopeCss">@scopeLabel</span>
         </MudTd>
         <MudTd DataLabel="Hiệu lực">
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                     Color="@(context.Status ? Color.Success : Color.Error)">
-                @(context.Status ? "Hiệu lực" : "Hết hiệu lực")
-            </MudChip>
+            @{
+                var (effCss, effLabel) = EffectDisplay(context.Status);
+            }
+            <span class="pos-status-chip @effCss">@effLabel</span>
         </MudTd>
         <MudTd DataLabel="Từ ngày">@context.StartingDate</MudTd>
         <MudTd DataLabel="Đến ngày">@context.EndingDate</MudTd>
@@ -304,4 +306,12 @@
 
     private static string DiscountText(VoucherListItemDto v)
         => v.DiscountType == 1 ? $"{v.DiscountValue:#,##0.##}%" : $"{v.DiscountValue:#,##0.##} đ";
+
+    // CssClass là 1 trong 4 modifier .pos-status-{success,error,warning,info} (app.css) —
+    // badge dạng dot-pill theo mockup docs/web/images/status.jpg (KHÔNG dùng MudChip, xem app.css).
+    private static (string CssClass, string Label) ApplyScopeDisplay(bool isCheckItem) =>
+        isCheckItem ? ("pos-status-warning", "Theo SP") : ("pos-status-info", "Tổng bill");
+
+    private static (string CssClass, string Label) EffectDisplay(bool status) =>
+        status ? ("pos-status-success", "Hiệu lực") : ("pos-status-error", "Hết hiệu lực");
 }

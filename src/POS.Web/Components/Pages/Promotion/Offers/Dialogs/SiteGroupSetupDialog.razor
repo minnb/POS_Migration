@@ -56,7 +56,7 @@
                     <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
                 }
                 <div class="d-flex justify-end mt-3">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" Disabled="_saving"
                                OnClick="SubmitAsync">
                         @if (_saving)
                         {
@@ -76,11 +76,13 @@
                     <MudItem xs="12" sm="6">
                         <MudTextField @bind-Value="_filterGroupCode" Label="Mã nhóm" Clearable="true"
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"
                                       OnKeyUp="@(async e => { if (e.Key == "Enter") await _table.ReloadServerData(); })"/>
                     </MudItem>
                     <MudItem xs="12" sm="6">
                         <MudTextField @bind-Value="_filterGroupName" Label="Tên nhóm" Clearable="true"
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
                                       OnKeyUp="@(async e => { if (e.Key == "Enter") await _table.ReloadServerData(); })"/>
                     </MudItem>
                 </MudGrid>
@@ -99,9 +101,9 @@
                         <MudTd DataLabel="Tên nhóm">@context.GroupName</MudTd>
                         <MudTd DataLabel="Số CH/ST">@(context.StoreCount < 0 ? "ALL" : context.StoreCount.ToString())</MudTd>
                         <MudTd DataLabel="Trạng thái">
-                            <MudChip T="string" Size="Size.Small" Color="@(context.Status ? Color.Success : Color.Default)">
+                            <span class="pos-status-chip @(context.Status ? "pos-status-success" : "pos-status-warning")">
                                 @(context.Status ? "Active" : "Inactive")
-                            </MudChip>
+                            </span>
                         </MudTd>
                         <MudTd DataLabel="Cập nhật">@(context.LastUpdateDate?.ToString("dd/MM/yyyy HH:mm") ?? "—")</MudTd>
                         <MudTd DataLabel="Thao tác" Style="text-align:center">
@@ -132,7 +134,7 @@
                 {
                     <MudPaper Elevation="1" Class="pa-3 mt-3">
                         <MudText Typo="Typo.subtitle2" Class="mb-2">Danh sách CH/ST — @_viewingGroupCode</MudText>
-                        <MudTable Items="_viewingStores" Dense="true" Hover="true" Elevation="0"
+                        <MudTable Items="_viewingStores" Dense="true" Hover="true" Striped="true" Elevation="0"
                                   HorizontalScrollbar="true" T="SiteGroupStoreItemDto">
                             <HeaderContent>
                                 <MudTh>Mã CH/ST</MudTh><MudTh>Tên CH/ST</MudTh>
@@ -151,7 +153,7 @@
         </MudTabs>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Đóng</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 

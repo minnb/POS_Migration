@@ -25,11 +25,12 @@
             </div>
             <MudTextField T="string" Value="@_value.Value" ReadOnly="true" Lines="20"
                           Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
                           Style="font-family:monospace; font-size:0.8rem"/>
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined">Đóng</MudButton>
+        <MudButton OnClick="CloseDialog" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 
