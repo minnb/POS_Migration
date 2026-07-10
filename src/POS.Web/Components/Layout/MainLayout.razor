@@ -65,11 +65,8 @@
                     <MudNavLink Href="/store/loyalty" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Khách hàng thân thiết</MudNavLink>
                 </MudNavGroup>
             </AuthorizeView>
-
-<<<<<<< HEAD
             <AuthorizeView Policy="@WebPolicies.BackOfficeAndAbove">
                 <div class="pos-nav-section-label">DANH MỤC</div>
-=======
                     <MudNavGroup Title="Giá bán" Icon="@Icons.Material.Outlined.Sell" @bind-Expanded="_expandCatPrice">
                         <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Bảng giá</MudNavLink>
                         <MudNavLink Href="/catalog/price-declare" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt giá</MudNavLink>
@@ -78,8 +75,6 @@
                         <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup giá (Bulk Import)</MudNavLink>
                         *@
                     </MudNavGroup>
->>>>>>> b710abedccea4d1504c654b754030908580c20af
-
                 <MudNavGroup Title="Tổ chức" Icon="@Icons.Material.Outlined.Groups" Class="pos-nav-l2" @bind-Expanded="_expandCatOrg">
                     <MudNavLink Href="/catalog/employees" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhân viên</MudNavLink>
                     <MudNavLink Href="/catalog/stores" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cửa hàng</MudNavLink>
@@ -379,12 +374,11 @@
         _expandCatPay      = u.Contains("/catalog/banks") || u.Contains("/catalog/bank-card-types") || u.Contains("/catalog/ewallets") || u.Contains("/catalog/currency-rates");
         _expandCatMisc     = u.Contains("/catalog/sales-order-types") || u.Contains("/catalog/qr-info") || u.Contains("/catalog/image-sliders");
         _expandCatProduct  = u.Contains("/catalog/products") || u.Contains("/catalog/product-lock") || u.Contains("/catalog/setup-item") || u.Contains("/catalog/pos-groups");
-<<<<<<< HEAD
         _expandCatPrice    = u.Contains("/catalog/prices") || u.Contains("/catalog/price-setup") || u.Contains("/catalog/price-declare");
-=======
         _expandCatPrice    = u.Contains("/catalog/prices") || u.Contains("/catalog/price-setup") || u.Contains("/catalog/price-declare") || u.Contains("/catalog/price-groups");
+        <!--
         _expandCatalog     = _expandCatOrg || _expandCatPos || _expandCatPay || _expandCatMisc || _expandCatProduct || _expandCatPrice;
->>>>>>> b710abedccea4d1504c654b754030908580c20af
+        -->
         _expandPromoOffer  = u.Contains("/promotion/offers") || u.Contains("/promotion/setup") || u.Contains("/promotion/special-combo");
         _expandPromoCampaign = u.Contains("/promotion/campaigns");
         _expandPromoCoupon = u.Contains("/promotion/coupons") || u.Contains("/promotion/vouchers");
