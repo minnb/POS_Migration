@@ -7,12 +7,14 @@ using POS.Common.Dtos.POS.Common;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
+using POS.Infrastructure.Sync;
 
 namespace POS.Infrastructure.Repositories;
 
 public sealed class CentralMDRepository(
     CentralMDConnectionFactory connectionFactory,
-    IRedisService redis)
+    IRedisService redis,
+    ISyncTableTrackerService syncTracker)
     : BaseRepository(connectionFactory), ICentralMDRepository
 {
     private const string KeyMMLSchemeHeader   = "MD:MMLSchemeHeader";
@@ -423,7 +425,8 @@ public sealed class CentralMDRepository(
                                     pt.AutoLogoffAfter_Min, pt.[Status], pt.LastDateModified,
                                     pt.CreatedDate, pt.CreatedBy, pt.UpdatedDate, pt.UpdatedBy,
                                     pm.ComputerName, pm.BluePosVersion, pm.BluePosVersionUpdate,
-                                    pm.BluePosDatabaseStatus, pm.IsOpenBluePos, pm.DateTimePos
+                                    pm.BluePosDatabaseStatus, pm.IsOpenBluePos, pm.DateTimePos,
+                                    mdl.LastMasterDataDownloadedAt
                              FROM POSTerminal pt WITH (NOLOCK)
                              OUTER APPLY (
                                  SELECT TOP 1 m.ComputerName, m.BluePosVersion, m.BluePosVersionUpdate,
@@ -431,7 +434,13 @@ public sealed class CentralMDRepository(
                                  FROM POSMonitor m WITH (NOLOCK)
                                  WHERE m.StoreNo = pt.StoreNo AND m.PosTerminalID = pt.[No]
                                  ORDER BY m.DateTimePos DESC
-                             ) pm";
+                             ) pm
+                             OUTER APPLY (
+                                 SELECT TOP 1 l.DownloadedAt AS LastMasterDataDownloadedAt
+                                 FROM dbo.MasterDataDownloadLog l WITH (NOLOCK)
+                                 WHERE l.SiteCode = pt.StoreNo AND l.PosTerminal = pt.[No]
+                                 ORDER BY l.DownloadedAt DESC
+                             ) mdl";
         if (!string.IsNullOrWhiteSpace(storeNo))
             sql += " WHERE pt.StoreNo = @storeNo";
         sql += " ORDER BY pt.StoreNo, pt.[No];";
@@ -869,12 +878,20 @@ public sealed class CentralMDRepository(
         p.Add("@BlockedVINID", dto.BlockedVINID);
         p.Add("@Barcodes", BuildProductBarcodeTable(dto.Barcodes).AsTableValuedParameter("dbo.ProductBarcodeTVP"));
         p.Add("@OutItemNo", dbType: DbType.String, direction: ParameterDirection.Output, size: 20);
+        p.Add("@OutItemCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+        p.Add("@OutBarcodeCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition("dbo.usp_Product_Save", p,
             commandType: CommandType.StoredProcedure, commandTimeout: 60, cancellationToken: ct));
 
         var itemNo = p.Get<string>("@OutItemNo") ?? string.Empty;
+
+        // Đẩy Counter vừa bump vào SyncTableList.POSLastCounter (bất đồng bộ, non-blocking).
+        syncTracker.Track("Item", p.Get<long>("@OutItemCounter"));
+        if (dto.Barcodes.Any())
+            syncTracker.Track("Barcodes", p.Get<long>("@OutBarcodeCounter"));
+
         return (true, itemNo, $"Thêm mới thành công. Mã sản phẩm: {itemNo}");
     }
 
@@ -984,18 +1001,21 @@ FETCH NEXT @PageSize ROWS ONLY;";
                         IF EXISTS (SELECT 1 FROM dbo.ItemBlock WHERE Pkey = @Pkey)
                             UPDATE dbo.ItemBlock
                             SET    Status = @Status, UpdatedDate = GETDATE(), Counter = Counter + 1
+                            OUTPUT INSERTED.Counter
                             WHERE  Pkey = @Pkey
                         ELSE
                             INSERT INTO dbo.ItemBlock (ItemNo, UnitOfMeasure, StoreNo, Status, UpdatedDate, Counter, Pkey)
+                            OUTPUT INSERTED.Counter
                             VALUES (@ItemNo, @UnitOfMeasure, @StoreNo, @Status, GETDATE(), 1, @Pkey);";
 
+        var maxCounter = 0L;
         await ExecuteInTransactionAsync(async (conn, tx) =>
         {
             foreach (var itemNo in dto.ItemNos)
             {
                 var pkey = $"{dto.StoreNo}-{itemNo}";
                 uomMap.TryGetValue(itemNo, out var uom);
-                await conn.ExecuteAsync(
+                var counter = await conn.ExecuteScalarAsync<long>(
                     new CommandDefinition(sqlUpsert, new
                     {
                         Pkey          = pkey,
@@ -1004,8 +1024,12 @@ FETCH NEXT @PageSize ROWS ONLY;";
                         UnitOfMeasure = uom ?? string.Empty,
                         dto.StoreNo
                     }, transaction: tx, commandTimeout: 30, cancellationToken: ct));
+                if (counter > maxCounter) maxCounter = counter;
             }
         }, ct: ct);
+
+        // Đẩy Counter lớn nhất của cả batch — 1 lần, không track mỗi item (batch, không chặn hot path).
+        syncTracker.Track("ItemBlock", maxCounter);
 
         var action = dto.TargetLock ? "Khóa" : "Mở khóa";
         return (true, $"{action} thành công {dto.ItemNos.Count} sản phẩm");

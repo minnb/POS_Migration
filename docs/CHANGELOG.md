@@ -6,6 +6,384 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+## [2026-07-10] Fix bug cột "Mã CTKM" hiển thị trùng lặp trên OffersPage.razor
+
+**Layer:** POS.Web
+
+**Loại:** Bug fix
+
+**Bối cảnh:** User báo trang `/promotion/offers` hiển thị rất nhiều dòng có "Mã CTKM" giống hệt
+nhau (vd `1000000424` lặp lại 6 dòng) nhưng `Tên CTKM`/`OfferType`/ngày tháng khác nhau hoàn toàn —
+nghi ngờ ban đầu là bug ở stored procedure `GetPromotionOfferHeaderList`.
+
+**Nguyên nhân thật (đã xác nhận qua `git diff` + đối chiếu `docs/architecture/centralMD-schema.md`):**
+đây là regression trong chính đợt "dọn cột trùng lặp" ở entry bên dưới (cùng ngày) — khi gộp 2 cột
+"Bonus Buy" (`BonusbuyNo`) và "Promotion No" (`PromotionNo`) thành 1 cột "Mã CTKM", đã chọn nhầm
+bind vào `PromotionNo`. Theo schema, `OfferHeader.No` (map DTO field `BonusbuyNo`) mới là khóa
+nghiệp vụ thật của 1 CTKM (`NOT NULL`, auto-gen chống trùng từ `6000000001`, dùng làm khóa join
+`OfferBuy/OfferGet/OfferBenefits/OfferSite.OfferNo`, dùng cho detail dialog + Deactive + `ORDER BY`
+mặc định của SP) — còn `PromotionNo` chỉ là field phụ nullable, không có cơ chế chống trùng, không
+được FK nào tham chiếu. Nhiều offer khác nhau (khác `No`) vô tình share cùng `PromotionNo` → hiển
+thị như bị trùng lặp. **SP `GetPromotionOfferHeaderList` trả dữ liệu đúng, không có lỗi.**
+
+**Thay đổi:**
+- `OffersPage.razor`: cột "Mã CTKM" (RowTemplate) đổi từ `@context.PromotionNo` → `@context.BonusbuyNo`.
+- `OffersPage.razor` (Excel export `BuildXlsx`): header cột 1 đổi `"Promotion No"` → `"Mã CTKM"`,
+  giá trị đổi từ `e.PromotionNo` → `e.BonusbuyNo` (đồng bộ với bảng UI).
+- Không sửa SP/DB. `docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql` (script có sẵn, xử
+  lý 1 bug SQL khác — `LEFT JOIN OfferSite` fan-out theo store) là fix hợp lệ cho vấn đề khác, giữ
+  nguyên, không liên quan tới bug này.
+
+**Verify:** `dotnet build src/POS.Web/POS.Web.csproj` 0 error; `dotnet test tests/POS.ContractTests`
+39/39 pass. **Chưa verify bằng mắt trên DB thật** (sandbox thiếu DB/Redis).
+
+**Lưu ý cho session sau:** trong module Promotion/Offer, "Mã CTKM" luôn luôn là `No`/`BonusbuyNo`/
+`BBYNR` — KHÔNG BAO GIỜ dùng `PromotionNo` làm định danh hiển thị chính (field này nullable, không
+unique). Trang song sinh `PromotionSetupPage.razor` đã đúng convention này từ đầu (bind `No`), dùng
+làm tham chiếu nếu cần kiểm tra lại quy ước.
+
+---
+
+## [2026-07-10] Chuẩn hóa filter Promotion/Offers + Promotion/Setup theo ngày, dọn UI
+
+**Layer:** POS.Web, POS.Common, POS.Infrastructure
+
+**Loại:** Bug fix + Feature + UI standard
+
+**Thay đổi — OffersPage.razor (`/promotion/offers`):**
+- Bỏ cột "Bonus Buy" khỏi datatable + Excel export, giữ 1 cột mã duy nhất "Mã CTKM"
+  (~~`=PromotionNo`~~ **bind nhầm field — đã sửa lại thành `=BonusbuyNo`**, xem entry fix bug bên trên).
+- Fix bug: thứ tự `<MudTh>` (header) và `<MudTd>` (row) bị lệch giữa cột Trạng thái/Hình thức bán
+  (MudTable render theo đúng thứ tự khai báo, không tự match theo tên) → đã swap lại cho khớp.
+- Cột Action bỏ `width:64px` cố định → auto-resize theo số icon-button thực tế (1-2 nút).
+- Filter "Mã CTKM" đổi tên từ "Bonus Buy/Promotion No", tìm đúng field `[No]` (đã đúng từ trước,
+  chỉ đổi label). Thêm filter "Từ ngày" (mặc định hôm nay−90 ngày) → SP `GetPromotionOfferHeaderList`
+  thêm `@FromDate date=NULL`, lọc `H.[EndingDate] >= @FromDate` trên **cả 12 branch** của SP.
+  **Không có "Đến ngày"** — quyết định có chủ đích: nhiều CTKM `EndingDate` đặt xa tới 2030, lọc
+  thêm mốc cuối sẽ vô tình ẩn các CTKM đó. Script: `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql`
+  (DBA cần chạy thủ công trên CentralMD — sandbox không có quyền truy cập DB để tự apply).
+
+**Thay đổi — PromotionSetupPage.razor (`/promotion/setup`):**
+- List mode thêm 4 filter mới: Từ ngày, Mã sản phẩm, Loại CTKM, Trạng thái (STATUS 0/1/2 = Đang áp
+  dụng/Lên kế hoạch/Ngưng áp dụng — tái dùng đúng 3 giá trị của dropdown Trạng thái ở editor).
+  Giữ nguyên filter cũ Mã CTKM/Tên CTKM/Trạng thái duyệt (IsApprove) — 2 khái niệm Trạng thái
+  (STATUS) và Trạng thái duyệt (IsApprove) tách biệt, không gộp.
+- Nguồn dữ liệu **khác** OffersPage: query trực tiếp `SetupPromotionHEADER` (+ `EXISTS` join
+  `SetupPromotionBUY.MAT_NR`/`SetupPromotionGET.MATERIALCODE` cho filter Mã sản phẩm) qua Dapper
+  trong `PromotionRepository.GetSetupListAsync` — không phải Stored Procedure, nên sửa trực tiếp
+  trong C# (không cần script SQL riêng như OffersPage).
+- `PromotionSetupListFilter` (POS.Common) thêm `ItemNo`, `OfferType`, `Status`, `FromDate`.
+
+**Thay đổi — Toàn app:**
+- Bỏ `text-transform:uppercase` khỏi `.mud-input-label-inputcontrol` (`app.css`) — label input
+  (vd "Loại CTKM") giờ hiển thị chữ thường trên **mọi trang**, đảo ngược quyết định uppercase cũ
+  (audit Typography 2026-07-06) theo phản hồi UX. Cập nhật `.claude/rules/mudblazor-flat-ui.md` §11.
+
+**Pattern mới:** "Lọc theo overlap khoảng ngày chỉ dùng 1 mốc `FromDate`" — khi filter theo khoảng
+ngày mà bản ghi có thể có `EndingDate` đặt xa trong tương lai (nhiều năm), KHÔNG thêm điều kiện
+`ToDate` (dễ vô tình loại các bản ghi vẫn còn hiệu lực) — chỉ lọc `EndingDate/VALIDTO >= @FromDate`.
+Áp dụng nhất quán ở cả 2 trang Promotion dù nguồn dữ liệu khác nhau (SP vs raw SQL).
+
+**Lưu ý cho session sau:**
+- ~~Build POS.Web tại thời điểm ghi log này đang lỗi do `PromotionSetupPage.razor` tham chiếu
+  `HeaderFromTime`/`HeaderToTime` chưa khai báo~~ — đã tự hết: đó là property do task
+  "Chỉnh sửa nâng cao PromotionSetupPage" (entry ngay bên dưới) khai báo, chạy song song trong
+  cùng ngày. Build/test cả 2 task đều xanh sau khi cả 2 hoàn tất — xem entry bên dưới.
+- SP `GetPromotionOfferHeaderList` có 12 branch lặp gần giống nhau (4 tổ hợp `@ItemNo`×`@Status`
+  × 2 nhánh `@Exp`) — khi cần thêm tham số/điều kiện mới, luôn đếm lại occurrence của 1 chuỗi WHERE
+  đặc trưng (vd `@StoreNo`) để xác nhận sửa đủ cả 12 branch, tránh sót.
+
+---
+
+## [2026-07-10] PromotionSetupPage — chỉnh UI nâng cao + fix bug SetupGroupItem
+
+**Layer:** POS.Web, POS.Common, POS.Infrastructure
+
+**Loại:** Feature + Bug fix
+
+**Thay đổi — PromotionSetupPage.razor (`/promotion/setup`):**
+- Khối form cố định: `OpenNewAsync` mặc định `_header.SalesType = "Tại chỗ"` (tìm theo `Text`
+  chứa "Tại chỗ", fallback option đầu — cùng pattern `PriceSetupPage.razor:288-291`). Xóa 2
+  `MudAlert` hướng dẫn "[Sản phẩm mua]"/"[Sản phẩm khuyến mãi]".
+- Tab "Thông tin chung": Từ giờ/Đến giờ đổi `MudTextField` → `MudTimePicker`
+  (`Editable="true" TimeFormat="HH:mm" AmPm="false"`), bọc qua 2 property `HeaderFromTime`/
+  `HeaderToTime` (`TimeSpan?`) chuyển đổi 2 chiều với `_header.FromTime`/`ToTime` (string "HH:mm",
+  DTO không đổi). Verify tham số qua reflection thật trên `MudBlazor.dll` 9.5.0 trước khi dùng
+  (không đoán API).
+- Tab "Cài đặt nâng cao": Label "Số lần được áp dụng" → "Vòng lặp tính KM". Ẩn field "Độ ưu tiên"
+  khỏi UI (`PriorityBBY` giữ mặc định `=1`, không đổi khi sửa CTKM cũ — chỉ ẩn markup). "Ngày áp
+  dụng trong tháng" đổi từ `MudNumericField` (1 số) → `MudSelect MultiSelection="true"` (31 ngày),
+  lưu field mới `PromotionSetupHeaderDto.ApplyDaysOfMonth` (`List<int>`).
+
+**Quyết định kiến trúc quan trọng (đã xác nhận với user trước khi code):** SP legacy đang chạy
+**production** `Setup_Promotion_Insert` (publish draft → `OfferHeader` cho POS đọc, KHÔNG thuộc
+repo này, KHÔNG được sửa) có dòng cứng `Convert(int, H.NUMOFDAYS)` khi Duyệt CTKM — đổi cột
+`NUMOFDAYS` cũ sang JSON array sẽ crash ngay bước Duyệt. Quyết định: **giữ nguyên 100%**
+`NumOfDays`/`NUMOFDAYS` (cột + tham số `@NumOfDays` trong `usp_SaveSetupCTKMAll` không đổi gì),
+thêm cột **MỚI** hoàn toàn tách biệt `NUMOFDAYSLIST` (nvarchar(200), JSON array) — chỉ Dashboard
+đọc/ghi, KHÔNG publish sang `OfferHeader` (enforcement nhiều-ngày ở POS/CentralSale, nếu cần, là
+quyết định/khối lượng công việc riêng, ngoài phạm vi đợt này).
+
+**Thay đổi — code/DB đi kèm quyết định trên:**
+- `POS.Common/Dtos/Promotion/PromotionSetupDto.cs`: thêm `ApplyDaysOfMonth` vào
+  `PromotionSetupHeaderDto`, giữ nguyên `NumOfDays`.
+- `PromotionRepository.cs`: `GetSetupDetailAsync` đọc thêm 1 SELECT riêng `NUMOFDAYSLIST` (không
+  map trực tiếp vào DTO vì tên cột không khớp property, tránh Dapper ép kiểu sai), parse qua helper
+  mới `ParseDaysOfMonth` (JsonConvert, lọc 1-31, dedupe, sort). `SaveSetupAsync` thêm tham số
+  `@NumOfDaysList` (JSON serialize), giữ nguyên dòng `@NumOfDays` cũ.
+- `docs/sql/SetupPromotion_AddNumOfDaysList.sql` (mới): `ALTER TABLE` thêm cột, idempotent.
+- `docs/sql/SetupPromotion_Save.sql`: BẢN SỬA LẦN 4 — thêm tham số `@NumOfDaysList nvarchar(200) =
+  ''`, ghi vào UPDATE + 2 nhánh INSERT.
+- `docs/architecture/centralMD-schema.md`, `docs/CURRENT_STRUCTURE.md`: cập nhật cột/field mới.
+- `docs/ROLLOUT.md` §D11: **BẮT BUỘC** chạy `SetupPromotion_AddNumOfDaysList.sql` rồi
+  `SetupPromotion_Save.sql` (bản mới) trên CentralMD, ĐÚNG THỨ TỰ, trước khi dùng field mới —
+  thiếu bước 1 → lỗi `Invalid column name 'NUMOFDAYSLIST'` khi Lưu.
+
+**Bug fix riêng — "Invalid object name 'dbo.SetupGroupItem'"** (modal "Cài đặt nhóm sản phẩm",
+`ItemGroupSetupDialog.razor`, mở từ dòng Buy/Get "Nhóm SP" tại `/promotion/setup`): bảng
+`dbo.SetupGroupItem` thiếu trên môi trường test — định nghĩa gốc chỉ nằm trong file dump legacy
+`src/legacy/Database/CentralMD.sql` (chỉ đọc), chưa từng có script CREATE TABLE độc lập cho DBA
+chạy. Code C#/Razor (`PromotionRepository`, dialog) đã đúng từ trước — **không sửa gì ở code**.
+Thêm `docs/sql/SetupGroupItem_CreateTable.sql` (idempotent) + cập nhật header
+`docs/sql/SetupGroupItem_Save.sql` + `docs/ROLLOUT.md` §D1b ghi rõ thứ tự chạy.
+
+**Pattern mới:** `MudTimePicker` cho ô giờ "HH:mm" tự ép định dạng khi gõ tay; `MudSelect
+MultiSelection` cho chọn nhiều giá trị rời rạc (bẫy: `MultiSelectionTextFunc` nhận
+`IReadOnlyList<string>`, không phải `IReadOnlyList<T>`) — đã thêm `.claude/skills/web/SKILLS.md`.
+Cũng ghi nhận nguyên tắc: khi 1 cột/tham số DB được 1 SP legacy **đang chạy production** (ngoài
+repo, không sửa được) tiêu thụ trực tiếp qua `Convert`, KHÔNG đổi kiểu/ngữ nghĩa cột đó — luôn
+thêm cột mới tách biệt.
+
+**Lưu ý cho session sau:** Đây là task chạy song song với task "Chuẩn hóa filter Promotion/Offers +
+Promotion/Setup" (entry bên trên) trên cùng file `PromotionSetupPage.razor` — 2 task sửa 2 khu vực
+khác nhau (list-mode filter vs editor-mode tab), không đụng nhau, cả 2 đều verify xanh sau khi
+hoàn tất. Build POS.Web + `dotnet test tests/POS.ContractTests` (39/39) đã xanh tại 1 thời điểm xác
+nhận; lần build sau đó gặp lỗi MSB3027 (file DLL bị khóa bởi Visual Studio đang chạy POS.Web) — đây
+là lỗi môi trường (file lock), KHÔNG phải lỗi code, không cần sửa. **CHƯA VERIFY UI/DB thật**
+(sandbox thiếu `POS_SECRET_KEY`/DB/Redis) — cần DBA chạy đủ 2 script SQL (`SetupPromotion_Add
+NumOfDaysList.sql` + `SetupPromotion_Save.sql`) và 2 script SQL fix SetupGroupItem trên CentralMD,
+rồi test lại bằng mắt trên môi trường thật.
+
+---
+
+## [2026-07-09] Distributed throttle (Redis) cho sinh file master data .zip
+
+**Layer:** POS.Api, POS.Application, POS.Infrastructure, POS.Common
+
+**Loại:** Feature + Pattern mới
+
+**Bối cảnh:** `MasterDataSyncService.EnsureMasterDataFileAsync` (sinh file master data .zip cho
+POS) chỉ có khóa per-terminal trong-process (`ISyncFileLock`) — không giới hạn tổng số lượt sinh
+đồng thời trên toàn cụm (nhiều instance API), có thể quá tải SQL Server/CPU khi nhiều POS cùng
+sync giờ cao điểm. Thêm Distributed Throttle dựa trên Redis, giới hạn tối đa N=3 lượt chạy đồng
+thời.
+
+**Thay đổi:**
+- `POS.Infrastructure/Cache/{I}RedisManager.cs`: thêm `TryAcquireSlotAsync`/`ReleaseSlotAsync` —
+  sliding-window đếm bằng Sorted Set (`ZREMRANGEBYSCORE` dọn slot quá hạn + `ZCARD` đếm + `ZADD`
+  nếu còn chỗ), atomic qua 1 Lua script (`ScriptEvaluateAsync`), không có race condition (TOCTOU)
+  giữa nhiều request đồng thời.
+- `POS.Infrastructure/Redis/{I}RedisService.cs`: thin wrapper delegate 2 method trên.
+- `POS.Common/Const/RedisConst.cs`: thêm `Redis_Key_CreateMasterDataSlots = "MD:CreateMasterData:Slots"`.
+- `POS.Infrastructure/Files/MasterDataSyncOptions.cs`: thêm `MaxConcurrentGeneration` (mặc định 3),
+  `ThrottleStaleAfterSeconds` (mặc định 600).
+- `POS.Application/Features/DataSync/MasterDataThrottleException.cs` (mới).
+- `POS.Application/Features/DataSync/MasterDataSyncService.cs`: inject `IRedisService`, acquire
+  slot throttle TRƯỚC khóa per-terminal, release trong `finally` (không truyền `ct` — đảm bảo nhả
+  được kể cả khi request bị hủy). Đặt tại đúng 1 điểm nghẽn cổ chai chung
+  (`EnsureMasterDataFileAsync`) nên bảo vệ được cả 2 luồng gọi: `GetFileFromFTP` (nhánh ALL) và
+  `PushStartOfDayDataAsync` (Web Sync push 1 POS từ `PosMapPage.razor`).
+- `POS.Api/Controllers/SyncDataPosController.cs`: bắt riêng `MasterDataThrottleException` trong
+  `GetFileFromFTP`, trả qua `HttpResponseData` sẵn có — **giữ nguyên contract** (HTTP 200, trạng
+  thái thật `Status=429` nằm trong body JSON), KHÔNG đổi HTTP status code thật.
+- `appsettings.json` (base/DEV) + `appsettings.UAT.json` + `appsettings.Production.json` (POS.Api):
+  thêm 2 key vào section `MasterDataSync` có sẵn — tuning, copy y giá trị DEV.
+- `.claude/skills/cache/SKILLS.md`: thêm Pattern 8 "Distributed throttle (sliding-window ZSET)".
+- `docs/CURRENT_STRUCTURE.md`, `.claude/rules/masterdata-sync.md`: cập nhật cùng commit.
+
+**Pattern mới:** Distributed throttle (sliding-window ZSET, atomic Lua) → đã cập nhật
+`.claude/skills/cache/SKILLS.md` Pattern 8 (bổ sung cạnh Pattern 6 — distributed lock).
+
+**Lưu ý cho session sau:** Pattern throttle này generic (`setKey`/`slotId`/`maxSlots`/`staleAfter`),
+tái dùng được cho tác vụ tốn tài nguyên khác cần giới hạn N-concurrent xuyên nhiều instance —
+không chỉ riêng master data. Chưa verify runtime bằng Redis thật trong sandbox (không có Redis
+server) — chỉ verify qua `dotnet build` (0 error) + `dotnet test tests/POS.ContractTests` (39/39
+pass); cần test thủ công sau deploy (xem hướng dẫn trong `.claude/rules/masterdata-sync.md`).
+
+---
+
+## [2026-07-09] SyncTableList.POSLastCounter — cập nhật bất đồng bộ (Channel + BackgroundService) + rollout SalesPrice
+
+**Layer:** POS.Infrastructure, POS.Api, POS.Web, POS.Common
+
+**Loại:** Feature + Pattern mới
+
+**Bối cảnh:** `SyncTableList.POSLastCounter` trước đây **chưa từng được ghi** ở bất kỳ đâu (SP
+`[SyncTable_Get]` chỉ SELECT) — luồng sync master data cho POS luôn full-resync `@POSLastCounter=0`.
+Tính năng mới để về sau có thể chuyển dần sang incremental sync.
+
+**Thay đổi — Core infra:**
+- `POS.Infrastructure/Sync/` (mới, namespace `POS.Infrastructure.Sync`):
+  `ISyncTableTrackerService`/`SyncTableTrackerService` (Channel bounded in-process, Singleton,
+  `Track(tableName, counter)` non-blocking); `SyncTableCounterFlushWorker` (BackgroundService, drain
+  Channel định kỳ `FlushIntervalSeconds` mặc định 5s, coalesce Max theo bảng, heartbeat Redis
+  `Worker:Heartbeat:SyncTableCounterFlush-{process}` tái dùng DTO `WorkerHeartbeat` có sẵn);
+  `SyncTableTrackerOptions` (bind section `"SyncTableTracker"`).
+- `POS.Infrastructure/Repositories/DataSync/{I}SyncTrackerRepository.cs` (mới): `BulkUpdateCounterAsync`
+  qua TVP `dbo.TVP_SyncCounterUpdate` → SP `usp_SyncTableList_BulkUpdateCounter`
+  (`docs/sql/SyncTableList_BulkUpdateCounter.sql`, UPDATE idempotent `WHERE Counter > POSLastCounter`).
+- `DependencyInjection.cs`: đăng ký Singleton tracker + Scoped repo.
+- `POS.Api/Program.cs` + `POS.Web/Program.cs`: thêm `AddHostedService<SyncTableCounterFlushWorker>()`
+  **trực tiếp** (KHÔNG qua `WorkerRolesOptions`) — ngoại lệ có chủ đích vì Channel in-memory chỉ sống
+  đúng tiến trình ghi master data, mà cả `POS.Api` lẫn `POS.Web` đều ghi (POS.Web có CRUD pages inject
+  thẳng Repository).
+- `appsettings.json` (Development + UAT + Production, cả POS.Api và POS.Web): thêm section
+  `SyncTableTracker` (`FlushIntervalSeconds`, `ChannelCapacity`) — tuning, copy y giá trị DEV.
+
+**Thay đổi — Rollout Track() cho 3/12 bảng (Pilot A/B/C):**
+- `CentralMDRepository.CreateProductAsync` (SP `usp_Product_Save`, thêm `@OutItemCounter`/
+  `@OutBarcodeCounter` OUTPUT — `docs/sql/Product_Save.sql`) → Track `Item`, `Barcodes`.
+- `CentralMDRepository.SaveProductLockAsync` (raw SQL, thêm `OUTPUT INSERTED.Counter`, gom Max cả
+  batch, Track 1 lần) → Track `ItemBlock`.
+- `PriceRepository.SaveAsync`/`UpdatePriceAsync`/`SoftDeletePriceAsync` (SP `usp_SetupSalePrice_Save`/
+  `usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete`, script mới
+  `docs/sql/SalesPrice_AddCounterOutput.sql`) → Track `SalesPrice`. `PriceSaveResult` thêm field
+  `Counter` (nội bộ, không thuộc contract JSON khoá POS). Ca đặc biệt: nhánh update của
+  `usp_SetupSalePrice_Save` ủy quyền SP legacy production `Setup_SalePrice_Get_ALL` (không sửa được,
+  không có OUTPUT) → giải pháp đọc lại `SELECT MAX(Counter)` sau khi mọi nhánh ghi xong.
+
+**Pattern mới:** "Track Counter bump vào SyncTableList.POSLastCounter bất đồng bộ (Channel +
+BackgroundService)" → đã cập nhật `.claude/skills/api/SKILLS.md`.
+
+**Tài liệu:** `.claude/rules/masterdata-sync.md` (mục cơ chế mới + bảng rollout 3/12 write-path),
+`docs/web/sync_data/sync_status.md` (tổng kết + checklist tiến độ dạng bảng), `docs/CURRENT_STRUCTURE.md`
+(cây `Sync/` + bảng DI), `docs/WEB_STATUS.md`.
+
+**Verify:** `dotnet build POS.slnx` 0 error, `dotnet build src/POS.Web/POS.Web.csproj` 0 error,
+`dotnet test tests/POS.ContractTests` 39/39 xanh. **CHƯA VERIFY runtime** (sandbox thiếu
+`POS_SECRET_KEY`/DB/Redis) — 3 script SQL mới (`SyncTableList_BulkUpdateCounter.sql`, bản sửa
+`Product_Save.sql`, `SalesPrice_AddCounterOutput.sql`) **chưa chạy trên DB thật**, cần DBA áp dụng
+trên CentralMD trước khi test.
+
+**Lưu ý cho session sau:** Còn 9/12 bảng chưa rollout Track() — theo checklist
+`docs/web/sync_data/sync_status.md`, bám đúng 1 trong 3 mẫu Pilot A (SP + OUTPUT param), Pilot B
+(raw SQL + `OUTPUT INSERTED.Counter`), Pilot C (SP ủy quyền SP legacy không sửa được → đọc lại
+`MAX(Counter)`). 2 gap phát hiện ngoài phạm vi: `UpdatePosTerminalAsync`/`POSDataSetup` insert/update
+không bump `Counter` — cần quyết định riêng trước khi rollout tới các bảng đó. Heartbeat Redis mới
+chỉ ghi, chưa tích hợp `/ops/health` (cần generalize `HealthCheck:WorkerName` từ 1 string → mảng).
+
+---
+
+## [2026-07-09] MasterDataDownloadLog: log xóa file + cột "MasterData" trên PosMapPage + chuyển menu "Thiết bị POS" sang VẬN HÀNH
+
+**Layer:** POS.Api, POS.Application, POS.Infrastructure, POS.Common, POS.Web
+
+**Loại:** Feature + Refactor (menu/quyền)
+
+**Thay đổi:**
+- `docs/sql/MasterDataDownloadLog.sql`: ALTER TABLE idempotent (`COL_LENGTH` guard) thêm
+  `DeletedAt datetime NULL` + `DeleteStatus varchar(20) NULL`.
+- `POS.Infrastructure/Repositories/DataSync/{ISyncRepository,SyncRepository}.cs`: thêm
+  `UpdateDeleteLogAsync(siteCode, posTerminal, fileName, deleteStatus, deletedAt, ct)` — 1 câu
+  `UPDATE ... FROM ... INNER JOIN (SELECT TOP 1 ... ORDER BY DownloadedAt DESC)` cập nhật đúng bản
+  ghi log download mới nhất (tránh update nhầm nhiều dòng/race).
+- `POS.Application/Features/DataSync/{IMasterDataSyncService,MasterDataSyncService}.cs`: thêm
+  `LogDeleteAsync(fileName, deleteStatus, ct)` — fail-safe (try/catch nuốt lỗi, giống
+  `LogDownloadAsync`); tách helper `ParseSiteAndTerminal(fileName)` dùng chung cho cả 2 method
+  (best-effort parse siteCode/posTerminal từ tên file).
+- `POS.Api/Controllers/SyncDataPosController.cs`: `DeleteFileFromFTP` đổi `IActionResult` →
+  `async Task<IActionResult>`, gọi `LogDeleteAsync` với `CancellationToken.None` — `"Success"` khi
+  xóa file thành công, `"Failed"` khi file không tồn tại HOẶC exception (quyết định có chủ đích:
+  cả 2 đều là 1 lượt xóa không thành công POS cần biết). Nhánh path-traversal-blocked không log.
+- `POS.Common/Dtos/Ops/PosTerminalListDto.cs`: thêm `DateTime? LastMasterDataDownloadedAt`.
+- `POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`
+  (`GetPosTerminalListAsync`): thêm `OUTER APPLY` thứ 2 vào `dbo.MasterDataDownloadLog` (TOP 1
+  ORDER BY DownloadedAt DESC theo SiteCode+PosTerminal), cùng pattern với `OUTER APPLY POSMonitor`
+  đã có, dùng index sẵn có `IX_MasterDataDownloadLog_Site_At`.
+- `PosMapPage.razor` (`/catalog/pos-setup`): thêm cột "MasterData" (cuối bảng, có sort) hiển thị
+  thời gian tương đối qua helper `FormatRelativeTime` ("vừa xong"/"Xp trước"/"Xh trước"/"X ngày
+  trước", luôn tương đối kể cả > 1 ngày — khác cách `PosTerminalDetailDialog.DateTimePos` chuyển
+  sang tuyệt đối); màu chữ cảnh báo qua `MasterDataColor` (chưa từng tải hoặc > 7 ngày = đỏ, > 1
+  ngày = vàng, còn lại = mặc định).
+- `MainLayout.razor`: chuyển `MudNavGroup "Thiết bị POS"` (POSTerminal + POS bank) từ section
+  DANH MỤC (`BackOfficeAndAbove`) sang VẬN HÀNH (`OpsAndAbove`, đặt đầu section) — đổi tên field
+  `_expandCatPos` → `_expandOpsPos`, cập nhật `UpdateExpanded()` và `BreadcrumbMap` cho
+  `/catalog/pos-setup` + `/catalog/bank-pos` (Section đổi `"DANH MỤC"` → `"VẬN HÀNH"`).
+- `PosMapPage.razor` + `Catalog/PosDevices/BankPosPage.razor`: đổi
+  `@attribute [Authorize(Policy = ...)]` từ `BackOfficeAndAbove` → `OpsAndAbove` — bắt buộc phải
+  đổi cùng lúc với menu, nếu không BackOffice vẫn truy cập được bằng URL trực tiếp dù menu đã ẩn.
+  **Đây là ngoại lệ** so với đợt tách `BackOfficeAndAbove` cho toàn bộ `/catalog/*` (entry
+  2026-07-09 "Thêm role thứ 4 BackOffice" phía trên) — 2 trang thiết bị POS này thuộc phạm vi IT
+  Ops, không phải BackOffice.
+
+**Pattern mới:** Không có pattern mới — cả 3 việc đều tái dùng pattern đã có sẵn (fail-safe
+insert/update log như `InsertDownloadLogAsync`/`LogDownloadAsync`; `OUTER APPLY` lấy bản ghi mới
+nhất như `OUTER APPLY POSMonitor`; đổi policy trang theo `WebPolicies` có sẵn).
+
+**Lưu ý cho session sau:** DBA phải chạy lại `docs/sql/MasterDataDownloadLog.sql` (ALTER TABLE) và
+`docs/sql/SyncGetDataByTable_AddFilter.sql`/liên quan trước khi tính năng log xóa + cột MasterData
+hoạt động đúng trên môi trường có dữ liệu thật (xem `docs/ROLLOUT.md` §O1). Nếu sau này còn task
+"chuyển menu + đổi quyền trang", nhớ luôn đổi CẢ 2 nơi (sidebar `MainLayout.razor` VÀ
+`@attribute [Authorize(Policy=...)]` của trang) — chỉ đổi sidebar không chặn được truy cập URL
+trực tiếp. Build + `dotnet test tests/POS.ContractTests` 39/39 xanh sau mỗi bước; **CHƯA VERIFY
+UI/DB thật** (sandbox thiếu `POS_SECRET_KEY`/DB/Redis).
+
+---
+
+## [2026-07-09] Coupon: nút Xóa (soft-block) + đồng bộ tab mã phát hành với Voucher; đồng nhất nhãn trạng thái "Hiệu lực"
+
+**Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common
+
+**Loại:** Feature + Pattern mới (chuẩn nhãn trạng thái)
+
+**Thay đổi:**
+- `POS.Common/Dtos/SetupCoupon/SetupCouponDtos.cs`: `CouponSaveResult` tái dùng; `CouponCodeDto`
+  thêm 3 field `Status`/`AmountUsed`/`OrderUsed` (mirror `VoucherCodeDto`) — field mới, không đổi
+  tên field cũ, an toàn với contract.
+- `POS.Infrastructure/Repositories/CouponVoucher/{ICouponRepository,CouponRepository}.cs`: thêm
+  `UpdateBlockedAsync(itemNo, blocked, ct)` → SP mới `usp_SetupCoupon_UpdateBlocked` (mirror
+  `usp_SetupVoucher_UpdateBlocked`), cập nhật RIÊNG `CpnVchBOMHeader.Blocked`.
+- `POS.Application/Features/CouponVoucher/{ICouponService,CouponService}.cs`: thêm
+  `UpdateBlockedAsync` wrapper (delegate thuần xuống repository).
+- `docs/sql/SetupCoupon_UpdateBlocked.sql` (**MỚI**): SP `usp_SetupCoupon_UpdateBlocked`.
+- `docs/sql/SetupCoupon_Read.sql`: sửa `usp_SetupCoupon_GetCodes` thêm SELECT 3 cột
+  `Status`/`AmountUsed`/`OrderUsed` (đã có sẵn trên `CpnVchBOMCodeIssue`, không cần migration DB).
+- `CouponsPage.razor` (`/promotion/coupons`): thêm nút icon "Xóa" trong cột THAO TÁC (bên cạnh
+  "Xem chi tiết") → `MudMessageBox` confirm → `UpdateBlockedAsync(itemNo, true)` (soft-block, KHÔNG
+  hard-delete) + audit log `DELETE`/`SetupCoupon`; cột THAO TÁC đổi `width:80px` → `width:1%;
+  white-space:nowrap` để không xuống dòng khi có 2 icon; dropdown lọc + badge "Hiệu lực" đổi từ
+  "Còn hiệu lực" cho khớp chuẩn nhãn mới.
+- `CouponIssuePage.razor` (`/promotion/coupons/issue`): tab "Mã coupon đã phát hành" thêm 4 cột
+  Trạng thái khóa/Status/Số tiền đã dùng/Đơn hàng đã dùng (mirror `VoucherIssuePage.razor`, thêm
+  helper `StatusDisplay(string)` cục bộ); checkbox "Khóa (Blocked)" bỏ `Disabled="@IsViewMode"` —
+  luôn sửa được ở view mode (ngoại lệ duy nhất, khớp Voucher); thêm `_originalBlocked`/
+  `BlockedChanged`/`SaveBlockedAsync()` — nút Lưu riêng chỉ hiện khi Blocked đổi, chỉ cập nhật
+  riêng field này (không đụng field khác).
+- `VouchersPage.razor` (`/promotion/vouchers`): đổi filter mặc định `Status="-1"` (Tất cả) →
+  `"1"` (Hiệu lực) — cả lúc mở trang lẫn khi bấm "Xóa" bộ lọc.
+- **Đồng nhất nhãn trạng thái "Hiệu lực"/"Hết hiệu lực"** across `CouponsPage.razor` ("Còn hiệu
+  lực"→"Hiệu lực"), `OffersPage.razor` ("Có hiệu lực"→"Hiệu lực" ở dropdown + badge qua helper mới
+  `EffectDisplay(bool)` thay vì in thẳng chuỗi SP legacy + Excel export), `PricesPage.razor`
+  (checkbox lọc "Còn hiệu lực"→"Hiệu lực", badge active giữ nguyên đã đúng). `VouchersPage.razor`
+  đã đúng chuẩn sẵn, dùng làm tham chiếu. Không sửa SP legacy `GetPromotionOfferHeaderList` (rủi ro
+  dùng chung) — chuẩn hóa client-side.
+- `.claude/rules/mudblazor-flat-ui.md` §4a: thêm quy tắc "Nhãn trạng thái còn/hết hiệu lực theo
+  ngày PHẢI dùng đúng 'Hiệu lực'/'Hết hiệu lực'" — chuẩn bắt buộc cho page mới sau này.
+- `docs/CURRENT_STRUCTURE.md`, `docs/ROLLOUT.md` (mục D3b), `docs/WEB_STATUS.md`: cập nhật theo
+  các thay đổi trên.
+- `tests/POS.ContractTests/JsonFieldContractTests.cs`: cập nhật `CouponCodeDto_locked` khớp 3
+  field mới (đổi có chủ đích, khóa lại field mới).
+
+**Pattern mới:** Chuẩn nhãn trạng thái hiệu lực toàn dự án — "Hiệu lực"/"Hết hiệu lực" (đã cập nhật
+`.claude/rules/mudblazor-flat-ui.md` §4a).
+
+**Lưu ý cho session sau:** DBA phải chạy 2 script SQL trên CentralMD trước khi tính năng Xóa/4 cột
+mới hoạt động thật: `docs/sql/SetupCoupon_UpdateBlocked.sql` (SP mới) và `docs/sql/SetupCoupon_Read.sql`
+(bản đã sửa). Chưa verify UI bằng mắt (sandbox thiếu DB/Redis) — chỉ verify qua build + 39/39
+contract test xanh.
+
+---
+
 ## [2026-07-09] Thêm role BackOffice (giữa StoreOperator và ITOps) — quản lý Danh mục + Khuyến mãi
 
 **Layer:** POS.Web

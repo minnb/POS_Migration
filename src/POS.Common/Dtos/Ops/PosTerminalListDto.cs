@@ -34,6 +34,9 @@ public class PosTerminalListDto
     public bool?     IsOpenBluePos         { get; set; }
     public DateTime? DateTimePos           { get; set; }   // mốc heartbeat (last seen)
 
+    // ── MasterDataDownloadLog (lượt tải file zip gần nhất — null nếu chưa từng tải) ──
+    public DateTime? LastMasterDataDownloadedAt { get; set; }
+
     // ── Computed ──────────────────────────────────────────────────────────────
     public bool HasMonitor => DateTimePos.HasValue;
     public bool IsOnline    => DateTimePos.HasValue && (DateTime.Now - DateTimePos.Value).TotalMinutes < 10;

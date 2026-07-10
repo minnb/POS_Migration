@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
+using POS.Common.Const;
 using POS.Common.Dtos.DataSync;
 using POS.Common.Helpers;
 using POS.Infrastructure.Files;
 using POS.Infrastructure.Logging;
+using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
 using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 
@@ -20,6 +22,7 @@ public sealed class MasterDataSyncService(
     ISyncRepository syncRepository,
     IFileArchiveService fileArchiveService,
     ISyncFileLock syncFileLock,
+    IRedisService redisService,
     IOptions<MasterDataSyncOptions> options,
     IKibanaService kibanaService,
     IFileLogHelper fileLogHelper) : IMasterDataSyncService
@@ -39,22 +42,21 @@ public sealed class MasterDataSyncService(
     // Thư mục con tạm chứa file .txt của các bảng IsSingleFile=0 (gom chung 1 zip).
     private const string CommonGroupFolder = "_common";
 
+    /// <summary>Best-effort parse siteCode/posTerminal từ tên zip {site}_{type}_{terminal}_{yyyyMMdd}.zip.</summary>
+    private static (string? SiteCode, string? PosTerminal) ParseSiteAndTerminal(string? fileName)
+    {
+        var name = Path.GetFileNameWithoutExtension(fileName ?? string.Empty);
+        var parts = name.Split('_');
+        return parts.Length >= 4 ? (parts[0], parts[2]) : (null, null);
+    }
+
     public async Task LogDownloadAsync(
         string? fileName, string? filePath, long fileSizeBytes, long durationMs,
         string status, string? clientIp, CancellationToken ct = default)
     {
         try
         {
-            // Best-effort parse siteCode/posTerminal từ tên zip {site}_{type}_{terminal}_{yyyyMMdd}.zip.
-            string? siteCode = null, posTerminal = null;
-            var name = Path.GetFileNameWithoutExtension(fileName ?? string.Empty);
-            var parts = name.Split('_');
-            if (parts.Length >= 4)
-            {
-                siteCode = parts[0];
-                posTerminal = parts[2];
-            }
-
+            var (siteCode, posTerminal) = ParseSiteAndTerminal(fileName);
             await syncRepository.InsertDownloadLogAsync(
                 siteCode, posTerminal, fileName, filePath, fileSizeBytes, durationMs, status, clientIp, ct);
         }
@@ -62,6 +64,20 @@ public sealed class MasterDataSyncService(
         {
             // Fail-safe: log lỗi không được phá luồng download (vd bảng chưa tạo).
             fileLogHelper.WriteExpLogs("MasterDataSyncService.LogDownloadAsync", ex);
+        }
+    }
+
+    public async Task LogDeleteAsync(string? fileName, string deleteStatus, CancellationToken ct = default)
+    {
+        try
+        {
+            var (siteCode, posTerminal) = ParseSiteAndTerminal(fileName);
+            await syncRepository.UpdateDeleteLogAsync(siteCode, posTerminal, fileName, deleteStatus, DateTime.Now, ct);
+        }
+        catch (Exception ex)
+        {
+            // Fail-safe: log lỗi không được phá luồng xóa file (vd bảng chưa có cột DeletedAt/DeleteStatus).
+            fileLogHelper.WriteExpLogs("MasterDataSyncService.LogDeleteAsync", ex);
         }
     }
 
@@ -96,12 +112,44 @@ public sealed class MasterDataSyncService(
         if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
             return expectedZipNames.Select(z => Success(z, req)).ToList();
 
-        // 2. Khóa theo terminal (bounded) + double-check.
-        var lockKey = $"{req.TypeSync}_{req.SiteCode}_{req.PosTerminal}";
-        using var lockHandle = await syncFileLock.AcquireAsync(lockKey, ct);
-        if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
-            return expectedZipNames.Select(z => Success(z, req)).ToList();
+        // 2. Distributed throttle: giới hạn tổng số lượt sinh chạy đồng thời trên toàn cụm (Redis ZSET
+        // sliding-window, atomic — xem RedisManager.TryAcquireSlotAsync). Đặt TRƯỚC khóa per-terminal vì đây là
+        // giới hạn tài nguyên chung (CPU nén zip + IO stream DB), không phải khóa chống sinh trùng 1 terminal.
+        var slotId = Guid.NewGuid().ToString("N");
+        var slotAcquired = await redisService.TryAcquireSlotAsync(
+            RedisConst.Redis_Key_CreateMasterDataSlots, slotId,
+            _opt.MaxConcurrentGeneration, TimeSpan.FromSeconds(_opt.ThrottleStaleAfterSeconds));
+        if (!slotAcquired)
+            throw new MasterDataThrottleException(
+                "Hệ thống đang bận nén dữ liệu. Vui lòng thử lại sau 30 giây.");
 
+        try
+        {
+            // 3. Khóa theo terminal (bounded) + double-check.
+            var lockKey = $"{req.TypeSync}_{req.SiteCode}_{req.PosTerminal}";
+            using var lockHandle = await syncFileLock.AcquireAsync(lockKey, ct);
+            if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
+                return expectedZipNames.Select(z => Success(z, req)).ToList();
+
+            return await GenerateAndPublishAsync(req, tableEntries, singleTableNames, CommonZipName, SingleZipName, ct);
+        }
+        finally
+        {
+            // Không dùng ct — phải nhả được slot kể cả khi request đã bị hủy giữa chừng
+            // (giống pattern ct=CancellationToken.None của LogDownloadAsync/LogDeleteAsync).
+            await redisService.ReleaseSlotAsync(RedisConst.Redis_Key_CreateMasterDataSlots, slotId);
+        }
+    }
+
+    /// <summary>Sinh + publish toàn bộ zip (common + per-table) sau khi đã qua throttle + khóa per-terminal.</summary>
+    private async Task<List<GetMasterDataFileResult>> GenerateAndPublishAsync(
+        GetMasterDataFileRequest req,
+        List<(SyncTableInfo Table, int Index)> tableEntries,
+        List<string> singleTableNames,
+        Func<string> commonZipName,
+        Func<string, string> singleZipName,
+        CancellationToken ct)
+    {
         Directory.CreateDirectory(req.TargetDir);
         var tmpDir = Path.Combine(req.TargetDir, $"_tmp_{Guid.NewGuid():N}");
         var tableCount = 0;
@@ -206,7 +254,7 @@ public sealed class MasterDataSyncService(
             var commonTableCount = tableEntries.Count(e => !e.Table.IsSingleFile && writtenSet.Contains(e.Table.TableName!));
             if (commonTableCount > 0)
             {
-                var zipName = CommonZipName();
+                var zipName = commonZipName();
                 await PublishZipAsync(req, zipName, commonDir, ct);
                 publishedZipNames.Add(zipName);
                 results.Add(Success(zipName, req, commonTableCount));
@@ -216,7 +264,7 @@ public sealed class MasterDataSyncService(
             foreach (var tableName in singleTableNames)
             {
                 if (!writtenSet.Contains(tableName)) continue; // SP2 trả 0 dòng — không publish zip rỗng.
-                var zipName = SingleZipName(tableName);
+                var zipName = singleZipName(tableName);
                 await PublishZipAsync(req, zipName, singleTableDirs[tableName], ct);
                 publishedZipNames.Add(zipName);
                 results.Add(Success(zipName, req, 1));

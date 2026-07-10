@@ -2,11 +2,14 @@ using System.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Dapper;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using POS.Common.Dtos.Promotion;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
+using POS.Infrastructure.Sync;
+using IFileLogHelper = POS.Infrastructure.Logging.IFileLogHelper;
 
 namespace POS.Infrastructure.Repositories;
 
@@ -16,13 +19,20 @@ namespace POS.Infrastructure.Repositories;
 /// </summary>
 public sealed class PromotionRepository(
     CentralMDConnectionFactory connectionFactory,
-    IRedisService redis)
+    IRedisService redis,
+    IFileLogHelper fileLogHelper,
+    ISyncTableTrackerService syncTracker)
     : BaseRepository(connectionFactory), IPromotionRepository
 {
     private const string KeyOfferTypeOptions      = "MD:OfferTypeOptions";
     private const string KeySalesOrderTypeOptions = "MD:SalesOrderTypeOptions";
     private const string KeySiteGroupOptions      = "MD:SiteGroupOptions";
     private const string KeyMemberCodeOptions     = "MD:MemberCodeOptions";
+
+    // Dải error number nghiệp vụ có chủ đích (THROW trong SP, xem SetupPromotion_Save.sql
+    // "BẢN SỬA LẦN 3") — an toàn hiện y nguyên message cho end-user. Lỗi SqlException khác
+    // (kết nối/timeout/SP chưa deploy...) bị coi là kỹ thuật, KHÔNG hiện message thô ra UI.
+    private static readonly HashSet<int> KnownBusinessErrorNumbers = [51001, 51002];
 
     // PageSize lớn để lấy toàn bộ theo filter khi export (SP vẫn OFFSET/FETCH, constant memory phía SQL).
     private const int ExportPageSize = 100_000;
@@ -81,22 +91,38 @@ public sealed class PromotionRepository(
     public async Task<(List<PromotionSetupListItemDto> Items, int Total)> GetSetupListAsync(
         PromotionSetupListFilter filter, CancellationToken ct = default)
     {
+        // @ItemNo khớp barcode ở SetupPromotionBUY.MAT_NR / SetupPromotionGET.MATERIALCODE —
+        // giống tinh thần UNION OfferBuy/OfferGet/OfferBenefits của SP GetPromotionOfferHeaderList
+        // (OffersPage.razor) nhưng ở đây query trực tiếp 2 bảng flat (không có OfferBenefits ở
+        // nhóm Setup). @FromDate lọc CTKM còn hiệu lực từ ngày này trở đi (VALIDTO >= @FromDate,
+        // string yyyyMMdd — CHỈ lọc mốc đầu, giống quyết định đã áp dụng ở GetPromotionOfferHeaderList,
+        // xem docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql).
         const string sql = @"
-            SELECT  BBYNR              AS No,
-                    ISNULL(BBYTEXT,'') AS Description,
-                    ISNULL(BBYTYPE,'') AS OfferType,
-                    ISNULL(SalesType,'') AS SalesType,
-                    ISNULL(STATUS,'')  AS Status,
-                    ISNULL(VALIDFROM,'') AS ValidFrom,
-                    ISNULL(VALIDTO,'') AS ValidTo,
-                    ISNULL(IsApprove,0) AS IsApprove,
+            SELECT  H.BBYNR              AS No,
+                    ISNULL(H.BBYTEXT,'') AS Description,
+                    ISNULL(H.BBYTYPE,'') AS OfferType,
+                    ISNULL(H.SalesType,'') AS SalesType,
+                    ISNULL(H.STATUS,'')  AS Status,
+                    ISNULL(H.VALIDFROM,'') AS ValidFrom,
+                    ISNULL(H.VALIDTO,'') AS ValidTo,
+                    ISNULL(H.IsApprove,0) AS IsApprove,
                     COUNT(*) OVER()    AS Total
-            FROM    dbo.SetupPromotionHEADER (NOLOCK)
-            WHERE   (@OfferNo = '' OR BBYNR = @OfferNo)
-              AND   (@OfferName = '' OR BBYTEXT LIKE '%' + @OfferName + '%')
+            FROM    dbo.SetupPromotionHEADER H (NOLOCK)
+            WHERE   (@OfferNo = '' OR H.BBYNR = @OfferNo)
+              AND   (@OfferName = '' OR H.BBYTEXT LIKE '%' + @OfferName + '%')
               AND   (@ApproveStatus = ''
-                     OR ISNULL(IsApprove,0) = CASE WHEN @ApproveStatus = '1' THEN 1 ELSE 0 END)
-            ORDER BY BBYNR DESC
+                     OR ISNULL(H.IsApprove,0) = CASE WHEN @ApproveStatus = '1' THEN 1 ELSE 0 END)
+              AND   (@OfferType = '' OR H.BBYTYPE = @OfferType)
+              AND   (@Status = '' OR ISNULL(H.STATUS,'') = @Status)
+              AND   (@FromDate = '' OR ISNULL(H.VALIDTO,'') >= @FromDate)
+              AND   (@ItemNo = '' OR EXISTS (
+                        SELECT 1 FROM dbo.SetupPromotionBUY B (NOLOCK)
+                        WHERE B.BBYNR = H.BBYNR AND B.MAT_NR = @ItemNo
+                        UNION ALL
+                        SELECT 1 FROM dbo.SetupPromotionGET G (NOLOCK)
+                        WHERE G.BBYNR = H.BBYNR AND G.MATERIALCODE = @ItemNo
+                    ))
+            ORDER BY H.BBYNR DESC
             OFFSET @PageSize * @PageNumber ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
         var items = (await QueryAsync<PromotionSetupListItemDto>(sql, new
@@ -104,6 +130,10 @@ public sealed class PromotionRepository(
             OfferNo       = (filter.OfferNo ?? string.Empty).Trim(),
             OfferName     = (filter.OfferName ?? string.Empty).Trim(),
             ApproveStatus = (filter.ApproveStatus ?? string.Empty).Trim(),
+            ItemNo        = (filter.ItemNo ?? string.Empty).Trim(),
+            OfferType     = (filter.OfferType ?? string.Empty).Trim(),
+            Status        = (filter.Status ?? string.Empty).Trim(),
+            FromDate      = filter.FromDate?.ToString("yyyyMMdd") ?? string.Empty,
             PageSize      = Math.Max(1, filter.PageSize),
             PageNumber    = Math.Max(0, filter.PageNumber)
         }, commandTimeout: 120, ct: ct)).ToList();
@@ -146,6 +176,12 @@ public sealed class PromotionRepository(
                     ISNULL(TRY_CONVERT(decimal(18,3), TOTALDISCOUNTVALUE),0) AS TotalDiscountValue
             FROM    dbo.SetupPromotionHEADER (NOLOCK) WHERE BBYNR = @bbynr;
 
+            -- Đọc riêng NUMOFDAYSLIST (JSON array nhiều ngày trong tháng, cột mới) — KHÔNG map
+            -- trực tiếp vào PromotionSetupHeaderDto vì tên cột không khớp property nào (tránh
+            -- Dapper cố ép kiểu) — parse thủ công vào header.ApplyDaysOfMonth bên dưới.
+            SELECT  ISNULL(NUMOFDAYSLIST,'') AS Raw
+            FROM    dbo.SetupPromotionHEADER (NOLOCK) WHERE BBYNR = @bbynr;
+
             SELECT  CASE WHEN b.BUYTYPE='MGP' THEN 1 ELSE 0 END AS LineType,
                     ISNULL(b.MAT_NR,'') AS No, ISNULL(b.MATGROUP,'') AS GroupCode,
                     ISNULL(i.Description,'') AS Description,
@@ -179,6 +215,9 @@ public sealed class PromotionRepository(
 
         var header = await multi.ReadFirstOrDefaultAsync<PromotionSetupHeaderDto>();
         if (header == null) return null;
+
+        var numOfDaysListRaw = await multi.ReadFirstOrDefaultAsync<string>() ?? string.Empty;
+        header.ApplyDaysOfMonth = ParseDaysOfMonth(numOfDaysListRaw);
 
         var buys = (await multi.ReadAsync<OfferBuyLineDto>()).ToList();
         var gets = (await multi.ReadAsync<OfferGetLineDto>()).ToList();
@@ -255,6 +294,11 @@ public sealed class PromotionRepository(
         p.Add("@MemberCode", h.MemberCode ?? string.Empty);
         p.Add("@Priority", (h.PriorityBBY <= 0 ? 1 : h.PriorityBBY).ToString(CultureInfo.InvariantCulture));
         p.Add("@NumOfDays", h.NumOfDays.ToString(CultureInfo.InvariantCulture));
+        // Cột mới NUMOFDAYSLIST — nhiều ngày trong tháng, JSON array. KHÔNG đụng @NumOfDays/
+        // NUMOFDAYS ở trên (SP legacy Setup_Promotion_Insert publish sang OfferHeader qua
+        // Convert(int, NUMOFDAYS) — đổi sang mảng sẽ làm lỗi convert lúc Duyệt CTKM).
+        p.Add("@NumOfDaysList", JsonConvert.SerializeObject(
+            h.ApplyDaysOfMonth.Where(d => d is >= 1 and <= 31).Distinct().OrderBy(d => d).ToList()));
         p.Add("@VoucherFrom", DmyToYmd(h.VoucherFromDate));
         p.Add("@VoucherTo", DmyToYmd(h.VoucherToDate));
         p.Add("@VoucherValidDay", h.VoucherValidDay.ToString(CultureInfo.InvariantCulture));
@@ -288,9 +332,18 @@ public sealed class PromotionRepository(
             var savedNo = p.Get<string>("@BBYNR");
             return (true, $"Lưu CTKM {savedNo} thành công", savedNo);
         }
+        catch (SqlException ex) when (KnownBusinessErrorNumbers.Contains(ex.Number))
+        {
+            // Lỗi nghiệp vụ có chủ đích (THROW 51001 trong usp_SaveSetupCTKMAll) — an toàn
+            // hiện nguyên message cho end-user, message đã được viết sẵn để hiển thị.
+            return (false, ex.Message, string.Empty);
+        }
         catch (Exception ex)
         {
-            return (false, ex.Message, string.Empty);
+            // Lỗi kỹ thuật (mất kết nối, SP chưa deploy, timeout...) — KHÔNG hiện message
+            // SQL thô ra Snackbar, chỉ log đầy đủ để Dev debug qua file log.
+            fileLogHelper.WriteExpLogs("PromotionRepository.SaveSetupAsync", ex);
+            return (false, "Lỗi hệ thống, vui lòng thử lại hoặc liên hệ IT.", string.Empty);
         }
     }
 
@@ -298,15 +351,38 @@ public sealed class PromotionRepository(
     {
         try
         {
+            var p = new DynamicParameters();
+            p.Add("@BBYNR", bbynr);
+            p.Add("@OutOfferHeaderCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+            p.Add("@OutOfferBuyCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+            p.Add("@OutOfferGetCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+            p.Add("@OutOfferBenefitsCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+            p.Add("@OutOfferSiteCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+
             using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
             await conn.ExecuteAsync(new CommandDefinition(
-                "dbo.usp_SetupPromotion_Approve", new { BBYNR = bbynr },
+                "dbo.usp_SetupPromotion_Approve", p,
                 commandType: CommandType.StoredProcedure, commandTimeout: 300, cancellationToken: ct));
+
+            // Đẩy Counter vừa bump (qua SP legacy Setup_Promotion_Insert) vào SyncTableList.POSLastCounter
+            // (bất đồng bộ, non-blocking) — xem comment đầu SetupPromotion_ApproveAndStatus.sql (Pilot D).
+            syncTracker.Track("OfferHeader", p.Get<long>("@OutOfferHeaderCounter"));
+            syncTracker.Track("OfferBuy", p.Get<long>("@OutOfferBuyCounter"));
+            syncTracker.Track("OfferGet", p.Get<long>("@OutOfferGetCounter"));
+            syncTracker.Track("OfferBenefits", p.Get<long>("@OutOfferBenefitsCounter"));
+            syncTracker.Track("OfferSite", p.Get<long>("@OutOfferSiteCounter"));
+
             return (true, $"Duyệt CTKM {bbynr} thành công");
+        }
+        catch (SqlException ex) when (KnownBusinessErrorNumbers.Contains(ex.Number))
+        {
+            // Lỗi nghiệp vụ có chủ đích (THROW 51002 trong usp_SetupPromotion_Approve).
+            return (false, ex.Message);
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            fileLogHelper.WriteExpLogs("PromotionRepository.ApproveSetupAsync", ex);
+            return (false, "Lỗi hệ thống, vui lòng thử lại hoặc liên hệ IT.");
         }
     }
 
@@ -766,6 +842,19 @@ public sealed class PromotionRepository(
         catch { return 0; }
     }
 
+    // NUMOFDAYSLIST lưu JSON array (vd "[1,15,20]"). Cột mới, tách biệt hoàn toàn với
+    // NUMOFDAYS cũ — không có dữ liệu legacy dạng số đơn cần fallback ở đây.
+    private static List<int> ParseDaysOfMonth(string numOfDaysListRaw)
+    {
+        if (string.IsNullOrWhiteSpace(numOfDaysListRaw)) return [];
+        try
+        {
+            var list = JsonConvert.DeserializeObject<List<int>>(numOfDaysListRaw);
+            return list?.Where(d => d is >= 1 and <= 31).Distinct().OrderBy(d => d).ToList() ?? [];
+        }
+        catch { return []; }
+    }
+
     private sealed class ItemGroupListRow
     {
         public string GroupCode { get; set; } = string.Empty;
@@ -885,10 +974,17 @@ public sealed class PromotionRepository(
         public string ListStore { get; set; } = string.Empty;
     }
 
-    // SP [dbo].[GetPromotionOfferHeaderList] (bản cập nhật) chỉ còn 9 tham số —
-    // đã bỏ @StyleProfile và @SalesType so với legacy.
+    // SP [dbo].[GetPromotionOfferHeaderList] (bản cập nhật) 10 tham số — đã bỏ @StyleProfile và
+    // @SalesType so với legacy, thêm @FromDate (CTKM còn hiệu lực từ ngày này trở đi — chỉ lọc
+    // theo mốc đầu, KHÔNG lọc theo mốc cuối vì nhiều CTKM có EndingDate đặt xa (vd tới 2030),
+    // xem docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql).
+    // Bản fix 2026-07-10 (docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql): bỏ LEFT
+    // JOIN OfferSite (gây fan-out N dòng trùng lặp/CTKM do @StoreNo luôn rỗng — StoreNo=empty
+    // ở BuildParams bên dưới không bao giờ lọc, JOIN chỉ để nhân dòng) + đổi LastDateModified
+    // sang CONVERT style 120 (giữ giờ:phút:giây thay vì 103 date-only) để OffersPage.razor hiển
+    // thị đúng "Ngày cập nhật" kèm giờ thật.
     private const string Sql =
-        "[dbo].[GetPromotionOfferHeaderList] @No,@Description,@Status,@OfferType,@ItemNo,@StoreNo,@Exp,@PageSize,@PageNumber";
+        "[dbo].[GetPromotionOfferHeaderList] @No,@Description,@Status,@OfferType,@ItemNo,@StoreNo,@FromDate,@Exp,@PageSize,@PageNumber";
 
     private static object BuildParams(OfferListFilter f, int pageNumber, int pageSize) => new
     {
@@ -898,6 +994,7 @@ public sealed class PromotionRepository(
         OfferType   = (f.OfferType ?? string.Empty).Trim(),
         ItemNo      = (f.ItemNo ?? string.Empty).Trim(),
         StoreNo     = string.Empty,         // không lọc theo store (parity legacy)
+        FromDate    = f.FromDate,
         Exp         = 0,
         PageSize    = pageSize,
         PageNumber  = pageNumber

@@ -100,6 +100,12 @@ public sealed class SyncDataPosController(
                     kibanaService.LogResponse($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
                         $"EnsureMasterDataFile {genSuccess} ({genResults.Count} files: {genFileNames}), {genTableCount} tables, siteCode {siteCode}");
                 }
+                catch (MasterDataThrottleException exThrottle)
+                {
+                    kibanaService.LogInfo($"GetFileFromFTP_{typeSync}", posTerminal,
+                        $"Throttled siteCode {siteCode}: {exThrottle.Message}");
+                    return HttpResponseData(HttpStatusCode.TooManyRequests, exThrottle.Message, null);
+                }
                 catch (Exception exGen)
                 {
                     kibanaService.LogException($"GetFileFromFTP_{typeSync}", posTerminal, 0, "",
@@ -365,13 +371,15 @@ public sealed class SyncDataPosController(
     // ─── DeleteFileFromFTP ───────────────────────────────────────────────────
 
     [HttpGet("DeleteFileFromFTP")]
-    public IActionResult DeleteFileFromFTP([FromQuery] string? filePath)
+    public async Task<IActionResult> DeleteFileFromFTP([FromQuery] string? filePath)
     {
         var ipServerHost = GetIpServer();
+        string? localPath = null;
         try
         {
             // POS gửi filePath dạng UNC (\\ip\FTPBLUEPOS\...) — map về physical path local giống DowloadFileStream.
-            var localPath = Path.GetFullPath(syncDataPosService.ResolveFtpPhysicalPath(filePath));
+            localPath = Path.GetFullPath(syncDataPosService.ResolveFtpPhysicalPath(filePath));
+            var fileName = Path.GetFileName(localPath);
 
             // Path-traversal: chỉ cho xóa file nằm trong FtpRootPath.
             var ftpRootDir = Path.GetFullPath(syncDataPosService.MapFtpPath(""));
@@ -397,16 +405,21 @@ public sealed class SyncDataPosController(
                     fileLogHelper.WriteLogs($"DeleteFileFromFTP: Xóa companion .sha256 {sha256Path} lỗi {JsonConvert.SerializeObject(exSha)}");
                 }
 
+                // ct = None: ghi được dấu vết xóa dù request có bị hủy (giống DowloadFileStream).
+                await masterDataSyncService.LogDeleteAsync(fileName, "Success", CancellationToken.None);
                 return HttpResponseData(HttpStatusCode.OK, $"Delete file IPserver {ipServerHost} success", "");
             }
 
             fileLogHelper.WriteLogs($"DeleteFileFromFTP: Không tồn tại file xóa {filePath} (local {localPath})");
+            await masterDataSyncService.LogDeleteAsync(fileName, "Failed", CancellationToken.None);
             return HttpResponseData(HttpStatusCode.BadRequest,
                 $"Delete file IPserver {ipServerHost}:{filePath} fail, do không tồn tại file trên FTP", "");
         }
         catch (Exception ex)
         {
             fileLogHelper.WriteLogs($"DeleteFileFromFTP: Response Server {ipServerHost}({JsonConvert.SerializeObject(ex)})");
+            await masterDataSyncService.LogDeleteAsync(
+                localPath != null ? Path.GetFileName(localPath) : null, "Failed", CancellationToken.None);
             return HttpResponseData(HttpStatusCode.BadRequest,
                 $"Response Server {ipServerHost},Disk:{filePath}; PathFile:{filePath}; Error: {JsonConvert.SerializeObject(ex)}", null);
         }

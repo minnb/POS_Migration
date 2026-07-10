@@ -32,3 +32,24 @@ BEGIN
         ON dbo.MasterDataDownloadLog (SiteCode, PosTerminal, DownloadedAt);
 END
 GO
+
+/*
+ ============================================================================
+  Bổ sung DeletedAt/DeleteStatus — POS gọi DeleteFileFromFTP sau khi xử lý
+  xong file tải về; API cập nhật 2 cột này vào đúng bản ghi download log
+  tương ứng (FileName + SiteCode/PosTerminal + DownloadedAt mới nhất) để
+  biết POS đã xóa file xong hay chưa. DeleteStatus: 'Success' | 'Failed'.
+ ============================================================================
+*/
+
+IF COL_LENGTH('dbo.MasterDataDownloadLog', 'DeletedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.MasterDataDownloadLog ADD DeletedAt datetime NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.MasterDataDownloadLog', 'DeleteStatus') IS NULL
+BEGIN
+    ALTER TABLE dbo.MasterDataDownloadLog ADD DeleteStatus varchar(20) NULL;
+END
+GO

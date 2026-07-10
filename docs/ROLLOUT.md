@@ -20,6 +20,7 @@
 | O6 | Log Retention Policy (POS.Api, POS.Web, POS.Worker) | Xác nhận/điều chỉnh `LogRetention:SerilogRetainedFileCountLimit` + `RawLogRetentionDays` theo dung lượng ổ đĩa thực tế của từng server trước khi deploy `appsettings.Production.json` | MEDIUM | [§O6](#o6--log-retention-policy-posapi-posweb-posworker) |
 | O7 | Fix WebSocket SignalR bị rớt qua subdomain HTTPS (POS.Web) | Vá tầng SSL vhost NGOÀI (không nằm trong repo) thêm `proxy_http_version 1.1` + `Upgrade`/`Connection` header cho mọi request tới POS.Web, đối chiếu bằng `nginx -T` trên server thật | CRITICAL (khi POS.Web chạy sau ≥2 tầng reverse proxy qua subdomain) | [§O7](#o7--fix-websocket-signalr-bị-rớt-qua-subdomain-https-posweb) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
+| D1b | SP + bảng Nhóm sản phẩm / Nhóm cửa hàng (modal Cài đặt CTKM) | Chạy `docs/sql/SetupGroupItem_CreateTable.sql` (nếu bảng `dbo.SetupGroupItem` chưa có) rồi `docs/sql/SetupGroupItem_Save.sql` + `docs/sql/SetupGroupSite_Save.sql` trên CentralMD | REQUIRED (cho modal "Cài đặt nhóm sản phẩm/cửa hàng" tại `/promotion/setup`) | [§D1b](#d1b--sp--bảng-nhóm-sản-phẩmnhóm-cửa-hàng) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
 | D3 | SP Setup Coupon (8.1/8.2) | Chạy 5 script SQL tạo SP + TVP trên CentralMD (gồm `CpnVchBOMHeader_GetList.sql` cho master list + `SetupCoupon_IssueMore.sql` cho nút "PHÁT HÀNH THÊM") | REQUIRED (cho `/promotion/coupons`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
 | D3b | SP Xóa (khóa) coupon + cột Status/AmountUsed/OrderUsed | Chạy `docs/sql/SetupCoupon_UpdateBlocked.sql` (SP mới `usp_SetupCoupon_UpdateBlocked`) + chạy lại `docs/sql/SetupCoupon_Read.sql` (đã sửa `usp_SetupCoupon_GetCodes` thêm cột Status/AmountUsed/OrderUsed) trên CentralMD | REQUIRED (cho nút Xóa ở `/promotion/coupons` + checkbox Khóa/4 cột mới ở `/promotion/coupons/issue`) | [§D3](#d3--stored-procedures-setup-coupon-8182) |
@@ -31,6 +32,8 @@
 | D9 | FIX SP Tạo sản phẩm — CAST→TRY_CAST | Chạy lại `docs/sql/Product_Save.sql` (đã fix) trên CentralMD — SP cũ đang lỗi 8114, chặn tạo mới mọi sản phẩm | CRITICAL (đang chặn `/catalog/products` Thêm mới) | [§D9](#d9--fix-usp_product_save-cast--try_cast) |
 | D10 | Đổi ngữ nghĩa `IsCheckItem` Voucher khớp Coupon | Chạy lại 2 SP (`SetupVoucher_Save.sql`, `SetupVoucher_SaveIssue.sql`) SAU KHI deploy code, rồi chạy `Voucher_FlipIsCheckItem_Migration.sql` để đảo dữ liệu voucher đã tồn tại — ĐÚNG THỨ TỰ, có SELECT COUNT đối chiếu trước/sau | CRITICAL (đảo ngữ nghĩa dữ liệu — sai thứ tự sẽ lưu/hiển thị ngược cho `/promotion/vouchers`) | [§D10](#d10--đổi-ngữ-nghĩa-ischeckitem-voucher-khớp-coupon) |
 | O1b | Action linh động theo bảng (Sync Master Data) | Chạy `docs/sql/SyncTableList_AddAction.sql` trên CentralMD (thêm cột `SyncTableList.Action` + nhánh SP `@IsChange='W'`) trước khi deploy code mới | REQUIRED (cho `GetFileFromFTP` typeSync=ALL + nút "Đồng bộ" PosMapPage) | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
+| D11 | Cột `NUMOFDAYSLIST` — chọn nhiều ngày áp dụng CTKM trong tháng | Chạy `docs/sql/SetupPromotion_AddNumOfDaysList.sql` (ALTER TABLE thêm cột) rồi chạy lại `docs/sql/SetupPromotion_Save.sql` (đã thêm `@NumOfDaysList`) trên CentralMD, ĐÚNG THỨ TỰ | REQUIRED (cho tab "Cài đặt nâng cao" tại `/promotion/setup`) | [§D11](#d11--cột-numofdayslist--chọn-nhiều-ngày-áp-dụng-ctkm-trong-tháng) |
+| D12 | SP `GetPromotionOfferHeaderList` — filter theo ngày + fix trùng dòng | Chạy `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql` VÀ `docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql` trên CentralMD (độc lập thứ tự, cả 2 đều `ALTER PROC` toàn SP) | REQUIRED (cho filter "Từ ngày" + tránh trùng dòng theo site tại `/promotion/offers`) | [§D12](#d12--sp-getpromotionofferheaderlist--filter-theo-ngày--fix-trùng-dòng-danh-mục-khuyến-mãi) |
 
 ---
 
@@ -218,7 +221,9 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   (default rỗng) nên apply trước khi deploy API là an toàn. **Nếu chưa apply** → API gọi SP với 5 tham số sẽ lỗi
   "too many arguments". Đảm bảo các cột filter (`Store.No`, `Staff.StoreNo`…) **có index** để seek nhanh.
 - **Nên apply** `docs/sql/MasterDataDownloadLog.sql` trên `RPOSMasterData` — tạo bảng log lượt POS tải file
-  (`DowloadFileStream`). App fail-safe: nếu bảng chưa tạo, download vẫn chạy, chỉ không ghi được log (nuốt lỗi).
+  (`DowloadFileStream`) + 2 cột `DeletedAt`/`DeleteStatus` (ALTER TABLE idempotent) cập nhật khi POS gọi
+  `DeleteFileFromFTP` xóa file xong. App fail-safe: nếu bảng/cột chưa tạo, download/xóa vẫn chạy, chỉ không
+  ghi được log (nuốt lỗi). Script chạy lại an toàn nhiều lần (idempotent, kiểm tra `OBJECT_ID`/`COL_LENGTH`).
 - **Section `"MasterDataSync"`** trong `appsettings` (giá trị mặc định chạy được, chỉ chỉnh nếu cần):
   ```json
   "MasterDataSync": {
@@ -535,6 +540,30 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 
 ---
 
+## D1b — SP + bảng Nhóm sản phẩm/Nhóm cửa hàng
+
+> Modal "Cài đặt nhóm sản phẩm" (`ItemGroupSetupDialog.razor`) và "Cài đặt nhóm cửa hàng"
+> (dialog tương ứng cho `SetupGroupSite`) mở từ trang `/promotion/setup` khi dòng Buy/Get chọn
+> Loại = "Nhóm SP"/"Nhóm cửa hàng". Phát hiện 2026-07-10: lỗi
+> `Invalid object name 'dbo.SetupGroupItem'` khi bấm Lưu — do bảng `dbo.SetupGroupItem` chưa
+> được tạo trên môi trường đang chạy (định nghĩa gốc chỉ nằm trong file dump legacy
+> `src/legacy/Database/CentralMD.sql`, chưa từng tách ra script CREATE TABLE độc lập để DBA chạy).
+
+- **BẮT BUỘC chạy trên `RPOSMasterData`, ĐÚNG THỨ TỰ, trước khi dùng 2 modal trên:**
+  1. `docs/sql/SetupGroupItem_CreateTable.sql` — CREATE TABLE `dbo.SetupGroupItem` **CHỈ khi
+     chưa tồn tại** (idempotent, kiểm tra `OBJECT_ID` trước khi tạo). Bỏ qua bước này nếu môi
+     trường đã từng apply full script legacy `CentralMD.sql` và bảng đã có sẵn.
+  2. `docs/sql/SetupGroupItem_Save.sql` — `dbo.usp_SetupGroupItem_Save` (upsert nhóm sản phẩm).
+  3. `docs/sql/SetupGroupSite_Save.sql` — `dbo.usp_SetupGroupSite_Save` (upsert nhóm cửa hàng,
+     bảng `dbo.SetupGroupSite` — xác nhận đã có sẵn qua schema doc, chưa ghi nhận lỗi tương tự,
+     nhưng chạy chung script này cùng đợt để tránh bỏ sót nếu môi trường cũng thiếu bảng).
+- **Nếu chưa chạy `SetupGroupItem_CreateTable.sql` mà môi trường thật sự thiếu bảng** → SP
+  `usp_SetupGroupItem_Save` vẫn tạo được (CREATE PROCEDURE không kiểm tra bảng tham chiếu tồn tại
+  hay chưa) nhưng gọi vào lúc runtime sẽ ném `Invalid object name 'dbo.SetupGroupItem'` — đúng
+  triệu chứng đã gặp, dễ gây nhầm lẫn tưởng là bug code.
+
+---
+
 ## D2 — Stored Procedures Special Combo (11.2)
 
 > Trang `GET /promotion/special-combo` (POS.Web) đọc/lưu combo qua các SP dưới đây trên **CentralMD (RPOSMasterData)**.
@@ -796,6 +825,35 @@ Chạy 1 lần trên `RPOSMasterData` UAT trước, xác nhận UI `/promotion/v
 
 ---
 
+## D11 — Cột `NUMOFDAYSLIST` — chọn nhiều ngày áp dụng CTKM trong tháng
+
+> Tab "Cài đặt nâng cao" tại `/promotion/setup` — trước đây chỉ chọn được **1** ngày trong tháng
+> (`NumOfDays`, số nguyên). Nay cho phép multi-select nhiều ngày, lưu JSON array vào cột **MỚI**
+> `NUMOFDAYSLIST` trên `dbo.SetupPromotionHEADER`.
+
+**Quyết định kiến trúc (đã xác nhận với user 2026-07-10)**: KHÔNG đụng cột `NUMOFDAYS` cũ / tham
+số `@NumOfDays` — SP legacy **ĐANG CHẠY PRODUCTION** `Setup_Promotion_Insert` (publish draft →
+`OfferHeader` cho POS đọc, KHÔNG thuộc repo này, KHÔNG được sửa) có dòng cứng
+`Convert(int, H.NUMOFDAYS)` khi Duyệt CTKM — đổi cột này sang JSON array sẽ crash ngay bước Duyệt.
+Do đó `NUMOFDAYSLIST` là cột hoàn toàn tách biệt, chỉ Dashboard đọc/ghi, **KHÔNG publish sang
+`OfferHeader`** (enforcement nhiều-ngày-trong-tháng ở phía POS/CentralSale, nếu cần, là quyết định/
+khối lượng công việc riêng, ngoài phạm vi đợt này).
+
+**BẮT BUỘC chạy ĐÚNG THỨ TỰ trên `RPOSMasterData` trước khi dùng tab "Cài đặt nâng cao"**:
+
+1. `docs/sql/SetupPromotion_AddNumOfDaysList.sql` — `ALTER TABLE dbo.SetupPromotionHEADER ADD
+   NUMOFDAYSLIST nvarchar(200) NULL` (idempotent, kiểm tra `sys.columns` trước khi ALTER).
+2. `docs/sql/SetupPromotion_Save.sql` (bản đã cập nhật — thêm tham số `@NumOfDaysList nvarchar(200)
+   = ''`, ghi vào `NUMOFDAYSLIST` ở cả UPDATE lẫn 2 nhánh INSERT). **Idempotent** (tự DROP/CREATE)
+   — chạy lại an toàn kể cả trên môi trường đã có SP cũ.
+- **Nếu chưa chạy bước 1** mà đã chạy bước 2 → SP tạo được nhưng gọi Lưu sẽ lỗi
+  `Invalid column name 'NUMOFDAYSLIST'`.
+- **Nếu chưa chạy cả 2** (deploy code trước khi apply DB) → Lưu CTKM lỗi kỹ thuật chung
+  ("Lỗi hệ thống, vui lòng thử lại hoặc liên hệ IT.") vì tham số `@NumOfDaysList` không tồn tại
+  trên SP cũ — repository nuốt lỗi kỹ thuật, chỉ log file, không lộ SQL thô ra Snackbar.
+
+---
+
 ## D8 — Stored Procedure Deactive khuyến mãi
 
 > Trang `GET /promotion/offers` (POS.Web) — nút "Deactive" trên mỗi dòng để tắt hiệu lực 1 offer
@@ -810,6 +868,33 @@ Chạy 1 lần trên `RPOSMasterData` UAT trước, xác nhận UI `/promotion/v
 - **Nếu chưa chạy**: bấm nút Deactive → snackbar đỏ báo lỗi (SP không tồn tại), offer KHÔNG bị
   đổi trạng thái (Repository bắt exception, không rollback gì vì SP chưa chạy được).
 - **Một chiều**: chưa có nút "kích hoạt lại" từ UI — muốn bật lại phải thao tác trực tiếp DB.
+
+---
+
+## D12 — SP `GetPromotionOfferHeaderList` — filter theo ngày + fix trùng dòng (Danh mục khuyến mãi)
+
+> Trang `GET /promotion/offers` (POS.Web) — 2 script SQL độc lập, sửa cùng SP
+> `[dbo].[GetPromotionOfferHeaderList]` trên `RPOSMasterData`. Chạy **cả 2**, không phụ thuộc thứ
+> tự lẫn nhau (đều là `ALTER PROC` toàn bộ SP, script chạy sau ghi đè script chạy trước — nếu chỉ
+> chạy 1 trong 2, tính năng của script còn lại sẽ mất khi ALTER).
+
+- `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql` — thêm tham số `@FromDate date`,
+  lọc `H.[EndingDate] >= @FromDate` trên cả 12 branch của SP. Phục vụ filter "Từ ngày" (mặc định
+  hôm nay−1 năm) trên `/promotion/offers`. **Không có "Đến ngày"** — quyết định có chủ đích vì
+  nhiều CTKM `EndingDate` đặt xa tới 2030, lọc thêm mốc cuối sẽ vô tình ẩn các CTKM đó.
+- `docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql` — bỏ `LEFT JOIN [dbo].[OfferSite]`
+  (fan-out 1 dòng `OfferHeader` thành N dòng theo N site áp dụng, vì `@StoreNo` luôn rỗng nên JOIN
+  không lọc được gì, chỉ nhân dòng), thay bằng `EXISTS` (không fan-out). Cột `StoreNo` giữ nguyên
+  trong output (để không đổi `OfferHeaderListItemDto`) nhưng luôn trả rỗng. Kèm đổi định dạng cột
+  `LastDateModified` từ style `103` (date-only, luôn hiện `00:00`) sang `120` (đủ giờ thật).
+- **Nếu chưa chạy `AddDateRangeFilter.sql`**: filter "Từ ngày" trên UI không có tác dụng (tham số
+  `@FromDate` không tồn tại ở SP cũ) — Repository nuốt lỗi kỹ thuật, hiện snackbar đỏ chung chung.
+- **Nếu chưa chạy `FixDuplicateRows.sql`**: 1 CTKM áp dụng nhiều site/store sẽ hiện lặp lại nhiều
+  dòng y hệt nhau trên UI (khác `StoreNo` ẩn, không hiển thị) — **đây là loại trùng dòng RIÊNG**,
+  khác với bug "Mã CTKM hiển thị trùng" do lỗi binding Razor đã sửa ở code C# (xem
+  `docs/web/testing/promotion-setup.md` §Offers — không cần chạy SQL nào cho bug đó).
+- **Chưa verify trên DB thật** (sandbox không có quyền truy cập DB) — chỉ verify được cú pháp SQL
+  qua đọc code, DBA cần tự chạy + đối chiếu kết quả trên CentralMD.
 
 ---
 

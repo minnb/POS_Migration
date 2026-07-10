@@ -15,6 +15,8 @@ GET api/posblue/GetFileFromFTP?...&typeSync=ALL
     → GetFileFromServerApiAsync → trả List<PathFileAPIModel>   (GIỮ NGUYÊN contract)
 GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công application/x-zip-compressed (FileShare.Read)
                                                   + ghi log DB dbo.MasterDataDownloadLog (Success/Aborted/Error)
+GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha256 companion)
+                                                  + cập nhật DeletedAt/DeleteStatus vào đúng bản ghi download log
 ```
 
 > **Download logging**: `DowloadFileStream` stream thủ công (`CopyToAsync(Response.Body, RequestAborted)`) để biết
@@ -22,6 +24,17 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
 > `Error`. Ghi 1 dòng `dbo.MasterDataDownloadLog` qua `IMasterDataSyncService.LogDownloadAsync` (fail-safe, nuốt lỗi
 > nếu bảng chưa tạo). **KHÔNG tự xóa file** sau download (giữ cache ngày; dọn bằng daily-refresh + KeepZipDays).
 > Script bảng: `docs/sql/MasterDataDownloadLog.sql`. Log với `ct=CancellationToken.None` để ghi được cả khi client ngắt.
+
+> **Delete logging** (cập nhật 2026-07-09): sau khi POS xử lý xong file tải về, gọi `DeleteFileFromFTP` xóa
+> file gốc trên FTP — controller gọi `IMasterDataSyncService.LogDeleteAsync(fileName, status, ct)` để cập nhật
+> `DeletedAt`/`DeleteStatus` (`'Success'` | `'Failed'`) vào **đúng bản ghi download log tương ứng** (KHÔNG tạo
+> dòng mới). Tìm bản ghi qua `ISyncRepository.UpdateDeleteLogAsync`: khớp `FileName` (+`SiteCode`/`PosTerminal`
+> parse best-effort từ tên file, dùng chung helper `ParseSiteAndTerminal` với `LogDownloadAsync`) và lấy dòng
+> `DownloadedAt` **mới nhất** (1 câu UPDATE với subquery `TOP 1 ORDER BY DownloadedAt DESC`, tránh update nhầm
+> nhiều dòng/race điều kiện). Log `'Failed'` cho cả nhánh exception lẫn nhánh file-không-tồn-tại (quyết định có
+> chủ đích — cả 2 đều là 1 lượt xóa không thành công POS cần biết); nhánh path-traversal-blocked KHÔNG log (không
+> phải luồng xóa hợp lệ). Fail-safe giống `LogDownloadAsync`: nếu 2 cột `DeletedAt`/`DeleteStatus` chưa được
+> ALTER TABLE (script gộp chung `docs/sql/MasterDataDownloadLog.sql`), lỗi bị nuốt, không phá luồng xóa file.
 
 ## Quyết định kiến trúc (giữ chuẩn cho session sau)
 
@@ -83,6 +96,30 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
   cho MỌI batch (fallback hằng số `ActionDeleteInsertFallback` nếu SP chưa có cột).
 - **Khóa**: keyed `SemaphoreSlim` Singleton, key = `{typeSync}_{siteCode}_{posTerminal}` (KHÔNG kèm ngày,
   KHÔNG kèm tên bảng → 1 lock bao trọn cả lượt sinh N zip) + double-check trước khi sinh.
+- **Distributed throttle qua Redis** (2026-07-09, giới hạn tổng số lượt sinh chạy đồng thời trên toàn
+  cụm, khác `ISyncFileLock` chỉ chặn trùng theo terminal trong 1 process): trước khi vào khóa
+  per-terminal, `MasterDataSyncService.EnsureMasterDataFileAsync` gọi
+  `IRedisService.TryAcquireSlotAsync(RedisConst.Redis_Key_CreateMasterDataSlots, slotId,
+  MasterDataSyncOptions.MaxConcurrentGeneration, ThrottleStaleAfterSeconds)` — không giữ được slot
+  (đã có `MaxConcurrentGeneration` lượt khác đang chạy, mặc định 3) → ném
+  `MasterDataThrottleException`. Cơ chế: 1 Redis Sorted Set `MD:CreateMasterData:Slots`
+  (`RedisManager.TryAcquireSlotAsync`/`ReleaseSlotAsync`), member = slot id (GUID/lượt gọi), score =
+  timestamp (ms) — acquire là 1 Lua script atomic (`ZREMRANGEBYSCORE` dọn slot quá hạn +
+  `ZCARD` đếm + `ZADD` nếu còn chỗ, không có race condition TOCTOU giữa nhiều request đồng thời).
+  Slot quá hạn `ThrottleStaleAfterSeconds` (mặc định 600s) tự bị dọn ở lượt acquire kế tiếp — chữa
+  lành khi API crash giữa chừng (Set/ZSET không hỗ trợ TTL theo từng member như String key).
+  `ReleaseSlotAsync` gọi trong `finally` KHÔNG nhận `CancellationToken` — đảm bảo nhả được slot kể
+  cả khi request client đã hủy (giống pattern `ct=CancellationToken.None` của
+  `LogDownloadAsync`/`LogDeleteAsync`). Áp dụng cho CẢ 2 luồng gọi `EnsureMasterDataFileAsync`
+  (`GetFileFromFTP` nhánh ALL và `PushStartOfDayDataAsync`/Web Sync) vì đặt tại đúng 1 điểm nghẽn cổ
+  chai chung, không đặt riêng ở từng controller/caller.
+  `SyncDataPosController.GetFileFromFTP` bắt riêng `MasterDataThrottleException` → trả qua
+  `HttpResponseData` sẵn có (`Ok(...)` với `Status=HttpStatusCode.TooManyRequests` trong body) — GIỮ
+  NGUYÊN quy ước "HTTP status luôn 200, trạng thái thật trong field `Status`" của endpoint này, KHÔNG
+  trả HTTP 429/503 thật. `PushStartOfDayDataAsync` không bắt riêng — exception nổi lên
+  `PosMapPage.razor` (đã có try/catch hiển thị Snackbar theo `ex.Message`).
+  Config: section `"MasterDataSync"` có sẵn, thêm 2 key `MaxConcurrentGeneration` (mặc định 3),
+  `ThrottleStaleAfterSeconds` (mặc định 600).
 - **Daily-refresh / dọn file cũ**: `GetFileFromServerApiAsync` liệt kê **mọi** .zip trong folder → sau khi publish,
   xóa zip cùng prefix (`{siteCode}_{typeSync}_{posTerminal}_`, dùng chung cho cả zip common lẫn zip riêng theo
   bảng) không thuộc bộ zip vừa publish trong lượt này (tránh POS nhận file cũ, đồng thời dọn zip mồ côi của
@@ -98,16 +135,83 @@ GET api/posblue/DowloadFileStream?filePath=...  → stream thủ công applicati
   → không filter (lấy all). Script SP: `docs/sql/SyncGetDataByTable_AddFilter.sql` (phải apply trên CentralMD).
   **BẮT BUỘC bọc ngoặc** điều kiện Counter trong SP, nếu không `AND` bind chặt hơn `OR` → lọt mọi dòng.
 
+## Cập nhật `POSLastCounter` bất đồng bộ (2026-07-09)
+
+> **Bối cảnh**: rà soát xác nhận `SyncTableList.POSLastCounter` trước đây **chưa từng được ghi** ở
+> bất kỳ đâu (SP `[SyncTable_Get]` chỉ SELECT) — luồng sync luôn full-resync `@POSLastCounter=0`.
+> Cơ chế dưới đây là tính năng mới, để về sau có thể chuyển sang incremental sync thật.
+
+- **Nguồn giá trị**: mỗi bảng master data tự có cột `Counter bigint` riêng (KHÔNG phải
+  IDENTITY/ROWVERSION — pattern thủ công `(SELECT ISNULL(MAX(Counter),0)+1 FROM Table)`, tính
+  trong SP hoặc C#, xem `docs/architecture/centralMD-schema.md` mục pattern `Counter`+`Pkey`).
+  Mỗi khi 1 write-path bump `Counter`, cần đẩy giá trị mới vào `SyncTableList.POSLastCounter`
+  tương ứng — nhưng **KHÔNG** update đồng bộ trong cùng transaction ghi (tránh row-level lock
+  contention trên `SyncTableList` khi nhiều request ghi master data đồng thời).
+- **Kiến trúc**: `System.Threading.Channels` in-process (Singleton) +
+  `BackgroundService` batch-flush định kỳ — **KHÔNG** dùng RabbitMQ (over-engineer cho 1 câu
+  UPDATE) hay SQL Job/Trigger (nằm ngoài Clean Architecture, không audit/log qua Kibana được).
+  - `ISyncTableTrackerService.Track(tableName, counter)` (`POS.Infrastructure/Sync/`) — Singleton,
+    ghi non-blocking vào `Channel<(string,long)>` bounded (`SyncTableTrackerOptions.ChannelCapacity`,
+    mặc định 5000, `DropOldest` khi đầy — chấp nhận được vì giá trị tự "chữa lành" ở lần bump kế
+    tiếp). Repository gọi `Track()` **ngay sau khi** transaction ghi Counter thành công.
+  - `SyncTableCounterFlushWorker` (`BackgroundService`) — mỗi `FlushIntervalSeconds` (mặc định 5s)
+    drain hết Channel, coalesce theo `Max` mỗi bảng, gọi `ISyncTrackerRepository.BulkUpdateCounterAsync`
+    (TVP `dbo.TVP_SyncCounterUpdate` → SP `dbo.usp_SyncTableList_BulkUpdateCounter`, script
+    `docs/sql/SyncTableList_BulkUpdateCounter.sql`). UPDATE **idempotent** — chỉ ghi đè khi
+    `Counter > ISNULL(POSLastCounter,0)`, an toàn khi nhiều tiến trình cùng flush 1 bảng.
+  - **Heartbeat monitor**: mỗi tick flush, worker ghi Redis key
+    `Worker:Heartbeat:SyncTableCounterFlush-{AppDomain.FriendlyName}` (JSON `WorkerHeartbeat` DTO —
+    tái dùng đúng DTO của `WorkerHeartbeatService`/`PosSalesConsumer`), TTL = `FlushIntervalSeconds × 3`
+    lúc chạy, 300s lúc dừng có chủ đích. Chưa tích hợp vào `HealthCheckService`/`HealthPage.razor`/
+    `CommonController` (những nơi đó hiện chỉ hard-code check 1 worker qua config
+    `HealthCheck:WorkerName` — muốn hiển thị worker này ở `/ops/health` cần generalize config đó
+    thành mảng, việc khác ngoài phạm vi đợt này).
+- **⚠️ Ngoại lệ kiến trúc có chủ đích**: repo có quy ước ngầm "chỉ `POS.Worker` host
+  `BackgroundService`" (`POS.Api`/`POS.Web` gọi `AddInfrastructure()` nhưng không chạy worker nào —
+  xem comment tại `DependencyInjection.cs`). Nhưng `Channel` là in-memory, chỉ sống trong đúng tiến
+  trình ghi dữ liệu — mà ghi dữ liệu (`CentralMDRepository`...) xảy ra ở **cả `POS.Api` lẫn
+  `POS.Web`** (POS.Web có CRUD pages inject thẳng `ICentralMDRepository`, xem
+  `.claude/rules/blazor-web-app.md`). Do đó `AddHostedService<SyncTableCounterFlushWorker>()` được
+  đăng ký **trực tiếp** trong `POS.Api/Program.cs` và `POS.Web/Program.cs` (KHÔNG qua
+  `WorkerRolesOptions` — option đó chỉ dành cho tiến trình `POS.Worker` riêng biệt).
+- **Trạng thái rollout write-path** (theo mẫu Pilot A/B — mọi rollout tiếp theo bám đúng 2 mẫu này):
+  | Write-path | Bảng | Trạng thái |
+  |---|---|---|
+  | `CentralMDRepository.CreateProductAsync` (SP `usp_Product_Save`, thêm `@OutItemCounter`/`@OutBarcodeCounter` OUTPUT) | `Item`, `Barcodes` | ✅ Pilot A — đã Track |
+  | `CentralMDRepository.SaveProductLockAsync` (raw SQL, thêm `OUTPUT INSERTED.Counter`, track 1 lần/batch) | `ItemBlock` | ✅ Pilot B — đã Track |
+  | `PriceRepository.SaveAsync`/`UpdatePriceAsync`/`SoftDeletePriceAsync` (SP `usp_SetupSalePrice_Save`/`usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete`, script `docs/sql/SalesPrice_AddCounterOutput.sql`) | `SalesPrice` | ✅ Pilot C — đã Track |
+  | `CreateBranchAsync` / `UpdateBranchInfoAsync` | `Branch` | ⬜ chưa rollout |
+  | `CreateStoreAsync` / `UpdateStoreClosingMethodAsync` | `Store` | ⬜ chưa rollout |
+  | `CreateEmployeeAsync` / `ChangeEmployeePasswordAsync` | `Staff` | ⬜ chưa rollout |
+  | `SaveBankPOSAsync` | `POSTerminalBank` | ⬜ chưa rollout |
+  | SP `SetupVoucher_Save.sql` (`VoucherRepository`) | `SetupVoucher*`/`CpnVchBOM*` | ⬜ chưa rollout |
+  | SP `SetupCoupon_Save.sql` (`CouponRepository`) | `CpnVchBOMHeader/Line/IssueRule/CodeIssue/Store` | ⬜ chưa rollout |
+  | SP `SpecialCombo_Save.sql` (`SpecialComboRepository`) | `SpecialComboHeader` | ⬜ chưa rollout |
+  | `PromotionRepository.ApproveSetupAsync` (SP `usp_SetupPromotion_Approve`, bọc SP legacy `Setup_Promotion_Insert` không sửa được — đọc lại `MAX(Counter)` sau khi ghi xong, script `docs/sql/SetupPromotion_ApproveAndStatus.sql`) | `OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite` | ✅ Pilot D — đã Track (lưu ý: SP `usp_SaveSetupCTKMAll` chỉ ghi bảng draft `SetupPromotionHEADER/BUY/GET/SITE`, không có Counter/không liên quan Track — write-path thật để publish sang `Offer*` là `ApproveSetupAsync`) |
+  | *(không tìm thấy write-path nào trong ứng dụng — chỉ có đọc)* | `OfferPriority` | ⬜ không áp dụng, cần DBA/business xác nhận nguồn ghi dữ liệu |
+- **2 gap phát hiện ngoài phạm vi** (không sửa cùng đợt rollout Track — quyết định riêng nếu cần):
+  `CentralMDRepository.UpdatePosTerminalAsync` (bảng `POSTerminal`) và `InsertPOSDataSetupAsync`/
+  `UpdatePOSDataSetupAsync` (bảng `POSDataSetup`) hiện **không bump cột `Counter`** — nếu sau này
+  rollout Track tới các bảng này, phải quyết định có thêm bump Counter trước hay không.
+
 ## Vị trí file
 
 | Layer | File | Namespace |
 |---|---|---|
 | Contracts | `POS.Common/Dtos/DataSync/{SyncTableInfo,GetMasterDataFileRequest,GetMasterDataFileResult}.cs` | `POS.Common.Dtos.DataSync` |
 | Infra repo | `POS.Infrastructure/Repositories/DataSync/{I}SyncRepository.cs` | `...Repositories(.Interfaces)` |
+| Infra repo | `POS.Infrastructure/Repositories/DataSync/{I}SyncTrackerRepository.cs` — `BulkUpdateCounterAsync` | `...Repositories(.Interfaces)` |
+| Infra sync tracker | `POS.Infrastructure/Sync/{ISyncTableTrackerService,SyncTableTrackerService,SyncTableCounterFlushWorker,SyncTableTrackerOptions}.cs` | `POS.Infrastructure.Sync` |
 | Infra files | `POS.Infrastructure/Files/{IFileArchiveService,FileArchiveService,ISyncFileLock,SyncFileLock,MasterDataSyncOptions}.cs` | `POS.Infrastructure.Files` |
 | App service | `POS.Application/Features/DataSync/{I}MasterDataSyncService.cs` | `POS.Application.Features.DataSync` |
-| Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`) | — |
+| App exception | `POS.Application/Features/DataSync/MasterDataThrottleException.cs` | `POS.Application.Features.DataSync` |
+| Infra throttle | `POS.Infrastructure/Cache/IRedisManager.cs` — `TryAcquireSlotAsync`/`ReleaseSlotAsync` (ZSET+Lua) + `POS.Infrastructure/Redis/IRedisService.cs` thin wrapper | `POS.Infrastructure.Cache` / `POS.Infrastructure.Redis` |
+| Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`, `MaxConcurrentGeneration`, `ThrottleStaleAfterSeconds`) | — |
+| Config | `appsettings.json` (POS.Api + POS.Web) → section `"SyncTableTracker"` (`FlushIntervalSeconds`, `ChannelCapacity`) | — |
 | DB script | `docs/sql/SyncTableList_AddIsSingleFile.sql` — cột `SyncTableList.IsSingleFile` + SP `[SyncTable_Get]` | CentralMD (áp dụng thủ công) |
 | DB script | `docs/sql/SyncTableList_AddAction.sql` — cột `SyncTableList.Action` + SP `[SyncTable_Get]` (thêm nhánh `@IsChange='W'`) | CentralMD (áp dụng thủ công) |
+| DB script | `docs/sql/SyncTableList_BulkUpdateCounter.sql` — TVP `dbo.TVP_SyncCounterUpdate` + SP `usp_SyncTableList_BulkUpdateCounter` | CentralMD (áp dụng thủ công) |
+| DB script | `docs/sql/Product_Save.sql` — thêm `@OutItemCounter`/`@OutBarcodeCounter` OUTPUT cho `usp_Product_Save` | CentralMD (áp dụng thủ công) |
+| DB script | `docs/sql/SalesPrice_AddCounterOutput.sql` — thêm `@OutCounter` OUTPUT (`usp_SetupSalePrice_Save`) + cột `Counter` vào result set (`usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete`) | CentralMD (áp dụng thủ công, SAU `SetupSalePrice_Save.sql`+`SalesPrice_EditDelete*.sql`) |
 
 > Thư mục đích dùng `AppSettings:FtpRootPath` qua `MapFtpPath` — KHÔNG thêm `RootPath` riêng.

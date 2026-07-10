@@ -1,9 +1,14 @@
 /* ============================================================================
    11.1 Cài đặt CTKM — SP tạo/sửa 1 nhóm sản phẩm (dbo.SetupGroupItem) — RPOSMasterData
    Dùng bởi modal "CÀI ĐẶT NHÓM SẢN PHẨM" trong trang Cài đặt CTKM (PromotionSetupPage)
-   khi dòng Buy/Get chọn Loại = "Nhóm SP" (LineType=1). Bảng SetupGroupItem đã tồn tại
-   sẵn trong DB (script gốc `src/legacy/Database/CentralMD.sql`) nhưng chưa có SP nào —
-   legacy dùng EF LINQ trực tiếp. SP này port lại theo đúng khuôn usp_SetupGroupSite_Save.
+   khi dòng Buy/Get chọn Loại = "Nhóm SP" (LineType=1). Bảng SetupGroupItem có định nghĩa
+   gốc trong file dump legacy `src/legacy/Database/CentralMD.sql` nhưng legacy dùng EF LINQ
+   trực tiếp (không có SP nào) — SP này port lại theo đúng khuôn usp_SetupGroupSite_Save.
+
+   ⚠️ BẮT BUỘC chạy `docs/sql/SetupGroupItem_CreateTable.sql` TRƯỚC script này nếu môi
+   trường (dev/UAT/prod) chưa từng chạy full script legacy CentralMD.sql — nếu không sẽ
+   tạo được SP nhưng gọi vào sẽ lỗi "Invalid object name 'dbo.SetupGroupItem'" (xem
+   docs/ROLLOUT.md §D1b).
 
    Hạn chế CHỦ Ý giữ nguyên theo legacy (SetupGroupBuyItem, SetupPromotionData.cs):
    - ListItemNo chỉ lưu JSON List<string> ItemNo — KHÔNG lưu UOM.

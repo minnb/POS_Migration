@@ -12,6 +12,23 @@
    (MINVALUE), giảm giá tổng bill (TOTALDISCOUNT/TOTALDISCOUNTTYPE/
    TOTALDISCOUNTVALUE), voucher delay (ZVCDAY_AFTER/ZVCTIME_AFTER). Toàn bộ cột
    đã tồn tại sẵn trong SetupPromotionHEADER — không ALTER TABLE, chỉ sửa SP.
+   ----------------------------------------------------------------------------
+   BẢN SỬA LẦN 3 (2026-07-10) — đổi lỗi "đã DUYỆT, không được lưu tạm" từ
+   RAISERROR (number mặc định 50000 cho mọi ad-hoc message) sang THROW 51001
+   (dải error number >=50000, không cần đăng ký sys.messages). Mục đích: tầng
+   C# (PromotionRepository) phân biệt được lỗi NGHIỆP VỤ có chủ đích (an toàn
+   hiện nguyên message cho end-user) với lỗi KỸ THUẬT khác (mất kết nối, SP
+   chưa deploy, timeout...) — trước đây cả 2 loại đều hiện y nguyên ex.Message
+   thô ra Snackbar. Quy ước dải lỗi CTKM: 51001 = đã duyệt không được lưu tạm
+   (file này), 51002 = không tìm thấy CTKM khi Duyệt (SetupPromotion_
+   ApproveAndStatus.sql).
+   ----------------------------------------------------------------------------
+   BẢN SỬA LẦN 4 (2026-07-10) — thêm tham số @NumOfDaysList (optional, default
+   '' để backward-compat) ghi vào cột MỚI NUMOFDAYSLIST (JSON array nhiều ngày
+   trong tháng — xem docs/sql/SetupPromotion_AddNumOfDaysList.sql, BẮT BUỘC chạy
+   TRƯỚC script này). @NumOfDays/NUMOFDAYS cũ giữ NGUYÊN 100% — KHÔNG đổi gì —
+   vì SP legacy Setup_Promotion_Insert (đang chạy production, không thuộc repo
+   này) Convert(int, NUMOFDAYS) thẳng khi Duyệt/publish, đổi kiểu sẽ crash.
    ============================================================================ */
 USE [RPOSMasterData];
 GO
@@ -74,6 +91,7 @@ CREATE PROCEDURE dbo.usp_SaveSetupCTKMAll
     @MemberCode         nvarchar(50) = '',
     @Priority           nvarchar(10) = '1',
     @NumOfDays          nvarchar(10) = '0',
+    @NumOfDaysList      nvarchar(200) = '',  -- JSON array nhiều ngày trong tháng (cột mới NUMOFDAYSLIST) — TÁCH BIỆT @NumOfDays, không publish sang OfferHeader
     @VoucherFrom        nvarchar(8)  = '',   -- yyyyMMdd ('' = không có voucher date → dùng ngày CTKM)
     @VoucherTo          nvarchar(8)  = '',
     @VoucherValidDay    nvarchar(10) = '0',
@@ -116,12 +134,17 @@ BEGIN
         END
 
         -- 2) Không cho sửa CTKM đã DUYỆT
+        -- Dùng THROW với error number cố định 51001 (dải >=50000, KHÔNG cần đăng ký
+        -- sys.messages) thay vì RAISERROR mặc định (number=50000 cho mọi ad-hoc message)
+        -- — để tầng C# (PromotionRepository) phân biệt được lỗi NGHIỆP VỤ có chủ đích
+        -- (an toàn hiện y nguyên message) với lỗi KỸ THUẬT khác (kết nối/timeout...).
         IF EXISTS (SELECT 1 FROM dbo.SetupPromotionHEADER
                    WHERE BBYNR = @BBYNR AND IsApprove = 1)
         BEGIN
+            DECLARE @alreadyApprovedMsg nvarchar(200) =
+                FORMATMESSAGE(N'CTKM %s đã được DUYỆT, không được phép lưu tạm', @BBYNR);
             ROLLBACK TRANSACTION;
-            RAISERROR (N'CTKM %s đã được DUYỆT, không được phép lưu tạm', 16, 1, @BBYNR);
-            RETURN;
+            THROW 51001, @alreadyApprovedMsg, 1;
         END
 
         -- 3) Upsert HEADER
@@ -144,6 +167,7 @@ BEGIN
                    MemberCode    = @MemberCode,
                    ZPRIOR        = @Priority,
                    NUMOFDAYS     = @NumOfDays,
+                   NUMOFDAYSLIST = @NumOfDaysList,
                    ZVCDATE_ST    = @VcSt,
                    ZVCDATE_EN    = @VcEn,
                    ZVCDATE_VA    = @VoucherValidDay,
@@ -179,13 +203,13 @@ BEGIN
                     (BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
                      ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
                      PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
-                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR,
+                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, NUMOFDAYSLIST, ZVCDATE_VA, LIMITNR,
                      ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
                 VALUES
                     (@BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
                      @VcSt, @VcEn, @FromTime, @ToTime, @Mon, @Tue, @Wed, @Thu, @Fri, @Sat, @Sun,
                      @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
-                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber,
+                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @NumOfDaysList, @VoucherValidDay, @VoucherLimitNumber,
                      @AllowUseAfterDay, @AllowUseAfterTime, @MinValue, @CheckTotalDiscount, @TotalDiscountType, @TotalDiscountValue);
             END
             ELSE
@@ -197,13 +221,13 @@ BEGIN
                     (ID, BBYNR, SalesType, BBYTEXT, BBYTYPE, STATUS, VALIDFROM, VALIDTO,
                      ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
                      PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
-                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, ZVCDATE_VA, LIMITNR,
+                     VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, NUMOFDAYSLIST, ZVCDATE_VA, LIMITNR,
                      ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
                 VALUES
                     (@newId, @BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
                      @VcSt, @VcEn, @FromTime, @ToTime, @Mon, @Tue, @Wed, @Thu, @Fri, @Sat, @Sun,
                      @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
-                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @VoucherValidDay, @VoucherLimitNumber,
+                     @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @NumOfDaysList, @VoucherValidDay, @VoucherLimitNumber,
                      @AllowUseAfterDay, @AllowUseAfterTime, @MinValue, @CheckTotalDiscount, @TotalDiscountType, @TotalDiscountValue);
             END
         END

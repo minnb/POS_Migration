@@ -368,3 +368,60 @@ int DefaultDatabase { get; }                               // passthrough RedisO
 > Ví dụ thực tế: `IRedisManagementService.GetServerStatusAsync` (`POS.Application/Features/Redis/`)
 > dùng cho `RedisDashboardPage.razor` (`/ops/redis`) — status card + KPI row (Bộ nhớ/Clients/Tổng
 > Key/Cache Hit %/Uptime), style tái dùng từ `HealthPage.razor` (`CardStyle`/`LatencyDisplay`).
+
+---
+
+## Pattern 8: Distributed throttle (sliding-window ZSET) — giới hạn N tác vụ đồng thời xuyên nhiều instance
+
+> Áp dụng khi: cần giới hạn **tổng số** tác vụ tốn tài nguyên (CPU/IO) chạy đồng thời trên toàn cụm
+> (nhiều instance sau load balancer), khác Pattern 6 (distributed lock — chỉ 1 tác vụ tại 1 thời
+> điểm, dùng cho race condition). Throttle cho phép N tác vụ song song, không phải 1.
+> Không dùng nhiều String key riêng + `SCAN`/`DBSIZE` để đếm — tốn O(N) dưới tải cao và có race
+> condition (TOCTOU) giữa bước đếm và bước ghi key nếu nhiều request đến cùng lúc.
+
+```csharp
+// IRedisManager — 2 method dựng sẵn (POS.Infrastructure/Cache/)
+Task<bool> TryAcquireSlotAsync(string setKey, string slotId, int maxSlots, TimeSpan staleAfter);
+Task ReleaseSlotAsync(string setKey, string slotId);   // KHÔNG có CancellationToken — luôn nhả được
+
+// Acquire trước khối việc, release trong finally
+var slotId = Guid.NewGuid().ToString("N");
+if (!await redis.TryAcquireSlotAsync("MD:SomeTask:Slots", slotId, maxSlots: 3, TimeSpan.FromMinutes(10)))
+    throw new SomeThrottleException("Hệ thống đang bận, vui lòng thử lại sau.");
+try
+{
+    // ... việc tốn tài nguyên ...
+}
+finally
+{
+    await redis.ReleaseSlotAsync("MD:SomeTask:Slots", slotId);   // không truyền ct
+}
+```
+
+**Cơ chế bên trong `TryAcquireSlotAsync`** (1 Sorted Set `setKey`, member = `slotId`, score =
+timestamp ms lúc acquire) — atomic qua 1 Lua script (`ScriptEvaluateAsync`), không có khoảng hở
+giữa đếm và ghi:
+1. `ZREMRANGEBYSCORE` xoá member có score `< now - staleAfter` — dọn slot "mồ côi" (process giữ
+   slot bị crash/không release được) tự chữa lành mà **không cần TTL thật ở cấp key** (Set/ZSET
+   không hỗ trợ TTL theo từng member, khác String key).
+2. `ZCARD` đếm số member còn lại (O(log N), rẻ hơn `SCAN` prefix nhiều String key).
+3. Nếu `count < maxSlots` → `ZADD setKey now slotId`, trả `1`; ngược lại trả `0`.
+
+**Nguyên tắc:**
+- `ReleaseSlotAsync` **không nhận `CancellationToken`** — gọi trong `finally` KHÔNG dùng `ct` của
+  request (dùng `ct` gốc có thể đã bị hủy → tự throw trước khi kịp xoá key). Giống pattern
+  `ct=CancellationToken.None` đã dùng cho ghi log best-effort (`MasterDataSyncService.LogDownloadAsync`).
+- Đặt acquire **trước** mọi khóa in-process khác (`ISyncFileLock`/`SemaphoreSlim`) nếu có, vì
+  throttle là giới hạn tài nguyên chung toàn cụm, không phải khóa chống trùng theo 1 key nghiệp vụ.
+- `staleAfter` nên đặt dư dả (>> thời gian thực thi kỳ vọng) — chỉ là lưới an toàn cho trường hợp
+  crash, không phải cơ chế timeout chính.
+- Đặt throttle tại **đúng 1 điểm nghẽn cổ chai** (nơi thực sự tốn tài nguyên), không đặt riêng lẻ ở
+  từng controller/caller gọi vào — nếu có nhiều luồng gọi cùng 1 hàm tốn tài nguyên, throttle phải
+  nằm trong hàm đó để bảo vệ được tất cả các luồng.
+
+> Ví dụ thực tế: `MasterDataSyncService.EnsureMasterDataFileAsync` (`POS.Application/Features/DataSync/`)
+> — giới hạn `MasterDataSyncOptions.MaxConcurrentGeneration` (mặc định 3) lượt sinh file .zip master
+> data chạy đồng thời trên toàn cụm, key `RedisConst.Redis_Key_CreateMasterDataSlots`
+> (`"MD:CreateMasterData:Slots"`). Throttle đầy → ném `MasterDataThrottleException`;
+> `SyncDataPosController.GetFileFromFTP` bắt riêng exception này để trả đúng contract (HTTP 200 +
+> body `Status=429`, KHÔNG đổi HTTP status code thật — endpoint POS terminal có hợp đồng riêng).

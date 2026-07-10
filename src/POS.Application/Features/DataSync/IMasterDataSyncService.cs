@@ -23,4 +23,11 @@ public interface IMasterDataSyncService
     Task LogDownloadAsync(
         string? fileName, string? filePath, long fileSizeBytes, long durationMs,
         string status, string? clientIp, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cập nhật dấu vết xóa file vào bản ghi MasterDataDownloadLog tương ứng (gọi sau khi
+    /// DeleteFileFromFTP xử lý xong). Fail-safe: KHÔNG throw — lỗi log được nuốt.
+    /// <paramref name="deleteStatus"/>: "Success" | "Failed".
+    /// </summary>
+    Task LogDeleteAsync(string? fileName, string deleteStatus, CancellationToken ct = default);
 }

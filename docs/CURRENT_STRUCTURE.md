@@ -61,7 +61,8 @@ src/
 │       │   ├── IDataRawService.cs / DataRawService.cs
 │       │   ├── ISyncDataPosService.cs / SyncDataPosService.cs
 │       │   ├── IKafkaService.cs / KafkaService.cs
-│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync trả List<GetMasterDataFileResult> (Parallel SP2 × MaxParallelTables; bảng SyncTableList.IsSingleFile=1 → zip riêng/bảng, còn lại gom zip "common") + LogDownloadAsync
+│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync trả List<GetMasterDataFileResult> (Parallel SP2 × MaxParallelTables; bảng SyncTableList.IsSingleFile=1 → zip riêng/bảng, còn lại gom zip "common") + LogDownloadAsync; throttle Redis (IRedisService.TryAcquireSlotAsync, ném MasterDataThrottleException nếu đầy) TRƯỚC khóa per-terminal ISyncFileLock
+│       │   └── MasterDataThrottleException.cs                        ← ném khi throttle đầy (MaxConcurrentGeneration) — controller/POS.Web bắt riêng để trả đúng thông báo
 │       ├── Sap/
 │       │   └── ISAPService.cs / SAPService.cs
 │       ├── Gift/
@@ -261,7 +262,7 @@ src/
     │   ├── FtpFileTransfer.cs
     │   ├── IFileArchiveService.cs / FileArchiveService.cs   ← ZipFile.CreateFromDirectory (Singleton, MasterDataSyncOptions.ZipCompressionLevel)
     │   ├── ISyncFileLock.cs / SyncFileLock.cs               ← keyed SemaphoreSlim (Singleton), chống sinh zip trùng
-    │   └── MasterDataSyncOptions.cs                         ← bind section "MasterDataSync": SqlCommandTimeoutSeconds, BatchSizePerFile, MaxParallelTables, ZipCompressionLevel, KeepZipDays, DateInZipName
+    │   └── MasterDataSyncOptions.cs                         ← bind section "MasterDataSync": SqlCommandTimeoutSeconds, BatchSizePerFile, MaxParallelTables, ZipCompressionLevel, KeepZipDays, DateInZipName, MaxConcurrentGeneration, ThrottleStaleAfterSeconds
     ├── Locking/
     │   └── IVoucherIssueLock.cs / VoucherIssueLock.cs       ← Redis distributed lock (Singleton), key "Lock:VoucherIssue" — chặn sinh mã Auto voucher đồng thời (multi-instance)
     ├── Logging/
@@ -284,6 +285,10 @@ src/
     │   └── RedisService.cs
     ├── Security/
     │   └── SecretProtector.cs          ← AES-256-GCM, token enc: (giải mã credentials trong appsettings)
+    ├── Sync/                           ← namespace POS.Infrastructure.Sync — cập nhật SyncTableList.POSLastCounter bất đồng bộ
+    │   ├── ISyncTableTrackerService.cs / SyncTableTrackerService.cs   ← Track(tableName, counter) ghi Channel in-process (Singleton, bounded, DropOldest)
+    │   ├── SyncTableCounterFlushWorker.cs   ← BackgroundService, drain Channel định kỳ (PeriodicTimer), batch-update qua ISyncTrackerRepository; heartbeat Redis "Worker:Heartbeat:SyncTableCounterFlush-{process}"; đăng ký AddHostedService trực tiếp ở POS.Api/POS.Web Program.cs (KHÔNG qua WorkerRolesOptions)
+    │   └── SyncTableTrackerOptions.cs       ← bind section "SyncTableTracker": FlushIntervalSeconds, ChannelCapacity
     ├── Workers/
     │   ├── PosSalesConsumerWorker.cs   (BackgroundService — đăng ký trong POS.Worker/Program.cs)
     │   ├── Rpt_ReportSaleDetail_Insert.cs
@@ -310,7 +315,8 @@ src/
         ├── Price/                          ← 9.1/9.3 Bảng giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete
         └── DataSync/
-            └── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + SP2 stream (StreamTableToFilesAsync)
+            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog)
+            └── ISyncTrackerRepository.cs / SyncTrackerRepository.cs   ← BulkUpdateCounterAsync — TVP dbo.TVP_SyncCounterUpdate → SP usp_SyncTableList_BulkUpdateCounter (UPDATE idempotent WHERE Counter > POSLastCounter); gọi bởi SyncTableCounterFlushWorker
 ```
 
 ---
@@ -360,6 +366,8 @@ src/
 | `IVoucherPublishedRepository` | `VoucherPublishedRepository` | CouponVoucher/ | POS.Infrastructure |
 | `IPriceRepository` | `PriceRepository` | Price/ | POS.Infrastructure |
 | `ISyncRepository` | `SyncRepository` | DataSync/ | POS.Infrastructure |
+| `ISyncTrackerRepository` | `SyncTrackerRepository` | DataSync/ | POS.Infrastructure |
+| `ISyncTableTrackerService` | `SyncTableTrackerService` | `POS.Infrastructure.Sync` | POS.Infrastructure |
 | _(static, no interface)_ | `SecretProtector` | `POS.Infrastructure.Security` | POS.Infrastructure |
 
 ### POS.Infrastructure — AppServices
@@ -440,6 +448,9 @@ src/
 | `IFileArchiveService` → `FileArchiveService` | Singleton | ZipFile.CreateFromDirectory (compression level configurable) |
 | `ISyncFileLock` → `SyncFileLock` | Singleton | keyed SemaphoreSlim chống sinh zip trùng |
 | `IVoucherIssueLock` → `VoucherIssueLock` | Singleton | Redis distributed lock, chặn sinh mã Auto voucher đồng thời (multi-instance) |
+| `ISyncTableTrackerService` → `SyncTableTrackerService` | Singleton | Channel in-process, Track(tableName, counter) non-blocking cho SyncTableList.POSLastCounter |
+| `ISyncTrackerRepository` → `SyncTrackerRepository` | Scoped | BulkUpdateCounterAsync — TVP → SP usp_SyncTableList_BulkUpdateCounter |
+| `SyncTableCounterFlushWorker` (BackgroundService) | AddHostedService (POS.Api/POS.Web Program.cs, KHÔNG qua AddInfrastructure) | Drain Channel định kỳ, batch-update POSLastCounter |
 | `IRedisManager` → `RedisManager` | Singleton | StackExchange.Redis low-level |
 | `IRedisService` → `RedisService` | Singleton | High-level Redis wrapper (sử dụng trong code) |
 | `IRabbitMQProducer` → `RabbitMQProducer` | Singleton | IAsyncDisposable, tạo IChannel per-publish |
@@ -509,7 +520,7 @@ Task<bool> CpnVchBOMHeaderExistsAsync(string itemNo, CancellationToken ct = defa
 Task<bool> InsertSignalStoreAsync(SignalStoreModel model, CancellationToken ct = default)
 // ── Web admin: danh sách POS monitor / terminal ──
 Task<List<PosMonitorStatusDto>> GetPosMonitorStatusAsync(CancellationToken ct = default)
-Task<List<PosTerminalListDto>> GetPosTerminalListAsync(string? storeNo = null, CancellationToken ct = default)   // storeNo null = toàn bộ (ops/pos-map); có giá trị = filter tại DB (Store Dashboard)
+Task<List<PosTerminalListDto>> GetPosTerminalListAsync(string? storeNo = null, CancellationToken ct = default)   // storeNo null = toàn bộ (ops/pos-map); có giá trị = filter tại DB (Store Dashboard); OUTER APPLY POSMonitor + OUTER APPLY MasterDataDownloadLog (LastMasterDataDownloadedAt — lần tải file zip gần nhất, hiển thị cột "MasterData" tại PosMapPage)
 Task<bool> UpdatePosTerminalAsync(string posNo, string ipAddress, bool? status, string? billNoseri, string updatedBy, CancellationToken ct = default)
 Task<List<StoreListDto>> GetStoreAdminListAsync(CancellationToken ct = default)
 Task<bool> StoreCodeExistsAsync(string storeNo, CancellationToken ct = default)                 // check trùng mã CH
@@ -651,7 +662,7 @@ Task<List<OptionItemDto>> GetSalesOrderTypeOptionsAsync(CancellationToken ct = d
 Task<(List<PromotionSetupListItemDto> Items, int Total)> GetSetupListAsync(PromotionSetupListFilter filter, CancellationToken ct = default)
 Task<PromotionSetupDetailDto?> GetSetupDetailAsync(string bbynr, CancellationToken ct = default)
 Task<(bool Ok, string Message, string BBYNR)> SaveSetupAsync(PromotionSetupSaveRequest request, CancellationToken ct = default)   // SP usp_SaveSetupCTKMAll
-Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, CancellationToken ct = default)   // SP usp_SetupPromotion_Approve
+Task<(bool Ok, string Message)> ApproveSetupAsync(string bbynr, CancellationToken ct = default)   // SP usp_SetupPromotion_Approve (5 OUTPUT Counter) → Track() OfferHeader/OfferBuy/OfferGet/OfferBenefits/OfferSite (xem masterdata-sync.md Pilot D)
 Task<bool> UpdateSetupStatusAsync(string bbynr, string status, CancellationToken ct = default)
 Task<List<ItemOptionDto>> SearchItemsAsync(string keyword, CancellationToken ct = default)
 Task<List<OfferSiteLineDto>> GetSiteGroupOptionsAsync(CancellationToken ct = default)      // cache Redis 12h, key MD:SiteGroupOptions
@@ -932,7 +943,16 @@ int DefaultDatabase { get; }                               // passthrough RedisO
 // Distributed lock (SET NX + TTL, release an toàn bằng so khớp token qua Lua script)
 Task<string?> AcquireLockAsync(string key, TimeSpan ttl)   // trả token nếu acquire được, null nếu đang bị giữ
 Task<bool> ReleaseLockAsync(string key, string token)      // chỉ xoá nếu token khớp
+
+// Distributed throttle (sliding-window ZSET, atomic qua Lua — xem MasterDataSyncService)
+Task<bool> TryAcquireSlotAsync(string setKey, string slotId, int maxSlots, TimeSpan staleAfter)  // ZREMRANGEBYSCORE (dọn slot quá hạn) + ZCARD + ZADD nếu còn chỗ, atomic 1 lệnh EVAL
+Task ReleaseSlotAsync(string setKey, string slotId)        // ZREM, không có CancellationToken — luôn nhả được kể cả khi request bị hủy
 ```
+
+> `IRedisService` (`POS.Infrastructure.Redis`) có 2 method thin-wrapper tương ứng cùng chữ ký
+> (`TryAcquireSlotAsync`/`ReleaseSlotAsync`), chỉ delegate sang `IRedisManager` — dùng khi Application
+> layer cần throttle mà không muốn inject thẳng `IRedisManager` (theo đúng quy ước `Service inject
+> IRedisService`).
 
 #### `IVoucherIssueLock` (`POS.Infrastructure.Locking`)
 
@@ -1096,7 +1116,7 @@ File này chứa nhiều model dùng cho CommonController:
 | Class | Các field chính |
 |-------|----------------|
 | `OfferHeaderListItemDto` | ID, BonusbuyNo, PromotionNo, Description, OfferType, SalesType, SalesTypeName, ItemNo, ItemName, Status, StyleProfile, StartingDate, EndingDate, LocalSiteGroup, LimitQty, VoucherFromDate/ToDate, Counter, Pkey, LastDateModified, Total — 1 dòng SP GetPromotionOfferHeaderList |
-| `OfferListFilter` | TextSearch, PromotionName, Status, OfferType, ItemNo, PageNumber, PageSize |
+| `OfferListFilter` | TextSearch, PromotionName, Status, OfferType, ItemNo, FromDate, PageNumber, PageSize |
 | `OptionItemDto` | Value, Text — dùng chung nhiều dropdown |
 | `OfferHeaderDetailDto` | ~68 field khớp bảng `dbo.OfferHeader` (tab "Offer Header" modal Xem chi tiết) — ConditionBuyStr/ConditionGetStr tính sẵn ở Repository |
 | `OfferBuyDetailLineDto` | OfferNo, LineNo, LineType, No, Description, UnitOfMeasure, DiscountType(+Str), DiscountValue, Quantity, Step, BonusBuyNo, LineGroup, ScaleType(+Str), Total — bảng `dbo.OfferBuy` (tab "Offer Buy") |
@@ -1110,7 +1130,7 @@ File này chứa nhiều model dùng cho CommonController:
 | Class | Các field chính |
 |-------|----------------|
 | `PromotionSetupListItemDto` | No, Description, OfferType, SalesType, Status, ValidFrom, ValidTo, IsApprove, Total |
-| `PromotionSetupHeaderDto` | No, Description, SalesType, OfferType, Status, StartingDate, EndingDate, IsVoucher, IsApprove, ConditionBuy, ConditionGet, LimitQty, MemberOnly, MemberCode, PriorityBBY, NumOfDays, VoucherFromDate/ToDate, VoucherValidDay, VoucherLimitNumber, AllowUseAfterDay, AllowUseAfterTime, FromTime, ToTime, Mon..Sun (bool), MinValue, CheckTotalDiscount, TotalDiscountType, TotalDiscountValue |
+| `PromotionSetupHeaderDto` | No, Description, SalesType, OfferType, Status, StartingDate, EndingDate, IsVoucher, IsApprove, ConditionBuy, ConditionGet, LimitQty, MemberOnly, MemberCode, PriorityBBY, NumOfDays (giữ nguyên, không dùng ở UI), ApplyDaysOfMonth (List\<int\>, cột mới NUMOFDAYSLIST — nhiều ngày trong tháng), VoucherFromDate/ToDate, VoucherValidDay, VoucherLimitNumber, AllowUseAfterDay, AllowUseAfterTime, FromTime, ToTime, Mon..Sun (bool), MinValue, CheckTotalDiscount, TotalDiscountType, TotalDiscountValue |
 | `OfferTypeOptionDto` | Value, Text, IsTotalBill, IsSetupBuy, IsSetupGet, IsVoucher, IsGift, UserGuide — option Loại CTKM kèm cờ điều khiển UI |
 | `IOfferLineItem` (interface) | LineType, No, GroupCode, Description, UnitOfMeasure |
 | `OfferBuyLineDto : IOfferLineItem` | + Quantity, ScaleType |
@@ -1118,7 +1138,7 @@ File này chứa nhiều model dùng cho CommonController:
 | `OfferSiteLineDto` | SiteGroupCode, GroupName |
 | `PromotionSetupSaveRequest` | Header, BuyRows, GetRows, SiteGroupCodes |
 | `PromotionSetupDetailDto` | Header, BuyRows, GetRows, SiteRows |
-| `PromotionSetupListFilter` | OfferNo, OfferName, ApproveStatus, PageNumber, PageSize |
+| `PromotionSetupListFilter` | OfferNo, OfferName, ApproveStatus, ItemNo, OfferType, Status, FromDate, PageNumber, PageSize |
 | `ItemOptionDto` | No, Description, Uom |
 | `SiteGroupSaveRequest` | GroupCode, GroupName, StoreListRaw |
 | `SiteGroupListItemDto` | GroupCode, GroupName, StoreCount (-1=ALL), Status, LastUpdateDate, Total |

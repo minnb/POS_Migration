@@ -319,6 +319,49 @@ public sealed class RedisManager : IRedisManager
         }
     }
 
+    // ──────────────────────────────────────────
+    // Distributed throttle (sliding-window ZSET)
+    // ──────────────────────────────────────────
+
+    private const string AcquireSlotScript = @"
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1] - ARGV[2])
+local count = redis.call('ZCARD', KEYS[1])
+if count < tonumber(ARGV[3]) then
+    redis.call('ZADD', KEYS[1], ARGV[1], ARGV[4])
+    return 1
+end
+return 0";
+
+    public async Task<bool> TryAcquireSlotAsync(string setKey, string slotId, int maxSlots, TimeSpan staleAfter)
+    {
+        try
+        {
+            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var result = await Db.ScriptEvaluateAsync(AcquireSlotScript,
+                new RedisKey[] { setKey },
+                new RedisValue[] { nowMs, (long)staleAfter.TotalMilliseconds, maxSlots, slotId },
+                CommandFlags.PreferMaster).ConfigureAwait(false);
+            return (long)result == 1;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] TryAcquireSlotAsync failed — setKey: {SetKey}", setKey);
+            return false;
+        }
+    }
+
+    public async Task ReleaseSlotAsync(string setKey, string slotId)
+    {
+        try
+        {
+            await Db.SortedSetRemoveAsync(setKey, slotId, CommandFlags.PreferMaster).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Redis] ReleaseSlotAsync failed — setKey: {SetKey}", setKey);
+        }
+    }
+
     public Task<List<string>> GetKeysByPatternAsync(string pattern)
     {
         try

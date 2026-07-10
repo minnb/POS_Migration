@@ -53,10 +53,38 @@
                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"/>
             </MudItem>
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudTextField @bind-Value="_filter.OfferName" Label="Tên CTKM"
                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudDatePicker @bind-Date="_filterFromDate" Label="Từ ngày"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_filter.ItemNo" Label="Mã sản phẩm"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"/>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect @bind-Value="_filter.OfferType" Label="Loại CTKM" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                    @foreach (var o in _offerTypes)
+                    {
+                        <MudSelectItem T="string" Value="@o.Value">@o.Text</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect @bind-Value="_filter.Status" Label="Trạng thái" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("")">Tất cả</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("0")">Đang áp dụng</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("1")">Lên kế hoạch</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("2")">Ngưng áp dụng</MudSelectItem>
+                </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudSelect @bind-Value="_filter.ApproveStatus" Label="Trạng thái duyệt"
@@ -66,7 +94,7 @@
                     <MudSelectItem T="string" Value="@("1")">Đã duyệt</MudSelectItem>
                 </MudSelect>
             </MudItem>
-            <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
                                FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
@@ -84,7 +112,6 @@
             <MudTh>Mã CTKM</MudTh>
             <MudTh>Tên CTKM</MudTh>
             <MudTh>Loại CTKM</MudTh>
-            <MudTh>Hình thức bán</MudTh>
             <MudTh>Hiệu lực</MudTh>
             <MudTh>Trạng thái</MudTh>
             <MudTh>Duyệt</MudTh>
@@ -95,7 +122,6 @@
             <MudTd DataLabel="Mã CTKM"><b>@context.No</b></MudTd>
             <MudTd DataLabel="Tên CTKM">@context.Description</MudTd>
             <MudTd DataLabel="Loại CTKM">@context.OfferType</MudTd>
-            <MudTd DataLabel="Hình thức bán">@context.SalesType</MudTd>
             <MudTd DataLabel="Hiệu lực">@FmtYmd(context.ValidFrom) – @FmtYmd(context.ValidTo)</MudTd>
             <MudTd DataLabel="Trạng thái">
                 @{
@@ -219,18 +245,10 @@ else
             }
         </MudGrid>
 
-        <MudAlert Severity="Severity.Info" Class="mt-3" Dense="true" Icon="@Icons.Material.Filled.ShoppingCart">
-            <b>[Sản phẩm mua]</b>: Tích giá trị tổng tiền tối thiểu và nhập Số tiền tối thiểu cho đơn hàng.
-            Danh sách sản phẩm để xét sum tổng tiền. Nếu để trống thì sum all.
-        </MudAlert>
-        <MudAlert Severity="Severity.Info" Class="mt-2" Dense="true" Icon="@Icons.Material.Filled.CardGiftcard">
-            <b>[Sản phẩm khuyến mãi]</b>: Nhập Sản phẩm/ Group sản phẩm được tặng hoặc được khuyến mại.
-        </MudAlert>
-
         @if (!_isReadonly)
         {
             <div class="d-flex justify-end mt-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" Disabled="_saving" OnClick="@(() => SaveAsync(true))">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" Disabled="@(_saving || !CanSave)" OnClick="@(() => SaveAsync(true))">
                     @if (_saving)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
@@ -273,11 +291,15 @@ else
                                 <span class="pos-status-chip @hStCss">@hStLabel</span>
                             </MudTd>
                             <MudTd DataLabel="Từ giờ">
-                                <MudTextField @bind-Value="context.FromTime" Disabled="_isReadonly" Placeholder="hh:mm"
+                                <MudTextField @bind-Value="_header.FromTime" Immediate="true" Disabled="_isReadonly"
+                                              OnKeyUp="@(e => OnHeaderTimeKeyUp(e, isFrom: true))"
+                                              Placeholder="HHmm" MaxLength="4"
                                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:90px"/>
                             </MudTd>
                             <MudTd DataLabel="Đến giờ">
-                                <MudTextField @bind-Value="context.ToTime" Disabled="_isReadonly" Placeholder="hh:mm"
+                                <MudTextField @bind-Value="_header.ToTime" Immediate="true" Disabled="_isReadonly"
+                                              OnKeyUp="@(e => OnHeaderTimeKeyUp(e, isFrom: false))"
+                                              Placeholder="HHmm" MaxLength="4"
                                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:90px"/>
                             </MudTd>
                             <MudTd DataLabel="Mon"><MudCheckBox @bind-Value="context.Mon" Disabled="_isReadonly"/></MudTd>
@@ -381,7 +403,7 @@ else
                                            Variant="Variant.Outlined" Margin="Margin.Dense">
                                     <MudSelectItem T="string" Value="@("A")">Tối thiểu</MudSelectItem>
                                     <MudSelectItem T="string" Value="@("B")">Tối đa</MudSelectItem>
-                                    <MudSelectItem T="string" Value="@("C")">Vòng quay</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("C")">Bằng</MudSelectItem>
                                 </MudSelect>
                             </MudTd>
                             <MudTd Style="text-align:center">
@@ -624,30 +646,29 @@ else
                     </CardHeaderAvatar>
                     <CardHeaderContent>
                         <MudText Typo="Typo.subtitle1">Giới hạn & ưu tiên</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Số lần áp dụng, thứ tự ưu tiên, ngày áp dụng trong tháng</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Vòng lặp tính KM, ngày áp dụng trong tháng</MudText>
                     </CardHeaderContent>
                 </MudCardHeader>
                 <MudCardContent>
                     <MudGrid Spacing="2">
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudNumericField T="decimal" @bind-Value="_header.LimitQty" Label="Số lần được áp dụng"
+                        <MudItem xs="12" sm="6" md="6">
+                            <MudNumericField T="decimal" @bind-Value="_header.LimitQty" Label="Vòng lặp tính KM"
                                              Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
                                              HideSpinButtons="true" Min="0" HelperText="0 = không giới hạn số lần"/>
                         </MudItem>
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudSelect T="int" @bind-Value="_header.PriorityBBY" Label="Độ ưu tiên" Disabled="_isReadonly"
-                                       Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="Thứ tự ưu tiên khi nhiều CTKM trùng">
-                                @for (var i = 1; i <= 10; i++)
+                        <MudItem xs="12" sm="6" md="6">
+                            <MudSelect T="int" MultiSelection="true" SelectedValues="_header.ApplyDaysOfMonth"
+                                       SelectedValuesChanged="@(v => _header.ApplyDaysOfMonth = v.OrderBy(d => d).ToList())"
+                                       Label="Ngày áp dụng trong tháng" Disabled="_isReadonly"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                                       HelperText="Để trống = không giới hạn ngày. Chọn được nhiều ngày."
+                                       MultiSelectionTextFunc="@(selected => selected.Count == 0 ? "Tất cả các ngày" : string.Join(", ", selected.Select(int.Parse).OrderBy(d => d)))">
+                                @for (var day = 1; day <= 31; day++)
                                 {
-                                    var v = i;
-                                    <MudSelectItem T="int" Value="@v">@v</MudSelectItem>
+                                    var d = day;
+                                    <MudSelectItem T="int" Value="@d">Ngày @d</MudSelectItem>
                                 }
                             </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudNumericField T="int" @bind-Value="_header.NumOfDays" Label="Ngày áp dụng trong tháng (0 = không giới hạn)"
-                                             Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                             HideSpinButtons="true" Min="0" Max="31"/>
                         </MudItem>
                     </MudGrid>
                 </MudCardContent>
@@ -746,6 +767,10 @@ else
     private List<PromotionSetupListItemDto> _rows = [];
     private int _offset;
 
+    // Mặc định load trang: CTKM còn hiệu lực từ 3 tháng trước tới nay (chỉ lọc mốc đầu — giống
+    // quyết định đã áp dụng ở OffersPage.razor/GetPromotionOfferHeaderList).
+    private DateTime? _filterFromDate = DateTime.Today.AddDays(-90);
+
     private MudMessageBox? _confirmBox;
     private string _confirmMsg = string.Empty;
     private MudMessageBox? _confirmDiscountBox;
@@ -769,6 +794,10 @@ else
     private DateTime? _toDate;
     private DateTime? _voucherFromDate;
     private DateTime? _voucherToDate;
+    // True khi _header.IsVoucher=true do hệ thống TỰ set (OfferType bắt buộc voucher) —
+    // phân biệt với user tự tay tick cho 1 OfferType không bắt buộc, để chỉ auto-reset
+    // đúng trường hợp forced khi đổi sang OfferType khác (xem OnOfferTypeChanged).
+    private bool _voucherForcedByOfferType;
     private int _bulkAddCountBuy = 10;
     private int _bulkAddCountGet = 10;
     private string? _viewingSiteGroupCode;
@@ -780,7 +809,51 @@ else
 
     private bool VoucherCheckboxLocked => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.IsVoucher ?? false;
     private bool CurrentOfferTypeIsTotalBill => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.IsTotalBill ?? false;
+
+    // Chỉ chặn bấm Lưu khi rõ ràng thiếu field bắt buộc — validate đầy đủ (kể cả so sánh
+    // ngày) vẫn nằm ở PromotionRepository.SaveSetupAsync (nguồn sự thật), đây chỉ là UX
+    // tránh round-trip lên server khi form còn trống hiển nhiên.
+    private bool CanSave =>
+        !string.IsNullOrWhiteSpace(_header.Description)
+        && !string.IsNullOrWhiteSpace(_header.SalesType)
+        && (!string.IsNullOrWhiteSpace(_header.OfferType) || !string.IsNullOrEmpty(_header.No))
+        && _fromDate.HasValue
+        && _toDate.HasValue;
     private string CurrentOfferTypeUserGuide => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.UserGuide ?? string.Empty;
+
+    // Ô "Từ giờ"/"Đến giờ" (tab Thông tin chung) là MudTextField thuần — không mở picker chọn giờ.
+    // User gõ tự do (vd "0900"/"900"), Enter mới format thành "HH:mm" (vẫn string, khớp DB
+    // TIMEFROM/TIMETO) — không format khi user chưa Enter (đang gõ dở).
+    private void OnHeaderTimeKeyUp(KeyboardEventArgs e, bool isFrom)
+    {
+        if (e.Key != "Enter") return;
+        if (isFrom) _header.FromTime = FormatTimeDigits(_header.FromTime);
+        else _header.ToTime = FormatTimeDigits(_header.ToTime);
+    }
+
+    private static string FormatTimeDigits(string? raw)
+    {
+        var digits = new string((raw ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (digits.Length == 0) return string.Empty;
+
+        string hh, mm;
+        if (digits.Length <= 2)
+        {
+            hh = digits;
+            mm = "00";
+        }
+        else
+        {
+            digits = digits.Length > 4 ? digits[^4..] : digits.PadLeft(4, '0');
+            hh = digits[..2];
+            mm = digits[2..];
+        }
+
+        if (!int.TryParse(hh, out var h) || !int.TryParse(mm, out var m) || h > 23 || m > 59)
+            return raw ?? string.Empty; // giữ nguyên input nếu không hợp lệ, để user tự sửa
+
+        return $"{h:D2}:{m:D2}";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -839,6 +912,7 @@ else
     {
         _filter.PageNumber = state.Page;
         _filter.PageSize = state.PageSize;
+        _filter.FromDate = _filterFromDate;
         _offset = state.Page * state.PageSize;
         try
         {
@@ -862,13 +936,23 @@ else
         _filter.OfferNo = null;
         _filter.OfferName = null;
         _filter.ApproveStatus = "";
+        _filter.ItemNo = null;
+        _filter.OfferType = null;
+        _filter.Status = "";
+        _filterFromDate = DateTime.Today.AddDays(-90);
         await _table.ReloadServerData();
     }
 
     // ── Open editor ──
     private Task OpenNewAsync()
     {
-        _header = new PromotionSetupHeaderDto();
+        _header = new PromotionSetupHeaderDto
+        {
+            // Mặc định Hình thức bán hàng = "Tại chỗ" (fallback: option đầu tiên) — cùng pattern PriceSetupPage.razor.
+            SalesType = _salesTypes.FirstOrDefault(s =>
+                            s.Text.Contains("Tại chỗ", StringComparison.OrdinalIgnoreCase))?.Value
+                        ?? _salesTypes.FirstOrDefault()?.Value ?? string.Empty
+        };
         _buyRows = [];
         _getRows = [];
         _siteRows = [];
@@ -876,6 +960,7 @@ else
         _toDate = null;
         _voucherFromDate = null;
         _voucherToDate = null;
+        _voucherForcedByOfferType = false;
         _bulkAddCountBuy = 10;
         _bulkAddCountGet = 10;
         _viewingSiteGroupCode = null;
@@ -898,6 +983,9 @@ else
             _toDate = ParseDmy(_header.EndingDate);
             _voucherFromDate = ParseDmy(_header.VoucherFromDate);
             _voucherToDate = ParseDmy(_header.VoucherToDate);
+            // CTKM đã tồn tại: coi IsVoucher là "forced" nếu OfferType hiện tại đúng là loại
+            // bắt buộc voucher (khớp trạng thái đã lưu) — để đổi OfferType sau đó reset đúng.
+            _voucherForcedByOfferType = _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.IsVoucher ?? false;
             _bulkAddCountBuy = 10;
             _bulkAddCountGet = 10;
             _viewingSiteGroupCode = null;
@@ -918,8 +1006,19 @@ else
     {
         var ot = _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType);
         if (ot == null) return;
-        // Khớp JS legacy: auto-check + khoá Voucher/Coupon khi OfferType bắt buộc voucher
-        if (ot.IsVoucher) _header.IsVoucher = true;
+        // Khớp JS legacy: auto-check + khoá Voucher/Coupon khi OfferType bắt buộc voucher.
+        if (ot.IsVoucher)
+        {
+            _header.IsVoucher = true;
+            _voucherForcedByOfferType = true;
+        }
+        else if (_voucherForcedByOfferType)
+        {
+            // Đổi sang OfferType không bắt buộc voucher — chỉ reset nếu giá trị true hiện tại
+            // là do hệ thống tự set (forced), KHÔNG đụng vào lựa chọn thủ công của user.
+            _header.IsVoucher = false;
+            _voucherForcedByOfferType = false;
+        }
     }
 
     private async Task OnCheckTotalDiscountChanged(bool value)

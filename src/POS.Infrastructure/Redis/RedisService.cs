@@ -65,4 +65,14 @@ public sealed class RedisService(IRedisManager manager) : IRedisService
 
     public List<string> GetKeysByPattern(string pattern)
         => manager.GetKeysByPatternAsync(pattern).GetAwaiter().GetResult();
+
+    // ──────────────────────────────────────────
+    // Distributed throttle
+    // ──────────────────────────────────────────
+
+    public Task<bool> TryAcquireSlotAsync(string setKey, string slotId, int maxSlots, TimeSpan staleAfter)
+        => manager.TryAcquireSlotAsync(setKey, slotId, maxSlots, staleAfter);
+
+    public Task ReleaseSlotAsync(string setKey, string slotId)
+        => manager.ReleaseSlotAsync(setKey, slotId);
 }

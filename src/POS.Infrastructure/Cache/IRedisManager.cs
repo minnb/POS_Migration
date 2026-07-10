@@ -59,4 +59,16 @@ public interface IRedisManager
 
     /// <summary>Nhả khóa — chỉ xoá nếu <paramref name="token"/> khớp token đang giữ (tránh xoá nhầm lock của process khác).</summary>
     Task<bool> ReleaseLockAsync(string key, string token);
+
+    // Distributed throttle (sliding-window đếm bằng Sorted Set, atomic qua Lua)
+    /// <summary>Thử giữ 1 "slot" trong sliding-window đếm bằng ZSET tại <paramref name="setKey"/>: dọn slot quá
+    /// hạn (score &lt; now-<paramref name="staleAfter"/>, tự chữa lành khi process giữ slot bị crash — Set/ZSET
+    /// không hỗ trợ TTL theo từng member), đếm ZCARD (O(log N)), nếu &lt; <paramref name="maxSlots"/> thì ZADD
+    /// <paramref name="slotId"/>=now. Toàn bộ atomic trong 1 lệnh EVAL — không có race condition (TOCTOU) giữa
+    /// đếm và ghi khi nhiều request tới đồng thời. Trả true nếu giữ được slot.</summary>
+    Task<bool> TryAcquireSlotAsync(string setKey, string slotId, int maxSlots, TimeSpan staleAfter);
+
+    /// <summary>Nhả slot đã giữ (ZREM). Gọi trong khối <c>finally</c>, không có tham số CancellationToken để
+    /// đảm bảo nhả được kể cả khi request đã bị hủy giữa chừng.</summary>
+    Task ReleaseSlotAsync(string setKey, string slotId);
 }

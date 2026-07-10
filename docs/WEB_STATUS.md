@@ -1,4 +1,89 @@
 # POS.Web — Báo cáo hiện trạng
+> Cập nhật: 2026-07-10 (2 trang Promotion — filter theo ngày + bỏ cột trùng lặp, sau đó tự sửa lại
+> bug do chính đợt dọn cột gây ra — xem entry "Fix bug cột Mã CTKM" bên dưới để biết bản mới nhất:
+> (1) **OffersPage.razor** `/promotion/offers` — bỏ cột "Bonus Buy" (chỉ giữ "Mã CTKM" =
+> ~~`PromotionNo`~~ **`BonusbuyNo`** — xem lý do đổi lại ở entry fix bug bên dưới),
+> fix bug thứ tự cột Trạng thái/Hình thức bán bị lệch giữa HeaderContent/RowTemplate,
+> cột Action auto-resize (bỏ width cố định), đồng bộ Excel export bỏ Bonus Buy. Thêm filter
+> "Mã CTKM" (đổi tên từ "Bonus Buy/Promotion No", search đúng field `[No]`) + "Từ ngày" (mặc định
+> hôm nay−90 ngày, filter overlap `H.[EndingDate] >= @FromDate` qua SP `GetPromotionOfferHeaderList`
+> — **KHÔNG có "Đến ngày"**, quyết định có chủ đích vì nhiều CTKM `EndingDate` đặt xa tới 2030, xem
+> `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql`, cần DBA chạy script thủ công trên
+> CentralMD). Bỏ `text-transform:uppercase` khỏi label input toàn app (`.mud-input-label-inputcontrol`
+> trong `app.css`) — quyết định thiết kế cũ (mockup pixel-perfect) bị đảo ngược theo phản hồi UX,
+> xem `.claude/rules/mudblazor-flat-ui.md` §11.
+> (2) **PromotionSetupPage.razor** `/promotion/setup` — list mode thêm 4 filter mới (Từ ngày, Mã
+> sản phẩm, Loại CTKM, Trạng thái CTKM theo STATUS 0/1/2) cạnh 3 filter cũ (Mã CTKM/Tên CTKM/Trạng
+> thái duyệt) — nguồn dữ liệu khác `OffersPage` (query trực tiếp `SetupPromotionHEADER` +
+> `SetupPromotionBUY`/`GET` qua Dapper, KHÔNG qua SP) nên sửa thẳng trong `GetSetupListAsync`
+> (`PromotionRepository.cs`), không cần script SQL riêng.
+> **CHƯA VERIFY runtime cho cả 2 trang** (sandbox thiếu DB/Redis) — chỉ verify qua build + contract
+> test. Build POS.Web tại thời điểm cập nhật doc này từng **lỗi do code KHÔNG liên quan** (tham
+> chiếu `HeaderFromTime`/`HeaderToTime` chưa khai báo ở `PromotionSetupPage.razor`) — đã tự hết vì
+> đó là property do task cập nhật cùng ngày bên dưới (Tab "Thông tin chung"/"Cài đặt nâng cao")
+> khai báo xong; build/test 2 việc trên vẫn xanh sau khi cả 2 task hoàn tất, xem entry bên dưới.)
+> Cập nhật: 2026-07-10 (`PromotionSetupPage` `/promotion/setup` — tab "Thông tin chung"/"Cài đặt
+> nâng cao": (1) Hình thức bán hàng mặc định "Tại chỗ" khi Thêm CTKM mới (cùng pattern
+> `PriceSetupPage`). (2) Ẩn 2 alert hướng dẫn "[Sản phẩm mua]"/"[Sản phẩm khuyến mãi]" khỏi form cố
+> định. (3) Từ giờ/Đến giờ đổi `MudTextField` gõ tay → `MudTimePicker` (`Editable="true"`,
+> `TimeFormat="HH:mm"`, xem property `HeaderFromTime`/`HeaderToTime`) — tự ép định dạng khi user gõ
+> tay. (4) "Số lần được áp dụng" → đổi tên "Vòng lặp tính KM"; "Độ ưu tiên" ẩn khỏi UI (`PriorityBBY`
+> vẫn mặc định 1, giữ nguyên khi sửa CTKM cũ); "Ngày áp dụng trong tháng" đổi từ 1 số nguyên
+> (`NumOfDays`) sang **multi-select nhiều ngày** (`MudSelect MultiSelection`), lưu field mới
+> `PromotionSetupHeaderDto.ApplyDaysOfMonth` (`List<int>`) vào cột **MỚI**
+> `SetupPromotionHEADER.NUMOFDAYSLIST` (JSON array) — quyết định kiến trúc: **KHÔNG đụng**
+> cột/tham số `NumOfDays`/`NUMOFDAYS` cũ vì SP legacy đang chạy production `Setup_Promotion_Insert`
+> (publish sang `OfferHeader` cho POS đọc, ngoài repo, không được sửa) có `Convert(int, NUMOFDAYS)`
+> cứng — đổi kiểu sẽ crash bước Duyệt CTKM. Script DB **BẮT BUỘC** trước khi dùng:
+> `docs/sql/SetupPromotion_AddNumOfDaysList.sql` rồi `docs/sql/SetupPromotion_Save.sql` (bản đã
+> thêm `@NumOfDaysList`) — xem `docs/ROLLOUT.md` §D11. Đồng thời fix bug "Invalid object name
+> 'dbo.SetupGroupItem'" khi Lưu ở `ItemGroupSetupDialog.razor` (modal "Cài đặt nhóm sản phẩm") —
+> bảng `dbo.SetupGroupItem` thiếu trên môi trường test (chỉ có định nghĩa trong file dump legacy
+> `CentralMD.sql`, chưa có script CREATE TABLE độc lập); đã thêm
+> `docs/sql/SetupGroupItem_CreateTable.sql` (idempotent) + ghi rõ thứ tự chạy trong
+> `docs/ROLLOUT.md` §D1b — KHÔNG sửa code C#/Razor (đã đúng từ trước). Verify: build POS.Web 0
+> error + `dotnet test tests/POS.ContractTests` 39/39 xanh. **CHƯA VERIFY UI/DB thật** (sandbox
+> thiếu `POS_SECRET_KEY`/DB/Redis) — cần DBA chạy đủ 3 script SQL trên rồi test lại multi-select
+> ngày + time picker + mặc định "Tại chỗ" bằng mắt trên môi trường thật. Chi tiết `docs/CHANGELOG.md`.)
+> Cập nhật: 2026-07-09 (Hạ tầng — KHÔNG phải page/feature: đăng ký
+> `AddHostedService<SyncTableCounterFlushWorker>()` trực tiếp trong `POS.Web/Program.cs` (ngoại lệ
+> có chủ đích so với quy ước "chỉ POS.Worker host BackgroundService" — Channel in-memory của
+> `ISyncTableTrackerService` chỉ sống đúng tiến trình ghi master data, mà POS.Web có CRUD pages ghi
+> trực tiếp qua `ICentralMDRepository`/`IPriceRepository`). Thêm section `SyncTableTracker`
+> (`FlushIntervalSeconds`, `ChannelCapacity`) vào `appsettings.json` + UAT + Production. Chi tiết cơ
+> chế: `.claude/rules/masterdata-sync.md` mục "Cập nhật POSLastCounter bất đồng bộ",
+> `docs/web/sync_data/sync_status.md`. Verify: build POS.Web 0 error + `dotnet test
+> tests/POS.ContractTests` 39/39 xanh. **CHƯA VERIFY runtime** (sandbox thiếu DB/Redis) — cần verify
+> heartbeat Redis + batch-update `POSLastCounter` trên môi trường thật.)
+> Cập nhật: 2026-07-09 (3 việc liên quan `MasterDataDownloadLog` + `PosMapPage`/sidebar:
+> (1) **Delete logging** — bảng `dbo.MasterDataDownloadLog` thêm 2 cột `DeletedAt`/`DeleteStatus`
+> (`docs/sql/MasterDataDownloadLog.sql`, ALTER idempotent); `ISyncRepository.UpdateDeleteLogAsync`
+> + `IMasterDataSyncService.LogDeleteAsync` cập nhật bản ghi log download mới nhất khi POS gọi
+> `DeleteFileFromFTP` (API, không phải POS.Web) — status `Success`/`Failed`, fail-safe nuốt lỗi
+> nếu cột chưa ALTER. (2) **Cột "MasterData" trên PosMapPage** (`/catalog/pos-setup`) — hiển thị
+> thời gian tương đối lần tải file zip gần nhất (`FormatRelativeTime`, "Xp/Xh/X ngày trước"), màu
+> chữ cảnh báo qua `MasterDataColor` (> 1 ngày = vàng, > 7 ngày hoặc chưa từng tải = đỏ). Nguồn dữ
+> liệu: `PosTerminalListDto.LastMasterDataDownloadedAt` (mới) qua `OUTER APPLY` thứ 2 trong
+> `CentralMDRepository.GetPosTerminalListAsync` (cùng pattern `OUTER APPLY POSMonitor` đã có).
+> (3) **Menu "Thiết bị POS" chuyển từ DANH MỤC → VẬN HÀNH** trong `MainLayout.razor` (đổi field
+> `_expandCatPos`→`_expandOpsPos`, sửa `BreadcrumbMap`) + đổi policy trang `PosMapPage.razor` và
+> `BankPosPage.razor` từ `BackOfficeAndAbove` → `OpsAndAbove` — **ngoại lệ** so với đợt tách
+> `BackOfficeAndAbove` cho `/catalog/*` ngày 2026-07-09 (xem entry bên dưới): 2 trang này quay lại
+> `OpsAndAbove` vì là thiết bị IT Ops quản lý, không phải BackOffice. Verify: build + `dotnet test
+> tests/POS.ContractTests` 39/39 xanh. **CHƯA VERIFY UI/DB thật** (sandbox thiếu
+> `POS_SECRET_KEY`/DB/Redis) — cần verify ALTER TABLE + màu cột MasterData + quyền menu bằng user
+> role BackOffice (phải KHÔNG thấy/vào được 2 trang) trên môi trường thật. Chi tiết
+> `docs/CHANGELOG.md`.)
+> Cập nhật: 2026-07-09 (Coupon: nút "Xóa" soft-block ở `/promotion/coupons` (mới
+> `usp_SetupCoupon_UpdateBlocked`) + tab "Mã coupon đã phát hành" thêm 4 cột Trạng thái khóa/
+> Status/Số tiền đã dùng/Đơn hàng đã dùng (mới cột SQL trên `usp_SetupCoupon_GetCodes`) + checkbox
+> Khóa ở trang Xem luôn sửa được — khớp VoucherIssuePage. Voucher: filter mặc định "Hiệu lực" thay
+> vì "Tất cả". Đồng nhất nhãn trạng thái "Hiệu lực"/"Hết hiệu lực" giữa Coupons/Vouchers/Offers/
+> Prices (trước đó lệch chữ: "Còn hiệu lực"/"Có hiệu lực") — đã ghi thành chuẩn dự án tại
+> `.claude/rules/mudblazor-flat-ui.md` §4a. Verify: build + `dotnet test tests/POS.ContractTests`
+> 39/39 xanh. **CHƯA VERIFY UI bằng mắt** (sandbox thiếu DB/Redis) — cần DBA chạy
+> `docs/sql/SetupCoupon_UpdateBlocked.sql` + `docs/sql/SetupCoupon_Read.sql` (bản đã sửa) trên
+> CentralMD trước khi test thật. Chi tiết `docs/CHANGELOG.md`.)
 > Cập nhật: 2026-07-09 (Thêm role thứ 4 `BackOffice` (`WebRoles`/`WebPolicies` — policy mới
 > `BackOfficeAndAbove`) nằm giữa `StoreOperator` và `ITOps`: quản lý Danh mục sản phẩm + Khuyến
 > mãi (31 page `/catalog/*` + `/promotion/*` đổi policy từ `OpsAndAbove` sang
@@ -384,7 +469,12 @@ src/POS.Web/
 │       │   └── Dialogs/UserFormDialog.razor
 │       ├── Ops/
 │       │   ├── HealthPage.razor / AlertsPage.razor / QueuesPage.razor
-│       │   ├── LogsPage.razor / DataRawLogPage.razor / StorePage.razor / PosMapPage.razor
+│       │   ├── LogsPage.razor / DataRawLogPage.razor / StorePage.razor
+│       │   ├── PosMapPage.razor               ← /catalog/pos-setup — menu "Thiết bị POS" (sidebar
+│       │   │                                     nay ở VẬN HÀNH, không phải DANH MỤC), OpsAndAbove
+│       │   │                                     (2026-07-09 đổi từ BackOfficeAndAbove); cột
+│       │   │                                     "MasterData" (LastMasterDataDownloadedAt, màu
+│       │   │                                     cảnh báo > 1/7 ngày)
 │       │   ├── PosDataSetupPage.razor         ← /ops/pos-data-setup — CRUD cấu hình POS
 │       │   ├── RedisDashboardPage.razor       ← /ops/redis — Redis Management Dashboard (search key theo pattern + status card/KPI + xem giá trị + xóa key, OpsAndAbove)
 │       │   ├── PosTerminalSavePayload.cs      ← shared record: payload chain PosMapPage→DetailDialog→EditDialog
@@ -402,13 +492,13 @@ src/POS.Web/
 │       │       └── Dialogs/ (PriceItemPickerDialog — tìm & chọn SP thêm dòng)
 │       ├── Promotion/
 │       │   ├── Offers/
-│       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (header cố định ngoài 4 tab: Thông tin chung=bảng lịch giờ/Mon-Sun, Sản phẩm mua/khuyến mãi=bulk-add+ScaleType+MinValue/TotalDiscount, Cửa hàng áp dụng, Cài đặt nâng cao=voucher delay+MemberCode autocomplete — khớp 100% field legacy SetupMain.cshtml)
+│       │   │   ├── PromotionSetupPage.razor   ← /promotion/setup — Cài đặt CTKM (header cố định ngoài 4 tab: Thông tin chung=bảng lịch giờ/Mon-Sun, Sản phẩm mua/khuyến mãi=bulk-add+ScaleType+MinValue/TotalDiscount, Cửa hàng áp dụng, Cài đặt nâng cao=voucher delay+MemberCode autocomplete — khớp 100% field legacy SetupMain.cshtml; list mode filter 7 field: Mã CTKM/Tên CTKM/Từ ngày/Mã sản phẩm/Loại CTKM/Trạng thái (STATUS 0/1/2)/Trạng thái duyệt — query trực tiếp SetupPromotionHEADER+BUY+GET, KHÔNG qua SP, xem GetSetupListAsync)
 │       │   │   ├── SpecialComboPage.razor      ← /promotion/special-combo — Special Combo
-│       │   │   ├── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live) — filter mặc định "Có hiệu lực"; modal Xem chi tiết 6 tab; nút Deactive (Status=2+Counter=MAX+1 qua usp_OfferHeader_Deactivate — chưa chạy SP trên DB thật)
+│       │   │   ├── OffersPage.razor            ← /promotion/offers — Danh mục khuyến mãi (Offer* live) — filter mặc định "Hiệu lực" (nhãn chuẩn toàn app, xem .claude/rules/mudblazor-flat-ui.md §4a); filter "Mã CTKM" tìm đúng field [No] + "Từ ngày" (mặc định hôm nay−90, chỉ lọc mốc đầu qua @FromDate — KHÔNG có "Đến ngày" vì nhiều CTKM EndingDate đặt xa, xem docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql); modal Xem chi tiết 6 tab; nút Deactive (Status=2+Counter=MAX+1 qua usp_OfferHeader_Deactivate — chưa chạy SP trên DB thật)
 │       │   │   └── Dialogs/ (SiteGroupSetupDialog — modal "Cài đặt nhóm cửa hàng": tạo mới nhóm CH/ST + danh sách filter/phân trang/xem chi tiết store/chọn gắn vào CTKM; ItemGroupSetupDialog — modal "Cài đặt nhóm sản phẩm" cho dòng Buy/Get "Nhóm SP": tạo mới nhóm + danh sách filter/phân trang/xem chi tiết sản phẩm/chọn gắn vào dòng; OfferDetailDialog — modal "Xem chi tiết" 6 tab Header/Buy/Benefits/Get/Site/Priority cho 1 offer LIVE, lazy-load theo tab active, export Excel riêng Buy/Get/Site)
 │       │   └── CouponVoucher/
-│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list — bỏ filter/cột "Loại" / phát hành Auto·Import — Prefix/LenCode/CharOfNumber/CharPosition/Quantity thu thập qua dialog CouponIssueMoreDialog khi Lưu (Auto+chưa có mã), nút "PHÁT HÀNH THÊM" ở trang Xem để thêm lô mã Auto mới cho coupon đã có — khớp VoucherIssuePage)
-│       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export — bỏ filter "Số serial"/"Loại" + cột "Loại")
+│       │       ├── CouponsPage.razor / CouponIssuePage.razor        ← 8.1/8.2 Coupon (list — bỏ filter/cột "Loại" / phát hành Auto·Import — Prefix/LenCode/CharOfNumber/CharPosition/Quantity thu thập qua dialog CouponIssueMoreDialog khi Lưu (Auto+chưa có mã), nút "PHÁT HÀNH THÊM" ở trang Xem để thêm lô mã Auto mới cho coupon đã có — khớp VoucherIssuePage; nút "Xóa" (icon) ở list = soft-block qua UpdateBlockedAsync/usp_SetupCoupon_UpdateBlocked, KHÔNG hard-delete; tab "Mã coupon đã phát hành" có đủ 4 cột Trạng thái khóa/Status/Số tiền đã dùng/Đơn hàng đã dùng khớp Voucher; checkbox Khóa ở trang Xem luôn sửa được + nút Lưu riêng khi đổi — khớp VoucherIssuePage; filter "Hiệu lực" nhãn chuẩn toàn app)
+│       │       ├── VouchersPage.razor                                ← 8.3 Danh mục Voucher (list + CRUD + Export — bỏ filter "Số serial"/"Loại" + cột "Loại"; filter mặc định "Hiệu lực" khi mở trang, không phải "Tất cả")
 │       │       ├── VouchersPublishedPage.razor                       ← 8.4 Tra cứu Voucher phát hành (CentralSales per-store)
 │       │       └── Dialogs/ (CouponItemPickerDialog, CouponIssueMoreDialog — MỚI, phát hành mã Auto (mới/thêm),
 │       │                      VoucherFormDialog, VoucherIssueMoreDialog, VoucherItemPickerDialog,

@@ -77,6 +77,13 @@ public sealed class PriceSaveResult
 {
     public bool Ok { get; set; }
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Counter mới nhất của dbo.SalesPrice sau thao tác (chỉ có ý nghĩa khi Ok=true) — dùng nội bộ
+    /// để PriceRepository gọi ISyncTableTrackerService.Track("SalesPrice", Counter). KHÔNG phải
+    /// field khoá contract JSON với POS (PriceSaveResult không xuất hiện trong JsonFieldContractTests).
+    /// </summary>
+    public long Counter { get; set; }
 }
 
 /// <summary>

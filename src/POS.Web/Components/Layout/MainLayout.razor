@@ -75,15 +75,6 @@
                     <MudNavLink Href="/catalog/provinces" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Chi nhánh</MudNavLink>
                 </MudNavGroup>
 
-                <MudNavGroup Title="Thiết bị POS" Icon="@Icons.Material.Outlined.PointOfSale" Class="pos-nav-l2" @bind-Expanded="_expandCatPos">
-                    <MudNavLink Href="/catalog/pos-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POSTerminal</MudNavLink>
-                    <MudNavLink Href="/catalog/bank-pos" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS bank</MudNavLink>
-                    <!--
-                    <MudNavLink Href="/catalog/pos-versions" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Phiên bản POS</MudNavLink>
-                    <MudNavLink Href="/catalog/print-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cấu hình in (POSWeb)</MudNavLink>
-                    <MudNavLink Href="/catalog/posweb-users" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">User đăng nhập POSWeb</MudNavLink>
-                    -->
-                </MudNavGroup>
                 <!--
                 <MudNavGroup Title="Thanh toán" Icon="@Icons.Material.Outlined.Payments" Class="pos-nav-l2" @bind-Expanded="_expandCatPay">
                     <MudNavLink Href="/catalog/banks" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Ngân hàng</MudNavLink>
@@ -139,6 +130,16 @@
             <AuthorizeView Policy="@WebPolicies.OpsAndAbove">
                 <div class="pos-nav-section-label">VẬN HÀNH</div>
 
+                <MudNavGroup Title="Thiết bị POS" Icon="@Icons.Material.Outlined.PointOfSale" Class="pos-nav-l2" @bind-Expanded="_expandOpsPos">
+                    <MudNavLink Href="/catalog/pos-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POSTerminal</MudNavLink>
+                    <MudNavLink Href="/catalog/bank-pos" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS bank</MudNavLink>
+                    <!--
+                    <MudNavLink Href="/catalog/pos-versions" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Phiên bản POS</MudNavLink>
+                    <MudNavLink Href="/catalog/print-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cấu hình in (POSWeb)</MudNavLink>
+                    <MudNavLink Href="/catalog/posweb-users" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">User đăng nhập POSWeb</MudNavLink>
+                    -->
+                </MudNavGroup>
+
                 <MudNavGroup Title="Giám sát" Icon="@Icons.Material.Outlined.MonitorHeart" Class="pos-nav-l2" @bind-Expanded="_expandOpsMonitor">
                     <MudNavLink Href="/ops/health" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
                     <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
@@ -161,20 +162,19 @@
             </AuthorizeView>
             
             <AuthorizeView Policy="@WebPolicies.AdminOnly">
-                <MudNavGroup Title="QUẢN TRỊ" HideExpandIcon="true" @bind-Expanded="_expandAdmin">
-                    <MudNavLink Href="/admin/users" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Outlined.People">Users</MudNavLink>
-                    <MudNavLink Href="/admin/roles" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Outlined.Security">Roles</MudNavLink>
-                    <MudNavLink Href="/admin/config" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Outlined.Settings">Configs</MudNavLink>
-                    <MudNavLink Href="/admin/audit" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Outlined.History">Audit log</MudNavLink>
-                    <MudNavLink Href="/admin/sql-console" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Outlined.Storage">SQL Console</MudNavLink>
-                    <MudNavLink Href="/admin/encrypt-secret" Match="NavLinkMatch.All"
-                                Icon="@Icons.Material.Outlined.Lock">Mã hóa Secret</MudNavLink>
-                </MudNavGroup>
+                <div class="pos-nav-section-label">QUẢN TRỊ</div>
+                <MudNavLink Href="/admin/users" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Outlined.People">Users</MudNavLink>
+                <MudNavLink Href="/admin/roles" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Outlined.Security">Roles</MudNavLink>
+                <MudNavLink Href="/admin/config" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Outlined.Settings">Configs</MudNavLink>
+                <MudNavLink Href="/admin/audit" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Outlined.History">Audit log</MudNavLink>
+                <MudNavLink Href="/admin/sql-console" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Outlined.Storage">SQL Console</MudNavLink>
+                <MudNavLink Href="/admin/encrypt-secret" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Outlined.Lock">Mã hóa Secret</MudNavLink>
             </AuthorizeView>
 
         </MudNavMenu>
@@ -212,11 +212,11 @@
     private bool _expandStoreOps;
     private bool _expandStoreTx;
     private bool _expandStoreReport;
+    private bool _expandOpsPos;
     private bool _expandOpsMonitor;
     private bool _expandOpsLog;
     private bool _expandOpsConfig;
     private bool _expandCatOrg;
-    private bool _expandCatPos;
     private bool _expandCatPay;
     private bool _expandCatMisc;
     private bool _expandCatProduct;
@@ -224,7 +224,6 @@
     private bool _expandPromoOffer;
     private bool _expandPromoCampaign;
     private bool _expandPromoCoupon;
-    private bool _expandAdmin;
 
     private string _breadcrumbSection = "";
     private string _breadcrumbLabel = "";
@@ -260,9 +259,6 @@
         ["/catalog/employees"]      = ("DANH MỤC", "Nhân viên"),
         ["/catalog/stores"]         = ("DANH MỤC", "Cửa hàng"),
         ["/catalog/provinces"]      = ("DANH MỤC", "Chi nhánh"),
-        // DANH MỤC / Thiết bị POS
-        ["/catalog/pos-setup"]      = ("DANH MỤC", "POSTerminal"),
-        ["/catalog/bank-pos"]       = ("DANH MỤC", "POS bank"),
         // DANH MỤC / Sản phẩm
         ["/catalog/products"]       = ("DANH MỤC", "Danh sách"),
         ["/catalog/product-lock"]   = ("DANH MỤC", "Khóa sản phẩm"),
@@ -279,6 +275,9 @@
         ["/promotion/vouchers"]         = ("KHUYẾN MÃI", "Danh mục Voucher"),
         ["/promotion/vouchers-published"] = ("KHUYẾN MÃI", "Voucher theo hóa đơn"),
 
+        // VẬN HÀNH / Thiết bị POS
+        ["/catalog/pos-setup"]      = ("VẬN HÀNH", "POSTerminal"),
+        ["/catalog/bank-pos"]       = ("VẬN HÀNH", "POS bank"),
         // VẬN HÀNH / Giám sát
         ["/ops/health"]             = ("VẬN HÀNH", "System health"),
         ["/ops/alerts"]             = ("VẬN HÀNH", "Alerts"),
@@ -360,11 +359,11 @@
             _expandStoreTx     = u.Contains("/store/transactions") || u.Contains("/store/refunds") || u.Contains("/store/voids") || u.Contains("/store/member-points");
             _expandStoreReport = u.Contains("/store/revenue") || u.Contains("/store/loyalty") || u.Contains("/store/payment-breakdown") || u.Contains("/store/revenue-detail") || u.Contains("/store/revenue-category") || u.Contains("/store/top-product");
         }
+        _expandOpsPos      = u.Contains("/catalog/pos-setup") || u.Contains("/catalog/bank-pos") || u.Contains("/catalog/pos-versions") || u.Contains("/catalog/print-setup") || u.Contains("/catalog/posweb-users");
         _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues") || u.Contains("/ops/redis");
         _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/activity-log") || u.Contains("/admin/logs");
         _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores") || u.Contains("/ops/pos-data-setup");
         _expandCatOrg      = u.Contains("/catalog/employees") || u.Contains("/catalog/stores") || u.Contains("/catalog/provinces");
-        _expandCatPos      = u.Contains("/catalog/pos-setup") || u.Contains("/catalog/bank-pos") || u.Contains("/catalog/pos-versions") || u.Contains("/catalog/print-setup") || u.Contains("/catalog/posweb-users");
         _expandCatPay      = u.Contains("/catalog/banks") || u.Contains("/catalog/bank-card-types") || u.Contains("/catalog/ewallets") || u.Contains("/catalog/currency-rates");
         _expandCatMisc     = u.Contains("/catalog/sales-order-types") || u.Contains("/catalog/qr-info") || u.Contains("/catalog/image-sliders");
         _expandCatProduct  = u.Contains("/catalog/products") || u.Contains("/catalog/product-lock") || u.Contains("/catalog/setup-item") || u.Contains("/catalog/pos-groups");
@@ -372,7 +371,6 @@
         _expandPromoOffer  = u.Contains("/promotion/offers") || u.Contains("/promotion/setup") || u.Contains("/promotion/special-combo");
         _expandPromoCampaign = u.Contains("/promotion/campaigns");
         _expandPromoCoupon = u.Contains("/promotion/coupons") || u.Contains("/promotion/vouchers");
-        _expandAdmin       = u.Contains("/admin/");
     }
 
     public async ValueTask DisposeAsync() => Nav.LocationChanged -= OnLocationChanged;

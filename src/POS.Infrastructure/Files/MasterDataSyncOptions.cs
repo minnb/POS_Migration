@@ -41,6 +41,18 @@ public sealed class MasterDataSyncOptions
     /// </summary>
     public int MaxParallelTables { get; set; } = 4;
 
+    /// <summary>
+    /// Số lượt sinh master data .zip tối đa chạy đồng thời trên toàn cụm (Redis-based distributed throttle,
+    /// bảo vệ SQL Server/CPU khi nhiều POS cùng sync giờ cao điểm). &lt;= 0 sẽ không cho lượt nào chạy — luôn đặt &gt;= 1.
+    /// </summary>
+    public int MaxConcurrentGeneration { get; set; } = 3;
+
+    /// <summary>
+    /// Slot throttle coi là "mồ côi" (process giữ slot bị crash) sau bao nhiêu giây — tự bị dọn ở lượt
+    /// acquire kế tiếp (xem <see cref="POS.Infrastructure.Cache.IRedisManager.TryAcquireSlotAsync"/>).
+    /// </summary>
+    public int ThrottleStaleAfterSeconds { get; set; } = 600;
+
     /// <summary>Parse <see cref="ZipCompressionLevel"/> → enum; giá trị lạ → Fastest.</summary>
     public CompressionLevel ResolveCompressionLevel()
         => Enum.TryParse<CompressionLevel>(ZipCompressionLevel, ignoreCase: true, out var level)

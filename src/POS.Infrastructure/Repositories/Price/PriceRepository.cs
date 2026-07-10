@@ -4,6 +4,7 @@ using POS.Common.Dtos.Price;
 using POS.Infrastructure.Database;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories.Interfaces;
+using POS.Infrastructure.Sync;
 
 namespace POS.Infrastructure.Repositories;
 
@@ -13,7 +14,8 @@ namespace POS.Infrastructure.Repositories;
 /// </summary>
 public sealed class PriceRepository(
     CentralMDConnectionFactory connectionFactory,
-    IRedisService redis)
+    IRedisService redis,
+    ISyncTableTrackerService syncTracker)
     : BaseRepository(connectionFactory), IPriceRepository
 {
     private const string KeyPriceGroupOptions = "MD:PriceGroupOptions";
@@ -128,6 +130,7 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         // được gán → đọc @Ok/@Message an toàn (trước đây QueryFirstOrDefault đọc nhầm set rỗng → báo lỗi giả).
         p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
         p.Add("@Message", dbType: DbType.String, size: 4000, direction: ParameterDirection.Output);
+        p.Add("@OutCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
         using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(
@@ -136,6 +139,9 @@ WHERE ISNULL(I.Barcode, '') <> ''";
 
         var ok = p.Get<bool?>("@Ok") ?? false;
         var message = p.Get<string?>("@Message");
+
+        if (ok) syncTracker.Track("SalesPrice", p.Get<long>("@OutCounter"));
+
         return new PriceSaveResult
         {
             Ok = ok,
@@ -161,6 +167,9 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         var row = await conn.QueryFirstOrDefaultAsync<PriceSaveResult>(new CommandDefinition(
             "dbo.usp_SalesPrice_UpdatePrice", p,
             commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+
+        if (row is { Ok: true }) syncTracker.Track("SalesPrice", row.Counter);
+
         return row ?? new PriceSaveResult { Ok = false, Message = "Cập nhật giá thất bại" };
     }
 
@@ -179,6 +188,9 @@ WHERE ISNULL(I.Barcode, '') <> ''";
         var row = await conn.QueryFirstOrDefaultAsync<PriceSaveResult>(new CommandDefinition(
             "dbo.usp_SalesPrice_SoftDelete", p,
             commandType: CommandType.StoredProcedure, commandTimeout: 120, cancellationToken: ct));
+
+        if (row is { Ok: true }) syncTracker.Track("SalesPrice", row.Counter);
+
         return row ?? new PriceSaveResult { Ok = false, Message = "Xóa giá thất bại" };
     }
 

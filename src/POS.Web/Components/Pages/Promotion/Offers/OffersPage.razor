@@ -28,14 +28,40 @@
 </MudMessageBox>
 
 @* ── Header ──────────────────────────────────────────────────────────── *@
-<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
-    <MudIcon Icon="@Icons.Material.Filled.LocalOffer" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
-    Danh mục Khuyến mãi
-</MudText>
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.LocalOffer" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
+        Danh mục Khuyến mãi
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-btn-mockup pos-page-header-btn"
+               StartIcon="@Icons.Material.Filled.FileDownload"
+               Disabled="_exporting" OnClick="ExportExcelAsync">
+        @(_exporting ? "Đang xuất..." : "Xuất Excel")
+    </MudButton>
+</div>
 
 @* ── Filter bar ──────────────────────────────────────────────────────── *@
 <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
     <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.TextSearch" Label="Mã CTKM"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.PromotionName" Label="Tên CTKM"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudDatePicker @bind-Date="_filterFromDate" Label="Từ ngày"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="_filter.ItemNo" Label="Mã sản phẩm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"/>
+        </MudItem>
         <MudItem xs="12" sm="6" md="3">
             <MudSelect @bind-Value="_filter.OfferType" Label="Loại CTKM" Clearable="true"
                        Variant="Variant.Outlined" Margin="Margin.Dense">
@@ -54,21 +80,6 @@
                 <MudSelectItem T="string" Value="@("2")">Hết hiệu lực</MudSelectItem>
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="6" md="4">
-            <MudTextField @bind-Value="_filter.TextSearch" Label="Bonus Buy / Promotion No"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudTextField @bind-Value="_filter.ItemNo" Label="Mã sản phẩm"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Tag"/>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="4">
-            <MudTextField @bind-Value="_filter.PromotionName" Label="Tên CTKM"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"/>
-        </MudItem>
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
@@ -76,13 +87,6 @@
                 <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
             </MudStack>
-        </MudItem>
-        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
-            <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-btn-mockup"
-                       StartIcon="@Icons.Material.Filled.FileDownload"
-                       FullWidth="true" Disabled="_exporting" OnClick="ExportExcelAsync">
-                @(_exporting ? "Đang xuất..." : "Xuất Excel")
-            </MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
@@ -97,13 +101,11 @@
           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferHeaderListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>
-        <MudTh Style="width:64px">Action</MudTh>
-        <MudTh>Bonus Buy</MudTh>
-        <MudTh>Promotion No</MudTh>
+        <MudTh>Action</MudTh>
+        <MudTh>Mã CTKM</MudTh>
         <MudTh Style="white-space:normal">Tên CTKM</MudTh>
         <MudTh>OfferType</MudTh>
         <MudTh>Trạng thái</MudTh>
-        <MudTh>Hình thức bán</MudTh>
         <MudTh>Từ ngày</MudTh>
         <MudTh>Đến ngày</MudTh>
         <MudTh>SiteGroup</MudTh>
@@ -112,7 +114,7 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
-        <MudTd DataLabel="Action">
+        <MudTd DataLabel="Action" Style="white-space:nowrap">
             <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Primary"
                            Title="Xem chi tiết" OnClick="@(() => OpenDetailDialogAsync(context))"/>
             @if (IsActive(context.Status))
@@ -121,11 +123,9 @@
                                Title="Deactive" OnClick="@(() => ConfirmDeactivateAsync(context))"/>
             }
         </MudTd>
-        <MudTd DataLabel="Bonus Buy"><b>@context.BonusbuyNo</b></MudTd>
-        <MudTd DataLabel="Promotion No">@context.PromotionNo</MudTd>
+        <MudTd DataLabel="Mã CTKM">@context.BonusbuyNo</MudTd>
         <MudTd DataLabel="Tên CTKM" Style="white-space:normal">@context.Description</MudTd>
         <MudTd DataLabel="OfferType">@context.OfferType</MudTd>
-        <MudTd DataLabel="Hình thức bán">@context.SalesTypeName</MudTd>
         <MudTd DataLabel="Trạng thái">
             @{
                 var (effCss, effLabel) = EffectDisplay(IsActive(context.Status));
@@ -139,7 +139,7 @@
         <MudTd DataLabel="Ngày cập nhật">
             <MudText Typo="Typo.caption">
                 @(DateTime.TryParse(context.LastDateModified, out var lastModified)
-                    ? lastModified.ToString("yyyy-MM-dd HH:mm")
+                    ? lastModified.ToString("dd-MM-yyyy HH:mm:ss")
                     : context.LastDateModified)
             </MudText>
         </MudTd>
@@ -163,6 +163,12 @@
 @code {
     private MudTable<OfferHeaderListItemDto> _table = null!;
     private readonly OfferListFilter _filter = new() { Status = "0", PageSize = 20 };
+
+    // Mặc định load trang: CTKM còn hiệu lực từ 12 tháng trước tới nay (chỉ lọc mốc đầu — xem
+    // docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql). Chốt 2026-07-10: đổi từ 90
+    // ngày sang đúng 1 năm (AddYears, không phải AddDays(-365)) để luôn ra đúng cùng ngày/tháng
+    // năm trước (vd hôm nay 10/07/2026 -> 10/07/2025).
+    private DateTime? _filterFromDate = DateTime.Today.AddYears(-1);
 
     private List<OfferHeaderListItemDto> _rows = [];
     private List<OfferTypeOptionDto> _offerTypes = [];
@@ -190,6 +196,7 @@
     {
         _filter.PageNumber = state.Page;          // SP OFFSET = PageSize * PageNumber (0-based)
         _filter.PageSize   = state.PageSize;
+        _filter.FromDate   = _filterFromDate;
         _offset            = state.Page * state.PageSize;
         try
         {
@@ -249,6 +256,7 @@
         _filter.OfferType     = null;
         _filter.ItemNo        = null;
         _filter.Status        = "0";
+        _filterFromDate       = DateTime.Today.AddYears(-1);
         await _table.ReloadServerData();
     }
 
@@ -270,6 +278,7 @@
         _exporting = true;
         try
         {
+            _filter.FromDate = _filterFromDate;
             var data = await PromotionService.ExportOfferHeaderListAsync(_filter);
             var bytes = BuildXlsx(data);
             var fileName = $"DanhMucKhuyenMai_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
@@ -296,7 +305,7 @@
 
         string[] headers =
         [
-            "Bonus Buy", "Promotion No", "Tên CTKM", "Loại CTKM", "Hình thức bán",
+            "Mã CTKM", "Tên CTKM", "Loại CTKM", "Hình thức bán",
             "Trạng thái", "Từ ngày", "Đến ngày", "Voucher có giá trị từ ngày", "Voucher có giá trị đến ngày",
             "Local Site Group", "LimitQty", "Ngày cập nhật"
         ];
@@ -308,18 +317,17 @@
         foreach (var e in data)
         {
             ws.Cell(r, 1).Value = e.BonusbuyNo;
-            ws.Cell(r, 2).Value = e.PromotionNo;
-            ws.Cell(r, 3).Value = e.Description;
-            ws.Cell(r, 4).Value = e.OfferType;
-            ws.Cell(r, 5).Value = e.SalesTypeName;
-            ws.Cell(r, 6).Value = IsActive(e.Status) ? "Hiệu lực" : "Hết hiệu lực";
-            ws.Cell(r, 7).Value = e.StartingDate;
-            ws.Cell(r, 8).Value = e.EndingDate;
-            ws.Cell(r, 9).Value = e.VoucherFromDate;
-            ws.Cell(r, 10).Value = e.VoucherToDate;
-            ws.Cell(r, 11).Value = e.LocalSiteGroup;
-            ws.Cell(r, 12).Value = e.LimitQty;
-            ws.Cell(r, 13).Value = e.LastDateModified;
+            ws.Cell(r, 2).Value = e.Description;
+            ws.Cell(r, 3).Value = e.OfferType;
+            ws.Cell(r, 4).Value = e.SalesTypeName;
+            ws.Cell(r, 5).Value = IsActive(e.Status) ? "Hiệu lực" : "Hết hiệu lực";
+            ws.Cell(r, 6).Value = e.StartingDate;
+            ws.Cell(r, 7).Value = e.EndingDate;
+            ws.Cell(r, 8).Value = e.VoucherFromDate;
+            ws.Cell(r, 9).Value = e.VoucherToDate;
+            ws.Cell(r, 10).Value = e.LocalSiteGroup;
+            ws.Cell(r, 11).Value = e.LimitQty;
+            ws.Cell(r, 12).Value = e.LastDateModified;
             r++;
         }
 

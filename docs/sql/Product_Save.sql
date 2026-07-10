@@ -52,7 +52,9 @@ CREATE PROCEDURE dbo.usp_Product_Save
     @Blocked            tinyint,
     @BlockedVINID       tinyint,
     @Barcodes           dbo.ProductBarcodeTVP READONLY,
-    @OutItemNo          nvarchar(20) OUTPUT
+    @OutItemNo          nvarchar(20) OUTPUT,
+    @OutItemCounter     bigint OUTPUT,
+    @OutBarcodeCounter  bigint OUTPUT
 )
 AS
 BEGIN
@@ -124,6 +126,10 @@ BEGIN
         FROM   @Barcodes b;
 
         SET @OutItemNo = @itemNo;
+        -- Trả về Counter vừa bump cho POS.Infrastructure.Sync.ISyncTableTrackerService.Track()
+        -- (xem CentralMDRepository.CreateProductAsync) — KHÔNG dùng để tính toán gì trong SP này.
+        SET @OutItemCounter = @itemCounter;
+        SET @OutBarcodeCounter = @baseBarcodeCounter + (SELECT COUNT(*) FROM @Barcodes);
 
         COMMIT TRANSACTION;
     END TRY

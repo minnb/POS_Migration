@@ -35,4 +35,13 @@ public interface ISyncRepository
     Task InsertDownloadLogAsync(
         string? siteCode, string? posTerminal, string? fileName, string? filePath,
         long fileSizeBytes, long durationMs, string status, string? clientIp, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cập nhật DeletedAt/DeleteStatus cho bản ghi dbo.MasterDataDownloadLog mới nhất khớp FileName
+    /// (+SiteCode/PosTerminal nếu có), gọi sau khi POS xóa file qua DeleteFileFromFTP. Fail-safe: service
+    /// gọi bọc try/catch. Trả về true nếu tìm thấy và cập nhật được 1 dòng.
+    /// </summary>
+    Task<bool> UpdateDeleteLogAsync(
+        string? siteCode, string? posTerminal, string? fileName,
+        string deleteStatus, DateTime deletedAt, CancellationToken ct = default);
 }

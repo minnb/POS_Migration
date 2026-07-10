@@ -186,24 +186,34 @@
   - **L3** (leaf link): icon `ChevronRight` đồng nhất cho mọi mục, mờ hơn L2.
   - Nhóm "Quản trị" cấu trúc phẳng (không có L2, leaf nằm trực tiếp dưới L1) → 6 leaf giữ icon
     riêng có ý nghĩa (People/Security/Settings/History/Storage/Lock) vì chúng nằm ở độ sâu tương
-    đương L2.
+    đương L2, `font-size:0.8125rem` giống L2 (xem cập nhật 2026-07-09 bên dưới).
 
-  > **Cập nhật 2026-07-06 — L1 hết là `MudNavGroup`, trừ Quản trị.** Theo ảnh mẫu
+  > **Cập nhật 2026-07-06 — L1 hết là `MudNavGroup`, trừ Quản trị (lúc đó).** Theo ảnh mẫu
   > `docs/web/images/menu_sidebar.jpg`, user yêu cầu L2 **luôn hiển thị** dưới L1, không cần
   > click. `MudNavGroup` (MudBlazor 9.5.0, đã tra XML doc) **không có** tham số khóa "luôn mở,
   > không phản hồi click" (`Expandable`/`ReadOnly` không tồn tại; `Disabled` chặn cả style/L2 bên
   > trong nên không phù hợp). Giải pháp: bỏ hẳn `MudNavGroup` bọc L1 cho 4 domain (CỬA HÀNG/
   > DANH MỤC/KHUYẾN MÃI/VẬN HÀNH), thay bằng `<div class="pos-nav-section-label">` (nhãn tĩnh,
   > không click) + đưa các `MudNavGroup` L2 lên làm con trực tiếp của `MudNavMenu` (gắn thêm
-  > `Class="pos-nav-l2"` để CSS phân biệt với Quản trị — cũng là `.mud-nav-group` top-level nhưng
-  > không có class này). **QUẢN TRỊ giữ nguyên 100%** cấu trúc `MudNavGroup` bọc L1→leaf cũ — vì
-  > vậy nó vẫn là `.mud-nav-group` top-level DUY NHẤT không có `.pos-nav-l2`, nên rule CSS L1 cũ
-  > (`.mud-navmenu > .mud-nav-group > .mud-nav-link`) **không cần đổi selector**, tự động chỉ còn
-  > áp dụng cho Quản trị. Indent dịch lên 1 bậc do bớt 1 tầng lồng: L2 (nay top-level) `20px→12px`,
-  > L3 `28px→20px` (Quản trị/L1 giữ nguyên `12px`). Field `@code` aggregate không còn dùng
-  > (`_expandStore`/`_expandCatalog`/`_expandPromotion`/`_expandOps`) đã xóa khỏi
-  > `MainLayout.razor` — các field lẻ theo từng L2 (`_expandStoreOps`...) và `_expandAdmin` giữ
-  > nguyên, bind trực tiếp vào `MudNavGroup` L2/Quản trị như cũ.
+  > `Class="pos-nav-l2"` để CSS phân biệt). Lúc này QUẢN TRỊ tạm giữ nguyên cấu trúc `MudNavGroup`
+  > bọc L1→leaf cũ (quyết định có chủ đích khi đó) — **đã đổi tiếp ở bản cập nhật 2026-07-09 bên
+  > dưới**, không còn đúng nữa.
+
+  > **Cập nhật 2026-07-09 — QUẢN TRỊ cũng bỏ `MudNavGroup`, đồng bộ 100% với 4 domain còn lại.**
+  > Lý do: dù CSS khai báo cùng `font-size:0.625rem` cho cả 2 cách (div label vs `MudNavGroup`
+  > title), user quan sát bằng mắt trên browser thấy title "QUẢN TRỊ" nhỏ hơn rõ rệt so với "CỬA
+  > HÀNG"/"VẬN HÀNH" — nghi do khác biệt DOM rendering thực tế của `MudNavGroup` title so với
+  > `<div>` thuần (không xác định được nguyên nhân chính xác chỉ qua đọc CSS tĩnh). Xử lý: đổi
+  > title "QUẢN TRỊ" sang `<div class="pos-nav-section-label">` giống 4 domain kia, và đưa 6
+  > `MudNavLink` leaf (Users/Roles/Configs/Audit log/SQL Console/Mã hóa Secret) lên làm con trực
+  > tiếp của `MudNavMenu` (không còn `MudNavGroup` bọc). Không còn domain nào trong sidebar giữ
+  > `MudNavGroup` bọc L1 — mọi `.mud-nav-group` top-level còn lại đều mang class `.pos-nav-l2`.
+  > CSS: xóa selector `.mud-navmenu > .mud-nav-group > .mud-nav-link` (không còn phần tử nào khớp),
+  > thêm selector `.mud-navmenu > .mud-nav-link` (leaf QUẢN TRỊ, style như L2 — `font-size:
+  > 0.8125rem`, có icon ý nghĩa riêng, không phải chevron chung như L3 thường). Field `@code`
+  > `_expandAdmin` đã xóa khỏi `MainLayout.razor` (không còn nhóm để expand/collapse). Indent giữ
+  > nguyên `12px` cho leaf QUẢN TRỊ (như L2). Các field lẻ theo từng L2 khác (`_expandStoreOps`...)
+  > không đổi.
 - **Icon set giữ `Icons.Material.Outlined.*`** — mockup dùng emoji nhưng đã quyết định KHÔNG dùng
   emoji cho toàn bộ nav (dù đã thử 1 lần và rollback — xem mục "Đã cân nhắc và loại bỏ").
 - ⚠️ **Bug đã gặp và fix**: tham số `Icon=` của `MudNavLink`/`MudNavGroup`/`MudIcon` nhận **SVG
@@ -309,9 +319,11 @@
   trước đó chỉ có override cho `.mud-table-head`, body cell dùng size mặc định MudBlazor không
   khớp mockup `table{font-size:12.5px}`.
 - `.mud-input-label-inputcontrol`: **mới thêm** `font-size:0.6875rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:0.5px` — khớp mockup `.field label`. Trước đó field
-  label dùng mặc định MudBlazor (`font-size:1rem;font-weight:400`, không uppercase) vì
+  letter-spacing:0.5px` — khớp mockup `.field label` về cỡ/độ đậm. Trước đó field
+  label dùng mặc định MudBlazor (`font-size:1rem;font-weight:400`) vì
   `Typography` theme không cascade vào label input (đã verify class thật qua `MudBlazor.min.css`).
+  **Cập nhật 2026-07-10**: đã bỏ `text-transform:uppercase` (từng thêm ở đợt audit này) — chốt lại
+  **giữ chữ thường** cho label input trên toàn app, xem "Đã cân nhắc và loại bỏ" cuối file.
 - Xóa override `--mud-typography-default-lineheight:1.5` riêng cho mobile (media query) — nay
   `Default.LineHeight` đã là `1.5` sẵn cho mọi breakpoint, override cũ thành dead code.
 
@@ -365,7 +377,7 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
 | Thành phần | Việc cần làm khi tạo mới | Ai lo |
 |---|---|---|
 | Input/Select/DatePicker text, Button, MudTable (header + body), Sidebar nav | Không cần làm gì — theme/CSS toàn cục đã đúng | Tự động |
-| Field label (label của input) | Không cần làm gì — `.mud-input-label-inputcontrol` đã ép uppercase/bold/11px toàn cục | Tự động |
+| Field label (label của input) | Không cần làm gì — `.mud-input-label-inputcontrol` đã ép bold/11px toàn cục (chữ thường, KHÔNG uppercase — chốt 2026-07-10) | Tự động |
 | **KPI value** (số lớn trong KPI card) | `<MudText Typo="Typo.h5" Class="pos-kpi-value" ...>` — giữ `Typo=` hiện có, thêm `Class` | **[Tự làm]** |
 | **KPI label** (nhãn nhỏ dưới KPI value) | `<MudText Typo="Typo.body2" Class="pos-kpi-label" ...>` | **[Tự làm]** |
 | **KPI trend/delta badge** | Dùng `<PosDeltaBadge Current="..." Previous="..." Enabled="..."/>` — KHÔNG viết `RenderFragment TrendBadge()` riêng trong page | **[Tự làm]** |
@@ -392,6 +404,7 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
 | Emoji làm icon sidebar (thử ở v3, đã rollback) | Kỹ thuật thất bại: `Icon=` của MudNavLink/MudIcon nhận SVG path, không phải text — emoji khiến icon biến mất hoàn toàn. Đã rollback về Material Icons Outlined; sau đó người dùng yêu cầu thêm cấu trúc 3 cấp phân biệt icon (L1 không icon/IN HOA, L2 có icon riêng, L3 chevron đồng nhất) |
 | Filter panel soft-tint `--pos-primary-bg` (v2) | v3 đổi sang trắng + border theo đúng mockup `.filter-bar` |
 | Button Outlined mọi nơi (v2) | v3 đảo ngược: Filled cho CTA/hành động tích cực, Outlined cho phần còn lại — theo `.btn-primary` mockup |
+| `text-transform:uppercase` cho field label input (`.mud-input-label-inputcontrol`, thêm ở đợt Typography audit 2026-07-06) | Chốt lại 2026-07-10: người dùng phản hồi label input (vd "Loại CTKM") viết hoa không đúng thẩm mỹ dự án mong muốn — bỏ `text-transform:uppercase`, **giữ chữ thường**, vẫn giữ `font-size:0.6875rem;font-weight:700;letter-spacing:0.5px`. Không đổi `.pos-kpi-label`/`.pos-section-label` (2 class riêng, không phải input label — vẫn uppercase theo đúng phạm vi ban đầu) |
 
 ## Trạng thái rollout (cập nhật 2026-07-05, v3 — toàn bộ theme + 5 cụm menu)
 
@@ -452,6 +465,13 @@ Dùng bằng cách thêm `Class="pos-kpi-value"` **cạnh** `Typo="Typo.h5"` hi�
   - Batch theo domain: Store → Ops → Promotion → Catalog → Admin+root, build + contract test xanh
     sau mỗi batch.
   - **Chưa verify bằng mắt** — cùng lý do sandbox thiếu `POS_SECRET_KEY`/DB/Redis như batch KPI.
+- **Đồng bộ title "QUẢN TRỊ" về `.pos-nav-section-label`** (2026-07-09, sau khi user báo bằng mắt
+  thấy title nhỏ hơn 4 domain kia dù CSS khai báo cùng `font-size:0.625rem` — xem chi tiết mục 5
+  "Cập nhật 2026-07-09"): `MainLayout.razor` (bỏ `MudNavGroup` bọc QUẢN TRỊ, 6 leaf lên top-level,
+  xóa field `_expandAdmin`), `app.css` (xóa selector `.mud-navmenu > .mud-nav-group > .mud-nav-link`
+  không còn dùng, thêm selector `.mud-navmenu > .mud-nav-link` style như L2 cho leaf QUẢN TRỊ) —
+  build + `dotnet test tests/POS.ContractTests` xanh. **Chưa verify bằng mắt** (cùng lý do sandbox
+  thiếu secret/DB/Redis) — cần user tự kiểm tra lại sidebar sau khi chạy app thật.
 
 ## 10. CSS Isolation — khi nào dùng `.razor.css`
 

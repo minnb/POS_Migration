@@ -199,4 +199,33 @@ VALUES
             DownloadedAt = DateTime.Now
         }, ct: ct);
     }
+
+    public async Task<bool> UpdateDeleteLogAsync(
+        string? siteCode, string? posTerminal, string? fileName,
+        string deleteStatus, DateTime deletedAt, CancellationToken ct = default)
+    {
+        const string sql = @"
+UPDATE t
+SET t.DeletedAt = @DeletedAt, t.DeleteStatus = @DeleteStatus
+FROM dbo.MasterDataDownloadLog t
+INNER JOIN (
+    SELECT TOP (1) Id
+    FROM dbo.MasterDataDownloadLog
+    WHERE FileName = @FileName
+      AND (@SiteCode IS NULL OR SiteCode = @SiteCode)
+      AND (@PosTerminal IS NULL OR PosTerminal = @PosTerminal)
+    ORDER BY DownloadedAt DESC
+) x ON t.Id = x.Id";
+
+        var rows = await ExecuteAsync(sql, new
+        {
+            SiteCode = siteCode,
+            PosTerminal = posTerminal,
+            FileName = fileName,
+            DeleteStatus = deleteStatus,
+            DeletedAt = deletedAt
+        }, ct: ct);
+
+        return rows > 0;
+    }
 }

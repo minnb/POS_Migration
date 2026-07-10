@@ -25,4 +25,13 @@ public interface IRedisService
     /// Chỉ dùng với pattern hẹp (queue/retry keys).
     /// </summary>
     List<string> GetKeysByPattern(string pattern);
+
+    // Distributed throttle (sliding-window ZSET, atomic)
+    /// <summary>Thử giữ 1 slot trong sliding-window đếm tại <paramref name="setKey"/> — tối đa
+    /// <paramref name="maxSlots"/> slot đồng thời, slot quá hạn <paramref name="staleAfter"/> tự bị dọn ở lượt
+    /// acquire kế tiếp (chữa lành khi process giữ slot crash). Trả true nếu giữ được.</summary>
+    Task<bool> TryAcquireSlotAsync(string setKey, string slotId, int maxSlots, TimeSpan staleAfter);
+
+    /// <summary>Nhả slot đã giữ — gọi trong <c>finally</c>, luôn thực hiện được kể cả khi request đã bị hủy.</summary>
+    Task ReleaseSlotAsync(string setKey, string slotId);
 }

@@ -43,6 +43,9 @@ public class OfferListFilter
     public string? Status { get; set; }
     public string? OfferType { get; set; }
     public string? ItemNo { get; set; }
+
+    /// <summary>CTKM còn hiệu lực từ ngày này trở đi (H.EndingDate >= FromDate) — null = bỏ qua điều kiện.</summary>
+    public DateTime? FromDate { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; } = 20;
 }

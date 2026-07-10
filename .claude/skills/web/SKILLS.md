@@ -1310,3 +1310,56 @@ hiển thị `###,###` ở list. Dùng `.` (vi-VN) sẽ bị parse nhầm thành
 
 > Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/MemberPointsPage.razor`,
 > `src/POS.Web/Components/Pages/Store/Dialogs/MemberPointsDetailDialog.razor`, `app.css`.
+
+### Pattern: `MudTimePicker` cho ô nhập giờ "HH:mm" (thay `MudTextField` gõ tay)
+> Áp dụng khi: cần ô nhập giờ tự ép định dạng `HH:mm` lúc user gõ tay, thay vì `MudTextField`
+> với `Placeholder="hh:mm"` (không validate/format gì, dễ lưu sai chuỗi).
+
+DTO thường lưu giờ dạng `string "HH:mm"` (khớp cột DB kiểu text) — KHÔNG đổi DTO, chỉ bọc 1 cặp
+property `TimeSpan?` ở `@code` của page để chuyển đổi 2 chiều:
+
+```csharp
+private TimeSpan? HeaderFromTime
+{
+    get => ParseHm(_header.FromTime);
+    set => _header.FromTime = value?.ToString(@"hh\:mm") ?? string.Empty;
+}
+private static TimeSpan? ParseHm(string s)
+    => TimeSpan.TryParseExact(s, new[] { @"hh\:mm", @"h\:mm" }, CultureInfo.InvariantCulture, out var t) ? t : null;
+```
+```razor
+<MudTimePicker Time="HeaderFromTime" TimeChanged="@(t => HeaderFromTime = t)" Disabled="_isReadonly"
+               AmPm="false" TimeFormat="HH:mm" Editable="true"
+               Variant="Variant.Outlined" Margin="Margin.Dense"/>
+```
+`AmPm="false"` + `Editable="true"` là bắt buộc — thiếu `Editable` thì user không gõ tay được, chỉ
+chọn qua picker UI. Verify tham số qua reflection thật trên `MudBlazor.dll` (namespace
+`MudBlazor.MudTimePicker`) trước khi dùng — v9 không có sẵn ví dụ nào trong repo để soi theo.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`
+> (`HeaderFromTime`/`HeaderToTime`, tab "Thông tin chung").
+
+### Pattern: `MudSelect` multi-selection cho chọn nhiều giá trị rời rạc (vd nhiều ngày trong tháng)
+> Áp dụng khi: cần chọn NHIỀU giá trị từ 1 danh sách cố định nhỏ (ngày 1-31, thứ trong tuần...),
+> lưu lại dạng `List<T>` — KHÔNG cần `MudAutocomplete`/chip rời.
+
+`MudSelect<T>` có sẵn `MultiSelection="true"` + `SelectedValues`/`SelectedValuesChanged`
+(`IReadOnlyCollection<T>`) — không cần tự viết checkbox group:
+
+```razor
+<MudSelect T="int" MultiSelection="true" SelectedValues="_header.ApplyDaysOfMonth"
+           SelectedValuesChanged="@(v => _header.ApplyDaysOfMonth = v.OrderBy(d => d).ToList())"
+           Label="Ngày áp dụng trong tháng" Disabled="_isReadonly"
+           MultiSelectionTextFunc="@(selected => selected.Count == 0 ? "Tất cả" : string.Join(", ", selected.Select(int.Parse).OrderBy(d => d)))">
+    @for (var day = 1; day <= 31; day++)
+    {
+        var d = day;
+        <MudSelectItem T="int" Value="@d">Ngày @d</MudSelectItem>
+    }
+</MudSelect>
+```
+Bẫy: `MultiSelectionTextFunc` nhận `IReadOnlyList<string>` (chuỗi hiển thị của item đã chọn),
+**KHÔNG PHẢI** `IReadOnlyList<T>` — cần `Select(int.Parse)` lại nếu muốn sort theo giá trị số.
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`
+> (`_header.ApplyDaysOfMonth`, tab "Cài đặt nâng cao").

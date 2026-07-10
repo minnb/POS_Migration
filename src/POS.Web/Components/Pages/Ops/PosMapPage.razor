@@ -1,5 +1,5 @@
 ﻿@page "/catalog/pos-setup"
-@attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
 @rendermode InteractiveServer
 @implements IDisposable
 
@@ -164,6 +164,7 @@
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.NeedsUpdate ? 1 : 0)">BluePosVersion</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.IsEnabled ? 0 : 1)">Status</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.DateTimePos ?? DateTime.MinValue)">DateTimePos</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalListDto, object>(x => x.LastMasterDataDownloadedAt ?? DateTime.MinValue)">MasterData</MudTableSortLabel></MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="IsOnline">
@@ -215,6 +216,11 @@
             <MudText Typo="Typo.caption"
                      Color="@(context.IsOnline ? Color.Default : Color.Error)">
                 @(context.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Chưa có")
+            </MudText>
+        </MudTd>
+        <MudTd DataLabel="MasterData">
+            <MudText Typo="Typo.caption" Color="@MasterDataColor(context.LastMasterDataDownloadedAt)">
+                @FormatRelativeTime(context.LastMasterDataDownloadedAt)
             </MudText>
         </MudTd>
     </RowTemplate>
@@ -406,4 +412,26 @@
 
     private static (string CssClass, string Label) EnabledStatusDisplay(bool isEnabled) =>
         isEnabled ? ("pos-status-success", "Bật") : ("pos-status-info", "Tắt");
+
+    // Thời gian tương đối cho lần tải master data gần nhất — luôn dạng tương đối kể cả > 1 ngày
+    // (khác PosTerminalDetailDialog.DateTimePos, nơi chuyển sang ngày giờ tuyệt đối khi >= 1 ngày).
+    private static string FormatRelativeTime(DateTime? at)
+    {
+        if (!at.HasValue) return "Chưa có";
+        var age = DateTime.Now - at.Value;
+        if (age.TotalMinutes < 1) return "vừa xong";
+        if (age.TotalHours   < 1) return $"{(int)age.TotalMinutes}p trước";
+        if (age.TotalDays    < 1) return $"{(int)age.TotalHours}h trước";
+        return $"{(int)age.TotalDays} ngày trước";
+    }
+
+    // Chưa từng tải hoặc > 7 ngày → đỏ (nghi kẹt đồng bộ); > 1 ngày → vàng (cảnh báo); còn lại → mặc định.
+    private static Color MasterDataColor(DateTime? at)
+    {
+        if (!at.HasValue) return Color.Error;
+        var age = DateTime.Now - at.Value;
+        if (age.TotalDays > 7) return Color.Error;
+        if (age.TotalDays > 1) return Color.Warning;
+        return Color.Secondary;
+    }
 }

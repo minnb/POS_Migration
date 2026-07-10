@@ -259,3 +259,131 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 - Bảng audit: chạy `src/POS.Web/Auth/migration_dashboard_audit_log.sql` trên `RPOSMasterData` (nếu chưa → audit fail-safe, không crash).
 - Role test: **ITOps** hoặc **SystemAdmin** (policy `OpsAndAbove`). StoreOperator sẽ bị chặn (403/AccessDenied).
 - Blazor Server: mọi test cần lưu ý **circuit** (mất mạng, reload tab làm mất state form đang nhập).
+
+---
+
+## 9. Ghi chú kỹ thuật (Dành cho Dev)
+
+> Đọc kèm mã nguồn: `CouponsPage.razor`, `CouponIssuePage.razor`, `CouponService.cs`,
+> `CouponRepository.cs`, `CouponVoucherCodeGenerator.cs`, `docs/sql/SetupCoupon_Save.sql`,
+> `docs/sql/SetupCoupon_Delete.sql`. Mục đích: giải thích **tại sao** code chạy như vậy, không
+> lặp lại nghiệp vụ đã mô tả ở mục 1-8.
+
+### 9.1 Data Flow — cơ chế lưu (SP `usp_SetupCoupon_SaveIssue`, 1 transaction `XACT_ABORT ON`)
+
+SP **không** replace toàn bộ dữ liệu con giống nhau — mỗi bảng có chiến lược ghi khác nhau, đây là
+điểm dễ hiểu nhầm nhất khi debug:
+
+| Bảng | Chiến lược | Vì sao |
+|---|---|---|
+| `CpnVchBOMIssueRule` | **Upsert** theo `ItemNo` | Metadata sinh mã (Prefix/LenCode...), 1 dòng/coupon |
+| `CpnVchBOMHeader` | **Upsert** theo `ItemNo`, bump `Counter` | Header chính, đọc bởi `usp_SyncTable_Get` cho POS sync |
+| `CpnVchBOMCodeIssue` | **Insert-once** — `IF NOT EXISTS (... AND Source='COUPON')` mới insert; **KHÔNG BAO GIỜ xóa** | Mã đã phát cho khách không được xóa/tạo lại khi user chỉ sửa Tên/ngày. Section 3b đồng bộ lại field "chụp nhanh" (`ArticleType`, `Validity_From_Date`, `Expiry_Date`) ở **mọi lần gọi SP**, nhưng **tuyệt đối không đụng `Status`/`Enabled`/`[Return]`** — nếu đụng, sửa coupon sau khi đã có mã bị khách redeem sẽ vô tình reset mã đó về `Status='SOLD'`/`Enabled=1`, phá vỡ chống double-redeem ở `POS.Api` (`usp_Voucher_Redeem`) |
+| `CpnVchBOMLine` (sản phẩm) | **True replace-on-save** — `DELETE ... WHERE ItemNo=@ItemNo` rồi insert lại toàn bộ từ TVP `dbo.CouponLineTVP` | Danh sách sản phẩm áp dụng không có ý nghĩa lịch sử, ghi đè an toàn |
+| `CpnVchBOMStore` (cửa hàng áp dụng) | **True replace-on-save** — xóa rồi insert lại (`ALL` → 1 dòng, hoặc bung theo `dbo.StoreGroup`) | Xem thêm mục 3 "Nhóm cửa hàng" + E4 |
+
+**Bẫy kỹ thuật quan trọng nhất**: điều kiện `AND Source = 'COUPON'` ở bước 3 và 3b là **bắt buộc**.
+Bảng `CpnVchBOMCodeIssue` dùng **chung** với SAP Voucher (cột `ActicleNo` mirror `ItemNo`). Nếu
+thiếu điều kiện này, một `ActicleNo` SAP trùng chuỗi với `ItemNo` coupon sẽ khiến:
+- Bước 3 (`IF NOT EXISTS`) bị "lừa" là coupon đã có mã → **vĩnh viễn không insert code** cho coupon đó.
+- Bước 3b ghi đè `ActicleType`/ngày hiệu lực của dòng SAP Voucher bằng dữ liệu coupon → **corrupt
+  dữ liệu voucher SAP thật**.
+
+### 9.2 Field bắt buộc & validation logic
+
+- **Validate diễn ra ở 2 nơi, KHÔNG đối xứng**:
+  1. **Blazor (`ValidateHeaderFields`, `CouponIssuePage.razor`)** — chỉ check tối thiểu (Description
+     rỗng, ngày rỗng, `From >= To`, % giảm giá 0-100) để UX phản hồi nhanh **trước khi** mở dialog
+     "Phát hành coupon" (tránh user điền dialog xong mới biết header sai).
+  2. **`CouponService` (Application layer)** — nguồn sự thật thật sự, chạy lại **toàn bộ** rule kể
+     cả những rule Blazor không check (độ dài mã 5-20, tổng ký tự ≤ 20, trùng mã DB, regex mã Import,
+     ràng buộc sản phẩm vs `IsCheckItem`...). Client bypass được Blazor validate (vd sửa DOM, gọi
+     thẳng qua reflection test) vẫn bị chặn ở đây — **không được xóa/nới lỏng validate ở
+     `CouponService` dù trùng lặp với Blazor.**
+  - Danh sách đầy đủ message & điều kiện: xem mục 5.2 (TC-N01..N19).
+- **Ràng buộc `IsCheckItem` hai chiều** (`CouponService.SaveIssueAsync`): `IsCheckItem=true` mà
+  `Items.Count==0` → lỗi (thiếu sản phẩm); `IsCheckItem=false` mà `Items.Count>0` → **cũng lỗi**
+  ("đang áp dụng tổng hóa đơn, vui lòng xóa danh sách sản phẩm") — đây là guard Service-side, khác
+  với hành vi im lặng ở `SaveAsync` phía Blazor (E3) vì Blazor **tự set `Items=[]` trước khi gọi
+  Service** nên guard chiều 2 hiếm khi kích hoạt qua UI thường — chỉ lộ ra khi gọi Service trực tiếp
+  (test/API).
+- **`needCodes`** (cả 2 lớp: Blazor `NeedsCodeDialog` và Service `SaveIssueAsync`) dùng chung điều
+  kiện `string.IsNullOrWhiteSpace(ItemNo) || QuantityCodeInDB == 0` — sinh/validate mã **chỉ** chạy
+  khi tạo mới hoặc coupon hiện tại chưa có mã nào; nếu đã có mã, mọi lần Lưu sau chỉ update
+  Header/Line/Store (khớp Section 3 SP chỉ insert-once).
+
+### 9.3 Audit Log
+
+- `IAuditLogger.LogAsync` gọi **sau khi** DB write trả `Ok=true` — không log khi thất bại (đúng
+  chuẩn `.claude/skills/web/audit-logging.md`).
+- **2 entity audit tách biệt cho cùng 1 `ItemNo`**: `"SetupCoupon"` (issue/blocked) và
+  `"SetupCouponAdvanced"` (advanced/discount) — vì `SaveIssueAsync` và `SaveAdvancedAsync` là 2 SP
+  độc lập (xem E1). Khi truy vết 1 coupon phải xem **cả 2** entity trong bảng audit, không chỉ 1.
+- **Actor** lấy từ `AuthState.User.Identity?.Name` (claims cookie) — fallback `"unknown"` nếu
+  null (hiếm khi xảy ra vì trang đã có `[Authorize]`).
+- **oldValueJson bị lệch (bug đã biết — E2)**: trong `SaveAsync`, `before =
+  JsonConvert.SerializeObject(_model)` được lấy **sau khi** `_model.StartingDateStr/EndingDateStr/
+  IsCheckItem/Items` đã bị gán giá trị mới → `oldValueJson ≈ newValueJson`. Dev debug audit trail
+  thấy "old và new giống hệt nhau" — đây là bug ghi nhận sẵn ở mục 6 (E2), không phải lỗi log.
+- Riêng `SaveBlockedAsync` (Xem coupon → đổi Blocked) snapshot `oldJson` **đúng** (lấy trước khi
+  gọi `UpdateBlockedAsync`) — không dính bug E2, vì đây là field đơn lẻ không qua `_model` chung.
+
+---
+
+## 10. Technical Deep Dive
+
+### Dependency (Service/Repository được inject)
+
+| Component | Inject | Vai trò |
+|---|---|---|
+| `CouponsPage.razor` | `ICouponService`, `IFileLogHelper`, `ISnackbar`, `IAuditLogger`, `NavigationManager` | List + xóa (soft — qua `Blocked`, xem TC-L03) |
+| `CouponIssuePage.razor` | `ICouponService`, `IDialogService`, `ISnackbar`, `IAuditLogger`, `IFileLogHelper`, `NavigationManager`, `IJSRuntime` (`SaveAsFileAsync` — tải file mẫu Excel) | Form phát hành; `ClosedXML` (`XLWorkbook`) dùng **trực tiếp trong component**, không qua Service — parse/generate Excel là I/O cục bộ phía Blazor, không phải business logic |
+| `CouponService` (`POS.Application.Features.CouponVoucher`) | `ICouponRepository`, `ICentralMDRepository` (item picker — tái dùng `GetProductListAsync`, migrate 6.1), `IVoucherIssueLock` (Redis distributed lock, dùng chung với Voucher) | Validate + sinh mã (`CouponVoucherCodeGenerator`, static, không inject) + orchestrate save |
+| `CouponRepository` (`POS.Infrastructure.Repositories`) | `CentralMDConnectionFactory` (Dapper, không qua interface) | Gọi SP `usp_SetupCoupon_*` trên `RPOSMasterData` |
+
+### Constraint (giới hạn của form)
+
+- **Nút Lưu** disable khi `_saving == true` — đây là guard **UI-level only**, không có idempotency
+  token phía server. Double-click rất nhanh (trước khi Blazor re-render `Disabled`) vẫn có thể gửi
+  2 request `SaveAsync` (xem E9). Với Auto issue, request thứ 2 thường bị chặn bởi
+  `CheckCodesExistAsync` (mã đã tồn tại) nhưng **không đảm bảo tuyệt đối** vì không có lock ở luồng
+  này (xem gạch dưới, khác `IssueMoreAsync`).
+- **`CodeFieldsLocked`** (`IsEditing && _quantityCodeInDb > 0`) khóa "Cách phát hành" + field
+  Auto/Import — ngăn đổi `IssueType` sau khi đã có mã, vì SP chỉ insert code 1 lần (Section 3) và
+  không xử lý việc đổi chiến lược sinh mã giữa chừng.
+- **`DiscountValueMax`** (`_advanced.DiscountType == 1 ? 100 : double.MaxValue`) chỉ enforce ở
+  client (`MudNumericField Max=`) — server (`CouponService.SaveAdvancedAsync`) validate lại
+  `DiscountValue > 100 && DiscountType == 1` độc lập, 2 lớp giống mọi rule khác ở mục 9.2.
+- **Redis lock (`IVoucherIssueLock`, key cố định `Lock:VoucherIssue` toàn hệ thống)**: TTL 30s, poll
+  300ms, `MaxWait` 15s — hết 15s chưa acquire được → `Fail("Hệ thống đang xử lý phát hành coupon
+  khác, vui lòng thử lại sau.")`.
+  ⚠️ **Lock chỉ bọc `IssueMoreAsync`** ("Phát hành thêm" cho coupon đã tồn tại) — **KHÔNG bọc
+  `SaveIssueAsync`** (tạo mới hoặc sửa header, kể cả khi cần sinh mã Auto lần đầu). Nghĩa là 2 user
+  cùng tạo 2 coupon Auto **mới** đồng thời vẫn có nguy cơ va chạm mã (rủi ro thấp hơn nhờ
+  `RandomNumberGenerator` crypto-strength, nhưng về lý thuyết không được serialize như luồng "phát
+  hành thêm"). Đây là gap thực tế cần biết khi điều tra race condition ở E6/E9, rộng hơn mô tả ban
+  đầu trong E6 (E6 chỉ nói về `IssueMoreAsync`).
+
+### Error Handling (cách ứng dụng bắt lỗi từ SP)
+
+- **`CouponService` bắt `try/catch` quanh mọi lệnh ghi** (`SaveIssueAsync`, `SaveAdvancedAsync`,
+  `IssueMoreAsync`) và trả thẳng `Fail(ex.Message)` ra Snackbar. Hệ quả: **message exception SQL
+  gốc (kể cả lỗi kỹ thuật như timeout, constraint violation, connection lost) hiển thị trực tiếp
+  cho end-user** — không có lớp "friendly message" nào ở tầng Application cho nhánh lỗi ngoài dự
+  kiến. Khác với API thường (nơi `ExceptionHandlingMiddleware` toàn cục xử lý exception chưa bắt),
+  ở đây exception **đã bị nuốt sớm hơn** trong `CouponService` nên middleware không có cơ hội can
+  thiệp — đây là hành vi có chủ đích để user thấy lý do lỗi SP (vd trigger/constraint), nhưng cũng
+  là điểm QA cần khai thác (lộ thông tin kỹ thuật nội bộ ra Snackbar).
+- **Đọc dữ liệu** (`GetHeaderListAsync`, `GetDetailAsync`, `GetFormLookupAsync`) — page tự
+  `try/catch` quanh lời gọi Service (Blazor Server không có HTTP response pipeline để middleware
+  can thiệp), set `_errorMsg` hiển thị banner đỏ + ghi `FileLogger.WriteExpLogs` + **không crash
+  circuit** (xem TC-L05).
+- **`DeleteAsync`**: SP `usp_SetupCoupon_Delete` luôn trả đúng 1 dòng `(Deleted bit, Message
+  nvarchar)` cho mọi nhánh (không tìm thấy / còn mã / xóa thành công / lỗi transaction — dùng
+  `ERROR_MESSAGE()` trong `CATCH` thay vì `THROW`, khác hẳn `usp_SetupCoupon_SaveIssue`/
+  `SaveAdvanced` dùng `THROW`). Repository fallback `(false, "Không xóa được coupon")` chỉ khi SP
+  không trả dòng nào (không nên xảy ra theo thiết kế SP, nhưng là defensive code phía C#).
+- **Mọi SP ghi** (`SaveIssue`, `SaveAdvanced`) dùng `SET XACT_ABORT ON` + `TRY/CATCH` +
+  `ROLLBACK TRANSACTION` + `THROW` — đảm bảo Header/IssueRule/Code/Line/Store không bao giờ ghi dở
+  dang (all-or-nothing), nhưng lỗi ném lên C# vẫn là raw `SqlException.Message` như mô tả ở gạch
+  đầu dòng đầu tiên.

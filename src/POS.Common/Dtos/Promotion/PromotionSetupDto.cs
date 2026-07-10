@@ -34,7 +34,8 @@ public class PromotionSetupHeaderDto
     public bool MemberOnly { get; set; }                       // VINID = 'X'
     public string MemberCode { get; set; } = string.Empty;     // hạng thẻ
     public int PriorityBBY { get; set; } = 1;                  // ZPRIOR
-    public int NumOfDays { get; set; }                         // NUMOFDAYS — ngày áp dụng trong tháng
+    public int NumOfDays { get; set; }                         // NUMOFDAYS — KHÔNG dùng ở UI nữa (xem ApplyDaysOfMonth), giữ nguyên để không phá SP legacy Setup_Promotion_Insert (Convert(int, NUMOFDAYS) khi Duyệt/publish)
+    public List<int> ApplyDaysOfMonth { get; set; } = [];       // NUMOFDAYSLIST (cột mới) — nhiều ngày trong tháng, JSON array, KHÔNG publish sang OfferHeader
     public string VoucherFromDate { get; set; } = string.Empty;// dd/MM/yyyy (chỉ khi IsVoucher)
     public string VoucherToDate { get; set; } = string.Empty;  // dd/MM/yyyy
     public int VoucherValidDay { get; set; }                   // ZVCDATE_VA
@@ -142,6 +143,12 @@ public class PromotionSetupListFilter
     public string? OfferNo { get; set; }
     public string? OfferName { get; set; }
     public string? ApproveStatus { get; set; }   // ""=Tất cả, "1"=Đã duyệt, "0"=Chưa duyệt
+    public string? ItemNo { get; set; }          // barcode — khớp SetupPromotionBUY.MAT_NR / SetupPromotionGET.MATERIALCODE
+    public string? OfferType { get; set; }        // BBYTYPE
+    public string? Status { get; set; }           // STATUS: ""=Tất cả, "0"=Đang áp dụng, "1"=Lên kế hoạch, "2"=Ngưng áp dụng
+
+    /// <summary>CTKM còn hiệu lực từ ngày này trở đi (VALIDTO >= FromDate) — null = bỏ qua điều kiện.</summary>
+    public DateTime? FromDate { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; } = 20;
 }

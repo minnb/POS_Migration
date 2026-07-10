@@ -55,6 +55,7 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Cấu hình external HTTP API (host/credentials/routes lấy từ DB, không hardcode) | **`.claude/skills/api/SKILLS.md`** |
 | Thêm cache Redis StandAlone (key convention, TTL, pattern Hash/String) | **`.claude/skills/cache/SKILLS.md`** |
 | Thêm scheduled job / message consumer trong `POS.Worker` | **`.claude/skills/worker/SKILLS.md`** |
+| Deploy/vận hành `POS.Worker` (Docker, cron Ubuntu, Task Scheduler Windows, health check) | **`docs/worker/worker_status.md`** |
 | Kiểm tra contract JSON với 5.000 POS | `docs/API_CONTRACT.md` + `tests/POS.ContractTests/` |
 | Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) |
 | Tra quy tắc mã hóa credentials appsettings (`enc:` / `POS_SECRET_KEY`) | **`docs/architecture/appsetting.md`** |

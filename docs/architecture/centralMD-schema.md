@@ -1237,7 +1237,8 @@ VALIDTO               nvarchar(200)      NULL   -- yyyyMMdd
 TIMEFROM              nvarchar(200)      NULL
 TIMETO                nvarchar(200)      NULL
 MON, TUE, WED, THUR, FRI, SAT, SUN   nvarchar(200) (mỗi cột)  NULL
-NUMOFDAYS             nvarchar(200)      NULL
+NUMOFDAYS             nvarchar(200)      NULL   -- 1 số nguyên đơn (KHÔNG đổi) — SP legacy Setup_Promotion_Insert Convert(int, NUMOFDAYS) khi publish
+NUMOFDAYSLIST         nvarchar(200)      NULL   -- cột MỚI (2026-07-10) — JSON array nhiều ngày trong tháng, chỉ Dashboard đọc/ghi, KHÔNG publish sang OfferHeader (script docs/sql/SetupPromotion_AddNumOfDaysList.sql)
 BUYLINKCAT            nvarchar(200)      NULL   -- 'A' = AND, 'O' = OR
 GETLINKCAT            nvarchar(200)      NULL
 PROMOTION             nvarchar(200)      NULL
@@ -2283,9 +2284,15 @@ DurationMs        bigint             NOT NULL   -- default 0
 Status            varchar(20)        NOT NULL   -- 'Success' | 'Aborted' | 'Error'
 ClientIp          varchar(64)        NULL
 DownloadedAt      datetime           NOT NULL   -- default getdate()
+DeletedAt         datetime           NULL       -- POS gọi DeleteFileFromFTP xóa xong → set
+DeleteStatus      varchar(20)        NULL       -- 'Success' | 'Failed'
 ```
 > Script tạo bảng riêng: `docs/sql/MasterDataDownloadLog.sql`. Ghi qua
 > `IMasterDataSyncService.LogDownloadAsync` — fail-safe nếu bảng chưa tồn tại.
+> `DeletedAt`/`DeleteStatus` cập nhật qua `IMasterDataSyncService.LogDeleteAsync` khi POS gọi
+> `DeleteFileFromFTP` — tìm bản ghi mới nhất khớp `FileName` (+`SiteCode`/`PosTerminal` nếu có)
+> theo `DownloadedAt DESC`, cập nhật bằng 1 UPDATE duy nhất (`ISyncRepository.UpdateDeleteLogAsync`).
+> Fail-safe tương tự — nếu 2 cột này chưa được ALTER TABLE, lỗi bị nuốt, không phá luồng xóa file.
 
 ---
 
@@ -2636,10 +2643,19 @@ Giống `GetProductList` không phân trang — export Excel.
 ### GetPromotionOfferHeaderList
 ```
 (@No nvarchar(20)='', @Description nvarchar(250)='', @Status nvarchar(10)='', @OfferType nvarchar(10)='',
- @ItemNo varchar(20)='', @StoreNo varchar(10)='', @Exp int, @PageSize int, @PageNumber int)
+ @ItemNo varchar(20)='', @StoreNo varchar(10)='', @FromDate date=NULL,
+ @Exp int, @PageSize int, @PageNumber int)
 ```
 Danh sách `OfferHeader`, lọc theo item áp dụng (`OfferBuy`/`OfferGet`/`OfferBenefits` qua temp
 table `#TempPro`/`#TempProEx`), tính `Status` hiệu lực theo `StartingDate`/`EndingDate`.
+`@FromDate` (thêm 2026-07-10, script `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql`):
+CTKM còn hiệu lực từ ngày này trở đi — `H.[EndingDate] >= @FromDate`. `NULL` = bỏ qua điều kiện
+(tương thích ngược). **Chỉ lọc theo mốc đầu, KHÔNG có `@ToDate`** — quyết định có chủ đích: nhiều
+CTKM có `EndingDate` đặt xa (vd tới năm 2030), lọc thêm theo mốc cuối là không cần thiết cho
+nghiệp vụ này (đã cân nhắc và bỏ, xem lịch sử trong chính script SQL). Điều kiện được inject vào
+**cả 12 branch** (4 tổ hợp `@ItemNo` có/không × `@Status` ''/'0'/khác, × 2 nhánh `@Exp`=0 phân
+trang UI/`@Exp`<>0 export) — đặt ngay sau điều kiện `@StoreNo` trong mọi branch. `OffersPage.razor`
+mặc định field "Từ ngày" = hôm nay − 90 ngày khi load trang.
 
 ### GetSalesPriceList
 ```

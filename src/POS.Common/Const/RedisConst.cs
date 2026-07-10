@@ -25,6 +25,7 @@ public static class RedisConst
     public static readonly string Redis_Key_Stores = "Stores";
     public static readonly string Redis_Key_StoresMappingVinID = "StoresMappingVinID";
     public static readonly string Redis_Key_GetFileFromFTP = "GetFileFromFTP";
+    public static readonly string Redis_Key_CreateMasterDataSlots = "MD:CreateMasterData:Slots";
     public static readonly string Redis_Key_CpnVchCodeSendQuota = "CpnVchCodeSendQuota";
     public static readonly string Redis_Key_CpnVchBOMHeader = "CpnVchBOMHeader";
 

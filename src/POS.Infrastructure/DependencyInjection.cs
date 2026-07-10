@@ -12,6 +12,7 @@ using POS.Infrastructure.Messaging;
 using POS.Infrastructure.Redis;
 using POS.Infrastructure.Repositories;
 using POS.Infrastructure.Repositories.Interfaces;
+using POS.Infrastructure.Sync;
 using POS.Infrastructure.Workers;
 
 namespace POS.Infrastructure;
@@ -88,6 +89,20 @@ public static class DependencyInjection
 
         // ── Distributed lock (Redis) — chặn phát hành Auto voucher/coupon đồng thời qua scale-out ──
         services.AddSingleton<IVoucherIssueLock, VoucherIssueLock>();
+
+        // ── SyncTableList.POSLastCounter tracker (Channel + BackgroundService) ─
+        // Track() ghi vào Channel in-process, non-blocking — KHÔNG chặn hot path CRUD.
+        // SyncTableCounterFlushWorker drain + batch-update định kỳ. Đăng ký Singleton concrete
+        // type trước rồi map interface → cùng instance, để worker (đăng ký riêng ở POS.Api/
+        // POS.Web Program.cs, xem lý do ở .claude/rules/masterdata-sync.md) inject được Reader
+        // nội bộ qua concrete class mà interface không lộ ra ngoài.
+        var syncTrackerOptions =
+            configuration.GetSection(SyncTableTrackerOptions.SectionName).Get<SyncTableTrackerOptions>()
+            ?? new SyncTableTrackerOptions();
+        services.AddSingleton(Options.Create(syncTrackerOptions));
+        services.AddSingleton<SyncTableTrackerService>();
+        services.AddSingleton<ISyncTableTrackerService>(sp => sp.GetRequiredService<SyncTableTrackerService>());
+        services.AddScoped<Repositories.Interfaces.ISyncTrackerRepository, Repositories.SyncTrackerRepository>();
 
         // ── File import (PosFileImportWorker: .zip → .txt → insert DB) ────────
         var fileImportOptions =

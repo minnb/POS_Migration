@@ -80,6 +80,12 @@ builder.Services.AddApplication();
 // ── Infrastructure (DB, Redis, RabbitMQ, Logging) ─────────────────────────
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// ── SyncTableList.POSLastCounter flush worker ─────────────────────────────
+// Channel là in-memory, chỉ sống trong đúng tiến trình ghi master data (POS.Api/POS.Web) —
+// KHÔNG đăng ký qua WorkerRolesOptions (dành riêng cho POS.Worker). Xem lý do đầy đủ ở
+// .claude/rules/masterdata-sync.md mục "Cập nhật POSLastCounter bất đồng bộ".
+builder.Services.AddHostedService<POS.Infrastructure.Sync.SyncTableCounterFlushWorker>();
+
 // ── Authentication: Basic Auth ────────────────────────────────────────────
 builder.Services
     .AddAuthentication("BasicAuth")

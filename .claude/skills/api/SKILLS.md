@@ -635,3 +635,43 @@ public string? SalesGroupCode { get; set; }  // mã gốc — KHÔNG hiển th�
 > Ví dụ thực tế: `docs/sql/GetSalesPriceList_AddSaleType.sql` (`SalesGroupCode`),
 > `docs/sql/GetSalesPriceList_AddSalesTypeCode.sql` (`SalesTypeCode`),
 > `src/POS.Web/Components/Pages/Catalog/Price/PricesPage.razor` (`TryBuildKey`).
+
+---
+
+### Pattern: Track Counter bump vào SyncTableList.POSLastCounter bất đồng bộ (Channel + BackgroundService)
+
+> Áp dụng khi: 1 Repository ghi (insert/update) vào bảng master data có bump cột `Counter` (pattern
+> `MAX(Counter)+1`), và bảng đó cần tham gia đồng bộ tăng dần cho POS (`SyncTableList.POSLastCounter`).
+> KHÔNG update `SyncTableList` đồng bộ trong transaction ghi — gây row-level lock contention khi
+> nhiều request ghi master data cùng lúc.
+
+```csharp
+// 1) Inject ISyncTableTrackerService (POS.Infrastructure.Sync, Singleton) vào Repository
+public sealed class XxxRepository(..., ISyncTableTrackerService syncTracker) : ...
+
+// 2) Lấy Counter VỪA BUMP (không tính lại) rồi Track() ngay sau khi ghi DB thành công — non-blocking
+// SP-based write → thêm OUTPUT param cho Counter
+p.Add("@OutCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
+await conn.ExecuteAsync(new CommandDefinition("dbo.usp_Xxx_Save", p, commandType: CommandType.StoredProcedure, ...));
+syncTracker.Track("TableName", p.Get<long>("@OutCounter"));
+
+// raw SQL trong C# → OUTPUT INSERTED.Counter + ExecuteScalarAsync thay vì ExecuteAsync
+// batch/vòng lặp nhiều dòng → gom Max(Counter) cả batch, Track() 1 LẦN sau vòng lặp
+// SP ủy quyền SP legacy production KHÔNG sửa được (không có OUTPUT) → đọc lại
+//   SELECT MAX(Counter) FROM Table sau khi mọi nhánh ghi xong (chấp nhận 1 query phụ, chỉ áp dụng
+//   cho thao tác bulk không phải hot path) — xem docs/sql/SalesPrice_AddCounterOutput.sql
+```
+
+Nền tảng: `SyncTableCounterFlushWorker` (BackgroundService, đăng ký trực tiếp ở `POS.Api/Program.cs`
++ `POS.Web/Program.cs` — **KHÔNG** qua `WorkerRolesOptions` vì `Channel` in-memory chỉ sống đúng
+tiến trình ghi dữ liệu, mà cả 2 process đều ghi master data) drain Channel định kỳ (mặc định 5s),
+batch-update qua SP `usp_SyncTableList_BulkUpdateCounter` (idempotent — chỉ ghi đè khi
+`Counter > POSLastCounter`).
+
+**Anti-pattern:** UPDATE `SyncTableList` đồng bộ ngay trong transaction ghi → lock contention khi
+nhiều POS/admin ghi cùng bảng master data đồng thời.
+
+> Chi tiết đầy đủ + checklist rollout theo từng `TableName`: `.claude/rules/masterdata-sync.md` mục
+> "Cập nhật POSLastCounter bất đồng bộ", `docs/web/sync_data/sync_status.md`.
+> Ví dụ thực tế: `src/POS.Infrastructure/Sync/`, `CentralMDRepository.CreateProductAsync`/
+> `SaveProductLockAsync`, `PriceRepository.SaveAsync`/`UpdatePriceAsync`/`SoftDeletePriceAsync`.
