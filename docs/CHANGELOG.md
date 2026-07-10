@@ -6,6 +6,7 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 
+<<<<<<< HEAD
 ## [2026-07-10] Fix bug cột "Mã CTKM" hiển thị trùng lặp trên OffersPage.razor
 
 **Layer:** POS.Web
@@ -1484,6 +1485,102 @@ browser** (không có môi trường DB/POS.Web chạy thật trong phiên này)
 
 ---
 
+=======
+<<<<<<< HEAD
+## [2026-07-06] Danh mục nhóm giá (StorePriceGroup) — CRUD mới trong menu Giá bán
+
+**Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common + SQL
+**Loại:** Feature
+
+**Bối cảnh:** cần chức năng quản lý nhóm giá (mỗi nhóm = mã + tên gắn 1 danh sách cửa hàng;
+PriceGroupCode dùng làm SalesCode khi khai báo giá). Dùng 2 bảng có sẵn trên DB:
+`StorePriceGroupHeader` (mới, chưa có ở repo) làm header + `StorePriceGroup` (đã có) làm chi tiết
+store, link qua `PriceGroupCode`. Legacy `PriceData.CreatePriceGroup/SaveStorePriceGroup` làm tham
+chiếu nghiệp vụ (cột Type=1, Pkey='{Store}-{PriceGroupCode}', Priority cấp nhóm, Counter=MAX+1).
+
+**Quyết định nghiệp vụ (chốt với user qua AskUserQuestion):**
+1. Xóa = hard-delete header + chi tiết, NHƯNG chặn nếu PriceGroupCode đang dùng trong
+   `SalesPrice.SalesCode` (dòng active: IsActive=1 AND YEAR(EndingDate)<>7777).
+2. Priority cấp nhóm — 1 giá trị áp cho mọi store trong nhóm.
+3. Danh sách store add-only — chỉ thêm mới, không bỏ được store đã gán (store cũ read-only trên UI).
+4. Form dạng dialog (khớp mẫu SiteGroupSetupDialog).
+
+**Thay đổi:**
+- `POS.Common/Dtos/Price/StorePriceGroupDto.cs` (MỚI): `PriceGroupListFilter`,
+  `PriceGroupListItemDto`, `PriceGroupStoreItemDto`, `PriceGroupSaveRequest` (tái dùng `PriceSaveResult`).
+- `IPriceRepository`/`PriceRepository.cs`: +4 method `GetPriceGroupListAsync` (inline SQL header +
+  subquery StoreCount/Priority, paging), `GetPriceGroupStoresAsync`, `SavePriceGroupAsync` (SP + TVP),
+  `DeletePriceGroupAsync` (SP) — Save/Delete OK thì `redis.Delete("MD:PriceGroupOptions")`. Helper
+  `BuildStoreTable`. KHÔNG thêm DI mới (interface đã đăng ký) → DI test tự xanh.
+- `IPriceService`/`PriceService.cs`: +4 method thin delegate; validate mã/tên/Priority>0/≥1 store ở
+  `SavePriceGroupAsync`.
+- `docs/sql/StorePriceGroup_Save.sql` (MỚI): TVP `dbo.StorePriceGroupStoreTVP` + SP
+  `usp_StorePriceGroup_Save` (upsert header + add-only chi tiết: UPDATE Priority/Name/Counter cho store
+  cũ, INSERT store mới, Type=1, Counter=ReplicationCounter=MAX+1, OUTPUT @Ok/@Message).
+- `docs/sql/StorePriceGroup_Delete.sql` (MỚI): SP `usp_StorePriceGroup_Delete` (chặn nếu đang dùng
+  trong SalesPrice, ngược lại xóa cả 2 bảng, OUTPUT @Ok/@Message).
+- `PriceGroupsPage.razor` (MỚI, `/catalog/price-groups`): list + filter + MudTable ServerData +
+  MudMessageBox @ref confirm xóa (YesButton Outlined/Error) + audit CREATE/UPDATE/DELETE.
+- `Dialogs/PriceGroupSetupDialog.razor` (MỚI): form mã(disabled khi Sửa)/tên/độ ưu tiên + store picker
+  MudAutocomplete `.Take(50)` + lưới store (store cũ read-only, store mới xóa được). Store picker dùng
+  `@ref` + `ClearAsync()` sau mỗi lần thêm (rỗng ô để thêm mục kế tiếp), chống trùng bỏ qua im lặng
+  (không báo lỗi). Khối catch khi Lưu hiện thẳng `ex.Message` để chẩn đoán (vd SP chưa tạo trên DB).
+- `MainLayout.razor`: 3 chỗ — NavLink "Danh mục nhóm giá", BreadcrumbMap, `_expandCatPrice`.
+- `database-schema.md`: thêm bảng `StorePriceGroupHeader` + ghi chú SP; `CURRENT_STRUCTURE.md`: thêm
+  DTO + note service/repo.
+
+**Pattern mới:** "MudAutocomplete thêm-vào-danh-sách (multi-add picker)" — `@ref` + `ClearAsync()` sau
+mỗi lần thêm, chống trùng bỏ qua im lặng, KHÔNG dùng ResetValueOnEmptyText (crash circuit). Đã thêm vào
+`.claude/skills/web/SKILLS.md` (biến thể của store-picker). Khuôn list/SP/TVP tái dùng có sẵn.
+
+**Lưu ý cho session sau:** chạy tay 2 script SQL trên `RPOSMasterData` (DEV trước) TRƯỚC khi test UI:
+`StorePriceGroup_Save.sql`, `StorePriceGroup_Delete.sql` (app không tự tạo SP). Priority chỉ lưu ở dòng
+`StorePriceGroup` (header không có cột Priority) → bắt buộc ≥1 store khi tạo để priority luôn được lưu.
+Verify: `dotnet build src/POS.Web` 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25 — chưa test UI thật.
+
+---
+
+## [2026-07-06] FIX: PriceSetupPage import bảng giá — UOM validate rỗng + giá bán thiếu format
+
+**Layer:** POS.Web, POS.Infrastructure + SQL
+**Loại:** Bug fix
+
+**Bối cảnh:** người dùng báo tải file mẫu `/catalog/price-setup` (`/catalog/price-declare`) về rồi
+upload lại thì báo "không tồn tại mã đơn vị tính", trong khi nhập tay ĐVT vẫn lưu được bình thường.
+Điều tra xác nhận: `DownloadTemplateAsync` (`PriceSetupPage.razor`) ghi dòng mẫu hard-code
+(`ItemNo="65000165"`, `UOM="GOI"`) không kiểm chứng với DB — cặp Item+UOM này không tồn tại thật
+trong `dbo.ItemUnitOfMeasure` ở môi trường test, khiến `ValidateImportAsync`
+(`PriceRepository.cs`) JOIN thất bại → trả lỗi. Nhập tay không gặp lỗi vì dropdown ĐVT
+(`GetItemUomsAsync`) chỉ hiển thị các mã có thật cho đúng Item đã chọn — không thể chọn sai "by
+construction". Trong lúc kiểm tra thêm phát hiện bug thứ 2: cột "Giá bán" khi import không có dấu
+phân cách hàng nghìn như khi nhập tay (`LoadImportAsync` gán thẳng chuỗi thô từ Excel, không qua
+`FormatThousands` như ô nhập tay `OnPriceChanged`).
+
+**Thay đổi:**
+- `PriceRepository.cs` (`ValidateImportAsync`): SQL thêm fallback `ISNULL(U.Code,
+  SalesUnitOfMeasure)` cho cột `Uom` trả về + điều kiện lỗi tương ứng — khi không tìm thấy dòng
+  `ItemUnitOfMeasure` khớp chính xác, dùng ĐVT bán mặc định của Item thay vì báo lỗi cứng.
+- `PriceSetupPage.razor` (`LoadImportAsync`): `UnitPrice = FormatThousands(v.UnitPrice)` thay vì
+  gán thẳng `v.UnitPrice ?? string.Empty` — dòng import nay hiển thị `"20,000"` giống hệt dòng nhập
+  tay.
+- `docs/sql/SetupSalePrice_Save.sql`, `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`: rewrite
+  `dbo.Setup_SalePrice_Get_ALL`/`dbo.usp_SetupSalePrice_Save` sang engine set-based MERGE (hàm mới
+  `dbo.tvf_SetupSalePrice_Timeline`) xử lý chồng lấn khoảng ngày hiệu lực (soft-delete + interval
+  split) thay vì gọi SP legacy lồng transaction; thêm filter `IsActive`/tombstone
+  (`YEAR(EndingDate)<>7777`) + `ORDER BY Counter DESC` khi tra Pkey cho Sửa/Xóa giá.
+
+**Lưu ý cho session sau:** file mẫu Excel vẫn còn dòng ví dụ hard-code (`65000165`/`GOI`) chưa sửa
+— nếu Item+UOM đó không tồn tại ở môi trường khác, round-trip tải-mẫu-rồi-upload-ngay vẫn có thể
+lỗi (đã giảm nhẹ bằng fallback SalesUnitOfMeasure nhưng chưa triệt để). Nên cân nhắc sinh dữ liệu
+mẫu từ query DB thật hoặc để trống ItemNo/UOM ở dòng mẫu trong lần sửa tiếp theo. SP cần chạy tay:
+`docs/sql/SetupSalePrice_Save.sql`, `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`. Verify:
+`dotnet build src/POS.Web/POS.Web.csproj` 0 lỗi.
+
+---
+
+=======
+<<<<<<< HEAD
+>>>>>>> b710abedccea4d1504c654b754030908580c20af
 ## [2026-07-06] Bổ sung check Validity_From_Date cho SAP CheckVoucher
 
 **Layer:** POS.Application
@@ -1765,6 +1862,15 @@ tests/POS.ContractTests` 25/25).
 
 ---
 
+<<<<<<< HEAD
+=======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> dev
+>>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
+>>>>>>> b710abedccea4d1504c654b754030908580c20af
 ## [2026-07-06] FIX: "Duyệt CTKM" publish dữ liệu nháp cũ khi chưa Lưu tạm lại
 
 **Layer:** POS.Web
@@ -1805,6 +1911,48 @@ dùng tự test lại theo đúng kịch bản đã gặp bug).
 
 ---
 
+<<<<<<< HEAD
+=======
+## [2026-07-06] Danh mục Bảng giá (9.1) — cột Hình thức/Trạng thái, filter combobox, fix bug Sửa/Xóa sai dòng
+
+**Layer:** POS.Web, POS.Common, POS.Infrastructure + SQL
+**Loại:** Feature + Bug fix
+
+**Thay đổi:**
+- `PricesPage.razor`: ẩn cột Site; đổi label "Vùng giá"→"Nhóm giá"; thêm cột **"Hình thức"** (`SaleTypeName`, trước cột "Nhóm giá") + cột **"Trạng thái"** (Hiệu lực/Chưa hiệu lực/Hết hiệu lực — `MudChip` màu, tính client-side từ `StartingDateStr`/`EndingDateStr`); ngày `01/01/9999` hiển thị "Vô thời hạn"; filter Barcode/SalesCode (text tự do) → `MudSelect` "Hình thức bán hàng"/"Nhóm giá" (reuse `PriceService.GetSetupLookupAsync`, không tạo lookup mới); mặc định "Còn hiệu lực" **bỏ check**; format nghìn khi nhập Giá bán (`FormatThousands`, khớp pattern `PriceSetupPage.razor`).
+- **FIX bug Sửa/Xóa giá sai dòng**: SP `GetSalesPriceList`/`_Export` (DBA sửa 2026-07-05→06) đổi trả cột `SalesCode` = **tên** nhóm giá (`PriceGroupName`) thay vì mã — code cũ dùng thẳng field này làm khoá gửi `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**) → luôn báo "Không tìm thấy dữ liệu" khi Code≠Name. Thêm cột mã gốc `SalesGroupCode`/`SalesTypeCode` vào SP (script `docs/sql/GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`), map vào `PriceListItemDto`, sửa `TryBuildKey` dùng field mã thay field hiển thị.
+- **FIX bug thứ 2 phát hiện khi review**: 1 item/uom/nhóm giá/ngày hiệu lực có thể có nhiều dòng khác nhau theo `SalesType` (hình thức bán hàng) — composite PK cũ (ItemNo, SalesCode, StartingDate, UOM) không đủ định vị. Thêm field `PriceRowKey.SalesType` + tham số `@SalesType` vào `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (script `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`).
+- `GetSalesPriceList_Export`: fix thêm 1 bug review-time không liên quan yêu cầu ban đầu — proc tham chiếu sai tên temp table (`#SalsePriceExportTemp` không tồn tại, bảng thật là `#TempSalesPrice`) → nút Xuất Excel sẽ crash runtime nếu không sửa.
+- **Đính chính schema**: `database-schema.md` từng ghi "SalesPrice KHÔNG có Id/IsActive" — SAI. Source thật của `GetSalesPriceList` (`AND S.IsActive = 1`, bắt buộc bất kể `@isCheck`) + bản `usp_SalesPrice_SoftDelete` mới (set `IsActive=0` khi xóa mềm) xác nhận bảng CÓ 2 cột này. Trước bản vá này, xóa mềm chỉ set `EndingDate` năm 7777 mà không set `IsActive=0` → dòng đã xóa có thể vẫn hiển thị khi bỏ check "Còn hiệu lực" (SP luôn yêu cầu `IsActive=1`, không điều kiện theo `@isCheck`).
+- `PriceListDto.cs`: `PriceListItemDto` +`SalesGroupCode`+`SalesTypeCode`; `PriceListFilter` bỏ `Barcode`, `SalesCode`→`SaleType`+`SalesGroup` (mặc định `"ALL"`). `PriceSetupDto.cs`: `PriceRowKey` +`SalesType`. `PriceRepository.cs`: `GetListAsync`/`GetExportListAsync` đổi tham số EXEC theo SP mới + `NormalizeSalesGroup` (dịch UI sentinel `"ALL"`→`""`); `UpdatePriceAsync`/`SoftDeletePriceAsync` truyền thêm `@SalesType`.
+
+**Pattern mới:** SP đổi 1 cột từ mã sang tên hiển thị → luôn thêm cột mã gốc riêng cho composite key (không tái dùng field hiển thị để build khoá Update/Delete). Đã cập nhật `.claude/skills/api/SKILLS.md`.
+
+**Lưu ý cho session sau:** phải chạy đủ 3 script SQL theo thứ tự trước khi test: `GetSalesPriceList_AddSaleType.sql` → `GetSalesPriceList_AddSalesTypeCode.sql` → `SalesPrice_EditDelete_AddSalesType.sql`. Khi 1 SP legacy/tự-quản lý đổi ý nghĩa 1 cột đang dùng làm khoá composite ở nơi khác, luôn rà lại MỌI nơi consume cột đó (không chỉ nơi hiển thị) trước khi merge.
+
+---
+
+## [2026-07-05] Cài đặt giá / Danh mục Bảng giá — Sửa/Xóa giá 9.1, fix lưu SP, format UI, menu
+
+**Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common + SQL
+**Loại:** Feature + Bug fix
+
+**Thay đổi:**
+- `docs/sql/SalesPrice_EditDelete.sql` (MỚI): `usp_SalesPrice_UpdatePrice` (sửa UnitPrice in-place theo composite PK + bump Counter) và `usp_SalesPrice_SoftDelete` (soft-delete = EndingDate năm 7777 + Counter). Bảng `SalesPrice` không có cột `Id` → định vị dòng bằng composite PK `(ItemNo,SalesCode,StartingDate,UOM)`.
+- `PricesPage.razor` (9.1): thêm cột Thao tác — sửa giá inline + xóa (confirm) + `IAuditLogger`.
+- `PriceSetupPage.razor` (9.3): thêm route thứ 2 `/catalog/price-declare`; đổi tiêu đề "Cài đặt giá"; format ô Giá bán khi nhập (thousand sep `,`, căn phải); `.pos-price-grid table{min-width:1040px}` để lưới cuộn ngang, ô ngày không bị bóp.
+- `MainLayout.razor`: menu "Giá bán"→**"Danh mục Bảng giá"** (`/catalog/prices`); thêm "Cài đặt giá" (`/catalog/price-declare`); **ẩn** "Setup giá (Bulk Import)" (`/catalog/price-setup`, route còn).
+- `PriceSetupDto.cs`: +`PriceRowKey`. `IPriceService/PriceService` +`UpdatePriceAsync`/`DeletePriceAsync`. `IPriceRepository/PriceRepository` +`UpdatePriceAsync`/`SoftDeletePriceAsync`.
+- `docs/sql/SetupSalePrice_Save.sql` (FIX): (1) trả kết quả qua **OUTPUT param** `@Ok/@Message` thay vì result set — vì nhánh update `EXEC Setup_SalePrice_Get_ALL` tự SELECT Interface_Errors (+ROLLBACK bên trong → không hứng được bằng INSERT...EXEC), trước đây Dapper `QueryFirstOrDefault` đọc nhầm set rỗng → báo "thất bại" giả khi Pkey đã tồn tại; (2) chuẩn hóa sentinel "vô thời hạn" `9999-12-31 → 9999-01-01` khi INSERT (khớp legacy) để lần cập nhật sau không sinh khoảng "đuôi" thừa. `PriceRepository.SaveAsync` đổi sang `ExecuteAsync` + đọc output param.
+- `FileLogHelper.WriteExpLogs`: ghi `ex.ToString()` (full stack + inner) thay `JsonConvert.SerializeObject(ex)` (dễ ném lỗi → file rỗng).
+
+**Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `database-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
+
+---
+
+>>>>>>> b710abedccea4d1504c654b754030908580c20af
 ## [2026-07-06] Topbar/AppBar breadcrumb + Typography pixel-perfect theo mockup `theme_html.html`
 
 **Layer:** POS.Web
@@ -2033,6 +2181,7 @@ size/family/weight), phải set trên TỪNG variant cần áp dụng — không
 xuống. Còn ~15 page report có inline `font-size` bespoke cho KPI-number/badge (không phải font-
 family) — cố ý chưa đổi vì là tuning riêng từng page, không phải lỗi theme. Chưa xác nhận trực
 quan trên browser thật trong session này (không có công cụ browser) — cần người dùng tự chạy app.
+<<<<<<< HEAD
 
 ---
 
@@ -2072,6 +2221,8 @@ quan trên browser thật trong session này (không có công cụ browser) —
 **Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
 
 **Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `centralMD-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
+=======
+>>>>>>> b710abedccea4d1504c654b754030908580c20af
 
 ---
 

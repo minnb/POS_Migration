@@ -1,0 +1,203 @@
+@page "/catalog/price-groups"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Application.Features.Price
+@using POS.Common.Dtos.Price
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@inject IPriceService PriceService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IAuditLogger AuditLogger
+@inject IFileLogHelper FileLogger
+
+<PageTitle>Danh mục nhóm giá – POS Dashboard</PageTitle>
+
+@* Confirm xóa — khai báo trước mọi markup bao ngoài *@
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton></YesButton>
+</MudMessageBox>
+
+@* ── Header ─────────────────────────────────────────────────────────────── *@
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
+        <MudIcon Icon="@Icons.Material.Filled.Sell" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
+        Danh mục nhóm giá
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenEditorAsync(null))">
+        Thêm mới
+    </MudButton>
+</div>
+
+@* ── Filter bar ──────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.PriceGroupCode" Label="Mã nhóm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          OnKeyDown="OnFilterKeyDown"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.PriceGroupName" Label="Tên nhóm"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          OnKeyDown="OnFilterKeyDown"/>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
+}
+
+@* ── Price group table (server-side) ─────────────────────────────────────── *@
+<MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+          Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="PriceGroupListItemDto">
+    <HeaderContent>
+        <MudTh Style="width:48px">STT</MudTh>
+        <MudTh>Mã nhóm</MudTh>
+        <MudTh Style="width:100%">Tên nhóm</MudTh>
+        <MudTh Style="text-align:right">Độ ưu tiên</MudTh>
+        <MudTh Style="text-align:right">Số cửa hàng</MudTh>
+        <MudTh>Ngày tạo</MudTh>
+        <MudTh Style="width:104px; white-space:nowrap">Thao tác</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="STT">@(_offset + _rows.IndexOf(context) + 1)</MudTd>
+        <MudTd DataLabel="Mã nhóm"><b>@context.PriceGroupCode</b></MudTd>
+        <MudTd DataLabel="Tên nhóm">@context.PriceGroupName</MudTd>
+        <MudTd DataLabel="Độ ưu tiên" Style="text-align:right">@context.Priority</MudTd>
+        <MudTd DataLabel="Số cửa hàng" Style="text-align:right">@context.StoreCount</MudTd>
+        <MudTd DataLabel="Ngày tạo">@context.CreatedDateStr</MudTd>
+        <MudTd DataLabel="Thao tác" Style="white-space:nowrap">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => OpenEditorAsync(context.PriceGroupCode))"/>
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                           OnClick="@(() => DeleteAsync(context))"/>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
+            <MudText Typo="Typo.body2">Không có nhóm giá khớp bộ lọc.</MudText>
+        </div>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Align="Align.Center" Class="pa-4">Đang tải...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private MudTable<PriceGroupListItemDto> _table = null!;
+    private readonly PriceGroupListFilter _filter = new() { PageSize = 10 };
+
+    private List<PriceGroupListItemDto> _rows = [];
+    private int _offset;
+    private string? _errorMsg;
+    private string _actor = "unknown";
+
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState;
+        _actor = state.User.Identity?.Name ?? "unknown";
+    }
+
+    private async Task<TableData<PriceGroupListItemDto>> LoadServerData(TableState state, CancellationToken token)
+    {
+        _filter.PageNumber = state.Page;
+        _filter.PageSize   = state.PageSize;
+        _offset            = state.Page * state.PageSize;
+        try
+        {
+            var (items, total) = await PriceService.GetPriceGroupListAsync(_filter, token);
+            _rows = items;
+            _errorMsg = null;
+            return new TableData<PriceGroupListItemDto> { Items = items, TotalItems = total };
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải danh mục nhóm giá. (Kiểm tra bảng StorePriceGroupHeader)";
+            FileLogger.WriteExpLogs("PriceGroupsPage.Load", ex);
+            _rows = [];
+            return new TableData<PriceGroupListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task OnFilterKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter") await SearchAsync();
+    }
+
+    private async Task SearchAsync() => await _table.ReloadServerData();
+
+    private async Task ClearFilterAsync()
+    {
+        _filter.PriceGroupCode = null;
+        _filter.PriceGroupName = null;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OpenEditorAsync(string? priceGroupCode)
+    {
+        var parameters = new DialogParameters<PriceGroupSetupDialog>
+        {
+            { x => x.EditPriceGroupCode, priceGroupCode }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+        var dialog = await DialogService.ShowAsync<PriceGroupSetupDialog>(
+            priceGroupCode == null ? "Thêm nhóm giá" : "Sửa nhóm giá", parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await _table.ReloadServerData();
+    }
+
+    private async Task DeleteAsync(PriceGroupListItemDto row)
+    {
+        _confirmMsg = $"Bạn có chắc muốn xóa nhóm giá [{row.PriceGroupCode}]? Không thể hoàn tác.";
+        var ok = await _confirmBox!.ShowAsync();
+        if (ok != true) return;
+        try
+        {
+            var result = await PriceService.DeletePriceGroupAsync(row.PriceGroupCode, _actor);
+            if (!result.Ok)
+            {
+                Snackbar.Add(result.Message, Severity.Warning);
+                return;
+            }
+            await AuditLogger.LogAsync(_actor, "DELETE", "StorePriceGroup", row.PriceGroupCode,
+                oldValueJson: Newtonsoft.Json.JsonConvert.SerializeObject(row), newValueJson: null);
+            Snackbar.Add(result.Message, Severity.Success);
+            await _table.ReloadServerData();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.WriteExpLogs("PriceGroupsPage.Delete", ex);
+            Snackbar.Add("Xóa nhóm giá thất bại.", Severity.Error);
+        }
+    }
+}

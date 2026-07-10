@@ -14,7 +14,7 @@ USE [RPOSMasterData];
 GO
 
 /* 1) Sửa giá (in-place UnitPrice) ------------------------------------------- */
-ALTER PROCEDURE dbo.usp_SalesPrice_UpdatePrice
+ALTER PROCEDURE [dbo].[usp_SalesPrice_UpdatePrice]
 (
     @ItemNo             nvarchar(20),
     @SalesCode          nvarchar(20),
@@ -42,7 +42,10 @@ BEGIN
           AND SalesCode = @SalesCode
           AND UnitOfMeasureCode = @UnitOfMeasureCode
           AND CONVERT(date, StartingDate) = @StartingDate
-          AND (@SalesType = '' OR SalesType = @SalesType);
+          AND (@SalesType = '' OR SalesType = @SalesType)
+		  AND ISNULL(IsActive,1) = 1
+		  AND   YEAR(EndingDate) <> 7777          -- FIX: loại tombstone
+		 ORDER BY Counter DESC;         
 
         IF @Pkey IS NULL
         BEGIN
@@ -111,7 +114,10 @@ BEGIN
           AND SalesCode = @SalesCode
           AND UnitOfMeasureCode = @UnitOfMeasureCode
           AND CONVERT(date, StartingDate) = @StartingDate
-          AND (@SalesType = '' OR SalesType = @SalesType);
+          AND (@SalesType = '' OR SalesType = @SalesType)
+		   AND ISNULL(IsActive,1) = 1
+		  AND   YEAR(EndingDate) <> 7777          -- FIX: loại tombstone
+		 ORDER BY Counter DESC;         
 
         IF @Pkey IS NULL
         BEGIN

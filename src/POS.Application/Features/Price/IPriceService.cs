@@ -39,4 +39,18 @@ public interface IPriceService
 
     /// <summary>9.1 — xóa mềm 1 dòng giá (sentinel năm 7777). Trả (Ok, Message).</summary>
     Task<PriceSaveResult> DeletePriceAsync(PriceRowKey key, string actor, CancellationToken ct = default);
+
+    // ── Danh mục nhóm giá (StorePriceGroupHeader + StorePriceGroup) ──────────────
+    /// <summary>Danh sách nhóm giá + filter + server-side paging.</summary>
+    Task<(List<PriceGroupListItemDto> Items, int Total)> GetPriceGroupListAsync(
+        PriceGroupListFilter filter, CancellationToken ct = default);
+
+    /// <summary>Danh sách cửa hàng đã gán vào 1 nhóm giá.</summary>
+    Task<List<PriceGroupStoreItemDto>> GetPriceGroupStoresAsync(string priceGroupCode, CancellationToken ct = default);
+
+    /// <summary>Lưu (thêm/sửa) nhóm giá + danh sách store (add-only). Validate mã/tên/Priority/≥1 store. Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> SavePriceGroupAsync(PriceGroupSaveRequest request, string actor, CancellationToken ct = default);
+
+    /// <summary>Xóa nhóm giá (chặn nếu đang dùng trong bảng giá). Trả (Ok, Message).</summary>
+    Task<PriceSaveResult> DeletePriceGroupAsync(string priceGroupCode, string actor, CancellationToken ct = default);
 }
