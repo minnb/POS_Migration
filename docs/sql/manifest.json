@@ -49,10 +49,6 @@
       "note": "D6 buoc 1/6. Rebuild bang (Phase B) + sp_rename gian tiep - BAT BUOC backup truoc, cua so bao tri. Chay pre-check trung Code truoc Phase C (query co san trong comment script)." },
     { "order": 620, "file": "Voucher_Read.sql", "target": "CentralMD", "runOnce": false },
     { "order": 630, "file": "Voucher_Save.sql", "target": "CentralMD", "runOnce": false },
-    { "order": 640, "file": "CpnVchBOMCodeIssue_MigrateFromInternalVoucher.sql", "target": "CentralMD", "runOnce": false,
-      "note": "Idempotent (WHERE NOT EXISTS) nen o Track A, NHUNG phu thuoc bang dbo.Internal_Voucher con ton tai. Sau khi Track B order 650 (Internal_Voucher_RenameLegacy.sql) duoc DBA chay, entry nay se LOI moi lan --apply vi bang da doi ten - PHAI XOA entry nay khoi manifest cung luc voi buoc do." },
-    { "order": 650, "file": "Internal_Voucher_RenameLegacy.sql", "target": "CentralMD", "runOnce": true, "phase": "post-deploy",
-      "note": "D6 buoc 6/6. CHI chay SAU KHI smoke-test D6 on dinh (khong chi sau code deploy don thuan) - xem ROLLOUT.md SS D6 buoc 6. Diem khong the quay lai de dang. Sau khi chay: XOA entry order 640 khoi manifest." },
     { "order": 660, "file": "CpnVchBOMCodeIssue_ItemNoHardening.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy",
       "note": "D6.1 buoc 1/4 - PHAI chay dau tien trong nhom D6.1. Khong doi code C#, khong can build lai POS.Api/POS.Web." },
 

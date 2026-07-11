@@ -968,12 +968,16 @@ khung giờ ít traffic SAP/POS):
 **Sau khi deploy code + verify runtime ổn định** (smoke test `CreateNewVoucher`/`CheckVoucher`/
 `redeemCpnVch` trên vài voucher thật, theo dõi log lỗi):
 
-6. `docs/sql/Internal_Voucher_RenameLegacy.sql` — `sp_rename` bảng `Internal_Voucher` thành
+6. ~~`docs/sql/Internal_Voucher_RenameLegacy.sql`~~ — `sp_rename` bảng `Internal_Voucher` thành
    `Internal_Voucher_Legacy`. ⚠️ **ĐIỂM KHÔNG THỂ QUAY LẠI DỄ DÀNG** — sau bước này, rollback code
    về bản cũ sẽ lỗi cứng (bảng không còn tên cũ) thay vì âm thầm ghi nhầm dữ liệu; đây là lựa
    chọn chủ đích (fail loud). Giữ `Internal_Voucher_Legacy` làm backup tạm.
-   - **TODO chưa chốt ngày**: lên lịch `DROP TABLE Internal_Voucher_Legacy` sau khi hệ thống ổn
-     định 2–4 tuần kể từ go-live (theo dõi riêng, không thuộc phạm vi đợt deploy code này).
+   - **✅ HOÀN TẤT 2026-07-11**: đã `DROP TABLE Internal_Voucher_Legacy` trên CentralMD sau thời
+     gian ổn định. Script `Internal_Voucher_RenameLegacy.sql` và
+     `CpnVchBOMCodeIssue_MigrateFromInternalVoucher.sql` đã xóa khỏi `docs/sql/` + entry order
+     640/650 đã xóa khỏi `docs/sql/manifest.json` (không còn tác dụng vì bảng nguồn không còn
+     tồn tại). Xem `docs/architecture/centralMD-schema.md` mục "Voucher / Coupon" — định nghĩa
+     cột `Internal_Voucher` cũ không còn giữ trong tài liệu, tra qua `git log` nếu cần đối chiếu.
 
 ---
 

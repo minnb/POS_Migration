@@ -13,6 +13,42 @@
 > conflict — chỉ prepend entry mới an toàn phía trên, không chạm vào các khối conflict cũ. Người
 > phụ trách cần dọn thủ công khi có dịp.
 
+## [2026-07-11] DROP bảng `Internal_Voucher_Legacy` — dọn tài liệu + script SQL liên quan
+
+**Layer:** POS.Common tài liệu (không đổi code C#/logic runtime — bảng đã hết được tham chiếu từ trước)
+
+**Loại:** Refactor tài liệu (theo sau thao tác hạ tầng DBA đã thực hiện)
+
+**Bối cảnh:** Theo kế hoạch rollout `docs/ROLLOUT.md` §D6 (gộp SAP Voucher vào `CpnVchBOMCodeIssue`),
+bảng `Internal_Voucher` đã được `sp_rename` thành `Internal_Voucher_Legacy` làm backup tạm từ đợt
+go-live trước. User xác nhận đã `DROP TABLE Internal_Voucher_Legacy` trên CentralMD sau thời gian
+ổn định — dọn lại tài liệu/script cho khớp thực tế DB.
+
+**Thay đổi:**
+- `docs/architecture/centralMD-schema.md`: xóa mục định nghĩa cột `### Internal_Voucher —
+  LEGACY/SUPERSEDED`, bỏ khỏi TOC mục "Voucher / Coupon", xóa dòng default-value
+  `Internal_Voucher.CreatedDate`; các chỗ còn nhắc tên bảng (lịch sử `usp_Voucher_Create`/
+  `GetByCode`/`Redeem`, mục `CpnVchBOMCodeIssue`) đã ghi rõ "(bảng đã DROP)".
+- `docs/sql/`: xóa 2 script không còn chạy được vì bảng nguồn đã mất —
+  `Internal_Voucher_RenameLegacy.sql` (rename) và `CpnVchBOMCodeIssue_MigrateFromInternalVoucher.sql`
+  (migrate data từ Internal_Voucher). Không có stored procedure riêng nào cho bảng này (chỉ có
+  `usp_Voucher_*` thao tác trên `CpnVchBOMCodeIssue`) nên không còn gì khác cần xóa.
+- `docs/sql/manifest.json`: xóa entry `order: 640`/`650` tương ứng 2 script trên (đúng theo
+  ghi chú sẵn có trong manifest — "PHẢI XOA entry này khỏi manifest cùng lúc").
+- `docs/ROLLOUT.md` §D6 bước 6: đánh dấu ✅ hoàn tất 2026-07-11, thay TODO "chưa chốt ngày DROP"
+  bằng xác nhận đã DROP thật + trỏ tới các file đã dọn.
+- `docs/CURRENT_STRUCTURE.md`: sửa ghi chú tại `IVoucherCodeRepository` từ "nay LEGACY" thành
+  "đã DROP khỏi CentralMD 2026-07-11".
+
+**Pattern mới:** Không có — đây là dọn tài liệu theo sau 1 thao tác DBA, không phát sinh pattern code.
+
+**Lưu ý cho session sau:** Muốn tra lại cấu trúc cột gốc của `Internal_Voucher` (vd đối chiếu dữ
+liệu cũ) → dùng `git log`/`git blame` trên `docs/architecture/centralMD-schema.md` tại thời điểm
+trước 2026-07-11, KHÔNG còn giữ trong tài liệu hiện tại. Chưa verify trực tiếp trên DB thật (sandbox
+không có quyền truy cập SQL Server) — chỉ dựa trên xác nhận của user.
+
+---
+
 ## [2026-07-11] Refactor tài liệu UI `.claude/skills/web/` về chuẩn v3 + fix defect thật
 
 **Layer:** POS.Web (tài liệu skill + comment app.css/reports.md — không đổi logic runtime)

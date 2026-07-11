@@ -325,7 +325,7 @@ src/
         │   ├── ICouponRepository.cs / CouponRepository.cs                   ← 8.1/8.2 Coupon (CentralMD, SP usp_SetupCoupon_* + GetHeaderListAsync→usp_CpnVchBOMHeader_GetList cho master list, Source='COUPON'; IssueMoreAsync→usp_SetupCoupon_IssueMore, thêm lô mã, không guard tồn tại; UpdateBlockedAsync→usp_SetupCoupon_UpdateBlocked, cập nhật riêng Blocked)
         │   ├── IVoucherRepository.cs / VoucherRepository.cs                 ← 8.3 Voucher (CentralMD, SP usp_SetupVoucher_*)
         │   ├── IVoucherPublishedRepository.cs / VoucherPublishedRepository.cs ← 8.4 (CentralSales per-store, reuse SP GetTransCpnVchIssueList)
-        │   └── IVoucherCodeRepository.cs / VoucherCodeRepository.cs         ← SAP Internal Voucher real-time (CentralMD, SP usp_Voucher_*, CpnVchBOMCodeIssue Source='SAP'; thay ISAPVoucherRepository/bảng Internal_Voucher cũ, nay LEGACY)
+        │   └── IVoucherCodeRepository.cs / VoucherCodeRepository.cs         ← SAP Internal Voucher real-time (CentralMD, SP usp_Voucher_*, CpnVchBOMCodeIssue Source='SAP'; thay ISAPVoucherRepository/bảng Internal_Voucher cũ, đã DROP khỏi CentralMD 2026-07-11)
         ├── Price/                          ← 9.1/9.3 Bảng giá + Danh mục nhóm giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete; Danh mục nhóm giá qua usp_StorePriceGroup_Save/_Delete (StorePriceGroupHeader + StorePriceGroup)
         └── DataSync/

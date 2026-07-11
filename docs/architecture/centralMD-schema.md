@@ -43,7 +43,7 @@
 | [Sales Price](#sales-price) | SalesPrice, SalesPriceRange, SalesPriceRate, SalesOrderType, SalesOrderTypeByStore |
 | [Promotion / Offer](#promotion--offer) | OfferHeader, OfferBuy, OfferGet, OfferBenefits, OfferMaxQuantity, OfferPriority, OfferRetrict, OfferSite, OfferType, SetupPromotionBUY, SetupPromotionGET, SetupPromotionHEADER, SetupPromotionSITE, ItemDiscount, ItemDiscountMember, MMLItemDiscount, MMLSchemeHeader, MMLSchemeItem, MMLSchemeResponse, SpecialComboHeader, SpecialComboLine, SpecialComboStore |
 | [Bank & Payment](#bank--payment) | Bank, BankCardType, BankDiscount, BankDiscountItem, BankDiscountStore, TenderType, TenderTypeConfig, TenderTypeImage, TenderTypeSetup, PaymentMethodQRCode, MappingQRCode |
-| [Voucher / Coupon](#voucher--coupon) | CpnVchBOMHeader, CpnVchBOMCodeIssue (dùng chung Coupon+SAP Voucher, xem cột `Source`), CpnVchBOMIssueRule, CpnVchBOMLine, CpnVchBOMQuota, CpnVchBOMStore, CpnVchCodeSend, Internal_Voucher (⚠️ LEGACY — xem CpnVchBOMCodeIssue), RewardCode, RewardCodeSend, RewardHeader, WinCodeHeader, WinCodeStore, WinCodeCustomer |
+| [Voucher / Coupon](#voucher--coupon) | CpnVchBOMHeader, CpnVchBOMCodeIssue (dùng chung Coupon+SAP Voucher, xem cột `Source`), CpnVchBOMIssueRule, CpnVchBOMLine, CpnVchBOMQuota, CpnVchBOMStore, CpnVchCodeSend, RewardCode, RewardCodeSend, RewardHeader, WinCodeHeader, WinCodeStore, WinCodeCustomer |
 | [Loyalty / Offline Percent](#loyalty--offline-percent) | CXOfflinePercent, VinIDOfflinePercent, LoyaltyRate |
 | [Staff & User](#staff--user) | Staff, User |
 | [Weight Scale](#weight-scale) | WeightScale_AssortmentItem, WeightScale_AssortmentSite, WeightScale_INGREDIENT, WeightScale_Item_Change, WeightScale_Log, WeightScale_Multimex, WeightScale_PLU_LIST, WeightScale_PLU_PRICE_STORE, WeightScale_Processing |
@@ -1742,7 +1742,7 @@ StoreGroupCode      varchar(50)      NULL
 PK: `ID` IDENTITY(1,1) (`PK_CpnVchBOMCodeIssue`); UNIQUE FILTERED INDEX trên `Code`
 (`UX_CpnVchBOMCodeIssue_Code`, `WHERE Code IS NOT NULL`).
 
-> Từ đợt gộp Internal_Voucher (xem `docs/sql/CpnVchBOMCodeIssue_ExtendSchema.sql`), bảng này
+> Từ đợt gộp Internal_Voucher cũ (xem `docs/sql/CpnVchBOMCodeIssue_ExtendSchema.sql`), bảng này
 > dùng CHUNG cho 3 nguồn dữ liệu, phân biệt bằng cột `Source`:
 > - `Source = 'COUPON'` — mã coupon nội bộ, phát hành hàng loạt qua POS.Web (admin,
 >   `ICouponRepository`/`usp_SetupCoupon_SaveIssue`).
@@ -1751,7 +1751,7 @@ PK: `ID` IDENTITY(1,1) (`PK_CpnVchBOMCodeIssue`); UNIQUE FILTERED INDEX trên `C
 >   khác coupon `C7...`). Voucher **KHÔNG** ghi `CpnVchBOMIssueRule` (giữ tách khỏi coupon trong
 >   `usp_SetupVoucher_GetList`). Điền đủ field redeem (`Status='SOLD'`, `Value`, `VoucherType`...).
 > - `Source = 'SAP'` — voucher SAP tích hợp ERP, real-time qua POS.Api (`IVoucherCodeRepository`/
->   `usp_Voucher_*`). Thay thế bảng `Internal_Voucher` cũ (⚠️ LEGACY, xem mục riêng bên dưới).
+>   `usp_Voucher_*`). Thay thế bảng `Internal_Voucher` cũ (đã DROP khỏi CentralMD — 2026-07-11).
 >
 > **Redeem/check dùng CHUNG cho cả 2 Source** (từ đợt vá `usp_Voucher_GetByCode`/`usp_Voucher_Redeem`
 > — 2 SP không còn lọc theo `Source`, vì `Code` đã unique toàn bảng): mã coupon phát hành từ
@@ -1857,34 +1857,11 @@ CreatedDate     datetime        NULL
 PhoneNumber     varchar(12)     NULL
 ```
 
-### Internal_Voucher — ⚠️ LEGACY/SUPERSEDED
-> Đã được thay thế bởi `CpnVchBOMCodeIssue` (cột `Source='SAP'`) + `IVoucherCodeRepository`/
-> `usp_Voucher_*`. Sau go-live, bảng này được `sp_rename` thành `Internal_Voucher_Legacy`
-> (xem `docs/sql/Internal_Voucher_RenameLegacy.sql`) và giữ lại tạm thời làm backup — không còn
-> code nào trong solution ghi/đọc bảng này. Giữ định nghĩa cột dưới đây để tra cứu lịch sử/đối
-> chiếu dữ liệu migrate. Lên lịch DROP hẳn sau 2-4 tuần ổn định (xem `docs/ROLLOUT.md` §D6).
-
-PK: `ID` identity (`PK_Internal_Voucher`)
-```
-ID                    int identity(1,1)  NOT NULL   -- PK
-VoucherNumber         varchar(50)        NOT NULL
-Status                varchar(20)        NULL
-Return                int                NULL
-ActicleNo             varchar(50)        NULL
-ActicleType           varchar(20)        NULL
-Value                 decimal(18,2)      NULL
-Voucher_Currency      varchar(10)        NULL
-Validity_From_Date    date               NULL
-Expiry_Date           date               NULL
-CompanyCode           varchar(20)        NULL
-Partner               varchar(50)        NULL
-IsEmployee            bit                NULL
-PhoneNumber           varchar(20)        NULL
-VoucherType           varchar(50)        NULL
-CreatedDate           datetime           NULL   -- default getdate()
-AmountUsed            decimal(18,2)      NULL
-OrderUsed             nvarchar(50)       NULL
-```
+> **`Internal_Voucher`/`Internal_Voucher_Legacy` đã bị DROP khỏi CentralMD (2026-07-11)** — bảng
+> này từng là nguồn SAP voucher trước khi gộp vào `CpnVchBOMCodeIssue` (cột `Source='SAP'`), đã
+> `sp_rename` thành `Internal_Voucher_Legacy` làm backup tạm rồi DROP hẳn sau thời gian ổn định
+> theo kế hoạch `docs/ROLLOUT.md` §D6. Không còn định nghĩa cột trong tài liệu này (tra lịch sử
+> qua `git log`/`git blame` file này nếu cần đối chiếu cấu trúc cột cũ).
 
 ### RewardCode
 PK: (none)
@@ -2593,7 +2570,6 @@ Pkey            varchar(50)     NULL
 | `DashboardAuditLog.ActedAt` | `sysutcdatetime()` |
 | `DashboardUsers.IsActive` | `1` |
 | `DashboardUsers.CreatedAt` / `UpdatedAt` | `getdate()` |
-| `Internal_Voucher.CreatedDate` | `getdate()` |
 | `Item.Counter` | `0` |
 | `Item.Pkey` | `''` |
 | `MasterDataDownloadLog.FileSizeBytes` / `DurationMs` | `0` |
@@ -3016,7 +2992,7 @@ lỗi nghiệp vụ rõ ràng (tránh vi phạm `UX_CpnVchBOMCodeIssue_Code` b�
 tránh trả nhầm dữ liệu Coupon làm voucher SAP). Luôn `SELECT` lại đúng 1 dòng hiện tại từ DB để
 trả về (dù vừa tạo hay đã có sẵn). Đòi hỏi `ItemNo` đã mở rộng `varchar(50)` — xem
 `docs/sql/CpnVchBOMCodeIssue_ItemNoHardening.sql` (PHẢI chạy trước). Script: `docs/sql/Voucher_Save.sql`.
-Thay thế `Internal_Voucher.InsertAsync` cũ.
+Thay thế `Internal_Voucher.InsertAsync` cũ (bảng đã DROP — xem mục "Voucher / Coupon" phía trên).
 
 ### usp_Voucher_GetByCode
 ```
@@ -3025,7 +3001,7 @@ Thay thế `Internal_Voucher.InsertAsync` cũ.
 Tra 1 voucher/coupon theo `Code` trong `CpnVchBOMCodeIssue` — **không lọc theo `Source`** (`Code`
 đã unique toàn bảng), nên nhận diện được cả mã Coupon (POS.Web phát hành) lẫn voucher SAP. Format
 `Validity_From_Date`/`Expiry_Date` kiểu `dd/MM/yyyy`. Script: `docs/sql/Voucher_Read.sql`. Thay
-thế `Internal_Voucher.GetByVoucherNumberAsync` cũ.
+thế `Internal_Voucher.GetByVoucherNumberAsync` cũ (bảng đã DROP).
 
 ### usp_Voucher_Redeem
 ```
@@ -3040,7 +3016,8 @@ UNKNOWN) → UPDATE `Status='RDM', AmountUsed, OrderUsed, Enabled=0`. `Enabled=0
 đồng bộ hiển thị "Locked" ở `usp_SetupCoupon_GetCodes` (POS.Web) khi mã bị redeem qua POS.Api.
 Trả 2 result set: `(Success, Message)` rồi danh sách voucher sau khi cập nhật (rỗng nếu thất
 bại). Lỗi nghiệp vụ KHÔNG throw (trả `Success=0` + message tiếng Việt); chỉ lỗi hệ thống mới
-`THROW`. Script: `docs/sql/Voucher_Save.sql`. Thay thế `Internal_Voucher.RedeemVouchersAsync` cũ.
+`THROW`. Script: `docs/sql/Voucher_Save.sql`. Thay thế `Internal_Voucher.RedeemVouchersAsync` cũ
+(bảng đã DROP).
 
 ---
 
