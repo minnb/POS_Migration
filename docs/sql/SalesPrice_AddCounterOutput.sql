@@ -26,7 +26,7 @@ USE [RPOSMasterData];
 GO
 
 /* 1) usp_SetupSalePrice_Save ------------------------------------------------ */
-ALTER PROCEDURE dbo.usp_SetupSalePrice_Save
+CREATE OR ALTER PROCEDURE dbo.usp_SetupSalePrice_Save
 (
     @Lines      dbo.SetupSalePriceLineTVP READONLY,
     @Actor      nvarchar(200)  = NULL,
@@ -94,7 +94,7 @@ END
 GO
 
 /* 2) usp_SalesPrice_UpdatePrice ---------------------------------------------- */
-ALTER PROCEDURE dbo.usp_SalesPrice_UpdatePrice
+CREATE OR ALTER PROCEDURE dbo.usp_SalesPrice_UpdatePrice
 (
     @ItemNo             nvarchar(20),
     @SalesCode          nvarchar(20),
@@ -162,7 +162,7 @@ END
 GO
 
 /* 3) usp_SalesPrice_SoftDelete ------------------------------------------------ */
-ALTER PROCEDURE [dbo].[usp_SalesPrice_SoftDelete]
+CREATE OR ALTER PROCEDURE [dbo].[usp_SalesPrice_SoftDelete]
 (
     @ItemNo             nvarchar(20),
     @SalesCode          nvarchar(20),

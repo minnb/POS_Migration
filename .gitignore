@@ -50,6 +50,11 @@ project.lock.json
 *.config
 artifacts/
 
+# Ngoại lệ — file .json này PHẢI được commit (nguồn sự thật thứ tự/phân loại script SQL,
+# xem docs/ROLLOUT.md §D0). Rule "*.json" ở trên chỉ chặn ĐƯỢC file .json MỚI chưa track —
+# các appsettings*.json hiện có track bình thường vì đã add trước khi có rule này.
+!docs/sql/manifest.json
+
 *_i.c
 *_p.c
 *_i.h

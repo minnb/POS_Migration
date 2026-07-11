@@ -10,4 +10,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/POS.ContractTests/POS.ContractTests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/POS.DbMigrator/POS.DbMigrator.csproj" />
+  </Folder>
 </Solution>

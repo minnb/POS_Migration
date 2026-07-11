@@ -14,6 +14,13 @@ public interface ISyncRepository
     Task<List<SyncTableInfo>> GetSyncTablesAsync(string isChange = "A", CancellationToken ct = default);
 
     /// <summary>
+    /// SP1 [SyncTable_Get] — KHÔNG qua Redis cache (khác <see cref="GetSyncTablesAsync"/>), dùng cho
+    /// worker cần đọc POSLastCounter mới nhất ngay lập tức để phát hiện thay đổi (MasterDataZipGeneratorWorker,
+    /// isChange="C"). Cache 1h của GetSyncTablesAsync sẽ làm việc phát hiện thay đổi bị trễ tới 1 giờ.
+    /// </summary>
+    Task<List<SyncTableInfo>> GetSyncTableCountersAsync(string isChange = "A", CancellationToken ct = default);
+
+    /// <summary>
     /// SP2 [SyncGetDataByTable] — STREAM SqlDataReader (SequentialAccess) ghi ra một hoặc nhiều file .txt
     /// dạng JSON envelope SyncTableList { ..., Data:[rows] }. KHÔNG nạp DataTable/RAM.
     /// Cứ <paramref name="batchSize"/> dòng tách 1 file mới (batchSize &lt;= 0 → không tách, 1 file).

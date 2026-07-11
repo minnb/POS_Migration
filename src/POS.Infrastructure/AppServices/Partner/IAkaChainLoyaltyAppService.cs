@@ -22,4 +22,6 @@ public interface IAkaChainLoyaltyAppService
 
     /// <summary>Kiểm tra coupon trước khi apply vào hoá đơn.</summary>
     Task<ResultResponse> CheckCouponAsync(CheckVoucherPartnerPOSRequest model);
+
+    Task<ResultResponse> RegisterMemberAsync(RegisterMemberDto model);
 }

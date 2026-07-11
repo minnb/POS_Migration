@@ -70,7 +70,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-ALTER PROCEDURE [dbo].[usp_SetupSalePrice_Save]
+CREATE OR ALTER PROCEDURE [dbo].[usp_SetupSalePrice_Save]
 (
     @Lines   dbo.SetupSalePriceLineTVP READONLY,
     @Actor   nvarchar(200)  = NULL,
@@ -100,7 +100,7 @@ BEGIN
         );
 
         /* 4a) INSERT các Pkey CHƯA tồn tại (transaction riêng) */
-        BEGIN TRAN;a
+        BEGIN TRAN;
             DECLARE @maxCounter bigint =
                 ISNULL((SELECT MAX(Counter) FROM dbo.SalesPrice WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
 
@@ -140,7 +140,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-ALTER PROC [dbo].[Setup_SalePrice_Get_ALL]
+CREATE OR ALTER PROCEDURE [dbo].[Setup_SalePrice_Get_ALL]
 (
     @Json     nvarchar(max) = '',
     @IsInsert bit = 1

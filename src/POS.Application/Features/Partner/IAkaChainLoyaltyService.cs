@@ -10,4 +10,5 @@ public interface IAkaChainLoyaltyService
     Task<ResultResponse> AddTransactionAsync(VinIDSalesRequest model);
     Task<ResultResponse> ReturnTransactionAsync(VinIDRefundRequest model);
     Task<ResultResponse> CheckCouponAsync(CheckVoucherPartnerPOSRequest model);
+    Task<ResultResponse> RegisterMemberAsync(RegisterMemberDto model);
 }

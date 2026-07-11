@@ -194,6 +194,65 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
   `UpdatePOSDataSetupAsync` (bảng `POSDataSetup`) hiện **không bump cột `Counter`** — nếu sau này
   rollout Track tới các bảng này, phải quyết định có thêm bump Counter trước hay không.
 
+## Worker sinh zip theo watermark + quarantine (`MasterDataZipGeneratorWorker`, 2026-07-10)
+
+> Tiêu thụ tín hiệu `POSLastCounter` ở mục trên — trước đây không có gì đọc giá trị này để tự động
+> trigger sinh zip; worker này là consumer đầu tiên.
+
+- **Vị trí**: `POS.Worker/Workers/{MasterDataZipGeneratorWorker,MasterDataZipGeneratorOptions}.cs`
+  (namespace `POS.Worker.Workers`, khác `POS.Infrastructure.Workers`) — **phải** đặt ở `POS.Worker`
+  vì cần `IMasterDataSyncService`/`ISyncDataPosService` (`POS.Application`), mà
+  `POS.Infrastructure` không được reference `POS.Application`.
+- **Đăng ký DI**: `POS.Worker/Program.cs` giờ gọi thêm `AddApplication()` (trước đây chỉ
+  `AddInfrastructure()` — worker không cần HTTP AppServices). `AddHostedService<MasterDataZipGeneratorWorker>()`
+  chỉ khi `WorkerRoles:EnableMasterDataZipGenerator=true` (mặc định `false`, opt-in — xem
+  `docs/ROLLOUT.md`).
+- **Cơ chế phát hiện thay đổi**: mỗi `IntervalSeconds` (mặc định 300s), gọi
+  `ISyncRepository.GetSyncTableCountersAsync("C")` — bản **KHÔNG cache** của `GetSyncTablesAsync`
+  (bản có cache TTL 1h sẽ làm việc phát hiện thay đổi bị trễ tới 1 giờ). `@IsChange='C'` chỉ trả
+  bảng `SyncTableList.IsOnlyChange=1` — DBA phải tự `UPDATE` cột này cho bảng cần theo dõi, nếu
+  không worker luôn nhận 0 dòng và không làm gì (không phải lỗi code).
+- **Watermark**: Redis Hash `Worker:Watermark:MasterDataZip` (field = `TableName`, value =
+  `POSLastCounter` đã ACK). Lần chạy đầu (`KeyExistsAsync` false) → seed toàn bộ counter hiện tại
+  rồi bỏ qua generate (`SeedWatermarkOnFirstRun`, mặc định true) — tránh full-regen ngay khi worker
+  mới bật lần đầu. `HashGetAllAsync` trả dict rỗng dù key tồn tại → coi là lỗi đọc Redis (không
+  phân biệt được với "hash rỗng thật" vì `RedisManager` nuốt exception), bỏ qua lượt, KHÔNG ACK.
+- **Regen path**: tái dùng chính xác luồng "Đồng bộ dữ liệu" của `PosMapPage.razor` — thêm
+  `ISyncDataPosService.PushMasterDataChangeAsync(siteCode, posTerminal)`, giống
+  `PushStartOfDayDataAsync` nhưng `IsChangeMode="C"` (chỉ bảng đã đổi) và `ForceRegenerate=true`
+  (`GetMasterDataFileRequest.ForceRegenerate`, mới) — bỏ qua short-circuit "đã có zip hợp lệ hôm
+  nay" trong `MasterDataSyncService.EnsureMasterDataFileAsync` (short-circuit đó vốn đã gần như
+  dead code vì tên zip nhúng mili-giây hiện tại, nhưng thêm cờ tường minh để không phụ thuộc vào
+  hành vi ngẫu nhiên đó).
+- **Phạm vi generate**: mọi `POSTerminal.Status=1` (`ICentralMDRepository.GetPosTerminalListAsync(storeNo: null)`
+  rồi filter `IsEnabled`), xử lý song song qua `Parallel.ForEachAsync` (`MaxParallelTerminals`,
+  mặc định 4).
+- **Quarantine pattern** (Redis Hash `Worker:Quarantine:MasterDataZip`, field = `{StoreNo}:{No}`,
+  value = số lần lỗi liên tiếp): terminal lỗi đạt `QuarantineThreshold` (mặc định 3) → các lượt sau
+  **bỏ qua hẳn** terminal đó (không thử, chỉ log Warning), tránh 1 terminal hỏng vĩnh viễn (sai
+  path, kẹt lock...) chặn watermark của toàn bộ fleet. Thành công → xóa field quarantine (reset về
+  0). `MasterDataThrottleException` (throttle cụm — tài nguyên chung, không phải lỗi riêng
+  terminal) **không** tính vào quarantine.
+- **ACK watermark**: chỉ tịnh tiến khi **mọi terminal đã thử trong lượt này** (không tính terminal
+  bị quarantine bỏ qua từ đầu) đều thành công — `POSLastCounter` là 1 giá trị global/bảng, không
+  thể "ACK một phần". Có lỗi → watermark giữ nguyên, lượt sau tự retry đúng các bảng đã đổi.
+- **Gap đã biết, chấp nhận có chủ đích**: khi 1 terminal bị quarantine rồi được gỡ thủ công (`HDEL
+  Worker:Quarantine:MasterDataZip {store}:{terminal}` sau khi sửa nguyên nhân gốc), watermark có
+  thể đã tịnh tiến qua nó trong lúc bị quarantine → terminal đó có thể thiếu dữ liệu của những lần
+  đổi đã bỏ lỡ. Khắc phục: sau khi gỡ quarantine, vận hành **phải** bấm lại nút "Đồng bộ dữ liệu"
+  (`PushStartOfDayDataAsync`, full resync không phụ thuộc watermark) cho đúng terminal đó — không
+  cần code mới, đây là cơ chế full-resync có sẵn.
+- **Heartbeat**: `Worker:Heartbeat:MasterDataZipGenerator` (JSON `WorkerHeartbeat`, tái dùng DTO có
+  sẵn), `Status`="Running"/"Degraded" (có terminal lỗi trong lượt)/"Stopped".
+- **Cache Redis liên quan**: `MD:SyncTableList:C` (SP1 cache, dùng bởi `EnsureMasterDataFileAsync`
+  khi generate qua `IsChangeMode="C"` — khác `GetSyncTableCountersAsync` không cache). `DEL
+  MD:SyncTableList:C` sau khi DBA đổi cấu hình `SyncTableList` (tương tự `:A`/`:W` đã có).
+- **Đã KHÔNG sửa** (ngoài phạm vi, thấy khi rà soát code): tên zip nhúng
+  `_{yyyyMMdd}_{HHmmssfff}` (mili-giây hiện tại) khiến short-circuit "đã có zip hợp lệ hôm nay"
+  trong `EnsureMasterDataFileAsync` gần như không bao giờ khớp tên chính xác — nghĩa là daily-
+  refresh idempotency tài liệu ở mục trên có thể không hoạt động như mô tả. Chưa verify trên hệ
+  thống thật.
+
 ## Vị trí file
 
 | Layer | File | Namespace |
@@ -206,7 +265,9 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 | App service | `POS.Application/Features/DataSync/{I}MasterDataSyncService.cs` | `POS.Application.Features.DataSync` |
 | App exception | `POS.Application/Features/DataSync/MasterDataThrottleException.cs` | `POS.Application.Features.DataSync` |
 | Infra throttle | `POS.Infrastructure/Cache/IRedisManager.cs` — `TryAcquireSlotAsync`/`ReleaseSlotAsync` (ZSET+Lua) + `POS.Infrastructure/Redis/IRedisService.cs` thin wrapper | `POS.Infrastructure.Cache` / `POS.Infrastructure.Redis` |
+| Worker | `POS.Worker/Workers/{MasterDataZipGeneratorWorker,MasterDataZipGeneratorOptions}.cs` — poll watermark, generate zip, quarantine terminal lỗi | `POS.Worker.Workers` |
 | Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`, `MaxConcurrentGeneration`, `ThrottleStaleAfterSeconds`) | — |
+| Config | `POS.Worker/appsettings.json` → section `"MasterDataZipGenerator"` (`IntervalSeconds`, `LockTtlMinutes`, `MaxParallelTerminals`, `SeedWatermarkOnFirstRun`, `QuarantineThreshold`) + `"WorkerRoles":"EnableMasterDataZipGenerator"` | — |
 | Config | `appsettings.json` (POS.Api + POS.Web) → section `"SyncTableTracker"` (`FlushIntervalSeconds`, `ChannelCapacity`) | — |
 | DB script | `docs/sql/SyncTableList_AddIsSingleFile.sql` — cột `SyncTableList.IsSingleFile` + SP `[SyncTable_Get]` | CentralMD (áp dụng thủ công) |
 | DB script | `docs/sql/SyncTableList_AddAction.sql` — cột `SyncTableList.Action` + SP `[SyncTable_Get]` (thêm nhánh `@IsChange='W'`) | CentralMD (áp dụng thủ công) |

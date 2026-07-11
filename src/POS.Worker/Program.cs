@@ -1,15 +1,26 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using POS.Application;
 using POS.Infrastructure;
 using POS.Infrastructure.Logging;
+using POS.Infrastructure.Security;
 using POS.Infrastructure.Workers;
+using POS.Worker.Workers;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// ── Giải mã credentials đã mã hóa (enc:...) — PHẢI trước AddInfrastructure ──
+// Logic dùng chung ở POS.Infrastructure.Security.ConfigurationSecretExtensions
+// (chung cho POS.Api / POS.Web / POS.Worker — tránh copy-paste).
+builder.Configuration.DecryptEncryptedSecrets();
+
 builder.AddSerilogWithElastic();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();
 builder.Services.AddSingleton<WorkerHealthState>();
 builder.Services.AddSingleton<PosFileImportService>();
+builder.Services.Configure<MasterDataZipGeneratorOptions>(
+    builder.Configuration.GetSection(MasterDataZipGeneratorOptions.SectionName));
 
 var roles = builder.Configuration.GetSection(WorkerRolesOptions.SectionName).Get<WorkerRolesOptions>()
             ?? new WorkerRolesOptions();
@@ -26,6 +37,7 @@ if (!runOnce)
     if (roles.EnableRabbitMQConsumer) builder.Services.AddHostedService<PosSalesConsumerWorker>();
     if (roles.EnableSqlReportWorker) builder.Services.AddHostedService<Rpt_ReportSaleDetail_Insert>();
     if (roles.EnableHeartbeat) builder.Services.AddHostedService<WorkerHeartbeatService>();
+    if (roles.EnableMasterDataZipGenerator) builder.Services.AddHostedService<MasterDataZipGeneratorWorker>();
 }
 
 var host = builder.Build();

@@ -32,7 +32,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROC [dbo].[GetPromotionOfferHeaderList]
+CREATE OR ALTER PROCEDURE [dbo].[GetPromotionOfferHeaderList]
 (
 	@No				nvarchar(20)='',
 	@Description	nvarchar(250)='',

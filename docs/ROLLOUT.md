@@ -19,6 +19,7 @@
 | O5 | Bật lại `PosApiKeyMiddleware` — scheme mới (POS.Api) | Mã hóa `POSDataSetup.Value` (`Code='X-API'`) bằng `SecretProtector` (khuyến nghị) + đảm bảo **MỌI POS đã update firmware gửi đủ 4 header mới** trước khi deploy (cutover, không dual-mode) | CRITICAL (breaking change cho toàn bộ 5.000 POS) | [§O5](#o5--bật-lại-posapikeymiddleware-scheme-mới-posapi) |
 | O6 | Log Retention Policy (POS.Api, POS.Web, POS.Worker) | Xác nhận/điều chỉnh `LogRetention:SerilogRetainedFileCountLimit` + `RawLogRetentionDays` theo dung lượng ổ đĩa thực tế của từng server trước khi deploy `appsettings.Production.json` | MEDIUM | [§O6](#o6--log-retention-policy-posapi-posweb-posworker) |
 | O7 | Fix WebSocket SignalR bị rớt qua subdomain HTTPS (POS.Web) | Vá tầng SSL vhost NGOÀI (không nằm trong repo) thêm `proxy_http_version 1.1` + `Upgrade`/`Connection` header cho mọi request tới POS.Web, đối chiếu bằng `nginx -T` trên server thật | CRITICAL (khi POS.Web chạy sau ≥2 tầng reverse proxy qua subdomain) | [§O7](#o7--fix-websocket-signalr-bị-rớt-qua-subdomain-https-posweb) |
+| D0 | Chạy `POS.DbMigrator` (tự động hóa D1–D12/O1/O1b) | `--verify` → xử lý Track B còn thiếu → `--whatif` → `--apply` trước khi start container | REQUIRED (mọi lần deploy có đổi SQL) | [§D0](#d0--chạy-posdbmigrator-tự-động-hóa-sql) |
 | D1 | SP Cài đặt CTKM (11.1) | Chạy 2 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/setup`) | [§D1](#d1--stored-procedures-cài-đặt-ctkm-111) |
 | D1b | SP + bảng Nhóm sản phẩm / Nhóm cửa hàng (modal Cài đặt CTKM) | Chạy `docs/sql/SetupGroupItem_CreateTable.sql` (nếu bảng `dbo.SetupGroupItem` chưa có) rồi `docs/sql/SetupGroupItem_Save.sql` + `docs/sql/SetupGroupSite_Save.sql` trên CentralMD | REQUIRED (cho modal "Cài đặt nhóm sản phẩm/cửa hàng" tại `/promotion/setup`) | [§D1b](#d1b--sp--bảng-nhóm-sản-phẩmnhóm-cửa-hàng) |
 | D2 | SP Special Combo (11.2) | Chạy 3 script SQL tạo SP trên CentralMD | REQUIRED (cho `/promotion/special-combo`) | [§D2](#d2--stored-procedures-special-combo-112) |
@@ -34,14 +35,16 @@
 | O1b | Action linh động theo bảng (Sync Master Data) | Chạy `docs/sql/SyncTableList_AddAction.sql` trên CentralMD (thêm cột `SyncTableList.Action` + nhánh SP `@IsChange='W'`) trước khi deploy code mới | REQUIRED (cho `GetFileFromFTP` typeSync=ALL + nút "Đồng bộ" PosMapPage) | [§O1](#o1--sinh-file-master-data-zip-cho-pos-posapi) |
 | D11 | Cột `NUMOFDAYSLIST` — chọn nhiều ngày áp dụng CTKM trong tháng | Chạy `docs/sql/SetupPromotion_AddNumOfDaysList.sql` (ALTER TABLE thêm cột) rồi chạy lại `docs/sql/SetupPromotion_Save.sql` (đã thêm `@NumOfDaysList`) trên CentralMD, ĐÚNG THỨ TỰ | REQUIRED (cho tab "Cài đặt nâng cao" tại `/promotion/setup`) | [§D11](#d11--cột-numofdayslist--chọn-nhiều-ngày-áp-dụng-ctkm-trong-tháng) |
 | D12 | SP `GetPromotionOfferHeaderList` — filter theo ngày + fix trùng dòng | Chạy `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql` VÀ `docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql` trên CentralMD (độc lập thứ tự, cả 2 đều `ALTER PROC` toàn SP) | REQUIRED (cho filter "Từ ngày" + tránh trùng dòng theo site tại `/promotion/offers`) | [§D12](#d12--sp-getpromotionofferheaderlist--filter-theo-ngày--fix-trùng-dòng-danh-mục-khuyến-mãi) |
+| O8 | `MasterDataZipGeneratorWorker` (POS.Worker) — mới, mặc định TẮT | Đặt `AppSettings:FtpRootPath` (POS.Worker) trỏ đúng thư mục ghi được + DBA `UPDATE SyncTableList SET IsOnlyChange=1` cho bảng cần theo dõi + chỉ bật `WorkerRoles:EnableMasterDataZipGenerator=true` sau khi đã kiểm tra | MEDIUM (opt-in, không ảnh hưởng nếu chưa bật) | [§O8](#o8--masterdatazipgeneratorworker-sinh-zip-theo-watermark-posworker) |
 
 ---
 
 ## C4 — Mã hóa credentials trong appsettings
 
 > Mã hóa password DB/RabbitMQ trong `appsettings.Production.json` bằng AES-256-GCM.
-> Cơ chế đã build sẵn (`SecretProtector` + hook giải mã trong `Program.cs` + trang `/admin/encrypt-secret`
-> của POS.Web) — **áp dụng cho CẢ POS.Api và POS.Web**, dùng chung 1 khóa `POS_SECRET_KEY`.
+> Cơ chế đã build sẵn (`SecretProtector` + extension chung `ConfigurationSecretExtensions.DecryptEncryptedSecrets()`
+> gọi trong `Program.cs` + trang `/admin/encrypt-secret` của POS.Web) — **áp dụng cho CẢ POS.Api, POS.Web
+> và POS.Worker** (2026-07-10), dùng chung 1 khóa `POS_SECRET_KEY`.
 > Việc rollout do **người vận hành** thực hiện vì cần khóa bí mật — Claude không giữ khóa, không thay password thật.
 
 ---
@@ -56,8 +59,11 @@
 - **Khóa KHÔNG bao giờ vào git.** Khóa nằm ở `.env` (đã `.gitignore`) hoặc env của host.
   Ciphertext `enc:...` nằm trong `appsettings.Production.json` — an toàn để commit.
 - **Giữ khóa cẩn thận.** Mất khóa = không giải mã được → phải dán lại plaintext rồi mã hóa bằng khóa mới.
-- **Phạm vi:** hook wired trong **cả POS.Api và POS.Web** (`Program.cs` mỗi project), đọc chung env
-  `POS_SECRET_KEY`. **POS.Worker** vẫn plaintext — ngoài phạm vi bước này (chưa có hook).
+- **Phạm vi:** hook wired trong **cả POS.Api, POS.Web và POS.Worker** (`Program.cs` mỗi project, gọi
+  `builder.Configuration.DecryptEncryptedSecrets()`), đọc chung env `POS_SECRET_KEY`.
+  **POS.Worker** (2026-07-10) đã tích hợp cùng cơ chế: nếu mã hóa `src/POS.Worker/appsettings.Production.json`
+  thì môi trường chạy Worker (container `pos-worker` / cronjob host) **phải** có `POS_SECRET_KEY` giống
+  Api/Web; còn để plaintext thì hook no-op (Worker vẫn chạy, không cần khóa).
 - **Lưu ý naming:** service `webapp` trong `docker-compose.yml` (root) thực chất build/chạy **POS.Api**
   (tên service gây nhầm lẫn, giữ nguyên lịch sử) — không phải POS.Web. POS.Web không có trong compose
   này, deploy riêng qua `docker run` (xem `docs/guide-deploy.md`).
@@ -128,7 +134,8 @@ docker compose up -d
 (hoặc `docker run` lại từng container theo `docs/guide-deploy.md` nếu deploy UAT/PROD thật)
 - ✅ POS.Api: `curl http://127.0.0.1:5001/health` → `"healthy"` (DB/Redis/RabbitMQ kết nối OK sau giải mã).
 - ✅ POS.Web: app lên, đăng nhập + dashboard có dữ liệu → DB/RabbitMQ kết nối OK.
-- 🔒 **Test fail-safe (cả 2 service):** tạm xóa `POS_SECRET_KEY` khỏi `.env`/container env rồi restart →
+- 🔒 **Test fail-safe (mọi service đã mã hóa — Api/Web, và Worker nếu đã mã hóa file Production):**
+  tạm xóa `POS_SECRET_KEY` khỏi `.env`/container env rồi restart →
   app **phải báo lỗi khởi động rõ ràng** (`"Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu ... POS_SECRET_KEY"`).
   Đặt khóa lại → chạy bình thường.
 
@@ -405,6 +412,82 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 
 ---
 
+## O8 — `MasterDataZipGeneratorWorker` sinh zip theo watermark (POS.Worker)
+
+> Worker mới (2026-07-10), tiêu thụ tín hiệu `SyncTableList.POSLastCounter` (ghi bất đồng bộ bởi
+> `SyncTableCounterFlushWorker`, xem `.claude/rules/masterdata-sync.md`) để tự động trigger sinh
+> master data `.zip` cho mọi POS terminal đang bật, thay vì chỉ chờ POS tự gọi `GetFileFromFTP`
+> hoặc IT Ops bấm tay nút "Đồng bộ dữ liệu". Mặc định **TẮT** (`WorkerRoles:EnableMasterDataZipGenerator=false`)
+> — an toàn deploy code trước, bật sau khi đã chuẩn bị đủ 3 điều kiện dưới đây.
+
+**Bắt buộc trước khi bật `WorkerRoles:EnableMasterDataZipGenerator=true`:**
+
+0. **⚠️ CRITICAL — Docker (Model B, service `pos-worker` trong `docker-compose.yml`) hiện KHÔNG
+   mount thư mục `ftpbluepos`.** Kiểm tra `docker-compose.yml` (`services.pos-worker.volumes`):
+   chỉ có `./logs:/app/logs` — không có dòng `-\srv\pos\ftpbluepos:/app/ftpbluepos` như service
+   `webapp` (POS.Api) đang có. Container `pos-worker` chạy `DOTNET_ENVIRONMENT=Production` nên sẽ
+   đọc `AppSettings:FtpRootPath=/srv/pos/ftpbluepos` từ `appsettings.Production.json` — **nhưng
+   path đó bên trong container là thư mục rỗng, ephemeral, KHÔNG liên kết với volume thật mà
+   POS.Api phục vụ**. Nếu chỉ bật `WorkerRoles__EnableMasterDataZipGenerator=true` qua env var mà
+   KHÔNG thêm volume mount, worker khởi động bình thường, không báo lỗi, nhưng zip sinh ra
+   **không bao giờ tới được thư mục POS.Api/POS máy thật đọc được** — lỗi âm thầm, khó phát hiện
+   (khác hẳn trường hợp `FtpRootPath` rỗng đã biết ở mục 1 bên dưới, vì ở đây path KHÔNG rỗng, chỉ
+   là sai chỗ). **Phải thêm dòng mount `- \srv\pos\ftpbluepos:/app/ftpbluepos` (giống `webapp`) vào
+   `services.pos-worker.volumes` trong `docker-compose.yml` TRƯỚC KHI bật cờ này qua Docker** — đây
+   là thay đổi hạ tầng, cần người vận hành xác nhận/thực hiện, KHÔNG tự động sinh ra bởi appsettings
+   sync. Nếu chạy Model A (`--run-once`, cron host) thay vì Model B thì không bị ảnh hưởng bởi gap
+   này — nhưng lưu ý Model A **không đăng ký `IHostedService` nào cả** (xem `POS.Worker/Program.cs`),
+   nên `MasterDataZipGeneratorWorker` (một `BackgroundService` dài hạn) **không thể chạy dưới Model
+   A** — bắt buộc phải dùng Model B (hoặc 1 tiến trình `POS.Worker` long-running riêng có mount đúng
+   volume) cho tính năng này.
+1. `POS.Worker/appsettings.{env}.json` → xác nhận `AppSettings:FtpRootPath` trỏ tới thư mục **tồn
+   tại + ghi được** trên host chạy POS.Worker — giống yêu cầu ở §O1/§O3. Nếu bỏ trống, worker âm
+   thầm ghi zip vào thư mục cạnh file thực thi (`AppContext.BaseDirectory/FTPBLUEPOS`) và POS sẽ
+   không bao giờ thấy file. Giá trị đã điền sẵn theo đúng quy ước 2 project kia (`UAT:
+   /app/ftpbluepos`, `Production: /srv/pos/ftpbluepos`) — nhưng xem mục 0 ở trên, path đúng không
+   có nghĩa là container có mount đúng.
+2. DBA chạy trên `CentralMD`:
+   ```sql
+   UPDATE dbo.SyncTableList SET IsOnlyChange = 1 WHERE TableName IN ('Item', 'Barcodes', 'SalesPrice');
+   ```
+   (điều chỉnh danh sách bảng theo nhu cầu thực tế — worker chỉ theo dõi counter của các bảng có cờ
+   này; nếu không bảng nào được đánh dấu, worker luôn nhận 0 dòng và không làm gì, KHÔNG phải lỗi).
+3. Xác nhận `docs/sql/SyncTableList_AddIsSingleFile.sql` và `docs/sql/SyncTableList_AddAction.sql`
+   đã apply trên `CentralMD` (worker dùng lại đúng SP `[SyncTable_Get]`/`EnsureMasterDataFileAsync`
+   của luồng `GetFileFromFTP`/nút "Đồng bộ" — xem §O1/§O3, không có script SQL riêng cho worker
+   này). Sau đó `DEL MD:SyncTableList:C` trên Redis nếu vừa đổi cấu hình `SyncTableList`.
+
+**Cấu hình worker** (`POS.Worker/appsettings.json`, section `"MasterDataZipGenerator"` — giá trị
+mặc định chạy được, chỉ chỉnh nếu cần):
+```json
+"MasterDataZipGenerator": {
+  "IntervalSeconds": 300,
+  "LockTtlMinutes": 30,
+  "MaxParallelTerminals": 4,
+  "SeedWatermarkOnFirstRun": true,
+  "QuarantineThreshold": 3
+}
+```
+- `IntervalSeconds`: chu kỳ poll counter thay đổi.
+- `MaxParallelTerminals`: số terminal generate song song (`Parallel.ForEachAsync`) — cân nhắc cùng
+  `MasterDataSync:MaxConcurrentGeneration` (giới hạn cụm, mặc định 3 lượt) để tránh throttle liên tục.
+- `SeedWatermarkOnFirstRun`: giữ `true` — lần bật đầu tiên chỉ ghi nhận counter hiện tại, KHÔNG
+  full-regen ngay cho toàn bộ fleet.
+- `QuarantineThreshold`: số lần lỗi liên tiếp trước khi 1 terminal bị tạm bỏ qua (xem quarantine bên dưới).
+
+**Vận hành sau khi bật:**
+- Theo dõi `redis-cli GET Worker:Heartbeat:MasterDataZipGenerator` (`Status`="Running"/"Degraded"/"Stopped").
+- Theo dõi `redis-cli HGETALL Worker:Quarantine:MasterDataZip` — terminal xuất hiện ở đây với giá
+  trị ≥ `QuarantineThreshold` nghĩa là đang bị bỏ qua (lỗi liên tiếp, vd sai path/kẹt lock). Sau khi
+  sửa nguyên nhân gốc: `redis-cli HDEL Worker:Quarantine:MasterDataZip {store}:{terminal}`, rồi
+  **bấm lại nút "Đồng bộ dữ liệu"** cho đúng terminal đó trên `/catalog/pos-setup` (§O3) — watermark
+  có thể đã tịnh tiến qua trong lúc terminal bị quarantine nên cần 1 lượt full-resync thủ công để
+  chắc chắn không thiếu dữ liệu (worker watermark-driven không tự biết terminal đã bỏ lỡ gì).
+- Muốn tắt lại: đặt `WorkerRoles:EnableMasterDataZipGenerator=false` rồi restart — không cần dọn
+  Redis key (watermark/quarantine tiếp tục tồn tại, dùng lại được khi bật lại sau này).
+
+---
+
 ## O4 — Log request/response toàn cục (POS.Api)
 
 > `RequestResponseLoggingMiddleware` (`src/POS.Api/Middleware/RequestResponseLoggingMiddleware.cs`)
@@ -515,6 +598,62 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 - **Xác minh sau khi bật**: gọi 1 endpoint bất kỳ (ngoài `/health`, `/swagger`) không có đủ 4
   header mới và không có `Authorization` → phải nhận `401`. Gọi lại với đủ 4 header tính đúng
   công thức → phải qua được middleware (200/lỗi nghiệp vụ bình thường, không phải 401 do auth).
+
+---
+
+## D0 — Chạy `POS.DbMigrator` (tự động hóa SQL)
+
+> **Bối cảnh (2026-07-10)**: trước đây D1–D12 + O1/O1b đòi hỏi DBA nhớ chạy tay từng script SQL —
+> dễ quên (đã phát hiện thực tế 3 file `.sql` chưa từng được đăng ký vào rollout checklist này:
+> `SetupVoucher_IssueMore.sql`, `StorePriceGroup_Save.sql`, `StorePriceGroup_Delete.sql`, và cả
+> nhóm `GetSalesPriceList_Add*`/`SalesPrice_EditDelete*`/`SalesPrice_AddCounterOutput.sql`/
+> `BusinessDay_ConfirmEndDate.sql`/`SyncTableList_BulkUpdateCounter.sql` — chưa từng nằm trong tài
+> liệu này). Từ nay, **`docs/sql/manifest.json`** là nguồn sự thật duy nhất về thứ tự + phân loại
+> toàn bộ 47 script trong `docs/sql/`, và `tools/POS.DbMigrator` (console app, DbUp.SqlServer) tự
+> động chạy phần an toàn.
+
+**2 track, xử lý khác nhau — đọc kỹ trước khi chạy:**
+
+- **Track A** (`runOnce:false` trong manifest — SP/View/Function idempotent): migrator **tự động
+  chạy lại TOÀN BỘ** mỗi lần `--apply` (dùng `NullJournal` của DbUp — không có khái niệm "đã chạy
+  rồi", luôn chạy lại; SQL Server `DROP+CREATE`/`CREATE OR ALTER` là thao tác rẻ, chấp nhận được).
+  Đây chính là cách giải bài toán "quên chạy lại SP đã sửa".
+- **Track B** (`runOnce:true` — rebuild bảng/đảo dữ liệu/`sp_rename`, 6 script rủi ro cao đã liệt
+  kê trong Context ở D6/D6.1/D10/O1/O1b bên dưới): migrator **KHÔNG BAO GIỜ tự chạy**. DBA vẫn phải
+  tự chạy tay theo đúng hướng dẫn từng mục D6/D10/O1/O1b (backup, cửa sổ bảo trì) — sau đó **tự ghi
+  nhận đã chạy** bằng:
+  ```sql
+  INSERT INTO dbo.SchemaVersions (ScriptName, Applied) VALUES ('TenFile.sql', GETDATE());
+  ```
+  (bảng `dbo.SchemaVersions` — cột `ScriptName nvarchar(255)`, `Applied datetime` — là journal
+  chuẩn của DbUp, migrator tự tạo bảng này nếu chưa có).
+
+**Quy trình mỗi lần deploy có đổi SQL:**
+
+```
+1. dotnet tools/POS.DbMigrator/bin/.../POS.DbMigrator.dll --verify --config <appsettings.Production.json>
+   → đọc danh sách Track B CHƯA có dòng tương ứng trong SchemaVersions (theo đúng phase
+     pre-deploy/post-deploy). Đây là câu trả lời cho "còn thiếu script nào".
+2. Nếu có Track B thiếu và THẬT SỰ chưa từng chạy trên môi trường này → chạy tay theo đúng mục
+   D6/D6.1/D10/O1/O1b bên dưới, rồi INSERT xác nhận như trên.
+   Nếu đã từng chạy trước đây (chỉ là SchemaVersions mới tạo lần đầu, chưa có lịch sử) → chỉ cần
+   INSERT xác nhận, KHÔNG chạy lại script (một số Track B không an toàn khi chạy lần 2 — xem cảnh
+   báo trong từng file .sql).
+3. dotnet .../POS.DbMigrator.dll --whatif
+   → xem trước danh sách Track A sẽ chạy lại (luôn là toàn bộ) — không cần kết nối DB.
+4. dotnet .../POS.DbMigrator.dll --apply --config <appsettings.Production.json>
+   → chạy Track A thật. Có content-guard tự quét DDL/DML nguy hiểm trước khi chạy — phát hiện gì
+     bất thường sẽ dừng ngay, không chạy gì (exit code ≠ 0).
+```
+
+Chạy bước 3-4 TRƯỚC khi `docker run`/start container app mới (xem `docs/guide-deploy.md`).
+
+**Thêm script SQL mới**: đăng ký ngay vào `docs/sql/manifest.json` (order + target + runOnce)
+**cùng commit** — `tests/POS.ContractTests/SqlManifestTests.cs` sẽ đỏ nếu quên (đã verify: tạo file
+`.sql` không đăng ký → `dotnet test` FAIL ngay, không cần đợi DBA phát hiện lúc production).
+
+Chi tiết đầy đủ (thiết kế, rủi ro, quyết định kiến trúc): xem lịch sử trong git log / trao đổi lúc
+tạo `tools/POS.DbMigrator`. Không lặp lại nội dung đó ở đây — mục này chỉ là hướng dẫn thao tác.
 
 ---
 

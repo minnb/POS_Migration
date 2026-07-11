@@ -304,6 +304,42 @@ public sealed class SyncDataPosService(
         return result;
     }
 
+    public async Task<GetMasterDataFileResult> PushMasterDataChangeAsync(
+        string siteCode, string posTerminal, CancellationToken ct = default)
+    {
+        // Cùng thư mục đích với PushStartOfDayDataAsync (CHANGE folder) — CleanupSiblingZips trong
+        // MasterDataSyncService dọn zip cùng prefix nên 2 luồng không đè/rác lẫn nhau.
+        var folderFile = $"{siteCode}/{posTerminal}";
+        const string pathSync = "SyncDataPos/POS/CHANGE";
+        var targetDir = MapFtpPath($"{pathSync}/{folderFile}");
+        Directory.CreateDirectory(targetDir);
+
+        var req = new GetMasterDataFileRequest
+        {
+            SiteCode = siteCode,
+            PosTerminal = posTerminal,
+            FolderFile = folderFile,
+            PathSync = pathSync,
+            TypeSync = "ALL",
+            IsChangeMode = "C",   // SyncTable_Get @IsChange='C' — chỉ bảng IsOnlyChange=1
+            TargetDir = targetDir,
+            ForceRegenerate = true // watermark-driven — không phụ thuộc short-circuit theo ngày
+        };
+
+        var results = await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);
+        var result = new GetMasterDataFileResult
+        {
+            Success = results.All(r => r.Success),
+            FileName = string.Join(", ", results.Select(r => r.FileName)),
+            RelativePath = results.FirstOrDefault()?.RelativePath,
+            TableCount = results.Sum(r => r.TableCount),
+            Message = results.Count > 0 ? "OK" : "Không có bảng nào có dữ liệu"
+        };
+        kibanaService.LogResponse("PushMasterDataChange", posTerminal, 0, "",
+            $"EnsureMasterDataFile {result.Success} ({results.Count} files: {result.FileName}), {result.TableCount} tables, siteCode {siteCode}, dir {targetDir}");
+        return result;
+    }
+
     // Port từ CheckDeleteFileOld cũ — loại file cũ hơn 2 ngày khỏi danh sách + xóa khỏi disk
     private void CheckDeleteFileOld(List<string> getFilesZip, string pathFile)
     {

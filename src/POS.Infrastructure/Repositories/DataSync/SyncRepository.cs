@@ -45,6 +45,18 @@ public sealed class SyncRepository(
         return list;
     }
 
+    public async Task<List<SyncTableInfo>> GetSyncTableCountersAsync(string isChange = "A", CancellationToken ct = default)
+    {
+        // KHÔNG cache — dùng cho worker cần POSLastCounter mới nhất để phát hiện thay đổi ngay lập tức.
+        // GetSyncTablesAsync (có cache 1h) vẫn giữ nguyên cho luồng generation hiện hữu, không đổi.
+        var rows = await QueryAsync<SyncTableInfo>(
+            "[dbo].[SyncTable_Get] @IsChange",
+            new { IsChange = isChange },
+            commandTimeout: _opt.SqlCommandTimeoutSeconds,
+            ct: ct);
+        return rows.ToList();
+    }
+
     public async Task<(int FileCount, long RowCount)> StreamTableToFilesAsync(
         SyncTableInfo table, string targetDir,
         Func<int, string> fileNameFactory, Func<int, string> actionFactory,

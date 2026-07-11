@@ -69,9 +69,12 @@ Ví dụ: `dbo.ProductBarcodeTVP`, `dbo.CouponCodeTVP`, `dbo.CouponLineTVP`.
 
 ## Nơi đặt script SQL
 
-Mỗi SP mới (+ TVP đi kèm nếu có) viết thành 1 file trong `docs/sql/{Domain}_{Action}.sql`,
-áp dụng **thủ công 1 lần** trên đúng database đích (`RPOSMasterData`/`RPOSCentralSales`/
-`RPOSLoyalty` — không có migration tool tự động). Ghi rõ `USE [TênDB];` đầu script.
+Mỗi SP mới (+ TVP đi kèm nếu có) viết thành 1 file trong `docs/sql/{Domain}_{Action}.sql`, đăng ký
+vào `docs/sql/manifest.json` (xem "Checklist tạo SP mới" bước 6). SP idempotent trên `RPOSMasterData`
+(CentralMD) → `tools/POS.DbMigrator` tự động apply mỗi lần deploy (`docs/ROLLOUT.md` §D0) — KHÔNG
+còn phải nhớ chạy tay. `RPOSCentralSales`/`RPOSLoyalty` (và mọi script rủi ro cao Track B) vẫn áp
+dụng **thủ công 1 lần** trên đúng database đích — chưa có migrator tự động cho 2 DB này. Ghi rõ
+`USE [TênDB];` đầu script.
 
 Ví dụ đã có: `docs/sql/Product_Save.sql`, `docs/sql/SetupCoupon_Save.sql`,
 `docs/sql/SpecialCombo_Save.sql`, `docs/sql/SetupVoucher_Save.sql`.
@@ -338,6 +341,10 @@ END
 4. Sửa Repository gọi qua `DynamicParameters` + `CommandType.StoredProcedure` (không còn
    Dapper inline INSERT/UPDATE nhiều câu rời rạc cho cùng 1 nghiệp vụ).
 5. Build + `dotnet test tests/POS.ContractTests` phải xanh.
-6. Báo cho user (hoặc ghi vào `docs/ROLLOUT.md`) **chạy script 1 lần** trên đúng database đích
-   (`RPOSMasterData`/`RPOSCentralSales`/`RPOSLoyalty`) trước khi tính năng hoạt động — app KHÔNG
-   tự tạo SP.
+6. **Đăng ký vào `docs/sql/manifest.json`** (thêm 1 entry: `order`, `file`, `target`, `runOnce`)
+   **cùng commit** — thiếu bước này thì `tests/POS.ContractTests/SqlManifestTests.cs` sẽ FAIL
+   ngay lúc `dotnet test` (đã verify: tạo file `.sql` không đăng ký → test đỏ tức thì). SP mới thường
+   là idempotent (`DROP+CREATE`/`CREATE OR ALTER`) → `runOnce: false` (Track A, `POS.DbMigrator`
+   tự chạy lại mỗi lần deploy — xem `docs/ROLLOUT.md` §D0). Chỉ đặt `runOnce: true` (Track B) cho
+   DDL một-lần rủi ro cao (rebuild bảng, đổi dữ liệu, `sp_rename`) — loại này migrator KHÔNG BAO GIỜ
+   tự chạy, vẫn cần báo DBA chạy tay + ghi vào `docs/ROLLOUT.md`.

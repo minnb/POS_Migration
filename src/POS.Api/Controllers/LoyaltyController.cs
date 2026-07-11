@@ -20,7 +20,53 @@ public sealed class LoyaltyController(
     private readonly IKibanaService _kibanaService = kibanaService;
     private readonly IFileLogHelper _fileLogHelper = fileLogHelper;
     private readonly IAkaChainLoyaltyService _akaChainLoyaltyService = akaChainLoyaltyService;
-    
+
+    [HttpPost]
+    [Route("v2/loyalty/customer")]
+    public async Task<IActionResult> CustomerRegistration(RegisterMemberDto request)
+    {
+        if (!ModelState.IsValid) return ExceptionModels();
+        var sw = Stopwatch.StartNew();
+        var endpoint = "api/v2/loyalty/customer";
+
+        try
+        {
+            var res = await _akaChainLoyaltyService.RegisterMemberAsync(request);
+            sw.Stop();
+
+            ResultResponse result;
+            if (res.Status == HttpStatusCode.OK)
+            {
+                result = new ResultResponse
+                {
+                    Data = res.Data,
+                    Message = "OK",
+                    Status = HttpStatusCode.OK,
+                    MessageTechnical = request.PosCode
+                };
+            }
+            else
+            {
+                result = new ResultResponse
+                {
+                    Data = res.Data,
+                    Message = res.Message,
+                    Status = res.Status,
+                    MessageTechnical = res.MessageTechnical
+                };
+            }
+
+            _kibanaService.LogResponse(endpoint, request.PosCode, sw.ElapsedMilliseconds, "", JsonConvert.SerializeObject(result));
+            return StatusCode((int)result.Status, result);
+        }
+        catch (Exception ex)
+        {
+            _fileLogHelper.WriteExpLogs("LoyaltyController.GetCustomerDetail", ex);
+            _kibanaService.LogException(endpoint, request.PosCode, 0, "", ex.Message);
+            return BadRequestResult(ex);
+        }
+    }
+
     [HttpGet]
     [Route("vinid/GetInfoMember")]//Thông tin khách hàng cũ VINID
     public async Task<IActionResult> GetInfoMember_Old(string numberCard, string posID, string storeNo, string clubCode = "", bool isLog = true)

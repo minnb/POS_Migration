@@ -249,7 +249,7 @@ public sealed class AkaChainLoyaltyAppService(
             if (status != HttpStatusCode.OK)
                 return ResponseHelper.MakeResponse(status, status.ToString(), body);
 
-            var data = JsonConvert.DeserializeObject<MemberProfileAkaChain>(body);
+            var data = StringHelper.StringToObject<MemberProfileAkaChain>(body);
             if (data == null)
                 return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
 
@@ -425,15 +425,15 @@ public sealed class AkaChainLoyaltyAppService(
 
             if (status != HttpStatusCode.OK)
             {
-                var err = JsonConvert.DeserializeObject<AkaChainErrorResponse>(body);
+                var err = StringHelper.StringToObject<AkaChainErrorResponse>(body);
                 return ResponseHelper.MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
             }
 
-            var data = JsonConvert.DeserializeObject<AddTransactionAkaChainResponse>(body);
+            var data = StringHelper.StringToObject<AddTransactionAkaChainResponse>(body);
             if (data == null)
                 return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
 
-            if (data.CouponCode == null || !data.CouponCode.Any())
+            if (data.CouponCode == null || data.CouponCode.Count == 0)
                 return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "Coupon không hợp lệ", null, JsonConvert.SerializeObject(data));
 
             var coupon = data.CouponCode.First();
@@ -467,4 +467,36 @@ public sealed class AkaChainLoyaltyAppService(
         }
     }
 
+    public async Task<ResultResponse> RegisterMemberAsync(RegisterMemberDto model)
+    {
+        const string endpoint = "AkaChainLoyalty.RegisterMember";
+        try
+        {
+            var config = await GetFMVConfigAsync();
+            var enrollment = "Enrollment_8046_1739180176";
+
+            var bodyJson = JsonConvert.SerializeObject(AkaChainMapping.MappingInputMemberDataAsync(model, enrollment));
+            kibanaService.LogRequest(endpoint, model.PosCode ?? "", bodyJson);
+
+            var (status, body) = await CallApiAsync("InputMemberDataAsync", HttpMethod.Post, bodyJson, null);
+            kibanaService.LogResponse(endpoint, model.PosCode ?? "", 0, "", body);
+
+            var data = StringHelper.StringToObject<InputMemberDataAkaChainResponse>(body);
+            if (data == null)
+            {
+                if (status == HttpStatusCode.NotFound)
+                {
+                    return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, $"{status} - JSON conversion error", null, $"httpsStatus: {status} - {body}");
+                }
+                return ResponseHelper.MakeResponse(status, $"{status} - JSON conversion error", null, body);
+            }   
+
+            return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", data, "AkaChain");
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs(endpoint, ex);
+            return ResponseHelper.MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
+        }
+    }
 }

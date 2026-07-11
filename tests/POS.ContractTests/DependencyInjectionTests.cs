@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using POS.Application;
 using POS.Infrastructure;
+using POS.Worker.Workers;
 
 namespace POS.ContractTests;
 
@@ -110,5 +111,44 @@ public class DependencyInjectionTests
 
         Assert.True(missing.Count == 0,
             "Thiếu đăng ký DI cho service:\n  - " + string.Join("\n  - ", missing));
+    }
+
+    /// <summary>
+    /// GUARDRAIL riêng cho MasterDataZipGeneratorWorker (POS.Worker) — worker này cần
+    /// IMasterDataSyncService/ISyncDataPosService (POS.Application) nhưng POS.Worker/Program.cs
+    /// trước đây chỉ gọi AddInfrastructure(), KHÔNG gọi AddApplication(). Vì AddHostedService&lt;T&gt;()
+    /// không validate constructor của T lúc compile, thiếu AddApplication() chỉ lộ ra lúc runtime
+    /// (InvalidOperationException khi host khởi động) — test này bắt lỗi đó lúc build/test.
+    /// </summary>
+    [Fact]
+    public void MasterDataZipGeneratorWorker_dependencies_are_registered()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>())
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddHttpClient();
+        services.AddApplication();
+        services.AddInfrastructure(configuration);
+        services.Configure<MasterDataZipGeneratorOptions>(
+            configuration.GetSection(MasterDataZipGeneratorOptions.SectionName));
+
+        var registered = services.Select(d => d.ServiceType).ToHashSet();
+        registered.Add(typeof(IServiceScopeFactory)); // luôn có sẵn từ mọi ServiceProvider, không cần đăng ký thủ công
+
+        var ctor = GreediestCtor(typeof(MasterDataZipGeneratorWorker));
+        Assert.NotNull(ctor);
+
+        var missing = ctor!.GetParameters()
+            .Where(p => !IsRegistered(registered, p.ParameterType))
+            .Select(p => $"MasterDataZipGeneratorWorker cần {p.ParameterType.Name} (chưa đăng ký DI)")
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            "Thiếu đăng ký DI cho MasterDataZipGeneratorWorker:\n  - " + string.Join("\n  - ", missing));
     }
 }

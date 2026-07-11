@@ -23,15 +23,27 @@ heartbeat key cùng convention.
 
 `POS.Worker.csproj` tham chiếu `POS.Application` + `POS.Infrastructure` — đủ để resolve mọi DI.
 
+> **Ngoại lệ đã có tiền lệ**: nếu worker cần gọi trực tiếp 1 Application service (vd
+> `IMasterDataSyncService`/`ISyncDataPosService`) chứ không chỉ Infrastructure repository, đặt
+> worker đó ở `src/POS.Worker/Workers/` (namespace `POS.Worker.Workers`) thay vì
+> `POS.Infrastructure/Workers/` — vì `POS.Infrastructure` **không được** reference
+> `POS.Application` (ngược dependency flow). Khi đó `POS.Worker/Program.cs` phải thêm
+> `builder.Services.AddApplication()` (nếu chưa có) — dễ quên vì trước giờ `Program.cs` chỉ gọi
+> `AddInfrastructure()`. Ví dụ: `MasterDataZipGeneratorWorker.cs`. Nên thêm 1 test DI-resolution
+> trong `tests/POS.ContractTests/DependencyInjectionTests.cs` (compose lại `AddInfrastructure()+
+> AddApplication()`, assert constructor params resolve) để bắt lỗi thiếu `AddApplication()` lúc
+> build/test thay vì lúc host khởi động thật.
+
 ---
 
-## Ba khuôn mẫu worker
+## Bốn khuôn mẫu worker
 
 | Pattern | Khi nào dùng | Ví dụ tham chiếu |
 |---|---|---|
 | **Message consumer (push)** | Nhận message từ RabbitMQ/Kafka liên tục | `PosSalesConsumerWorker.cs` |
 | **Timer polling** | Chạy định kỳ (gọi SP, sync, cleanup) | `Rpt_ReportSaleDetail_Insert.cs` |
 | **One-shot / cron-triggered** | Chạy 1 chu kỳ rồi thoát, lịch do crontab/systemd timer ngoài process quyết định — dùng khi worker cần chạy như 1 tiến trình riêng biệt trên host (không phải container dài hạn), vd tách theo mô hình deploy | `PosFileImportService.RunOnceAsync` (gọi từ `Program.cs --run-once`) |
+| **Poll + fan-out song song + quarantine** | Phát hiện thay đổi (watermark) rồi áp dụng cho N đối tượng độc lập (terminal/store/tenant...) song song, cần cô lập đối tượng lỗi liên tục để không chặn cả lô | `MasterDataZipGeneratorWorker.cs` — xem pattern chi tiết bên dưới |
 
 > Pattern thứ 3 **không kế thừa `BackgroundService`** — tách phần logic "1 chu kỳ" ra 1 class
 > service thường (constructor injection, không cần `IHostedService`), rồi gọi trực tiếp từ
@@ -248,6 +260,63 @@ public sealed class MyConsumerWorker(
 - `autoAck: false` → tự ack sau khi xử lý OK.
 - Lỗi parse / xử lý thất bại → `BasicNackAsync(requeue: false)` (tránh poison-message loop vô hạn).
   Nếu cần retry, dùng dead-letter queue thay vì `requeue: true`.
+
+---
+
+## Pattern C — Poll + fan-out song song + quarantine
+
+> Áp dụng khi: 1 tick phát hiện thay đổi rồi cần áp dụng cho **N đối tượng độc lập** (terminal,
+> store, tenant...) song song, và 1 đối tượng lỗi liên tục **không được phép** chặn tiến trình của
+> các đối tượng còn lại. Ví dụ đầy đủ: `src/POS.Worker/Workers/MasterDataZipGeneratorWorker.cs`.
+
+```csharp
+// 1 scope DUY NHẤT cho cả tick (KHÔNG tạo scope mới mỗi đối tượng)
+await using var scope = scopeFactory.CreateAsyncScope();
+var redisManager = scope.ServiceProvider.GetRequiredService<IRedisManager>();
+
+// Single-runner across instances: distributed lock qua IRedisManager (KHÔNG dùng ZSET throttle —
+// throttle chỉ giới hạn số lượt song song, lock đảm bảo đúng 1 instance chạy 1 lượt)
+var token = await redisManager.AcquireLockAsync("Worker:Lock:{Name}", ttl);
+if (token is null) return;   // instance khác đang giữ lượt này
+try
+{
+    var quarantine = await redisManager.HashGetAllAsync<int>("Worker:Quarantine:{Name}");
+    var eligible = targets.Where(t => !quarantine.TryGetValue(Key(t), out var n) || n < Threshold);
+
+    long failed = 0;
+    await Parallel.ForEachAsync(eligible, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+        async (target, token) =>
+        {
+            try
+            {
+                await DoWorkAsync(target, token);
+                await redisManager.HashDeleteAsync("Worker:Quarantine:{Name}", Key(target)); // reset về 0
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref failed);
+                var cur = await redisManager.HashGetAsync<int>("Worker:Quarantine:{Name}", Key(target));
+                await redisManager.HashSetAsync("Worker:Quarantine:{Name}", Key(target), cur + 1);
+            }
+        });
+
+    if (failed == 0) /* ACK watermark — chỉ tịnh tiến khi mọi đối tượng ĐÃ THỬ đều thành công */;
+}
+finally { await redisManager.ReleaseLockAsync("Worker:Lock:{Name}", token); }
+```
+
+**Quy tắc cốt lõi:**
+- Watermark (Redis Hash, không TTL) chỉ tịnh tiến khi **toàn bộ** đối tượng đã thử trong lượt này
+  thành công — không "ACK một phần" nếu tín hiệu phát hiện thay đổi là giá trị global (không phải
+  per-đối-tượng).
+- Quarantine (Redis Hash đếm lỗi liên tiếp) khác throttle: throttle giới hạn *số lượt chạy đồng
+  thời*, quarantine loại *đối tượng cụ thể* ra khỏi các lượt sau khi nó lỗi ≥ ngưỡng — 2 cơ chế
+  độc lập, không thay thế nhau.
+- Lỗi hạ tầng dùng chung (throttle cụm hết slot...) **không** tính vào quarantine của 1 đối tượng —
+  chỉ lỗi thật của riêng đối tượng đó mới cộng dồn.
+- `HashGetAllAsync` trả dict rỗng cả khi lỗi Redis lẫn khi hash rỗng thật (`RedisManager` nuốt
+  exception) — luôn `KeyExistsAsync` trước để phân biệt "chưa từng ghi" với "đọc lỗi", tránh
+  generate sai/ACK sai khi Redis chập chờn.
 
 ---
 

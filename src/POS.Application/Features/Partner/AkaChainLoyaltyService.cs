@@ -20,4 +20,7 @@ public sealed class AkaChainLoyaltyService(
 
     public Task<ResultResponse> CheckCouponAsync(CheckVoucherPartnerPOSRequest model)
         => appService.CheckCouponAsync(model);
+
+    public Task<ResultResponse> RegisterMemberAsync(RegisterMemberDto model)
+    => appService.RegisterMemberAsync(model);
 }

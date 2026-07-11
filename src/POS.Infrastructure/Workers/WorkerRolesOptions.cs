@@ -21,4 +21,11 @@ public sealed class WorkerRolesOptions
 
     /// <summary>Đăng ký <c>WorkerHeartbeatService</c> (ghi heartbeat Redis).</summary>
     public bool EnableHeartbeat { get; set; } = true;
+
+    /// <summary>
+    /// Đăng ký <c>MasterDataZipGeneratorWorker</c> (poll watermark POSLastCounter, generate zip theo
+    /// thay đổi). Mặc định false — opt-in, chỉ bật sau khi đã cấu hình AppSettings:FtpRootPath +
+    /// DBA đánh dấu SyncTableList.IsOnlyChange=1 cho các bảng cần theo dõi (xem docs/ROLLOUT.md).
+    /// </summary>
+    public bool EnableMasterDataZipGenerator { get; set; } = false;
 }

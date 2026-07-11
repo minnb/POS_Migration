@@ -10,6 +10,11 @@
 > - `POS.Web` (cấu trúc chi tiết ở `docs/WEB_STATUS.md`): Pages gom `Store/{Reports,Transactions,Operations,Dialogs}`, `Ops/`, `Admin/`
 >
 > POS.Web KHÔNG nằm trong file này (xem `docs/WEB_STATUS.md`).
+>
+> **`tools/POS.DbMigrator`** (thêm 2026-07-10) — console app (DbUp.SqlServer) tự động apply script
+> Track A trong `docs/sql/manifest.json` lúc deploy; KHÔNG nằm trong `src/` (không phải runtime
+> business logic) nên KHÔNG liệt kê chi tiết ở file này — xem `docs/ROLLOUT.md` §D0 và
+> `.claude/skills/database/SKILLS.md`.
 
 ---
 
@@ -129,7 +134,7 @@ src/
 │   │   │   └── ProductDetailDto.cs (ProductDetailDto: header + List<BarcodeRowDto> + ImageBase64?)  ← xem chi tiết SP (2026-07-06)
 │   │   ├── DataSync/
 │   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip, Action — Action theo bảng từ SyncTableList.Action, null nếu SP chưa có cột)
-│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, IsChangeMode (@IsChange SP SyncTable_Get: "A"=ALL sync mặc định, "W"=Web Sync/push 1 POS)
+│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, IsChangeMode (@IsChange SP SyncTable_Get: "A"=ALL sync mặc định, "W"=Web Sync/push 1 POS, "C"=Change detection MasterDataZipGeneratorWorker), ForceRegenerate (bool, mặc định false — true bỏ qua short-circuit "đã có zip hôm nay" trong EnsureMasterDataFileAsync)
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
 │   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/IssueMore/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
@@ -234,10 +239,13 @@ src/
 │       └── StringHelper.cs
 │
 ├── POS.Worker/
-│   ├── POS.Worker.csproj           (SDK: Microsoft.NET.Sdk.Worker)
-│   ├── Program.cs
+│   ├── POS.Worker.csproj           (SDK: Microsoft.NET.Sdk.Worker — ProjectReference POS.Application + POS.Infrastructure)
+│   ├── Program.cs                 ← AddInfrastructure() + AddApplication() (từ MasterDataZipGeneratorWorker cần IMasterDataSyncService/ISyncDataPosService)
 │   ├── appsettings.json
-│   └── appsettings.Production.json
+│   ├── appsettings.Production.json
+│   └── Workers/                   ← namespace POS.Worker.Workers (khác POS.Infrastructure.Workers)
+│       ├── MasterDataZipGeneratorOptions.cs   ← bind section "MasterDataZipGenerator": IntervalSeconds, LockTtlMinutes, MaxParallelTerminals, SeedWatermarkOnFirstRun, QuarantineThreshold
+│       └── MasterDataZipGeneratorWorker.cs    ← BackgroundService, poll SyncTable_Get 'C' theo chu kỳ, so watermark Redis Hash "Worker:Watermark:MasterDataZip"; đổi → Parallel.ForEachAsync generate zip mọi POS terminal Status=1 qua ISyncDataPosService.PushMasterDataChangeAsync; quarantine terminal lỗi liên tiếp (Redis Hash "Worker:Quarantine:MasterDataZip", threshold cấu hình); ACK watermark chỉ khi 0 terminal active nào lỗi; heartbeat "Worker:Heartbeat:MasterDataZipGenerator"; đăng ký qua WorkerRolesOptions.EnableMasterDataZipGenerator (mặc định false)
 │
 └── POS.Infrastructure/
     ├── DependencyInjection.cs
@@ -288,7 +296,8 @@ src/
     │   ├── IRedisService.cs
     │   └── RedisService.cs
     ├── Security/
-    │   └── SecretProtector.cs          ← AES-256-GCM, token enc: (giải mã credentials trong appsettings)
+    │   ├── SecretProtector.cs          ← AES-256-GCM, token enc: (giải mã credentials trong appsettings)
+    │   └── ConfigurationSecretExtensions.cs ← DecryptEncryptedSecrets(this ConfigurationManager) — hook dùng chung cho POS.Api/Web/Worker Program.cs
     ├── Sync/                           ← namespace POS.Infrastructure.Sync — cập nhật SyncTableList.POSLastCounter bất đồng bộ
     │   ├── ISyncTableTrackerService.cs / SyncTableTrackerService.cs   ← Track(tableName, counter) ghi Channel in-process (Singleton, bounded, DropOldest)
     │   ├── SyncTableCounterFlushWorker.cs   ← BackgroundService, drain Channel định kỳ (PeriodicTimer), batch-update qua ISyncTrackerRepository; heartbeat Redis "Worker:Heartbeat:SyncTableCounterFlush-{process}"; đăng ký AddHostedService trực tiếp ở POS.Api/POS.Web Program.cs (KHÔNG qua WorkerRolesOptions)
@@ -319,7 +328,7 @@ src/
         ├── Price/                          ← 9.1/9.3 Bảng giá + Danh mục nhóm giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete; Danh mục nhóm giá qua usp_StorePriceGroup_Save/_Delete (StorePriceGroupHeader + StorePriceGroup)
         └── DataSync/
-            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog)
+            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + GetSyncTableCountersAsync(isChange="A"/"C") KHÔNG cache (dùng cho MasterDataZipGeneratorWorker cần POSLastCounter mới nhất ngay, cache 1h của GetSyncTablesAsync sẽ làm trễ phát hiện thay đổi) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog)
             └── ISyncTrackerRepository.cs / SyncTrackerRepository.cs   ← BulkUpdateCounterAsync — TVP dbo.TVP_SyncCounterUpdate → SP usp_SyncTableList_BulkUpdateCounter (UPDATE idempotent WHERE Counter > POSLastCounter); gọi bởi SyncTableCounterFlushWorker
 ```
 
@@ -373,6 +382,7 @@ src/
 | `ISyncTrackerRepository` | `SyncTrackerRepository` | DataSync/ | POS.Infrastructure |
 | `ISyncTableTrackerService` | `SyncTableTrackerService` | `POS.Infrastructure.Sync` | POS.Infrastructure |
 | _(static, no interface)_ | `SecretProtector` | `POS.Infrastructure.Security` | POS.Infrastructure |
+| _(static ext, no interface)_ | `ConfigurationSecretExtensions` — `DecryptEncryptedSecrets(this ConfigurationManager)` | `POS.Infrastructure.Security` | POS.Infrastructure |
 
 ### POS.Infrastructure — AppServices
 
@@ -489,8 +499,11 @@ src/
 
 | Registration | Ghi chú |
 |-------------|---------|
-| `AddInfrastructure()` | DB, Redis, RabbitMQ, Repos — **KHÔNG** gọi `AddApplication()` (worker không cần HTTP AppServices) |
+| `AddInfrastructure()` | DB, Redis, RabbitMQ, Repos |
+| `AddApplication()` | **Từ MasterDataZipGeneratorWorker** — cần `IMasterDataSyncService`/`ISyncDataPosService` (POS.Application). Trước đây worker không gọi dòng này (không cần HTTP AppServices); thiếu dòng này → `InvalidOperationException` lúc host khởi động MasterDataZipGeneratorWorker (bắt bằng test `DependencyInjectionTests.MasterDataZipGeneratorWorker_dependencies_are_registered`) |
+| `Configure<MasterDataZipGeneratorOptions>(...)` | Section `"MasterDataZipGenerator"` |
 | `AddHostedService<PosSalesConsumerWorker>()` | Consumer queue `pos_sales` — retry insert CentralSale |
+| `AddHostedService<MasterDataZipGeneratorWorker>()` | Chỉ khi `WorkerRoles:EnableMasterDataZipGenerator=true` (mặc định false — opt-in, xem `docs/ROLLOUT.md`) |
 | `AddSerilogWithElastic()` (overload `HostApplicationBuilder`) | Cùng ES sink với POS.Api, index riêng `pos-worker-logs-*` |
 
 ---
@@ -780,6 +793,7 @@ Task UploadFileLogToFtpAsync(string pathFileApi, string pathFtpServer, Cancellat
 Task<List<PathFileAPIModel>> DownloadFileUpgradeToolShareFolderAsync(string ipServer, CancellationToken ct = default)
 Task DeleteFileExistAsync(List<PathFileAPIModel> model, string ipServerHost)
 Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)  // POS.Web nút SyncData: sinh zip full-data ALL vào {FtpRootPath}\SyncDataPos\POS\CHANGE\{site}\{terminal} (MapFtpPath, bám controller); delegate IMasterDataSyncService.EnsureMasterDataFileAsync (gộp List<GetMasterDataFileResult> trả về thành 1 kết quả tổng hợp — PosMapPage.razor dùng contract đơn)
+Task<GetMasterDataFileResult> PushMasterDataChangeAsync(string siteCode, string posTerminal, CancellationToken ct = default)  // MasterDataZipGeneratorWorker: giống PushStartOfDayDataAsync nhưng IsChangeMode="C" (chỉ bảng IsOnlyChange=1) + ForceRegenerate=true (watermark-driven, không phụ thuộc short-circuit theo ngày)
 string ResolveFtpPhysicalPath(string? posPath)  // UNC POS gửi (\\ip\FTPBLUEPOS\...) → physical path local dưới FtpRootPath; dùng chung DowloadFileStream + DeleteFileFromFTP
 ```
 

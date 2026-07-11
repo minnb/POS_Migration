@@ -245,6 +245,25 @@ namespace POS.Common.Mapping
                 UseBasePromotionSchemes = false
             };
         }
+        public static InputMemberDataAkaChainRequest MappingInputMemberDataAsync(
+        RegisterMemberDto model, string enrollmentFormCode)
+        {
+            return new InputMemberDataAkaChainRequest
+            {
+                EnrollmentFormCode = enrollmentFormCode,
+                MemberData = new MemberDataInputAkaChain
+                {
+                    FullName = model.FullName,
+                    Gender = model.Gender,
+                    Address = model.Address,
+                    DOB = DateTime.UtcNow.AddYears(-20).ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ"),
+                    Email = model.Email,
+                    Phone = FormatHelper.PhoneNumberVietNam(model.PhoneNo),
+                    Status = "Active",
+                    TierGroup = "FMVMemberRanking"
+                }
+            };
+        }
 
         // ── Response helper ───────────────────────────────────────────────────────
     }

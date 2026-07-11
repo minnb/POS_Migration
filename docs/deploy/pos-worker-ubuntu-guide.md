@@ -1,21 +1,38 @@
-# Deploy POS.Worker trên Ubuntu — Model A (Cronjob Host) & Model B (Docker)
+# Deploy POS.Worker trên Ubuntu — Model A (Cronjob Host), Model B (Docker) & Model C (Systemd Daemon)
 
-> Kế thừa từ Docker setup có sẵn (`Dockerfile.worker`, `docker-compose.yml`, `docs/guide-deploy.md`
-> §3.3). File này là **runbook thao tác** dành riêng cho POS.Worker, chạy **song song** với POS.Web
-> (đã có `nginx/pos-web.conf` đứng trước) trên **cùng 1 Ubuntu host**. Không lặp lại nội dung đã có ở
-> nơi khác — chỉ trỏ tới và bổ sung phần còn thiếu (đặc biệt: `appsettings.UAT.json` cho Worker).
+> **Runbook thao tác** cho POS.Worker, chạy **song song** với POS.Web/POS.Api trên **cùng 1 Ubuntu
+> host**. Kế thừa Docker setup có sẵn (`Dockerfile.worker`, `docker-compose.yml`,
+> `docs/guide-deploy.md` §3.3) — không lặp lại nội dung đã có ở nơi khác, chỉ bổ sung phần còn thiếu.
 
-> **Feature toggle `WorkerRoles`** (`WorkerRolesOptions.cs`) tách POS.Worker thành **2 mô hình chạy
-> đồng thời**, KHÔNG phải 2 project riêng — cùng 1 image/binary, khác cách chạy + cấu hình:
+> **Feature toggle `WorkerRoles`** (`WorkerRolesOptions.cs`) cho phép 1 binary `POS.Worker.dll` chạy
+> theo **3 mô hình** tuỳ nhu cầu vận hành — bật/tắt từng `BackgroundService` qua config, không phải
+> 3 project riêng:
 >
-> | | Model A — Cronjob host | Model B — Docker container |
-> |---|---|---|
-> | Đảm nhiệm | `PosFileImportService` (file .zip, dùng chung `ftpbluepos` với Web/Api) | `PosSalesConsumerWorker` (RabbitMQ) + `Rpt_ReportSaleDetail_Insert` (SQL) + heartbeat |
-> | Cách chạy | `dotnet POS.Worker.dll --run-once` qua crontab, chạy 1 chu kỳ rồi thoát | `docker run`/`docker-compose` service `pos-worker`, process dài hạn |
-> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override |
-> | Mục 3-4 dưới đây | — xem **mục 5** | Docker (giữ nguyên nội dung gốc) |
+> | | Model A — Cronjob host | Model B — Docker container | Model C — Systemd daemon |
+> |---|---|---|---|
+> | Đảm nhiệm | `PosFileImportService` (file .zip, dùng chung `ftpbluepos` với Web/Api) | `PosSalesConsumerWorker` (RabbitMQ) + `Rpt_ReportSaleDetail_Insert` (SQL) + heartbeat | `MasterDataZipGeneratorWorker` (poll watermark → sinh zip lên SFTP/FTP), có thể gộp thêm consumer nếu không dùng Docker |
+> | Cách chạy | `dotnet POS.Worker.dll --run-once` qua crontab, chạy 1 chu kỳ rồi thoát | `docker run`/`docker-compose` service `pos-worker`, process dài hạn trong container | `dotnet POS.Worker.dll` (không `--run-once`) làm systemd service, process dài hạn native trên host |
+> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override qua `-e` | `appsettings.Production.json`/`UAT.json` + `WorkerRoles__*` override qua `Environment=` trong unit file |
+> | Chi tiết | mục 5 | mục 1-4 | mục **9** |
 >
-> Mục 1-4 bên dưới mô tả Model B (Docker) như bản gốc; **mục 5** (mới) mô tả riêng Model A.
+> Chọn Model C khi cần **daemon dài hạn nhưng không được phép chạy Docker** trên host — khác Model A
+> (không phải one-shot) và khác Model B (không container).
+
+> **Bảng đầy đủ 5 key `WorkerRoles`** (`src/POS.Worker/appsettings.json`) và khuyến nghị bật/tắt theo
+> từng mô hình — dùng để cấu hình `appsettings.{Production|UAT}.json` hoặc override qua biến môi
+> trường tương ứng cách chạy (`-e` cho Docker, `Environment=` cho systemd, xem mục 9.4):
+>
+> | Key | Model A (cron) | Model B (Docker) | Model C (systemd — MasterDataZipGenerator) |
+> |---|---|---|---|
+> | `EnableFileProcessing` | `true` | `false` | `false` |
+> | `EnableRabbitMQConsumer` | `false` | `true` | `false` (trừ khi gộp thêm `PosSalesConsumerWorker` — xem ghi chú dưới) |
+> | `EnableSqlReportWorker` | `false` | `true` | `false` (trừ khi gộp thêm) |
+> | `EnableHeartbeat` | `false` | `true` | `true` |
+> | `EnableMasterDataZipGenerator` | `false` | `false` | `true` |
+>
+> Muốn Model C đảm nhiệm luôn cả `PosSalesConsumerWorker` (không dùng Docker cho phần đó nữa) → bật
+> thêm `EnableRabbitMQConsumer`/`EnableSqlReportWorker` trong cùng unit `pos-worker.service` — không
+> cần daemon riêng, vì 1 process host tất cả `BackgroundService` theo đúng cờ bật.
 
 ## 0. Vì sao KHÔNG có nginx cho POS.Worker
 
@@ -261,6 +278,128 @@ rollback = đổi `WORKER_DIR` trong script hoặc `cp -r` bản cũ đè lại.
   `appsettings.CronHost.json` → `dotnet publish` lại (mục 6) — không sửa file trực tiếp trong thư
   mục đang publish khi cron có thể đang chạy.
 
+## 9. Model C — Systemd Daemon trên Ubuntu host (`MasterDataZipGeneratorWorker`, không Docker)
+
+> Chạy `POS.Worker.dll` như 1 process dài hạn native trên host, quản lý bằng `systemd` (không
+> `--run-once` như Model A, không container như Model B). Áp dụng cho worker cần chạy nền liên tục
+> nhưng bị cấm dùng Docker trên host đó — điển hình là `MasterDataZipGeneratorWorker`.
+
+### 9.1. Cài .NET runtime trên host
+
+Giống hệt mục 5.1 (ASP.NET Core Runtime 10) — nếu host đã cài cho Model A thì bỏ qua bước này:
+
+```bash
+sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-10.0
+```
+
+### 9.2. Publish binary
+
+Publish framework-dependent ra **thư mục riêng**, tách khỏi `/srv/pos/app/worker` của Model A —
+tránh 2 tiến trình (cron one-shot + daemon dài hạn) cùng ghi/đọc chung 1 thư mục publish:
+
+```bash
+cd /đường-dẫn-tới-repo-code
+dotnet publish src/POS.Worker/POS.Worker.csproj -c Release -o /srv/pos/app/worker-daemon
+```
+
+### 9.3. Quyền — user chạy service phải thuộc group `posops`
+
+`MasterDataZipGeneratorWorker` đọc/ghi cùng thư mục `ftpbluepos` (setgid `2770`, xem
+`deploy/linux/setup-pos-dirs.sh`) như Model A:
+
+```bash
+sudo useradd -r -s /usr/sbin/nologin posworker   # nếu chưa có user riêng chạy daemon
+sudo usermod -aG posops posworker
+```
+
+### 9.4. File unit `/etc/systemd/system/pos-worker.service`
+
+```ini
+[Unit]
+Description=POS Worker (MasterDataZipGenerator daemon)
+After=network.target
+
+[Service]
+Type=notify
+User=posworker
+Group=posops
+WorkingDirectory=/srv/pos/app/worker-daemon
+ExecStart=/usr/bin/dotnet /srv/pos/app/worker-daemon/POS.Worker.dll
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=pos-worker
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=TZ=Asia/Ho_Chi_Minh
+Environment=WorkerRoles__EnableFileProcessing=false
+Environment=WorkerRoles__EnableRabbitMQConsumer=false
+Environment=WorkerRoles__EnableSqlReportWorker=false
+Environment=WorkerRoles__EnableHeartbeat=true
+Environment=WorkerRoles__EnableMasterDataZipGenerator=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Giải thích các field quan trọng:
+
+- `User`/`Group`: chạy dưới user riêng `posworker` (không root), cùng group `posops` để có quyền
+  đọc/ghi `ftpbluepos` (xem mục 9.3).
+- `WorkingDirectory`/`ExecStart`: phải khớp chính xác thư mục publish ở mục 9.2; `ExecStart` dùng
+  đường dẫn tuyệt đối tới `dotnet` và `.dll` — **không** thêm `--run-once` (khác Model A).
+- `Restart=always` + `RestartSec=10`: tự khởi động lại khi process crash — tương đương
+  `--restart unless-stopped` của Docker (Model B) / `RestartOnFailure` của Windows Task Scheduler.
+- `Environment=`: mỗi biến 1 dòng riêng (khác cú pháp `-e` của Docker) — đây là nơi bật/tắt
+  `WorkerRoles` cho Model C (xem bảng ở đầu file).
+- `Type=notify` cần app hỗ trợ systemd readiness notification
+  (`Microsoft.Extensions.Hosting.Systemd`, gói `Microsoft.Extensions.Hosting.Systemd`). **Chưa xác
+  nhận** `POS.Worker` đã cấu hình gói này — nếu `systemctl status` báo timeout khi start, đổi sang
+  `Type=simple` (bỏ readiness notification, systemd coi service "started" ngay khi tiến trình chạy).
+
+### 9.5. Lệnh `systemctl` cơ bản + `journalctl`
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable pos-worker.service
+sudo systemctl start pos-worker.service
+sudo systemctl status pos-worker.service
+
+# Log realtime
+sudo journalctl -u pos-worker.service -f
+# Log từ lần boot gần nhất
+sudo journalctl -u pos-worker.service -b
+```
+
+### 9.6. Kiểm chứng Model C
+
+```bash
+sudo systemctl status pos-worker.service   # kỳ vọng: active (running)
+sudo journalctl -u pos-worker.service -n 50   # kỳ vọng thấy MasterDataZipGeneratorWorker khởi động, không exception
+```
+
+**Heartbeat Redis** (đã có sẵn theo cơ chế mô tả ở `.claude/rules/masterdata-sync.md`):
+```bash
+redis-cli -n 2 GET Worker:Heartbeat:MasterDataZipGenerator
+```
+Giá trị phải vừa cập nhật theo `IntervalSeconds` cấu hình (`MasterDataZipGenerator` section).
+
+### 9.7. Cập nhật phiên bản mới (re-deploy)
+
+```bash
+dotnet publish src/POS.Worker/POS.Worker.csproj -c Release -o /srv/pos/app/worker-daemon
+sudo systemctl restart pos-worker.service
+```
+
+### 9.8. Rollback nhanh
+
+Giữ bản publish cũ ở thư mục khác trước khi publish đè (vd `/srv/pos/app/worker-daemon-prev`).
+Rollback: sửa `WorkingDirectory`/`ExecStart` trong unit file trỏ lại thư mục cũ, rồi:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart pos-worker.service
+```
+
 ## Checklist
 
 ```
@@ -280,6 +419,15 @@ Model A (cron host):
 □ Test thả 1 zip hợp lệ vào Sale/Kafka/ → biến mất hoặc vào error/ trong ≤1 phút (qua cron)
 □ crontab đã cài, cron.log có dòng mới đều đặn, không bị flock chặn kéo dài
 
+Model C (systemd — MasterDataZipGeneratorWorker):
+□ deploy/linux/setup-pos-dirs.sh đã chạy cho đúng môi trường (dùng chung với Model A)
+□ aspnetcore-runtime-10.0 đã cài trên host; dotnet publish ra /srv/pos/app/worker-daemon thành công
+□ User posworker đã tạo và vào group posops (usermod -aG posops)
+□ /etc/systemd/system/pos-worker.service đúng WorkingDirectory/ExecStart, WorkerRoles__* khớp bảng đầu file
+□ systemctl daemon-reload && enable && start → systemctl status = active (running)
+□ journalctl -u pos-worker.service thấy MasterDataZipGeneratorWorker khởi động, không exception
+□ Redis Worker:Heartbeat:MasterDataZipGenerator vừa cập nhật theo IntervalSeconds cấu hình
+
 Chung:
 □ src/POS.Worker/appsettings.UAT.json đã điền hết placeholder <UAT_...> (chỉ cần cho UAT)
 □ dotnet test tests/POS.ContractTests vẫn xanh (không đổi DTO/DI ở việc deploy này)
@@ -291,8 +439,10 @@ Chung:
 |---|---|
 | Quy trình deploy đầy đủ POS.Api/POS.Web/POS.Worker (build, `docker run`, nginx, `POS_SECRET_KEY`) | `docs/guide-deploy.md` |
 | Thư mục dùng chung `ftpbluepos` (POS.Api ↔ POS.Worker) | `docs/deploy/ubuntu-guide.md` |
-| Cấu hình `FileImport`/`WorkerRoles`, định dạng file, rủi ro vận hành, 2 mô hình A/B | `docs/ROLLOUT.md` §O2 |
+| Cấu hình `FileImport`/`WorkerRoles`, định dạng file, rủi ro vận hành, mô hình A/B | `docs/ROLLOUT.md` §O2 |
 | Quy tắc mã hóa `enc:`/`POS_SECRET_KEY` (chưa áp dụng cho Worker) | `docs/architecture/appsetting.md` |
 | Deploy POS.Worker trên Windows (Task Scheduler, dev/bare-metal) | `deploy/windows/README.md` |
 | nginx cho POS.Web (không áp dụng cho Worker) | `nginx/pos-web.conf`, `nginx/pos-web.uat.conf` |
 | Ba khuôn mẫu worker (timer/consumer/one-shot) + feature toggle `WorkerRoles` | `.claude/skills/worker/SKILLS.md` |
+| `MasterDataZipGeneratorWorker`: cơ chế watermark, quarantine, heartbeat key `Worker:Heartbeat:MasterDataZipGenerator` | `.claude/rules/masterdata-sync.md` (mục "Worker sinh zip theo watermark + quarantine") |
+| Setup thư mục `posops`/`ftpbluepos` dùng chung cho Model C (giống Model A) | `deploy/linux/setup-pos-dirs.sh` |

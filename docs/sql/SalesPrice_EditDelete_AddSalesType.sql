@@ -14,7 +14,7 @@ USE [RPOSMasterData];
 GO
 
 /* 1) Sửa giá (in-place UnitPrice) ------------------------------------------- */
-ALTER PROCEDURE [dbo].[usp_SalesPrice_UpdatePrice]
+CREATE OR ALTER PROCEDURE [dbo].[usp_SalesPrice_UpdatePrice]
 (
     @ItemNo             nvarchar(20),
     @SalesCode          nvarchar(20),
@@ -93,7 +93,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 /* 2) Xóa giá (soft-delete: EndingDate năm 7777) ----------------------------- */
-ALTER PROCEDURE [dbo].[usp_SalesPrice_SoftDelete]
+CREATE OR ALTER PROCEDURE [dbo].[usp_SalesPrice_SoftDelete]
 (
     @ItemNo             nvarchar(20),
     @SalesCode          nvarchar(20),

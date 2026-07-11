@@ -109,7 +109,9 @@ public sealed class MasterDataSyncService(
         expectedZipNames.AddRange(singleTableNames.Select(SingleZipName));
 
         // 1. Toàn bộ zip dự kiến đã hợp lệ trong ngày → trả ngay (R1: file cũ bị xóa trong IsTodayZipValid).
-        if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
+        // ForceRegenerate=true (MasterDataZipGeneratorWorker) bỏ qua short-circuit này — watermark-driven,
+        // không phụ thuộc theo ngày.
+        if (!req.ForceRegenerate && AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
             return expectedZipNames.Select(z => Success(z, req)).ToList();
 
         // 2. Distributed throttle: giới hạn tổng số lượt sinh chạy đồng thời trên toàn cụm (Redis ZSET
@@ -128,7 +130,7 @@ public sealed class MasterDataSyncService(
             // 3. Khóa theo terminal (bounded) + double-check.
             var lockKey = $"{req.TypeSync}_{req.SiteCode}_{req.PosTerminal}";
             using var lockHandle = await syncFileLock.AcquireAsync(lockKey, ct);
-            if (AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
+            if (!req.ForceRegenerate && AreAllTodayZipsValid(req.TargetDir, expectedZipNames))
                 return expectedZipNames.Select(z => Success(z, req)).ToList();
 
             return await GenerateAndPublishAsync(req, tableEntries, singleTableNames, CommonZipName, SingleZipName, ct);

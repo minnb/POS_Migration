@@ -20,4 +20,11 @@ public sealed class GetMasterDataFileRequest
     /// Sync/push 1 POS — Action lấy từ SP (nhánh W luôn trả "DELETE-INSERT"), áp dụng MỌI batch.
     /// </summary>
     public string IsChangeMode { get; set; } = "A";
+
+    /// <summary>
+    /// True → bỏ qua short-circuit "đã có zip hợp lệ hôm nay" trong EnsureMasterDataFileAsync, luôn
+    /// generate. Dùng cho MasterDataZipGeneratorWorker (watermark-driven, không phụ thuộc theo ngày).
+    /// Mặc định false — giữ nguyên hành vi hiện hữu cho GetFileFromFTP/PushStartOfDayDataAsync.
+    /// </summary>
+    public bool ForceRegenerate { get; set; }
 }

@@ -63,4 +63,13 @@ public interface ISyncDataPosService
     /// </summary>
     Task<GetMasterDataFileResult> PushStartOfDayDataAsync(
         string siteCode, string posTerminal, CancellationToken ct = default);
+
+    /// <summary>
+    /// Đẩy/sinh file master data cho 1 máy POS theo watermark thay đổi (dùng bởi MasterDataZipGeneratorWorker).
+    /// Khác <see cref="PushStartOfDayDataAsync"/>: IsChangeMode="C" (SyncTable_Get chỉ trả bảng
+    /// IsOnlyChange=1, thay vì "W" — mọi bảng), và ForceRegenerate=true (worker tự quyết định khi nào
+    /// cần generate qua watermark, không phụ thuộc short-circuit "đã có zip hôm nay").
+    /// </summary>
+    Task<GetMasterDataFileResult> PushMasterDataChangeAsync(
+        string siteCode, string posTerminal, CancellationToken ct = default);
 }

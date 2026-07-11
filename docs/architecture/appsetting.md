@@ -1,17 +1,20 @@
 # Appsettings — Quy tắc mã hóa credentials (`enc:` + `POS_SECRET_KEY`)
 
 > **Mục đích tài liệu này**: tra cứu nhanh quy tắc mã hóa password trong `appsettings.*.json`.
-> Chi tiết cơ chế + code: `src/POS.Infrastructure/Security/SecretProtector.cs`.
+> Chi tiết cơ chế + code: `src/POS.Infrastructure/Security/SecretProtector.cs` (crypto core) +
+> `src/POS.Infrastructure/Security/ConfigurationSecretExtensions.cs` (hook dùng chung 3 Program.cs).
 > Quy trình rollout đầy đủ (từng bước cho ops): `docs/ROLLOUT.md` §C4.
 
 ## Cơ chế
 
 - Token dạng `enc:` + base64(`nonce(12) || tag(16) || ciphertext`) — AES-256-GCM.
-- Hook giải mã chạy ở **CẢ 2** `Program.cs` (`src/POS.Api/Program.cs`, `src/POS.Web/Program.cs`),
-  NGAY SAU `CreateBuilder`, TRƯỚC `AddInfrastructure`: quét mọi giá trị config chứa `enc:`, giải mã
-  bằng khóa từ env `POS_SECRET_KEY`, nạp đè in-memory. Mọi consumer (`GetConnectionString`,
-  `GetSection<RabbitMQOptions>`...) tự nhận plaintext, không cần sửa từng factory.
-- Khóa `POS_SECRET_KEY` (base64, 32 byte) **dùng chung** cho POS.Api + POS.Web.
+- Hook giải mã chạy ở **CẢ 3** `Program.cs` (`src/POS.Api`, `src/POS.Web`, `src/POS.Worker`),
+  NGAY SAU `CreateBuilder`, TRƯỚC `AddInfrastructure`, qua 1 extension method dùng chung
+  `POS.Infrastructure.Security.ConfigurationSecretExtensions.DecryptEncryptedSecrets()`: quét mọi
+  giá trị config chứa `enc:`, giải mã bằng khóa từ env `POS_SECRET_KEY`, nạp đè in-memory. Mọi
+  consumer (`GetConnectionString`, `GetSection<RabbitMQOptions>`...) tự nhận plaintext, không cần
+  sửa từng factory.
+- Khóa `POS_SECRET_KEY` (base64, 32 byte) **dùng chung** cho POS.Api + POS.Web + POS.Worker.
 - Trang tạo khóa / mã hóa: `/admin/encrypt-secret` (POS.Web, SystemAdmin) — sinh token cho cả 2 project.
 
 ## Dùng mã hóa hay không — tự suy ra từ NỘI DUNG file, không phải 1 cờ riêng
@@ -30,8 +33,9 @@ thẳng giá trị `Password=...` trong file, không đụng code.
 - **Chỉ mã hóa file môi trường** (`appsettings.Production.json`, `appsettings.UAT.json` nếu cần) —
   **KHÔNG** mã hóa `appsettings.json` (base). Hook chạy ở mọi môi trường; base có `enc:` mà Dev
   không set khóa → Dev cũng fail-fast.
-- Áp dụng cho **cả `src/POS.Api` và `src/POS.Web`**. `POS.Worker` hiện **chưa có hook** — vẫn
-  plaintext, ngoài phạm vi cơ chế này.
+- Áp dụng cho **cả `src/POS.Api`, `src/POS.Web` và `src/POS.Worker`** (2026-07-10: Worker đã tích
+  hợp hook qua `ConfigurationSecretExtensions.DecryptEncryptedSecrets()` — cùng cơ chế, gọi ngay
+  sau `Host.CreateApplicationBuilder`, trước `AddInfrastructure`).
 - Trạng thái hiện tại (2026-07-02): `appsettings.Production.json` của cả POS.Api và POS.Web **đã
   mã hóa** (9 connection string + RabbitMQ password mỗi file).
 

@@ -5,6 +5,151 @@
 > **Lưu ý định hướng (2026-06-26):** dự án **không còn migrate** từ POS.API (.NET 4.6 /
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
+>
+> **⚠️ Ghi nhận 2026-07-10 (chưa xử lý)**: file này đang có nhiều khối merge-conflict marker
+> chưa giải quyết (`<<<<<<< HEAD` / `=======` / `>>>>>>>`) rải rác — xác nhận qua grep, xuất hiện
+> ở nhiều vị trí (quanh dòng ~1488, ~1581, ~1865-1873, ~1914-1955, ~2184-2225 tại thời điểm ghi
+> nhận). KHÔNG tự động resolve trong đợt cập nhật này vì cần hiểu đúng ý đồ nội dung 2 phía mỗi
+> conflict — chỉ prepend entry mới an toàn phía trên, không chạm vào các khối conflict cũ. Người
+> phụ trách cần dọn thủ công khi có dịp.
+
+## [2026-07-11] Bổ sung Model C (Systemd Daemon) cho docs/deploy/pos-worker-ubuntu-guide.md
+
+**Layer:** Documentation (không đổi code)
+
+**Loại:** Cập nhật tài liệu deploy
+
+**Bối cảnh:** `MasterDataZipGeneratorWorker` (đã có sẵn trong `POS.Worker`, toggle
+`WorkerRoles:EnableMasterDataZipGenerator`) cần chạy như process dài hạn **bare-metal trên Ubuntu
+host**, không qua Docker — không khớp Model A (cron one-shot) hay Model B (Docker) đã tài liệu hoá
+sẵn trong `docs/deploy/pos-worker-ubuntu-guide.md`.
+
+**Thay đổi:**
+- `docs/deploy/pos-worker-ubuntu-guide.md`: đổi tiêu đề + bảng phân loại mô hình sang 3 cột A/B/C;
+  thêm bảng đầy đủ 5 key `WorkerRoles` (đối chiếu `src/POS.Worker/appsettings.json:46-52`) kèm
+  khuyến nghị bật/tắt theo từng mô hình; thêm mục 9 (mới) "Model C — Systemd Daemon" gồm 8 bước
+  (cài runtime, `dotnet publish` ra thư mục riêng `worker-daemon`, quyền group `posops`, mẫu unit
+  file `/etc/systemd/system/pos-worker.service`, lệnh `systemctl`/`journalctl`, kiểm chứng
+  heartbeat Redis, update, rollback); mở rộng Checklist + bảng Tham chiếu cho Model C.
+
+**Pattern mới:** không — đây là runbook thao tác, không phải pattern code.
+
+**Lưu ý cho session sau:** unit file mẫu dùng `Type=notify` nhưng **chưa xác nhận** `POS.Worker`
+đã tích hợp `Microsoft.Extensions.Hosting.Systemd` — nếu `systemctl start` timeout, đổi
+`Type=simple`. Toàn bộ nội dung Model C mới chỉ verify bằng đọc lại file, **chưa test thật** trên
+Ubuntu host (sandbox không có môi trường Linux).
+
+---
+
+## [2026-07-10] Giải mã connection string (`enc:`) cho POS.Worker + rút hook thành extension chung
+
+**Layer:** POS.Infrastructure, POS.Api, POS.Web, POS.Worker
+
+**Loại:** Feature (Worker) + Refactor (khử duplicate)
+
+**Bối cảnh:** POS.Api/POS.Web đã giải mã token `enc:` lúc khởi động; POS.Worker vẫn đọc
+connection string plaintext. Crypto core (`SecretProtector`) vốn đã nằm ở project chung
+`POS.Infrastructure`, nhưng **block hook ~18 dòng** (quét config → đọc `POS_SECRET_KEY` →
+`DecryptTokens` → `AddInMemoryCollection`) bị **copy-paste inline ở cả 2 `Program.cs`**.
+Thay vì dán bản thứ 3 vào Worker, rút thành 1 extension dùng chung.
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Security/ConfigurationSecretExtensions.cs` **(mới)**: extension
+  `DecryptEncryptedSecrets(this ConfigurationManager)` — logic giữ **y hệt** block inline cũ.
+- `src/POS.Api/Program.cs`: 23 dòng inline → `builder.Configuration.DecryptEncryptedSecrets();`
+- `src/POS.Web/Program.cs`: 23 dòng inline → 1 dòng gọi extension.
+- `src/POS.Worker/Program.cs`: thêm `using POS.Infrastructure.Security;` + gọi extension ngay sau
+  `Host.CreateApplicationBuilder`, TRƯỚC `AddSerilogWithElastic`/`AddInfrastructure`. **Không đụng**
+  DI, hosted worker, `WorkerRolesOptions`, nhánh `--run-once`.
+- `POS.Worker.csproj`: **không sửa** — đã reference `POS.Infrastructure` sẵn.
+- Doc: `docs/architecture/appsetting.md`, `docs/ROLLOUT.md` §C4, `docs/WEB_STATUS.md` (S5),
+  `.claude/skills/api/SKILLS.md` (pattern + anti-pattern "đừng copy-paste block hook").
+
+**Điểm kỹ thuật cần nhớ:** extension nhận `ConfigurationManager` (KHÔNG phải `IConfigurationBuilder`)
+vì cần **cả đọc** (`AsEnumerable`) **lẫn ghi** (`AddInMemoryCollection`). Đây đúng là kiểu mà cả
+`WebApplicationBuilder.Configuration` (Api/Web) và `HostApplicationBuilder.Configuration` (Worker)
+cùng expose → 1 extension chạy được cho cả 3 project.
+
+**Appsettings:** `src/POS.Worker/appsettings.Production.json` **cố ý giữ plaintext** — KHÔNG bịa
+token `enc:` giả (token giả sẽ khiến app fail-fast lúc khởi động). Cơ chế tự suy ra từ nội dung file:
+plaintext → hook no-op. Ops mã hóa thật lúc go-live qua `/admin/encrypt-secret`, và khi đó môi trường
+chạy Worker (container `pos-worker` / cronjob host) **phải** có `POS_SECRET_KEY` giống Api/Web.
+
+**Verify:** `dotnet build POS.slnx` → 0 error. `dotnet test tests/POS.ContractTests` → 40/40 passed
+(xác nhận DI Api/Web không vỡ sau refactor).
+**CHƯA verify:** chạy runtime thật với `enc:` + `POS_SECRET_KEY` (cần DB/Redis/RabbitMQ + khóa thật)
+— cả nhánh giải mã thành công lẫn nhánh fail-fast đều chưa chạy end-to-end.
+
+**Lưu ý cho session sau:** thêm project mới cần đọc credential → chỉ gọi
+`builder.Configuration.DecryptEncryptedSecrets()` 1 dòng, **tuyệt đối không** copy lại block hook cũ.
+
+---
+
+## [2026-07-10] MasterDataZipGeneratorWorker — watermark-driven incremental sync trigger
+
+**Layer:** POS.Worker (mới), POS.Application, POS.Infrastructure, POS.Common
+
+**Loại:** Feature mới + Pattern mới + Tài liệu kỹ thuật bổ sung (không code)
+
+**Bối cảnh:** `SyncTableList.POSLastCounter` đã được cập nhật bất đồng bộ từ trước
+(`SyncTableCounterFlushWorker`) nhưng chưa có gì tiêu thụ tín hiệu đó để tự động sinh lại master
+data `.zip` — chỉ chờ POS tự gọi `GetFileFromFTP` hoặc IT Ops bấm tay nút "Đồng bộ dữ liệu".
+
+**Thay đổi:**
+- `src/POS.Worker/Workers/{MasterDataZipGeneratorWorker,MasterDataZipGeneratorOptions}.cs` (mới):
+  poll `[SyncTable_Get] 'C'` theo chu kỳ, so `POSLastCounter` với watermark Redis Hash
+  `Worker:Watermark:MasterDataZip`; bảng đổi → generate zip song song (`Parallel.ForEachAsync`) cho
+  mọi POS terminal `Status=1` qua `ISyncDataPosService.PushMasterDataChangeAsync` (mới). Terminal
+  lỗi liên tiếp ≥ `QuarantineThreshold` (Redis Hash `Worker:Quarantine:MasterDataZip`) bị loại khỏi
+  các lượt sau — tránh 1 terminal hỏng chặn watermark của cả fleet.
+- `GetMasterDataFileRequest.ForceRegenerate` (mới, mặc định `false`) + guard 2 chỗ trong
+  `MasterDataSyncService.EnsureMasterDataFileAsync` — bỏ qua short-circuit "đã có zip hôm nay" một
+  cách tường minh (short-circuit đó vốn đã gần như dead code vì tên zip nhúng mili-giây).
+- `ISyncRepository.GetSyncTableCountersAsync` (mới) — bản KHÔNG cache của `GetSyncTablesAsync`, cần
+  cho việc phát hiện thay đổi tức thời (bản có cache TTL 1h sẽ làm trễ phát hiện).
+- `WorkerRolesOptions.EnableMasterDataZipGenerator` (mới, mặc định `false` — opt-in).
+- `POS.Worker/Program.cs`: thêm `AddApplication()` (trước đây chỉ `AddInfrastructure()` — worker
+  mới cần `IMasterDataSyncService`/`ISyncDataPosService` từ Application layer).
+- `tests/POS.ContractTests/{DependencyInjectionTests.cs,POS.ContractTests.csproj}`: thêm
+  `ProjectReference` → `POS.Worker` + test DI riêng
+  (`MasterDataZipGeneratorWorker_dependencies_are_registered`) bắt lỗi thiếu `AddApplication()` lúc
+  build/test thay vì lúc host khởi động thật.
+- appsettings sync: đã đồng bộ `WorkerRoles.EnableMasterDataZipGenerator` + section
+  `AppSettings.FtpRootPath`/`MasterDataSync`/`MasterDataZipGenerator` vào cả
+  `appsettings.UAT.json` và `appsettings.Production.json` của `POS.Worker` (giá trị tuning copy từ
+  DEV, `FtpRootPath` theo đúng quy ước POS.Api/POS.Web: UAT=`/app/ftpbluepos`,
+  Production=`/srv/pos/ftpbluepos`).
+- Tài liệu: `.claude/rules/masterdata-sync.md` (mục mới), `docs/CURRENT_STRUCTURE.md`,
+  `docs/worker/worker_status.md`, `docs/ROLLOUT.md` (§O8 mới), `docs/sql/SyncTableList_AddAction.sql`
+  (comment `DEL MD:SyncTableList:C`), `docs/worker/MasterDataZipGeneratorOptions_detail.md` (mới —
+  chi tiết luồng gọi SP/sinh file/thư mục đích), và 4 file tài liệu tổng hợp kỹ thuật cho các
+  hosted service còn lại của `POS.Worker` (mới): `docs/worker/{PosFileImportWorker,
+  PosSalesConsumerWorker,Rpt_ReportSaleDetail_Insert,WorkerHeartbeatService}.md` — logic chi tiết,
+  ràng buộc DB (SP `Sale_InsertDataByOrder_KAFKA`/`Rpt_ReportSaleDetail_Insert`...), và gotcha.
+
+**Pattern mới:** "Poll + fan-out song song + quarantine" → đã thêm vào
+`.claude/skills/worker/SKILLS.md` (Pattern C) kèm ngoại lệ mới về vị trí đặt worker khi cần
+Application service (`POS.Worker/Workers/` thay vì `POS.Infrastructure/Workers/`).
+
+**⚠️ Rollout blocker phát hiện thêm (chưa tự sửa, cần người vận hành xác nhận)**: service
+`pos-worker` trong `docker-compose.yml` (Model B) **không mount** thư mục `ftpbluepos` — nếu bật
+`EnableMasterDataZipGenerator=true` qua Docker mà không thêm volume mount tương tự `webapp`
+(`-\srv\pos\ftpbluepos:/app/ftpbluepos`), worker khởi động bình thường không lỗi nhưng zip sinh ra
+nằm trong thư mục ephemeral, tách biệt hoàn toàn khỏi nơi POS.Api phục vụ — lỗi âm thầm, khó phát
+hiện. Đã ghi chi tiết + cảnh báo vào `docs/ROLLOUT.md` §O8 mục 0.
+
+**Verify:** `dotnet build POS.slnx` 0 error; `dotnet test tests/POS.ContractTests` 40/40 pass (gồm
+1 test DI mới). **CHƯA verify end-to-end** (cần SQL Server CentralMD + Redis + FtpRootPath ghi
+được — không có trong sandbox phát triển). 4 file tài liệu tổng hợp cho 4 worker còn lại cũng dựa
+hoàn toàn trên đọc code tĩnh, chưa quan sát runtime thật.
+
+**Lưu ý cho session sau:** heartbeat `Worker:Heartbeat:PosSalesConsumer` thực chất bị **2 worker
+khác nhau ghi chung** (`PosSalesConsumerWorker` + `Rpt_ReportSaleDetail_Insert` cùng ghi vào
+`WorkerHealthState` singleton) — lỗi SQL report job có thể hiển thị nhầm thành "mất kết nối
+RabbitMQ" trên `/ops/health`. Xem `docs/worker/WorkerHeartbeatService.md` §3 trước khi debug bất kỳ
+alert nào liên quan tới heartbeat `PosSalesConsumer`.
+
+---
 
 <<<<<<< HEAD
 ## [2026-07-10] Fix bug cột "Mã CTKM" hiển thị trùng lặp trên OffersPage.razor

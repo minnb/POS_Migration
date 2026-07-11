@@ -268,3 +268,28 @@ public class ReturnMemberKeysAkaChain
 public class InputReturnDataResponse
 {
 }
+
+public class InputMemberDataAkaChainRequest
+{
+    public string EnrollmentFormCode { get; set; }= string.Empty;
+    public MemberDataInputAkaChain MemberData { get; set; } = new();
+}
+public class MemberDataInputAkaChain
+{
+    public string Address { get; set; } = string.Empty;
+    public string DOB { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Gender { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string TierGroup { get; set; } = string.Empty;
+}
+public class InputMemberDataAkaChainResponse
+{
+    public string MemberId{ get; set; } = string.Empty;
+    public string LoyaltyId { get; set; } = string.Empty;
+    public string TierId { get; set; } = string.Empty;
+}
+
+

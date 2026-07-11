@@ -312,23 +312,23 @@ SecretProtector.Encrypt(plain, base64Key);         // → "enc:...."
 SecretProtector.DecryptTokens(value, base64Key);   // thay MỌI "enc:..." trong 1 chuỗi
 // → cho phép mã hóa CHỈ phần password: "...;Password=enc:XXX;..." (regex dừng ở ';')
 
-// 2) Hook giải mã trong Program.cs — NGAY SAU CreateBuilder, TRƯỚC AddInfrastructure:
-var enc = builder.Configuration.AsEnumerable().Where(kv => SecretProtector.HasToken(kv.Value)).ToList();
-if (enc.Count > 0) {
-    var key = Environment.GetEnvironmentVariable("POS_SECRET_KEY")
-              ?? throw new InvalidOperationException("Có enc:... nhưng thiếu POS_SECRET_KEY"); // fail-fast
-    var ov = new Dictionary<string,string?>(StringComparer.OrdinalIgnoreCase);
-    foreach (var kv in enc) ov[kv.Key] = SecretProtector.DecryptTokens(kv.Value!, key);
-    builder.Configuration.AddInMemoryCollection(ov);   // mọi GetConnectionString/GetSection tự nhận plaintext
-}
+// 2) Hook giải mã — extension DÙNG CHUNG, KHÔNG viết lại block inline trong Program.cs:
+//    src/POS.Infrastructure/Security/ConfigurationSecretExtensions.cs
+//    public static void DecryptEncryptedSecrets(this ConfigurationManager configuration)
+//      → AsEnumerable() lọc HasToken → đọc POS_SECRET_KEY (fail-fast) → DecryptTokens → AddInMemoryCollection
+
+// Gọi trong MỌI Program.cs — NGAY SAU CreateBuilder, TRƯỚC AddInfrastructure:
+builder.Configuration.DecryptEncryptedSecrets();
 ```
 
 - **Không sửa từng factory** — giải mã ở tầng config nên `GetConnectionString` / `GetSection<RabbitMQOptions>` nhận plaintext tự động.
 - **No-op khi không có `enc:`** → môi trường chưa mã hóa (Dev) chạy bình thường, không cần khóa. **Fail-fast** nếu có `enc:` mà thiếu khóa.
-- Khóa qua env (`POS_SECRET_KEY`), giá trị thật ở `.env` (gitignore) — KHÔNG commit khóa. Dùng CHUNG 1 khóa cho POS.Api và POS.Web.
+- Khóa qua env (`POS_SECRET_KEY`), giá trị thật ở `.env` (gitignore) — KHÔNG commit khóa. Dùng CHUNG 1 khóa cho **POS.Api + POS.Web + POS.Worker**.
+- Extension nhận `ConfigurationManager` (không phải `IConfigurationBuilder`) vì cần **cả đọc** (`AsEnumerable`) **lẫn ghi** (`AddInMemoryCollection`) — đúng kiểu mà cả `WebApplicationBuilder.Configuration` (Api/Web) và `HostApplicationBuilder.Configuration` (Worker) cùng expose → 1 extension chạy được cho cả 3 project.
 
 > **Anti-pattern:** ❌ mã hóa `appsettings.json` (base) → MỌI môi trường (kể cả Dev không có khóa) fail-fast. Chỉ mã hóa file môi trường (Production).
-> Ví dụ thực tế: `SecretProtector.cs`, `src/POS.Api/Program.cs`, `src/POS.Web/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`; tra cứu nhanh: `docs/architecture/appsetting.md`
+> ❌ Copy-paste lại block hook inline vào Program.cs của project mới — đã có `DecryptEncryptedSecrets()`, chỉ gọi 1 dòng (trước 2026-07-10 block này bị lặp ở Api + Web, đã rút gọn).
+> Ví dụ thực tế: `SecretProtector.cs`, `ConfigurationSecretExtensions.cs`, `src/POS.{Api,Web,Worker}/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`; tra cứu nhanh: `docs/architecture/appsetting.md`
 
 > **Sinh key/token ngoài app đang chạy (không qua UI `/admin/encrypt-secret`):** `AesGcm` không có trong
 > .NET Framework → PowerShell 5.1 Windows không gọi được trực tiếp. Tạo project console tạm (net10.0)

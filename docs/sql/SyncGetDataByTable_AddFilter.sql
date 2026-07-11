@@ -31,7 +31,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROC [dbo].[SyncGetDataByTable]
+CREATE OR ALTER PROCEDURE [dbo].[SyncGetDataByTable]
 (
     @TableName     varchar(50)  = '',
     @ColumnOrderBy varchar(50)  = '',

@@ -15,7 +15,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROC [dbo].[GetSalesPriceList]
+CREATE OR ALTER PROCEDURE [dbo].[GetSalesPriceList]
 (
 	@ItemCode		nvarchar(20),
 	@ItemName		nvarchar(500),
@@ -98,7 +98,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROC [dbo].[GetSalesPriceList_Export]
+CREATE OR ALTER PROCEDURE [dbo].[GetSalesPriceList_Export]
 (
 	@ItemCode		nvarchar(20),
 	@ItemName		nvarchar(500),

@@ -33,28 +33,9 @@ QuestPDF.Settings.License = LicenseType.Community;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Giải mã credentials đã mã hóa (enc:...) — PHẢI trước AddInfrastructure ──
-// Quét mọi giá trị config chứa token "enc:" (vd Password trong connection string),
-// giải mã bằng AES-256-GCM với khóa từ env POS_SECRET_KEY, rồi nạp đè in-memory.
-// Mọi consumer (GetConnectionString / GetSection<RabbitMQOptions>) tự nhận plaintext.
-// No-op khi không có token enc: → DEV/base plaintext vẫn chạy, không cần khóa.
-{
-    var encryptedEntries = builder.Configuration.AsEnumerable()
-        .Where(kv => SecretProtector.HasToken(kv.Value))
-        .ToList();
-    if (encryptedEntries.Count > 0)
-    {
-        var secretKey = Environment.GetEnvironmentVariable("POS_SECRET_KEY");
-        if (string.IsNullOrWhiteSpace(secretKey))
-            throw new InvalidOperationException(
-                "Có giá trị cấu hình mã hóa (enc:...) nhưng thiếu biến môi trường POS_SECRET_KEY. " +
-                "Đặt khóa AES base64 (32 byte) vào POS_SECRET_KEY (tạo khóa tại /admin/encrypt-secret).");
-
-        var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in encryptedEntries)
-            overrides[kv.Key] = SecretProtector.DecryptTokens(kv.Value!, secretKey);
-        builder.Configuration.AddInMemoryCollection(overrides);
-    }
-}
+// Logic dùng chung ở POS.Infrastructure.Security.ConfigurationSecretExtensions
+// (chung cho POS.Api / POS.Web / POS.Worker — tránh copy-paste).
+builder.Configuration.DecryptEncryptedSecrets();
 
 // ── Serilog ───────────────────────────────────────────────────────────────
 // Thiếu dòng này khiến mọi ILogger<T> (kể cả KibanaService.LogInfo/LogException dùng ở

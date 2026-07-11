@@ -1,4 +1,4 @@
-﻿/*
+/*
  GetPromotionOfferHeaderList_AddDateRangeFilter.sql
  Mục đích: thêm filter "Từ ngày" cho trang promotion/offers (OffersPage.razor).
  Ngữ nghĩa: CHỈ lọc theo @FromDate — CTKM còn hiệu lực từ @FromDate trở đi:
@@ -21,7 +21,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROC [dbo].[GetPromotionOfferHeaderList]
+CREATE OR ALTER PROCEDURE [dbo].[GetPromotionOfferHeaderList]
 (
 	@No				nvarchar(20)='',
 	@Description	nvarchar(250)='',

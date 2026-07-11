@@ -1,0 +1,80 @@
+{
+  "$schema": "Nguon su that thu tu + phan loai cho tools/POS.DbMigrator. Doc truoc: .claude/skills/database/SKILLS.md muc 'Noi dat script SQL', docs/ROLLOUT.md muc D1-D12/O1/O1b.",
+  "trackDefinitions": {
+    "A": "runOnce=false - idempotent (DROP+CREATE / CREATE OR ALTER). Tool tu chay lai TOAN BO moi lan --apply (NullJournal).",
+    "B": "runOnce=true - one-shot rui ro cao (rebuild bang / doi du lieu / sp_rename). Tool KHONG BAO GIO tu chay - chi doc bang SchemaVersions de bao thieu qua --verify. DBA chay tay roi tu INSERT INTO SchemaVersions (ScriptName, Applied) VALUES (...)."
+  },
+  "scripts": [
+    { "order": 90, "file": "SetupPromotion_AddNumOfDaysList.sql", "target": "CentralMD", "runOnce": false,
+      "note": "PHAI chay truoc order 100 (SetupPromotion_Save.sql) - proc do ghi cot NUMOFDAYSLIST do script nay them. Xem ROLLOUT.md SS D11." },
+    { "order": 100, "file": "SetupPromotion_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 110, "file": "SetupPromotion_ApproveAndStatus.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 120, "file": "SetupGroupItem_CreateTable.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 130, "file": "SetupGroupItem_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 140, "file": "SetupGroupSite_Save.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 200, "file": "SpecialCombo_Read.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 210, "file": "SpecialCombo_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 220, "file": "SpecialCombo_Status.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 300, "file": "CpnVchBOMHeader_GetList.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 310, "file": "SetupCoupon_Read.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 320, "file": "SetupCoupon_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 330, "file": "SetupCoupon_Delete.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 340, "file": "SetupCoupon_IssueMore.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 350, "file": "SetupCoupon_UpdateBlocked.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 400, "file": "SetupVoucher_Read.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 410, "file": "SetupVoucher_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 420, "file": "SetupVoucher_SaveIssue.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 430, "file": "SetupVoucher_Delete.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 440, "file": "SetupVoucher_UpdateBlocked.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 450, "file": "SetupVoucher_IssueMore.sql", "target": "CentralMD", "runOnce": false,
+      "note": "Khong nam trong danh sach 'BAT BUOC chay 4 script' cua D4 trong ROLLOUT.md (chi duoc nhac gian tiep tu D3) - phat hien khi bien soan manifest nay, coi la 1 gap tai lieu can bo sung." },
+
+    { "order": 500, "file": "SetupSalePrice_Save.sql", "target": "CentralMD", "runOnce": false,
+      "note": "PHU THUOC: proc legacy [Setup_SalePrice_Get_ALL] (cung file, da normalize tu ALTER PROC bare) phai ton tai/dung schema 15 cot cua dbo.SalesPrice - xem header file." },
+    { "order": 501, "file": "SalesPrice_EditDelete.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 502, "file": "SalesPrice_EditDelete_AddSalesType.sql", "target": "CentralMD", "runOnce": false,
+      "note": "Noi tiep SalesPrice_EditDelete.sql (order 501) - PHAI chay sau (doc chinh header file)." },
+    { "order": 503, "file": "SalesPrice_AddCounterOutput.sql", "target": "CentralMD", "runOnce": false,
+      "note": "PHAI chay sau ca 3 file order 500/501/502 - ALTER lai toan bo than usp_SetupSalePrice_Save + usp_SalesPrice_UpdatePrice + usp_SalesPrice_SoftDelete (doc chinh header file, dong 7-10)." },
+    { "order": 504, "file": "GetSalesPriceList_AddSaleType.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 505, "file": "GetSalesPriceList_AddSalesTypeCode.sql", "target": "CentralMD", "runOnce": false,
+      "note": "Noi tiep GetSalesPriceList_AddSaleType.sql (order 504) - PHAI chay sau (doc chinh header file)." },
+    { "order": 506, "file": "StorePriceGroup_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 507, "file": "StorePriceGroup_Delete.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 600, "file": "CpnVchBOMCodeIssue_ExtendSchema.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy",
+      "note": "D6 buoc 1/6. Rebuild bang (Phase B) + sp_rename gian tiep - BAT BUOC backup truoc, cua so bao tri. Chay pre-check trung Code truoc Phase C (query co san trong comment script)." },
+    { "order": 620, "file": "Voucher_Read.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 630, "file": "Voucher_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 640, "file": "CpnVchBOMCodeIssue_MigrateFromInternalVoucher.sql", "target": "CentralMD", "runOnce": false,
+      "note": "Idempotent (WHERE NOT EXISTS) nen o Track A, NHUNG phu thuoc bang dbo.Internal_Voucher con ton tai. Sau khi Track B order 650 (Internal_Voucher_RenameLegacy.sql) duoc DBA chay, entry nay se LOI moi lan --apply vi bang da doi ten - PHAI XOA entry nay khoi manifest cung luc voi buoc do." },
+    { "order": 650, "file": "Internal_Voucher_RenameLegacy.sql", "target": "CentralMD", "runOnce": true, "phase": "post-deploy",
+      "note": "D6 buoc 6/6. CHI chay SAU KHI smoke-test D6 on dinh (khong chi sau code deploy don thuan) - xem ROLLOUT.md SS D6 buoc 6. Diem khong the quay lai de dang. Sau khi chay: XOA entry order 640 khoi manifest." },
+    { "order": 660, "file": "CpnVchBOMCodeIssue_ItemNoHardening.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy",
+      "note": "D6.1 buoc 1/4 - PHAI chay dau tien trong nhom D6.1. Khong doi code C#, khong can build lai POS.Api/POS.Web." },
+
+    { "order": 700, "file": "ProductImage_Save.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 750, "file": "Product_Save.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 800, "file": "SyncGetDataByTable_AddFilter.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 810, "file": "MasterDataDownloadLog.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 820, "file": "SyncTableList_AddIsSingleFile.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy" },
+    { "order": 830, "file": "SyncTableList_AddAction.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy" },
+    { "order": 840, "file": "SyncTableList_BulkUpdateCounter.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 920, "file": "Voucher_FlipIsCheckItem_Migration.sql", "target": "CentralMD", "runOnce": true, "phase": "post-deploy",
+      "note": "D10 buoc 3/3. BAT BUOC chay SAU KHI da deploy code C# (POS.Web + POS.Application) va da chay lai order 410/420 (ban moi). Sai thu tu se dao nguoc y nghia du lieu voucher." },
+
+    { "order": 970, "file": "GetPromotionOfferHeaderList_AddDateRangeFilter.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 980, "file": "GetPromotionOfferHeaderList_FixDuplicateRows.sql", "target": "CentralMD", "runOnce": false,
+      "note": "PHAI chay SAU order 970 - noi dung file nay la ban cumulative (da gom ca tham so @FromDate cua AddDateRangeFilter.sql, xem dong 42-43/126). Neu thu tu bi dao nguoc, ALTER PROC cua order 970 se ghi de mat fix duplicate-rows moi lan --apply. Da doi chieu truc tiep noi dung 2 file de xac nhan, khong suy doan tu ROLLOUT.md (ROLLOUT.md ghi 'khong phu thuoc thu tu lan nhau' - KHONG con dung khi Track A chay lai moi lan deploy)." },
+
+    { "order": 990, "file": "OfferHeader_Deactivate.sql", "target": "CentralMD", "runOnce": false },
+
+    { "order": 9000, "file": "BusinessDay_ConfirmEndDate.sql", "target": "CentralSaleShards", "runOnce": false,
+      "note": "Chay tren DB CentralSale cua TUNG store (shard theo StoreSetServer.ServerIP), KHONG PHAI CentralMD. Xem StoreRoutedConnectionFactory.cs." }
+  ]
+}

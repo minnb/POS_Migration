@@ -28,17 +28,19 @@
 | 2 | `PosSalesConsumerWorker` | `src/POS.Infrastructure/Workers/PosSalesConsumerWorker.cs` | Message consumer (RabbitMQ push, `AsyncEventingBasicConsumer`) | — (giữ connection; lỗi → retry sau 10s) | Consume queue **`pos_sales`**, deserialize `KafkaMessageDto`, insert qua `ICentralSaleRepository.InInsertToTableByJson` — đường nạp sale song song với `PosFileImportWorker`. `prefetchCount=1`, `autoAck=false`, nack không requeue khi lỗi (tránh poison loop). | `WorkerRoles:EnableRabbitMQConsumer=true` |
 | 3 | `Rpt_ReportSaleDetail_Insert` | `src/POS.Infrastructure/Workers/Rpt_ReportSaleDetail_Insert.cs` | Timer polling | **Cứng 1 phút** (`TimeSpan.FromMinutes(1)`, **chưa đọc từ `IConfiguration`** — xem mục 5) | Gọi `IRptReportSaleDetailRepository.ExecuteInsertAsync(today, today)` — chạy SP `Rpt_ReportSaleDetail_Insert` mỗi phút với `@FromDate=@ToDate=hôm nay`. | `WorkerRoles:EnableSqlReportWorker=true` |
 | 4 | `WorkerHeartbeatService` | `src/POS.Infrastructure/Workers/WorkerHeartbeatService.cs` | Timer polling | Cứng **15s** | Ghi `WorkerHeartbeat` (JSON) vào Redis key **`Worker:Heartbeat:PosSalesConsumer`** — TTL 60s khi `Running`, 300s khi `Stopped`. **Chỉ report tên cứng `"PosSalesConsumer"`** dù đang đo `WorkerHealthState` dùng chung — xem giới hạn ở mục 5. | `WorkerRoles:EnableHeartbeat=true` |
+| 5 | `MasterDataZipGeneratorWorker` | `src/POS.Worker/Workers/MasterDataZipGeneratorWorker.cs` | Timer polling (`PeriodicTimer`) + distributed lock (chỉ 1 instance chạy 1 lượt) | `MasterDataZipGenerator:IntervalSeconds` (mặc định **300s**) | Poll `SP [SyncTable_Get] 'C'`, so `POSLastCounter` với watermark Redis Hash `Worker:Watermark:MasterDataZip`; bảng nào đổi → generate lại master data `.zip` cho mọi `POSTerminal.Status=1` (song song qua `Parallel.ForEachAsync`, `MaxParallelTerminals` mặc định 4) qua `ISyncDataPosService.PushMasterDataChangeAsync`. Terminal lỗi liên tiếp `QuarantineThreshold` lần (mặc định 3) → bị bỏ qua các lượt sau (Redis Hash `Worker:Quarantine:MasterDataZip`), tránh 1 terminal hỏng chặn watermark của cả fleet. Chi tiết đầy đủ: `.claude/rules/masterdata-sync.md` mục "Worker sinh zip theo watermark + quarantine". | `WorkerRoles:EnableMasterDataZipGenerator=true` (mặc định **false** — opt-in, cần cấu hình `AppSettings:FtpRootPath` + DBA đánh dấu `SyncTableList.IsOnlyChange=1` trước, xem `docs/ROLLOUT.md`) |
 
 > `PosFileImportWorker` (Model B) cũng tự ghi heartbeat riêng key `Worker:Heartbeat:PosFileImport`
 > (trong chính `PosFileImportWorker.ExecuteAsync`, không qua `WorkerHeartbeatService`) — TTL =
-> `max(60, PollIntervalSeconds × 3)`.
+> `max(60, PollIntervalSeconds × 3)`. `MasterDataZipGeneratorWorker` cũng tự ghi heartbeat riêng key
+> `Worker:Heartbeat:MasterDataZipGenerator` (`Status`="Running"/"Degraded"/"Stopped"), cùng pattern.
 
 ### 1.2 State & health phụ trợ
 
 | Thành phần | File | Vai trò |
 |---|---|---|
 | `WorkerHealthState` | `src/POS.Infrastructure/Workers/WorkerHealthState.cs` | Singleton `Status` (`Running`/`Degraded`/`Stopped`) + `ProcessedCount` (Interlocked) — writer: các worker; reader: `WorkerHeartbeatService`. |
-| `WorkerRolesOptions` | `src/POS.Infrastructure/Workers/WorkerRolesOptions.cs` | Feature toggle 4 cờ `bool`, bind section `"WorkerRoles"`. Chỉ áp dụng cho **Model B** (long-running); Model A (`--run-once`) bỏ qua hoàn toàn 4 cờ này. |
+| `WorkerRolesOptions` | `src/POS.Infrastructure/Workers/WorkerRolesOptions.cs` | Feature toggle 5 cờ `bool`, bind section `"WorkerRoles"`. Chỉ áp dụng cho **Model B** (long-running); Model A (`--run-once`) bỏ qua hoàn toàn các cờ này. |
 | `PosFileImportService.RunOnceAsync` | `src/POS.Infrastructure/Workers/PosFileImportService.cs` | Logic "1 chu kỳ quét" dùng chung cho cả Model A và Model B — tách khỏi `BackgroundService` để tái dùng. |
 
 ### 1.3 Bảng tham số bắt buộc (CLI / Environment Variable)
@@ -48,7 +50,7 @@
 | `args: --run-once` | flag, không có giá trị | Bật **Model A** — chạy `PosFileImportService.RunOnceAsync()` 1 lần rồi thoát (`return 0` OK / `return 1` lỗi), **không đăng ký `IHostedService` nào** | `Program.cs:19,22,33-48` |
 | Env `WORKER_RUN_ONCE=true` | `"true"` (case-insensitive) | Tương đương `--run-once`, dùng khi không truyền được args (vd script cron gọi qua biến môi trường) | `Program.cs:20` |
 | Env `DOTNET_ENVIRONMENT` | `Development` \| `Production` \| `UAT` \| `CronHost` | Chọn file `appsettings.{Env}.json` overlay lên `appsettings.json` (Generic Host chuẩn) | 4 file appsettings trong `src/POS.Worker/` |
-| Env `WorkerRoles__EnableFileProcessing` / `EnableRabbitMQConsumer` / `EnableSqlReportWorker` / `EnableHeartbeat` | `"true"`/`"false"` | Override section `WorkerRoles` qua biến môi trường (double-underscore = section nesting của `IConfiguration`) — **chỉ có tác dụng ở Model B** | `docker-compose.yml:94-97`, `WorkerRolesOptions.cs` |
+| Env `WorkerRoles__EnableFileProcessing` / `EnableRabbitMQConsumer` / `EnableSqlReportWorker` / `EnableHeartbeat` / `EnableMasterDataZipGenerator` | `"true"`/`"false"` | Override section `WorkerRoles` qua biến môi trường (double-underscore = section nesting của `IConfiguration`) — **chỉ có tác dụng ở Model B**. `EnableMasterDataZipGenerator` mặc định `false` trong `appsettings.json`, chưa thêm vào `docker-compose.yml:94-97` (opt-in thủ công khi rollout, xem `docs/ROLLOUT.md`) | `docker-compose.yml:94-97`, `WorkerRolesOptions.cs` |
 
 > **Không có** flag CLI generic kiểu `--job=<tên>` để chọn chạy đúng 1 job cụ thể theo tên — xem
 > mục 5 "Đề xuất chuẩn hóa".

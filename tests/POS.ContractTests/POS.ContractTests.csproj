@@ -24,6 +24,8 @@
     <ProjectReference Include="..\..\src\POS.Application\POS.Application.csproj" />
     <ProjectReference Include="..\..\src\POS.Infrastructure\POS.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\POS.Api\POS.Api.csproj" />
+    <ProjectReference Include="..\..\src\POS.Worker\POS.Worker.csproj" />
+    <ProjectReference Include="..\..\tools\POS.DbMigrator\POS.DbMigrator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

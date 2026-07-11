@@ -43,6 +43,29 @@ Thay tất cả placeholder `<...>`:
 
 ---
 
+## 2.5. Chạy `POS.DbMigrator` (BẮT BUỘC trước khi start container, mỗi lần đổi SQL)
+
+> Chi tiết đầy đủ: `docs/ROLLOUT.md` §D0. Tóm tắt thao tác ở đây cho DevOps.
+
+```bash
+dotnet tools/POS.DbMigrator/bin/Release/net10.0/POS.DbMigrator.dll --verify --config appsettings.Production.json
+# → đọc cảnh báo Track B (script rủi ro cao) còn thiếu, xử lý theo docs/ROLLOUT.md §D6/D10/O1/O1b
+
+dotnet tools/POS.DbMigrator/bin/Release/net10.0/POS.DbMigrator.dll --whatif
+# → xem trước danh sách Track A sẽ chạy lại (không cần kết nối DB)
+
+dotnet tools/POS.DbMigrator/bin/Release/net10.0/POS.DbMigrator.dll --apply --config appsettings.Production.json
+# → chạy Track A thật (idempotent, tự chạy lại toàn bộ mỗi lần). Exit code ≠ 0 → DỪNG deploy, không
+#   build/run container mới cho tới khi lỗi được xử lý.
+```
+
+`--config` trỏ tới đúng `appsettings.{UAT|Production}.json` của môi trường đang deploy (cùng file
+dùng cho `POS.Api`/`POS.Web` — có `ConnectionStrings:CentralMD`, `CentralGeneral`,
+`CentralSaleTemplate`). Nếu file có token `enc:...`, migrator cần `POS_SECRET_KEY` trong biến môi
+trường của shell chạy lệnh này (giống §2 mục mã hóa credentials).
+
+---
+
 ## 3. Build & chạy container
 
 ### 3.1. POS.Api
@@ -229,6 +252,8 @@ docker run -d --name pos-web-uat ... pos-web:uat-prev   # chạy lại image cũ
 
 ```
 □ Điền hết placeholder <...> trong appsettings.{UAT|Production}.json
+□ Chạy POS.DbMigrator --verify → xử lý Track B thiếu → --whatif → --apply (xem §2.5) — TRƯỚC khi
+  build/run container mới
 □ Đã chạy deploy/linux/setup-pos-dirs.sh cho đúng môi trường (PROD: mặc định /srv/pos; UAT: /srv/pos/uat
   — KHÔNG dùng chung, xem docs/deploy/ubuntu-guide.md)
 □ Nếu appsettings có token enc:... → set -e POS_SECRET_KEY=... khi docker run (POS.Api + POS.Web, cùng khóa)
