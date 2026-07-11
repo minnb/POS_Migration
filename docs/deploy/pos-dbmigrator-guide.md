@@ -30,11 +30,11 @@ Manifest phân mọi script trong `docs/sql/*.sql` thành **2 track**, xử lý 
 | Argument | Bắt buộc đi kèm | Cần kết nối DB? | Tác dụng |
 |---|---|---|---|
 | `--whatif` | — | Không | In toàn bộ Track A sẽ chạy (theo `order`) + Track B phải chạy tay + kết quả content-guard. Dùng để xem trước, an toàn tuyệt đối. |
-| `--verify` | `--config <path>` | Có | Đọc `dbo.SchemaVersions` trên DB đích, so với Track B trong manifest → báo file nào **chưa** có mặt. Read-only, không ghi gì lên DB (ngoại trừ tự tạo bảng `SchemaVersions` nếu chưa có). |
-| `--apply` | `--config <path>` | Có | Thực thi Track A thật (ghi DB). Luôn quét content-guard trước — phát hiện DDL/DML nguy hiểm thì **dừng ngay, không chạy gì**. |
+| `--verify` | (tùy chọn) `--config <path>` | Có | Đọc `dbo.SchemaVersions` trên DB đích, so với Track B trong manifest → báo file nào **chưa** có mặt. Read-only, không ghi gì lên DB (ngoại trừ tự tạo bảng `SchemaVersions` nếu chưa có). |
+| `--apply` | (tùy chọn) `--config <path>` | Có | Thực thi Track A thật (ghi DB). Luôn quét content-guard trước — phát hiện DDL/DML nguy hiểm thì **dừng ngay, không chạy gì**. |
 | `--normalize-alter-proc` | — (tùy chọn `--dry-run`) | Không | Chuẩn hóa `ALTER PROC` bare → `CREATE OR ALTER PROCEDURE` trong 8 file cố định (xem `NormalizeAlterProc.TargetFiles`). Việc bảo trì repo, không phải bước deploy thường xuyên. |
 | `--sql-dir <path>` | đi kèm bất kỳ lệnh trên | — | Trỏ thẳng tới thư mục chứa `manifest.json` + toàn bộ `*.sql`. **BẮT BUỘC** khi chạy binary đã publish/deploy ngoài git checkout (Docker, Ubuntu bare-metal) — không có `POS.slnx` nào để tool tự dò. Bỏ qua thì tool tự dò ngược từ thư mục chạy tìm `POS.slnx` (chỉ dùng được khi `dotnet run`/chạy ngay trong repo lúc dev). |
-| `--config <path>` | — | — | File JSON kiểu `appsettings.json`, chỉ cần mục `ConnectionStrings`. Có thể là chính `appsettings.Production.json` của POS.Api/POS.Web. |
+| `--config <path>` | — (optional cho `--verify`/`--apply`) | — | File JSON kiểu `appsettings.json`, chỉ cần mục `ConnectionStrings`. Có thể là chính `appsettings.Production.json` của POS.Api/POS.Web. **Không truyền** → tool tự suy ra `src/POS.Api/appsettings.{Environment}.json` (dò `POS.slnx` giống `--sql-dir`; `Environment` = `ASPNETCORE_ENVIRONMENT` → `DOTNET_ENVIRONMENT` → mặc định `"Production"`) — chỉ hoạt động trong git checkout, xem §2.1. |
 
 Không truyền lệnh nào hợp lệ → in hướng dẫn sử dụng, exit code `1`.
 
@@ -56,15 +56,19 @@ $ dotnet POS.DbMigrator.dll --whatif --sql-dir docs/sql
 ### 1.3. Luồng hoạt động mỗi lần deploy có đổi SQL
 
 ```
-1. --verify --config <appsettings> [--sql-dir <path>]
+1. --verify [--config <appsettings>] [--sql-dir <path>]
    → đọc Track B còn thiếu trong SchemaVersions (đúng phase pre-deploy/post-deploy).
 2. Track B thiếu & THẬT SỰ chưa từng chạy → chạy tay theo docs/ROLLOUT.md §D6/D10/O1/O1b
    (backup, cửa sổ bảo trì) → tự INSERT xác nhận vào SchemaVersions (xem §2.4).
 3. --whatif [--sql-dir <path>]
    → xem trước Track A sẽ chạy (không cần DB).
-4. --apply --config <appsettings> [--sql-dir <path>]
+4. --apply [--config <appsettings>] [--sql-dir <path>]
    → chạy Track A thật. Exit code ≠ 0 → DỪNG pipeline deploy, đừng start container app mới.
 ```
+
+> `--config` giờ optional (xem §2.1) — bỏ qua chỉ an toàn khi chạy trong git checkout (dev/CI) với
+> `ASPNETCORE_ENVIRONMENT`/`DOTNET_ENVIRONMENT` đã set đúng ý muốn. Deploy thật (Ubuntu bare-metal,
+> Docker) **vẫn luôn truyền `--config` tường minh** — không có `POS.slnx` để tool tự dò (xem §3.3, §4.3).
 
 Bước 3–4 chạy **trước** khi `docker run`/start `POS.Api`/`POS.Web` (xem `docs/guide-deploy.md` §2.5).
 
@@ -106,6 +110,26 @@ Ví dụ tối thiểu (không cần các key khác của appsettings.json như 
 }
 ```
 
+**`--config` giờ optional** — không truyền, tool tự suy ra path này theo đúng logic sau (đã verify
+thật — xem log ví dụ bên dưới):
+
+1. Dò ngược từ `AppContext.BaseDirectory` tìm `POS.slnx` (giống hệt cơ chế `--sql-dir` ở §2.2). Không
+   thấy (chạy binary publish/deploy ngoài git checkout) → ném `InvalidOperationException` rõ ràng, yêu
+   cầu truyền `--config`.
+2. Thấy `POS.slnx` → đọc biến môi trường `ASPNETCORE_ENVIRONMENT`, nếu rỗng thì `DOTNET_ENVIRONMENT`,
+   nếu vẫn rỗng → mặc định `"Production"` (giống hành vi mặc định của ASP.NET Core khi không set biến
+   này — **cẩn thận**: máy dev không set biến này sẽ mặc định dùng `appsettings.Production.json`).
+3. Dùng file `{repoRoot}/src/POS.Api/appsettings.{Environment}.json` — không tồn tại → ném
+   `FileNotFoundException` rõ ràng.
+4. In ra path đã chọn trước khi chạy tiếp, ví dụ:
+   ```
+   [--config] Không truyền --config — tự dùng 'D:\...\src\POS.Api\appsettings.Production.json' (env='Production').
+   ```
+
+**Đã verify thật**: chạy `--verify` trong repo không kèm `--config` → tool in đúng dòng `[--config]`
+trên rồi tiếp tục load file đó (test thực tế đã xác nhận qua lỗi kế tiếp đúng là lỗi thiếu
+`POS_SECRET_KEY`/lỗi giải mã — tức tool đã đọc đúng file, không phải đoán).
+
 ### 2.2. `--sql-dir <path>` — thư mục script
 
 Thư mục phải chứa **đúng** `manifest.json` + toàn bộ `*.sql` mà nó tham chiếu (đơn giản nhất: chính
@@ -139,6 +163,25 @@ sau khi load file `--config`).
   POS.Web). Thiếu khóa → fail-fast ngay khi load config, thông báo rõ ràng, không chạy gì.
 
 Chi tiết cơ chế: `docs/architecture/appsetting.md`.
+
+**Tool tự đọc file `.env` cạnh binary** (mới, bù cho việc bare-metal không có `docker-compose` tự
+đọc `.env`): ngay khi khởi động, migrator tìm file `.env` tại `AppContext.BaseDirectory` (cùng thư
+mục với `POS.DbMigrator.dll`) — nếu có, đọc từng dòng `KEY=VALUE` (bỏ qua dòng trống/`#`, bỏ dấu
+nháy bao quanh value nếu có) và set vào `Environment` **chỉ khi biến đó CHƯA có sẵn trong process**
+— giá trị đã `export`/`systemd Environment=`/`docker -e` **luôn thắng** giá trị trong `.env`, không
+bị ghi đè. Không có file `.env` → no-op, hành vi giữ nguyên như trước (đọc bảng cũ).
+
+**Đã verify thật** (test 2 kịch bản):
+- Đặt `.env` chứa `POS_SECRET_KEY=<key giả định dạng đúng>` cạnh binary, không set biến trong shell
+  → chạy `--verify` không còn báo lỗi "thiếu POS_SECRET_KEY" nữa mà tiến tới thử giải mã thật (đổi
+  từ `InvalidOperationException` sang `AuthenticationTagMismatchException` vì key giả sai — chứng
+  minh `.env` đã được đọc và set đúng biến).
+- Set `POS_SECRET_KEY` không hợp lệ trực tiếp trong shell (khác giá trị trong `.env`) → chạy lại,
+  lỗi đổi thành `CryptographicException: POS_SECRET_KEY không phải base64 hợp lệ` — chứng minh giá
+  trị shell đã set **thắng** giá trị trong `.env` (đúng precedence thiết kế).
+
+Copy `.env.example` (đã có ở root repo) thành `.env`, điền `POS_SECRET_KEY` thật, đặt cạnh
+`POS.DbMigrator.dll` đã publish — xem ví dụ ở §3.3.
 
 ### 2.4. Quyền SQL Server cần có
 
@@ -203,18 +246,28 @@ Copy `./publish/pos-dbmigrator/` (toàn bộ thư mục) và `docs/sql/` sang m�
 
 ### 3.3. Chạy (cú pháp + ví dụ tham số thật)
 
+**Tùy chọn — đặt `.env` cạnh binary** để tool tự đọc `POS_SECRET_KEY` (không cần `export` mỗi phiên
+shell, xem §2.3):
+
+```bash
+cp /đường-dẫn-tới-repo-code/.env.example /opt/pos-dbmigrator/app/.env
+vi /opt/pos-dbmigrator/app/.env   # điền POS_SECRET_KEY thật (bỏ qua nếu appsettings còn plaintext)
+```
+
 ```bash
 cd /opt/pos-dbmigrator/app
 
 # Xem trước — an toàn, không cần config/DB
 dotnet POS.DbMigrator.dll --whatif --sql-dir /opt/pos-dbmigrator/sql
 
-# Kiểm tra Track B còn thiếu trên Production
+# Kiểm tra Track B còn thiếu trên Production — --config BẮT BUỘC ở đây (chạy ngoài git checkout,
+# không có POS.slnx để tool tự dò src/POS.Api/appsettings.*.json, xem §2.1)
 dotnet POS.DbMigrator.dll --verify \
   --config /opt/pos/appsettings.Production.json \
   --sql-dir /opt/pos-dbmigrator/sql
 
-# Nếu config có token enc:... thì set khóa trước (cùng POS_SECRET_KEY dùng cho POS.Api/POS.Web)
+# Nếu KHÔNG đặt .env ở bước trên và config có token enc:... thì set khóa trực tiếp (fallback, vẫn
+# hoạt động — giá trị export luôn thắng giá trị trong .env nếu có cả 2)
 export POS_SECRET_KEY="<khóa AES base64>"
 
 # Apply thật — BẮT BUỘC chạy trước khi start/restart POS.Api, POS.Web
@@ -226,6 +279,10 @@ echo "Exit code: $?"   # phải = 0, khác 0 thì DỪNG, không deploy tiếp
 
 > Dùng file publish là apphost (`./POS.DbMigrator --whatif ...` sau khi `chmod +x`) hay qua
 > `dotnet POS.DbMigrator.dll` đều được — 2 cách tương đương với publish framework-dependent.
+>
+> ⚠️ `--config` vẫn **BẮT BUỘC** ở đây dù §2.1 có mô tả cơ chế tự suy ra mặc định — cơ chế đó chỉ
+> hoạt động khi có `POS.slnx` (git checkout), mà `/opt/pos-dbmigrator/app/` là thư mục publish độc
+> lập, không có file này.
 
 ---
 
@@ -302,7 +359,12 @@ docker run --rm \
 echo "Exit code: $?"   # kiểm tra trong script CI/CD, ≠ 0 thì dừng pipeline
 ```
 
-> `-e POS_SECRET_KEY=...`: bỏ qua nếu `appsettings.Production.json` còn plaintext (xem §2.3).
+> `-e POS_SECRET_KEY=...`: bỏ qua nếu `appsettings.Production.json` còn plaintext (xem §2.3). Thay vì
+> `-e`, có thể mount `.env` vào `/app/.env` (`-v /srv/pos/.env:/app/.env:ro`) — tool tự đọc, nhưng
+> `-e` vẫn đơn giản hơn cho Docker (đã có sẵn cơ chế `--env-file` của chính `docker run`/
+> `docker-compose`, không cần qua `.env` tự đọc của migrator — tính năng này chủ yếu dành cho Ubuntu
+> bare-metal ở §3.3, nơi không có Docker để tự nạp `.env`). `--config` **vẫn luôn cần truyền tường
+> minh** trong Docker — container không có `POS.slnx` để tool tự suy ra mặc định (xem §2.1).
 > Không cần mount `docs/sql/` — đã bake sẵn trong image lúc build (§4.1). Chỉ mount đè khi cần test
 > 1 bản script sửa tay chưa rebuild image:
 > ```bash
@@ -391,3 +453,26 @@ cho script mới, hoặc sửa nội dung 1 script Track A cũ thêm DDL nguy hi
 nếu pattern bị báo nhầm (false-positive hợp lệ) — xem lại `DangerousStatementGuard.cs` để hiểu chính
 xác vì sao bị flag trước khi quyết định. `dotnet test tests/POS.ContractTests` sẽ bắt được lỗi này
 sớm hơn (lúc code review) nếu script được thêm đúng quy trình ở `.claude/skills/database/SKILLS.md`.
+
+### 5.6. `Không tìm thấy POS.slnx để tự suy ra appsettings.json của POS.Api, và không có --config <path>`
+
+**Nguyên nhân**: không truyền `--config` cho `--verify`/`--apply` **và** chạy binary đã
+publish/deploy ở vị trí ngoài git checkout (không có `POS.slnx`) — tool không có cách nào tự suy ra
+`src/POS.Api/appsettings.{Environment}.json` (xem §2.1). **Verify thật** — tái hiện 100% bằng cách
+publish ra 1 thư mục ngoài repo (có `--sql-dir` hợp lệ để vượt qua §5.1) rồi chạy `--verify` không
+kèm `--config`.
+
+**Khắc phục**: luôn truyền `--config <path-tới-appsettings.{Environment}.json>` ở Ubuntu bare-metal
+hoặc Docker (xem §3.3, §4.3) — giống hệt lý do phải truyền `--sql-dir` ở §5.1.
+
+### 5.7. `Không tìm thấy '<path>' để tự dùng làm --config mặc định (env='...')`
+
+**Nguyên nhân**: đang chạy trong git checkout (tìm thấy `POS.slnx`) nhưng không truyền `--config`,
+và file `src/POS.Api/appsettings.{Environment}.json` tương ứng không tồn tại — thường do
+`ASPNETCORE_ENVIRONMENT`/`DOTNET_ENVIRONMENT` đang set 1 giá trị không có file appsettings tương
+ứng (vd `UAT` mà quên tạo `appsettings.UAT.json`), hoặc không set biến nào nên mặc định
+`"Production"` trong khi chỉ có `appsettings.Development.json`.
+
+**Khắc phục**: truyền `--config <path>` tường minh, hoặc set đúng
+`ASPNETCORE_ENVIRONMENT`/`DOTNET_ENVIRONMENT` khớp với file appsettings đang có trong
+`src/POS.Api/`.

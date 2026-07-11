@@ -70,7 +70,15 @@ dotnet tools/POS.DbMigrator/bin/Release/net10.0/POS.DbMigrator.dll --apply --con
 `--config` trỏ tới đúng `appsettings.{UAT|Production}.json` của môi trường đang deploy (cùng file
 dùng cho `POS.Api`/`POS.Web` — có `ConnectionStrings:CentralMD`, `CentralGeneral`,
 `CentralSaleTemplate`). Nếu file có token `enc:...`, migrator cần `POS_SECRET_KEY` trong biến môi
-trường của shell chạy lệnh này (giống §2 mục mã hóa credentials).
+trường của shell chạy lệnh này (giống §2 mục mã hóa credentials) — hoặc đặt file `.env` (copy từ
+`.env.example`) cạnh `POS.DbMigrator.dll` để tool tự đọc, không cần `export` mỗi lần (xem
+`docs/deploy/pos-dbmigrator-guide.md` §2.3).
+
+> `--config` giờ optional nếu chạy `dotnet tools/POS.DbMigrator/...` **ngay trong git checkout** này
+> (tool tự suy ra `src/POS.Api/appsettings.{Environment}.json` theo
+> `ASPNETCORE_ENVIRONMENT`/`DOTNET_ENVIRONMENT`, mặc định `Production` — xem
+> `docs/deploy/pos-dbmigrator-guide.md` §2.1). Khuyến nghị **vẫn truyền `--config` tường minh** như
+> ví dụ dưới đây trong pipeline CI/CD — tránh phụ thuộc vào biến môi trường của shell đang chạy.
 
 ---
 
