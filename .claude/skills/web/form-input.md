@@ -246,6 +246,10 @@ if (_model.DiscountType == 1 && (_model.DiscountValue <= 0 || _model.DiscountVal
 
 ## 6. Action bar (Lưu / nút chính)
 
+> Variant/Color mỗi nút theo **bảng Button convention v3** (`theming.md` §"Button" / `.claude/rules/mudblazor-flat-ui.md` §3):
+> "Lưu" = CTA `Filled`/`Primary`; "Duyệt"/"Kích hoạt" = `Filled`/`Success`; "Hủy"/"Đóng" = `Outlined`
+> trung tính; "Xóa" = `Outlined`/`Error`. Nhất quán với `ui-polish-standard.md §5`.
+
 Đặt NGOÀI `MudTabs`/danh sách card, bọc `@if (!_isReadonly)`:
 
 ```razor

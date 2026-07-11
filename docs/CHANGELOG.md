@@ -13,6 +13,138 @@
 > conflict — chỉ prepend entry mới an toàn phía trên, không chạm vào các khối conflict cũ. Người
 > phụ trách cần dọn thủ công khi có dịp.
 
+## [2026-07-11] Refactor tài liệu UI `.claude/skills/web/` về chuẩn v3 + fix defect thật
+
+**Layer:** POS.Web (tài liệu skill + comment app.css/reports.md — không đổi logic runtime)
+
+**Loại:** Refactor (tài liệu) + Bug fix (merge conflict + doc lỗi thời)
+
+**Bối cảnh:** Rà lại toàn bộ tài liệu UI trong `.claude/skills/web/` theo chuẩn thiết kế v3
+(mockup `docs/web/theme/theme_html.html`). Khảo sát cho thấy phần lớn tài liệu **đã ở v3 từ trước**
+(mọi mention borderless/16px/Outlined-mọi-nơi đều đã đóng khung "v2 đã loại bỏ"), nhưng phát hiện
+2 defect thật cần sửa.
+
+**Thay đổi:**
+- `.claude/skills/web/SKILLS.md`: **giải quyết merge conflict Git chưa resolve** (dòng ~1306-1390,
+  `<<<<<<< HEAD`/`=======`/`>>>>>>> b710abed`) — giữ CẢ 2 khối (dot-pill badge/timepicker/multiselect
+  + bẫy `FormatThousands` khi bulk-import). **Viết lại §"Sidebar nav 3 cấp"** khớp v3/`app.css`
+  (L1 = `div.pos-nav-section-label` tĩnh không icon; L2 = `MudNavGroup Class="pos-nav-l2"` icon riêng;
+  L3 = `ChevronRight`; QUẢN TRỊ leaf top-level) — thay mô tả v2 cũ ("cấp 2 = ChevronRight giống cấp 3").
+  **Giữ nguyên 100%** logic `UpdateExpanded()`/`Match=NavLinkMatch.All`/accordion.
+- `.claude/skills/web/theming.md`: snippet `PosTheme.cs` bổ sung `FontFamily` per-variant + rationale
+  CSS-var riêng; thêm `LayoutProperties` (`DefaultBorderRadius=12px`/`DrawerWidthLeft=260px`/`AppbarHeight=50px`).
+- `.claude/skills/web/ui-polish-standard.md`: §2 + checklist — badge tĩnh dùng `pos-status-chip` là
+  chuẩn mặc định, `MudChip` chỉ khi cần tương tác (đồng bộ mudblazor-flat-ui.md §4a).
+- `.claude/skills/web/form-input.md`: thêm tham chiếu chéo Button convention v3 ở §6.
+- `src/POS.Web/wwwroot/app.css`: sửa **chỉ comment** v2 lỗi thời (dòng ~545 + ~585-597) — 0 dòng CSS
+  thực thi thay đổi.
+- `.claude/skills/web/reports.md`: 3 hardcode `#1976D2` → `var(--pos-primary)` trong ví dụ pivot.
+
+**Pattern mới:** không — chỉ đồng bộ tài liệu với chuẩn v3 đã có trong `PosTheme.cs`/`app.css`.
+
+**Lưu ý cho session sau:** Tài liệu skills/web đã đồng bộ v3; nguồn sự thật màu/radius/shadow/typography
+vẫn là `PosTheme.cs` + `app.css`. CHANGELOG.md và `.claude/skills/web/SKILLS.md` cũ từng dính merge
+conflict — SKILLS.md đã sạch, nhưng **CHANGELOG.md vẫn còn nhiều khối conflict** rải rác (xem ghi chú
+đầu file) cần dọn thủ công.
+
+---
+
+## [2026-07-11] POS.DbMigrator: `--config` optional (auto-default POS.Api appsettings) + tự đọc `.env` cạnh binary
+
+**Layer:** tools/POS.DbMigrator (không thuộc `src/`, xem `docs/ROLLOUT.md` §D0)
+
+**Loại:** Feature (tiện ích tùy chọn, không đổi hành vi mặc định khi vẫn truyền tường minh)
+
+**Thay đổi:**
+- `tools/POS.DbMigrator/RepoRootLocator.cs` (mới): tách logic dò ngược `POS.slnx` dùng chung.
+- `tools/POS.DbMigrator/EnvFileLoader.cs` (mới): tự đọc file `.env` cạnh binary
+  (`AppContext.BaseDirectory`), set env var **chỉ khi chưa có sẵn** (không override
+  export/systemd/`docker -e`).
+- `tools/POS.DbMigrator/Program.cs`: `--config` cho `--verify`/`--apply` giờ **optional** — không
+  truyền + đang chạy trong git checkout → tự suy ra `src/POS.Api/appsettings.{Environment}.json`
+  (`Environment` = `ASPNETCORE_ENVIRONMENT` → `DOTNET_ENVIRONMENT` → mặc định `Production`). Gọi
+  `EnvFileLoader` ngay đầu `Main`.
+- `tools/POS.DbMigrator/ManifestScriptProvider.cs`: refactor dùng `RepoRootLocator`, hành vi
+  `--sql-dir` không đổi.
+- Docs: `docs/deploy/pos-dbmigrator-guide.md` (thêm §0 khuyến nghị CI/CD + §2.1/§2.3/§3.3/§4.3 +
+  §5.6/§5.7 troubleshooting), `docs/guide-deploy.md` §2.5, `docs/ROLLOUT.md` §D0, `.env.example`.
+
+**Quyết định quan trọng — §0 mới trong `pos-dbmigrator-guide.md`:** cách khuyến nghị chính cho
+CI/CD/production vẫn là truyền **tường minh** cả 3 tham số (`--config`, `--sql-dir`,
+`POS_SECRET_KEY` qua biến môi trường) — đã verify thật bằng cách publish ra thư mục hoàn toàn ngoài
+repo (không `POS.slnx`) và chạy thành công cả 2 kịch bản (plaintext + `enc:...` với token thật). Cơ
+chế auto-default `--config`/tự đọc `.env` chỉ là tiện ích phụ cho dev chạy trong git checkout —
+**không hoạt động** khi máy đích không có `POS.slnx` (đúng kịch bản CI/CD artifact-only), nên tài
+liệu không khuyến khích phụ thuộc vào chúng cho production.
+
+**Lưu ý cho session sau:** nếu cần sửa tiếp `POS.DbMigrator`, luôn verify bằng cách publish ra thư
+mục ngoài repo (`dotnet publish ... -o <thư mục tạm ngoài repo>`) để đảm bảo hành vi đúng cho kịch
+bản CI/CD-artifact-only, không chỉ test bằng `dotnet run` trong repo (dễ che lấp lỗi phụ thuộc vào
+`POS.slnx`/cấu trúc source).
+
+---
+
+## [2026-07-11] Fix deploy POS.Worker: lệch Redis DB, thiếu POS_SECRET_KEY, mount log sai, tách config Docker/bare-metal
+
+**Layer:** POS.Worker, POS.Api (config), docs
+
+**Loại:** Bug fix (3 lỗi vận hành thật) + Config mới (dual-deployment)
+
+**Bối cảnh:** User deploy `POS.Worker` bằng Docker theo `docs/deploy/pos-worker-ubuntu-guide.md`,
+gặp liên tiếp 3 vấn đề thật trên môi trường Production:
+
+1. **`/ops/health` báo "Worker: PosSalesConsumer -> offline"` dù container chạy tốt** — nguyên nhân
+   `Redis:DefaultDatabase` lệch giữa 3 service (`Api`/`Web` Production = `0`, `Worker` Production =
+   `2`) → heartbeat ghi 1 DB, `/ops/health` đọc DB khác, không bao giờ thấy key.
+2. **Container Worker crash-loop lúc khởi động** — `appsettings.Production.json` đã mã hóa
+   `enc:...` (từ 2026-07-10, Worker đã có hook giải mã) nhưng lệnh `docker run` thiếu
+   `-e POS_SECRET_KEY=...`; `docs/deploy/pos-worker-ubuntu-guide.md` còn ghi sai "Worker chưa hỗ
+   trợ enc:..., không cần key" — thông tin lỗi thời từ trước khi hook được tích hợp.
+3. **File log không xuất hiện trên Ubuntu host** — `Logging:FileLogDirectory` trỏ
+   `/srv/pos/logs/worker` (path trong container) nhưng lệnh `docker run` mẫu mount
+   `-v $(pwd)/logs:/app/logs` — sai path, log bị ghi vào filesystem tạm của container (nếu ghi
+   được — `Dockerfile.worker` cũng chưa từng `mkdir`/`chown` path đó cho user non-root `app`).
+4. **Yêu cầu bổ sung**: Worker cần chạy **song song Docker + bare-metal trên cùng host**, do SQL
+   Server cũng chạy Docker trên host đó — container cần `host.docker.internal` để với ra SQL,
+   process bare-metal cần `127.0.0.1` (không resolve được `host.docker.internal` ngoài container).
+   Dùng chung 1 file cho cả 2 ngữ cảnh khiến 1 bên luôn sai địa chỉ SQL.
+
+**Thay đổi:**
+- `src/POS.Worker/appsettings.Production.json`: `Redis:DefaultDatabase` 2→0; `ConnectionStrings`/
+  `SetDb:DB1` đổi `127.0.0.1,14333` → `host.docker.internal,14333` (đúng ngữ cảnh Docker).
+- `src/POS.Api/appsettings.UAT.json`: `Redis:DefaultDatabase` 0→2 (khớp Web/Worker UAT — lệch theo
+  chiều ngược lại so với Production).
+- `src/POS.Worker/appsettings.ProductionHost.json` (**file mới**): bản dành cho bare-metal —
+  `RabbitMQ:Host`/`ConnectionStrings` dùng `127.0.0.1`, `WorkerRoles:EnableHeartbeat=false` (tránh 2
+  instance cùng vai trò ghi đè 1 key heartbeat `Worker:Heartbeat:PosSalesConsumer` — key này bị
+  hardcode tên, không phân biệt instance), `Logging:FileLogDirectory`/`Elasticsearch:IndexFormat`
+  riêng để không lẫn log với bản Docker.
+- `docs/deploy/pos-worker-ubuntu-guide.md`: sửa toàn bộ thông tin lỗi thời (enc:/POS_SECRET_KEY,
+  mount log, lệnh kiểm tra Redis DB theo môi trường), thêm mục 3.5 (chạy bare-metal song song +
+  mẫu systemd unit `pos-worker-prodhost.service`), cập nhật checklist Model B.
+- `docs/ROLLOUT.md`: thêm §O10 (Redis:DefaultDatabase phải đồng bộ 3 service) và §O11 (dùng đúng
+  file `Production.json`/`ProductionHost.json` theo ngữ cảnh chạy).
+- `docs/worker/worker_status.md`: đồng bộ checklist Model B (POS_SECRET_KEY, mount log, DB Redis
+  theo môi trường) + mục chẩn đoán nhanh (4.3) thêm 2 nguyên nhân mới phát hiện.
+- `.claude/skills/worker/SKILLS.md`: thêm 2 pattern mới — gotcha heartbeat multi-instance (mục
+  "Heartbeat → Redis") và pattern tách file cấu hình theo `DOTNET_ENVIRONMENT` khi 1 codebase chạy
+  cả Docker lẫn bare-metal trên cùng host phụ thuộc hạ tầng cũng chạy Docker (mục "Đăng ký trong
+  Program.cs").
+
+**Pattern mới:** Tách `appsettings.{Environment}Host.json` cho bare-metal khi cùng codebase chạy
+song song Docker + bare-metal trên 1 host có hạ tầng phụ thuộc (SQL/Rabbit) cũng chạy Docker — đã
+cập nhật `.claude/skills/worker/SKILLS.md`.
+
+**Lưu ý cho session sau:** Mọi lần sửa `Redis:DefaultDatabase` ở BẤT KỲ file nào trong
+`POS.Api`/`POS.Web`/`POS.Worker` phải đối chiếu cả 3 service cùng môi trường (§O10) — lỗi này không
+lộ ra lúc build/test, chỉ lộ ra lúc runtime qua `/ops/health` hiển thị sai. Toàn bộ phát hiện trong
+đợt này (trừ việc tạo `appsettings.ProductionHost.json`) **chưa verify trên môi trường thật của
+user** ngoài việc user tự chạy `docker run`/`ls`/xem log và báo lại kết quả — chỉ verify được qua
+đọc code + `dotnet build`/`dotnet test` (45/45 xanh) từ phía Claude, không có quyền truy cập Ubuntu
+host thật.
+
+---
+
 ## [2026-07-11] `/ops/health` — đưa tham số hardcode ra appsettings (configurable theo môi trường)
 
 **Layer:** POS.Application, POS.Infrastructure, POS.Web, POS.Worker

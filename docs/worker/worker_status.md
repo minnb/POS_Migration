@@ -66,22 +66,32 @@
 
 ```
 □ cd /đường-dẫn-repo && docker build -t pos-worker:prod -f Dockerfile.worker .
+□ sudo mkdir -p /srv/pos/logs/worker && sudo chown 1654:1654 /srv/pos/logs/worker
 □ docker run -d --name pos-worker-prod \
     -e DOTNET_ENVIRONMENT=Production -e TZ=Asia/Ho_Chi_Minh \
+    -e POS_SECRET_KEY="<cùng giá trị dùng cho pos-api-prod/pos-web-prod>" \
     -e WorkerRoles__EnableFileProcessing=false \
     -e WorkerRoles__EnableRabbitMQConsumer=true \
     -e WorkerRoles__EnableSqlReportWorker=true \
     -e WorkerRoles__EnableHeartbeat=true \
     --add-host host.docker.internal:host-gateway \
-    -v $(pwd)/logs:/app/logs --restart unless-stopped pos-worker:prod
-□ docker ps --filter name=pos-worker  → STATUS "Up"
+    -v /srv/pos/logs/worker:/srv/pos/logs/worker --restart unless-stopped pos-worker:prod
+□ docker ps --filter name=pos-worker  → STATUS "Up" liên tục (không restart loop)
 □ docker logs --tail 50 pos-worker-prod → thấy PosSalesConsumer + Rpt_ReportSaleDetail_Insert khởi
-  động, KHÔNG có "[PosFileImport] Started", không exception
-□ redis-cli -n 2 GET Worker:Heartbeat:PosSalesConsumer → giá trị mới cập nhật (≤60s)
+  động, KHÔNG có "[PosFileImport] Started", không exception (đặc biệt không có
+  "InvalidOperationException... POS_SECRET_KEY" — appsettings.Production.json đã mã hóa enc:...)
+□ redis-cli -n 0 GET Worker:Heartbeat:PosSalesConsumer → giá trị mới cập nhật (≤60s) — PROD dùng
+  DB 0 (khớp Api/Web), KHÔNG phải DB 2 như trước 2026-07-11 (xem gotcha ở mục 4.2)
 ```
 
 Hoặc dùng sẵn `docker compose up -d --build` (service `pos-worker` trong `docker-compose.yml`,
 env `WorkerRoles__*` đã cấu hình sẵn giống lệnh trên).
+
+> **Chạy song song bare-metal cùng roles (Model B'), khi SQL Server cũng chạy Docker trên cùng
+> host**: dùng `appsettings.ProductionHost.json` (`DOTNET_ENVIRONMENT=ProductionHost`, địa chỉ
+> `127.0.0.1` thay vì `host.docker.internal`, `EnableHeartbeat=false`) thay vì lặp lại
+> `Production.json` — xem `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5 và
+> `docs/ROLLOUT.md` §O11.
 
 > Container **không** mở cổng, **không** có `HEALTHCHECK` (`Dockerfile.worker` không `EXPOSE`) —
 > giám sát bằng `docker logs` + Redis heartbeat, không phải HTTP health endpoint.
@@ -257,7 +267,7 @@ cần pattern đặc biệt gì thêm — chỉ cần không tắt cờ nào.
 
 | Cơ chế | Cách kiểm tra | Áp dụng cho |
 |---|---|---|
-| Redis heartbeat | `redis-cli -n 2 GET Worker:Heartbeat:PosSalesConsumer` / `...:PosFileImport` | Model B (mọi worker có `EnableHeartbeat=true`) + `PosFileImportWorker` khi chạy long-running |
+| Redis heartbeat | `redis-cli -n <DB> GET Worker:Heartbeat:PosSalesConsumer` / `...:PosFileImport` — **`<DB>` PHẢI khớp `Redis:DefaultDatabase` của POS.Worker VÀ của POS.Web** (PROD hiện = `0`, UAT = `2`; lệch giữa 2 service → `/ops/health` báo sai "offline" dù worker sống, xem `docs/ROLLOUT.md` §O10) | Model B (mọi worker có `EnableHeartbeat=true`) + `PosFileImportWorker` khi chạy long-running |
 | Trang Ops `/ops/health` | `HealthCheckService.CheckWorkerHeartbeatAsync` — đọc key `Worker:Heartbeat:{HealthCheck:WorkerName}` (mặc định **chỉ `"PosSalesConsumer"`**, config `src/POS.Web/appsettings.json` section `HealthCheck`), báo "Đang chạy" nếu nhịp cuối ≤ `HealthCheck:StaleAfterSeconds` (mặc định 45s, từ 2026-07-11 đọc từ config thay vì hardcode), "Suy giảm" nếu `Status=Degraded`, "Mất tín hiệu" nếu quá ngưỡng đó không có nhịp | Chỉ 1 worker/lần theo config — xem giới hạn ở mục 5 |
 | Exit code + `cron.log` | `echo $?` sau khi chạy tay `--run-once`; hoặc quan sát `cron.log` có dòng mới đều mỗi phút, không có khoảng trống bất thường | **Model A — không có heartbeat Redis** (`EnableHeartbeat=false` cứng trong `appsettings.CronHost.json`), đây là cơ chế giám sát DUY NHẤT |
 | `ProcessedCount` trong log | Mỗi worker log `"... OK — txId: ..."` hoặc `"Exec success for ..."` sau mỗi item xử lý thành công | Tất cả |
@@ -267,10 +277,15 @@ cần pattern đặc biệt gì thêm — chỉ cần không tắt cờ nào.
 ```
 1. Model B: docker ps --filter name=pos-worker → có "Up" không? (container tự thoát = crash lúc
    khởi động, thường do sai connection string/Redis/RabbitMQ không reachable)
-2. docker logs --tail 200 <container> → tìm exception đầu tiên sau dòng "Started"
-3. Model A: kiểm tra crontab còn dòng (crontab -l), cron.log có dòng mới trong ≤2 phút gần nhất
-4. Redis: TTL hết hạn (60s không có nhịp mới) = worker treo hoặc bị kill mà không kịp ghi "Stopped"
-5. Windows: schtasks /Query /TN "POS.Worker" /V /FO LIST | findstr /I "Status Last" → "Running"?
+2. docker logs --tail 200 <container> → tìm exception đầu tiên sau dòng "Started". Thấy
+   "InvalidOperationException... thiếu biến môi trường POS_SECRET_KEY" → thiếu `-e POS_SECRET_KEY`
+   khi appsettings đã mã hóa enc:... (xem docs/ROLLOUT.md §C4), KHÔNG phải lỗi hạ tầng.
+3. `/ops/health` báo "Worker offline" nhưng docker logs KHÔNG có exception nào → khả năng cao là
+   lệch `Redis:DefaultDatabase` giữa POS.Worker và POS.Web (xem §O10, mục 4.2) chứ không phải
+   worker chết — đối chiếu số DB trước khi kết luận.
+4. Model A: kiểm tra crontab còn dòng (crontab -l), cron.log có dòng mới trong ≤2 phút gần nhất
+5. Redis: TTL hết hạn (60s không có nhịp mới) = worker treo hoặc bị kill mà không kịp ghi "Stopped"
+6. Windows: schtasks /Query /TN "POS.Worker" /V /FO LIST | findstr /I "Status Last" → "Running"?
    Event Viewer TaskScheduler Operational → tìm sự kiện restart gần nhất (nếu có → đang crash loop)
 ```
 

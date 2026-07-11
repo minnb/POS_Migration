@@ -66,8 +66,9 @@ trên Ubuntu — cùng mục đích, khác cơ chế.
 | Lệnh `docker run` UAT/PROD chuẩn | `docs/guide-deploy.md` §3.3 | Sẵn sàng — dùng làm mẫu ở mục 3 bên dưới |
 | Thư mục dùng chung `ftpbluepos` | `deploy/linux/setup-pos-dirs.sh` + `docs/deploy/ubuntu-guide.md` | Sẵn sàng — chạy 1 lần/host |
 | Cấu hình `FileImport` (path, poll interval...) | `docs/ROLLOUT.md` §O2 | Đã mô tả đầy đủ |
-| `appsettings.Production.json` (Worker) | `src/POS.Worker/appsettings.Production.json` | **Đã đúng** — khớp chính xác với `src/POS.Api/appsettings.Production.json` (cùng `Data Source=mssql_2019,1433`, `RabbitMQ:Host=host.docker.internal`, `Redis:SentinelHosts=172.17.0.1:6379`) vì cả 2 cùng chạy trong `docker-compose.yml`. **Không cần sửa gì cho PROD.** |
+| `appsettings.Production.json` (Worker) | `src/POS.Worker/appsettings.Production.json` | Khớp `src/POS.Api/appsettings.Production.json` (cùng `RabbitMQ:Host=host.docker.internal`, `Redis:SentinelHosts=172.17.0.1:6379`, `Redis:DefaultDatabase=0`). **File đã mã hóa `enc:...`** (RabbitMQ password + ConnectionStrings) — container **BẮT BUỘC** nhận biến môi trường `POS_SECRET_KEY` lúc `docker run`, xem cảnh báo ở mục 3. |
 | `appsettings.UAT.json` (Worker) | `src/POS.Worker/appsettings.UAT.json` | **Vừa tạo mới** (file này trước đây không tồn tại — xem mục 2) |
+| `appsettings.ProductionHost.json` (Worker) | `src/POS.Worker/appsettings.ProductionHost.json` | **Mới tách ra** — dùng khi chạy Worker **bare-metal song song với container Docker cùng roles** (RabbitMQ consumer + SQL report), vì SQL Server chạy trong Docker trên cùng host nên 2 ngữ cảnh cần địa chỉ khác nhau (`host.docker.internal` cho container vs `127.0.0.1` cho process bare) — xem mục 3.5 |
 
 > ⚠️ **Lưu ý phạm vi**: `POS.Api` và `POS.Web` cũng đang thiếu `appsettings.UAT.json` tương tự — đây
 > là lỗ hổng có sẵn trong repo, **ngoài phạm vi việc deploy Worker lần này**. Nếu cần deploy UAT đầy
@@ -93,14 +94,39 @@ bind-mount phía host là khác giữa UAT/PROD, xem mục 3).
 | `<UAT_EINVOICE_USER>` / `<UAT_EINVOICE_PASSWORD>` | Riêng connection string `EInvoice` | — |
 | `<UAT_KAFKA_HOST>` | `BootstrapServers` (Kafka) | — |
 
-> Worker **chưa có hook giải mã `enc:...`** (khác Api/Web — xem `docs/architecture/appsetting.md`).
-> Điền **plaintext thật** vào các placeholder trên, không dùng `enc:...` cho file này.
+> Worker **đã có hook giải mã `enc:...`** giống Api/Web (`ConfigurationSecretExtensions.DecryptEncryptedSecrets()`,
+> gọi trong `Program.cs` trước `AddInfrastructure` — xem `docs/architecture/appsetting.md`).
+> File `appsettings.UAT.json` **hiện tại vẫn để plaintext thật** ở các placeholder trên (chưa mã
+> hóa) → **không cần** `POS_SECRET_KEY` khi chạy container UAT với file này. Ngược lại,
+> `appsettings.Production.json` **đã mã hóa** (`enc:...`) → container PROD **BẮT BUỘC** có
+> `POS_SECRET_KEY` (xem mục 3), nếu không sẽ crash-loop ngay lúc khởi động với
+> `InvalidOperationException: ... thiếu biến môi trường POS_SECRET_KEY`. Nếu sau này mã hóa cả file
+> UAT, áp dụng đúng quy tắc như PROD (thêm `-e POS_SECRET_KEY=...` khi chạy container UAT).
 
 ## 3. Build & chạy container (Model B — RabbitMQ + SQL, KHÔNG xử lý file)
 
 > Container **KHÔNG** còn mount `ftpbluepos` — `WorkerRoles:EnableFileProcessing=false` (đặt cứng
 > trong `appsettings.Production.json`/`UAT.json`, không cần lặp lại qua `-e` nếu dùng file đúng
 > bản mới; ví dụ dưới đây vẫn khai rõ qua env để minh bạch và để dễ đổi khi cần debug tạm thời).
+
+> ⚠️ **`POS_SECRET_KEY` — BẮT BUỘC cho PROD**: `appsettings.Production.json` đã mã hóa credentials
+> (`enc:...`). Thiếu `-e POS_SECRET_KEY=...` khi `docker run` → container **crash-loop ngay lập
+> tức** (`InvalidOperationException` lúc khởi động, lặp lại vô hạn vì `--restart unless-stopped`).
+> Dùng **CÙNG giá trị** `POS_SECRET_KEY` đã dùng cho `pos-api-prod`/`pos-web-prod` (khóa dùng chung
+> 3 service, sinh tại `/admin/encrypt-secret` — xem `docs/architecture/appsetting.md`), không tự
+> tạo khóa mới. Chưa nhớ giá trị đang dùng: `docker inspect pos-api-prod --format
+> '{{range .Config.Env}}{{println .}}{{end}}' | grep POS_SECRET_KEY`. File UAT hiện còn plaintext
+> nên **không cần** biến này cho container UAT (xem mục 2).
+
+> **Thư mục log** — `Logging:FileLogDirectory` trong `appsettings.Production.json` trỏ
+> `/srv/pos/logs/worker` (khác `appsettings.UAT.json`, vẫn dùng `/app/logs`) — phải tạo thư mục host
+> + chown đúng UID:GID container **trước** khi chạy PROD, nếu không Serilog/`FileLogHelper` âm thầm
+> không ghi được gì (bọc try/catch, không throw — xem `docs/worker/WorkerHeartbeatService.md` style
+> gotcha tương tự):
+> ```bash
+> sudo mkdir -p /srv/pos/logs/worker
+> sudo chown 1654:1654 /srv/pos/logs/worker   # khớp UID:GID user "app" trong Dockerfile.worker
+> ```
 
 ```bash
 cd /đường-dẫn-tới-repo-code   # thư mục chứa Dockerfile.worker
@@ -111,12 +137,13 @@ docker build -t pos-worker:prod -f Dockerfile.worker .
 docker run -d --name pos-worker-prod \
   -e DOTNET_ENVIRONMENT=Production \
   -e TZ=Asia/Ho_Chi_Minh \
+  -e POS_SECRET_KEY="<CÙNG giá trị đang dùng cho pos-api-prod/pos-web-prod>" \
   -e WorkerRoles__EnableFileProcessing=false \
   -e WorkerRoles__EnableRabbitMQConsumer=true \
   -e WorkerRoles__EnableSqlReportWorker=true \
   -e WorkerRoles__EnableHeartbeat=true \
   --add-host host.docker.internal:host-gateway \
-  -v $(pwd)/logs:/app/logs \
+  -v /srv/pos/logs/worker:/srv/pos/logs/worker \
   --restart unless-stopped \
   pos-worker:prod
 
@@ -136,9 +163,79 @@ docker run -d --name pos-worker-uat \
   pos-worker:uat
 ```
 
-> Không cần `-p` (Worker không mở cổng nào). Không cần `-e POS_SECRET_KEY=...` (Worker chưa mã hóa
-> credentials). Không cần mount `ftpbluepos` nữa trong container này — việc xử lý file đã chuyển
-> sang **Model A** (mục 5).
+> Không cần `-p` (Worker không mở cổng nào). Không cần mount `ftpbluepos` nữa trong container này —
+> việc xử lý file đã chuyển sang **Model A** (mục 5). `POS_SECRET_KEY` chỉ cần cho PROD (xem cảnh
+> báo phía trên) — UAT bỏ qua vì `appsettings.UAT.json` còn plaintext.
+
+## 3.5. Chạy song song bare-metal cùng roles với Docker (`appsettings.ProductionHost.json`)
+
+> Áp dụng khi bạn cần chạy **CÙNG WorkerRoles** (RabbitMQ consumer + SQL report) vừa trong Docker
+> container (mục 3) **vừa bằng bản publish bare-metal** trên cùng Ubuntu host — không phải Model A
+> (file import) hay Model C (`MasterDataZipGeneratorWorker`), mà là chạy Model B **thêm 1 bản
+> native** song song. Tình huống điển hình: SQL Server chạy trong Docker trên host — container
+> Worker cần `host.docker.internal,<port>` để với ra SQL, nhưng process bare (không nằm trong
+> Docker network) phải dùng `127.0.0.1,<port>` (published port trên chính host) vì `host.docker.internal`
+> KHÔNG resolve được bên ngoài container (chỉ có hiệu lực nhờ `--add-host` lúc `docker run`). Dùng
+> chung 1 file `appsettings.Production.json` cho cả 2 ngữ cảnh sẽ khiến 1 trong 2 luôn kết nối SQL
+> sai địa chỉ.
+
+**Khác biệt so với `appsettings.Production.json` (bản Docker):**
+
+| Key | `Production.json` (Docker) | `ProductionHost.json` (bare-metal) |
+|---|---|---|
+| `RabbitMQ:Host` | `host.docker.internal` | `127.0.0.1` |
+| `ConnectionStrings:*` / `SetDb:DB1` | `Data Source=host.docker.internal,14333` | `Data Source=127.0.0.1,14333` |
+| `WorkerRoles:EnableHeartbeat` | `true` | **`false`** |
+| `Logging:FileLogDirectory` | `/srv/pos/logs/worker` | `/srv/pos/logs/worker-host` |
+| `Elasticsearch:IndexFormat` | (mặc định `pos-worker-logs-*`) | `pos-worker-host-logs-*` |
+| `Redis:SentinelHosts`/`DefaultDatabase` | giống nhau (`172.17.0.1:6379`, DB 0) | giống nhau — địa chỉ này là interface `docker0` thật trên host, dùng được từ CẢ container lẫn bare process, không cần đổi |
+
+> ⚠️ **`EnableHeartbeat=false` là CHỦ Ý** — key Redis `Worker:Heartbeat:PosSalesConsumer` bị
+> **hardcode tên**, không phân biệt instance nào ghi (xem `docs/worker/WorkerHeartbeatService.md`
+> §3). Nếu bật `true` ở cả 2 nơi, bản ghi sau cùng sẽ ghi đè bản kia trên CÙNG 1 key Redis —
+> `/ops/health` không thể phân biệt được 2 instance, và 1 bản chết có thể bị che giấu bởi bản còn
+> sống. Giám sát instance bare-metal này **tạm thời qua `journalctl`/`docker logs` tương ứng** cho
+> đến khi thiết kế cơ chế heartbeat theo tên worker/instance riêng (ngoài phạm vi thay đổi này).
+
+**Chạy dài hạn bằng systemd** — dùng lại đúng pattern Model C (mục 9.2-9.5), chỉ đổi
+`DOTNET_ENVIRONMENT` và publish sang thư mục riêng để không đụng Model A/C:
+
+```bash
+dotnet publish src/POS.Worker/POS.Worker.csproj -c Release -o /srv/pos/app/worker-prodhost
+```
+
+`/etc/systemd/system/pos-worker-prodhost.service`:
+```ini
+[Unit]
+Description=POS Worker (bare-metal RabbitMQ+SQL, song song Docker)
+After=network.target
+
+[Service]
+Type=simple
+User=posworker
+Group=posops
+WorkingDirectory=/srv/pos/app/worker-prodhost
+ExecStart=/usr/bin/dotnet /srv/pos/app/worker-prodhost/POS.Worker.dll
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=pos-worker-prodhost
+Environment=DOTNET_ENVIRONMENT=ProductionHost
+Environment=TZ=Asia/Ho_Chi_Minh
+Environment=POS_SECRET_KEY=<CÙNG giá trị đang dùng cho pos-api-prod/pos-web-prod/pos-worker-prod>
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now pos-worker-prodhost.service
+sudo journalctl -u pos-worker-prodhost.service -f
+```
+
+`POS_SECRET_KEY` vẫn bắt buộc — `appsettings.ProductionHost.json` giữ nguyên các giá trị `enc:...`
+(cùng token với `Production.json`, cùng khóa giải mã).
 
 ## 4. Kiểm chứng sau deploy (Model B)
 
@@ -153,12 +250,18 @@ docker logs --tail 50 pos-worker-prod   # hoặc pos-worker-uat
 #   Rpt_ReportSaleDetail_Insert ...
 ```
 
-**Heartbeat Redis** (DB 2):
+**Heartbeat Redis** — số DB **khác nhau giữa PROD và UAT** (`Redis:DefaultDatabase` trong
+`appsettings.{Production|UAT}.json`, phải khớp với DB mà POS.Web `/ops/health` đọc, xem
+`docs/worker/WorkerHeartbeatService.md`):
 ```bash
-redis-cli -n 2 GET Worker:Heartbeat:PosSalesConsumer
+redis-cli -n 0 GET Worker:Heartbeat:PosSalesConsumer   # PROD (DefaultDatabase=0)
+redis-cli -n 2 GET Worker:Heartbeat:PosSalesConsumer   # UAT  (DefaultDatabase=2)
 ```
 Giá trị phải vừa cập nhật (mỗi 15s — xem `WorkerHeartbeatService`). **Không** kiểm tra
 `Worker:Heartbeat:PosFileImport` ở container Model B — key này chỉ được ghi bởi Model A (mục 5).
+Nếu key luôn "không tồn tại" dù container chạy bình thường (`docker logs` không lỗi) → khả năng
+cao đang đọc sai số DB, không phải worker chết — đối chiếu `Redis:DefaultDatabase` của Worker với
+của POS.Web trước khi kết luận worker offline.
 
 ## 5. Model A — Cronjob thật trên Ubuntu host (xử lý file, KHÔNG dùng Docker)
 
@@ -262,9 +365,15 @@ rollback = đổi `WORKER_DIR` trong script hoặc `cp -r` bản cũ đè lại.
 ## 8. Vận hành & rủi ro đã biết
 
 - **Log**: Serilog → Elasticsearch (`pos-worker-logs-*` cho Model B, `pos-worker-cron-logs-*` cho
-  Model A) + file log tại `/app/logs` (Model B, bind-mounted ra `./logs`) hoặc
-  `/srv/pos/logs/worker-cron` (Model A). Log khởi động/crash Model B: `docker logs
-  pos-worker-{prod|uat}`; Model A: `/srv/pos/logs/worker-cron/cron.log`.
+  Model A) + file log rolling theo ngày (`rpos-yyyyMMdd.log`, xem `SerilogConfiguration.cs`) tại
+  đường dẫn theo `Logging:FileLogDirectory` của từng file cấu hình: PROD = `/srv/pos/logs/worker`
+  (bind-mount `-v /srv/pos/logs/worker:/srv/pos/logs/worker`, xem mục 3), UAT = `/app/logs`
+  (bind-mount `-v $(pwd)/logs:/app/logs`), Model A = `/srv/pos/logs/worker-cron`. Log khởi
+  động/crash Model B: `docker logs pos-worker-{prod|uat}`; Model A:
+  `/srv/pos/logs/worker-cron/cron.log`. **Volume mount phải khớp CHÍNH XÁC giá trị
+  `Logging:FileLogDirectory`** trong file `appsettings` đang dùng — mount sai đường dẫn khiến log
+  vẫn được ghi (không lỗi) nhưng nằm trong filesystem tạm của container, không thấy được trên host
+  và mất khi `docker rm`.
 - **Dừng/chạy/gỡ Model B**: `docker stop|start|rm pos-worker-{prod|uat}`. **Model A**: xóa dòng
   crontab (`crontab -e`) — không có process nào để "stop" (mỗi lượt chạy rồi tự thoát).
 - **Rủi ro chung thư mục `Sale/Kafka` với `UploadFileSale` (POS.Api)** và **dọn dẹp
@@ -406,9 +515,16 @@ sudo systemctl restart pos-worker.service
 Model B (Docker):
 □ docker build -t pos-worker:{prod|uat} -f Dockerfile.worker . thành công
 □ docker run với đúng -e DOTNET_ENVIRONMENT + WorkerRoles__EnableFileProcessing=false
-□ docker ps → container Up; docker logs → thấy 2 dòng khởi động (PosSalesConsumer,
-  Rpt_ReportSaleDetail_Insert), KHÔNG có "[PosFileImport] Started", không exception
-□ Redis Worker:Heartbeat:PosSalesConsumer vừa cập nhật
+□ PROD: đã truyền -e POS_SECRET_KEY=... (khớp giá trị đang dùng cho pos-api-prod/pos-web-prod) —
+  thiếu biến này sẽ crash-loop ngay lúc khởi động (appsettings.Production.json đã mã hóa enc:...)
+□ PROD: đã mkdir + chown 1654:1654 /srv/pos/logs/worker trên host TRƯỚC khi docker run, và mount
+  đúng -v /srv/pos/logs/worker:/srv/pos/logs/worker (khớp Logging:FileLogDirectory)
+□ docker ps → container Up liên tục (không restart loop); docker logs → thấy 2 dòng khởi động
+  (PosSalesConsumer, Rpt_ReportSaleDetail_Insert), KHÔNG có "[PosFileImport] Started", không
+  exception (đặc biệt không có "InvalidOperationException... POS_SECRET_KEY")
+□ ls /srv/pos/logs/worker/ (PROD) hoặc ./logs/ (UAT) → thấy file rpos-yyyyMMdd.log xuất hiện
+□ Redis heartbeat vừa cập nhật — PROD: redis-cli -n 0 GET Worker:Heartbeat:PosSalesConsumer;
+  UAT: redis-cli -n 2 GET Worker:Heartbeat:PosSalesConsumer (số DB khác nhau, xem mục 4)
 
 Model A (cron host):
 □ deploy/linux/setup-pos-dirs.sh đã chạy cho đúng môi trường (PROD: mặc định; UAT: /srv/pos/uat)
@@ -440,7 +556,7 @@ Chung:
 | Quy trình deploy đầy đủ POS.Api/POS.Web/POS.Worker (build, `docker run`, nginx, `POS_SECRET_KEY`) | `docs/guide-deploy.md` |
 | Thư mục dùng chung `ftpbluepos` (POS.Api ↔ POS.Worker) | `docs/deploy/ubuntu-guide.md` |
 | Cấu hình `FileImport`/`WorkerRoles`, định dạng file, rủi ro vận hành, mô hình A/B | `docs/ROLLOUT.md` §O2 |
-| Quy tắc mã hóa `enc:`/`POS_SECRET_KEY` (chưa áp dụng cho Worker) | `docs/architecture/appsetting.md` |
+| Quy tắc mã hóa `enc:`/`POS_SECRET_KEY` (áp dụng cho cả POS.Api/POS.Web/POS.Worker) | `docs/architecture/appsetting.md` |
 | Deploy POS.Worker trên Windows (Task Scheduler, dev/bare-metal) | `deploy/windows/README.md` |
 | nginx cho POS.Web (không áp dụng cho Worker) | `nginx/pos-web.conf`, `nginx/pos-web.uat.conf` |
 | Ba khuôn mẫu worker (timer/consumer/one-shot) + feature toggle `WorkerRoles` | `.claude/skills/worker/SKILLS.md` |

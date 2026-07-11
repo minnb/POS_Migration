@@ -7,6 +7,45 @@
 
 ---
 
+## 0. Khuyến nghị CI/CD/production — luôn truyền tường minh cả 3 tham số
+
+> Đọc mục này TRƯỚC nếu bạn đang setup pipeline CI/CD tự động deploy artifact (không có git checkout
+> trên máy đích — chỉ có binary đã `dotnet publish`). Đây là cách **portable nhất, không phụ thuộc**
+> vào `POS.slnx`/vị trí file `.env`/cấu trúc thư mục repo:
+
+```bash
+POS_SECRET_KEY="<khóa AES base64>" dotnet POS.DbMigrator.dll --apply \
+  --config /path/to/appsettings.Production.json \
+  --sql-dir /path/to/docs-sql-copy
+```
+
+Bỏ qua `POS_SECRET_KEY=...` nếu file `--config` còn plaintext (không có `enc:...`).
+
+**Đã verify thật** (publish ra thư mục hoàn toàn ngoài repo — không có `POS.slnx`, không có `.env`
+nào, giả lập đúng kịch bản CI/CD artifact-only):
+
+- `--config` trỏ file JSON tối giản, connection string plaintext trỏ host không tồn tại,
+  `--sql-dir` trỏ bản copy `docs/sql/`, KHÔNG set `POS_SECRET_KEY` → tool đọc đúng
+  `ConnectionStrings:CentralMD`, chạy hết pipeline, dừng đúng ở:
+  ```
+  Microsoft.Data.SqlClient.SqlException: A network-related or instance-specific error occurred...
+  (provider: TCP Provider, error: 0 - No such host is known.)
+  ```
+  → chứng minh `--config`/`--sql-dir` tường minh hoạt động đầy đủ, không cần bất kỳ file nào khác
+  ngoài 2 path được truyền.
+- Cùng thư mục đó, đổi connection string sang `Password=enc:<token thật>`, set
+  `$env:POS_SECRET_KEY` **trực tiếp trong shell** (xác nhận trước đó: không có `.env` nào trong thư
+  mục, biến môi trường trống) → lỗi đổi thành **cùng lỗi "No such host is known"** ở trên (không
+  còn lỗi giải mã) → chứng minh giải mã `enc:...` thành công chỉ bằng biến môi trường tường minh,
+  không cần file `.env`.
+
+Các cơ chế "tự suy ra `--config`"/"tự đọc `.env` cạnh binary" mô tả ở §2.1/§2.3 bên dưới **chỉ là
+tiện ích tùy chọn cho dev chạy trong git checkout** — không bắt buộc, không xung đột với cách dùng
+tường minh ở trên, và **không hoạt động** khi máy đích không có `POS.slnx` (đúng kịch bản
+CI/CD-artifact-only) — khi đó bắt buộc phải dùng cách tường minh này.
+
+---
+
 ## 1. Tổng quan & luồng hoạt động
 
 ### 1.1. Mục đích

@@ -11,34 +11,52 @@
 
 ## 1. Checklist áp dụng (tự check theo thứ tự)
 
+> Giá trị chuẩn (Elevation/Button convention/Density) nay là "luật thép" ở
+> `02-ui-ux-and-components.md`, `04-datatable-and-lists.md` và `.claude/rules/mudblazor-flat-ui.md`
+> — checklist dưới đây chỉ là danh sách thao tác polish, không lặp lại giá trị chi tiết.
+
 ```
 □ 1. Page header có button  → div.pos-page-header (KHÔNG MudStack Justify.SpaceBetween),
                               icon + nút đi kèm dùng Size="Size.Small" (title đã thu nhỏ 1.25rem)
 □ 2. Page header chỉ title  → MudText Typo.h5 trực tiếp (không cần pos-page-header)
-□ 3. Filter panel           → MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4"
-                              + MudGrid Spacing="2" (pos-filter-panel = nền trắng + border, xem theming.md)
+□ 3. Filter panel           → 02-ui-ux-and-components.md §1 (MudPaper Elevation="1" pos-filter-panel)
 □ 4. Filter button group    → MudItem xs="12" sm="12" md="2" Class="d-flex align-center"
                               + MudStack Row Spacing="1" w-100 + FullWidth="true" mỗi nút
-                              + nút "Tìm" (CTA) Variant.Filled Color.Primary, nút "Xóa" (trung
-                              tính) Variant.Outlined — theo bảng Button convention CLAUDE.md §14
-□ 5. DataTable              → MudTable Dense Hover Striped HorizontalScrollbar="true"
-□ 6. Cột Trạng thái         → MudChip T="string" Size.Small Variant.Filled + màu ternary
-□ 7. NoRecordsContent       → div icon + text canh giữa (pattern §3)
+                              — màu nút theo Button convention `.claude/rules/mudblazor-flat-ui.md` §3
+□ 5. DataTable              → 04-datatable-and-lists.md §2 (Elevation trên MudTable, Dense/Hover/Striped/HorizontalScrollbar)
+□ 6. Cột Trạng thái (tĩnh)  → span.pos-status-chip .pos-status-{success/error/warning/info}
+                              (MudChip chỉ khi cần tương tác: multi-select/closable/filter)
+□ 7. NoRecordsContent       → pattern §3 file này (icon + text canh giữa) — 04-datatable-and-lists.md §2 dẫn cùng pattern
 □ 8. Editor tab "Thông tin" → tách nhóm field có subtitle + divider (pattern §4)
-□ 9. Action bar Lưu/Duyệt  → MudPaper Elevation="1" pa-3 mt-4 justify-end (pattern §5),
-                              "Lưu"/"Duyệt" Variant.Filled (CTA/tích cực), "Hủy" Variant.Outlined
-                              — theo bảng Button convention CLAUDE.md §14
+□ 9. Action bar Lưu/Duyệt  → MudPaper Elevation="1" pa-3 mt-4 justify-end (pattern §5)
+                              — màu nút theo Button convention `.claude/rules/mudblazor-flat-ui.md` §3
 □ 10. Chip container        → d-flex flex-wrap gap-2 (KHÔNG thiếu flex-wrap)
 □ 11. Spacing               → chỉ mb-1..4, pa-2..4, gap-1..3 (CẤM mb-5/6, pa-5/6, gap-4+)
-□ 12. Input form            → Variant.Outlined + Margin.Dense (tất cả field)
+□ 12. Input form            → Variant.Outlined + Margin.Dense (tất cả field) — chi tiết form-input.md
 ```
 
 ---
 
-## 2. Pattern: Cột Trạng thái → MudChip màu (ternary inline)
+## 2. Pattern: Cột Trạng thái
 
-**KHÔNG** để cột trạng thái là text thường. **KHÔNG** thêm helper method vào `@code`.
-Dùng ternary inline ngay tại `Color=`:
+> **CHUẨN MẶC ĐỊNH v3 (2026-07-09):** badge trạng thái **tĩnh** trong `MudTable`/dialog dùng
+> `<span class="pos-status-chip pos-status-{success,error,warning,info}">Label</span>` (dot-pill nền
+> tint nhạt + chữ đậm cùng tông + chấm tròn — xem `.claude/rules/mudblazor-flat-ui.md` §4a). `MudChip`
+> **chỉ** dùng khi chip cần **tương tác** (multi-select, closable `OnClose`, chip trong filter/
+> `MudAutocomplete`). Pattern `MudChip` màu ternary bên dưới vẫn hợp lệ cho chip tương tác.
+
+```razor
+@* Badge tĩnh — CHUẨN MẶC ĐỊNH (không @code helper màu; helper trả (CssClass, Label) nếu cần) *@
+<MudTd DataLabel="Trạng thái">
+    <span class="pos-status-chip @(context.IsActive ? "pos-status-success" : "pos-status-error")">
+        @(context.IsActive ? "Hiệu lực" : "Hết hiệu lực")
+    </span>
+</MudTd>
+```
+
+### Chip tương tác → `MudChip` màu (ternary inline)
+
+**KHÔNG** thêm helper method vào `@code`. Dùng ternary inline ngay tại `Color=`:
 
 ```razor
 @* Trạng thái 3 mức (0=hiệu lực, 1=đã duyệt, else=hết hạn) *@
@@ -135,8 +153,8 @@ mỗi nhóm có tiêu đề phụ + divider. **Không** di chuyển hay đổi b
 ## 5. Pattern: Action bar Lưu/Duyệt
 
 Thay `<div class="d-flex gap-2 flex-wrap mt-4">…</div>` bằng MudPaper có nền phân tách. Button
-theo bảng Button convention v3 (`CLAUDE.md §14`, `theming.md` §"Button") — CTA/hành động tích cực
-dùng `Filled`, hành động trung tính/phá hủy dùng `Outlined`:
+theo bảng Button convention v3 (`.claude/rules/mudblazor-flat-ui.md` §3, `theming.md` §"Button") —
+CTA/hành động tích cực dùng `Filled`, hành động trung tính/phá hủy dùng `Outlined`:
 
 ```razor
 @* Giữ nguyên bao ngoài @if (!_isReadonly) nếu có *@

@@ -92,11 +92,11 @@ private void BuildPivot(DateTime fromDate, DateTime toDate)
                     <td style="text-align:center; vertical-align:top;">@(stt++)</td>
                     <td style="vertical-align:top;">
                         <div style="font-weight:600; font-size:0.88rem;">@row.MCHCode</div>
-                        <div style="color:#1976D2; font-size:0.82rem;">@row.MCHName</div>
+                        <div style="color:var(--pos-primary); font-size:0.82rem;">@row.MCHName</div>
                     </td>
                     <td style="text-align:right; vertical-align:top; white-space:nowrap;">
                         <div>@row.TotalQty.ToString("N0")</div>
-                        <div style="color:#1976D2; font-weight:500;">@row.TotalAmt.ToString("N0")</div>
+                        <div style="color:var(--pos-primary); font-weight:500;">@row.TotalAmt.ToString("N0")</div>
                     </td>
                     @foreach (var date in _dates)
                     {
@@ -104,7 +104,7 @@ private void BuildPivot(DateTime fromDate, DateTime toDate)
                         var cellAmt = row.ByDate.TryGetValue(date, out var ca) ? ca.Item2 : 0.0;
                         <td style="text-align:right; vertical-align:top; white-space:nowrap;">
                             <div>@(cellQty > 0 ? cellQty.ToString("N0") : "")</div>
-                            <div style="color:#1976D2;">@(cellAmt > 0 ? cellAmt.ToString("N0") : "")</div>
+                            <div style="color:var(--pos-primary);">@(cellAmt > 0 ? cellAmt.ToString("N0") : "")</div>
                         </td>
                     }
                 </tr>

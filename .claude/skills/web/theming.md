@@ -10,7 +10,7 @@
 > cấp): sidebar navy đậm, card có shadow thật, radius 2 cấp, Button `Filled` cho CTA. Thay hoàn
 > toàn cho bản v2 (2026-07-04, "Mud Mini": sidebar sáng, card borderless, radius 16px, Button
 > `Outlined` mọi nơi — đã lỗi thời). Chi tiết đầy đủ + lịch sử quyết định (kể cả các đề xuất đã
-> cân nhắc và loại bỏ): `CLAUDE.md §13/§14/§15` + `.claude/rules/mudblazor-flat-ui.md` (đọc trước
+> cân nhắc và loại bỏ): `.claude/skills/web/ui-polish-standard.md` + `.claude/rules/mudblazor-flat-ui.md` §3/§15 (đọc trước
 > nếu cần rationale, file này chỉ tóm tắt pattern).
 
 ```csharp
@@ -42,18 +42,27 @@ public static class PosTheme
         },
         Typography = new Typography
         {
-            // MudBlazor v9: FontWeight và LineHeight là STRING, không phải int/double
+            // MudBlazor v9: FontWeight và LineHeight là STRING, không phải int/double.
+            // BẮT BUỘC set FontFamily trên TỪNG variant — MudBlazor sinh CSS var riêng cho mỗi
+            // variant (--mud-typography-h5-family, --mud-typography-body1-family...), KHÔNG cascade
+            // từ Default. Chỉ set Default.FontFamily → H5/H6/Subtitle1/Body1/Body2/Caption/Button
+            // vẫn giữ font mặc định MudBlazor. Xem PosTheme.cs thật: mọi variant đều set FontFamily.
             Default   = new DefaultTypography
             {
                 FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
-                LineHeight = "1.5",
+                FontSize   = "0.8125rem",   // 13px — base mockup
+                LineHeight = "1.5",         // mockup body{line-height:1.5}
             },
+            H5 = new H5Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"], FontWeight = "800", LetterSpacing = "-0.02em" },
+            H6 = new H6Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"], FontWeight = "600" },
+            Subtitle1 = new Subtitle1Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"], FontWeight = "600" },
             // BẮT BUỘC override Body1: Default.FontSize KHÔNG cascade xuống Body1
             // Thiếu dòng này → dropdown/picker/list items render 16px (MudBlazor built-in)
             // 0.78125rem = 12.5px, khớp mockup .input,.select,.textarea{font-size:12.5px}
-            Body1  = new Body1Typography  { FontSize = "0.78125rem", FontWeight = "400" },
-            Body2  = new Body2Typography  { FontSize = "0.8125rem" },
-            Button = new ButtonTypography { FontSize = "0.75rem", FontWeight = "600", TextTransform = "none" },
+            Body1  = new Body1Typography  { FontFamily = ["Segoe UI", "system-ui", "sans-serif"], FontSize = "0.78125rem", FontWeight = "400" },
+            Body2  = new Body2Typography  { FontFamily = ["Segoe UI", "system-ui", "sans-serif"], FontSize = "0.8125rem" },
+            Button = new ButtonTypography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"], FontSize = "0.75rem", FontWeight = "600", TextTransform = "none" },
+            // ... H1..H4/Subtitle2/Caption/Overline: cũng set FontFamily (xem PosTheme.cs đầy đủ)
         },
         Shadows = new Shadow
         {
@@ -68,7 +77,12 @@ public static class PosTheme
                 // ... E6-E25 giữ nguyên thang shadow cũ cho overlay/dropdown/dialog
             ]
         },
-        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "12px" }  // Paper/Card/Dialog
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "12px",   // Paper/Card/Dialog (control Button/Chip/Input ép 8px qua CSS)
+            DrawerWidthLeft     = "260px",
+            AppbarHeight        = "50px",   // khớp mockup .topbar{height:50px} — KHÔNG dùng Dense (xem SKILLS.md §Breadcrumb)
+        }
     };
 }
 ```
@@ -141,8 +155,8 @@ LayoutProperties = new LayoutProperties { DefaultBorderRadius = "12px" },
 ## Pattern: Button — Filled cho CTA, Outlined cho phần còn lại
 
 > Thay cho pattern v2 "Button — Outlined mọi nơi" (đã loại bỏ). Theo mockup, `.btn-primary` là nền
-> đặc màu (Filled), không phải viền trong suốt. Chi tiết đầy đủ + lý do: `CLAUDE.md §14 "Quy ước
-> Button"`.
+> đặc màu (Filled), không phải viền trong suốt. Chi tiết đầy đủ + lý do:
+> `.claude/rules/mudblazor-flat-ui.md` §3 "Button — Filled cho CTA, Outlined cho phần còn lại".
 
 | Loại hành động | Variant | Color | Ví dụ |
 |---|---|---|---|

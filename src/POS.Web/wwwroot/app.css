@@ -542,8 +542,8 @@
 }
 
 /* ── MudTable header override ─────────────────────────────────────────────
-   Header nổi bật: nền #EEF1F7, border 1px nhạt dưới (đồng bộ borderless v2 —
-   xem PosTheme.cs Shadows), chữ semi-bold 13px.
+   Header nổi bật: nền var(--pos-bg-alt), border 2px nhạt dưới, chữ muted in hoa 11px
+   (khớp mockup theme_html.html <th>; xem PosTheme.cs Shadows cho Elevation card v3).
    Áp dụng toàn bộ MudTable trong dự án — không cần sửa từng Razor page.
    Sort button bị strip padding/height để header row ≈ body row
    (loại bỏ vấn đề row cao hơn header khi dùng MudTableSortLabel).     */
@@ -582,13 +582,13 @@
     background: transparent !important;
 }
 
-/* ── Flat UI overrides ───────────────────────────────────────────────────
+/* ── Input Outlined border override ───────────────────────────────────────
    Làm mảnh border của input Outlined (MudTextField, MudSelect, MudAutocomplete...).
    Mặc định MudBlazor dùng 1px nhưng màu khá nhạt → tăng tương phản nhẹ.
-   KHÔNG thêm border/shadow cho MudPaper/MudCard — Elevation 1-5 = "none" (borderless),
-   card phân tách bằng chênh lệch nền Surface #FFFFFF vs Background #F2F4F8, theo mẫu
-   MudBlazor "Mud Mini" (docs/web/images/flat1.jpg). Thêm border/shadow sẽ đi ngược
-   nguyên tắc borderless này.                                              */
+   Chuẩn v3 (mockup theme_html.html): card/KPI dùng Elevation 2 = shadow THẬT
+   "0 2px 8px rgba(0,0,0,.08)" (xem PosTheme.cs Shadows), chỉ Elevation 0-1 mới flat
+   (filter panel/toolbar). KHÔNG tự thêm border/shadow CSS cho MudPaper/MudCard —
+   dùng thuộc tính Elevation, theme đã cấu hình đúng shadow từng mức.       */
 
 /* Border mặc định (không lỗi, không focus): dùng --pos-border-strong (#B8C4D8) */
 .mud-input-outlined:not(.mud-input-error):not(.mud-focused) .mud-input-outlined-border {

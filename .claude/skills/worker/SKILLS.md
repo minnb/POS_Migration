@@ -4,6 +4,14 @@
 > (timer polling, Kafka/RabbitMQ consumer...) trong `POS.Worker`. Đọc file này TRƯỚC khi
 > tạo worker mới.
 
+> **Mục lục nhanh** (quay lại lần sau, nhảy thẳng tới mục cần — không cần đọc lại từ đầu):
+> `Nguyên tắc cốt lõi` → đặt code worker ở project/namespace nào · `Bốn khuôn mẫu worker` → chọn
+> đúng pattern trước khi viết · `Quy tắc BẮT BUỘC` (8 mục) + `Checklist tạo worker mới` (7 bước) →
+> đọc trước khi commit · `Template A/B` + `Pattern C` → code mẫu copy-paste theo từng pattern ·
+> `WorkerHealthState`/`Heartbeat` → state chia sẻ cho Ops monitoring (có gotcha 2 instance cùng
+> key Redis) · `Đăng ký trong Program.cs` → DI + `WorkerRoles` toggle + pattern Docker/bare-metal ·
+> `KHÔNG làm những điều sau` → 8 anti-pattern cấm.
+
 ---
 
 ## Nguyên tắc cốt lõi — đặt code ở đâu
@@ -23,13 +31,12 @@ heartbeat key cùng convention.
 
 `POS.Worker.csproj` tham chiếu `POS.Application` + `POS.Infrastructure` — đủ để resolve mọi DI.
 
-> **Ngoại lệ đã có tiền lệ**: nếu worker cần gọi trực tiếp 1 Application service (vd
-> `IMasterDataSyncService`/`ISyncDataPosService`) chứ không chỉ Infrastructure repository, đặt
-> worker đó ở `src/POS.Worker/Workers/` (namespace `POS.Worker.Workers`) thay vì
-> `POS.Infrastructure/Workers/` — vì `POS.Infrastructure` **không được** reference
-> `POS.Application` (ngược dependency flow). Khi đó `POS.Worker/Program.cs` phải thêm
-> `builder.Services.AddApplication()` (nếu chưa có) — dễ quên vì trước giờ `Program.cs` chỉ gọi
-> `AddInfrastructure()`. Ví dụ: `MasterDataZipGeneratorWorker.cs`. Nên thêm 1 test DI-resolution
+> **Ngoại lệ đã có tiền lệ**: worker cần gọi trực tiếp 1 Application service (vd
+> `IMasterDataSyncService`/`ISyncDataPosService`), không chỉ Infrastructure repository → đặt ở
+> `src/POS.Worker/Workers/` (namespace `POS.Worker.Workers`), KHÔNG phải `POS.Infrastructure/Workers/`
+> (`POS.Infrastructure` không được reference `POS.Application` — ngược dependency flow). Nhớ thêm
+> `builder.Services.AddApplication()` vào `POS.Worker/Program.cs` (dễ quên — trước giờ chỉ gọi
+> `AddInfrastructure()`). Ví dụ: `MasterDataZipGeneratorWorker.cs`. Nên có 1 test DI-resolution
 > trong `tests/POS.ContractTests/DependencyInjectionTests.cs` (compose lại `AddInfrastructure()+
 > AddApplication()`, assert constructor params resolve) để bắt lỗi thiếu `AddApplication()` lúc
 > build/test thay vì lúc host khởi động thật.
@@ -349,6 +356,14 @@ healthState.ProcessedCount;              // đọc tổng đã xử lý
 Thêm worker cần monitor riêng → tạo heartbeat service tương tự với key/QueueName khác,
 hoặc mở rộng `WorkerHeartbeatService` để ghi nhiều key.
 
+> ⚠️ **Gotcha đã gặp thật (2026-07-11)**: `WorkerHeartbeatService` hardcode `WorkerName =
+> "PosSalesConsumer"` — nếu chạy **2 instance cùng vai trò** (vd 1 container Docker + 1 process
+> bare-metal cùng bật `EnableRabbitMQConsumer`/`EnableSqlReportWorker`), cả 2 ghi ĐÈ lên CÙNG 1 key
+> Redis `Worker:Heartbeat:PosSalesConsumer` — Ops không phân biệt được instance nào, và 1 instance
+> chết có thể bị che giấu bởi instance còn lại vẫn ghi đều. Khi cố ý chạy multi-instance cùng vai
+> trò, **tắt `EnableHeartbeat` ở tất cả trừ 1 instance** cho tới khi thiết kế heartbeat theo tên
+> worker/instance riêng (chưa làm). Chi tiết: `docs/worker/WorkerHeartbeatService.md` §3.
+
 ---
 
 ## Đăng ký trong Program.cs
@@ -373,6 +388,19 @@ POS.Worker thành nhiều mô hình deploy (vd Docker container chỉ chạy Rab
 chạy file processing). Thêm worker mới cần bật/tắt độc lập theo môi trường → thêm cờ vào
 `WorkerRolesOptions` + nhánh `if (roles.EnableX) AddHostedService<XWorker>()`, KHÔNG hardcode
 `AddHostedService` vô điều kiện như ví dụ trên.
+
+> **Pattern: cùng `WorkerRoles` chạy song song Docker + bare-metal trên cùng host** (2026-07-11) —
+> khi hạ tầng phụ thuộc (SQL Server, RabbitMQ) cũng chạy Docker trên chính host, container Worker
+> và process bare-metal cần **địa chỉ khác nhau** tới cùng 1 hạ tầng: `host.docker.internal` (chỉ
+> resolve được TRONG container, cần `--add-host host.docker.internal:host-gateway` lúc
+> `docker run`) cho container, `127.0.0.1` (port đã publish ra host) cho bare-metal — dùng chung 1
+> file `appsettings.Production.json` sẽ khiến 1 bên kết nối sai địa chỉ. Giải pháp: tách file cấu
+> hình riêng theo `DOTNET_ENVIRONMENT` (giống mô hình `CronHost` của Model A) — vd
+> `appsettings.ProductionHost.json` cho bare-metal, chỉ khác `RabbitMQ:Host`/`ConnectionStrings`
+> (địa chỉ) + `Logging:FileLogDirectory`/`Elasticsearch:IndexFormat` (tránh lẫn log) so với file
+> Docker. Ví dụ thật: `src/POS.Worker/appsettings.ProductionHost.json` +
+> `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5. Nhớ tắt `EnableHeartbeat` ở 1 trong 2 bên (xem
+> gotcha heartbeat ở mục trên) nếu cùng vai trò.
 
 ---
 

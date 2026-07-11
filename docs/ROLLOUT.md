@@ -37,6 +37,8 @@
 | D12 | SP `GetPromotionOfferHeaderList` — filter theo ngày + fix trùng dòng | Chạy `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql` VÀ `docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql` trên CentralMD (độc lập thứ tự, cả 2 đều `ALTER PROC` toàn SP) | REQUIRED (cho filter "Từ ngày" + tránh trùng dòng theo site tại `/promotion/offers`) | [§D12](#d12--sp-getpromotionofferheaderlist--filter-theo-ngày--fix-trùng-dòng-danh-mục-khuyến-mãi) |
 | O8 | `MasterDataZipGeneratorWorker` (POS.Worker) — mới, mặc định TẮT | Đặt `AppSettings:FtpRootPath` (POS.Worker) trỏ đúng thư mục ghi được + DBA `UPDATE SyncTableList SET IsOnlyChange=1` cho bảng cần theo dõi + chỉ bật `WorkerRoles:EnableMasterDataZipGenerator=true` sau khi đã kiểm tra | MEDIUM (opt-in, không ảnh hưởng nếu chưa bật) | [§O8](#o8--masterdatazipgeneratorworker-sinh-zip-theo-watermark-posworker) |
 | O9 | `HealthCheck:PosApiBaseUrl` (POS.Web `/ops/health`) — UAT/Production | Điền URL nội bộ POS.Api thật vào `<UAT_POS_API_BASE_URL>` (`appsettings.UAT.json`) và `<PROD_POS_API_BASE_URL>` (`appsettings.Production.json`) — trước đó 2 file này thiếu hẳn section `HealthCheck` nên âm thầm dùng giá trị Dev `http://localhost:8080` | REQUIRED (mục "POS.Api" trên `/ops/health` sai ở UAT/Prod nếu bỏ qua) | [§O9](#o9--healthcheckposapibaseurl-cho-uatproduction) |
+| O10 | `Redis:DefaultDatabase` phải ĐỒNG BỘ giữa POS.Api/POS.Web/POS.Worker trong cùng môi trường | Xác nhận cả 3 file `appsettings.{Production\|UAT}.json` của Api/Web/Worker cùng trỏ 1 số DB — lệch số sẽ khiến `/ops/health` báo sai "Worker offline" dù worker chạy tốt (heartbeat ghi DB khác DB Web đọc) | REQUIRED (kiểm tra lại mỗi khi sửa `Redis:DefaultDatabase` ở bất kỳ file nào trong 3 service) | [§O10](#o10--redisdefaultdatabase-đồng-bộ-giữa-posapiposwebposworker) |
+| O11 | Worker chạy song song Docker + bare-metal cùng host (`appsettings.ProductionHost.json`) | Dùng ĐÚNG file theo ngữ cảnh: Docker → `appsettings.Production.json` (`host.docker.internal`); bare-metal → `appsettings.ProductionHost.json` (`127.0.0.1`, `EnableHeartbeat=false`). Cả 2 đều cần `-e POS_SECRET_KEY=...`/`Environment=POS_SECRET_KEY=...` nếu file đã mã hóa | REQUIRED (khi go-live có ≥2 instance Worker cùng vai trò trên cùng host) | [§O11](#o11--worker-chạy-song-song-docker--bare-metal-cùng-host) |
 
 ---
 
@@ -542,6 +544,65 @@ phải đổi khi go-live (chỉ cần điền nếu Ops muốn tinh chỉnh).
 
 ---
 
+## O10 — `Redis:DefaultDatabase` đồng bộ giữa POS.Api/POS.Web/POS.Worker
+
+> Phát hiện thật khi vận hành (2026-07-11): sau khi deploy `POS.Worker` bằng Docker, `/ops/health`
+> (POS.Web) báo `Worker: PosSalesConsumer -> offline`, "Key không tồn tại — worker chưa chạy hoặc
+> đã dừng quá 5 phút" — dù container chạy bình thường, không exception. Nguyên nhân: `Redis:
+> DefaultDatabase` trên `appsettings.Production.json` **lệch nhau** giữa 3 service — Api/Web = `0`,
+> Worker = `2`. Cả 3 cùng trỏ chung 1 Redis vật lý, chỉ khác số DB → `WorkerHeartbeatService`
+> (chạy trong container Worker) ghi key `Worker:Heartbeat:PosSalesConsumer` vào DB 2, còn
+> `HealthCheckService` (chạy trong POS.Web) đọc DB 0 → không bao giờ thấy key, dù worker ghi đều
+> đặn mỗi 15s. **Đây không phải lỗi worker — là lỗi cấu hình đọc/ghi khác DB.**
+
+**Đã sửa (2026-07-11)**: `src/POS.Worker/appsettings.Production.json` đổi `DefaultDatabase` từ `2`
+→ `0` (khớp Api/Web Production). Phát hiện thêm UAT cũng lệch (chiều ngược lại: Api UAT = `0`,
+Web/Worker UAT = `2`) → đã sửa `src/POS.Api/appsettings.UAT.json` từ `0` → `2` (khớp Web/Worker UAT).
+
+**Bắt buộc mỗi khi sửa `Redis:DefaultDatabase` ở BẤT KỲ file nào trong 3 service** (thêm môi trường
+mới, đổi hạ tầng Redis...): xác nhận cả 3 `appsettings.{env}.json` (Api/Web/Worker) cùng giá trị,
+trước khi deploy. Không có cách nào tự động phát hiện lệch này lúc build/test (giá trị JSON hợp lệ
+ở từng file riêng lẻ) — chỉ lộ ra lúc runtime qua `/ops/health` hiển thị sai.
+
+**Verify sau khi sửa:**
+```bash
+redis-cli -n <DB> GET Worker:Heartbeat:PosSalesConsumer   # DB đúng theo appsettings Worker
+```
+Giá trị phải vừa cập nhật; mở `/ops/health` → mục `Worker: PosSalesConsumer` phải "Đang chạy".
+
+---
+
+## O11 — Worker chạy song song Docker + bare-metal cùng host
+
+> Phát hiện thật khi vận hành (2026-07-11): SQL Server chạy trong Docker trên cùng Ubuntu host với
+> Worker. Container Worker cần địa chỉ `host.docker.internal,<port>` để với ra SQL (chỉ resolve
+> được nhờ `--add-host host.docker.internal:host-gateway` lúc `docker run`); process Worker chạy
+> bare-metal (publish trực tiếp, không qua Docker) trên CÙNG host lại cần `127.0.0.1,<port>` vì
+> `host.docker.internal` không tồn tại ngoài container. Dùng chung 1 file
+> `appsettings.Production.json` cho cả 2 ngữ cảnh khiến 1 bên luôn kết nối SQL sai địa chỉ.
+
+**Đã làm (2026-07-11)**: tách thêm `src/POS.Worker/appsettings.ProductionHost.json`
+(`DOTNET_ENVIRONMENT=ProductionHost`) dành riêng cho bare-metal — khác `appsettings.Production.json`
+(Docker) ở: `RabbitMQ:Host`/mọi `ConnectionStrings`/`SetDb:DB1` (`127.0.0.1` thay vì
+`host.docker.internal`), `WorkerRoles:EnableHeartbeat=false` (tránh 2 instance cùng ghi 1 key
+heartbeat — xem `docs/worker/WorkerHeartbeatService.md` §3), `Logging:FileLogDirectory`/
+`Elasticsearch:IndexFormat` riêng để không lẫn log 2 instance. Chi tiết đầy đủ + mẫu systemd unit:
+`docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5.
+
+**Bắt buộc khi go-live có ≥2 instance Worker cùng vai trò (Docker + bare-metal) trên cùng host:**
+
+1. Dùng đúng file theo ngữ cảnh chạy (đừng copy nhầm) — Docker → `Production.json`; bare-metal →
+   `ProductionHost.json`.
+2. Cả 2 đều cần `POS_SECRET_KEY` nếu file đã mã hóa `enc:...` (xem §C4) — thiếu → crash-loop ngay
+   lúc khởi động, không phải lỗi thầm lặng.
+3. Chỉ bật `EnableHeartbeat=true` ở ĐÚNG 1 trong 2 instance cùng vai trò — bật cả 2 sẽ ghi đè lẫn
+   nhau lên cùng 1 key Redis, `/ops/health` không phân biệt được instance nào.
+4. Nếu thêm môi trường/máy chủ mới cần mô hình tương tự (hạ tầng phụ thuộc chạy Docker, worker chạy
+   cả 2 nơi) → tạo file `appsettings.{TênMoiTruong}Host.json` theo đúng pattern này, đăng ký vào
+   bảng ở mục 1 của `docs/deploy/pos-worker-ubuntu-guide.md`.
+
+---
+
 ## O4 — Log request/response toàn cục (POS.Api)
 
 > `RequestResponseLoggingMiddleware` (`src/POS.Api/Middleware/RequestResponseLoggingMiddleware.cs`)
@@ -699,6 +760,13 @@ phải đổi khi go-live (chỉ cần điền nếu Ops muốn tinh chỉnh).
    → chạy Track A thật. Có content-guard tự quét DDL/DML nguy hiểm trước khi chạy — phát hiện gì
      bất thường sẽ dừng ngay, không chạy gì (exit code ≠ 0).
 ```
+
+> `--config` giờ optional khi chạy ngay trong git checkout (tool tự suy ra
+> `src/POS.Api/appsettings.{Environment}.json` theo `ASPNETCORE_ENVIRONMENT`/`DOTNET_ENVIRONMENT`,
+> mặc định `Production`) — vẫn khuyến nghị truyền tường minh như trên cho chắc chắn. `POS_SECRET_KEY`
+> (nếu appsettings có `enc:...`) có thể đặt trong file `.env` cạnh `POS.DbMigrator.dll` để tool tự
+> đọc thay vì `export` mỗi phiên shell. Chi tiết đầy đủ + đã verify thật:
+> `docs/deploy/pos-dbmigrator-guide.md` §2.1/§2.3.
 
 Chạy bước 3-4 TRƯỚC khi `docker run`/start container app mới (xem `docs/guide-deploy.md`).
 
