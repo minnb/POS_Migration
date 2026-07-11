@@ -68,6 +68,7 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Làm đẹp/đồng bộ UI trang đã có (chỉ sửa markup, giữ `@code`) | **`.claude/skills/web/ui-polish-standard.md`** |
 | Page có thao tác Create/Update/Delete cần audit log | **`.claude/skills/web/audit-logging.md`** |
 | Viết file phân tích nghiệp vụ trước khi port (`FEATURE_{Name}_ANALYSIS.md`) | **`.claude/skills/migration/SKILLS.md`** |
+| Định kỳ dọn dẹp/refactor file `.claude/rules/` hoặc `.claude/skills/` khi đã phình to (tách lịch sử, gộp trùng lặp, tách sub-skill) | **`.claude/commands/refactor-skills.md`** (skill `/refactor-skills`) |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
 
