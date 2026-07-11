@@ -11,10 +11,12 @@ using POS.Infrastructure.Repositories.Interfaces;
 namespace POS.Worker.Workers;
 
 /// <summary>
-/// Poll [SyncTable_Get] 'C' theo chu kỳ, so sánh POSLastCounter với watermark lưu trong Redis Hash
-/// (Worker:Watermark:MasterDataZip). Bảng nào tăng counter → generate lại master data .zip cho mọi
-/// POS terminal đang bật (Status=1). Quarantine pattern: terminal lỗi liên tiếp
-/// QuarantineThreshold lần bị bỏ qua các lượt sau (không chặn watermark của các terminal còn lại).
+/// Poll [SyncTable_Get] 'C' theo chu kỳ, so sánh POSLastCounter với watermark lưu trong cột DB
+/// SyncTableList.ZipWatermarkCounter (bền vững — xem docs/sql/SyncTableList_AddZipWatermark.sql,
+/// thay thế Redis Hash Worker:Watermark:MasterDataZip trước đây để tránh mất dấu watermark khi
+/// Redis restart/evict). Bảng nào tăng counter → generate lại master data .zip cho mọi POS terminal
+/// đang bật (Status=1). Quarantine pattern: terminal lỗi liên tiếp QuarantineThreshold lần bị bỏ qua
+/// các lượt sau (không chặn watermark của các terminal còn lại).
 /// </summary>
 public sealed class MasterDataZipGeneratorWorker(
     IServiceScopeFactory scopeFactory,
@@ -22,7 +24,6 @@ public sealed class MasterDataZipGeneratorWorker(
     IOptions<MasterDataZipGeneratorOptions> options,
     ILogger<MasterDataZipGeneratorWorker> logger) : BackgroundService
 {
-    private const string WatermarkKey = "Worker:Watermark:MasterDataZip";
     private const string QuarantineKey = "Worker:Quarantine:MasterDataZip";
     private const string LockKey = "Worker:Lock:MasterDataZipGenerator";
     private const string HeartbeatKey = "Worker:Heartbeat:MasterDataZipGenerator";
@@ -79,34 +80,12 @@ public sealed class MasterDataZipGeneratorWorker(
                 return;
             }
 
-            var watermarkExists = await redisManager.KeyExistsAsync(WatermarkKey);
-            if (!watermarkExists)
-            {
-                if (_opt.SeedWatermarkOnFirstRun)
-                {
-                    foreach (var t in tables.Where(t => !string.IsNullOrWhiteSpace(t.TableName)))
-                        await redisManager.HashSetAsync(WatermarkKey, t.TableName!, t.POSLastCounter);
-                    logger.LogInformation(
-                        "[MasterDataZipGenerator] Seeded watermark for {Count} table(s) — skip generation this cycle",
-                        tables.Count);
-                }
-                WriteHeartbeat("Running", (int)lockTtl.TotalSeconds);
-                return;
-            }
-
-            var watermark = await redisManager.HashGetAllAsync<long>(WatermarkKey);
-            if (watermark.Count == 0)
-            {
-                // RedisManager nuốt exception và trả dict rỗng khi lỗi — không phân biệt được với
-                // "hash thật sự rỗng" khi KeyExists đã true. Coi là lỗi đọc, KHÔNG generate/ACK.
-                logger.LogError(
-                    "[MasterDataZipGenerator] Watermark hash read empty despite KeyExists=true — treating as Redis read failure, abort cycle");
-                return;
-            }
-
+            // Watermark nằm ngay trong `tables` (cột ZipWatermarkCounter, cùng dòng SQL với
+            // POSLastCounter) — không cần round-trip Redis riêng, không có khái niệm "watermark
+            // chưa tồn tại" (backfill 1 lần trong migration đảm bảo cột luôn có giá trị hợp lệ).
             var changedTables = tables
                 .Where(t => !string.IsNullOrWhiteSpace(t.TableName))
-                .Where(t => !watermark.TryGetValue(t.TableName!, out var last) || t.POSLastCounter > last)
+                .Where(t => t.POSLastCounter > t.ZipWatermarkCounter)
                 .ToList();
 
             if (changedTables.Count == 0)
@@ -187,10 +166,12 @@ public sealed class MasterDataZipGeneratorWorker(
             // ACK: chỉ tịnh tiến watermark khi mọi terminal ĐÃ THỬ (không tính terminal bị quarantine
             // bỏ qua từ đầu) đều thành công — tránh 1 terminal hỏng vĩnh viễn chặn cả fleet, nhưng vẫn
             // giữ nguyên tắc "không đánh dấu đã gửi khi có nơi chưa nhận" cho các terminal đang active.
+            // Giá trị ACK LUÔN lấy từ `changedTables` (snapshot POSLastCounter đọc lúc ĐẦU cycle) —
+            // KHÔNG re-read DB tại đây, tránh nuốt mất thay đổi mới bump giữa lúc đọc và lúc ACK.
             if (failedCount == 0)
             {
-                foreach (var t in changedTables)
-                    await redisManager.HashSetAsync(WatermarkKey, t.TableName!, t.POSLastCounter);
+                var snapshot = changedTables.ToDictionary(t => t.TableName!, t => t.POSLastCounter);
+                await syncRepo.AckZipWatermarkAsync(snapshot, ct);
                 logger.LogInformation("[MasterDataZipGenerator] Watermark advanced for {Count} table(s)",
                     changedTables.Count);
             }

@@ -12,6 +12,14 @@ public sealed class SyncTableInfo
 
     public long POSLastCounter { get; set; }
 
+    /// <summary>
+    /// Watermark ACK riêng của MasterDataZipGeneratorWorker — chỉ có giá trị thật khi isChange="C"
+    /// (nhánh 'A'/'W' không SELECT cột này, Dapper để mặc định 0). So sánh POSLastCounter &gt;
+    /// ZipWatermarkCounter để phát hiện bảng đã đổi; ACK bằng cách ghi giá trị POSLastCounter đã
+    /// snapshot lúc đầu cycle vào cột này (KHÔNG re-read DB tại thời điểm ACK).
+    /// </summary>
+    public long ZipWatermarkCounter { get; set; }
+
     /// <summary>Cột [Procedure] của SP — tên procedure dùng cho ProcedureName trong envelope file POS.</summary>
     [JsonProperty("Procedure")]
     public string? Procedure { get; set; }

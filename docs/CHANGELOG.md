@@ -13,6 +13,155 @@
 > conflict — chỉ prepend entry mới an toàn phía trên, không chạm vào các khối conflict cũ. Người
 > phụ trách cần dọn thủ công khi có dịp.
 
+## [2026-07-11] `/ops/health` — đưa tham số hardcode ra appsettings (configurable theo môi trường)
+
+**Layer:** POS.Application, POS.Infrastructure, POS.Web, POS.Worker
+
+**Loại:** Refactor (configurability) + Bug fix (gap cấu hình môi trường)
+
+**Bối cảnh:** User yêu cầu kiểm tra các mục monitor trên trang `/ops/health` có cấu hình được theo
+từng môi trường (Dev/UAT/Prod) không. Phát hiện: Redis/RabbitMQ/SQL connection string đã configurable
+đúng, nhưng `HealthCheck:PosApiBaseUrl` **hoàn toàn thiếu** ở `appsettings.UAT.json`/
+`appsettings.Production.json` (POS.Web) — do `WebApplication.CreateBuilder` merge config theo key,
+UAT/Prod trước đây âm thầm dùng giá trị Dev `http://localhost:8080`. Ngoài ra 5 tham số của
+`WorkerHeartbeatService` (interval 15s, TTL 60s/300s, tên worker, tên queue) và 4 tham số của
+`HealthCheckService` (ngưỡng mất tín hiệu 45s, timeout mỗi check 8s, SQL connect timeout 5s, HTTP
+timeout 5s) là `const` C#, muốn đổi phải rebuild.
+
+**Thay đổi:**
+- `src/POS.Application/Features/Common/HealthCheckService.cs`: 4 giá trị hardcode → đọc từ
+  `IConfiguration` qua `GetValue("HealthCheck:{Key}", default)` — `StaleAfterSeconds`,
+  `CheckTimeoutSeconds`, `SqlConnectTimeoutSeconds`, `HttpTimeoutSeconds`. `CheckSqlAsync`/
+  `CheckCentralSaleTemplateAsync` nhận thêm tham số `connectTimeoutSeconds` thay vì đọc const.
+- `src/POS.Infrastructure/Workers/WorkerHeartbeatOptions.cs` (mới): POCO bind section
+  `"WorkerHeartbeat"` — `WorkerName`, `QueueName`, `IntervalSeconds`, `NormalTtlSeconds`,
+  `StoppedTtlSeconds`, default = giá trị hardcode cũ.
+- `src/POS.Infrastructure/Workers/WorkerHeartbeatService.cs`: inject `IOptions<WorkerHeartbeatOptions>`
+  thay 5 `const`; Redis key tính động `$"Worker:Heartbeat:{options.WorkerName}"` (tránh lệch với
+  `HealthCheck:WorkerName` phía đọc nếu Ops đổi tên worker).
+- `src/POS.Infrastructure/DependencyInjection.cs`: đăng ký `WorkerHeartbeatOptions` theo đúng
+  pattern `MasterDataSyncOptions`/`FileImportOptions` (`GetSection().Get<T>() ?? new T()` →
+  `AddSingleton(Options.Create(...))`).
+- `src/POS.Web/appsettings.json` + `appsettings.UAT.json` + `appsettings.Production.json`: bổ sung
+  4 key mới vào section `HealthCheck`; **thêm mới hoàn toàn** section `HealthCheck` cho UAT/Production
+  (gap chính) — `PosApiBaseUrl` để placeholder `<UAT_POS_API_BASE_URL>`/`<PROD_POS_API_BASE_URL>`
+  (không đoán giá trị thật). *Cập nhật sau khi merge*: user đã tự điền Production =
+  `http://localhost:5001/health`.
+- `src/POS.Worker/appsettings.json` + `appsettings.UAT.json` + `appsettings.Production.json`: thêm
+  section `"WorkerHeartbeat"` mới (giá trị = hardcode cũ, full-duplicate cả 3 môi trường theo đúng
+  tiền lệ `MasterDataZipGenerator`/`FileImport`).
+- `docs/guide-deploy.md`, `docs/ROLLOUT.md` (mục O9 mới), `docs/worker/worker_status.md`,
+  `docs/CURRENT_STRUCTURE.md`: cập nhật theo thay đổi trên.
+
+**Pattern mới:** Không có pattern mới — tái dùng đúng Options-binding pattern đã có
+(`MasterDataSyncOptions`) cho `WorkerHeartbeatOptions`; không cần cập nhật SKILLS.md.
+
+**⚠️ Cần theo dõi (phát hiện SAU khi user tự điền `appsettings.Production.json`):**
+`HealthCheck:PosApiBaseUrl` ở Production hiện là `"http://localhost:5001/health"` (đã có sẵn suffix
+`/health`) — nhưng `HealthCheckService.CheckWebApiAsync` LUÔN tự nối thêm `/health` vào cuối
+(`var url = $"{baseUrl}/health"`), nên URL gọi thật sự sẽ là
+`http://localhost:5001/health/health` (double suffix) — gần như chắc chắn 404. Cần xác nhận lại:
+nếu `5001` là cổng thật của POS.Api, giá trị đúng phải là `"http://localhost:5001"` (KHÔNG có
+`/health`) để khớp cách code tự nối suffix.
+
+**Lưu ý cho session sau:** Khi cấu hình `HealthCheck:PosApiBaseUrl` cho bất kỳ môi trường nào — chỉ
+điền phần base URL (scheme + host + port), KHÔNG kèm sẵn path `/health`, vì `CheckWebApiAsync` tự
+nối suffix đó.
+
+---
+
+## [2026-07-11] MasterDataSyncService — bỏ hardcode fallback Action, bắt buộc lấy từ DB (fail loud)
+
+**Layer:** POS.Application
+
+**Loại:** Bug fix (vi phạm nguyên tắc "Action luôn lấy từ DB")
+
+**Bối cảnh:** Rà soát theo yêu cầu người dùng sau khi triển khai entry `ZipWatermarkCounter` bên
+dưới: `MasterDataSyncService.cs` có 2 hằng số C# `ActionTruncInsert`/`ActionDeleteInsertFallback`
+dùng làm **fallback tự động** khi `SyncTableInfo.Action` (đọc từ cột `SyncTableList.Action` do DBA
+cấu hình) rỗng/NULL — nghĩa là nếu SP `[SyncTable_Get]` chưa migrate hoặc DBA quên cấu hình, code sẽ
+**tự bịa** giá trị Action thay vì phản ánh đúng cấu hình DB. Vi phạm nguyên tắc dự án: Action **tuyệt
+đối** phải lấy từ database, không có trường hợp ngoại lệ hardcode trong C#.
+
+**Thay đổi:**
+- `src/POS.Application/Features/DataSync/MasterDataSyncService.cs`: xóa hằng số
+  `ActionTruncInsert`/`ActionDeleteInsertFallback`; `ActionFor(batchNo)` giờ dùng thẳng
+  `entry.Table.Action` — nếu rỗng/NULL, ném `InvalidOperationException` ngay (fail loud, chỉ rõ cần
+  chạy `docs/sql/SyncTableList_AddAction.sql` + DBA cấu hình cột `Action`) thay vì âm thầm dùng giá
+  trị mặc định. Giữ nguyên hằng số `ActionInsert = "INSERT"` cho batch 2+ (ràng buộc kỹ thuật chia
+  batch, không phải "Action chính" nên không tính là hardcode thay thế cấu hình DB).
+- `.claude/rules/masterdata-sync.md` mục "Action linh động theo bảng": cập nhật mô tả hành vi mới.
+
+**Đã cố ý KHÔNG đổi** (ngoài phạm vi, cần quyết định riêng): SP `[SyncTable_Get]` nhánh
+`@IsChange='W'` vẫn hardcode `'DELETE-INSERT' AS Action` ngay trong SQL (bỏ qua cột `Action` cấu
+hình cho bảng đó) — đây là quyết định nghiệp vụ có từ 2026-07-09 cho luồng Web Sync/push 1 POS,
+không phải do session này thêm. Đã báo cho user, chưa nhận được xác nhận đổi.
+
+**Verify:** `dotnet build POS.slnx` → 0 Warning, 0 Error. `dotnet test tests/POS.ContractTests` →
+45/45 pass.
+**CHƯA verify:** hành vi `InvalidOperationException` khi DB thật thiếu Action — cần môi trường SQL
+Server thật để gọi thử, sandbox không có.
+
+**Lưu ý cho session sau:** nếu sau này cần thêm giá trị Action mới, **luôn** cấu hình qua
+`UPDATE SyncTableList SET Action=...` trên CentralMD — KHÔNG thêm hằng số/fallback trong C#.
+
+---
+
+## [2026-07-11] MasterDataZipGeneratorWorker — watermark chuyển từ Redis Hash sang cột DB (ZipWatermarkCounter)
+
+**Layer:** POS.Common, POS.Infrastructure, POS.Worker
+
+**Loại:** Fix rủi ro dữ liệu (durability) + Refactor
+
+**Bối cảnh:** Watermark của `MasterDataZipGeneratorWorker` (xem entry `[2026-07-10]` bên dưới) ban
+đầu lưu ở Redis Hash `Worker:Watermark:MasterDataZip`. Rà soát phát hiện: nếu Hash này bị mất (xóa
+tay, Redis restart mất persistence, evict theo `maxmemory-policy`...), code coi đó là "lần chạy đầu
+tiên" → seed watermark bằng counter **hiện tại** rồi bỏ qua generate — mọi thay đổi xảy ra trước khi
+mất key sẽ **vĩnh viễn không được trigger sinh zip** (lỗi silent, không throw exception). Đề xuất ban
+đầu (2 cột `POSNewCounter`/repurpose `POSLastCounter`) bị đánh giá có rủi ro đổi ý nghĩa cột đang
+dùng cho write-path khác + phải sửa SP ghi hot-path đang chạy ổn định — chọn phương án thay thế: thêm
+cột hoàn toàn mới, không đụng `POSLastCounter`/`usp_SyncTableList_BulkUpdateCounter`.
+
+**Thay đổi:**
+- `docs/sql/SyncTableList_AddZipWatermark.sql` (mới, order 850 trong `docs/sql/manifest.json`,
+  `runOnce: true, phase: pre-deploy`): `ALTER TABLE SyncTableList ADD ZipWatermarkCounter bigint NULL
+  DEFAULT 0` + backfill `= POSLastCounter` 1 lần + TVP `dbo.TVP_ZipWatermarkUpdate` + SP
+  `dbo.usp_SyncTableList_BulkUpdateZipWatermark` (idempotent, cùng mẫu
+  `usp_SyncTableList_BulkUpdateCounter`) + SP `[SyncTable_Get]` thêm SELECT cột này vào nhánh
+  `@IsChange='C'` (nhánh DUY NHẤT dùng — `'A'`/`'W'` không đổi).
+- `POS.Common/Dtos/DataSync/SyncTableInfo.cs`: `+ZipWatermarkCounter`.
+- `POS.Infrastructure/Repositories/DataSync/{I}SyncRepository.cs`: `+AckZipWatermarkAsync` (DataTable
+  → TVP → SP mới, theo mẫu `SyncTrackerRepository.BulkUpdateCounterAsync`).
+- `POS.Worker/Workers/MasterDataZipGeneratorWorker.cs`: xóa `WatermarkKey` const + toàn bộ logic
+  `KeyExistsAsync`/seed-lần-đầu + `HashGetAllAsync<long>` watermark; so sánh đổi thành
+  `tables.Where(t => t.POSLastCounter > t.ZipWatermarkCounter)` (2 cột cùng 1 dòng SQL, không còn
+  round-trip Redis); ACK đổi thành `syncRepo.AckZipWatermarkAsync(snapshot)` với `snapshot` =
+  `changedTables.ToDictionary(TableName, POSLastCounter)` đã đọc lúc ĐẦU cycle (KHÔNG re-read DB tại
+  thời điểm ACK — tránh nuốt mất thay đổi mới bump giữa lúc đọc và lúc ACK). Lock/Quarantine/
+  Heartbeat giữ nguyên trong Redis, không đổi.
+- `MasterDataZipGeneratorOptions.cs`, `POS.Worker/appsettings.json`,
+  `appsettings.Production.json`: xóa `SeedWatermarkOnFirstRun` (không còn cần thiết — backfill 1 lần
+  trong migration thay thế hoàn toàn logic seed lúc runtime).
+- Doc đồng bộ cùng commit: `.claude/rules/masterdata-sync.md`, `docs/worker/MasterDataZipGeneratorOptions_detail.md`,
+  `docs/architecture/centralMD-schema.md` (thêm cột `ZipWatermarkCounter` + `Action` còn thiếu),
+  `docs/CURRENT_STRUCTURE.md`, `docs/ROLLOUT.md` §O8, `docs/worker/worker_status.md`.
+
+**Pattern mới:** watermark ACK của 1 background worker nên là cột DB riêng (bền vững), KHÔNG dùng
+Redis Hash không TTL làm nguồn sự thật duy nhất cho "đã xử lý tới đâu" — Redis chỉ phù hợp cho
+lock/quarantine/heartbeat (mất thì cùng lắm suy giảm tạm thời, không mất dữ liệu).
+
+**Verify:** `dotnet build POS.slnx` → 0 Warning, 0 Error. `dotnet test tests/POS.ContractTests` →
+45/45 pass.
+**CHƯA verify:** chạy `SyncTableList_AddZipWatermark.sql` trên CentralMD thật + 1 cycle worker thật
+để xác nhận ACK ghi đúng giá trị snapshot — sandbox không có SQL Server/Redis thật.
+
+**Lưu ý cho session sau:** `POSLastCounter` vẫn giữ nguyên ý nghĩa/writer cũ (ghi bởi
+`SyncTableCounterFlushWorker`) — KHÔNG nhầm với `ZipWatermarkCounter` (chỉ
+`MasterDataZipGeneratorWorker` đọc/ghi). Redis key `Worker:Watermark:MasterDataZip` cũ không cần xóa
+ngay (phao rollback), dọn tay sau khi xác nhận bản mới ổn định.
+
+---
+
 ## [2026-07-11] Bổ sung Model C (Systemd Daemon) cho docs/deploy/pos-worker-ubuntu-guide.md
 
 **Layer:** Documentation (không đổi code)

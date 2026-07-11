@@ -20,7 +20,6 @@ public sealed class HealthCheckService(
     StoreRoutedConnectionFactory storeRoutedFactory) : IHealthCheckService
 {
     private const string RedisProbeKey = "HealthCheck:Ping";
-    private const int SqlConnectTimeoutSeconds = 5;
 
     public async Task<List<HealthCheckItemDto>> CheckAllAsync(string? storeNo, CancellationToken ct = default)
     {
@@ -28,16 +27,18 @@ public sealed class HealthCheckService(
         var connMd   = configuration.GetConnectionString("CentralMD");
         var connGen  = configuration.GetConnectionString("CentralGeneral");
         var connSale = configuration.GetConnectionString("CentralSale");
+        var sqlConnectTimeoutSec = configuration.GetValue("HealthCheck:SqlConnectTimeoutSeconds", 5);
+        var checkTimeoutSec = configuration.GetValue("HealthCheck:CheckTimeoutSeconds", 8);
 
         var results = await Task.WhenAll(
-            Guarded(CheckRedisAsync(ct),                                "Redis"),
-            Guarded(CheckRabbitMQAsync(ct),                             "RabbitMQ"),
-            Guarded(CheckSqlAsync("SQL:CentralMD",      connMd,   ct), "SQL:CentralMD"),
-            Guarded(CheckSqlAsync("SQL:CentralGeneral", connGen,  ct), "SQL:CentralGeneral"),
-            Guarded(CheckSqlAsync("SQL:CentralSale",    connSale, ct), "SQL:CentralSale"),
-            Guarded(CheckCentralSaleTemplateAsync(storeNo, ct),         "SQL:CentralSaleTemplate"),
-            Guarded(CheckWebApiAsync(ct),                               "POS.Api"),
-            Guarded(CheckWorkerHeartbeatAsync(workerName, ct),          "Worker")
+            Guarded(CheckRedisAsync(ct),                                "Redis",                checkTimeoutSec),
+            Guarded(CheckRabbitMQAsync(ct),                             "RabbitMQ",              checkTimeoutSec),
+            Guarded(CheckSqlAsync("SQL:CentralMD",      connMd,   sqlConnectTimeoutSec, ct), "SQL:CentralMD",      checkTimeoutSec),
+            Guarded(CheckSqlAsync("SQL:CentralGeneral", connGen,  sqlConnectTimeoutSec, ct), "SQL:CentralGeneral", checkTimeoutSec),
+            Guarded(CheckSqlAsync("SQL:CentralSale",    connSale, sqlConnectTimeoutSec, ct), "SQL:CentralSale",    checkTimeoutSec),
+            Guarded(CheckCentralSaleTemplateAsync(storeNo, sqlConnectTimeoutSec, ct),         "SQL:CentralSaleTemplate", checkTimeoutSec),
+            Guarded(CheckWebApiAsync(ct),                               "POS.Api",               checkTimeoutSec),
+            Guarded(CheckWorkerHeartbeatAsync(workerName, ct),          "Worker",                checkTimeoutSec)
         );
         return [.. results];
     }
@@ -117,14 +118,14 @@ public sealed class HealthCheckService(
     // ── SQL: connection string cố định ────────────────────────────────────
 
     private static async Task<HealthCheckItemDto> CheckSqlAsync(
-        string component, string? connectionString, CancellationToken ct)
+        string component, string? connectionString, int connectTimeoutSeconds, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(connectionString))
             return Item(component, "", false, 0, "Connection string không tồn tại trong cấu hình");
 
         var builder = new SqlConnectionStringBuilder(connectionString)
         {
-            ConnectTimeout = SqlConnectTimeoutSeconds
+            ConnectTimeout = connectTimeoutSeconds
         };
         var target = $"{builder.DataSource}/{builder.InitialCatalog}";
 
@@ -147,7 +148,8 @@ public sealed class HealthCheckService(
 
     // ── SQL: CentralSaleTemplate (routing theo store) ─────────────────────
 
-    private async Task<HealthCheckItemDto> CheckCentralSaleTemplateAsync(string? storeNo, CancellationToken ct)
+    private async Task<HealthCheckItemDto> CheckCentralSaleTemplateAsync(
+        string? storeNo, int connectTimeoutSeconds, CancellationToken ct)
     {
         const string component = "SQL:CentralSaleTemplate";
         var template = configuration.GetConnectionString("CentralSaleTemplate");
@@ -175,7 +177,7 @@ public sealed class HealthCheckService(
             resolvedBy = "SetDb:DB1";
         }
 
-        var result = await CheckSqlAsync(component, template.Replace("{server}", server), ct);
+        var result = await CheckSqlAsync(component, template.Replace("{server}", server), connectTimeoutSeconds, ct);
         result.Message = $"[{resolvedBy} → {server}] {result.Message}";
         return result;
     }
@@ -189,12 +191,13 @@ public sealed class HealthCheckService(
             return Item("POS.Api", "(không cấu hình)", false, 0,
                 "HealthCheck:PosApiBaseUrl chưa được cấu hình trong appsettings");
 
+        var httpTimeoutSec = configuration.GetValue("HealthCheck:HttpTimeoutSeconds", 5);
         var url = $"{baseUrl}/health";
         var sw = Stopwatch.StartNew();
         try
         {
             using var client = httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(5);
+            client.Timeout = TimeSpan.FromSeconds(httpTimeoutSec);
             var resp = await client.GetAsync(url, ct);
             sw.Stop();
             return Item("POS.Api", url, resp.IsSuccessStatusCode, sw.ElapsedMilliseconds,
@@ -227,9 +230,10 @@ public sealed class HealthCheckService(
             return Item(component, target, false, (long)age.TotalMilliseconds,
                 "Worker đã dừng có chủ ý");
 
-        if (age.TotalSeconds > 45)
+        var staleAfterSec = configuration.GetValue("HealthCheck:StaleAfterSeconds", 45);
+        if (age.TotalSeconds > staleAfterSec)
             return Item(component, target, false, (long)age.TotalMilliseconds,
-                $"Mất tín hiệu — {(int)age.TotalSeconds}s không có nhịp (ngưỡng 45s)");
+                $"Mất tín hiệu — {(int)age.TotalSeconds}s không có nhịp (ngưỡng {staleAfterSec}s)");
 
         if (hb.Status == "Degraded")
             return Item(component, target, false, (long)age.TotalMilliseconds,

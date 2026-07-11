@@ -51,4 +51,13 @@ public interface ISyncRepository
     Task<bool> UpdateDeleteLogAsync(
         string? siteCode, string? posTerminal, string? fileName,
         string deleteStatus, DateTime deletedAt, CancellationToken ct = default);
+
+    /// <summary>
+    /// ACK watermark của MasterDataZipGeneratorWorker — batch update SyncTableList.ZipWatermarkCounter
+    /// qua TVP dbo.TVP_ZipWatermarkUpdate → SP dbo.usp_SyncTableList_BulkUpdateZipWatermark (idempotent,
+    /// chỉ ghi đè khi Counter &gt; ZipWatermarkCounter hiện có). <paramref name="snapshotCounters"/>
+    /// PHẢI là giá trị POSLastCounter đã đọc lúc đầu cycle (KHÔNG re-read DB tại thời điểm gọi) —
+    /// xem docs/sql/SyncTableList_AddZipWatermark.sql.
+    /// </summary>
+    Task AckZipWatermarkAsync(IReadOnlyDictionary<string, long> snapshotCounters, CancellationToken ct = default);
 }

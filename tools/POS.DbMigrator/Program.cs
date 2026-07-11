@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using POS.DbMigrator;
 using POS.Infrastructure.Security;
 
+EnvFileLoader.LoadIfPresent(Path.Combine(AppContext.BaseDirectory, ".env"));
+
 var argSet = args.ToHashSet(StringComparer.OrdinalIgnoreCase);
 var configPath = GetOptionValue(args, "--config");
 var sqlDirOverride = GetOptionValue(args, "--sql-dir");
@@ -25,26 +27,31 @@ if (argSet.Contains("--whatif"))
 
 if (argSet.Contains("--verify"))
 {
-    if (configPath is null) { Console.Error.WriteLine("Thiếu --config <path>."); return 1; }
-    return await RunVerifyAsync(SqlDir(), configPath);
+    return await RunVerifyAsync(SqlDir(), ResolveConfigPath(configPath));
 }
 
 if (argSet.Contains("--apply"))
 {
-    if (configPath is null) { Console.Error.WriteLine("Thiếu --config <path>."); return 1; }
-    return await RunApplyAsync(SqlDir(), configPath);
+    return await RunApplyAsync(SqlDir(), ResolveConfigPath(configPath));
 }
 
 Console.WriteLine("""
     POS.DbMigrator — su dung:
       --whatif [--sql-dir <path>]                       Xem truoc Track A se chay + Track B phai chay tay (khong can DB)
-      --verify --config <path> [--sql-dir <path>]       Doc SchemaVersions tren DB dich, bao Track B con thieu
-      --apply --config <path> [--sql-dir <path>]        Chay Track A (idempotent, luon chay lai toan bo)
+      --verify [--config <path>] [--sql-dir <path>]     Doc SchemaVersions tren DB dich, bao Track B con thieu
+      --apply [--config <path>] [--sql-dir <path>]      Chay Track A (idempotent, luon chay lai toan bo)
       --normalize-alter-proc [--dry-run] [--sql-dir]    Chuan hoa ALTER PROC bare -> CREATE OR ALTER PROCEDURE
 
     --sql-dir <path>   Thu muc chua manifest.json + *.sql (BAT BUOC khi chay binary da publish ngoai
                         git checkout — Docker/Ubuntu bare-metal). Khong truyen -> tu do POS.slnx tu
                         AppContext.BaseDirectory (chi dung duoc luc dev, chay bang `dotnet run` trong repo).
+    --config <path>    File appsettings kieu POS.Api (chi can muc ConnectionStrings). Khong truyen ->
+                        tu suy ra src/POS.Api/appsettings.{Environment}.json (Environment lay tu
+                        ASPNETCORE_ENVIRONMENT -> DOTNET_ENVIRONMENT -> mac dinh "Production"), CHI hoat
+                        dong khi chay trong git checkout (dung POS.slnx nhu --sql-dir). Ngoai git checkout
+                        BAT BUOC truyen --config tuong minh.
+                        POS_SECRET_KEY (khi appsettings co token enc:...) tu doc tu file .env dat canh
+                        binary (AppContext.BaseDirectory) neu bien do chua co san trong process.
     """);
 return 1;
 
@@ -251,6 +258,35 @@ static bool ApplyTrackA(string label, string connectionString, string sqlDir, Li
 
     Console.WriteLine($"[{label}] OK — {scripts.Length} script da chay lai.");
     return true;
+}
+
+static string ResolveConfigPath(string? configOverride)
+{
+    if (!string.IsNullOrWhiteSpace(configOverride))
+    {
+        if (!File.Exists(configOverride))
+            throw new FileNotFoundException($"--config chỉ tới file không tồn tại: '{configOverride}'.");
+        return configOverride;
+    }
+
+    var repoRoot = RepoRootLocator.FindRepoRoot(AppContext.BaseDirectory);
+    if (repoRoot is null)
+        throw new InvalidOperationException(
+            "Không tìm thấy POS.slnx để tự suy ra appsettings.json của POS.Api, và không có --config " +
+            "<path>. Khi chạy binary đã publish/deploy ngoài git checkout (Docker, Ubuntu bare-metal) " +
+            "BẮT BUỘC truyền --config trỏ tới file appsettings.{Environment}.json.");
+
+    var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+        ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+        ?? "Production";
+    var candidate = Path.Combine(repoRoot, "src", "POS.Api", $"appsettings.{env}.json");
+    if (!File.Exists(candidate))
+        throw new FileNotFoundException(
+            $"Không tìm thấy '{candidate}' để tự dùng làm --config mặc định (env='{env}'). Truyền " +
+            "--config <path> trỏ đúng file appsettings cần dùng.", candidate);
+
+    Console.WriteLine($"[--config] Không truyền --config — tự dùng '{candidate}' (env='{env}').");
+    return candidate;
 }
 
 static string RequireConnectionString(IConfiguration configuration, string key) =>

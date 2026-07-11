@@ -36,6 +36,7 @@
 | D11 | Cột `NUMOFDAYSLIST` — chọn nhiều ngày áp dụng CTKM trong tháng | Chạy `docs/sql/SetupPromotion_AddNumOfDaysList.sql` (ALTER TABLE thêm cột) rồi chạy lại `docs/sql/SetupPromotion_Save.sql` (đã thêm `@NumOfDaysList`) trên CentralMD, ĐÚNG THỨ TỰ | REQUIRED (cho tab "Cài đặt nâng cao" tại `/promotion/setup`) | [§D11](#d11--cột-numofdayslist--chọn-nhiều-ngày-áp-dụng-ctkm-trong-tháng) |
 | D12 | SP `GetPromotionOfferHeaderList` — filter theo ngày + fix trùng dòng | Chạy `docs/sql/GetPromotionOfferHeaderList_AddDateRangeFilter.sql` VÀ `docs/sql/GetPromotionOfferHeaderList_FixDuplicateRows.sql` trên CentralMD (độc lập thứ tự, cả 2 đều `ALTER PROC` toàn SP) | REQUIRED (cho filter "Từ ngày" + tránh trùng dòng theo site tại `/promotion/offers`) | [§D12](#d12--sp-getpromotionofferheaderlist--filter-theo-ngày--fix-trùng-dòng-danh-mục-khuyến-mãi) |
 | O8 | `MasterDataZipGeneratorWorker` (POS.Worker) — mới, mặc định TẮT | Đặt `AppSettings:FtpRootPath` (POS.Worker) trỏ đúng thư mục ghi được + DBA `UPDATE SyncTableList SET IsOnlyChange=1` cho bảng cần theo dõi + chỉ bật `WorkerRoles:EnableMasterDataZipGenerator=true` sau khi đã kiểm tra | MEDIUM (opt-in, không ảnh hưởng nếu chưa bật) | [§O8](#o8--masterdatazipgeneratorworker-sinh-zip-theo-watermark-posworker) |
+| O9 | `HealthCheck:PosApiBaseUrl` (POS.Web `/ops/health`) — UAT/Production | Điền URL nội bộ POS.Api thật vào `<UAT_POS_API_BASE_URL>` (`appsettings.UAT.json`) và `<PROD_POS_API_BASE_URL>` (`appsettings.Production.json`) — trước đó 2 file này thiếu hẳn section `HealthCheck` nên âm thầm dùng giá trị Dev `http://localhost:8080` | REQUIRED (mục "POS.Api" trên `/ops/health` sai ở UAT/Prod nếu bỏ qua) | [§O9](#o9--healthcheckposapibaseurl-cho-uatproduction) |
 
 ---
 
@@ -454,8 +455,19 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
    này; nếu không bảng nào được đánh dấu, worker luôn nhận 0 dòng và không làm gì, KHÔNG phải lỗi).
 3. Xác nhận `docs/sql/SyncTableList_AddIsSingleFile.sql` và `docs/sql/SyncTableList_AddAction.sql`
    đã apply trên `CentralMD` (worker dùng lại đúng SP `[SyncTable_Get]`/`EnsureMasterDataFileAsync`
-   của luồng `GetFileFromFTP`/nút "Đồng bộ" — xem §O1/§O3, không có script SQL riêng cho worker
-   này). Sau đó `DEL MD:SyncTableList:C` trên Redis nếu vừa đổi cấu hình `SyncTableList`.
+   của luồng `GetFileFromFTP`/nút "Đồng bộ" — xem §O1/§O3). Sau đó `DEL MD:SyncTableList:C` trên
+   Redis nếu vừa đổi cấu hình `SyncTableList`.
+4. **BẮT BUỘC** — chạy `docs/sql/SyncTableList_AddZipWatermark.sql` trên `CentralMD` **TRƯỚC KHI**
+   deploy code Worker (order 850, `docs/sql/manifest.json`, `runOnce: true, phase: pre-deploy`).
+   Script thêm cột `SyncTableList.ZipWatermarkCounter` (watermark bền vững, thay thế Redis Hash
+   `Worker:Watermark:MasterDataZip` cũ — xem `.claude/rules/masterdata-sync.md` mục "Worker sinh
+   zip theo watermark + quarantine") + backfill `= POSLastCounter` hiện tại + SP
+   `usp_SyncTableList_BulkUpdateZipWatermark`. Nếu deploy code trước khi chạy script này, worker sẽ
+   lỗi mỗi cycle (SELECT cột chưa tồn tại). Verify sau khi chạy:
+   ```sql
+   SELECT TOP 5 TableName, POSLastCounter, ZipWatermarkCounter FROM dbo.SyncTableList;
+   ```
+   phải thấy 2 cột bằng nhau (backfill đúng) trước khi bật `WorkerRoles:EnableMasterDataZipGenerator=true`.
 
 **Cấu hình worker** (`POS.Worker/appsettings.json`, section `"MasterDataZipGenerator"` — giá trị
 mặc định chạy được, chỉ chỉnh nếu cần):
@@ -464,16 +476,18 @@ mặc định chạy được, chỉ chỉnh nếu cần):
   "IntervalSeconds": 300,
   "LockTtlMinutes": 30,
   "MaxParallelTerminals": 4,
-  "SeedWatermarkOnFirstRun": true,
   "QuarantineThreshold": 3
 }
 ```
 - `IntervalSeconds`: chu kỳ poll counter thay đổi.
 - `MaxParallelTerminals`: số terminal generate song song (`Parallel.ForEachAsync`) — cân nhắc cùng
   `MasterDataSync:MaxConcurrentGeneration` (giới hạn cụm, mặc định 3 lượt) để tránh throttle liên tục.
-- `SeedWatermarkOnFirstRun`: giữ `true` — lần bật đầu tiên chỉ ghi nhận counter hiện tại, KHÔNG
-  full-regen ngay cho toàn bộ fleet.
 - `QuarantineThreshold`: số lần lỗi liên tiếp trước khi 1 terminal bị tạm bỏ qua (xem quarantine bên dưới).
+
+> **Đã xóa (2026-07-11)**: `SeedWatermarkOnFirstRun` — watermark giờ là cột DB
+> `ZipWatermarkCounter`, backfill 1 lần trong migration (bước 4 ở trên) thay cho logic seed lúc
+> runtime; cycle đầu tiên sau khi deploy tự thấy "không đổi gì" nhờ backfill, không cần cấu hình gì
+> thêm.
 
 **Vận hành sau khi bật:**
 - Theo dõi `redis-cli GET Worker:Heartbeat:MasterDataZipGenerator` (`Status`="Running"/"Degraded"/"Stopped").
@@ -483,8 +497,48 @@ mặc định chạy được, chỉ chỉnh nếu cần):
   **bấm lại nút "Đồng bộ dữ liệu"** cho đúng terminal đó trên `/catalog/pos-setup` (§O3) — watermark
   có thể đã tịnh tiến qua trong lúc terminal bị quarantine nên cần 1 lượt full-resync thủ công để
   chắc chắn không thiếu dữ liệu (worker watermark-driven không tự biết terminal đã bỏ lỡ gì).
-- Muốn tắt lại: đặt `WorkerRoles:EnableMasterDataZipGenerator=false` rồi restart — không cần dọn
-  Redis key (watermark/quarantine tiếp tục tồn tại, dùng lại được khi bật lại sau này).
+- Muốn tắt lại: đặt `WorkerRoles:EnableMasterDataZipGenerator=false` rồi restart — không cần dọn gì
+  (watermark nằm trong cột DB `ZipWatermarkCounter`, quarantine vẫn ở Redis — cả 2 tiếp tục tồn tại,
+  dùng lại được khi bật lại sau này).
+
+---
+
+## O9 — `HealthCheck:PosApiBaseUrl` cho UAT/Production
+
+> Phát hiện khi rà soát tính configurable của các mục monitor trên `/ops/health` (2026-07-11).
+> Trang gọi `IHealthCheckService.CheckAllAsync` (`POS.Application/Features/Common/HealthCheckService.cs`)
+> — mục "POS.Api" gọi `GET {HealthCheck:PosApiBaseUrl}/health`. Section `HealthCheck` trước đó
+> **chỉ tồn tại trong `src/POS.Web/appsettings.json`** (base, giá trị `http://localhost:8080`) —
+> `appsettings.UAT.json`/`appsettings.Production.json` không override. Vì `WebApplication.CreateBuilder`
+> merge config theo key (không override toàn bộ file), UAT/Prod trước đây **âm thầm dùng giá trị
+> Dev** để check POS.Api — gần như chắc chắn sai (POS.Api chạy container/host khác `localhost:8080`
+> ở 2 môi trường đó).
+
+**Đã làm (2026-07-11)**: thêm section `HealthCheck` đầy đủ vào cả 2 file, với `PosApiBaseUrl` để
+placeholder rõ ràng (`<UAT_POS_API_BASE_URL>` / `<PROD_POS_API_BASE_URL>`) thay vì đoán giá trị —
+xem `.claude/rules` / `docs/guide-deploy.md` mục "Chuẩn bị trước khi deploy". Các key còn lại
+(`StaleAfterSeconds`, `CheckTimeoutSeconds`, `SqlConnectTimeoutSeconds`, `HttpTimeoutSeconds`) giữ
+nguyên giá trị hardcode cũ (45/8/5/5s) — không đổi hành vi, chỉ để Ops có thể tinh chỉnh sau này mà
+không cần rebuild.
+
+**Bắt buộc trước khi go-live UAT/Production:**
+
+1. Xác định URL nội bộ mà container/host POS.Web gọi tới được POS.Api (KHÔNG phải
+   `AppSettings:ApiServerIp` trong `POS.Api/appsettings.Production.json` — đó là IP public dùng
+   cho mục đích khác, xem `BaseController.cs:94-100`). Cách xác định: `docker network inspect`
+   (nếu POS.Api/POS.Web cùng docker network), hoặc kiểm tra nginx vhost đang proxy POS.Api, hoặc
+   hỏi team hạ tầng nếu 2 service chạy khác host.
+2. Điền giá trị đó vào `HealthCheck:PosApiBaseUrl`:
+   - `src/POS.Web/appsettings.UAT.json` — thay `<UAT_POS_API_BASE_URL>`
+   - `src/POS.Web/appsettings.Production.json` — thay `<PROD_POS_API_BASE_URL>`
+3. Verify: mở `/ops/health` trên môi trường đó, mục "POS.Api" phải trả `HTTP 200` thay vì lỗi kết
+   nối/timeout.
+
+**Đồng thời** — tương tự đã thêm section `WorkerHeartbeat` (`POS.Infrastructure/Workers/WorkerHeartbeatOptions.cs`)
+vào `src/POS.Worker/appsettings.{json,UAT.json,Production.json}` để đưa 5 tham số trước đây hardcode
+trong `WorkerHeartbeatService.cs` (interval ghi 15s, TTL Running 60s/Stopped 300s, tên worker, tên
+queue) ra config — giá trị mặc định giữ nguyên như cũ ở cả 3 môi trường, KHÔNG có key nào bắt buộc
+phải đổi khi go-live (chỉ cần điền nếu Ops muốn tinh chỉnh).
 
 ---
 

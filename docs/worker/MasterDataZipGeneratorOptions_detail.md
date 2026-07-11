@@ -1,6 +1,7 @@
 # MasterDataZipGeneratorWorker — Chi tiết triển khai
 
-> Tài liệu kỹ thuật chi tiết cho `MasterDataZipGeneratorWorker` (triển khai 2026-07-10). Tóm tắt
+> Tài liệu kỹ thuật chi tiết cho `MasterDataZipGeneratorWorker` (triển khai 2026-07-10, watermark
+> chuyển từ Redis Hash sang cột DB `SyncTableList.ZipWatermarkCounter` ngày 2026-07-11). Tóm tắt
 > vận hành/checklist go-live: xem **`docs/ROLLOUT.md` §O8**. Quyết định kiến trúc + lịch sử: xem
 > **`.claude/rules/masterdata-sync.md`** mục "Worker sinh zip theo watermark + quarantine". File
 > này tập trung vào **cơ chế thực thi cụ thể**: cấu hình, gọi SP nào theo thứ tự nào, sinh file gì,
@@ -18,7 +19,17 @@ data `.zip` chỉ được sinh khi:
 
 `MasterDataZipGeneratorWorker` là **consumer đầu tiên** của tín hiệu `POSLastCounter`: định kỳ so
 sánh counter hiện tại của các bảng được đánh dấu `IsOnlyChange=1` với 1 "watermark" lưu trong
-Redis; bảng nào tăng counter → tự động sinh lại `.zip` cho **mọi POS terminal đang bật**.
+**cột `SyncTableList.ZipWatermarkCounter`** (SQL Server, bền vững — xem mục 2 và
+`docs/sql/SyncTableList_AddZipWatermark.sql`); bảng nào tăng counter → tự động sinh lại `.zip` cho
+**mọi POS terminal đang bật**.
+
+> **Lịch sử**: watermark ban đầu (2026-07-10) lưu ở Redis Hash `Worker:Watermark:MasterDataZip`. Vấn
+> đề phát hiện: nếu Hash này bị mất (xóa tay, Redis restart mất persistence, evict theo
+> `maxmemory-policy`...), code coi đó là "lần chạy đầu tiên" → seed watermark bằng counter **hiện
+> tại** rồi bỏ qua generate — mọi thay đổi xảy ra trước khi mất key sẽ **vĩnh viễn không được
+> trigger sinh zip** (watermark "nhảy cóc" qua thay đổi chưa xử lý), lỗi silent không throw
+> exception. Ngày 2026-07-11 đã chuyển watermark sang cột DB `ZipWatermarkCounter` (bền vững, không
+> thể mất do restart Redis) — chi tiết mục 2 và 6 bên dưới.
 
 ---
 
@@ -36,18 +47,15 @@ PeriodicTimer tick (mỗi IntervalSeconds, mặc định 300s)
  ├─ [BƯỚC 1 — PHÁT HIỆN THAY ĐỔI]
  │   ISyncRepository.GetSyncTableCountersAsync("C")
  │     → gọi thẳng SP [dbo].[SyncTable_Get] @IsChange='C'   (KHÔNG qua Redis cache)
- │     → trả về DANH SÁCH BẢNG có SyncTableList.IsOnlyChange=1, kèm POSLastCounter hiện tại
+ │     → trả về DANH SÁCH BẢNG có SyncTableList.IsOnlyChange=1, kèm POSLastCounter VÀ
+ │        ZipWatermarkCounter hiện tại (2 cột cùng 1 dòng SQL — xem mục 6)
  │   0 dòng → log Warning "không bảng nào IsOnlyChange=1" → return (worker rảnh, không phải lỗi)
  │
- ├─ [BƯỚC 2 — SO WATERMARK]
- │   IRedisManager.KeyExistsAsync("Worker:Watermark:MasterDataZip")
- │     KHÔNG tồn tại (lần chạy đầu) → ghi watermark = counter hiện tại của MỌI bảng vừa lấy được,
- │                                     SKIP sinh file lượt này (SeedWatermarkOnFirstRun=true mặc định)
- │     TỒN TẠI → HashGetAllAsync<long> đọc toàn bộ watermark hiện có
- │       trả về RỖNG dù key tồn tại → coi là lỗi đọc Redis (RedisManager nuốt exception, không phân
- │       biệt được "rỗng thật" với "lỗi") → log Error, KHÔNG sinh file, KHÔNG ACK, return
- │
- │   changedTables = bảng có POSLastCounter (mới) > watermark (cũ), hoặc chưa có trong watermark
+ ├─ [BƯỚC 2 — SO WATERMARK] (từ 2026-07-11: watermark là cột DB, không còn Redis)
+ │   changedTables = tables.Where(t => t.POSLastCounter > t.ZipWatermarkCounter)
+ │     Không có khái niệm "watermark chưa tồn tại" — migration
+ │     docs/sql/SyncTableList_AddZipWatermark.sql backfill ZipWatermarkCounter = POSLastCounter 1 lần
+ │     duy nhất, nên cột luôn có giá trị hợp lệ; không cần seed/skip-cycle-đầu trong runtime nữa.
  │   0 bảng đổi → log Debug, return (chu kỳ bình thường, đa số các lượt sẽ dừng ở đây)
  │
  ├─ [BƯỚC 3 — LẤY DANH SÁCH TERMINAL]
@@ -70,9 +78,12 @@ PeriodicTimer tick (mỗi IntervalSeconds, mặc định 300s)
  │
  ├─ [BƯỚC 6 — ACK WATERMARK]
  │   failedCount == 0 (trong số terminal ĐÃ THỬ, không tính terminal bị quarantine bỏ qua)
- │     → HashSetAsync ghi watermark[TableName] = counter mới, cho MỌI bảng vừa đổi
+ │     → snapshot = changedTables.ToDictionary(TableName, POSLastCounter đã đọc ở BƯỚC 1)
+ │     → ISyncRepository.AckZipWatermarkAsync(snapshot) — TVP dbo.TVP_ZipWatermarkUpdate → SP
+ │       dbo.usp_SyncTableList_BulkUpdateZipWatermark, UPDATE ZipWatermarkCounter = snapshot value
+ │       (idempotent: chỉ ghi đè khi > giá trị hiện có) — KHÔNG re-read DB tại thời điểm ACK
  │   failedCount > 0
- │     → KHÔNG ghi watermark → lượt sau tự động retry đúng các bảng đã đổi (không mất dữ liệu)
+ │     → KHÔNG ACK → lượt sau tự động retry đúng các bảng đã đổi (không mất dữ liệu)
  │
  └─ WriteHeartbeat("Running" nếu failedCount==0, ngược lại "Degraded")
  finally: ReleaseLockAsync
@@ -89,8 +100,11 @@ PeriodicTimer tick (mỗi IntervalSeconds, mặc định 300s)
 | `IntervalSeconds` | `300` | Chu kỳ poll counter (giây). Tối thiểu ép về 30s trong code dù cấu hình thấp hơn. |
 | `LockTtlMinutes` | `30` | TTL của distributed lock `Worker:Lock:MasterDataZipGenerator` — nếu 1 chu kỳ chạy lâu hơn giá trị này, về lý thuyết 1 instance khác có thể vào cùng lúc (không hỏng dữ liệu vì vẫn còn khóa per-terminal `ISyncFileLock` bên trong, chỉ lãng phí tài nguyên). |
 | `MaxParallelTerminals` | `4` | Số terminal xử lý song song (`Parallel.ForEachAsync`). Cân nhắc cùng `MasterDataSync:MaxConcurrentGeneration` (giới hạn cụm) để tránh bị throttle liên tục. |
-| `SeedWatermarkOnFirstRun` | `true` | Lần chạy đầu tiên (watermark chưa tồn tại): `true` → chỉ ghi nhận counter hiện tại, KHÔNG sinh file ngay (tránh full-regen toàn bộ fleet ngay khi bật worker). |
 | `QuarantineThreshold` | `3` | Số lần lỗi liên tiếp trước khi 1 terminal bị bỏ qua ở các lượt sau. |
+
+> **Đã xóa (2026-07-11)**: `SeedWatermarkOnFirstRun` — không còn cần thiết vì watermark giờ là cột
+> DB `ZipWatermarkCounter`, luôn có giá trị hợp lệ nhờ backfill 1 lần trong migration script (xem
+> mục 1 và 6), không còn khái niệm "watermark chưa tồn tại" cần seed ở runtime.
 
 ### 3.2 `POS.Worker/appsettings.json` → section `"MasterDataSync"` (dùng chung với luồng generate hiện có — POS.Api/POS.Web)
 
@@ -150,9 +164,11 @@ Có **2 lời gọi SP1 khác nhau, mục đích khác nhau** — không nhầm 
 EXEC [dbo].[SyncTable_Get] @IsChange = 'C'
 ```
 
-Trả về (nhánh `IF @IsChange = 'C'` trong SP):
+Trả về (nhánh `IF @IsChange = 'C'` trong SP, đã thêm `ZipWatermarkCounter` ngày 2026-07-11 — xem
+`docs/sql/SyncTableList_AddZipWatermark.sql`):
 ```sql
-SELECT TableName, POSLastCounter, [Procedure], [OrderByName], IsByStore,
+SELECT TableName, POSLastCounter, ISNULL(ZipWatermarkCounter,0) AS ZipWatermarkCounter,
+       [Procedure], [OrderByName], IsByStore,
        ISNULL(ColumnFilter,'') ColumnFilter, GroupName,
        ISNULL(IsFirstDataAll,0) AS IsFirstDataAll,
        ISNULL(IsSingleFile,0) AS IsSingleFile,
@@ -161,7 +177,8 @@ FROM SyncTableList (Nolock)
 WHERE [Enabled] = 1 AND IsOnlyChange = 1
 ```
 
-Map vào `SyncTableInfo` (`POS.Common.Dtos.DataSync`).
+Map vào `SyncTableInfo` (`POS.Common.Dtos.DataSync`) — nhánh `'A'`/`'W'` KHÔNG SELECT
+`ZipWatermarkCounter` (Dapper để mặc định `0`, không sao vì 2 nhánh đó không dùng property này).
 
 ### 4.2 SP2 — `[dbo].[SyncGetDataByTable]` (1 lần/bảng, bên trong generate)
 
@@ -298,20 +315,53 @@ D:\ROOT\FTPBLUEPOS\SyncDataPos\POS\CHANGE\2018\201801\
 
 ---
 
-## 6. Redis key — tổng hợp toàn bộ
+## 6. Watermark (cột DB) + Redis key — tổng hợp toàn bộ
+
+### 6.1 Watermark — `SyncTableList.ZipWatermarkCounter` (SQL Server, KHÔNG phải Redis)
+
+> **Thay đổi 2026-07-11**: watermark chuyển từ Redis Hash `Worker:Watermark:MasterDataZip` sang cột
+> `bigint NULL DEFAULT 0` trên chính bảng `dbo.SyncTableList` (cùng dòng với `POSLastCounter`) — xem
+> `docs/sql/SyncTableList_AddZipWatermark.sql`. Lý do: Redis Hash có thể mất (xóa tay, restart mất
+> persistence, evict) → mất dấu vết thay đổi vĩnh viễn (xem cảnh báo ở mục 1). Cột SQL Server bền
+> vững qua restart Redis/Worker, loại bỏ hẳn lớp lỗi đó.
+
+- **Ghi bởi**: DUY NHẤT `MasterDataZipGeneratorWorker`, qua `ISyncRepository.AckZipWatermarkAsync`
+  → TVP `dbo.TVP_ZipWatermarkUpdate` → SP `dbo.usp_SyncTableList_BulkUpdateZipWatermark` (idempotent:
+  `WHERE Counter > ISNULL(ZipWatermarkCounter,0)`).
+- **Đọc bởi**: cùng 1 câu SELECT SP1 `[SyncTable_Get] @IsChange='C'` trả `POSLastCounter` VÀ
+  `ZipWatermarkCounter` trong cùng 1 dòng — không cần round-trip Redis riêng.
+- **KHÔNG đụng** `POSLastCounter`/SP `usp_SyncTableList_BulkUpdateCounter` (ghi bởi
+  `SyncTableCounterFlushWorker`, chạy mỗi 5s từ cả `POS.Api`/`POS.Web`) — 2 cột/2 SP hoàn toàn tách
+  biệt, tránh đụng vào hot path ghi dữ liệu đang chạy ổn định.
+- **Backfill 1 lần** trong migration: `ZipWatermarkCounter = ISNULL(POSLastCounter,0)` — cycle đầu
+  tiên sau khi deploy code mới thấy "không đổi gì", tương đương hành vi seed cũ nhưng không cần
+  logic seed trong C#.
+
+**Lệnh vận hành thường dùng (SQL, thay cho `redis-cli HGETALL` trước đây):**
+```sql
+SELECT TableName, POSLastCounter, ZipWatermarkCounter, LastUpdated
+FROM dbo.SyncTableList
+WHERE IsOnlyChange = 1
+ORDER BY TableName;
+```
+
+### 6.2 Redis key — chỉ còn Lock/Quarantine/Heartbeat + cache metadata (không đổi)
 
 | Key | Loại | TTL | Ghi bởi | Ý nghĩa |
 |---|---|---|---|---|
-| `Worker:Watermark:MasterDataZip` | Hash (field=TableName, value=POSLastCounter) | Không hết hạn | `MasterDataZipGeneratorWorker` | Counter đã ACK cho mỗi bảng |
 | `Worker:Quarantine:MasterDataZip` | Hash (field=`{StoreNo}:{No}`, value=FailedCount) | Không hết hạn | `MasterDataZipGeneratorWorker` | Số lần lỗi liên tiếp mỗi terminal |
 | `Worker:Lock:MasterDataZipGenerator` | String (distributed lock, SET NX PX) | `LockTtlMinutes` (30 phút) | `MasterDataZipGeneratorWorker` | Đảm bảo chỉ 1 instance chạy 1 lượt |
 | `Worker:Heartbeat:MasterDataZipGenerator` | String (JSON `WorkerHeartbeat`) | ~`LockTtlMinutes` lúc Running, 300s lúc Stopped | `MasterDataZipGeneratorWorker` | Giám sát worker còn sống |
 | `MD:SyncTableList:C` | String (JSON `List<SyncTableInfo>`) | 3600s | `SyncRepository.GetSyncTablesAsync("C")` | Cache metadata bảng (Action/IsSingleFile...) dùng khi generate |
 | `MD:CreateMasterData:Slots` | Sorted Set (sliding-window throttle) | tự dọn slot quá `ThrottleStaleAfterSeconds` | `MasterDataSyncService` (dùng chung mọi nguồn generate) | Giới hạn `MaxConcurrentGeneration` lượt generate đồng thời toàn cụm |
 
+> `Worker:Watermark:MasterDataZip` (Redis Hash cũ) **đã retired** — code không còn tham chiếu key
+> này. Không cần chủ động xóa ngay sau khi deploy (xem rollout note trong
+> `.claude/rules/masterdata-sync.md`); dọn tay bằng `redis-cli DEL Worker:Watermark:MasterDataZip`
+> sau khi xác nhận bản mới chạy ổn định qua vài cycle.
+
 **Lệnh vận hành thường dùng:**
 ```bash
-redis-cli HGETALL Worker:Watermark:MasterDataZip
 redis-cli HGETALL Worker:Quarantine:MasterDataZip
 redis-cli HDEL Worker:Quarantine:MasterDataZip 2018:201801   # gỡ quarantine 1 terminal sau khi đã sửa lỗi
 redis-cli GET Worker:Heartbeat:MasterDataZipGenerator
@@ -331,9 +381,10 @@ redis-cli DEL MD:SyncTableList:C                              # sau khi DBA đ�
   riêng terminal) → tính vào `failedCount` của lượt (chặn ACK watermark lượt này) nhưng **KHÔNG**
   cộng vào quarantine của terminal đó.
 - **ACK watermark**: chỉ tịnh tiến khi `failedCount == 0` trong số terminal **đã thử** lượt này
-  (không tính terminal bị quarantine bỏ qua từ đầu). Vì `POSLastCounter` là giá trị global/bảng
-  (không phải per-terminal), không thể "ACK một phần" — 1 terminal active lỗi vẫn giữ nguyên
-  watermark để lượt sau tự retry đúng các bảng đã đổi.
+  (không tính terminal bị quarantine bỏ qua từ đầu). Vì `POSLastCounter`/`ZipWatermarkCounter` là
+  giá trị global/bảng (không phải per-terminal), không thể "ACK một phần" — 1 terminal active lỗi
+  vẫn giữ nguyên watermark để lượt sau tự retry đúng các bảng đã đổi. Giá trị ACK luôn là
+  `POSLastCounter` đã snapshot lúc ĐẦU cycle (không re-read DB lúc ACK — xem mục 6.1).
 - **Gap đã biết** (ghi trong `.claude/rules/masterdata-sync.md`): terminal bị quarantine rồi gỡ thủ
   công có thể đã bỏ lỡ dữ liệu (watermark tịnh tiến trong lúc nó bị loại). Khắc phục: sau khi `HDEL`
   quarantine, **bấm lại nút "Đồng bộ dữ liệu"** cho đúng terminal đó (full resync không phụ thuộc
@@ -346,21 +397,27 @@ redis-cli DEL MD:SyncTableList:C                              # sau khi DBA đ�
 | Layer | File | Namespace |
 |---|---|---|
 | Worker | `POS.Worker/Workers/MasterDataZipGeneratorWorker.cs` | `POS.Worker.Workers` |
-| Worker options | `POS.Worker/Workers/MasterDataZipGeneratorOptions.cs` | `POS.Worker.Workers` |
+| Worker options | `POS.Worker/Workers/MasterDataZipGeneratorOptions.cs` (đã xóa `SeedWatermarkOnFirstRun`) | `POS.Worker.Workers` |
 | App service | `POS.Application/Features/DataSync/ISyncDataPosService.cs` — `PushMasterDataChangeAsync` | `POS.Application.Features.DataSync` |
 | App service | `POS.Application/Features/DataSync/MasterDataSyncService.cs` — `EnsureMasterDataFileAsync` (đã thêm guard `ForceRegenerate`) | `POS.Application.Features.DataSync` |
-| Infra repo | `POS.Infrastructure/Repositories/DataSync/SyncRepository.cs` — `GetSyncTableCountersAsync` (mới, không cache) | `POS.Infrastructure.Repositories` |
+| Infra repo | `POS.Infrastructure/Repositories/DataSync/SyncRepository.cs` — `GetSyncTableCountersAsync` (không cache), `AckZipWatermarkAsync` (mới, 2026-07-11) | `POS.Infrastructure.Repositories` |
+| Infra repo interface | `POS.Infrastructure/Repositories/DataSync/ISyncRepository.cs` — `+AckZipWatermarkAsync` | `POS.Infrastructure.Repositories.Interfaces` |
 | DTO | `POS.Common/Dtos/DataSync/GetMasterDataFileRequest.cs` — `+ForceRegenerate` | `POS.Common.Dtos.DataSync` |
+| DTO | `POS.Common/Dtos/DataSync/SyncTableInfo.cs` — `+ZipWatermarkCounter` (mới, 2026-07-11) | `POS.Common.Dtos.DataSync` |
+| DB script | `docs/sql/SyncTableList_AddZipWatermark.sql` — cột `ZipWatermarkCounter` + TVP `TVP_ZipWatermarkUpdate` + SP `usp_SyncTableList_BulkUpdateZipWatermark` + SP `SyncTable_Get` (thêm SELECT nhánh `'C'`) | CentralMD (áp dụng thủ công, order 850, `docs/sql/manifest.json`) |
 | DI | `POS.Worker/Program.cs` — `AddApplication()`, `Configure<MasterDataZipGeneratorOptions>`, `AddHostedService` có điều kiện | — |
-| Config | `POS.Worker/appsettings.json` | — |
+| Config | `POS.Worker/appsettings.json`, `appsettings.Production.json` (đã xóa `SeedWatermarkOnFirstRun`) | — |
 | Test guardrail | `tests/POS.ContractTests/DependencyInjectionTests.cs` — `MasterDataZipGeneratorWorker_dependencies_are_registered` | `POS.ContractTests` |
 
 ---
 
 ## 9. Trạng thái verify
 
-- ✅ `dotnet build POS.slnx` — 0 Warning, 0 Error.
-- ✅ `dotnet test tests/POS.ContractTests` — 40/40 pass, gồm test DI riêng cho worker này.
+- ✅ `dotnet build POS.slnx` — 0 Warning, 0 Error (verify lại 2026-07-11 sau khi chuyển watermark
+  sang cột DB).
+- ✅ `dotnet test tests/POS.ContractTests` — 45/45 pass (verify lại 2026-07-11).
 - ⚠️ **CHƯA verify end-to-end** trên môi trường thật (cần SQL Server CentralMD, Redis,
-  `FtpRootPath` ghi được) — sandbox phát triển không có các hạ tầng này. Checklist verify thủ công
-  đầy đủ: xem `docs/ROLLOUT.md` §O8 và kế hoạch triển khai gốc.
+  `FtpRootPath` ghi được) — sandbox phát triển không có các hạ tầng này. Đặc biệt **chưa verify**:
+  chạy `docs/sql/SyncTableList_AddZipWatermark.sql` trên CentralMD thật, xác nhận backfill đúng,
+  và chạy 1 cycle worker thật để xác nhận `ZipWatermarkCounter` được ACK đúng giá trị snapshot.
+  Checklist verify thủ công đầy đủ: xem `docs/ROLLOUT.md` §O8.

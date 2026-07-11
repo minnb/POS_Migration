@@ -45,13 +45,10 @@ public static class ManifestScriptProvider
             return Path.GetFullPath(sqlDirOverride);
         }
 
-        var dir = new DirectoryInfo(startDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "POS.slnx")))
-                return Path.Combine(dir.FullName, "docs", "sql");
-            dir = dir.Parent;
-        }
+        var repoRoot = RepoRootLocator.FindRepoRoot(startDirectory);
+        if (repoRoot is not null)
+            return Path.Combine(repoRoot, "docs", "sql");
+
         throw new InvalidOperationException(
             $"Không tìm thấy POS.slnx đi ngược từ '{startDirectory}', và không có --sql-dir <path>. " +
             "Khi chạy binary đã publish/deploy ngoài git checkout (Docker, Ubuntu bare-metal) BẮT BUỘC " +

@@ -2275,6 +2275,17 @@ IsFirstDataAll    bit                NULL   -- default 0
 IsSingleFile      bit                NOT NULL   -- default 0 — 1 = đóng gói riêng 1 file .zip khi
                                                  -- sinh master data, 0 = gom chung zip "common"
                                                  -- (xem docs/sql/SyncTableList_AddIsSingleFile.sql)
+Action            varchar(20)        NOT NULL   -- default 'TRUNC-INSERT' — Action ghi vào envelope
+                                                 -- file .txt cho POS, cấu hình theo từng bảng thay vì
+                                                 -- hardcode C# (xem docs/sql/SyncTableList_AddAction.sql)
+ZipWatermarkCounter bigint           NULL   -- default 0 — watermark ACK riêng của
+                                                 -- MasterDataZipGeneratorWorker (SQL Server, KHÔNG
+                                                 -- phải Redis — thay thế Redis Hash
+                                                 -- Worker:Watermark:MasterDataZip trước đây để tránh
+                                                 -- mất dấu khi Redis restart/evict). So sánh
+                                                 -- POSLastCounter > ZipWatermarkCounter để phát hiện
+                                                 -- bảng đã đổi; KHÔNG liên quan tới write-path ghi
+                                                 -- POSLastCounter (xem docs/sql/SyncTableList_AddZipWatermark.sql)
 ```
 
 ### SyncTableFromPOS

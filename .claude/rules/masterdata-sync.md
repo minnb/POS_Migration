@@ -86,14 +86,19 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 - **Redis cache SP1** (`MD:SyncTableList:{isChange}` — `:A`/`:W` riêng vì Action khác nhau giữa 2
   nhánh SP, TTL 3600s): metadata 85 bảng cache Redis — tránh SP1 mỗi request. Invalidate thủ công:
   `DEL MD:SyncTableList:A` / `DEL MD:SyncTableList:W` khi DBA thay đổi cấu hình `SyncTableList`.
-- **Action linh động theo bảng (2026-07-09)**: `SyncTableList.Action` (cột DB, script
-  `docs/sql/SyncTableList_AddAction.sql`) — SP `[SyncTable_Get]` trả kèm cột `Action`, DBA cấu hình
-  theo từng bảng thay vì hardcode ở C#. `MasterDataSyncService.ActionFor`: `IsChangeMode="A"` (ALL
-  sync, mặc định) → batch đầu dùng `SyncTableInfo.Action` (fallback `TRUNC-INSERT` nếu SP chưa có
-  cột), batch sau luôn `INSERT` (ràng buộc kỹ thuật — tránh truncate/xóa lặp lại giữa các batch
-  cùng bảng, không đổi theo cấu hình DB); `IsChangeMode="W"` (Web Sync/push 1 POS,
-  `PushStartOfDayDataAsync`) → nhánh SP `@IsChange='W'` luôn trả `Action='DELETE-INSERT'`, áp dụng
-  cho MỌI batch (fallback hằng số `ActionDeleteInsertFallback` nếu SP chưa có cột).
+- **Action linh động theo bảng (2026-07-09, sửa lại 2026-07-11 — bỏ fallback hardcode)**:
+  `SyncTableList.Action` (cột DB, script `docs/sql/SyncTableList_AddAction.sql`) — SP
+  `[SyncTable_Get]` trả kèm cột `Action`, DBA cấu hình theo từng bảng. `MasterDataSyncService.ActionFor`:
+  `IsChangeMode="A"`/`"C"` → batch đầu dùng ĐÚNG `SyncTableInfo.Action` từ DB, batch sau luôn
+  `INSERT` (ràng buộc kỹ thuật khi chia batch — tránh truncate/xóa lặp lại giữa các batch cùng bảng,
+  không phải giá trị "Action chính" nên không đổi theo cấu hình DB); `IsChangeMode="W"` (Web
+  Sync/push 1 POS, `PushStartOfDayDataAsync`) → áp dụng `SyncTableInfo.Action` cho MỌI batch (nhánh
+  SP `@IsChange='W'` luôn trả `Action='DELETE-INSERT'` — hardcode ở SP, không phải ở C#).
+  **KHÔNG còn fallback hardcode trong C#** (`ActionTruncInsert`/`ActionDeleteInsertFallback` đã bị
+  xóa 2026-07-11 — Action tuyệt đối phải lấy từ DB, `entry.Table.Action` rỗng/NULL → C# ném
+  `InvalidOperationException` ngay (fail loud), không tự đoán giá trị thay DBA). Hệ quả: **BẮT BUỘC**
+  đã chạy `docs/sql/SyncTableList_AddAction.sql` trên CentralMD trước khi dùng luồng sinh master
+  data này, nếu không mọi request sẽ lỗi 500 thay vì âm thầm dùng `TRUNC-INSERT`/`DELETE-INSERT`.
 - **Khóa**: keyed `SemaphoreSlim` Singleton, key = `{typeSync}_{siteCode}_{posTerminal}` (KHÔNG kèm ngày,
   KHÔNG kèm tên bảng → 1 lock bao trọn cả lượt sinh N zip) + double-check trước khi sinh.
 - **Distributed throttle qua Redis** (2026-07-09, giới hạn tổng số lượt sinh chạy đồng thời trên toàn
@@ -212,11 +217,36 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
   (bản có cache TTL 1h sẽ làm việc phát hiện thay đổi bị trễ tới 1 giờ). `@IsChange='C'` chỉ trả
   bảng `SyncTableList.IsOnlyChange=1` — DBA phải tự `UPDATE` cột này cho bảng cần theo dõi, nếu
   không worker luôn nhận 0 dòng và không làm gì (không phải lỗi code).
-- **Watermark**: Redis Hash `Worker:Watermark:MasterDataZip` (field = `TableName`, value =
-  `POSLastCounter` đã ACK). Lần chạy đầu (`KeyExistsAsync` false) → seed toàn bộ counter hiện tại
-  rồi bỏ qua generate (`SeedWatermarkOnFirstRun`, mặc định true) — tránh full-regen ngay khi worker
-  mới bật lần đầu. `HashGetAllAsync` trả dict rỗng dù key tồn tại → coi là lỗi đọc Redis (không
-  phân biệt được với "hash rỗng thật" vì `RedisManager` nuốt exception), bỏ qua lượt, KHÔNG ACK.
+- **Watermark — cột DB `SyncTableList.ZipWatermarkCounter`** (đổi 2026-07-11, thay thế thiết kế Redis
+  Hash `Worker:Watermark:MasterDataZip` ban đầu). **Lý do đổi**: Redis Hash có thể mất (xóa tay,
+  restart mất persistence, evict theo `maxmemory-policy`) — code cũ coi mất key là "lần chạy đầu",
+  seed lại watermark bằng counter **hiện tại** rồi bỏ qua generate → mọi thay đổi xảy ra trước khi
+  mất key **vĩnh viễn không được trigger sinh zip** (lỗi silent, không throw exception). Chuyển
+  watermark sang cột SQL Server loại bỏ hẳn lớp lỗi này (bền vững qua restart Redis/Worker).
+  - `docs/sql/SyncTableList_AddZipWatermark.sql`: `ALTER TABLE` thêm `ZipWatermarkCounter bigint NULL
+    DEFAULT 0`, backfill `= ISNULL(POSLastCounter,0)` 1 lần, thêm SELECT cột này vào SP
+    `[SyncTable_Get]` nhánh `@IsChange='C'` (nhánh DUY NHẤT dùng — `'A'`/`'W'` không đổi), thêm TVP
+    `dbo.TVP_ZipWatermarkUpdate` + SP `dbo.usp_SyncTableList_BulkUpdateZipWatermark`.
+  - **Cố ý KHÔNG đụng** cột `POSLastCounter`/SP `usp_SyncTableList_BulkUpdateCounter` (ghi bởi
+    `SyncTableCounterFlushWorker`, hot path chạy mỗi 5s từ cả `POS.Api`/`POS.Web`) — 2 cột/2 SP hoàn
+    toàn tách biệt để không tăng blast radius vào write-path đang chạy ổn định.
+  - **Phát hiện thay đổi**: `tables.Where(t => t.POSLastCounter > t.ZipWatermarkCounter)` — cả 2 cột
+    đọc trong CÙNG 1 dòng SP1 `[SyncTable_Get] @IsChange='C'`, không còn round-trip Redis riêng,
+    không còn khái niệm "watermark chưa tồn tại" cần seed ở runtime (backfill 1 lần trong migration
+    đã đảm bảo cột luôn có giá trị hợp lệ — option `SeedWatermarkOnFirstRun` đã xóa khỏi
+    `MasterDataZipGeneratorOptions`).
+  - **ACK bằng giá trị SNAPSHOT, không re-read**: `ISyncRepository.AckZipWatermarkAsync` nhận
+    `Dictionary<TableName, POSLastCounter>` đã đọc lúc ĐẦU cycle (từ `changedTables`, giữ nguyên
+    trong biến C#) — KHÔNG re-read DB tại thời điểm ACK. Lý do: giữa lúc đọc counter (đầu cycle) và
+    lúc ACK (cuối cycle, sau khi generate xong cho N terminal song song, có thể mất hàng chục giây),
+    nếu có write-path khác bump counter cho đúng bảng đó, ACK bằng giá trị SỐNG sẽ vô tình "nuốt"
+    thay đổi mới chưa từng được generate trong cycle này — lặp lại đúng lớp lỗi ban đầu (mất dấu
+    thay đổi) chỉ khác nguyên nhân. SP `usp_SyncTableList_BulkUpdateZipWatermark` idempotent
+    (`WHERE Counter > ISNULL(ZipWatermarkCounter,0)`), cùng mẫu `usp_SyncTableList_BulkUpdateCounter`.
+  - **Rollout**: migration BẮT BUỘC chạy TRƯỚC khi deploy code Worker mới (code SELECT cột chưa tồn
+    tại → lỗi mỗi cycle nếu chạy sai thứ tự). Redis key `Worker:Watermark:MasterDataZip` cũ **không
+    cần chủ động xóa ngay** — để vài ngày làm phao rollback (nếu revert code, key cũ vẫn hợp lệ),
+    dọn tay bằng `redis-cli DEL Worker:Watermark:MasterDataZip` sau khi xác nhận bản mới ổn định.
 - **Regen path**: tái dùng chính xác luồng "Đồng bộ dữ liệu" của `PosMapPage.razor` — thêm
   `ISyncDataPosService.PushMasterDataChangeAsync(siteCode, posTerminal)`, giống
   `PushStartOfDayDataAsync` nhưng `IsChangeMode="C"` (chỉ bảng đã đổi) và `ForceRegenerate=true`
@@ -234,8 +264,9 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
   0). `MasterDataThrottleException` (throttle cụm — tài nguyên chung, không phải lỗi riêng
   terminal) **không** tính vào quarantine.
 - **ACK watermark**: chỉ tịnh tiến khi **mọi terminal đã thử trong lượt này** (không tính terminal
-  bị quarantine bỏ qua từ đầu) đều thành công — `POSLastCounter` là 1 giá trị global/bảng, không
-  thể "ACK một phần". Có lỗi → watermark giữ nguyên, lượt sau tự retry đúng các bảng đã đổi.
+  bị quarantine bỏ qua từ đầu) đều thành công — `POSLastCounter`/`ZipWatermarkCounter` là giá trị
+  global/bảng, không thể "ACK một phần". Có lỗi → watermark giữ nguyên, lượt sau tự retry đúng các
+  bảng đã đổi.
 - **Gap đã biết, chấp nhận có chủ đích**: khi 1 terminal bị quarantine rồi được gỡ thủ công (`HDEL
   Worker:Quarantine:MasterDataZip {store}:{terminal}` sau khi sửa nguyên nhân gốc), watermark có
   thể đã tịnh tiến qua nó trong lúc bị quarantine → terminal đó có thể thiếu dữ liệu của những lần
@@ -265,13 +296,14 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 | App service | `POS.Application/Features/DataSync/{I}MasterDataSyncService.cs` | `POS.Application.Features.DataSync` |
 | App exception | `POS.Application/Features/DataSync/MasterDataThrottleException.cs` | `POS.Application.Features.DataSync` |
 | Infra throttle | `POS.Infrastructure/Cache/IRedisManager.cs` — `TryAcquireSlotAsync`/`ReleaseSlotAsync` (ZSET+Lua) + `POS.Infrastructure/Redis/IRedisService.cs` thin wrapper | `POS.Infrastructure.Cache` / `POS.Infrastructure.Redis` |
-| Worker | `POS.Worker/Workers/{MasterDataZipGeneratorWorker,MasterDataZipGeneratorOptions}.cs` — poll watermark, generate zip, quarantine terminal lỗi | `POS.Worker.Workers` |
+| Worker | `POS.Worker/Workers/{MasterDataZipGeneratorWorker,MasterDataZipGeneratorOptions}.cs` — poll watermark (cột DB), generate zip, quarantine terminal lỗi | `POS.Worker.Workers` |
 | Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`, `MaxConcurrentGeneration`, `ThrottleStaleAfterSeconds`) | — |
-| Config | `POS.Worker/appsettings.json` → section `"MasterDataZipGenerator"` (`IntervalSeconds`, `LockTtlMinutes`, `MaxParallelTerminals`, `SeedWatermarkOnFirstRun`, `QuarantineThreshold`) + `"WorkerRoles":"EnableMasterDataZipGenerator"` | — |
+| Config | `POS.Worker/appsettings.json` → section `"MasterDataZipGenerator"` (`IntervalSeconds`, `LockTtlMinutes`, `MaxParallelTerminals`, `QuarantineThreshold`) + `"WorkerRoles":"EnableMasterDataZipGenerator"` | — |
 | Config | `appsettings.json` (POS.Api + POS.Web) → section `"SyncTableTracker"` (`FlushIntervalSeconds`, `ChannelCapacity`) | — |
 | DB script | `docs/sql/SyncTableList_AddIsSingleFile.sql` — cột `SyncTableList.IsSingleFile` + SP `[SyncTable_Get]` | CentralMD (áp dụng thủ công) |
 | DB script | `docs/sql/SyncTableList_AddAction.sql` — cột `SyncTableList.Action` + SP `[SyncTable_Get]` (thêm nhánh `@IsChange='W'`) | CentralMD (áp dụng thủ công) |
 | DB script | `docs/sql/SyncTableList_BulkUpdateCounter.sql` — TVP `dbo.TVP_SyncCounterUpdate` + SP `usp_SyncTableList_BulkUpdateCounter` | CentralMD (áp dụng thủ công) |
+| DB script | `docs/sql/SyncTableList_AddZipWatermark.sql` — cột `SyncTableList.ZipWatermarkCounter` (backfill) + TVP `dbo.TVP_ZipWatermarkUpdate` + SP `usp_SyncTableList_BulkUpdateZipWatermark` + SP `[SyncTable_Get]` (thêm SELECT nhánh `'C'`) — thay thế Redis watermark của `MasterDataZipGeneratorWorker` | CentralMD (áp dụng thủ công, BẮT BUỘC trước deploy code) |
 | DB script | `docs/sql/Product_Save.sql` — thêm `@OutItemCounter`/`@OutBarcodeCounter` OUTPUT cho `usp_Product_Save` | CentralMD (áp dụng thủ công) |
 | DB script | `docs/sql/SalesPrice_AddCounterOutput.sql` — thêm `@OutCounter` OUTPUT (`usp_SetupSalePrice_Save`) + cột `Counter` vào result set (`usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete`) | CentralMD (áp dụng thủ công, SAU `SetupSalePrice_Save.sql`+`SalesPrice_EditDelete*.sql`) |
 

@@ -33,8 +33,16 @@ Thay tất cả placeholder `<...>`:
 - `<UAT_SQL_HOST>`, `<UAT_SQL_USER>`, `<UAT_SQL_PASSWORD>`
 - `<UAT_REDIS_HOST>`, `<UAT_RABBIT_HOST>`, `<UAT_RABBIT_PASSWORD>`
 - `<UAT_KAFKA_HOST>`, `<UAT_API_SERVER_IP>`, `<UAT_EINVOICE_*>`
+- `<UAT_POS_API_BASE_URL>` (`src/POS.Web/appsettings.UAT.json` → `HealthCheck:PosApiBaseUrl`) —
+  URL nội bộ POS.Web gọi được tới POS.Api trong UAT (dùng cho mục "POS.Api" ở `/ops/health`),
+  KHÁC `<UAT_API_SERVER_IP>` (IP public dùng cho mục đích khác — xem `BaseController.cs`)
 
 > PROD: `appsettings.Production.json` đã có sẵn giá trị thật — chỉ kiểm tra lại trước khi build.
+> **Ngoại lệ cần điền tay**: `src/POS.Web/appsettings.Production.json` → `HealthCheck:PosApiBaseUrl`
+> hiện là placeholder `<PROD_POS_API_BASE_URL>` (chưa xác định được network layout thật giữa
+> container POS.Web ↔ POS.Api ở Production) — Ops kiểm tra `docker network inspect` / cấu hình
+> nginx vhost để điền đúng URL nội bộ trước khi deploy, nếu không mục "POS.Api" trên
+> `/ops/health` sẽ luôn báo lỗi ở Production.
 > Khi UAT/PROD ổn định: đặt `WebApp:EnableDetailedErrors = false` trong `appsettings.Production.json` (POS.Web) để không lộ stack trace.
 
 > 🔒 **Mã hóa credentials (C4)**: nếu `appsettings.{UAT|Production}.json` (POS.Api **và** POS.Web) chứa

@@ -29,15 +29,11 @@ public sealed class MasterDataSyncService(
 {
     private readonly MasterDataSyncOptions _opt = options.Value;
 
-    // Fallback khi SP [SyncTable_Get] CHƯA có cột Action (chưa chạy docs/sql/SyncTableList_AddAction.sql) —
-    // an toàn ngược, giữ đúng hành vi cũ cho tới khi DBA áp dụng script. Bình thường Action lấy động
-    // từ SyncTableInfo.Action (cột DB SyncTableList.Action, trả về theo từng bảng).
-    private const string ActionTruncInsert = "TRUNC-INSERT";
-    // Bảng lớn tách nhiều file: batch đầu dùng Action theo bảng, các batch sau INSERT (append) — tránh
-    // truncate/xóa lặp lại giữa các batch cùng bảng, đây là ràng buộc kỹ thuật, không đổi theo cấu hình DB.
+    // Bảng lớn tách nhiều file: batch đầu dùng Action theo bảng (BẮT BUỘC lấy từ SyncTableList.Action
+    // do DBA cấu hình — KHÔNG hardcode), các batch sau luôn INSERT (append) — đây là ràng buộc kỹ
+    // thuật của việc chia batch (tránh truncate/xóa lặp lại giữa các batch cùng bảng), không phải giá
+    // trị "Action chính" nên không đổi theo cấu hình DB.
     private const string ActionInsert = "INSERT";
-    // Fallback cho IsChangeMode="W" (Web Sync/push 1 POS) khi SP chưa có cột Action.
-    private const string ActionDeleteInsertFallback = "DELETE-INSERT";
 
     // Thư mục con tạm chứa file .txt của các bảng IsSingleFile=0 (gom chung 1 zip).
     private const string CommonGroupFolder = "_common";
@@ -189,15 +185,22 @@ public sealed class MasterDataSyncService(
                 string FileNameFor(int batchNo) =>
                     $"{req.SiteCode}_{entry.Table.TableName}_{rnd}_{tableIndex}_{batchNo:D3}.txt";
 
-                // Action lấy từ SP [SyncTable_Get] theo từng bảng (SyncTableList.Action) — KHÔNG hardcode.
+                // Action BẮT BUỘC lấy từ SP [SyncTable_Get] theo từng bảng (SyncTableList.Action, do DBA
+                // cấu hình) — TUYỆT ĐỐI KHÔNG hardcode/fallback giá trị khác trong C# khi DB không trả về.
                 // IsChangeMode="W" (Web Sync/push 1 POS): Action áp dụng cho MỌI batch (nhánh SP 'W' luôn trả "DELETE-INSERT").
-                // IsChangeMode="A" (ALL sync, mặc định): batch đầu dùng Action theo bảng, batch sau luôn
-                // "INSERT" (append kỹ thuật — tránh truncate/xóa lặp lại giữa các batch cùng bảng).
-                var tableAction = string.IsNullOrWhiteSpace(entry.Table.Action) ? null : entry.Table.Action;
+                // IsChangeMode="A"/"C": batch đầu dùng Action theo bảng, batch sau luôn "INSERT" (ràng
+                // buộc kỹ thuật khi chia batch — xem const ActionInsert, không liên quan cấu hình DB).
+                // Thiếu Action (SP chưa migrate docs/sql/SyncTableList_AddAction.sql, hoặc DBA chưa cấu
+                // hình) → FAIL LOUD ngay, không âm thầm đoán giá trị thay DBA.
+                if (string.IsNullOrWhiteSpace(entry.Table.Action))
+                    throw new InvalidOperationException(
+                        $"SyncTableList.Action rỗng/NULL cho bảng '{entry.Table.TableName}' — " +
+                        "kiểm tra đã chạy docs/sql/SyncTableList_AddAction.sql trên CentralMD chưa, " +
+                        "và DBA đã cấu hình cột Action cho bảng này chưa. KHÔNG dùng giá trị mặc định " +
+                        "ngầm định trong code cho trường hợp này.");
+                var tableAction = entry.Table.Action;
                 string ActionFor(int batchNo) =>
-                    req.IsChangeMode == "W"
-                        ? tableAction ?? ActionDeleteInsertFallback
-                        : (batchNo == 1 ? tableAction ?? ActionTruncInsert : ActionInsert);
+                    req.IsChangeMode == "W" || batchNo == 1 ? tableAction : ActionInsert;
 
                 // @POSLastCounter = 0 khi typeSync=ALL hoặc IsFirstDataAll; ngược lại dùng POSLastCounter của bảng.
                 var counter = req.TypeSync == "ALL" || entry.Table.IsFirstDataAll ? 0L : entry.Table.POSLastCounter;

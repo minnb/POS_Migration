@@ -64,6 +64,8 @@
     { "order": 820, "file": "SyncTableList_AddIsSingleFile.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy" },
     { "order": 830, "file": "SyncTableList_AddAction.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy" },
     { "order": 840, "file": "SyncTableList_BulkUpdateCounter.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 850, "file": "SyncTableList_AddZipWatermark.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy",
+      "note": "PHAI chay truoc khi deploy code MasterDataZipGeneratorWorker moi - code moi SELECT cot ZipWatermarkCounter tu SyncTable_Get va goi SP usp_SyncTableList_BulkUpdateZipWatermark, chua co se loi moi cycle. Backfill ZipWatermarkCounter = POSLastCounter ngay trong script. Sau khi chay: DEL MD:SyncTableList:C." },
 
     { "order": 920, "file": "Voucher_FlipIsCheckItem_Migration.sql", "target": "CentralMD", "runOnce": true, "phase": "post-deploy",
       "note": "D10 buoc 3/3. BAT BUOC chay SAU KHI da deploy code C# (POS.Web + POS.Application) va da chay lai order 410/420 (ban moi). Sai thu tu se dao nguoc y nghia du lieu voucher." },

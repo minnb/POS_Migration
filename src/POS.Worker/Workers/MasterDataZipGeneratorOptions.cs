@@ -14,9 +14,6 @@ public sealed class MasterDataZipGeneratorOptions
     /// <summary>Số terminal xử lý song song tối đa (Parallel.ForEachAsync).</summary>
     public int MaxParallelTerminals { get; set; } = 4;
 
-    /// <summary>Lần chạy đầu tiên (watermark chưa tồn tại): true → chỉ seed, không generate.</summary>
-    public bool SeedWatermarkOnFirstRun { get; set; } = true;
-
     /// <summary>Số lần lỗi liên tiếp trước khi 1 terminal bị đưa vào quarantine (bỏ qua các lượt sau).</summary>
     public int QuarantineThreshold { get; set; } = 3;
 }

@@ -133,7 +133,7 @@ src/
 │   │   │   ├── ProductImageDto.cs (ProductImageDto: ItemNo, Uom, ImageBase64)                       ← ảnh sản phẩm (dbo.ProductImage, 2026-07-06)
 │   │   │   └── ProductDetailDto.cs (ProductDetailDto: header + List<BarcodeRowDto> + ImageBase64?)  ← xem chi tiết SP (2026-07-06)
 │   │   ├── DataSync/
-│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip, Action — Action theo bảng từ SyncTableList.Action, null nếu SP chưa có cột)
+│   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, ZipWatermarkCounter — watermark ACK của MasterDataZipGeneratorWorker, chỉ có giá trị thật khi isChange="C", Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip, Action — Action theo bảng từ SyncTableList.Action, null nếu SP chưa có cột)
 │   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, IsChangeMode (@IsChange SP SyncTable_Get: "A"=ALL sync mặc định, "W"=Web Sync/push 1 POS, "C"=Change detection MasterDataZipGeneratorWorker), ForceRegenerate (bool, mặc định false — true bỏ qua short-circuit "đã có zip hôm nay" trong EnsureMasterDataFileAsync)
 │   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
 │   │   ├── Coupon/CouponDto.cs
@@ -244,8 +244,8 @@ src/
 │   ├── appsettings.json
 │   ├── appsettings.Production.json
 │   └── Workers/                   ← namespace POS.Worker.Workers (khác POS.Infrastructure.Workers)
-│       ├── MasterDataZipGeneratorOptions.cs   ← bind section "MasterDataZipGenerator": IntervalSeconds, LockTtlMinutes, MaxParallelTerminals, SeedWatermarkOnFirstRun, QuarantineThreshold
-│       └── MasterDataZipGeneratorWorker.cs    ← BackgroundService, poll SyncTable_Get 'C' theo chu kỳ, so watermark Redis Hash "Worker:Watermark:MasterDataZip"; đổi → Parallel.ForEachAsync generate zip mọi POS terminal Status=1 qua ISyncDataPosService.PushMasterDataChangeAsync; quarantine terminal lỗi liên tiếp (Redis Hash "Worker:Quarantine:MasterDataZip", threshold cấu hình); ACK watermark chỉ khi 0 terminal active nào lỗi; heartbeat "Worker:Heartbeat:MasterDataZipGenerator"; đăng ký qua WorkerRolesOptions.EnableMasterDataZipGenerator (mặc định false)
+│       ├── MasterDataZipGeneratorOptions.cs   ← bind section "MasterDataZipGenerator": IntervalSeconds, LockTtlMinutes, MaxParallelTerminals, QuarantineThreshold
+│       └── MasterDataZipGeneratorWorker.cs    ← BackgroundService, poll SyncTable_Get 'C' theo chu kỳ, so POSLastCounter > ZipWatermarkCounter (2 cột cùng dòng SyncTableList, không còn Redis Hash watermark từ 2026-07-11); đổi → Parallel.ForEachAsync generate zip mọi POS terminal Status=1 qua ISyncDataPosService.PushMasterDataChangeAsync; quarantine terminal lỗi liên tiếp (Redis Hash "Worker:Quarantine:MasterDataZip", threshold cấu hình); ACK watermark qua ISyncRepository.AckZipWatermarkAsync (snapshot POSLastCounter đầu cycle) chỉ khi 0 terminal active nào lỗi; heartbeat "Worker:Heartbeat:MasterDataZipGenerator"; đăng ký qua WorkerRolesOptions.EnableMasterDataZipGenerator (mặc định false)
 │
 └── POS.Infrastructure/
     ├── DependencyInjection.cs
@@ -306,7 +306,8 @@ src/
     │   ├── PosSalesConsumerWorker.cs   (BackgroundService — đăng ký trong POS.Worker/Program.cs)
     │   ├── Rpt_ReportSaleDetail_Insert.cs
     │   ├── WorkerHealthState.cs
-    │   └── WorkerHeartbeatService.cs
+    │   ├── WorkerHeartbeatService.cs   ← inject IOptions<WorkerHeartbeatOptions>, Redis key "Worker:Heartbeat:{WorkerName}"
+    │   └── WorkerHeartbeatOptions.cs   ← bind section "WorkerHeartbeat": WorkerName, QueueName, IntervalSeconds, NormalTtlSeconds, StoppedTtlSeconds
     └── Repositories/                   ← gom theo {Domain}; namespace GIỮ NGUYÊN POS.Infrastructure.Repositories[.Interfaces]
         ├── MasterData/
         │   └── ICentralMDRepository.cs / CentralMDRepository.cs
@@ -328,7 +329,7 @@ src/
         ├── Price/                          ← 9.1/9.3 Bảng giá + Danh mục nhóm giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete; Danh mục nhóm giá qua usp_StorePriceGroup_Save/_Delete (StorePriceGroupHeader + StorePriceGroup)
         └── DataSync/
-            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + GetSyncTableCountersAsync(isChange="A"/"C") KHÔNG cache (dùng cho MasterDataZipGeneratorWorker cần POSLastCounter mới nhất ngay, cache 1h của GetSyncTablesAsync sẽ làm trễ phát hiện thay đổi) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog)
+            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + GetSyncTableCountersAsync(isChange="A"/"C") KHÔNG cache (dùng cho MasterDataZipGeneratorWorker cần POSLastCounter mới nhất ngay, cache 1h của GetSyncTablesAsync sẽ làm trễ phát hiện thay đổi) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog) + AckZipWatermarkAsync (mới 2026-07-11 — TVP TVP_ZipWatermarkUpdate → SP usp_SyncTableList_BulkUpdateZipWatermark, ACK watermark SyncTableList.ZipWatermarkCounter của MasterDataZipGeneratorWorker, thay thế Redis Hash Worker:Watermark:MasterDataZip)
             └── ISyncTrackerRepository.cs / SyncTrackerRepository.cs   ← BulkUpdateCounterAsync — TVP dbo.TVP_SyncCounterUpdate → SP usp_SyncTableList_BulkUpdateCounter (UPDATE idempotent WHERE Counter > POSLastCounter); gọi bởi SyncTableCounterFlushWorker
 ```
 

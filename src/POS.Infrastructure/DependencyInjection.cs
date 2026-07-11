@@ -110,6 +110,13 @@ public static class DependencyInjection
             ?? new FileImportOptions();
         services.AddSingleton(Options.Create(fileImportOptions));
 
+        // ── Worker heartbeat (WorkerHeartbeatService — chỉ POS.Worker AddHostedService, xem
+        // WorkerRoles:EnableHeartbeat) — bind Options ở đây để dùng chung 1 chỗ dù chỉ 1 host chạy.
+        var workerHeartbeatOptions =
+            configuration.GetSection(WorkerHeartbeatOptions.SectionName).Get<WorkerHeartbeatOptions>()
+            ?? new WorkerHeartbeatOptions();
+        services.AddSingleton(Options.Create(workerHeartbeatOptions));
+
         // ── Logging ───────────────────────────────────────────────────────────
         // FileLogHelper nhận baseDirectory + retentionDays từ config, không inject IConfiguration trực tiếp.
         var logDir = configuration["Logging:FileLogDirectory"] ?? "Logs";

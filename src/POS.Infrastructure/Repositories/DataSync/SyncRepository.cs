@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text;
+using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
@@ -239,5 +240,24 @@ INNER JOIN (
         }, ct: ct);
 
         return rows > 0;
+    }
+
+    public async Task AckZipWatermarkAsync(
+        IReadOnlyDictionary<string, long> snapshotCounters, CancellationToken ct = default)
+    {
+        if (snapshotCounters.Count == 0) return;
+
+        var table = new DataTable();
+        table.Columns.Add("TableName", typeof(string));
+        table.Columns.Add("Counter", typeof(long));
+        foreach (var (tableName, counter) in snapshotCounters)
+            table.Rows.Add(tableName, counter);
+
+        var p = new DynamicParameters();
+        p.Add("@Counters", table.AsTableValuedParameter("dbo.TVP_ZipWatermarkUpdate"));
+
+        using var conn = await _connectionFactory.CreateOpenConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("dbo.usp_SyncTableList_BulkUpdateZipWatermark", p,
+            commandType: CommandType.StoredProcedure, commandTimeout: 30, cancellationToken: ct));
     }
 }
