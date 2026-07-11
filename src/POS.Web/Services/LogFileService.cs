@@ -19,15 +19,24 @@ public sealed class LogFileService : ILogFileService
         _rootDir = parent?.FullName ?? fullConfiguredDir;
     }
 
-    public Task<IReadOnlyList<LogFileInfo>> GetLogFilesAsync(CancellationToken ct = default)
+    public Task<LogDirectoryListing> GetDirectoryListingAsync(string relativePath = "", CancellationToken ct = default)
     {
+        var normalizedPath = NormalizeRelativePath(relativePath);
         try
         {
-            if (!Directory.Exists(_rootDir))
-                return Task.FromResult<IReadOnlyList<LogFileInfo>>([]);
+            var fullPath = ResolveSafePath(normalizedPath);
+            if (fullPath is null || !Directory.Exists(fullPath))
+                return Task.FromResult(new LogDirectoryListing(normalizedPath, [], []));
 
-            var result = new List<LogFileInfo>();
-            foreach (var path in Directory.EnumerateFiles(_rootDir, "*", SearchOption.AllDirectories))
+            var folders = Directory.EnumerateDirectories(fullPath)
+                .Select(Path.GetFileName)
+                .Where(name => !string.IsNullOrEmpty(name))
+                .Select(name => new LogFolderInfo(name!, CombineRelative(normalizedPath, name!)))
+                .OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var files = new List<LogFileInfo>();
+            foreach (var path in Directory.EnumerateFiles(fullPath))
             {
                 ct.ThrowIfCancellationRequested();
 
@@ -35,23 +44,21 @@ public sealed class LogFileService : ILogFileService
                     continue;
 
                 var info = new FileInfo(path);
-                var relativePath = Path.GetRelativePath(_rootDir, path).Replace('\\', '/');
-                var folderName = Path.GetDirectoryName(relativePath)?.Replace('\\', '/');
-
-                result.Add(new LogFileInfo(
-                    RelativePath: relativePath,
+                files.Add(new LogFileInfo(
+                    RelativePath: CombineRelative(normalizedPath, info.Name),
                     FileName: info.Name,
-                    FolderName: string.IsNullOrEmpty(folderName) ? "(root)" : folderName,
                     SizeBytes: info.Length,
                     LastModifiedUtc: info.LastWriteTimeUtc));
             }
 
-            return Task.FromResult<IReadOnlyList<LogFileInfo>>(result);
+            files = files.OrderByDescending(f => f.LastModifiedUtc).ToList();
+
+            return Task.FromResult(new LogDirectoryListing(normalizedPath, folders, files));
         }
         catch (Exception ex)
         {
-            _fileLogHelper.WriteExpLogs("LogFileService.GetLogFilesAsync", ex);
-            return Task.FromResult<IReadOnlyList<LogFileInfo>>([]);
+            _fileLogHelper.WriteExpLogs("LogFileService.GetDirectoryListingAsync", ex);
+            return Task.FromResult(new LogDirectoryListing(normalizedPath, [], []));
         }
     }
 
@@ -62,12 +69,8 @@ public sealed class LogFileService : ILogFileService
             if (string.IsNullOrWhiteSpace(relativePath))
                 return null;
 
-            var fullPath = Path.GetFullPath(Path.Combine(_rootDir, relativePath));
-            var rootWithSeparator = _rootDir.EndsWith(Path.DirectorySeparatorChar)
-                ? _rootDir
-                : _rootDir + Path.DirectorySeparatorChar;
-
-            if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+            var fullPath = ResolveSafePath(relativePath);
+            if (fullPath is null)
                 return null;
 
             if (!AllowedExtensions.Contains(Path.GetExtension(fullPath), StringComparer.OrdinalIgnoreCase))
@@ -85,4 +88,27 @@ public sealed class LogFileService : ILogFileService
             return null;
         }
     }
+
+    private string? ResolveSafePath(string relativePath)
+    {
+        var normalized = NormalizeRelativePath(relativePath);
+        var fullPath = string.IsNullOrEmpty(normalized)
+            ? _rootDir
+            : Path.GetFullPath(Path.Combine(_rootDir, normalized));
+
+        var rootWithSeparator = _rootDir.EndsWith(Path.DirectorySeparatorChar)
+            ? _rootDir
+            : _rootDir + Path.DirectorySeparatorChar;
+
+        var isRootItself = fullPath.Equals(_rootDir, StringComparison.OrdinalIgnoreCase);
+        return isRootItself || fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase)
+            ? fullPath
+            : null;
+    }
+
+    private static string NormalizeRelativePath(string? relativePath) =>
+        (relativePath ?? string.Empty).Replace('\\', '/').Trim('/');
+
+    private static string CombineRelative(string currentPath, string name) =>
+        string.IsNullOrEmpty(currentPath) ? name : $"{currentPath}/{name}";
 }

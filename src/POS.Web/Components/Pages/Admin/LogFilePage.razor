@@ -20,53 +20,104 @@
     </MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Refresh"
-               Class="pos-page-header-btn pos-btn-mockup" OnClick="LoadFilesAsync">
+               Class="pos-page-header-btn pos-btn-mockup" OnClick="RefreshAsync">
         Làm mới
     </MudButton>
 </div>
 
-<MudTable Items="@_files" Hover="true" Striped="true" Dense="true"
-          Breakpoint="Breakpoint.Sm" Elevation="2" Loading="@_loading"
-          HorizontalScrollbar="true">
-    <HeaderContent>
-        <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.FolderName)">Thư mục</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.FileName)">Tên file</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.SizeBytes)">Dung lượng</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.LastModifiedUtc)">Lần cuối sửa</MudTableSortLabel></MudTh>
-        <MudTh>Hành động</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="Thư mục">@context.FolderName</MudTd>
-        <MudTd DataLabel="Tên file">@context.FileName</MudTd>
-        <MudTd DataLabel="Dung lượng">@FormatSize(context.SizeBytes)</MudTd>
-        <MudTd DataLabel="Lần cuối sửa">@context.LastModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-        <MudTd DataLabel="Hành động">
-            <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
-                           OnClick="@(() => DownloadAsync(context))"/>
-        </MudTd>
-    </RowTemplate>
-    <NoRecordsContent>
-        <MudText Align="Align.Center" Class="pa-4">Không có file log nào.</MudText>
-    </NoRecordsContent>
-    <PagerContent>
-        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
-                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
-                       RowsPerPageString="Số dòng mỗi trang:"/>
-    </PagerContent>
-</MudTable>
+<div class="d-flex align-center flex-wrap gap-1 mb-4">
+    <MudLink OnClick="@(() => LoadAsync(""))" Disabled="@(_currentPath.Length == 0)">Gốc</MudLink>
+    @{
+        var accumulated = "";
+        var segments = _currentPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    }
+    @for (var i = 0; i < segments.Length; i++)
+    {
+        accumulated = accumulated.Length == 0 ? segments[i] : $"{accumulated}/{segments[i]}";
+        var target = accumulated;
+        var isLast = i == segments.Length - 1;
+        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="mud-text-secondary"/>
+        @if (isLast)
+        {
+            <MudText Typo="Typo.body1">@segments[i]</MudText>
+        }
+        else
+        {
+            <MudLink OnClick="@(() => LoadAsync(target))">@segments[i]</MudLink>
+        }
+    }
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+}
+else
+{
+    @if (_folders.Count > 0)
+    {
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            @foreach (var folder in _folders)
+            {
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Folder"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                           OnClick="@(() => OpenFolderAsync(folder))">
+                    @folder.Name
+                </MudButton>
+            }
+        </div>
+    }
+
+    <MudTable Items="@_files" Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" Elevation="2"
+              HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.FileName)">Tên file</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.SizeBytes)">Dung lượng</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.LastModifiedUtc)">Lần cuối sửa</MudTableSortLabel></MudTh>
+            <MudTh>Hành động</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Tên file">@context.FileName</MudTd>
+            <MudTd DataLabel="Dung lượng">@FormatSize(context.SizeBytes)</MudTd>
+            <MudTd DataLabel="Lần cuối sửa">@context.LastModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+            <MudTd DataLabel="Hành động">
+                <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                               OnClick="@(() => DownloadAsync(context))"/>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Align="Align.Center" Class="pa-4">Thư mục này không có file log nào.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
 
 @code {
+    private string _currentPath = "";
+    private IReadOnlyList<LogFolderInfo> _folders = [];
     private IReadOnlyList<LogFileInfo> _files = [];
     private bool _loading = true;
 
-    protected override async Task OnInitializedAsync() => await LoadFilesAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync("");
 
-    private async Task LoadFilesAsync()
+    private async Task LoadAsync(string relativePath)
     {
         _loading = true;
-        _files = await LogFileService.GetLogFilesAsync();
+        var listing = await LogFileService.GetDirectoryListingAsync(relativePath);
+        _currentPath = listing.CurrentRelativePath;
+        _folders = listing.Folders;
+        _files = listing.Files;
         _loading = false;
     }
+
+    private Task OpenFolderAsync(LogFolderInfo folder) => LoadAsync(folder.RelativePath);
+
+    private Task RefreshAsync() => LoadAsync(_currentPath);
 
     private async Task DownloadAsync(LogFileInfo file)
     {
