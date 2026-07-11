@@ -156,6 +156,18 @@ Xem `.claude/commands/add-dto-common.md` để biết cách dùng.
 
 ---
 
+## Quy tắc Git/GitHub — BẮT BUỘC
+
+> **Chi tiết đầy đủ: `.claude/skills/git-workflow/SKILL.md`** — đọc trước khi commit, push, hoặc tạo Pull Request. Bao gồm quy ước branch/commit message và bước bắt buộc chạy `dotnet test tests/POS.ContractTests` trước mọi commit.
+
+---
+
+## Tra cứu vị trí Domain/Feature
+
+> **Chi tiết đầy đủ: `.claude/skills/codebase-map/SKILL.md`** — đọc trước khi thêm nghiệp vụ mới hoặc cần xác định file/namespace của một domain đã có (DTO, Repository, AppService, Service, Controller).
+
+---
+
 ## Quy tắc cấu hình External API — BẮT BUỘC
 
 > **Chi tiết đầy đủ: `.claude/skills/api/SKILLS.md`** — đọc file này trước khi tạo bất kỳ AppService nào gọi external HTTP API.
