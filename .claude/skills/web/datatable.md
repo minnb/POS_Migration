@@ -1,3 +1,8 @@
+---
+name: web-datatable-code-recipes
+description: Code mẫu đầy đủ MudTable<T> — client-side paging, server-side paging, cột động, sort cột đặc biệt. Đọc khi cần copy-paste pattern DataTable đầy đủ (luật ngắn gọn xem 04-datatable-and-lists.md).
+---
+
 # DataTable chuẩn — `MudTable<T>`
 
 > **Áp dụng khi:** tạo bất kỳ bảng dữ liệu nào trong POS.Web.

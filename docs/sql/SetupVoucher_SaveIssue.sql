@@ -201,7 +201,7 @@ BEGIN
         BEGIN
             DECLARE @cntLine bigint = (SELECT ISNULL(MAX(Counter), 0) FROM dbo.CpnVchBOMLine);
             INSERT INTO dbo.CpnVchBOMLine
-                (ItemNo, LineNo, LineItemNo, [Description], UnitOfMeasure, Counter, Barcode, Pkey)
+                (ItemNo, [LineNo], LineItemNo, [Description], UnitOfMeasure, Counter, Barcode, Pkey)
             SELECT @ItemNo,
                    ROW_NUMBER() OVER (ORDER BY (SELECT 1)),
                    ISNULL(l.LineItemNo, ''), ISNULL(l.[Description], ''), ISNULL(l.UnitOfMeasure, ''),

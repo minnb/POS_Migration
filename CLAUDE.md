@@ -51,7 +51,7 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Viết query/SP/Repository đụng bảng `RPOSMasterData` (CentralMD) — tên bảng/cột/kiểu dữ liệu/PK | **`docs/architecture/centralMD-schema.md`** (gồm business rules bảng `dbo.Store`) |
 | Viết query/SP/Repository đụng bảng `RPOSCentralSales` (giao dịch bán hàng, ca/shift, EOD, void, bonus/point/coupon-voucher) | **`docs/architecture/centralsale-schema.md`** |
 | Viết query/SP/Repository đụng bảng `RPOSLoyalty` (log giao dịch loyalty) | **`docs/architecture/loyalty-schema.md`** |
-| Tạo stored procedure mới cho `RPOSMasterData` / `RPOSCentralSales` / `RPOSLoyalty` | **`.claude/skills/database/SKILLS.md`** (quy tắc đặt tên `usp_{Domain}_{Action}`, TVP, template SP) — script CentralMD mới **BẮT BUỘC** đăng ký vào `docs/sql/manifest.json` cùng commit (`tools/POS.DbMigrator`, xem `docs/ROLLOUT.md` §D0) |
+| Tạo mới / sửa / refactor / fix bug stored procedure cho `RPOSMasterData` / `RPOSCentralSales` / `RPOSLoyalty` | **`.claude/skills/database/SKILLS.md`** (quy tắc đặt tên `usp_{Domain}_{Action}`, TVP, template SP, **Single File Constraint** khi sửa SP đã tồn tại) — script CentralMD mới **BẮT BUỘC** đăng ký vào `docs/sql/manifest.json` cùng commit (`tools/POS.DbMigrator`, xem `docs/ROLLOUT.md` §D0) |
 | Deploy/vận hành `tools/POS.DbMigrator` (Ubuntu bare-metal, Docker, CLI args, troubleshooting) | **`docs/deploy/pos-dbmigrator-guide.md`** |
 | Cấu hình Health Check `/ops/health` khi deploy POS.Web (section `HealthCheck`/`WorkerHeartbeat`, `PosApiBaseUrl` theo môi trường) | **`docs/deploy/web-health-guide.md`** |
 | Cấu hình external HTTP API (host/credentials/routes lấy từ DB, không hardcode) | **`.claude/skills/api/SKILLS.md`** |

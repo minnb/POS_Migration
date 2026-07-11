@@ -1,3 +1,8 @@
+---
+name: web-skills-index
+description: Index + quy tắc nền tảng cho Blazor Server POS.Web (MudBlazor 9.5.0) — roles/policy, page pattern, MudMessageBox, checklist tạo page mới. Đọc khi viết/sửa bất kỳ page/component/service nào trong src/POS.Web/; trỏ tới ~25 file skill con theo tình huống cụ thể.
+---
+
 # Skill: Blazor Server Web Dashboard (POS.Web)
 
 > **Áp dụng khi:** viết hoặc chỉnh sửa bất kỳ thành phần nào trong
@@ -8,20 +13,27 @@
 
 ## Skill con — đọc khi cần (tránh đọc hết file này)
 
-> File này chỉ giữ quy tắc nền tảng. Pattern chi tiết tách ra file riêng — chỉ đọc đúng file khi gặp tình huống.
+> File này chỉ giữ quy tắc nền tảng + index. Pattern chi tiết tách ra file riêng — chỉ đọc đúng file khi gặp tình huống.
 
 | File | Đọc khi |
 |---|---|
 | **`.claude/skills/web/01-architecture-and-logic.md`** | **Bắt đầu bất kỳ page/component/service nào — bản "hiến pháp" rút gọn LUẬT BẮT BUỘC: render mode, auth/policy, lifecycle 3-state, cấm HttpClient→Api/raw SQL, anti-crash MudAutocomplete, audit CRUD** |
-| **`.claude/skills/web/02-ui-ux-and-components.md`** | **Viết/sửa markup page/component — LUẬT BẮT BUỘC: MudGrid/MudPaper layout, cấm inline CSS, MudTable/KPI card thay text summary, Dialog trả DTO đầy đủ, responsive qua IBrowserViewportService** |
-| **`.claude/skills/web/03-integration-and-performance.md`** | **Gọi data/chia sẻ state/xử lý sự kiện async/JS Interop/tối ưu hiệu năng — LUẬT BẮT BUỘC: cấm HttpClient, Scoped Service/CascadingParameter, try-catch+Snackbar+Kibana, CancellationToken, @key, IAsyncDisposable** |
-| **`.claude/skills/web/04-datatable-and-lists.md`** | **Tạo/sửa danh sách dữ liệu, bảng biểu, filter panel gắn kèm bảng — LUẬT BẮT BUỘC: MudTable mặc định, Elevation="2", NoRecordsContent, debounce search, ServerData+CancellationToken, row actions + MudTooltip + stopPropagation** |
-| **`.claude/skills/web/form-input.md`** | **Thiết kế form nhập liệu (MudCard section + MudGrid + validation trực quan); Placeholder vs HelperText; chế độ CHỈ XEM khi bản ghi khóa sau tạo + field ngoại lệ có nút Lưu điều kiện** |
+| **`.claude/skills/web/02-ui-ux-and-components.md`** | **Viết/sửa markup page/component — LUẬT BẮT BUỘC: MudGrid/MudPaper layout, cấm inline CSS, MudTable/KPI card thay text summary, Dialog trả DTO đầy đủ, responsive qua IBrowserViewportService, MudBlazor component mapping** |
+| **`.claude/skills/web/03-integration-and-performance.md`** | **Gọi data/chia sẻ state/xử lý sự kiện async/JS Interop/tối ưu hiệu năng — LUẬT BẮT BUỘC: cấm HttpClient, Scoped Service/CascadingParameter, try-catch+Snackbar+Kibana, CancellationToken, @key, IAsyncDisposable; kèm pattern load nhiều nguồn độc lập, modal lazy-load tab, truyền row object vào dialog** |
+| **`.claude/skills/web/04-datatable-and-lists.md`** | **Tạo/sửa danh sách dữ liệu, bảng biểu, filter panel gắn kèm bảng — LUẬT BẮT BUỘC: MudTable mặc định, Elevation="2", NoRecordsContent, debounce search, ServerData+CancellationToken, row actions, chuẩn đặt tên cột + format DateTime** |
+| `.claude/skills/web/form-input.md` | Thiết kế form nhập liệu cơ bản (MudCard section + MudGrid + validation trực quan); Placeholder vs HelperText |
+| `.claude/skills/web/form-input-special-modes.md` | Chế độ CHỈ XEM (bản ghi khóa vĩnh viễn) + field ngoại lệ có nút Lưu điều kiện; MudTimePicker; MudSelect multi-selection; format số tiền khi nhập |
 | `.claude/skills/web/filter-store.md` | Thêm combobox lọc cửa hàng vào page |
-| `.claude/skills/web/datatable.md` | Tạo bảng dữ liệu (MudTable) — client/server/dynamic |
+| `.claude/skills/web/datatable.md` | Tạo bảng dữ liệu (MudTable) — client/server/dynamic, code mẫu đầy đủ |
 | `.claude/skills/web/charts.md` | Thêm biểu đồ Line/Bar (MudBlazor v9) |
 | `.claude/skills/web/reports.md` | Trang báo cáo pivot / xuất PDF |
-| `.claude/skills/web/theming.md` | Sửa màu/theme toàn app |
+| `.claude/skills/web/theming.md` | Sửa PosTheme.cs / đổi màu-typography toàn app |
+| `.claude/skills/web/sidebar-nav.md` | Thêm nhóm/leaf mới vào sidebar (logic `UpdateExpanded`) hoặc breadcrumb động |
+| `.claude/skills/web/security-hardening.md` | Security headers/CSP, SQL Console hardening, PIN/step-up gate, đọc/tải file server an toàn |
+| `.claude/skills/web/trigger-api-task-via-di.md` | Page POS.Web cần chạy 1 tác vụ vốn thuộc POS.Api (qua DI, không HTTP) |
+| `.claude/skills/web/bulk-import-excel.md` | Page nhập liệu hàng loạt từ Excel + preview validate |
+| `.claude/skills/web/image-upload.md` | Upload ảnh lưu base64 cho 1 entity |
+| `.claude/skills/web/syntax-highlight-textarea.md` | Tô màu cú pháp SQL/code cho 1 ô textarea lớn |
 | `.claude/skills/web/deployment.md` | Deploy production (Docker / nginx) |
 | **`.claude/skills/web/audit-logging.md`** | **Tạo/sửa page có thao tác Create/Update/Delete** |
 | **`.claude/skills/web/ui-polish-standard.md`** | **Làm đẹp/đồng bộ UI trang đã có — chỉ sửa markup, giữ `@code`** |
@@ -62,77 +74,12 @@
 
 ---
 
-## Page component — pattern bắt buộc
+## Page component pattern + Auth flow + Services inject — nguồn canonical
 
-```razor
-@page "/store/ten-trang"                                       @* BẮT BUỘC — route kebab-case *@
-@attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]     @* BẮT BUỘC — đúng section *@
-@rendermode InteractiveServer                                  @* BẮT BUỘC — có tương tác *@
-
-@using Microsoft.AspNetCore.Authorization
-@using MudBlazor
-@using POS.Web.Auth
-
-@inject ICentralSaleRepository SaleRepo                        @* tuỳ chọn — theo nhu cầu *@
-@inject IKibanaService KibanaService                           @* khuyến nghị — logging *@
-@inject ISnackbar Snackbar                                     @* tuỳ chọn — notification *@
-
-<PageTitle>Tên trang – POS Dashboard</PageTitle>
-
-@if (_loading)
-{
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
-}
-else if (_errorMsg != null)
-{
-    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
-}
-else if (_isEmpty)
-{
-    <MudAlert Severity="Severity.Info">Không có dữ liệu.</MudAlert>
-}
-else
-{
-    @* nội dung thật *@
-}
-
-@code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthState { get; set; } = null!; @* BẮT BUỘC nếu cần user info *@
-
-    private bool _loading = true;
-    private bool _isEmpty;
-    private string? _errorMsg;
-    private IReadOnlyList<string> _userStoreCodes = [];      @* BẮT BUỘC với StoreAndAbove *@
-
-    protected override async Task OnInitializedAsync()
-    {
-        var state = await AuthState;
-        var json = state.User.FindFirst("store_codes")?.Value;
-        _userStoreCodes = string.IsNullOrEmpty(json)
-            ? []
-            : JsonConvert.DeserializeObject<List<string>>(json) ?? [];
-        try
-        {
-            await LoadDataAsync();
-        }
-        catch (Exception ex)
-        {
-            _errorMsg = "Không thể tải dữ liệu.";
-            KibanaService.LogException("PageName.OnInitialized", "", 0, "", ex.Message);
-        }
-        finally { _loading = false; }
-    }
-
-    private async Task LoadDataAsync()
-    {
-        // gọi repository/service ở đây
-        // _isEmpty = data.Count == 0;
-    }
-}
-```
-
----
+> 3 nội dung này (template page 3-state, bridge-token auth flow, bảng đầy đủ service inject được)
+> đã có **bản đầy đủ và canonical tại `.claude/rules/blazor-web-app.md`** (§5 "Template Page
+> Component chuẩn", §2 "Kiến trúc Auth", §4 "Services inject được"). Không lặp lại ở đây — đọc
+> trực tiếp file đó.
 
 ## Row-level filter cho StoreOperator
 
@@ -157,69 +104,13 @@ var data = await SaleRepo.GetSalesAsync(
 
 ---
 
-## Loading / Error / Empty state
-
-Mọi page có data phải handle đủ 3 state:
-
-```razor
-@* State 1 — Loading *@
-@if (_loading)
-{
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3"/>
-}
-
-@* State 2 — Error (exception khi load) *@
-else if (_errorMsg != null)
-{
-    <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMsg</MudAlert>
-}
-
-@* State 3 — Empty (load thành công nhưng không có data) *@
-else if (_isEmpty)
-{
-    <MudAlert Severity="Severity.Info">Không có dữ liệu trong khoảng thời gian này.</MudAlert>
-}
-
-@* State 4 — Nội dung thật *@
-else
-{
-    @* render table / chart / cards *@
-}
-```
-
-```csharp
-// Trong @code — pattern chuẩn
-private bool _loading = true;
-private bool _isEmpty;
-private string? _errorMsg;
-
-private async Task LoadDataAsync()
-{
-    _loading = true;
-    StateHasChanged();  // cần thiết nếu gọi từ event handler (không phải OnInitializedAsync)
-    try
-    {
-        var data = await SaleRepo.GetXxxAsync(...);
-        _isEmpty = data.Count == 0;
-        // xử lý data...
-    }
-    catch (Exception ex)
-    {
-        _errorMsg = "Không thể tải dữ liệu.";
-        KibanaService.LogException("PageName.LoadData", "", 0, "", ex.Message);
-    }
-    finally { _loading = false; }
-}
-```
-
----
-
 ## DataTable chuẩn — `MudTable<T>`
 
 > **Luật bắt buộc: `.claude/skills/web/04-datatable-and-lists.md`** (Elevation, filter panel,
-> ServerData/CancellationToken, row actions). **Pattern code đầy đủ (client/server/cột động/sort/
-> footer tổng): `.claude/skills/web/datatable.md`.** BẮT BUỘC dùng MudBlazor `<MudTable>` — KHÔNG
-> tự viết HTML `<table>` hay base class (ngoại lệ: Pivot report — xem `reports.md`).
+> ServerData/CancellationToken, row actions, chuẩn cột/DateTime). **Pattern code đầy đủ
+> (client/server/cột động/sort/footer tổng): `.claude/skills/web/datatable.md`.** BẮT BUỘC dùng
+> MudBlazor `<MudTable>` — KHÔNG tự viết HTML `<table>` hay base class (ngoại lệ: Pivot report —
+> xem `reports.md`).
 
 ---
 
@@ -265,51 +156,6 @@ private async Task LoadDataAsync()
 
 ---
 
-## Services có thể inject trong POS.Web
-
-### Từ POS.Infrastructure (đăng ký qua `AddInfrastructure()`)
-
-| Interface | Lifetime | Dùng cho |
-|---|---|---|
-| `IRedisService` | Singleton | Cache (HashGet/Set, StringGet/Set, KeyExists...) |
-| `IKibanaService` | Singleton | Structured logging → Elasticsearch |
-| `IFileLogHelper` | Singleton | File log fallback |
-| `IRabbitMQProducer` | Singleton | Message queue |
-| `IKafkaProducer` | Singleton | Kafka producer |
-| `ICentralMDRepository` | Scoped | Master data (store config, POS setup, SysWebApi...) |
-| `ICentralSaleRepository` | Scoped | Sales data (orders, transactions, revenue...) |
-| `IRptCentralSaleRepository` | Scoped | Report queries (SalesByCategory, pivot-style reports...) |
-| `ILoyaltyRepository` | Scoped | Loyalty (members, points, wincode...) |
-| `IOfferStaffRepository` | Scoped | Staff discount |
-| `IWincodeRepository` | Scoped | Wincode / winlife |
-
-**Concrete type — inject trực tiếp (không có interface):**
-- `CentralMDConnectionFactory` — dùng khi cần connection thủ công
-- `LoyaltyConnectionFactory` — dùng khi cần connection thủ công
-
-> **Lưu ý:** Không inject `IDbConnectionFactory` (interface không tồn tại trong DI) — inject concrete type trực tiếp.
-
-### Từ POS.Application (đăng ký qua `AddApplication()`)
-
-| Interface | Lifetime | Dùng cho |
-|---|---|---|
-| `ICommonService` | Scoped | POS common ops (store setup, shift, EOD...) |
-| `IHealthCheckService` | Scoped | Kiểm tra sức khỏe hạ tầng |
-| `IAkaChainLoyaltyService` | Scoped | FMV / AkaChain loyalty |
-| `IGotITService` | Scoped | GotIT voucher partner |
-| `IUrboxService` | Scoped | Urbox voucher partner |
-| `IKafkaService` | Scoped | Kafka publisher |
-| `IDataRawService` | Scoped | File sale processing |
-| `ISyncDataPosService` | Scoped | POS sync |
-
-### Chỉ trong POS.Web
-
-| Interface | Lifetime | Dùng cho |
-|---|---|---|
-| `IWebUserService` | Scoped | Dashboard user auth (login, get user, get store codes) |
-
----
-
 ## Logging pattern trong component
 
 ```csharp
@@ -329,62 +175,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 ---
 
-## MudBlazor — component mapping
-
-| Cần làm | MudBlazor component |
-|---|---|
-| Bảng dữ liệu có sort / filter / page | `MudTable<T>` + `MudTableSortLabel` + `MudTablePager` (xem section DataTable chuẩn) |
-| Bảng server-side paging | `MudTable<T>` với `ServerData` + `@ref` + `ReloadServerData()` |
-| Biểu đồ đường | `<Line T="double">` (v9 — cần `@using MudBlazor.Charts`) |
-| Biểu đồ cột | `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
-| Số liệu tổng quan (KPI card) | `MudPaper` + `.pos-kpi-value`/`.pos-kpi-label` — **BẮT BUỘC** theo khuôn mẫu `.claude/rules/mudblazor-flat-ui.md` mục 11, KHÔNG tự viết |
-| Thông báo popup | `ISnackbar` (inject, gọi `Snackbar.Add(...)`) |
-| Dialog xác nhận đơn giản | `MudMessageBox @ref="_msgBox"` trong Razor + `await _msgBox!.ShowAsync()` trong code |
-| Dialog form đầy đủ | `IDialogService` + `DialogService.ShowAsync<T>()` |
-| Input text | `MudTextField<T>` |
-| Dropdown chọn một | `MudSelect<T>` |
-| Date picker | `MudDatePicker` |
-| Chip lọc / filter (tương tác) | `MudChip T="string"` (bắt buộc có `T=`) |
-| Badge trạng thái tĩnh | `<span class="pos-status-chip pos-status-{success,error,warning,info}">` — xem §4a `mudblazor-flat-ui.md`, KHÔNG dùng `MudChip` |
-| Loading thanh ngang | `MudProgressLinear Indeterminate="true"` |
-| Loading tròn | `MudProgressCircular Indeterminate="true"` |
-| Alert cố định | `MudAlert Severity="..."` |
-| Card nội dung | `MudCard` + `MudCardContent` |
-| Paper nền | `MudPaper Elevation="2" Class="pa-4"` |
-| Grid layout | `MudGrid` + `MudItem xs="12" sm="6"` |
-
-> Bảng trên map theo **nhu cầu chức năng** (cần làm gì → dùng component nào). Khi polish/tạo UI
-> mới đối chiếu trực tiếp với 1 mockup HTML (`div.sidebar`, `div.card`, `button.btn-primary`...),
-> dùng bảng **"Mapping HTML mockup → MudBlazor Component"** ở `.claude/rules/mudblazor-flat-ui.md`
-> mục 0 — map theo **cấu trúc/markup**, bổ sung cho bảng này chứ không lặp lại.
-
-### Pattern: Polish/tạo UI theo mockup HTML — quy trình chuẩn
-
-> Áp dụng khi nhận 1 mockup HTML/CSS mới cần đưa ngôn ngữ thiết kế vào POS.Web (page/component có
-> sẵn, KHÔNG tạo page mới nếu không được yêu cầu rõ).
-
-1. Đối chiếu từng phần tử mockup với bảng mapping ở `.claude/rules/mudblazor-flat-ui.md` mục 0 —
-   không tự viết `<div>`/`<table>` thuần thay cho component MudBlazor đã có.
-2. Màu/spacing cụ thể lấy từ token `--pos-*` trong `app.css` + `PosTheme.cs` (Palette/Typography/
-   Shadows) — không hardcode hex/px mới trong markup Razor.
-3. Cần ghi đè CSS của component con MudBlazor tự render → xem `.claude/rules/mudblazor-flat-ui.md`
-   mục 10 "CSS Isolation" trước khi quyết định `app.css` hay `{Component}.razor.css`.
-
-```razor
-@* Ví dụ: card + filter-bar tối thiểu theo mapping mục 0 *@
-<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">   @* div.filter-bar *@
-    <MudGrid Spacing="2">...</MudGrid>
-</MudPaper>
-
-<MudPaper Elevation="2" Class="pa-4">                          @* div.card *@
-    <MudText Typo="Typo.h5">@value</MudText>                  @* .kpi-value *@
-</MudPaper>
-```
-
-> Ví dụ đầy đủ hơn (page-header + filter + table): xem "Template Page Component chuẩn" ở
-> `CLAUDE.md` mục "POS.Web — Blazor Server Dashboard" §5.
-
-### Charts (Line / Bar) — MudBlazor v9
+## Charts (Line / Bar) — MudBlazor v9
 
 > **Chi tiết đầy đủ: `.claude/skills/web/charts.md`** — đọc trước khi thêm biểu đồ.
 > MudBlazor 9.5.0 đổi hoàn toàn cú pháp chart: dùng `<Line T="double">` / `<Bar T="double">` (KHÔNG `<MudChart>`), data `ChartData<double>`, options `LineChartOptions`/`BarChartOptions`. Bao gồm pattern Y-axis auto-scale.
@@ -395,8 +186,6 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 > **Chi tiết đầy đủ: `.claude/rules/blazor-web-app.md` §10** + `02-ui-ux-and-components.md` §5 —
 > đọc trước khi tạo hoặc sửa bất kỳ page nào. Áp dụng cho mọi viewport: xs (<600px), sm (600–959px), md+ (960px+).
-
-### Quy tắc cốt lõi
 
 | Tình huống | Sai | Đúng |
 |---|---|---|
@@ -436,367 +225,6 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 > CSS `pos-page-header` + `pos-page-header-title` + `pos-page-header-btn` đã có trong `wwwroot/app.css`.
 > Ví dụ: `src/POS.Web/Components/Pages/Admin/UsersPage.razor` (Case A), `src/POS.Web/Components/Pages/Ops/HealthPage.razor` (Case B)
-
----
-
-## Chuẩn đặt tên cột DataTable — BẮT BUỘC áp dụng toàn dự án
-
-### Quy tắc
-
-> Tiêu đề cột trong `<MudTh>` **BẮT BUỘC** dùng tên field tiếng Anh tương ứng với tên cột trong database / DTO.
-> Áp dụng cho tất cả page trong menu **Vận hành** và **Quản trị**.
-> `DataLabel` trong `<MudTd>` phải **khớp** với tiêu đề `<MudTh>` tương ứng.
-
-### Ngoại lệ tên cột (mapping đặc biệt)
-
-| Bảng DB | DB Column | Header cột |
-|---|---|---|
-| `Store` | `[No]` | `StoreNo` |
-| `Store` | `[ClosingMethod]` | `Status` |
-| `POSTerminal` | `[No]` | `PosNo` |
-| `Branch` | `[No]` | `BranchNo` |
-
-### Ví dụ đúng
-
-```razor
-@* Header — tên field DB *@
-<HeaderContent>
-    <MudTh><MudTableSortLabel SortBy="...">StoreNo</MudTableSortLabel></MudTh>
-    <MudTh>Name</MudTh>
-    <MudTh>IPAddress</MudTh>
-    <MudTh>LastDateModified</MudTh>
-    <MudTh>Status</MudTh>
-</HeaderContent>
-
-@* RowTemplate — DataLabel phải khớp Header *@
-<RowTemplate>
-    <MudTd DataLabel="StoreNo">@context.StoreNo</MudTd>
-    <MudTd DataLabel="Name">@context.Name</MudTd>
-    <MudTd DataLabel="IPAddress">@context.IPAddress</MudTd>
-    <MudTd DataLabel="LastDateModified">@(context.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
-    <MudTd DataLabel="Status">...</MudTd>
-</RowTemplate>
-```
-
-### Mapping đã áp dụng (tham khảo)
-
-| Page | DTO | Cột đã chuyển sang English |
-|---|---|---|
-| `LogsPage.razor` | `InterfaceErrorDto` | ErrorID, ErrorDateTime, UserName, ErrorProcedure, ErrorMessage, ErrorSeverity, ErrorNumber |
-| `DataRawLogPage.razor` | `DataRawJsonLogDto` | CrtDate, DataType, Flag, ErrorMessage |
-| `PosMapPage.razor` | `PosTerminalListDto` | IsOnline, PosNo, StoreNo, IPAddress, StyleProfile, BluePosVersion, Status, DateTimePos |
-| `StorePage.razor` | `StoreListDto` | StoreNo, Name, Address, BranchNo, Status, LastDateModified |
-| `ProvincesPage.razor` | `BranchAdminDto` | BranchNo, Description, Address, VATRegistrationNo |
-| `UsersPage.razor` | `DashboardUser` | Id, Username, FullName, Role, IsActive |
-| `AuditPage.razor` | `AuditRecord` | Id, Actor, Database, Status, RowsAffected, HasWhere, SqlText, ElapsedMs, ExecutedAt, DecidedAt |
-
----
-
-## Chuẩn format hiển thị DateTime — BẮT BUỘC áp dụng toàn dự án
-
-### Quy tắc
-
-| Loại trường | Format | Ví dụ |
-|---|---|---|
-| Cột datetime trong datatable (Created, Updated, timestamp...) | `"yyyy-MM-dd HH:mm:ss"` | `2025-06-25 14:30:00` |
-| Ngày thuần (business date, date picker label) | `"dd/MM/yyyy"` | `25/06/2025` |
-| Label chart / trục X | `"dd/MM"` | `25/06` |
-| Timestamp UI phụ (KPI card "Lần cuối", header in/out) | `"HH:mm:ss"` | `14:30:00` |
-
-### Áp dụng
-
-```razor
-@* Cột datatable — datetime đầy đủ *@
-<MudTd DataLabel="Tạo lúc">@context.CreatedDate?.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-<MudTd DataLabel="Cập nhật lúc">@context.UpdatedDate?.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-<MudTd DataLabel="Thời gian">@(context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss"))</MudTd>
-
-@* Nullable — dùng null-coalescing *@
-<MudTd DataLabel="Last seen">@(context.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
-
-@* Ngày thuần — giữ dd/MM/yyyy *@
-<MudTd DataLabel="Ngày KD">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
-```
-
-### Đã áp dụng tại
-- `PosMapPage.razor` — cột Last seen
-- `DataRawLogPage.razor` — cột CrtDate
-- `LogsPage.razor` — cột ErrorDateTime
-- `EosShiftsPage.razor` — cột CloseShiftDate
-- `PosTerminalDetailDialog.razor` — CreatedDate, UpdatedDate, LastDateModified, DateTimePos
-- `AuditPage.razor` — ExecutedAt, DecidedAt (đã đúng từ đầu)
-
----
-
-## KHÔNG làm (anti-patterns)
-
-- ❌ Quên `@rendermode InteractiveServer` → component không tương tác được (button/event bị ignore)
-- ❌ Quên `@attribute [Authorize(Policy = ...)]` → page không được bảo vệ, ai cũng truy cập được
-- ❌ Dùng `System.Text.Json` hoặc `JsonSerializer.*` → vi phạm contract serialization toàn solution
-- ❌ Gọi HTTP đến `POS.Api` từ `POS.Web` → inject service trực tiếp qua DI thay vì gọi HTTP
-- ❌ Inject `IDbConnectionFactory` (interface) → phải inject concrete: `CentralMDConnectionFactory`
-- ❌ Không có `_loading` state → UI trắng khi chờ data, UX xấu
-- ❌ Không filter row-level với `StoreAndAbove` → lộ data cửa hàng khác cho StoreOperator
-- ❌ Bỏ `try/catch` trong `OnInitializedAsync` → **không chỉ crash page**: exception chưa bắt trong lifecycle method làm SẬP LUÔN circuit Blazor Server (SignalR) — mọi tương tác sau đó (kể cả dialog khác đang mở) fail với lỗi JS `"Cannot send data if the connection is not in the 'Connected' State"`. Xem pattern bên dưới khi `OnInitializedAsync` gọi nhiều nguồn độc lập.
-- ❌ Gọi `SignInAsync` trong Blazor InteractiveServer component → phải dùng bridge token (xem Auth flow)
-- ❌ Dùng `<MudChart ChartType="...">` (v8 syntax) → compile error với MudBlazor 9.5.0
-- ❌ Dùng `ChartOptions { YAxisTicks, LineStrokeWidth }` → đã đổi sang `LineChartOptions` / `BarChartOptions` trong v9
-- ❌ `BarChartOptions { ShowLegend = false }` không set `YAxisSuggestedMax` → `YAxisTicks` default=20 (spacing!) làm Y-axis luôn max=20 dù data chỉ 2–8M
-- ❌ `PosTheme.cs` thiếu `Body1 = new Body1Typography { FontSize = "0.75rem" }` → dropdown/autocomplete/picker popup render theo font-size mặc định MudBlazor (16px), to hơn text bảng/input. `Default.FontSize` KHÔNG tự cascade xuống `Body1`.
-- ❌ Chỉ set `Typography.Default.FontFamily` trong `PosTheme.cs` rồi tưởng đổi font toàn app → **SAI**. MudBlazor sinh CSS variable RIÊNG cho mỗi typography variant (`--mud-typography-h5-family`, `--mud-typography-body1-family`...) — KHÔNG kế thừa từ `Default`. Phần lớn text hiển thị thật (H5/H6/Subtitle1/Body1/Body2/Caption/Button) vẫn giữ font mặc định MudBlazor nếu không set `FontFamily` riêng trên TỪNG variant (`H1Typography`...`ButtonTypography`). Xem `PosTheme.cs` — mọi variant đều set `FontFamily` tường minh dù giá trị giống nhau.
-- ❌ `MudDatePicker Editable="true"` → click vào ô text không mở calendar, phải click icon. Dùng `AutoClose="true"` (bỏ `Editable`) để click text = mở calendar + tự đóng sau chọn.
-- ❌ Raw SQL trong page/component → phải đi qua Repository hoặc Service
-- ❌ Thêm nav link mới mà quên wrap `<AuthorizeView Policy="...">` trong `MainLayout.razor`
-- ❌ Dùng `MudStack Row Justify.SpaceBetween` cho header title+button → vỡ layout mobile, button stretch cao bất thường
-- ❌ `MudButton` trong `MudStack Row` cạnh `MudSelect` có Label → button stretch theo chiều cao Select+Label → thêm `Style="align-self:center"` vào button
-- ❌ Tự viết `<table class="pos-table">` + `PosTableBase<T>` cho DataTable mới → dùng `MudTable` (xem section DataTable chuẩn)
-- ❌ `MudTable` thiếu `HorizontalScrollbar="true"` → table bị clip trên mobile (pivot/raw table thì wrapper `overflow-x:auto`)
-- ❌ Chip container thiếu `flex-wrap` → chips tràn ngang, mất trên mobile
-- ❌ `@namespace` đặt trước `@page` trong routable component → Blazor endpoint routing không nhận dạng được route → page không truy cập được (xem section "Tổ chức thư mục Pages")
-- ❌ Đặt page mới vào root `Store/` thay vì sub-folder đúng nhóm nav (Operations/Transactions/Reports)
-- ❌ Đặt dialog component lẫn với page file trong cùng folder — dialog không có `@page`, đặt vào `{Section}/Dialogs/`
-- ❌ Gọi `IDialogService.ShowMessageBox(...)` cho confirm đơn giản → không có overload đó trong MudBlazor v9. Dùng `MudMessageBox @ref` trong Razor + `await _msgBox!.ShowAsync()` (xem pattern bên dưới)
-- ❌ Gọi `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)` cho confirm dialog → render nút Yes bằng markup mặc định của MudBlazor, không có `<YesButton>` slot để chỉnh Variant/Color theo bản chất hành động (`.claude/rules/mudblazor-flat-ui.md` §3). Luôn dùng `MudMessageBox @ref` (xem pattern bên dưới) — lỗi này đã xảy ra thật ở 8 page, khó phát hiện bằng grep vì nút không nằm trong markup của page.
-- ❌ Gọi method **sync** của `IRedisService` (`Delete`, `HashGet`, `HashSet`, `HashDelete`, `StringSet`, `StringSetRaw`, `StringGetRaw`, `KeyExists`, `GetKeysByPattern`) từ trong component/event handler Blazor Server (`InteractiveServer`) → các method này block đồng bộ bằng `.GetAwaiter().GetResult()` bên trong (`RedisService.cs`), rủi ro treo circuit khi Redis chậm/không phản hồi. **Luôn dùng bản `...Async`** (`StringGetAsync`, `StringSetAsync`, `HashGetAsync`, `HashSetAsync`) khi gọi từ Razor component — đã sửa lỗi thật ở `WebUserService.VerifyPinAsync` (dùng `redis.Delete()` sync, đổi sang `await redis.StringSetAsync(key, 0, ttlSeconds:...)`).
-- ❌ Chỉ dùng `try { ... } finally { ... }` (không có `catch`) trong async event handler xử lý input nhạy cảm (PIN/password verify) → nếu có exception không lường trước (vd `BCrypt.Verify` ném lỗi khi hash lưu DB sai định dạng), exception vẫn lan ra ngoài event handler dù `finally` đã chạy → **crash Blazor Server circuit**, UI kẹt vĩnh viễn ở khung hình cuối (nút spinner/disabled) vì server chết không còn gửi được re-render nào nữa. Luôn dùng `try/catch/finally` đầy đủ, `catch` set thông báo lỗi thân thiện + log qua `IFileLogHelper.WriteExpLogs`. Lỗi thật đã xảy ra ở `SqlConsolePage.razor.VerifyPinAsync()`.
-
-### Pattern: `MudMessageBox @ref` — confirm dialog đơn giản
-> Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete/approve/retry mà không cần
-> form — thay thế `IDialogService.ShowMessageBox` (không tồn tại trong v9).
->
-> **BẮT BUỘC dùng cách khai báo `@ref` này — KHÔNG dùng
-> `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)`.** Cách gọi qua
-> `ShowAsync<MudMessageBox>` render Yes/No button bằng markup MẶC ĐỊNH của MudBlazor (bên trong
-> thư viện, không nằm trong source của dự án) — **không có `<YesButton>` slot để can thiệp**, nên
-> không thể chọn đúng Variant/Color theo bản chất hành động Yes (xem bảng Button convention ở
-> `.claude/rules/mudblazor-flat-ui.md` §3). Đây là lỗi có thật đã xảy ra ở 8 page (BusinessDayPage, VouchersPage,
-> SpecialComboPage, PromotionSetupPage, PosDataSetupPage, DataRawLogPage, UsersPage, BankPosPage)
-> — phát hiện vì `grep MudButton.*Variant.Filled` không bắt được (nút đó không tồn tại trong
-> markup của dự án, MudBlazor tự render). Luôn dùng cách khai báo `@ref` bên dưới để nút Yes nằm
-> trong markup của page, chọn đúng Variant/Color theo bảng dưới.
-
-**Chọn Variant/Color cho `<YesButton>` theo bản chất hành động Yes** (`.claude/rules/mudblazor-flat-ui.md` §3):
-- Yes = phá hủy/không hoàn tác (xóa, hủy giao dịch, khóa) → `Variant="Variant.Outlined" Color="Color.Error"`.
-- Yes = xác nhận tích cực/chốt luồng, không phá hủy (kích hoạt, mở khóa, đồng bộ lại, retry) →
-  `Variant="Variant.Filled" Color="Color.Primary"` (hoặc `Color.Success`/`Color.Warning` nếu ngữ
-  cảnh cần nhấn mạnh cảnh báo — vd "Xác nhận kết thúc ngày" dùng `Filled`/`Warning` vì không thể
-  hoàn tác dù không phải "xóa dữ liệu").
-
-```razor
-@* Khai báo trong Razor template — đặt gần đầu content, TRƯỚC mọi @if bao ngoài (nếu page có list/edit mode) *@
-<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
-    <MessageContent>@_confirmMsg</MessageContent>
-    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton></YesButton>
-</MudMessageBox>
-
-@code {
-    private MudMessageBox? _confirmBox;
-    private string _confirmMsg = string.Empty;
-
-    private async Task DeleteAsync(MyItem item)
-    {
-        _confirmMsg = $"Bạn có chắc muốn xóa [{item.Code}]? Không thể hoàn tác.";
-        var ok = await _confirmBox!.ShowAsync();
-        if (ok != true) return;
-        // thực hiện action
-    }
-}
-```
-
-**Title/YesText/Variant/Color động** (vd khóa/mở khóa dùng chung 1 dialog — 2 hành động khác bản
-chất): thêm field `_confirmTitle`/`_confirmYesText`/`_confirmYesColor` (kiểu `Color`), bind vào
-`Title="@_confirmTitle"` và
-`<YesButton><MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)" Color="@_confirmYesColor">@_confirmYesText</MudButton></YesButton>`
-— **Variant cũng phải tính động theo Color** (không hardcode `Outlined`), vì "khóa" (Error) và
-"kích hoạt/mở khóa" (Success) thuộc 2 nhóm khác nhau trong bảng Button convention. Set cả 3 field
-trước khi gọi `_confirmBox!.ShowAsync()`. Ví dụ thực tế: `Admin/UsersPage.razor`
-(`ConfirmToggleAsync` — khóa dùng `Outlined`/`Color.Error`/"Khóa", kích hoạt dùng
-`Filled`/`Color.Success`/"Kích hoạt"); `Catalog/Product/ProductLockPage.razor` (dialog dùng chung
-khóa/mở khóa sản phẩm — ternary theo nội dung `_confirmMsg` vì không có field Color riêng).
-
-> Ví dụ thực tế (static Title/YesText): `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`,
-> `Ops/PosMapPage.razor`, `Store/Operations/BusinessDayPage.razor`.
-
----
-
-### Pattern: Truyền thẳng row object vào dialog chi tiết — KHÔNG tra cứu lại theo key đơn
-> Áp dụng khi: nút "Xem chi tiết" trong `RowTemplate` của `MudTable` mở dialog hiển thị dữ liệu
-> của đúng dòng đã click.
-> Rút ra từ bug thực tế: `MemberPointsPage.OpenDetailDialog` tra cứu lại dòng bằng
-> `_currentPageItems.FirstOrDefault(x => x.OrderNo == invoiceNo)` — chỉ so khớp 1 cột không unique
-> (`LoggingLoyalty` có PK composite `OrderNo+ActionType+TransactionType`, 1 `OrderNo` có thể sinh
-> nhiều dòng khác `ActionType`, vd `EARN` và `REDEEM`) → luôn trả về dòng **đầu tiên** trùng
-> `OrderNo`, mở nhầm dữ liệu dòng khác khi click dòng thứ 2+.
-
-```razor
-@* SAI — tra cứu lại theo 1 cột không đảm bảo unique *@
-<MudIconButton OnClick="@(() => OpenDetailDialog(context.OrderNo))"/>
-@code {
-    private Task OpenDetailDialog(string orderNo)
-    {
-        var row = _currentPageItems.FirstOrDefault(x => x.OrderNo == orderNo); // có thể sai dòng
-        ...
-    }
-}
-
-@* ĐÚNG — truyền thẳng object đang render, không tra cứu lại *@
-<MudIconButton OnClick="@(() => OpenDetailDialog(context))"/>
-@code {
-    private Task OpenDetailDialog(MyRowDto row) =>
-        DialogService.ShowAsync<MyDetailDialog>("Chi tiết",
-            new DialogParameters<MyDetailDialog> { { x => x.Item, row } });
-}
-```
-
-- `context` trong `RowTemplate` **là chính object của dòng đó** — không có lý do gì phải tra cứu
-  lại qua danh sách trang hiện tại bằng 1 khóa đơn (id/code) rồi mới mở dialog.
-- Cách này còn loại bỏ luôn field phụ kiểu `_currentPageItems` (giữ list trang hiện tại chỉ để
-  tra cứu lại) — không cần thiết khi đã có sẵn object.
-- Tiền lệ cùng pattern: `OffersPage.razor` (`OpenDetailDialogAsync(context)`).
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/MemberPointsPage.razor`.
-
----
-
-### Pattern: Modal chi tiết nhiều tab — lazy-load theo tab active (miễn phí, không cần state thủ công)
-> Áp dụng khi: dialog/modal có nhiều tab (`MudTabs`/`MudTabPanel`), mỗi tab tự load dữ liệu riêng
-> (thường mỗi tab 1 `MudTable ServerData` hoặc 1 lệnh gọi service riêng) và muốn tránh gọi hết
-> N service cùng lúc lúc mở modal (khác hành vi legacy DataTables — thường load lại TOÀN BỘ mọi
-> tab mỗi lần đổi tab, gây gọi API thừa).
-
-`MudTabs` mặc định **không giữ panel không active trong DOM** (không có `KeepPanelsAlive="true"`)
-— nghĩa là nội dung mỗi `MudTabPanel` (kể cả `MudTable ServerData` bên trong) chỉ thực sự
-**render lần đầu khi tab đó được kích hoạt**, và `ServerData` chỉ được gọi tại thời điểm đó.
-→ **Không cần tự viết `HashSet<int> _loadedTabs` hay `OnActivePanelIndexChanged` để lazy-load
-thủ công** — đặt thẳng `MudTable ServerData="LoadXxxAsync"` vào từng `MudTabPanel` là đã lazy-load
-đúng theo tab, miễn phí nhờ hành vi mặc định của framework.
-
-```razor
-<MudTabs Outlined="true" PanelClass="pa-3">
-    <MudTabPanel Text="Tab A">
-        <MudTable @ref="_tableA" ServerData="LoadAAsync" T="RowA">...</MudTable>
-    </MudTabPanel>
-    <MudTabPanel Text="Tab B">
-        <MudTable @ref="_tableB" ServerData="LoadBAsync" T="RowB">...</MudTable>
-    </MudTabPanel>
-</MudTabs>
-```
-
-- Tab đầu tiên (mặc định active khi mở dialog) **vẫn load ngay** — nếu là dữ liệu 1-record đơn
-  giản (không phải `MudTable`), gọi thẳng trong `OnInitializedAsync` thay vì đợi tab activate.
-- Quay lại tab đã xem trước đó sẽ gọi lại `ServerData` (không cache) — chấp nhận được cho modal
-  read-only tra cứu; nếu cần cache qua lại giữa các lần xem tab trong CÙNG 1 lần mở dialog, tự
-  thêm field lưu kết quả và check trước khi gọi lại.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/Dialogs/OfferDetailDialog.razor`
-> (6 tab: Header/Buy/Benefits/Get/Site/Priority — port từ legacy modal 6 tab load-tất-cả-mỗi-lần-đổi-tab).
-
----
-
-### Pattern: Load nhiều nguồn độc lập trong `OnInitializedAsync` — tránh crash circuit
-> Áp dụng khi: page/dialog cần load ≥2 nguồn dữ liệu ĐỘC LẬP (list chính + dropdown/lookup, hoặc
-> ≥2 dropdown/lookup không liên quan nhau — vd danh sách cửa hàng + danh sách ngân hàng + danh sách
-> loại hàng) lúc khởi tạo.
-> Rút ra từ sự cố thực tế (lặp lại **5 lần** trong 1 session — `BankPosPage`, `BankPosDetailDialog`,
-> `ProductDetailDialog`, `SpecialComboPage`, `PromotionSetupPage`): nhiều lệnh `await` (dù chạy song
-> song qua `Task.WhenAll` hay chạy tuần tự từng dòng — **hai cách đều lỗi y hệt nhau**) nằm trong
-> 1 `try/catch` DUY NHẤT. Chỉ 1 nguồn lỗi (SP/bảng thiếu ở môi trường DEV) làm exception ném ra giữa
-> chừng — các dòng SAU nó KHÔNG BAO GIỜ CHẠY, nên dropdown tương ứng trống dù bản thân nguồn đó lẽ ra
-> load được bình thường. Nếu method KHÔNG có `try/catch` bao ngoài nào cả (hay chỉ page có, dialog
-> quên) → exception chưa bắt trong lifecycle method còn làm sập luôn CIRCUIT Blazor Server, không
-> riêng gì phần data bị lỗi.
-
-**Cách nhận diện "độc lập" (PHẢI tách try/catch) vs "cùng 1 báo cáo" (được dùng chung 1 catch):**
-
-| Tình huống | Độc lập hay cùng báo cáo? | Xử lý |
-|---|---|---|
-| `_articleTypes` + `_unitOfMeasures` + `_vatCodes` cho 3 dropdown KHÁC NHAU trong form | Độc lập | Tách 3 try/catch |
-| `_salesTypes` + `_memberCodes` + `_allStores` cho 3 filter/dropdown KHÁC NHAU | Độc lập | Tách 3 try/catch |
-| Summary + Detail list của CÙNG 1 domain (vd DataRawLog summary + DataRawLog list) | Cùng báo cáo | 1 try/catch OK |
-| Kỳ hiện tại + kỳ so sánh của CÙNG 1 metric (vd Revenue kỳ này + kỳ trước) | Cùng báo cáo | 1 try/catch OK |
-| Order lines + payment entries của CÙNG 1 đơn hàng (dialog chi tiết giao dịch) | Cùng báo cáo | 1 try/catch OK |
-
-Quy tắc nhanh: nếu 2 nguồn dữ liệu đến từ 2 **domain nghiệp vụ khác nhau** (cửa hàng vs ngân hàng vs
-loại hàng vs hạng thẻ...) và feed vào 2 **control UI khác nhau** — tách. Nếu chúng chỉ là 2 GÓC NHÌN
-của CÙNG 1 dữ liệu/báo cáo (chi tiết vs tổng hợp, kỳ này vs kỳ trước) — gộp 1 catch là hợp lý, vì cả
-trang/dialog vốn dĩ vô nghĩa nếu thiếu 1 trong 2.
-
-```csharp
-protected override async Task OnInitializedAsync()
-{
-    // Await + try/catch RIÊNG từng nguồn ĐỘC LẬP — 1 nguồn lỗi không kéo sập các nguồn khác,
-    // và quan trọng nhất: không để exception thoát khỏi OnInitializedAsync (circuit crash).
-    // Sai y hệt nếu viết tuần tự 3 dòng await trong CÙNG 1 try — không liên quan gì Task.WhenAll.
-    try { _stores = await Repo.GetStoreListAsync(); }
-    catch (Exception ex)
-    {
-        FileLogger.WriteExpLogs("MyPage.LoadStores", ex);
-        Snackbar.Add("Không tải được danh sách cửa hàng.", Severity.Warning);
-    }
-
-    try { _banks = await Repo.GetBankListAsync(); }
-    catch (Exception ex)
-    {
-        FileLogger.WriteExpLogs("MyPage.LoadBanks", ex);
-        Snackbar.Add("Không tải được danh sách ngân hàng.", Severity.Warning);
-    }
-}
-```
-
-**Quan trọng:**
-- Áp dụng cho CẢ page lẫn dialog con (`MudDialog` component) — dialog dễ bị bỏ sót vì hay copy pattern gọn (1 try bọc hết) nhưng không có `try/catch` bao ngoài như page.
-- KHÔNG dùng `await Task.WhenAll(taskA, taskB)` rồi `try/catch` bao NGOÀI `WhenAll` nếu muốn 1 nguồn lỗi không ảnh hưởng nguồn còn lại — `WhenAll` ném exception của task đầu tiên fail, các task còn lại tuy vẫn chạy xong nhưng `.Result` không bao giờ được gán vì nằm sau dòng `await` đã throw.
-- KHÔNG chỉ nhìn `Task.WhenAll` khi rà soát code cũ — search cả các `OnInitializedAsync` có ≥2 dòng `await Repo.GetXxxAsync()` tuần tự trong 1 try, feed vào ≥2 field khác nhau.
-- Nếu component đã có sẵn kiểu báo lỗi khác (vd `Snackbar.Add(...)` đã dùng ở method khác trong CÙNG file) → dùng lại kiểu đó cho nhất quán, không cần thêm field `_errorMsg` + `MudAlert` mới nếu file chưa có.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/PosDevices/BankPosPage.razor` (`LoadDataAsync`),
-> `src/POS.Web/Components/Pages/Catalog/PosDevices/BankPosDetailDialog.razor` (`OnInitializedAsync`),
-> `src/POS.Web/Components/Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor` (`OnInitializedAsync`),
-> `src/POS.Web/Components/Pages/Promotion/Offers/SpecialComboPage.razor` (`OnInitializedAsync`),
-> `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor` (`OnInitializedAsync`)
-
----
-
-## Pattern: Bulk import Excel → lưới preview validate + sửa inline
-> Áp dụng khi: page nhập liệu hàng loạt từ Excel cần validate DB (item/uom/barcode tồn tại...) rồi cho
-> user sửa lỗi trước khi lưu. Rút ra từ 9.3 Setup giá (`PriceSetupPage`).
-
-- Upload `MudFileUpload T="IBrowserFile"` + nút "Nạp" riêng (KHÔNG auto-validate lúc chọn file) → đọc bằng
-  **ClosedXML** (`XLWorkbook`, bỏ header dòng 1, `ws.Row(r).IsEmpty()` để skip). Ngày: check
-  `cell.DataType == XLDataType.DateTime` trước khi `GetString()`.
-- Validate DB qua service→repo **TVP** (không temp-table/SqlBulkCopy): `DataTable.AsTableValuedParameter("dbo.XxxTVP")`
-  chạy query `LEFT JOIN` inline → trả từng dòng kèm `ErrorMessage` (rỗng = hợp lệ).
-- Lưới sửa dùng `MudTable Items` + view-model có cờ `HasError`; **`RowStyleFunc`** tô nền dòng lỗi
-  (`background-color:#fdecea`); ô Giá/Ngày là `MudTextField`/`MudDatePicker` bind thẳng row.
-- **Chặn Lưu khi còn dòng lỗi** (`_errorCount > 0` → Snackbar warning); chip đếm Tổng/Lỗi trên toolbar.
-- Save chạy validate nghiệp vụ lần cuối ở Application service (port 100% điều kiện legacy) → SP TVP; audit log sau khi Ok.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/PriceSetupPage.razor` +
-> `Dialogs/PriceItemPickerDialog.razor`; repo `src/POS.Infrastructure/Repositories/Price/PriceRepository.cs`;
-> SQL `docs/sql/SetupSalePrice_Save.sql` (TVP validate + TVP save).
-
----
-
-## Pattern: Upload ảnh → base64 + preview trong dialog (không dùng varbinary)
-> Áp dụng khi: cần lưu 1 ảnh nhỏ (≤2-5MB) đại diện cho 1 entity. Rút ra từ upload ảnh sản phẩm
-> (`ProductDetailDialog`) — dự án dùng `nvarchar(max)` base64 cho ảnh (xem tiền lệ
-> `dbo.TenderTypeImage.Image`), KHÔNG `varbinary`.
-
-- `MudFileUpload T="IBrowserFile"` (`Accept=".jpg,.jpeg,.png"`, `MaximumFileCount="1"`) →
-  `FilesChanged` validate đuôi file + `file.Size` **trước** khi đọc, không đợi Lưu mới báo lỗi.
-- Đọc `file.OpenReadStream(maxAllowedSize).CopyToAsync(ms)` → `Convert.ToBase64String(ms.ToArray())`
-  → build `data:{mime};base64,{...}` hiển thị `<MudImage>` preview **ngay trong dialog trước khi
-  Lưu** (không cần round-trip DB để xem lại).
-- **Không lưu thêm cột MIME type** — khi cần hiển thị lại ảnh đã lưu (base64 thuần, không prefix),
-  suy đoán PNG/JPEG từ magic-byte prefix của base64: PNG luôn bắt đầu `"iVBORw0KGgo"`, còn lại mặc
-  định JPEG. Đủ dùng cho 2 định dạng phổ biến, tránh migration thêm cột.
-- Lưu ảnh là **thao tác phụ, tách khỏi transaction chính**: entity chính tạo/lưu thành công trước
-  → gọi lưu ảnh sau; nếu lưu ảnh lỗi chỉ Snackbar cảnh báo + log, **không rollback** entity chính đã
-  tạo (ảnh là optional, entity không phụ thuộc ảnh để tồn tại hợp lệ).
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Product/Dialogs/ProductDetailDialog.razor`
-> (upload), `Dialogs/ProductViewDialog.razor` (hiển thị lại); bảng `dbo.ProductImage`, SQL
-> `docs/sql/ProductImage_Save.sql`.
 
 ---
 
@@ -850,45 +278,16 @@ src/POS.Web/Components/Pages/
 - [ ] Error state: `else if (_errorMsg != null) { <MudAlert .../> }`
 - [ ] Empty state: `else if (_isEmpty) { <MudAlert Severity.Info .../> }`
 - [ ] Row-level filter nếu policy là `StoreAndAbove` — pass `_userStoreCodes` vào repo call
-- [ ] Thêm `<MudNavLink>` vào đúng `<MudNavGroup>` trong `MainLayout.razor` (wrap `<AuthorizeView>`)
+- [ ] Thêm `<MudNavLink>` vào đúng `<MudNavGroup>` trong `MainLayout.razor` (wrap `<AuthorizeView>`) — xem `sidebar-nav.md`
 - [ ] **Responsive checklist** — xem `.claude/rules/blazor-web-app.md` §10.G: header dùng `pos-page-header`, DataTable dùng `MudTable HorizontalScrollbar="true"`, chip container có `flex-wrap`, không dùng `MudStack Row Justify.SpaceBetween` cho layout title+controls
-
----
-
-## Auth flow — bridge token (tham chiếu)
-
-```
-Login.razor (InteractiveServer — trên WebSocket circuit)
-  → ValidateLoginAsync(username, password) → BCrypt.Verify
-  → Tạo ClaimsPrincipal (claims: Name, Role, full_name, store_codes)
-  → Lưu vào IMemoryCache với key "_login_{token}" — TTL 30s
-  → NavigateTo("/account/signin/{token}", forceLoad: true)
-      ↓ thoát ra HTTP pipeline thật
-GET /account/signin/{token}  (minimal API — Program.cs)
-  → cache.TryGetValue → lấy ClaimsPrincipal
-  → ctx.SignInAsync(CookieAuth, principal, IsPersistent=true)
-  → Redirect("/")
-```
-
-> **Lý do bridge token:** Blazor InteractiveServer chạy trên WebSocket circuit — `HttpContext` đã degraded,
-> gọi `SignInAsync` lúc này throw hoặc không set cookie được → circuit crash.
-> Phải thoát ra HTTP pipeline thật để set cookie đúng cách.
-
-**Cookie config:** 8h, SlidingExpiration, HttpOnly, SameSite=Strict.
-Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (default 8).
 
 ---
 
 ## Theming — Custom MudBlazor Theme
 
-> **Chi tiết đầy đủ: `.claude/skills/web/theming.md`** — đọc khi cần đổi màu/typography toàn app,
-> hoặc khi tạo page/component mới cần biết chuẩn hiện hành (v3, theo mockup
-> `docs/web/theme/theme_html.html`): sidebar navy đậm (`DrawerBackground="#0D1B2A"`), card có
-> shadow thật (Elevation 2), radius 2 cấp (`DefaultBorderRadius=12px` cho Paper/Card/Dialog, `8px`
-> ép riêng cho Button/Chip/Input), button `Variant.Filled` cho CTA/hành động tích cực +
-> `Variant.Outlined` cho phần còn lại, `pos-filter-panel` nền trắng + border, icon sidebar
-> `Outlined`.
-> Tập trung tại `src/POS.Web/Theme/PosTheme.cs` + `<MudThemeProvider Theme="@PosTheme.Default"/>`. Lưu ý v9: `FontWeight`/`LineHeight` là string, `Shadows.Elevation` đúng 25 phần tử.
+> **Chi tiết đầy đủ: `.claude/skills/web/theming.md`** + `.claude/rules/mudblazor-flat-ui.md`
+> (nguồn sự thật cho theme/UI pattern — đọc khi cần đổi màu/typography toàn app, hoặc khi tạo
+> page/component mới cần biết chuẩn hiện hành).
 
 ---
 
@@ -896,111 +295,6 @@ Timeout cấu hình qua `appsettings.json` → `WebApp:SessionTimeoutHours` (def
 
 > **Chi tiết đầy đủ: `.claude/skills/web/deployment.md`** — đọc khi deploy production (Docker / nginx / self-contained).
 > Bao gồm: explicit `UseRouting()`, fix `_framework/blazor.web.js` 404 từ external IP, nginx config WebSocket, DataProtection keys trong Docker.
-
----
-
-## Sidebar nav (MainLayout) — 3 cấp
-
-> Áp dụng khi: thêm nhóm mới vào sidebar hoặc thêm leaf MudNavLink vào nhóm.
-> **Chuẩn v3 (mockup `docs/web/theme/theme_html.html`)** — sidebar navy đậm `#0D1B2A`, 3 cấp phân biệt
-> rõ. Đây là mô tả khớp CSS thực thi trong `app.css` (`.pos-nav-section-label`/`.pos-nav-l2`) — thay
-> hoàn toàn cho mô tả v2 cũ ("cấp 1 = MudNavGroup có icon, cấp 2 = ChevronRight giống cấp 3") đã lỗi thời.
->
-> **Cấu trúc 3 cấp (khớp `app.css` + `.claude/rules/mudblazor-flat-ui.md` §5):**
-> - **L1** (CỬA HÀNG / DANH MỤC / KHUYẾN MÃI / VẬN HÀNH / QUẢN TRỊ) → `<div class="pos-nav-section-label">`
->   — nhãn tĩnh IN HOA, faint, **KHÔNG icon, KHÔNG click**. **KHÔNG** dùng `MudNavGroup` bọc L1
->   (MudBlazor 9.5.0 không có tham số khóa group "luôn mở, không phản hồi click" — đã xác nhận qua XML doc).
-> - **L2** (Vận hành / Giao dịch / Báo cáo / Giám sát...) → `<MudNavGroup Class="pos-nav-l2">` có
->   **icon Material riêng theo nhóm** (`MonitorHeart`/`ReceiptLong`/`Assessment`/`PointOfSale`...),
->   **luôn hiển thị** dưới L1, `HideExpandIcon="true"` ẩn mũi tên `ArrowDropDown` bên phải.
-> - **L3** (leaf link) → `<MudNavLink Icon="@Icons.Material.Outlined.ChevronRight">` — chevron đồng nhất.
-> - **Nhóm QUẢN TRỊ** (cấu trúc phẳng L1→leaf, không có L2) → 6 leaf `MudNavLink` **top-level**
->   (con trực tiếp của `MudNavMenu`, KHÔNG `MudNavGroup` bọc), giữ icon ý nghĩa riêng
->   (People/Security/Settings...) vì nằm ở độ sâu tương đương L2.
->
-> **Icon set BẮT BUỘC `Icons.Material.Outlined.*`** — tham số `Icon=` nhận **SVG path**, KHÔNG phải
-> emoji/text (truyền emoji → icon biến mất hoàn toàn, không lỗi/cảnh báo). Xem `theming.md` §"Sidebar".
-
-```razor
-@* L1 — nhãn section tĩnh (KHÔNG MudNavGroup, KHÔNG icon, KHÔNG click) *@
-<div class="pos-nav-section-label">VẬN HÀNH</div>
-
-@* L2 — MudNavGroup có icon riêng theo nhóm + Class="pos-nav-l2" + HideExpandIcon ẩn mũi tên phải *@
-<MudNavGroup Title="Giám sát" Icon="@Icons.Material.Outlined.MonitorHeart" Class="pos-nav-l2" HideExpandIcon="true" @bind-Expanded="_expandOpsMonitor">
-    @* L3 — leaf link: icon = ChevronRight đồng nhất. BẮT BUỘC Match="NavLinkMatch.All" *@
-    <MudNavLink Href="/ops/health" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">System health</MudNavLink>
-    <MudNavLink Href="/ops/alerts" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Alerts</MudNavLink>
-</MudNavGroup>
-
-@* Nhóm QUẢN TRỊ — L1 nhãn tĩnh + leaf MudNavLink top-level (KHÔNG MudNavGroup bọc), icon riêng *@
-<div class="pos-nav-section-label">QUẢN TRỊ</div>
-<MudNavLink Href="/admin/users" Icon="@Icons.Material.Outlined.People" Match="NavLinkMatch.All">Users</MudNavLink>
-```
-
-```csharp
-// @code — UpdateExpanded để parent tự mở khi child match route
-private bool _expandOps, _expandOpsMonitor, _expandOpsLog;
-
-private void UpdateExpanded(string uri)
-{
-    var u = uri.ToLowerInvariant();
-    // BẮT BUỘC liệt kê ĐỦ mọi Href leaf đang render trong group — thiếu 1 route (vd thêm
-    // link mới mà quên thêm vào đây) khiến navigate tới route đó không match điều kiện NÀO,
-    // toàn bộ cây (kể cả các nhánh không liên quan) sụp về false → nhìn như "menu bị thu hết".
-    _expandOpsMonitor = u.Contains("/ops/health") || u.Contains("/ops/alerts");
-    _expandOpsLog     = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log");
-    _expandOps        = _expandOpsMonitor || _expandOpsLog;
-}
-```
-
-> Anti-pattern:
-> - ❌ Dùng `MudNavGroup` bọc L1 (kiểu v2) — L1 phải là `<div class="pos-nav-section-label">` tĩnh.
-> - ❌ Đặt `ChevronRight` cho `MudNavGroup` L2 (kiểu v2 cũ) — L2 phải có icon Material riêng theo nhóm
->     (`MonitorHeart`/`ReceiptLong`...); chỉ L3 leaf mới dùng `ChevronRight` đồng nhất.
-> - ❌ Quên `Class="pos-nav-l2"` trên `MudNavGroup` L2 — CSS indent/font-size L2 chọn qua marker class này.
-> - ❌ Bỏ `HideExpandIcon="true"` trên `MudNavGroup` L2 — để mặc định sẽ hiện thêm mũi tên `ArrowDropDown` bên phải, thừa vì đã có icon trái + accordion tự mở theo route.
-> - ❌ Xóa `@bind-Expanded` để "tắt tính năng gì đó" — đây là cơ chế accordion (I3 trong `docs/WEB_STATUS.md`) tự mở nhánh chứa route đang active và tự đóng nhánh khác; muốn ẩn UI thì sửa `HideExpandIcon`/CSS, không xóa binding.
-> - ❌ Thêm `MudNavLink` mới vào markup mà quên thêm route đó vào `UpdateExpanded()` — điều hướng tới route mới sẽ không mở đúng nhánh cha, có thể khiến TOÀN BỘ sidebar collapse (mọi flag đều tính lại từ URI mỗi lần navigate, không giữ trạng thái cũ).
-> - ❌ `MudNavLink` thiếu `Match="NavLinkMatch.All"` — mặc định `NavLinkMatch.Prefix` (như `NavLink` gốc) khiến 1 route ngắn (vd `/promotion/coupons`) bị đánh dấu active luôn khi đang ở route dài hơn cùng tiền tố (`/promotion/coupons/issue`) → 2 leaf link cùng sáng active. Áp dụng cho MỌI leaf link, kể cả link chưa có route trùng tiền tố hiện tại (phòng khi thêm route mới sau này).
-> Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`
-
----
-
-## AppBar — Breadcrumb động (thay text tĩnh)
-
-> Áp dụng khi: cần hiển thị vị trí hiện tại (Section / Trang) trong `MudAppBar` thay vì tiêu đề
-> app tĩnh. Bắt nguồn từ việc port Topbar theo mockup `theme_html.html` (2026-07-06).
-
-```csharp
-// @code trong MainLayout.razor — Dictionary tĩnh copy ĐÚNG text đã có sẵn trong MudNavLink/
-// MudNavGroup bên dưới (không tự đặt tên mới). Route không có trong map → breadcrumb rỗng.
-private static readonly Dictionary<string, (string Section, string Label)> BreadcrumbMap = new()
-{
-    ["/store/business-day"] = ("CỬA HÀNG", "Xác nhận kết thúc ngày"),
-    // ... liệt kê ĐỦ mọi Href leaf đang render — thiếu route mới thêm sau này sẽ khiến
-    // trang đó hiển thị fallback tĩnh thay vì breadcrumb đúng (không crash, chỉ thiếu hiển thị)
-};
-
-private void UpdateBreadcrumb(string uri)
-{
-    var path = new Uri(uri).AbsolutePath.ToLowerInvariant().TrimEnd('/');
-    if (BreadcrumbMap.TryGetValue(path, out var crumb))
-        (_breadcrumbSection, _breadcrumbLabel) = crumb;
-    else
-        (_breadcrumbSection, _breadcrumbLabel) = ("", "");
-}
-// Gọi UpdateBreadcrumb() trong CẢ OnInitialized (route ban đầu) VÀ OnLocationChanged
-// (điều hướng sau) — thiếu 1 trong 2 chỗ sẽ khiến breadcrumb sai lúc load lần đầu hoặc khi
-// chuyển trang bằng client-side routing.
-```
-
-> Anti-pattern:
-> - ❌ Tự đặt tên Section/Label mới khác với Title/text đã hiển thị trong `MudNavGroup`/`MudNavLink`
->   — gây 2 nguồn sự thật lệch nhau khi 1 bên đổi mà quên đổi bên kia.
->   Trước đó `MudAppBar` có `Dense="true"`; khi cần chiều cao cụ thể (khớp mockup) đã bỏ `Dense`
->   và set thẳng `LayoutProperties.AppbarHeight` trong `PosTheme.cs` — tránh phải tính ngược hệ số
->   0.75 mà `Dense` áp dụng lên `AppbarHeight` gốc.
-> Ví dụ thực tế: `src/POS.Web/Components/Layout/MainLayout.razor`, `src/POS.Web/Theme/PosTheme.cs`.
 
 ---
 
@@ -1022,277 +316,60 @@ private void UpdateBreadcrumb(string uri)
 
 ---
 
-## Security headers / CSP + HTTPS config-driven (Program.cs)
-> Áp dụng khi: cấu hình bảo mật tầng hạ tầng cho POS.Web. Section `Security` trong appsettings điều khiển,
-> KHÔNG hardcode theo môi trường.
-
-```jsonc
-// appsettings: section "Security"
-"Mode": "Internet",        // BehindProxy | DirectHttps | Internet — chỉ chi phối ForwardedHeaders
-"RequireHttps": false,     // TÁCH RIÊNG: false = cho phép HTTP (cookie SameAsRequest, không HSTS/redirect)
-"EnableHsts": true,        // chỉ tác dụng khi RequireHttps=true
-"EnableSecurityHeaders": true,  // TẮT ở Development (xem anti-pattern bên dưới)
-"KnownProxies": [], "KnownNetworks": []  // chỉ dùng khi Mode=BehindProxy
-```
-
-- **Tách `RequireHttps` khỏi `Mode`**: cho phép chạy/test Production qua HTTP mà không vỡ login (cookie `Secure=Always` chỉ bật khi `RequireHttps && !IsDevelopment`). Khi có TLS → đổi `RequireHttps:true`, không sửa code.
-- **`Mode=Internet`/`DirectHttps`** ⇒ KHÔNG gọi `UseForwardedHeaders` → bịt giả mạo `X-Forwarded-*` khi app expose thẳng (không proxy). `BehindProxy` mới nạp `KnownProxies`/`KnownNetworks` (để trống = tạm tin mọi proxy + log cảnh báo).
-- **CSP cho Blazor Server**: `script-src 'self'` (blazor.web.js + MudBlazor), `style-src 'unsafe-inline'` (MudBlazor inject `<style>`), `connect-src 'self'` (WebSocket `/_blazor` cùng origin), **`frame-src 'self' blob:`** (preview PDF qua iframe blob).
-
-> **Anti-pattern:**
-> - ❌ Để CSP bật ở **Development** → `connect-src 'self'` chặn **VS Browser Link / dotnet-watch** (cổng localhost khác) làm tắc auto-reload. Đặt `EnableSecurityHeaders:false` trong `appsettings.Development.json`.
-> - ❌ Quên `frame-src ... blob:` → vỡ preview PDF (`<iframe src="blob:...">` ở SalesByCategoryPage).
-> - ❌ Ép `Cookie.Secure=Always` không điều kiện → login HTTP (dev/test) gãy vì browser không gửi lại cookie Secure.
+## Pattern: `MudMessageBox @ref` — confirm dialog đơn giản
+> Áp dụng khi: cần hỏi "Bạn có chắc không?" trước lock/unlock/delete/approve/retry mà không cần
+> form — thay thế `IDialogService.ShowMessageBox` (không tồn tại trong v9).
 >
-> Ví dụ thực tế: `src/POS.Web/Program.cs` (vars `securityMode/requireHttps/...` + middleware headers); rollout: `docs/ROLLOUT.md`
+> **BẮT BUỘC dùng cách khai báo `@ref` này — KHÔNG dùng
+> `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)`.** Cách gọi qua
+> `ShowAsync<MudMessageBox>` render Yes/No button bằng markup MẶC ĐỊNH của MudBlazor (bên trong
+> thư viện, không nằm trong source của dự án) — **không có `<YesButton>` slot để can thiệp**, nên
+> không thể chọn đúng Variant/Color theo bản chất hành động Yes (xem bảng Button convention ở
+> `.claude/rules/mudblazor-flat-ui.md` §3). Đây là lỗi có thật đã xảy ra ở 8 page (BusinessDayPage, VouchersPage,
+> SpecialComboPage, PromotionSetupPage, PosDataSetupPage, DataRawLogPage, UsersPage, BankPosPage)
+> — phát hiện vì `grep MudButton.*Variant.Filled` không bắt được (nút đó không tồn tại trong
+> markup của dự án, MudBlazor tự render). Luôn dùng cách khai báo `@ref` bên dưới để nút Yes nằm
+> trong markup của page, chọn đúng Variant/Color theo bảng dưới. Xem thêm quy trình đầy đủ cho
+> lệnh `/web-ui-confirm-dialog` ở `.claude/commands/web-ui-confirm-dialog.md`.
 
-## SQL Console hardening
-> Áp dụng khi: trang chạy SQL trực tiếp (AdminOnly). Phải mask secret khi log + cho phép tắt.
-
-- **Blacklist, không phải whitelist**: `SqlConsoleService.Validate()` dùng ScriptDom (`TSql160Parser`)
-  parse AST rồi cho phép hầu hết statement type, chỉ chặn tuyệt đối statement có tên class bắt đầu
-  bằng `Drop`/`Truncate` (`stmt.GetType().Name.StartsWith("Drop"/"Truncate")`) — bắt được ~70 biến
-  thể DROP mà không cần liệt kê từng loại. `CreateTableStatement`/`AlterTableStatement` (base class,
-  bắt mọi biến thể ALTER TABLE) map sang `StatementKind.TableDdl`; mọi statement khác không rơi vào
-  case cụ thể → `StatementKind.Other` (vẫn cho chạy, không có chip UI riêng).
-- Mask `password|pwd|token|secret|apikey` (literal `'...'`) **trước khi** ghi audit DB + Kibana log — tránh lưu plaintext.
-- Cờ `Security:EnableSqlConsole` (mặc định true) gate **cả service lẫn page** (defense-in-depth): service trả lỗi/throw, page hiện alert + disable. Nên đặt `false` ở Production expose internet.
-- **PIN gate thứ 2** (độc lập với cookie login): mỗi tài khoản SystemAdmin có PIN riêng
-  (`DashboardUsers.PinHash`, BCrypt) — trang ẩn toàn bộ nội dung sau màn hình nhập PIN, không
-  persist trạng thái mở khoá (mỗi lần vào trang phải nhập lại). Xem pattern "PIN/step-up gate" bên
-  dưới. Tự đổi PIN qua dialog `ChangeMyPinDialog` (trên `UsersPage.razor`) — bắt buộc nhập đúng PIN
-  cũ trước khi đổi (trừ lần đầu thiết lập, `PinHash` còn NULL).
-
-> Ví dụ thực tế: `src/POS.Web/Services/SqlConsoleService.cs` (`MaskSecrets`, `IsEnabled`, `Validate`), `Components/Pages/Admin/SqlConsolePage.razor`, `src/POS.Web/Auth/WebUserService.cs` (`VerifyPinAsync`, `SetPinAsync`)
-
----
-
-## Pattern: Đọc/tải file trên server an toàn (whitelist extension + chống Path Traversal)
-> Áp dụng khi: page cần liệt kê/tải file từ 1 thư mục gốc trên server (log viewer, file browser nội
-> bộ...) — KHÔNG expose toàn bộ filesystem, chỉ 1 subtree cụ thể + đúng loại file cho phép.
-
-- Tính `_rootDir` **1 lần trong constructor** bằng `Path.GetFullPath(...)` (không tính lại mỗi
-  request) — nguồn gốc thường là 1 config path sẵn có (vd `Logging:FileLogDirectory`) rồi lấy
-  `Directory.GetParent(...)` để mở rộng phạm vi nếu cần liệt kê nhiều thư mục con cùng cấp.
-- **Whitelist extension** (không phải blacklist) — check ở CẢ lúc liệt kê (lọc
-  `Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)`) LẪN lúc tải (từ chối nếu
-  extension không khớp dù path hợp lệ).
-- **Chống Path Traversal** — bắt buộc đủ 3 bước theo đúng thứ tự (thiếu bước nào là có lỗ hổng):
-  ```csharp
-  var fullPath = Path.GetFullPath(Path.Combine(_rootDir, relativePath));   // resolve .. trước
-  var rootWithSep = _rootDir.EndsWith(Path.DirectorySeparatorChar) ? _rootDir : _rootDir + Path.DirectorySeparatorChar;
-  if (!fullPath.StartsWith(rootWithSep, StringComparison.OrdinalIgnoreCase)) return null; // so khớp PREFIX có separator, không phải fullPath.Contains(_rootDir)
-  if (!AllowedExtensions.Contains(Path.GetExtension(fullPath), StringComparer.OrdinalIgnoreCase)) return null;
-  if (!File.Exists(fullPath)) return null;
-  ```
-  So khớp prefix phải có `DirectorySeparatorChar` ở cuối `_rootDir` — nếu không, `/srv/pos/logs2`
-  vẫn "StartsWith" `/srv/pos/logs` dù nằm ngoài root (off-by-one thư mục anh em).
-- Toàn bộ logic đọc file bọc `try/catch`, lỗi ghi qua `IFileLogHelper.WriteExpLogs(...)` — KHÔNG
-  throw ra UI, trả `null`/danh sách rỗng để page tự xử lý thông báo.
-- Không dùng controller/endpoint HTTP riêng cho POS.Web (khác POS.Api) — page inject service qua DI
-  đọc `byte[]` rồi gọi `JS.SaveAsFileAsync(fileName, bytes, contentType)` (JS interop có sẵn ở
-  `src/POS.Web/Services/JsDownloadExtensions.cs`), giống mọi download khác trong POS.Web (Excel
-  template, PDF...).
-
-> Anti-pattern:
-> - ❌ `fullPath.Contains(_rootDir)` thay vì `StartsWith` + separator — chuỗi con khớp bất kỳ đâu
->   trong path, không phải chỉ ở đầu, dễ bypass bằng path dựng khéo.
-> - ❌ Chỉ check extension lúc liệt kê, bỏ qua lúc tải — endpoint tải file vẫn nhận input tuỳ ý từ
->   client, phải tự validate lại độc lập, không tin danh sách đã lọc trước đó.
-> - ❌ Trả `FileNotFoundException`/stack trace ra UI khi lỗi filesystem (quyền, đường dẫn không tồn
->   tại) — bọc try/catch, log nội bộ, trả kết quả rỗng/null.
->
-> Ví dụ thực tế: `src/POS.Web/Services/LogFileService.cs` (`GetLogFilesAsync`,
-> `DownloadLogFileAsync`), page dùng: `Components/Pages/Admin/LogFilePage.razor`.
-
----
-
-## Pattern: Textarea overlay syntax highlighting (không dùng thư viện ngoài)
-> Áp dụng khi: cần tô màu cú pháp (SQL/code) cho 1 ô nhập text lớn mà không muốn thêm dependency
-> ngoài MudBlazor (Monaco/CodeMirror quá nặng cho 1 ô nhập trong 1 trang admin nội bộ).
-
-Kỹ thuật: `<pre><code>` tô màu nằm PHÍA SAU (`position:absolute`, `pointer-events:none`), `<textarea>`
-thật nằm PHÍA TRƯỚC với `color:transparent; background:transparent; caret-color:<màu thật>` — người
-dùng gõ vào textarea như bình thường, mắt thấy chữ tô màu của `<pre>` hiện xuyên qua. JS (vanilla,
-không lib ngoài) lắng nghe `input`/`scroll` của textarea để re-render `<pre>` + đồng bộ scroll:
-
-```js
-window.posSqlHighlightBind = (textareaId, codeId) => {
-    const textarea = document.getElementById(textareaId);
-    const code = document.getElementById(codeId);
-    if (!textarea || !code) return;   // no-op an toàn nếu gọi trước khi phần tử tồn tại
-    const render = () => { code.innerHTML = highlight(textarea.value) + '\n'; };
-    textarea.addEventListener('input', render);
-    textarea.addEventListener('scroll', () => { code.parentElement.scrollTop = textarea.scrollTop; });
-    render();
-};
-```
-- Tokenizer dùng **1 regex duy nhất có alternation** (comment/string/bracket/number/keyword) quét
-  1 lượt — tránh bug tô màu chồng khi thay thế tuần tự nhiều regex khác nhau (comment/string bị
-  match lại bởi rule keyword).
-- Escape HTML (`&`/`<`/`>`) TRƯỚC khi build `innerHTML` — bắt buộc, tránh injection nếu nội dung
-  người dùng gõ có ký tự đặc biệt.
-- Gọi từ C#: `OnAfterRenderAsync(firstRender)` → `bind` lần đầu, `refresh` các lần sau (đồng bộ lại
-  khi Blazor tự đổi `value` của textarea, vd nút "Xóa" clear nội dung).
-- Giữ nguyên `Immediate="false"`/`@bind:event="onchange"` cho phần bind C# (không đổi hành vi
-  round-trip sẵn có) — highlight chạy HOÀN TOÀN client-side qua JS, không cần round-trip SignalR
-  mỗi phím gõ.
-
-> Ví dụ thực tế: `wwwroot/js/sql-console-highlight.js`, `Components/Pages/Admin/SqlConsolePage.razor` (`.pos-sql-editor` trong `app.css`)
-
----
-
-## Pattern: PIN/step-up gate cho trang nhạy cảm
-> Áp dụng khi: 1 trang Admin cần thêm lớp xác thực thứ 2 độc lập với cookie login (bảo vệ trường
-> hợp cookie/session bị đánh cắp) — vd trang thực thi SQL trực tiếp, thao tác DB nguy hiểm.
-
-- PIN lưu **BCrypt hash trong DB** (cột `PinHash` trên bảng user đã có, KHÔNG tạo bảng mới nếu
-  không cần — KHÔNG lưu trong `appsettings` vì cơ chế `enc:` chỉ dành cho secret cần giải mã lại,
-  hash 1 chiều không cần và không nên đi qua đó).
-- Toàn bộ nội dung trang bọc trong `@if (_pinVerified) { ... } else { <PIN card> }` — không render
-  BẤT KỲ phần nào của trang thật (kể cả banner cảnh báo) trước khi verify xong.
-- Khoá tạm sau N lần sai (5 lần/15 phút) bằng Redis counter key riêng — **không có method increment
-  nguyên tử trong `IRedisService`**, dùng read-modify-write (`StringGetAsync<int>` rồi
-  `StringSetAsync` lại) — chấp nhận được vì tần suất gõ PIN thấp, không cần atomic thật.
-- **Đổi PIN bắt buộc nhập đúng PIN CŨ trước** (trừ lần đầu thiết lập) — nếu bỏ qua bước này, 1
-  cookie/session bị đánh cắp đủ để tự đặt lại PIN theo ý kẻ tấn công rồi vượt qua chính lớp bảo vệ
-  vừa thêm, phá vỡ hoàn toàn mục đích của PIN gate.
-- **BẮT BUỘC `try/catch/finally` đầy đủ** quanh lời gọi verify (xem anti-pattern ở mục "KHÔNG làm")
-  — `try/finally` không đủ, exception không lường trước (hash sai định dạng...) sẽ crash circuit.
-
-> Ví dụ thực tế: `Components/Pages/Admin/SqlConsolePage.razor` (PIN card + `VerifyPinAsync`), `src/POS.Web/Auth/WebUserService.cs` (`VerifyPinAsync`, `SetPinAsync`), `Components/Pages/Admin/Dialogs/ChangeMyPinDialog.razor`
-
----
-
-## Pattern: POS.Web kích hoạt tác vụ server-side của POS.Api qua DI (không HTTP)
-> Áp dụng khi: page POS.Web cần chạy 1 tác vụ vốn thuộc POS.Api (sinh file master data, xử lý file…).
-> Luật dự án: **KHÔNG** gọi HTTP sang POS.Api — inject thẳng Application service (đã đăng ký chung qua
-> `AddApplication()`/`AddInfrastructure()`) và gọi method. Bọc glue vào 1 method Application dùng chung,
-> KHÔNG nhồi logic vào `.razor`.
-
-```csharp
-// Application: method mới delegate service sinh file có sẵn của POS.Api (KHÔNG chép/đổi logic sinh file)
-public async Task<GetMasterDataFileResult> PushStartOfDayDataAsync(string siteCode, string posTerminal, CancellationToken ct = default)
-{
-    // BẮT BUỘC bám ĐÚNG cách controller dựng đường dẫn đích — dùng MapFtpPath, KHÔNG tự Path.Combine(FolderShare,...)
-    var folderFile = $"{siteCode}/{posTerminal}";
-    const string pathSync = "SyncDataPos/POS/CHANGE";
-    var targetDir = MapFtpPath($"{pathSync}/{folderFile}");     // = FtpRootPath\SyncDataPos\POS\CHANGE\{site}\{terminal}
-    var req = new GetMasterDataFileRequest { SiteCode = siteCode, PosTerminal = posTerminal,
-        FolderFile = folderFile, PathSync = pathSync, TypeSync = "ALL", TargetDir = targetDir };
-    return await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);   // tái dùng nguyên
-}
-```
-
-- **UI**: nút trong cột Action → `MudMessageBox` confirm → `_syncing` HashSet (theo key row) đổi nút thành
-  `MudProgressCircular` + `RowClassFunc` pulse nền; bọc nút trong `<div @onclick:stopPropagation="true">` nếu
-  row có `OnRowClick`. Ghi `IAuditLogger.LogAsync(actor,"SYNC",entity,key,null,detailJson)` **khi thành công**.
-- **Anti-pattern (bug thực tế)**: tự dựng đường dẫn FTP bằng `Path.Combine(configuration["AppSettings:FolderShare"],...)`
-  → sai gốc + thiếu segment (`SyncDataPos\POS`) so với `SyncDataPosController.GetFileFromFTP`. Luôn tra controller
-  để lấy đúng `pathSync`/`MapFtpPath`, vì file phải nằm đúng nơi POS tạo/đọc + khớp URL download.
-- **Rollout**: file sinh trên host POS.Web nhưng POS tải qua POS.Api → POS.Web `AppSettings:FtpRootPath` phải trỏ
-  **chung thư mục vật lý** POS.Api phục vụ (UNC share / cùng volume Docker). Xem `docs/ROLLOUT.md` §O3.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Ops/PosMapPage.razor` (`SyncDataAsync`),
-> `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`PushStartOfDayDataAsync`)
-
-### Pattern: Format số tiền khi user nhập (thousand separator) mà không phá parse
-> Áp dụng khi: ô nhập số tiền trong lưới/form cần hiển thị `30,000` nhưng vẫn lưu đúng.
-
-Dùng `Value`/`ValueChanged` (không `@bind`) + `Immediate="true"`, format bằng dấu `,`
-(InvariantCulture `#,##0`) — KHỚP cách service `ParsePrice` tách chuỗi (`Replace(",")`) và format
-hiển thị `###,###` ở list. Dùng `.` (vi-VN) sẽ bị parse nhầm thành dấu thập phân.
+**Chọn Variant/Color cho `<YesButton>` theo bản chất hành động Yes** (`.claude/rules/mudblazor-flat-ui.md` §3):
+- Yes = phá hủy/không hoàn tác (xóa, hủy giao dịch, khóa) → `Variant="Variant.Outlined" Color="Color.Error"`.
+- Yes = xác nhận tích cực/chốt luồng, không phá hủy (kích hoạt, mở khóa, đồng bộ lại, retry) →
+  `Variant="Variant.Filled" Color="Color.Primary"` (hoặc `Color.Success`/`Color.Warning` nếu ngữ
+  cảnh cần nhấn mạnh cảnh báo — vd "Xác nhận kết thúc ngày" dùng `Filled`/`Warning` vì không thể
+  hoàn tác dù không phải "xóa dữ liệu").
 
 ```razor
-<MudTextField T="string" Value="context.UnitPrice"
-              ValueChanged="@(v => row.UnitPrice = FormatThousands(v))"
-              InputMode="InputMode.numeric" Immediate="true" Class="pos-price-input"/>
-```
-```csharp
-// digits-only → long → ToString("#,##0", CultureInfo.InvariantCulture)
-```
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Catalog/Price/PriceSetupPage.razor` (`FormatThousands`/`OnPriceChanged`).
+@* Khai báo trong Razor template — đặt gần đầu content, TRƯỚC mọi @if bao ngoài (nếu page có list/edit mode) *@
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton></YesButton>
+</MudMessageBox>
 
-**Bẫy khi nạp dòng từ nguồn khác (bulk import, preload API) vào CÙNG lưới**: `ValueChanged` chỉ
-fire khi user gõ tay — gán giá trị bằng code (vd sau `ValidateImportAsync`) KHÔNG đi qua
-`FormatThousands`, dòng import hiển thị số thô không dấu phẩy trong khi dòng nhập tay có. Luôn gọi
-tường minh `FormatThousands(rawValue)` ngay lúc build view-model cho dòng nạp từ nguồn ngoài, đừng
-trông chờ event UI tự chạy lại. Đã gặp + sửa ở `PriceSetupPage.LoadImportAsync`.
+@code {
+    private MudMessageBox? _confirmBox;
+    private string _confirmMsg = string.Empty;
 
-### Pattern: Badge trạng thái dot-pill (CHUẨN MẶC ĐỊNH) + input font-size không do Body1
-> Cập nhật 2026-07-09: `.pos-status-chip` là CHUẨN MẶC ĐỊNH cho mọi status badge tĩnh (không còn
-> là ngoại lệ theo 1 mockup cụ thể) — `MudChip` chỉ dùng khi cần tương tác (multi-select/closable/
-> trong filter). Áp dụng khi: badge dạng "viên thuốc nền tint nhạt + chữ đậm cùng tông + chấm tròn
-> nhỏ", hoặc khi input value (TextField/Autocomplete/Select/DatePicker) hiển thị sai size/weight
-> so với theme_html.
-
-- **Badge dot-pill**: dùng class `.pos-status-chip` + modifier `.pos-status-{success,error,warning,info}`
-  (`app.css`, đặt cạnh `.pos-delta-up/.pos-delta-down`) — `<span class="pos-status-chip pos-status-success">Label</span>`,
-  dot vẽ bằng `::before{background-color:currentColor}`, không cần markup con. Chi tiết đầy đủ +
-  bảng so sánh với `MudChip`: `.claude/rules/mudblazor-flat-ui.md` §4a.
-- **Input value font-size SAI giả định trước đây**: đã verify trực tiếp `MudBlazor.min.css` —
-  `.mud-input-root{font:inherit}` **KHÔNG** cascade từ `Typography.Body1` (chỉ áp dụng cho class
-  `.mud-typography-body1` dùng bởi `MudText`), mà kế thừa từ `<body>` (`Typography.Default`). Nếu
-  input hiển thị to/đậm hơn mockup dù đã set `Body1`, ép trực tiếp `.mud-input-root{font-size:...
-  !important}` trong `app.css` — đừng chỉnh `Typography.Body1` (không có tác dụng lên input).
-- **Nút không khớp mockup dù đã đúng `Color`/`Variant`**: `Size="Size.Small"` của MudButton nén
-  padding chặt hơn nhiều so với mockup dạng `.btn{padding:7px 14px}`, và `Variant.Outlined` render
-  nền TRONG SUỐT (không có `.btn-secondary` nền xám đặc nào tương đương) — dùng class riêng
-  (`.pos-btn-mockup`/`.pos-btn-secondary-mockup` — ví dụ) với `!important` để ép đúng padding/nền,
-  tái dùng token `--pos-bg-alt`/`--pos-text-body`/`--pos-border` đã có, không cần token mới.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Store/Transactions/MemberPointsPage.razor`,
-> `src/POS.Web/Components/Pages/Store/Dialogs/MemberPointsDetailDialog.razor`, `app.css`.
-
-### Pattern: `MudTimePicker` cho ô nhập giờ "HH:mm" (thay `MudTextField` gõ tay)
-> Áp dụng khi: cần ô nhập giờ tự ép định dạng `HH:mm` lúc user gõ tay, thay vì `MudTextField`
-> với `Placeholder="hh:mm"` (không validate/format gì, dễ lưu sai chuỗi).
-
-DTO thường lưu giờ dạng `string "HH:mm"` (khớp cột DB kiểu text) — KHÔNG đổi DTO, chỉ bọc 1 cặp
-property `TimeSpan?` ở `@code` của page để chuyển đổi 2 chiều:
-
-```csharp
-private TimeSpan? HeaderFromTime
-{
-    get => ParseHm(_header.FromTime);
-    set => _header.FromTime = value?.ToString(@"hh\:mm") ?? string.Empty;
-}
-private static TimeSpan? ParseHm(string s)
-    => TimeSpan.TryParseExact(s, new[] { @"hh\:mm", @"h\:mm" }, CultureInfo.InvariantCulture, out var t) ? t : null;
-```
-```razor
-<MudTimePicker Time="HeaderFromTime" TimeChanged="@(t => HeaderFromTime = t)" Disabled="_isReadonly"
-               AmPm="false" TimeFormat="HH:mm" Editable="true"
-               Variant="Variant.Outlined" Margin="Margin.Dense"/>
-```
-`AmPm="false"` + `Editable="true"` là bắt buộc — thiếu `Editable` thì user không gõ tay được, chỉ
-chọn qua picker UI. Verify tham số qua reflection thật trên `MudBlazor.dll` (namespace
-`MudBlazor.MudTimePicker`) trước khi dùng — v9 không có sẵn ví dụ nào trong repo để soi theo.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`
-> (`HeaderFromTime`/`HeaderToTime`, tab "Thông tin chung").
-
-### Pattern: `MudSelect` multi-selection cho chọn nhiều giá trị rời rạc (vd nhiều ngày trong tháng)
-> Áp dụng khi: cần chọn NHIỀU giá trị từ 1 danh sách cố định nhỏ (ngày 1-31, thứ trong tuần...),
-> lưu lại dạng `List<T>` — KHÔNG cần `MudAutocomplete`/chip rời.
-
-`MudSelect<T>` có sẵn `MultiSelection="true"` + `SelectedValues`/`SelectedValuesChanged`
-(`IReadOnlyCollection<T>`) — không cần tự viết checkbox group:
-
-```razor
-<MudSelect T="int" MultiSelection="true" SelectedValues="_header.ApplyDaysOfMonth"
-           SelectedValuesChanged="@(v => _header.ApplyDaysOfMonth = v.OrderBy(d => d).ToList())"
-           Label="Ngày áp dụng trong tháng" Disabled="_isReadonly"
-           MultiSelectionTextFunc="@(selected => selected.Count == 0 ? "Tất cả" : string.Join(", ", selected.Select(int.Parse).OrderBy(d => d)))">
-    @for (var day = 1; day <= 31; day++)
+    private async Task DeleteAsync(MyItem item)
     {
-        var d = day;
-        <MudSelectItem T="int" Value="@d">Ngày @d</MudSelectItem>
+        _confirmMsg = $"Bạn có chắc muốn xóa [{item.Code}]? Không thể hoàn tác.";
+        var ok = await _confirmBox!.ShowAsync();
+        if (ok != true) return;
+        // thực hiện action
     }
-</MudSelect>
+}
 ```
-Bẫy: `MultiSelectionTextFunc` nhận `IReadOnlyList<string>` (chuỗi hiển thị của item đã chọn),
-**KHÔNG PHẢI** `IReadOnlyList<T>` — cần `Select(int.Parse)` lại nếu muốn sort theo giá trị số.
 
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`
-> (`_header.ApplyDaysOfMonth`, tab "Cài đặt nâng cao").
+**Title/YesText/Variant/Color động** (vd khóa/mở khóa dùng chung 1 dialog — 2 hành động khác bản
+chất): thêm field `_confirmTitle`/`_confirmYesText`/`_confirmYesColor` (kiểu `Color`), bind vào
+`Title="@_confirmTitle"` và
+`<YesButton><MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)" Color="@_confirmYesColor">@_confirmYesText</MudButton></YesButton>`
+— **Variant cũng phải tính động theo Color** (không hardcode `Outlined`), vì "khóa" (Error) và
+"kích hoạt/mở khóa" (Success) thuộc 2 nhóm khác nhau trong bảng Button convention. Set cả 3 field
+trước khi gọi `_confirmBox!.ShowAsync()`. Ví dụ thực tế: `Admin/UsersPage.razor`
+(`ConfirmToggleAsync` — khóa dùng `Outlined`/`Color.Error`/"Khóa", kích hoạt dùng
+`Filled`/`Color.Success`/"Kích hoạt"); `Catalog/Product/ProductLockPage.razor` (dialog dùng chung
+khóa/mở khóa sản phẩm — ternary theo nội dung `_confirmMsg` vì không có field Color riêng).
+
+> Ví dụ thực tế (static Title/YesText): `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`,
+> `Ops/PosMapPage.razor`, `Store/Operations/BusinessDayPage.razor`.

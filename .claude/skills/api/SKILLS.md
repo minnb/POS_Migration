@@ -1,9 +1,25 @@
+---
+name: api-external-config
+description: Lấy cấu hình External API (host/credentials/routes) từ Redis/DB qua GetSysWebApiAsync — bắt buộc đọc trước khi tạo AppService gọi partner HTTP (GotIT, Urbox, AkaChain...).
+---
+
 # Skill: Lấy cấu hình External API từ Redis/DB (`GetSysWebApiAsync`)
 
 > **Áp dụng khi:** migrate hoặc tạo mới bất kỳ AppService nào cần gọi external HTTP API
 > (GotIT, Urbox, AkaChain, Giftee, Capillary, v.v.).
 > Mọi thông tin cấu hình (host, credentials, routes, timeout) đều lấy từ DB bảng `SysWebApi` +
 > `SysWebApiRoute`, được cache trong Redis.
+
+## Skill con — đọc khi cần
+
+| File | Đọc khi |
+|---|---|
+| [`middleware-patterns.md`](middleware-patterns.md) | Thêm/sửa middleware pipeline (X-API key auth, Kestrel MinResponseDataRate) |
+| [`file-streaming-patterns.md`](file-streaming-patterns.md) | Sinh/stream/publish file quy mô lớn cho POS (Parallel.ForEachAsync, SHA-256, resolve path SyncDataPos) |
+| [`logging.md`](logging.md) | Thêm log mới (IFileLogHelper/IKibanaService/middleware log request-response) |
+| [`../database/SKILLS.md`](../database/SKILLS.md) | Viết SP/Repository (bao gồm pattern audit-log try/finally, OUTPUT param, UPDLOCK optional filter, đổi cột mã→tên) |
+| [`../worker/SKILLS.md`](../worker/SKILLS.md) | Tách BackgroundService ra `POS.Worker` |
+| [`../cache/SKILLS.md`](../cache/SKILLS.md) | Cache OAuth2 token hoặc bất kỳ master data nào |
 
 ---
 
@@ -130,33 +146,11 @@ centralMDRepository.GetSysWebApiAsync("GIFTEE", ct)
 
 ## Trường hợp đặc biệt: OAuth2 token
 
-Một số partner (AkaChain/FMV) yêu cầu Bearer token. Token cũng cache Redis nhưng **không** qua `ICentralMDRepository` — cache trực tiếp bằng `IRedisService`:
+Một số partner (AkaChain/FMV) yêu cầu Bearer token. Token cache Redis riêng qua `IRedisService`
+(không qua `ICentralMDRepository`, vì token là per-partner chứ không phải master data dùng chung).
 
-```csharp
-private const string TokenCacheKey = "{Partner}:{Service}:AccessToken";
-
-private async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
-{
-    var cached = redis.StringGetRaw(TokenCacheKey);
-    if (!string.IsNullOrEmpty(cached)) return cached;
-
-    var config = await GetConfigAsync(ct);
-    if (config == null) return null;
-
-    var tokenRoute = GetRoute(config, "GetToken");
-    if (tokenRoute == null) return null;
-
-    // Gọi token endpoint → parse response
-    var tokenData = JsonConvert.DeserializeObject<AccessTokenDto>(body);
-    if (tokenData?.AccessToken == null) return null;
-
-    var expiresIn = Math.Max((tokenData.ExpiresIn ?? 300) - 60, 60);
-    redis.StringSetRaw(TokenCacheKey, tokenData.AccessToken, TimeSpan.FromSeconds(expiresIn));
-    return tokenData.AccessToken;
-}
-```
-
-> Chi tiết Redis token: xem [cache/SKILLS.md](../cache/SKILLS.md) — mục "OAuth token".
+> **Pattern đầy đủ + code mẫu**: [`../cache/SKILLS.md`](../cache/SKILLS.md) mục "Pattern 3: OAuth2
+> token caching" — đây là nguồn canonical, không lặp code ở đây.
 
 ---
 
@@ -167,8 +161,8 @@ private async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
 - [ ] Inject `ICentralMDRepository` (không inject Redis trực tiếp cho config)
 - [ ] Thêm private `GetConfigAsync` + `GetRoute` + `GetTimeout` helpers
 - [ ] Guard ngay đầu method: `if (config == null) return Fail(NotFoundConfig)`
-- [ ] Nếu cần token OAuth2: inject `IRedisService`, cache token riêng với key `{Partner}:AccessToken`
-- [ ] Xem CLAUDE.md — mục "Pattern bắt buộc" để đăng ký DI đúng 3 lớp
+- [ ] Nếu cần token OAuth2: xem [`../cache/SKILLS.md`](../cache/SKILLS.md) Pattern 3
+- [ ] Xem `CLAUDE.md` — mục "Pattern bắt buộc" để đăng ký DI đúng 3 lớp
 
 ---
 
@@ -182,399 +176,38 @@ private async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
 
 ---
 
-## Pattern: Audit log table với try/finally trong Repository
+## Pattern: Mã hóa credentials trong appsettings (token `enc:`)
 
-> Áp dụng khi: cần ghi audit log sau mỗi lần insert/process data, bất kể thành công hay thất bại, kể cả khi có nhiều return path.
-
-```csharp
-// Khai báo tracking variables TRƯỚC try
-bool   _flag     = false;
-string _errorMsg = "";
-string _dataType = "";
-try
-{
-    // ... logic chính, cập nhật _flag/_errorMsg/_dataType ở mỗi nhánh ...
-    _flag = true;
-    return (true, "OK");
-}
-catch (Exception ex) { _errorMsg = ex.Message; return (false, _errorMsg); }
-finally
-{
-    // finally LUÔN chạy — đảm bảo log dù return ở nhánh nào
-    await InsertDataRawJsonAsync(transactionId, _dataType, message, _flag,
-        _flag ? null : _errorMsg);
-}
-
-private async Task InsertDataRawJsonAsync(string transactionId, string dataType,
-    string message, bool flag, string? errorMessage)
-{
-    try
-    {
-        using var conn = await directConnectionFactory.CreateOpenConnectionAsync(
-            CancellationToken.None);  // CancellationToken.None — log phải chạy kể cả request bị cancel
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { ... }, commandTimeout: Timeout));
-    }
-    catch { /* Swallow — nếu log fail, main processing đã fail → RabbitMQ retry tự động */ }
-}
-```
-
-> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/CentralSaleRepository.cs` — `InInsertToTableByJson` + `InsertDataRawJsonAsync`
-
-**Anti-pattern:** Gọi log function ở từng return path riêng lẻ → dễ bỏ sót khi thêm nhánh mới.
-
-**Gotcha (2026-07-08):** `InInsertToTableByJson` từng mở connection chính (không phải audit log)
-qua `StoreRoutedConnectionFactory` (route theo `StoreSetServer`) — khi `ServerIP` của 1 store
-không còn kết nối được trên UAT/Prod, method throw "network-related... SQL Server" dù các hàm đọc
-cùng bảng vẫn chạy bình thường (chúng dùng `directConnectionFactory` cố định). Đã đổi sang luôn
-dùng `directConnectionFactory`. Bài học: chỉ dùng `StoreRoutedConnectionFactory` khi thật sự cần
-ghi vào bảng **sharded theo store** (TransHeader...); nếu SP/bảng đích không phụ thuộc shard, ưu
-tiên `directConnectionFactory` để tránh thêm 1 điểm lỗi mạng không cần thiết.
+> Cấu hình mã hóa password DB/RabbitMQ trong appsettings (AES-256-GCM, cross-platform) — nguồn
+> canonical đầy đủ: **`docs/architecture/appsetting.md`**. Không lặp lại chi tiết ở đây; chỉ nhớ
+> gọi `builder.Configuration.DecryptEncryptedSecrets()` ngay sau `CreateBuilder`, trước
+> `AddInfrastructure`, trong MỌI `Program.cs` (Api/Web/Worker).
 
 ---
 
-## Pattern: POS.Worker — Background worker project độc lập
+## Pattern: Track Counter bump vào SyncTableList.POSLastCounter bất đồng bộ
 
-> Áp dụng khi: cần tách BackgroundService ra khỏi POS.Api để tránh ảnh hưởng health check hoặc restart API.
+> Khi 1 Repository ghi (insert/update) vào bảng master data có bump cột `Counter`, cần
+> `ISyncTableTrackerService.Track(tableName, counter)` (non-blocking, Channel + BackgroundService)
+> để đồng bộ tăng dần `SyncTableList.POSLastCounter` cho POS — KHÔNG update đồng bộ trong transaction
+> ghi (gây lock contention).
 
-```csharp
-// POS.Worker/Program.cs — Worker Service SDK (Microsoft.NET.Sdk.Worker)
-var builder = Host.CreateApplicationBuilder(args);  // HostApplicationBuilder, KHÔNG phải WebApplicationBuilder
-builder.AddSerilogWithElastic();                     // overload HostApplicationBuilder trong SerilogConfiguration.cs
-builder.Services.AddInfrastructure(builder.Configuration);  // DB, Redis, RabbitMQ, Repos
-builder.Services.AddHostedService<PosSalesConsumerWorker>();
-// Thêm worker mới sau này: chỉ cần thêm dòng AddHostedService<T>() — không cần project mới
-var host = builder.Build();
-host.Run();
-```
-
-**Điểm quan trọng:**
-- SDK: `Microsoft.NET.Sdk.Worker` — không phải `Microsoft.NET.Sdk`
-- Docker image: `dotnet/runtime:10.0` (không phải `aspnet`) — nhẹ hơn ~60MB vì không có HTTP
-- Env var: `DOTNET_ENVIRONMENT` (không phải `ASPNETCORE_ENVIRONMENT`)
-- **KHÔNG gọi `AddApplication()`** — worker chỉ cần `AddInfrastructure()`, gọi thêm sẽ đăng ký HTTP client không cần thiết
-- `SerilogConfiguration.cs` cần overload riêng cho `HostApplicationBuilder` (khác `WebApplicationBuilder`)
-
-> Ví dụ thực tế: `src/POS.Worker/`, `Dockerfile.worker`, `docker-compose.yml` service `worker`
+> **Chi tiết đầy đủ + checklist rollout theo từng `TableName`**:
+> `.claude/rules/masterdata-sync.md` mục "Cập nhật POSLastCounter bất đồng bộ" — đây là nguồn
+> canonical, không lặp code ở đây.
 
 ---
 
-### Pattern: Optional filter param trong UPDLOCK transaction
+## Pattern: Xác minh tên bảng vật lý / SP trả cột đã format sẵn / SP đổi mã→tên hiển thị / SP OUTPUT param
 
-> Áp dụng khi: cần enforce thêm điều kiện (VoucherType, loại hàng, v.v.) bên trong transaction
-> có UPDLOCK — check PHẢI nằm trong transaction, không thể làm ngoài (TOCTOU risk).
-
-```csharp
-// Interface — thêm optional param, caller cũ không bị break
-Task<...> RedeemVouchersAsync(
-    List<(string VoucherNumber, double AmountRedeem)> serials,
-    string orderNo,
-    string? requiredVoucherType = null,   // ← optional, default null = bỏ qua check
-    CancellationToken ct = default);
-
-// Repository — check ngay sau SELECT UPDLOCK, trước UPDATE
-if (requiredVoucherType != null)
-{
-    var wrongType = vouchers.FirstOrDefault(v => v.VoucherType != requiredVoucherType);
-    if (wrongType != null) { tx.Rollback(); return (false, $"Voucher ... không phải loại {requiredVoucherType}", []); }
-}
-```
-
-> Anti-pattern: check VoucherType trước rồi mới gọi transaction → race condition giữa check và update.
-> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/SAPVoucherRepository.cs`
+> 4 pattern Repository/SP dùng chung cho mọi DB (không riêng external API) đã chuyển sang
+> **`.claude/skills/database/SKILLS.md`** — đọc file đó khi viết raw SQL/SP call mới.
 
 ---
 
-### Pattern: Named CancellationToken khi thêm optional param vào giữa signature
+## Pattern: Optional filter trong UPDLOCK transaction / Named CancellationToken
 
-> Áp dụng khi: thêm optional param mới vào giữa signature của method đang có caller dùng positional args.
-
-```csharp
-// Lỗi compile — CancellationToken truyền nhầm vào optional string? mới thêm:
-repo.RedeemVouchersAsync(serials, orderNo, ct);     // ct → slot của string? ❌
-
-// Đúng — dùng named param để CancellationToken vào đúng slot:
-repo.RedeemVouchersAsync(serials, orderNo, ct: ct); // ✅
-```
-
-> Quy tắc: Khi thêm optional param vào giữa signature, scan toàn bộ callers và thêm `ct: ct` nếu cần.
-> Ví dụ thực tế: `src/POS.Application/Services/SAPService.cs` — `RedeemCpnVchAsync`
-
----
-
-## Pattern: Mã hóa credentials trong appsettings (token `enc:` + config hook)
-> Áp dụng khi: cần giấu password (DB/RabbitMQ) trong appsettings mà KHÔNG chuyển sang env var,
-> vẫn giữ file config commit được. Cross-platform (Docker Linux) → AES-GCM, KHÔNG dùng DPAPI (Windows-only).
-
-```csharp
-// 1) Helper static AES-256-GCM — token "enc:" + base64(nonce(12)|tag(16)|ciphertext)
-//    src/POS.Infrastructure/Security/SecretProtector.cs
-SecretProtector.Encrypt(plain, base64Key);         // → "enc:...."
-SecretProtector.DecryptTokens(value, base64Key);   // thay MỌI "enc:..." trong 1 chuỗi
-// → cho phép mã hóa CHỈ phần password: "...;Password=enc:XXX;..." (regex dừng ở ';')
-
-// 2) Hook giải mã — extension DÙNG CHUNG, KHÔNG viết lại block inline trong Program.cs:
-//    src/POS.Infrastructure/Security/ConfigurationSecretExtensions.cs
-//    public static void DecryptEncryptedSecrets(this ConfigurationManager configuration)
-//      → AsEnumerable() lọc HasToken → đọc POS_SECRET_KEY (fail-fast) → DecryptTokens → AddInMemoryCollection
-
-// Gọi trong MỌI Program.cs — NGAY SAU CreateBuilder, TRƯỚC AddInfrastructure:
-builder.Configuration.DecryptEncryptedSecrets();
-```
-
-- **Không sửa từng factory** — giải mã ở tầng config nên `GetConnectionString` / `GetSection<RabbitMQOptions>` nhận plaintext tự động.
-- **No-op khi không có `enc:`** → môi trường chưa mã hóa (Dev) chạy bình thường, không cần khóa. **Fail-fast** nếu có `enc:` mà thiếu khóa.
-- Khóa qua env (`POS_SECRET_KEY`), giá trị thật ở `.env` (gitignore) — KHÔNG commit khóa. Dùng CHUNG 1 khóa cho **POS.Api + POS.Web + POS.Worker**.
-- Extension nhận `ConfigurationManager` (không phải `IConfigurationBuilder`) vì cần **cả đọc** (`AsEnumerable`) **lẫn ghi** (`AddInMemoryCollection`) — đúng kiểu mà cả `WebApplicationBuilder.Configuration` (Api/Web) và `HostApplicationBuilder.Configuration` (Worker) cùng expose → 1 extension chạy được cho cả 3 project.
-
-> **Anti-pattern:** ❌ mã hóa `appsettings.json` (base) → MỌI môi trường (kể cả Dev không có khóa) fail-fast. Chỉ mã hóa file môi trường (Production).
-> ❌ Copy-paste lại block hook inline vào Program.cs của project mới — đã có `DecryptEncryptedSecrets()`, chỉ gọi 1 dòng (trước 2026-07-10 block này bị lặp ở Api + Web, đã rút gọn).
-> Ví dụ thực tế: `SecretProtector.cs`, `ConfigurationSecretExtensions.cs`, `src/POS.{Api,Web,Worker}/Program.cs`, trang tạo token `/admin/encrypt-secret`; rollout: `docs/ROLLOUT.md`; tra cứu nhanh: `docs/architecture/appsetting.md`
-
-> **Sinh key/token ngoài app đang chạy (không qua UI `/admin/encrypt-secret`):** `AesGcm` không có trong
-> .NET Framework → PowerShell 5.1 Windows không gọi được trực tiếp. Tạo project console tạm (net10.0)
-> với `ProjectReference` tới `POS.Infrastructure.csproj`, gọi thẳng `SecretProtector.GenerateKey()` /
-> `.Encrypt()` / `.Decrypt()` (verify round-trip ngay trong script trước khi dùng), `dotnet run`, rồi xóa
-> project tạm — đảm bảo byte-for-byte tương thích với code decrypt thật, không tự viết lại AES-GCM.
-
----
-
-## Pattern: Parallel.ForEachAsync cho nhiều DB call độc lập
-
-> Áp dụng khi: cần xử lý N item (ví dụ N bảng SP2) mà mỗi item **mở connection riêng, không shared state** → song song hóa an toàn.
-
-```csharp
-// Precompute index TRƯỚC khi song song (index ổn định, không race condition)
-var entries = items
-    .Where(t => !string.IsNullOrWhiteSpace(t.Key))
-    .Select((t, idx) => (Item: t, Index: idx + 1))
-    .ToList();
-
-await Parallel.ForEachAsync(entries, new ParallelOptions
-{
-    MaxDegreeOfParallelism = _opt.MaxParallelTables > 0 ? _opt.MaxParallelTables : 1,
-    CancellationToken = ct
-}, async (entry, token) =>
-{
-    // Mỗi iteration mở SqlConnection riêng → hoàn toàn thread-safe
-    await repo.StreamTableToFilesAsync(entry.Item, ..., token);
-});
-```
-
-**Điều kiện an toàn:** (1) mỗi iteration tạo connection/resource riêng; (2) output (file, key) unique per-item; (3) exception 1 item → `AggregateException` wrap throw ra caller.
-**Cấu hình:** `MaxParallelTables <= 0` → sequential (fallback an toàn). SQL Server connection pool (default 100) đủ cho parallelism = 4–8.
-
-> Ví dụ thực tế: `src/POS.Application/Features/DataSync/MasterDataSyncService.cs` — `EnsureMasterDataFileAsync`
-
----
-
-## Pattern: SHA-256 companion file cho binary được publish
-
-> Áp dụng khi: publish file binary (zip, archive) ra đĩa và cần ops/monitoring verify integrity sau này.
-
-```csharp
-// Sau atomic publish (File.Move overwrite)
-File.Move(tmpZip, destPath, overwrite: true);
-
-var hash = await ComputeSha256HexAsync(destPath, ct);
-await File.WriteAllTextAsync(destPath + ".sha256", hash, ct);  // "a3f5c2e1..." (64 hex chars)
-
-// Cleanup: xóa .sha256 cùng lúc với zip
-TryDeleteFile(destPath);
-TryDeleteFile(destPath + ".sha256");
-
-// Helper (BCL .NET 6+ — không cần NuGet)
-private static async Task<string> ComputeSha256HexAsync(string filePath, CancellationToken ct)
-{
-    await using var fs = File.OpenRead(filePath);
-    var bytes = await SHA256.HashDataAsync(fs, ct);
-    return Convert.ToHexString(bytes).ToLowerInvariant();
-}
-```
-
-**Quan trọng:** file `.sha256` là companion, KHÔNG thêm vào response API (filter `*.zip` → `.sha256` không bị liệt kê). Verify trên server: `sha256sum {file}.zip` rồi so sánh với nội dung `.sha256`.
-
-> Ví dụ thực tế: `src/POS.Application/Features/DataSync/MasterDataSyncService.cs`
-
----
-
-## Pattern: Tắt Kestrel MinResponseDataRate cho 1 request stream file lớn
-
-> Áp dụng khi: endpoint stream file lớn (zip, export...) cho client mạng chậm/không ổn định (vd máy
-> POS ở cửa hàng) — Kestrel mặc định tự ngắt kết nối nếu tốc độ gửi xuống dưới 240 byte/giây quá 5
-> giây (`MinResponseDataRate`), dù server vẫn đang gửi đúng dữ liệu. Ngắt giữa chừng → client nhận
-> file thiếu/lỗi, dễ nhầm là bug server trong khi thực ra là Kestrel chủ động cắt.
-
-```csharp
-using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
-
-// Trước khi bắt đầu stream — CHỈ tắt cho request này, KHÔNG đụng Program.cs/Kestrel global
-// (tránh tắt bảo vệ chống slowloris cho toàn bộ API).
-var minRateFeature = HttpContext.Features.Get<IHttpMinResponseDataRateFeature>();
-if (minRateFeature != null)
-    minRateFeature.MinDataRate = null;
-
-await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
-```
-
-**Vì sao scope theo request, không sửa `Program.cs`:** endpoint public khác vẫn cần Kestrel bảo vệ
-khỏi slow-loris; chỉ endpoint stream file lớn cho client mạng yếu mới cần nới lỏng.
-
-> Ví dụ thực tế: `src/POS.Api/Controllers/SyncDataPosController.cs` — `DowloadFileStream`.
-
----
-
-## Pattern: Tách N file output theo cờ DB (thay vì appsettings) — idempotent all-or-nothing
-
-> Áp dụng khi: 1 batch job sinh ra nhiều file, và "cái gì tách riêng" là quyết định **vận hành** (DBA
-> đổi theo dữ liệu thực tế của từng thời điểm), KHÔNG phải quyết định lúc code/deploy → đặt cờ trên
-> chính bảng metadata nguồn (SP1) thay vì `appsettings.json`, để đổi hành vi KHÔNG cần deploy lại app.
-
-```csharp
-// 1. Metadata row có thêm cờ (SyncTableInfo.IsSingleFile) — Dapper tự map cột SP mới, không cần sửa Repository.
-var outDir = row.IsSingleFile ? Path.Combine(tmpDir, SanitizeForFolder(row.Key)) : Path.Combine(tmpDir, "_common");
-
-// 2. Idempotent check phải là ALL-OR-NOTHING trên TOÀN BỘ danh sách output dự kiến của lượt chạy
-//    (tính được ngay sau khi có metadata, TRƯỚC khi chạy job) — không regenerate lẻ từng file.
-var expectedNames = new List<string> { CommonName() };
-expectedNames.AddRange(singleKeys.Select(SingleName));
-if (expectedNames.All(n => IsTodayValid(Path.Combine(targetDir, n))))
-    return expectedNames.Select(n => Success(n)).ToList();
-
-// 3. Publish + cleanup dùng CHUNG 1 prefix, loại trừ theo HashSet "vừa publish lượt này"
-//    → tự dọn được file mồ côi khi cờ IsSingleFile bị TẮT lại (không cần logic cleanup riêng cho case này).
-CleanupSiblingZips(req, publishedNamesThisRun);
-```
-
-**Vì sao KHÔNG dùng appsettings cho việc này:** cấu hình trong `appsettings.json` cần deploy/restart để
-đổi; cờ trên bảng DB cho phép DBA `UPDATE` trực tiếp + `DEL` cache Redis liên quan để có hiệu lực ngay,
-phù hợp khi danh sách "cái gì cần tách riêng" thay đổi theo dữ liệu thực tế từng site/thời điểm.
-
-> Ví dụ thực tế: `src/POS.Application/Features/DataSync/MasterDataSyncService.cs` —
-> `EnsureMasterDataFileAsync` tách zip theo `SyncTableList.IsSingleFile`
-> (`docs/sql/SyncTableList_AddIsSingleFile.sql`), fix timeout download POS với zip quá lớn.
-
----
-
-## Pattern: Middleware xác thực request từ POS (X-API key)
-
-> Áp dụng khi: cần validate MỌI request đến POS.Api ở tầng pipeline (không gắn `[Attribute]` từng controller).
-> Fail-closed: thiếu credential → 401, không pass-through.
-
-```csharp
-// src/POS.Api/Middleware/PosApiKeyMiddleware.cs
-public sealed class PosApiKeyMiddleware(RequestDelegate next)
-{
-    // Scoped service nhận qua THAM SỐ InvokeAsync — KHÔNG inject vào constructor
-    // (middleware là singleton; tham số method được resolve đúng scope mỗi request).
-    public async Task InvokeAsync(HttpContext context,
-        ICentralMDRepository repo, IFileLogHelper fileLog)
-    {
-        var path = context.Request.Path;
-        if (path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
-        { await next(context); return; }            // miễn xác thực
-
-        var xApi = context.Request.Headers["X-API"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(xApi))
-        {
-            // privateKey lấy từ GetPOSDataSetupAsync() — đã cache Redis MD:POSDataSetup 12h
-            var key = (await repo.GetPOSDataSetupAsync(context.RequestAborted))?
-                .FirstOrDefault(x => string.Equals(x.Code, "X-API", StringComparison.OrdinalIgnoreCase))?.Value;
-            var expected = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(key ?? "")));  // uppercase hex
-            if (string.IsNullOrEmpty(key) || !string.Equals(xApi, expected, StringComparison.Ordinal))
-            { await Write401(context, "Chưa xác thực"); return; }
-            await next(context); return;
-        }
-        // Không X-API: có Authorization (Basic /api/v2/* | Bearer pending) → pass-through; thiếu cả → 401
-        if (!string.IsNullOrEmpty(context.Request.Headers.Authorization.FirstOrDefault()))
-        { await next(context); return; }
-        await Write401(context, "Chưa xác thực");
-    }
-}
-// Đăng ký: app.UsePosApiKeyAuth(); SAU UseSerilogRequestLogging(), TRƯỚC UseAuthentication().
-```
-
-**Quan trọng:**
-- `MD5.HashData()` + `Convert.ToHexString()` → uppercase hex, khớp `MD5(privateKey).toUpper()` phía POS.
-- Write401 phải dùng `DefaultContractResolver` + `NullValueHandling.Ignore` để khớp contract `ResultResponse` (PascalCase, bỏ `Data` null).
-- ⚠️ Fail-closed → mọi endpoint (trừ `/health`, `/swagger/*`) bắt buộc có header; rà soát script/monitor nội bộ trước khi deploy.
-
-> Ví dụ thực tế: `src/POS.Api/Middleware/PosApiKeyMiddleware.cs`
-
----
-
-## Pattern: Xác minh tên bảng vật lý trước khi viết raw SQL
-
-> Áp dụng khi: viết raw SQL/SP call mới nhắm vào bảng đã tồn tại trong `RPOSMasterData`.
-> Rút ra từ sự cố thực tế: `CentralMDRepository` từng dùng `dbo.POSTerminalBanks` và `dbo.Banks`
-> (số nhiều — suy đoán theo convention EF DbSet cũ), trong khi tên bảng vật lý thật là
-> `dbo.POSTerminalBank`, `dbo.Bank` (số ít). Query chạy thẳng vào production DB thật sẽ throw
-> `Invalid object name` — chỉ phát hiện lúc runtime, không phải lúc build.
-
-**Cách xác minh đúng — tra `docs/architecture/centralMD-schema.md` (nguồn sự thật schema DB
-theo quy tắc ở `CLAUDE.md`), KHÔNG suy đoán tên bảng theo convention số ít/số nhiều:**
-1. Mở `docs/architecture/centralMD-schema.md`, tìm đúng tên bảng + cột + kiểu dữ liệu + PK.
-2. Bảng cần dùng chưa có trong doc → đọc `docs/sql/database/CentralMD.sql` (nguồn gốc sinh ra
-   `centralMD-schema.md`) để lấy tên chính xác, rồi bổ sung vào `centralMD-schema.md` cùng commit.
-3. **KHÔNG** tự thêm/bớt "s" theo thói quen đặt tên DbSet — luôn đối chiếu tên bảng vật lý thật.
-
-> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`
-> (`GetBankPOSListAsync`/`SaveBankPOSAsync`/`DeleteBankPOSAsync` → `dbo.POSTerminalBank`;
-> `GetBankListForDropdownAsync` → `dbo.Bank`)
-
----
-
-## Pattern: Map SP trả cột đã format/localize sẵn (khác kiểu bảng vật lý)
-
-> Áp dụng khi: gọi 1 SP có sẵn (không tự viết) mà SELECT convert cột sang dạng hiển thị
-> (vd `IIF(Status=1, N'Đang dùng', N'Không dùng')`, `Format(Date,'dd/MM/yyyy')`,
-> `Convert(varchar,Counter)`) — kiểu cột trả về KHÁC kiểu cột vật lý trong bảng, map thẳng
-> vào DTO dùng kiểu vật lý (bool/int/DateTime) sẽ làm Dapper throw lỗi cast ngay dòng đầu tiên.
-
-```csharp
-// Repository — KHÔNG map thẳng vào DTO public (BankPOSListDto), dùng row riêng khớp đúng
-// cột SP trả (text/string), rồi convert sang kiểu UI cần trong bước project.
-var rows = await QueryAsync<BankPOSListRow>(sql, param, ct: ct);
-return rows.Select(r => new BankPOSListDto
-{
-    IsOnline = r.IsOnline == "Có",                              // text tiếng Việt → bool
-    Status   = r.Status == "Đang được sử dụng" ? 1 : 0,          // text tiếng Việt → int (round-trip Save)
-    StatusText = r.Status,                                      // giữ nguyên text để hiển thị/export
-    Counter  = r.Counter,                                       // varchar sẵn — giữ string, không ép int
-}).ToList();
-
-private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /* ... khớp đúng tên+kiểu cột SP trả */ }
-```
-
-**Quan trọng:**
-- Giữ nguyên field kiểu "gốc" (vd `Status` int) trên DTO nếu còn nơi khác (form Edit/Save) cần round-trip đúng kiểu đó — chỉ thêm field mới (`StatusText`) cho phần hiển thị, KHÔNG đổi kiểu field đang được dùng để ghi ngược lại DB.
-- Dapper `QueryAsync<T>` không throw khi property DTO không có cột khớp (giữ default) — an toàn khi SP sau này thêm cột mới (vd thêm `PartnerId` vào SELECT) mà không cần sửa code map nếu đã khai báo sẵn field tương ứng.
-
-> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs` (`GetBankPOSListAsync` + `BankPOSListRow`)
-
----
-
-## Pattern: Xử lý đường dẫn file POS gửi (SyncDataPos) — luôn giải về FtpRootPath, dùng chung
-> Áp dụng khi: endpoint nhận `filePath`/`pathSync` từ máy POS (download/delete/list file trong FTPBLUEPOS).
-> Rút ra từ 2 bug thực tế trong `SyncDataPosController` (download OK nhưng delete/list lại rỗng/sai thư mục).
-
-- **POS gửi UNC Windows** (`\\ip\FTPBLUEPOS\...`) — trên **Linux Docker không resolve**. Dùng chung 1 helper
-  `ISyncDataPosService.ResolveFtpPhysicalPath(posPath)`: tách phần sau `FTPBLUEPOS` rồi `MapFtpPath` về
-  `FtpRootPath` local. Mọi endpoint (download/delete) phải map trước khi `File.Exists`/`Delete`; endpoint xóa
-  thêm **guard path-traversal** (`fullLocal.StartsWith(MapFtpPath(""))`).
-- **`pathSync` POS gửi đã chứa đủ `SyncDataPos/POS/{typeSync}`** → giải thư mục list/tạo qua
-  `MapFtpPath($"{pathSync}/{folderFile}")` cho MỌI typeSync (ALL/CHANGE) để listing khớp nơi file được tạo +
-  khớp UNC `PathFileIPServer` + URL download.
-- **Anti-pattern**: dùng `AppSettings:FolderShare` + tự ghép `\{typeSync}\` cho nhánh CHANGE → thiếu segment
-  `SyncDataPos\POS`, và hardcode `syncdatapos/pos` lowercase → **sai case trên Linux**. Đừng suy đoán path bằng
-  `FolderShare`; luôn bám `MapFtpPath` + `pathSync` từ query (đồng nhất với nhánh ALL).
-- **Tham số hoá hành vi theo caller qua request DTO, KHÔNG detect caller**: thêm field nullable vào DTO nội bộ
-  (vd `GetMasterDataFileRequest.SyncAction`) để override (Web Sync="DELETE-INSERT", null=mặc định TRUNC-INSERT→INSERT)
-  — DTO nội bộ nên không phá contract test.
-
-> Ví dụ thực tế: `src/POS.Application/Features/DataSync/SyncDataPosService.cs` (`ResolveFtpPhysicalPath`,
-> `GetFileFromServerApiAsync`, `PushStartOfDayDataAsync`), `src/POS.Api/Controllers/SyncDataPosController.cs`
-> (`DowloadFileStream`/`DeleteFileFromFTP`/`GetFileFromFTP`), `MasterDataSyncService.ActionFor`
+> Đã chuyển sang **`.claude/skills/database/SKILLS.md`** (cùng nhóm pattern Repository/transaction).
 
 ---
 
@@ -583,95 +216,4 @@ private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /*
 > Đã tách sang file riêng: **[`logging.md`](logging.md)** — 3 cơ chế logging trong POS.Api/
 > POS.Infrastructure, khi nào dùng cái nào, pattern middleware log request/response toàn cục
 > (capped pass-through stream, không buffer file lớn vào RAM), cờ `RequestLogging:PersistToFile`,
-> và các bug/anti-pattern thực tế đã gặp (`JsonConvert.SerializeObject(ex)` trên object đã dispose,
-> filter Serilog theo giá trị property chứ không theo tên property...). Đọc file đó TRƯỚC khi thêm
-> log mới ở bất kỳ đâu.
-
-### Pattern: SP trả kết quả qua OUTPUT param khi ủy quyền SP-legacy có result set
-> Áp dụng khi: SP mới `EXEC` một SP legacy tự `SELECT` (vd Interface_Errors) và/hoặc có `ROLLBACK` bên trong.
-
-Không thể hứng result set legacy bằng `INSERT...EXEC` nếu SP legacy có `ROLLBACK` ("Cannot use the
-ROLLBACK statement within an INSERT-EXEC statement"). Nếu để result set legacy lọt ra, Dapper
-`QueryFirstOrDefault<T>` đọc NHẦM set đầu → `null` → báo lỗi giả. Giải pháp: trả `@Ok bit/@Message`
-qua **OUTPUT param**; repository dùng `ExecuteAsync` (ExecuteNonQuery nuốt hết result set rồi mới gán output).
-
-```csharp
-p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
-p.Add("@Message", dbType: DbType.String, size: 4000, direction: ParameterDirection.Output);
-await conn.ExecuteAsync(new CommandDefinition("dbo.usp_X", p, commandType: CommandType.StoredProcedure));
-var ok = p.Get<bool?>("@Ok") ?? false;
-```
-> Ví dụ thực tế: `docs/sql/SetupSalePrice_Save.sql`, `src/POS.Infrastructure/Repositories/Price/PriceRepository.cs` (`SaveAsync`).
-
----
-
-### Pattern: SP đổi 1 cột từ mã (code) sang tên hiển thị (name) — luôn thêm cột mã gốc riêng cho composite key
-
-> Áp dụng khi: sửa/mở rộng 1 SP list có sẵn để JOIN thêm bảng lookup và **thế** cột mã bằng cột tên hiển thị
-> (vd `SalesCode` từ trả `PriceGroupCode` đổi sang trả `PriceGroupName` cho đẹp UI). Rút ra từ sự cố thực tế:
-> `GetSalesPriceList` đổi `SalesCode` sang trả tên nhóm giá, nhưng code Sửa/Xóa (`PriceRowKey`) vẫn dùng
-> đúng field đó làm khoá gửi tới `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**, không phải
-> tên) → mọi thao tác Sửa/Xóa sẽ báo "Không tìm thấy dữ liệu" ngay khi Code ≠ Name.
-
-**Quy tắc**: mỗi khi 1 cột SP đang được dùng làm khoá composite (Update/Delete/lookup ngược) bị đổi ý nghĩa
-sang giá trị hiển thị, **PHẢI** thêm 1 cột mới song song mang mã gốc (lấy thẳng từ bảng vật lý, không qua
-JOIN lookup có thể `LEFT JOIN` miss), map vào 1 field riêng trên DTO (đặt tên rõ ràng kiểu `XxxCode`, có
-comment "KHÔNG hiển thị — dùng làm khoá"), rồi sửa nơi build khoá composite dùng field mã mới thay vì field
-hiển thị cũ.
-
-```sql
--- SP list — thêm cột mã gốc song song với cột tên hiển thị đã đổi
-ISNULL(G.PriceGroupName,'') AS SalesCode,       -- tên hiển thị (đã đổi ý nghĩa)
-ISNULL(S.[SalesCode],'')    AS SalesGroupCode,  -- mã gốc — LẤY THẲNG từ bảng vật lý, dùng cho Sửa/Xóa
-```
-```csharp
-// DTO — field mã gốc tách riêng, comment rõ mục đích
-public string? SalesCode { get; set; }       // tên hiển thị — cột lưới
-public string? SalesGroupCode { get; set; }  // mã gốc — KHÔNG hiển thị, dùng build PriceRowKey
-```
-
-> Anti-pattern: tiếp tục dùng field cũ (`row.SalesCode`) để build khoá sau khi ý nghĩa cột đã đổi — lỗi
-> không xuất hiện lúc build/test (kiểu vẫn là `string`), chỉ lộ ra khi chạy thật với dữ liệu có Code≠Name.
-> Ví dụ thực tế: `docs/sql/GetSalesPriceList_AddSaleType.sql` (`SalesGroupCode`),
-> `docs/sql/GetSalesPriceList_AddSalesTypeCode.sql` (`SalesTypeCode`),
-> `src/POS.Web/Components/Pages/Catalog/Price/PricesPage.razor` (`TryBuildKey`).
-
----
-
-### Pattern: Track Counter bump vào SyncTableList.POSLastCounter bất đồng bộ (Channel + BackgroundService)
-
-> Áp dụng khi: 1 Repository ghi (insert/update) vào bảng master data có bump cột `Counter` (pattern
-> `MAX(Counter)+1`), và bảng đó cần tham gia đồng bộ tăng dần cho POS (`SyncTableList.POSLastCounter`).
-> KHÔNG update `SyncTableList` đồng bộ trong transaction ghi — gây row-level lock contention khi
-> nhiều request ghi master data cùng lúc.
-
-```csharp
-// 1) Inject ISyncTableTrackerService (POS.Infrastructure.Sync, Singleton) vào Repository
-public sealed class XxxRepository(..., ISyncTableTrackerService syncTracker) : ...
-
-// 2) Lấy Counter VỪA BUMP (không tính lại) rồi Track() ngay sau khi ghi DB thành công — non-blocking
-// SP-based write → thêm OUTPUT param cho Counter
-p.Add("@OutCounter", dbType: DbType.Int64, direction: ParameterDirection.Output);
-await conn.ExecuteAsync(new CommandDefinition("dbo.usp_Xxx_Save", p, commandType: CommandType.StoredProcedure, ...));
-syncTracker.Track("TableName", p.Get<long>("@OutCounter"));
-
-// raw SQL trong C# → OUTPUT INSERTED.Counter + ExecuteScalarAsync thay vì ExecuteAsync
-// batch/vòng lặp nhiều dòng → gom Max(Counter) cả batch, Track() 1 LẦN sau vòng lặp
-// SP ủy quyền SP legacy production KHÔNG sửa được (không có OUTPUT) → đọc lại
-//   SELECT MAX(Counter) FROM Table sau khi mọi nhánh ghi xong (chấp nhận 1 query phụ, chỉ áp dụng
-//   cho thao tác bulk không phải hot path) — xem docs/sql/SalesPrice_AddCounterOutput.sql
-```
-
-Nền tảng: `SyncTableCounterFlushWorker` (BackgroundService, đăng ký trực tiếp ở `POS.Api/Program.cs`
-+ `POS.Web/Program.cs` — **KHÔNG** qua `WorkerRolesOptions` vì `Channel` in-memory chỉ sống đúng
-tiến trình ghi dữ liệu, mà cả 2 process đều ghi master data) drain Channel định kỳ (mặc định 5s),
-batch-update qua SP `usp_SyncTableList_BulkUpdateCounter` (idempotent — chỉ ghi đè khi
-`Counter > POSLastCounter`).
-
-**Anti-pattern:** UPDATE `SyncTableList` đồng bộ ngay trong transaction ghi → lock contention khi
-nhiều POS/admin ghi cùng bảng master data đồng thời.
-
-> Chi tiết đầy đủ + checklist rollout theo từng `TableName`: `.claude/rules/masterdata-sync.md` mục
-> "Cập nhật POSLastCounter bất đồng bộ", `docs/web/sync_data/sync_status.md`.
-> Ví dụ thực tế: `src/POS.Infrastructure/Sync/`, `CentralMDRepository.CreateProductAsync`/
-> `SaveProductLockAsync`, `PriceRepository.SaveAsync`/`UpdatePriceAsync`/`SoftDeletePriceAsync`.
+> và các bug/anti-pattern thực tế đã gặp. Đọc file đó TRƯỚC khi thêm log mới ở bất kỳ đâu.

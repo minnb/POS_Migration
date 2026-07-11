@@ -1,3 +1,8 @@
+---
+name: web-ui-polish-standard
+description: Checklist + pattern polish markup-only (giữ nguyên @code) — status badge dot-pill, NoRecordsContent, tách nhóm field, action bar, tooltip/validation/loading thân thiện. Đọc khi nhận yêu cầu "làm đẹp UI"/"sync UI".
+---
+
 # Skill: UI Polish — Chuẩn đồng bộ giao diện MudBlazor
 
 > **Đọc file này khi:** nhận yêu cầu "làm đẹp UI", "sync UI", "đồng bộ giao diện",
@@ -153,7 +158,7 @@ mỗi nhóm có tiêu đề phụ + divider. **Không** di chuyển hay đổi b
 ## 5. Pattern: Action bar Lưu/Duyệt
 
 Thay `<div class="d-flex gap-2 flex-wrap mt-4">…</div>` bằng MudPaper có nền phân tách. Button
-theo bảng Button convention v3 (`.claude/rules/mudblazor-flat-ui.md` §3, `theming.md` §"Button") —
+theo bảng Button convention v3 (`.claude/rules/mudblazor-flat-ui.md` §3) —
 CTA/hành động tích cực dùng `Filled`, hành động trung tính/phá hủy dùng `Outlined`:
 
 ```razor

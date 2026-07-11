@@ -1,7 +1,8 @@
 # /web-ui-data-table — Thêm data table vào page đã có
 
-Dùng lệnh này để chèn **MudDataGrid** vào một page POS.Web đang có sẵn.
+Dùng lệnh này để chèn **MudTable** vào một page POS.Web đang có sẵn.
 Command hỏi cấu hình cột rồi sinh code đầy đủ kèm search và phân trang.
+Luật dự án bắt buộc `MudTable` — **KHÔNG** `MudDataGrid` (xem `.claude/rules/blazor-web-app.md` §10.B).
 
 ---
 
@@ -59,62 +60,55 @@ Hoặc cung cấp thông tin ngay:
 
 ```razor
 @* ── Data Table ────────────────────────────────────────────────────── *@
-<MudPaper Elevation="2" Class="mt-4">
-    <MudDataGrid T="TransactionRowModel"   @* ← thay đúng model type *@
-                 Items="@_items"
-                 Filterable="false"
-                 SortMode="SortMode.Multiple"
-                 Pageable="true"
-                 PageSize="20"
-                 QuickFilter="@_quickFilter"
-                 Hover="true" Striped="true" Dense="true">
+<MudPaper Elevation="2" Class="mt-4 pa-4">
+    <div class="d-flex align-center mb-3">
+        <MudText Typo="Typo.subtitle1">Danh sách giao dịch</MudText>
+        <MudSpacer/>
+        <MudTextField @bind-Value="_searchText"
+                      Placeholder="Tìm kiếm..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Small"
+                      Immediate="true"
+                      Margin="Margin.Dense"
+                      Class="mt-0" Style="max-width:250px"/>
+    </div>
 
-        <ToolBarContent>
-            <MudText Typo="Typo.subtitle1">Danh sách giao dịch</MudText>
-            <MudSpacer/>
-            <MudTextField @bind-Value="_searchText"
-                          Placeholder="Tìm kiếm..."
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          IconSize="Size.Small"
-                          Immediate="true"
-                          Class="mt-0" Style="max-width:250px"/>
-        </ToolBarContent>
-
-        <Columns>
-            <PropertyColumn Property="x => x.OrderNo"    Title="Số HĐ"/>
-            <PropertyColumn Property="x => x.StoreCode"  Title="Cửa hàng"/>
-            <PropertyColumn Property="x => x.SaleDate"   Title="Ngày"
-                            Format="dd/MM/yyyy HH:mm"/>
-            <PropertyColumn Property="x => x.NetAmount"  Title="Thành tiền"
-                            Format="N0"/>
-            @* Cột status — dùng TemplateColumn *@
-            <TemplateColumn Title="Trạng thái" Sortable="false">
-                <CellTemplate>
-                    <MudChip T="string"
-                             Color="@GetStatusColor(context.Item.Status)"
-                             Size="Size.Small" Variant="Variant.Filled">
-                        @context.Item.Status
-                    </MudChip>
-                </CellTemplate>
-            </TemplateColumn>
-        </Columns>
-
+    <MudTable Items="@_filteredItems" Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" Loading="@_loading">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<TransactionRowModel, object>(x => x.OrderNo)">OrderNo</MudTableSortLabel></MudTh>
+            <MudTh>StoreCode</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<TransactionRowModel, object>(x => x.SaleDate)">SaleDate</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<TransactionRowModel, object>(x => x.NetAmount)">NetAmount</MudTableSortLabel></MudTh>
+            <MudTh>Trạng thái</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="OrderNo">@context.OrderNo</MudTd>
+            <MudTd DataLabel="StoreCode">@context.StoreCode</MudTd>
+            <MudTd DataLabel="SaleDate">@context.SaleDate.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+            <MudTd DataLabel="NetAmount">@context.NetAmount.ToString("N0")</MudTd>
+            <MudTd DataLabel="Trạng thái">
+                <span class="pos-status-chip @GetStatusChipClass(context.Status)">@context.Status</span>
+            </MudTd>
+        </RowTemplate>
         <NoRecordsContent>
             <MudAlert Severity="Severity.Info" Dense="true" Class="ma-2">
                 Không có dữ liệu phù hợp.
             </MudAlert>
         </NoRecordsContent>
-
         <PagerContent>
-            <MudDataGridPager T="TransactionRowModel" PageSizeOptions="new[] { 10, 20, 50, 100 }"/>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
         </PagerContent>
-
-    </MudDataGrid>
+    </MudTable>
 </MudPaper>
 ```
 
-> **Pagination chuẩn:** `PageSizeOptions` luôn = `new[] { 10, 20, 50, 100 }` (cho cả `MudTablePager` lẫn `MudDataGridPager`). Phải bắt đầu bằng `10` vì default `RowsPerPage = 10`; thiếu `10` → ô chọn số dòng/trang hỏng.
+> **Pagination chuẩn:** `PageSizeOptions` luôn = `new[] { 10, 20, 50, 100 }` — phải bắt đầu bằng
+> `10` vì default `RowsPerPage = 10`; thiếu `10` → ô chọn số dòng/trang hỏng. Chi tiết đầy đủ
+> (client/server-side paging, cột động): `.claude/skills/web/datatable.md`.
 
 #### Phần @code (thêm vào code block)
 
@@ -122,25 +116,30 @@ Hoặc cung cấp thông tin ngay:
 // Data list — thêm vào field declarations
 private List<TransactionRowModel> _items = [];   // ← thay đúng type
 private string _searchText = string.Empty;
+private bool _loading = true;
 
-// Quick filter function — thêm vào field declarations
-private Func<TransactionRowModel, bool> _quickFilter =>
-    x => string.IsNullOrWhiteSpace(_searchText)
-         || x.OrderNo.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-         || x.StoreCode.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
-         // TODO: thêm properties cần search
+// MudTable không có QuickFilter built-in (khác MudDataGrid) — lọc bằng property tính toán
+private List<TransactionRowModel> _filteredItems =>
+    string.IsNullOrWhiteSpace(_searchText)
+        ? _items
+        : _items.Where(x =>
+            x.OrderNo.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || x.StoreCode.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            // TODO: thêm properties cần search
+          ).ToList();
 
-// Status color helper — thêm vào cuối @code
-private static Color GetStatusColor(string? status) => status switch
+// Badge dot-pill class — xem .claude/rules/mudblazor-flat-ui.md §4a (KHÔNG dùng MudChip cho badge tĩnh)
+private static string GetStatusChipClass(string? status) => status switch
 {
-    "Thành công" or "online"  => Color.Success,
-    "Lỗi" or "offline"        => Color.Error,
-    "Cảnh báo" or "warning"   => Color.Warning,
-    _                         => Color.Default
+    "Thành công" or "online"  => "pos-status-success",
+    "Lỗi" or "offline"        => "pos-status-error",
+    "Cảnh báo" or "warning"   => "pos-status-warning",
+    _                         => "pos-status-info"
 };
 
 // Trong LoadDataAsync():
 // _items = await FeatureService.GetItemsAsync(...);  // TODO: implement
+// _loading = false;
 ```
 
 ---
@@ -150,14 +149,14 @@ private static Color GetStatusColor(string? status) => status switch
 Báo:
 - Vị trí cụ thể cần chèn code (sau dòng nào trong markup)
 - Properties cần thêm vào Model nếu chưa có
-- QuickFilter cần search trên fields nào
+- `_filteredItems` cần search trên fields nào
 
 ---
 
 ## Lưu ý
 
-- `QuickFilter` chạy client-side trên data đã load — với dataset lớn (>500 rows) nên filter server-side qua repository
-- `Format="N0"` trên `PropertyColumn` dùng standard .NET format strings
-- `TemplateColumn` với `Sortable="false"` cho cột status — không sort theo MudChip
-- Nếu cần export Excel → thêm `MudButton` trong `ToolBarContent` gọi method `ExportExcelAsync()` (implement sau)
+- `_filteredItems` lọc client-side trên data đã load — với dataset lớn (>500 rows) nên filter server-side qua repository + `MudTable ServerData` (xem `.claude/skills/web/datatable.md`)
+- Cột số tiền/ngày format thủ công trong `RowTemplate` (`ToString("N0")`/`ToString("yyyy-MM-dd HH:mm:ss")`) — không có `Format=` attribute như `MudDataGrid`
+- Badge trạng thái dùng `<span class="pos-status-chip pos-status-{semantic}">` — KHÔNG `MudChip` (xem `.claude/rules/mudblazor-flat-ui.md` §4a)
+- Nếu cần export Excel → thêm `MudButton` phía trên bảng gọi method `ExportExcelAsync()` (implement sau)
 - Không inject `IDbConnectionFactory` — data phải đến từ Service hoặc Repository

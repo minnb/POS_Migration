@@ -1,3 +1,8 @@
+---
+name: web-ui-ux-and-components
+description: Luật bắt buộc layout/styling/data display/dialog/responsive/KPI card cho POS.Web, kèm bảng MudBlazor component mapping. Đọc khi viết/sửa markup của bất kỳ page/component nào.
+---
+
 # Skill: UI/UX & Component Standards POS.Web (MudBlazor 9.5.0)
 
 > **Đọc file này khi:** viết/sửa markup của bất kỳ page/component nào trong `src/POS.Web/` — đây là
@@ -101,6 +106,37 @@
 - **Trend/delta (%):** dùng component dùng chung `<PosDeltaBadge Current="..." Previous="..."
   Enabled="..."/>` — KHÔNG viết `RenderFragment TrendBadge()` cục bộ trong `@code` của page (đã có
   3 bản trùng lặp bị gộp lại thành component này).
+
+---
+
+## 7. MudBlazor — component mapping (nhu cầu chức năng → component)
+
+| Cần làm | MudBlazor component |
+|---|---|
+| Bảng dữ liệu có sort / filter / page | `MudTable<T>` + `MudTableSortLabel` + `MudTablePager` (xem `04-datatable-and-lists.md`) |
+| Bảng server-side paging | `MudTable<T>` với `ServerData` + `@ref` + `ReloadServerData()` |
+| Biểu đồ đường | `<Line T="double">` (v9 — cần `@using MudBlazor.Charts`) |
+| Biểu đồ cột | `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
+| Số liệu tổng quan (KPI card) | `MudPaper` + `.pos-kpi-value`/`.pos-kpi-label` — **BẮT BUỘC** theo khuôn mẫu §6, KHÔNG tự viết |
+| Thông báo popup | `ISnackbar` (inject, gọi `Snackbar.Add(...)`) |
+| Dialog xác nhận đơn giản | `MudMessageBox @ref="_msgBox"` trong Razor + `await _msgBox!.ShowAsync()` trong code |
+| Dialog form đầy đủ | `IDialogService` + `DialogService.ShowAsync<T>()` |
+| Input text | `MudTextField<T>` |
+| Dropdown chọn một | `MudSelect<T>` |
+| Date picker | `MudDatePicker` |
+| Chip lọc / filter (tương tác) | `MudChip T="string"` (bắt buộc có `T=`) |
+| Badge trạng thái tĩnh | `<span class="pos-status-chip pos-status-{success,error,warning,info}">` — xem `.claude/rules/mudblazor-flat-ui.md` §4a, KHÔNG dùng `MudChip` |
+| Loading thanh ngang | `MudProgressLinear Indeterminate="true"` |
+| Loading tròn | `MudProgressCircular Indeterminate="true"` |
+| Alert cố định | `MudAlert Severity="..."` |
+| Card nội dung | `MudCard` + `MudCardContent` |
+| Paper nền | `MudPaper Elevation="2" Class="pa-4"` |
+| Grid layout | `MudGrid` + `MudItem xs="12" sm="6"` |
+
+> Bảng trên map theo **nhu cầu chức năng** (cần làm gì → dùng component nào). Khi polish/tạo UI
+> mới đối chiếu trực tiếp với 1 mockup HTML (`div.sidebar`, `div.card`, `button.btn-primary`...),
+> dùng bảng **"Mapping HTML mockup → MudBlazor Component"** ở `.claude/rules/mudblazor-flat-ui.md`
+> mục 0 — map theo **cấu trúc/markup**, bổ sung cho bảng này chứ không lặp lại.
 
 ---
 

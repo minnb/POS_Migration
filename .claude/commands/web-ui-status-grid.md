@@ -36,7 +36,7 @@ Hoặc cung cấp thông tin ngay:
 
 **3. Layout:**
 - `card` — card grid dạng lưới, nhìn tổng quan nhiều terminal
-- `table` — MudDataGrid chi tiết có sort/filter/page
+- `table` — MudTable chi tiết có sort/filter/page
 
 **4. Có filter bar theo trạng thái không?**
 - Nếu có: filter chips: Tất cả / Online / Offline / Cảnh báo (với số đếm)
@@ -113,36 +113,40 @@ else
 
 #### Phần Razor — Table layout
 
+> Dùng `MudTable` (KHÔNG `MudDataGrid`) — luật bắt buộc dự án, xem
+> `.claude/rules/blazor-web-app.md` §10.B + `.claude/skills/web/datatable.md`.
+
 ```razor
 @* ── Terminal Table ──────────────────────────────────────────────────── *@
-<MudPaper Elevation="2">
-    <MudDataGrid T="PosTerminalModel"
-                 Items="@_filteredTerminals"
-                 Hover="true" Striped="true" Dense="true"
-                 SortMode="SortMode.Single">
-        <Columns>
-            <PropertyColumn Property="x => x.TerminalId"  Title="Terminal ID"/>
-            <PropertyColumn Property="x => x.StoreCode"   Title="Cửa hàng"/>
-            <PropertyColumn Property="x => x.IpAddress"   Title="IP"/>
-            <PropertyColumn Property="x => x.LastSeen"    Title="Last Seen"
-                            Format="HH:mm dd/MM"/>
-            <TemplateColumn Title="Trạng thái" Sortable="false">
-                <CellTemplate>
-                    <MudChip T="string"
-                             Color="@GetStatusChipColor(context.Item.Status)"
-                             Size="Size.Small" Variant="Variant.Filled">
-                        @context.Item.Status
-                    </MudChip>
-                </CellTemplate>
-            </TemplateColumn>
-        </Columns>
-        <NoRecordsContent>
-            <MudAlert Severity="Severity.Info" Dense="true" Class="ma-2">
-                Không có terminal nào.
-            </MudAlert>
-        </NoRecordsContent>
-    </MudDataGrid>
-</MudPaper>
+<MudTable Items="@_filteredTerminals" Hover="true" Striped="true" Dense="true"
+          Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortBy="new Func<PosTerminalModel, object>(x => x.TerminalId)">Terminal ID</MudTableSortLabel></MudTh>
+        <MudTh>Cửa hàng</MudTh>
+        <MudTh>IP</MudTh>
+        <MudTh>Last Seen</MudTh>
+        <MudTh>Trạng thái</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Terminal ID">@context.TerminalId</MudTd>
+        <MudTd DataLabel="Cửa hàng">@context.StoreCode</MudTd>
+        <MudTd DataLabel="IP">@context.IpAddress</MudTd>
+        <MudTd DataLabel="Last Seen">@(context.LastSeen?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+        <MudTd DataLabel="Trạng thái">
+            <span class="pos-status-chip @GetStatusChipClass(context.Status)">@context.Status</span>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudAlert Severity="Severity.Info" Dense="true" Class="ma-2">
+            Không có terminal nào.
+        </MudAlert>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                       InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                       RowsPerPageString="Số dòng mỗi trang:"/>
+    </PagerContent>
+</MudTable>
 ```
 
 #### Phần @code (thêm vào code block)
@@ -185,6 +189,15 @@ private static string GetStatusBorderColor(string? status) => status switch
     "offline" => "var(--mud-palette-error)",
     "warning" => "var(--mud-palette-warning)",
     _         => "var(--mud-palette-divider)"
+};
+
+// Dùng cho badge dot-pill trong MudTable — xem .claude/rules/mudblazor-flat-ui.md §4a
+private static string GetStatusChipClass(string? status) => status switch
+{
+    "online"  => "pos-status-success",
+    "offline" => "pos-status-error",
+    "warning" => "pos-status-warning",
+    _         => "pos-status-info"
 };
 
 // ── Trong LoadDataAsync() ────────────────────────────────────────────

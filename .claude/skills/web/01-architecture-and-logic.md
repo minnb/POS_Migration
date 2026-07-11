@@ -1,3 +1,8 @@
+---
+name: web-architecture-and-logic
+description: Luật bắt buộc nền tảng cho POS.Web — tech stack, auth/policy, lifecycle 3-state, DI/data access, anti-crash MudAutocomplete, logging/audit. Đọc TRƯỚC bất kỳ page/component/service mới nào.
+---
+
 # Skill: Kiến trúc & Logic nền tảng POS.Web (Blazor Server + MudBlazor 9.5.0)
 
 > **Đọc file này khi:** bắt đầu bất kỳ page/component/service nào trong `src/POS.Web/` — đây là bản
@@ -40,17 +45,18 @@
   `Nav.NavigateTo("/account/signin/{token}", forceLoad: true)` → minimal API set cookie
   (`SignInAsync`, 8h SlidingExpiration, HttpOnly, SameSite=Strict) → redirect `/`.
 - **Trang nhạy cảm (SQL Console...):** PIN gate BCrypt độc lập cookie + `try/catch/finally` đầy đủ quanh
-  verify + Security headers/CSP config-driven. Xem `SKILLS.md` §"SQL Console hardening"/§"PIN gate".
+  verify + Security headers/CSP config-driven. Xem `.claude/skills/web/security-hardening.md`.
 
 ## 3. Component Lifecycle & State
 
-- **3 state bắt buộc:** `_loading` → `_errorMsg` → (empty `_isEmpty`) → Content. Xem template `SKILLS.md`.
+- **3 state bắt buộc:** `_loading` → `_errorMsg` → (empty `_isEmpty`) → Content. Xem template đầy
+  đủ `.claude/rules/blazor-web-app.md` §5.
 - **`OnInitializedAsync`:** BẮT BUỘC bọc `try/catch`, `_loading = false` trong `finally`. Lỗi log
   `KibanaService.LogException("Page.OnInitialized", "", 0, "", ex.Message)`.
   > ⚠️ Exception **thoát khỏi** lifecycle method **KHÔNG chỉ crash page** — nó **sập luôn circuit
   > SignalR**, mọi tương tác sau đó (kể cả dialog đang mở) fail. Nếu load ≥2 nguồn **độc lập** →
-  > **tách try/catch riêng từng nguồn** (1 nguồn lỗi không kéo sập nguồn khác). Xem `SKILLS.md`
-  > §"Load nhiều nguồn độc lập".
+  > **tách try/catch riêng từng nguồn** (1 nguồn lỗi không kéo sập nguồn khác). Xem
+  > `03-integration-and-performance.md` §6 "Load nhiều nguồn độc lập".
 - **Event handler async:** dùng `try/catch/finally` **đầy đủ** (không chỉ `try/finally`) — exception
   không lường trước vẫn crash circuit dù `finally` đã chạy.
 
@@ -58,7 +64,7 @@
 
 - **CẤM HttpClient → POS.Api:** inject thẳng Service/Repository qua DI (POS.Web đăng ký
   `AddInfrastructure()` + `AddApplication()`). Cần chạy tác vụ của POS.Api → bọc method Application
-  dùng chung, KHÔNG nhồi logic vào `.razor` (xem `SKILLS.md` §"kích hoạt tác vụ server-side qua DI").
+  dùng chung, KHÔNG nhồi logic vào `.razor` (xem `.claude/skills/web/trigger-api-task-via-di.md`).
 - **CẤM raw SQL trong Razor:** mọi truy vấn qua Repository/Service.
 - **Inject DB factory:** inject concrete `CentralMDConnectionFactory`/`LoyaltyConnectionFactory` —
   KHÔNG inject `IDbConnectionFactory` (interface không đăng ký trong DI).

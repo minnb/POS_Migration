@@ -1,3 +1,8 @@
+---
+name: web-form-input
+description: Chuẩn form nhập liệu cơ bản trong POS.Web — nhóm field bằng MudCard, breakpoint, quy ước attribute, Placeholder vs HelperText, validation, action bar. Đọc khi tạo/sửa form nhập liệu; biến thể nâng cao ở form-input-special-modes.md.
+---
+
 # Skill: Thiết kế Form nhập liệu (MudBlazor)
 
 > **Đọc file này khi:** tạo/sửa **form nhập liệu** trong `src/POS.Web/` — trang tạo/sửa bản ghi,
@@ -246,7 +251,7 @@ if (_model.DiscountType == 1 && (_model.DiscountValue <= 0 || _model.DiscountVal
 
 ## 6. Action bar (Lưu / nút chính)
 
-> Variant/Color mỗi nút theo **bảng Button convention v3** (`theming.md` §"Button" / `.claude/rules/mudblazor-flat-ui.md` §3):
+> Variant/Color mỗi nút theo **bảng Button convention v3** (`.claude/rules/mudblazor-flat-ui.md` §3):
 > "Lưu" = CTA `Filled`/`Primary`; "Duyệt"/"Kích hoạt" = `Filled`/`Success`; "Hủy"/"Đóng" = `Outlined`
 > trung tính; "Xóa" = `Outlined`/`Error`. Nhất quán với `ui-polish-standard.md §5`.
 
@@ -289,10 +294,11 @@ if (_model.DiscountType == 1 && (_model.DiscountValue <= 0 || _model.DiscountVal
 □ Build + dotnet test ContractTests xanh
 ```
 
-**Bổ sung khi bản ghi bị khóa vĩnh viễn sau khi tạo (view-only + field ngoại lệ):**
+**Bổ sung khi bản ghi bị khóa vĩnh viễn sau khi tạo (view-only + field ngoại lệ)** — xem
+[`form-input-special-modes.md`](form-input-special-modes.md) mục 1-2 cho pattern đầy đủ:
 ```
-□ Chế độ xem dùng cặp MudText label/value (§9) — KHÔNG dùng Disabled cho toàn bộ input
-□ Field ngoại lệ vẫn tương tác được, đặt trong MudPaper con riêng + ghi chú caption (§10)
+□ Chế độ xem dùng cặp MudText label/value — KHÔNG dùng Disabled cho toàn bộ input
+□ Field ngoại lệ vẫn tương tác được, đặt trong MudPaper con riêng + ghi chú caption
 □ Nút Lưu ẩn mặc định, chỉ hiện khi field ngoại lệ đổi giá trị (snapshot _originalX + XChanged)
 □ Field ngoại lệ gọi API/SP RIÊNG (không gọi lại SP Save đầy đủ)
 ```
@@ -320,102 +326,22 @@ if (_model.DiscountType == 1 && (_model.DiscountValue <= 0 || _model.DiscountVal
 
 ---
 
-## 9. Chế độ CHỈ XEM (View-only) — bản ghi đã khóa, KHÔNG dùng `Disabled`
+## 9. Biến thể nâng cao — xem file riêng
 
-> Áp dụng khi: nghiệp vụ quy định bản ghi **không còn sửa được sau khi tạo** (vd voucher đã phát
-> hành mã, coupon đã sinh code) — khác readonly TẠM THỜI (`Disabled="@_isReadonly"` ở §4, dùng khi
-> user có thể bật/tắt qua lại giữa chế độ xem và sửa). Với khóa VĨNH VIỄN, **KHÔNG** dùng input
-> `Disabled` (nhìn vẫn giống ô nhập liệu, dễ gây hiểu lầm còn sửa được) — thay bằng **cặp `MudText`
-> label/value**, giữ nguyên layout `MudGrid`/`MudItem` như form nhập để 2 chế độ không "nhảy" bố cục.
-
-```razor
-<MudPaper Outlined="true" Class="pa-3 mb-3 rounded-lg" Style="position:relative">
-    <MudText Typo="Typo.subtitle2" Color="Color.Primary"
-             Style="position:absolute; top:-11px; left:12px; padding:0 6px;
-                    background:var(--mud-palette-surface); line-height:1;">
-        Thông tin voucher
-    </MudText>
-    <MudGrid Spacing="2" Class="mt-1">
-        <MudItem xs="12" sm="6" md="3">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Mã phát hành</MudText>
-            <MudText Typo="Typo.body1">@_model.ItemNo</MudText>
-        </MudItem>
-        @* mỗi field 1 cặp caption (label) + body1 (value), CÙNG breakpoint như lúc còn là input *@
-    </MudGrid>
-</MudPaper>
-```
-
-- Giữ **nguyên breakpoint** `xs`/`sm`/`md` của field tương ứng ở chế độ nhập liệu (§3) — chỉ đổi
-  input thành `MudText`, không đổi layout.
-- Đổi **cả khối** (không đổi từng field lẻ) — bọc CẢ section trong `@if (IsReadOnlyMode) {...} else {...}`
-  (mirror quy tắc "bọc cả `MudCard`" ở §2).
-- Bảng con (`MudTable` sản phẩm...) giữ nguyên component nhưng **ẩn cột hành động** (thêm/xoá) khi
-  view-only, thay vì disable từng nút.
-
-> Ví dụ thực tế: `src/POS.Web/Components/Pages/Promotion/CouponVoucher/VoucherIssuePage.razor`
-> (nhánh `@if (IsEditing) { ... }`).
+> Chế độ CHỈ XEM (view-only, bản ghi khóa vĩnh viễn), sửa 1 field ngoại lệ với nút Lưu điều kiện,
+> `MudTimePicker`, `MudSelect` multi-selection, format số tiền khi nhập — đã tách sang
+> **[`form-input-special-modes.md`](form-input-special-modes.md)**, đọc file đó khi gặp đúng
+> tình huống tương ứng.
 
 ---
 
-## 10. Sửa 1 field NGOẠI LỆ trên bản ghi đã khóa — nút Lưu điều kiện
-
-> Áp dụng khi: bản ghi ở chế độ CHỈ XEM (§9) nhưng nghiệp vụ vẫn cho sửa **đúng 1 field** (vd bật/tắt
-> `Blocked`/`Active`) mà không mở lại toàn bộ form. KHÔNG tái dùng action bar Lưu-luôn-hiện (§6) —
-> nút Lưu phải **ẩn mặc định**, chỉ hiện lại khi field ngoại lệ thực sự đổi giá trị so với lúc nạp.
-
-**`@code` — snapshot giá trị gốc + cờ đã đổi:**
-```csharp
-private bool _originalBlocked;                           // snapshot NGAY sau khi nạp chi tiết
-private bool BlockedChanged => IsEditing && _model.Blocked != _originalBlocked;
-
-private async Task LoadDetailAsync(string itemNo)
-{
-    var d = await Service.GetDetailAsync(itemNo);
-    _model.Blocked = d.Blocked;
-    _originalBlocked = d.Blocked;
-}
-
-private async Task SaveExceptionFieldAsync()
-{
-    if (!BlockedChanged) return;
-    var result = await Service.UpdateBlockedAsync(_model.ItemNo, _model.Blocked);
-    if (!result.Ok) { Snackbar.Add(result.Message, Severity.Error); return; }
-    await AuditLogger.LogAsync(actor, "UPDATE", "Entity", _model.ItemNo,
-        oldValueJson: JsonConvert.SerializeObject(new { _model.ItemNo, Blocked = _originalBlocked }),
-        newValueJson: JsonConvert.SerializeObject(new { _model.ItemNo, _model.Blocked }));
-    _originalBlocked = _model.Blocked;                    // reset snapshot → nút Lưu ẩn lại
-}
-```
-
-**Razor — nút Lưu trong `pos-page-header-btn` (không phải action bar §6):**
-```razor
-@if (!IsEditing || BlockedChanged)
-{
-    <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="_saving"
-               OnClick="@(() => IsEditing ? SaveExceptionFieldAsync() : SaveAsync())">
-        ...
-    </MudButton>
-}
-```
-
-- Field ngoại lệ **vẫn tương tác được** dù cả phần còn lại đã chuyển sang view-only (§9) — đặt trong
-  1 `MudPaper` con riêng, kèm `MudText Typo="Typo.caption"` ghi rõ đây là ngoại lệ (vd "chỉ được
-  phép khóa/mở khóa").
-- Gọi **API/SP RIÊNG** cho field ngoại lệ (vd `usp_SetupVoucher_UpdateBlocked`) — KHÔNG gọi lại SP
-  Save đầy đủ, tránh vô tình ghi đè field khác không có trên UI view-only.
-- Vẫn **audit log CRUD** như mọi Update khác — xem `audit-logging.md`.
-
-> Ví dụ thực tế: `VoucherIssuePage.razor` — `SaveBlockedAsync()` + `BlockedChanged`.
-
----
-
-## 11. Tham chiếu
+## 10. Tham chiếu
 
 | Loại | File |
 |---|---|
 | Form mẫu chuẩn (5 tab, nhiều section MudCard) | `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor` |
 | Dialog form (trả DTO đầy đủ cho audit) | `src/POS.Web/Components/Pages/Ops/Dialogs/PosDataSetupFormDialog.razor` |
 | Nhóm con bo viền trong 1 MudCard + MudNumericField Variant theo kiểu dữ liệu (§4a) + Business rule phụ thuộc field khác (§5a) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/CouponIssuePage.razor` |
-| Placeholder vs HelperText (§4b), Chế độ CHỈ XEM + field ngoại lệ có nút Lưu điều kiện (§9, §10) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/VoucherIssuePage.razor` |
+| Placeholder vs HelperText (§4b), biến thể nâng cao (§9) | `src/POS.Web/Components/Pages/Promotion/CouponVoucher/VoucherIssuePage.razor` |
 | Polish markup-only (tooltip/validation/loading) | `.claude/skills/web/ui-polish-standard.md` §8 |
 | Audit CRUD sau khi lưu | `.claude/skills/web/audit-logging.md` |

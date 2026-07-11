@@ -1,3 +1,8 @@
+---
+name: api-logging
+description: 3 cơ chế logging trong POS.Api/POS.Infrastructure (IFileLogHelper/IKibanaService/middleware request-response toàn cục) — khi nào dùng cái nào. Đọc TRƯỚC khi thêm log mới ở bất kỳ đâu.
+---
+
 # Skill: Logging trong POS.Api/POS.Infrastructure — 3 cơ chế, dùng cái nào khi nào
 
 > **Đọc file này trước khi**: thêm log mới ở bất kỳ đâu (Controller/Service/Repository/Middleware),

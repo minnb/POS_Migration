@@ -1,3 +1,8 @@
+---
+name: web-reports
+description: Pattern trang báo cáo pivot (ma trận cột-ngày động) và layout trang xuất PDF/report. Đọc khi tạo trang báo cáo dạng pivot hoặc trang xuất báo cáo.
+---
+
 # Reports — Pivot table & Report page layout
 
 > **Áp dụng khi:** tạo trang báo cáo dạng ma trận (pivot) hoặc trang xuất báo cáo/PDF.

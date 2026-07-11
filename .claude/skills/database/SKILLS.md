@@ -1,3 +1,8 @@
+---
+name: database-stored-procedure
+description: Convention SP (dbo.usp_{Domain}_{Action}, TVP), template SP ghi dữ liệu, reserved keyword bracket-quote, và pattern Repository/SP (audit log try/finally, UPDLOCK/HOLDLOCK Counter, OUTPUT param, timeline merge). Đọc TRƯỚC khi viết SP mới cho RPOSMasterData/RPOSCentralSales/RPOSLoyalty.
+---
+
 # Skill: Stored Procedure — RPOSMasterData / RPOSCentralSales / RPOSLoyalty
 
 > **Áp dụng khi:** tạo mới bất kỳ stored procedure nào cho `RPOSMasterData` (CentralMD),
@@ -26,6 +31,24 @@ với `[Source]` trong `CentralSaleRepository.cs` (`GetDataRawJsonListAsync`).
 **Dấu hiệu nhận biết**: SQL Server báo lỗi **156** "Incorrect syntax near the keyword 'X'" mà cột
 `X` **có tồn tại thật** trong bảng (khác lỗi **207** "Invalid column name 'X'", là lỗi tên cột sai/
 không tồn tại) → chắc chắn là reserved keyword, bracket-quote ngay `[X]`, không cần đoán thêm.
+
+**Rà soát 2026-07-11**: grep toàn bộ `docs/sql/**/*.sql` phát hiện `LineNo` **chưa** bracket-quote
+ở 5 vị trí (`ORDER BY LineNo` và INSERT column-list `(ItemNo, LineNo, ...)`) trong
+`SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupVoucher_Read.sql`, `SetupVoucher_Save.sql`,
+`SetupVoucher_SaveIssue.sql` — đã sửa thành `[LineNo]`. **Khi viết/copy bất kỳ câu SQL nào có cột
+`LineNo`** (SELECT, INSERT column list, ORDER BY, JOIN, GROUP BY...) → luôn viết `[LineNo]`, kể cả
+khi chỉ copy lại 1 đoạn từ script khác trong cùng file — dễ sót nhất ở INSERT column-list và
+ORDER BY vì không có prefix bảng nhắc nhớ (khác `t.[LineNo]` trong JOIN đã có prefix).
+
+```sql
+-- SAI — gây lỗi Msg 156 "Incorrect syntax near the keyword 'LineNo'"
+INSERT INTO dbo.CpnVchBOMLine (ItemNo, LineNo, LineItemNo, ...)
+ORDER BY LineNo;
+
+-- ĐÚNG
+INSERT INTO dbo.CpnVchBOMLine (ItemNo, [LineNo], LineItemNo, ...)
+ORDER BY [LineNo];
+```
 
 ---
 
@@ -91,6 +114,52 @@ không suy đoán tên bảng/cột (xem mục "Cổng chặn trùng lặp" tron
 Bảng chưa có trong doc tương ứng → đọc lại script gốc (2 file `CentralSale.sql`/`Loyalty.sql` là
 UTF-16, dùng PowerShell `Get-Content -Encoding Unicode -Raw` để đọc được, không dùng tool đọc
 text thường), bổ sung vào file schema đúng DB trong cùng commit.
+
+---
+
+## Single File Constraint — BẮT BUỘC khi sửa/refactor/fix bug SP đã tồn tại
+
+> Áp dụng: mọi lần tạo mới, chỉnh sửa, refactor, hoặc fix bug 1 stored procedure/script trong
+> `docs/sql/`. Lý do: `tools/POS.DbMigrator` quét theo `docs/sql/manifest.json` — 1 SP bị tách
+> thành 2 file `.sql` chạy song song (vd giữ file cũ + tạo thêm `_v2.sql`) khiến Migrator áp dụng
+> cả 2 nguồn, gây xung đột hoặc chạy trùng logic.
+
+**TUYỆT ĐỐI KHÔNG** tạo file `.sql` thứ hai cho cùng 1 SP đang sửa (không hậu tố `_v2`, `_new`,
+`_fix`...). Mỗi SP chỉ có đúng 1 file nguồn trong `docs/sql/manifest.json`.
+
+Khi sửa 1 SP đã tồn tại, chọn đúng 1 trong 2 chiến lược sau theo Track của script đó (xem
+`trackDefinitions` trong `manifest.json`):
+
+**Chiến lược 1 — Ghi đè (mặc định cho Track A — idempotent, `runOnce: false`)**
+
+Sửa trực tiếp nội dung SQL trong chính file `.sql` đang tồn tại (`DROP PROCEDURE IF EXISTS` +
+`CREATE PROCEDURE` — đã là pattern chuẩn của mọi SP mới, xem "Template SP ghi dữ liệu" bên dưới).
+`manifest.json` **giữ nguyên entry cũ** (không thêm dòng mới) — Migrator tự áp dụng bản mới ở lần
+`--apply` kế tiếp. Đây là chiến lược **mặc định** cho tuyệt đại đa số SP trong dự án (đã idempotent
+sẵn theo thiết kế).
+
+**Chiến lược 2 — Backup an toàn (chỉ dùng cho Track B — one-shot rủi ro cao, `runOnce: true`, hoặc
+khi cần giữ lại bản cũ để đối chiếu/rollback thủ công)**
+
+1. Đổi tên file cũ thêm hậu tố `.bak` ngay trong `docs/sql/` (vd `SetupCoupon_Save.sql.bak`) —
+   phần mở rộng khác `.sql` nên Migrator/`SqlManifestTests` bỏ qua tự động, không cần code xử lý
+   riêng.
+2. Tạo file `.sql` mới cùng tên gốc (không hậu tố) thay thế hoàn toàn.
+3. **Cập nhật `manifest.json`**: entry của SP vẫn trỏ đúng 1 file (tên gốc) — không thêm entry cho
+   file `.bak`.
+4. Ghi 1 dòng note trong entry `manifest.json` chỉ tới lý do rewrite + tên file `.bak` tương ứng,
+   để lần sau không nhầm là file rác.
+
+**Naming convention khi viết SQL** (áp dụng cho cả 2 chiến lược, không đổi so với quy ước hiện có):
+bracket-quote `[TênCộtTrùngReservedKeyword]` (xem mục "Reserved keyword" phía trên), dùng
+`WITH (UPDLOCK, HOLDLOCK)` khi đọc-rồi-ghi giá trị tăng dần có khả năng race condition (Counter,
+mã tự sinh...) — xem "Pattern: SP đổi Status trên bảng có cột `Counter`".
+
+**KHÔNG làm:**
+- ❌ Tạo `{Domain}_{Action}_v2.sql` chạy song song `{Domain}_{Action}.sql` cho cùng 1 SP.
+- ❌ Để cả file `.bak` lẫn file gốc cùng có mặt trong `manifest.json`.
+- ❌ Dùng Chiến lược 2 (backup) cho SP Track A thông thường — tăng số file không cần thiết khi
+  Chiến lược 1 (ghi đè) đã đủ an toàn nhờ tính idempotent.
 
 ---
 
@@ -206,7 +275,6 @@ reset trạng thái đã redeem/dùng.
 
 ---
 
-<<<<<<< HEAD
 ## Pattern: SP xử lý chồng lấn khoảng ngày hiệu lực (timeline merge, set-based)
 
 > Áp dụng khi: bulk save nhiều dòng "giá trị + khoảng ngày hiệu lực" (giá bán, khuyến mãi, tỷ giá...)
@@ -233,7 +301,9 @@ riêng lẻ cho từng trường hợp chồng lấn (dễ sót case, khó test)
 > Ví dụ thực tế: `dbo.tvf_SetupSalePrice_Timeline` + `dbo.Setup_SalePrice_Get_ALL`
 > (`docs/sql/SetupSalePrice_Save.sql`) — xử lý chồng lấn khoảng `StartingDate/EndingDate` khi bulk
 > import bảng giá bán (9.3 Setup Giá).
-=======
+
+---
+
 ## Pattern: SP đổi Status trên bảng có cột `Counter` đồng bộ POS
 
 > Áp dụng khi: SP update 1 bảng thuộc nhóm `Offer*` (hoặc bảng tương tự có cột `Counter bigint`
@@ -270,7 +340,6 @@ END CATCH
   hiểu nhầm là "tắt" trong khi thực ra là Active, xem case `usp_OfferHeader_Deactivate`).
 
 > Ví dụ thực tế: `docs/sql/OfferHeader_Deactivate.sql` (`usp_OfferHeader_Deactivate`).
->>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
 
 ---
 
@@ -328,6 +397,200 @@ END
 > Ví dụ thực tế: `docs/sql/SetupVoucher_SaveIssue.sql` (`usp_SetupVoucher_SaveIssue`, có guard,
 > giữ nguyên) vs `docs/sql/SetupVoucher_IssueMore.sql` (`usp_SetupVoucher_IssueMore`, SP mới,
 > không guard) — nghiệp vụ "phát hành nhiều lần từ 1 mã phát hành Voucher".
+
+---
+
+## Pattern: Audit log table với try/finally trong Repository
+
+> Áp dụng khi: cần ghi audit log sau mỗi lần insert/process data, bất kể thành công hay thất bại, kể cả khi có nhiều return path.
+
+```csharp
+// Khai báo tracking variables TRƯỚC try
+bool   _flag     = false;
+string _errorMsg = "";
+string _dataType = "";
+try
+{
+    // ... logic chính, cập nhật _flag/_errorMsg/_dataType ở mỗi nhánh ...
+    _flag = true;
+    return (true, "OK");
+}
+catch (Exception ex) { _errorMsg = ex.Message; return (false, _errorMsg); }
+finally
+{
+    // finally LUÔN chạy — đảm bảo log dù return ở nhánh nào
+    await InsertDataRawJsonAsync(transactionId, _dataType, message, _flag,
+        _flag ? null : _errorMsg);
+}
+
+private async Task InsertDataRawJsonAsync(string transactionId, string dataType,
+    string message, bool flag, string? errorMessage)
+{
+    try
+    {
+        using var conn = await directConnectionFactory.CreateOpenConnectionAsync(
+            CancellationToken.None);  // CancellationToken.None — log phải chạy kể cả request bị cancel
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { ... }, commandTimeout: Timeout));
+    }
+    catch { /* Swallow — nếu log fail, main processing đã fail → RabbitMQ retry tự động */ }
+}
+```
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/CentralSaleRepository.cs` — `InInsertToTableByJson` + `InsertDataRawJsonAsync`
+
+**Anti-pattern:** Gọi log function ở từng return path riêng lẻ → dễ bỏ sót khi thêm nhánh mới.
+
+**Gotcha (2026-07-08):** `InInsertToTableByJson` từng mở connection chính (không phải audit log)
+qua `StoreRoutedConnectionFactory` (route theo `StoreSetServer`) — khi `ServerIP` của 1 store
+không còn kết nối được trên UAT/Prod, method throw "network-related... SQL Server" dù các hàm đọc
+cùng bảng vẫn chạy bình thường (chúng dùng `directConnectionFactory` cố định). Đã đổi sang luôn
+dùng `directConnectionFactory`. Bài học: chỉ dùng `StoreRoutedConnectionFactory` khi thật sự cần
+ghi vào bảng **sharded theo store** (TransHeader...); nếu SP/bảng đích không phụ thuộc shard, ưu
+tiên `directConnectionFactory` để tránh thêm 1 điểm lỗi mạng không cần thiết.
+
+---
+
+## Pattern: Optional filter param trong UPDLOCK transaction
+
+> Áp dụng khi: cần enforce thêm điều kiện (VoucherType, loại hàng, v.v.) bên trong transaction
+> có UPDLOCK — check PHẢI nằm trong transaction, không thể làm ngoài (TOCTOU risk).
+
+```csharp
+// Interface — thêm optional param, caller cũ không bị break
+Task<...> RedeemVouchersAsync(
+    List<(string VoucherNumber, double AmountRedeem)> serials,
+    string orderNo,
+    string? requiredVoucherType = null,   // ← optional, default null = bỏ qua check
+    CancellationToken ct = default);
+
+// Repository — check ngay sau SELECT UPDLOCK, trước UPDATE
+if (requiredVoucherType != null)
+{
+    var wrongType = vouchers.FirstOrDefault(v => v.VoucherType != requiredVoucherType);
+    if (wrongType != null) { tx.Rollback(); return (false, $"Voucher ... không phải loại {requiredVoucherType}", []); }
+}
+```
+
+> Anti-pattern: check VoucherType trước rồi mới gọi transaction → race condition giữa check và update.
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/SAPVoucherRepository.cs`
+
+### Named CancellationToken khi thêm optional param vào giữa signature
+
+> Áp dụng khi: thêm optional param mới vào giữa signature của method đang có caller dùng positional args.
+
+```csharp
+// Lỗi compile — CancellationToken truyền nhầm vào optional string? mới thêm:
+repo.RedeemVouchersAsync(serials, orderNo, ct);     // ct → slot của string? ❌
+
+// Đúng — dùng named param để CancellationToken vào đúng slot:
+repo.RedeemVouchersAsync(serials, orderNo, ct: ct); // ✅
+```
+
+> Quy tắc: Khi thêm optional param vào giữa signature, scan toàn bộ callers và thêm `ct: ct` nếu cần.
+> Ví dụ thực tế: `src/POS.Application/Services/SAPService.cs` — `RedeemCpnVchAsync`
+
+---
+
+## Pattern: Xác minh tên bảng vật lý trước khi viết raw SQL
+
+> Áp dụng khi: viết raw SQL/SP call mới nhắm vào bảng đã tồn tại trong `RPOSMasterData`.
+> Rút ra từ sự cố thực tế: `CentralMDRepository` từng dùng `dbo.POSTerminalBanks` và `dbo.Banks`
+> (số nhiều — suy đoán theo convention EF DbSet cũ), trong khi tên bảng vật lý thật là
+> `dbo.POSTerminalBank`, `dbo.Bank` (số ít). Query chạy thẳng vào production DB thật sẽ throw
+> `Invalid object name` — chỉ phát hiện lúc runtime, không phải lúc build.
+
+**Cách xác minh đúng — tra `docs/architecture/centralMD-schema.md` (nguồn sự thật schema DB
+theo quy tắc ở `CLAUDE.md`), KHÔNG suy đoán tên bảng theo convention số ít/số nhiều:**
+1. Mở `docs/architecture/centralMD-schema.md`, tìm đúng tên bảng + cột + kiểu dữ liệu + PK.
+2. Bảng cần dùng chưa có trong doc → đọc `docs/sql/database/CentralMD.sql` (nguồn gốc sinh ra
+   `centralMD-schema.md`) để lấy tên chính xác, rồi bổ sung vào `centralMD-schema.md` cùng commit.
+3. **KHÔNG** tự thêm/bớt "s" theo thói quen đặt tên DbSet — luôn đối chiếu tên bảng vật lý thật.
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs`
+> (`GetBankPOSListAsync`/`SaveBankPOSAsync`/`DeleteBankPOSAsync` → `dbo.POSTerminalBank`;
+> `GetBankListForDropdownAsync` → `dbo.Bank`)
+
+---
+
+## Pattern: Map SP trả cột đã format/localize sẵn (khác kiểu bảng vật lý)
+
+> Áp dụng khi: gọi 1 SP có sẵn (không tự viết) mà SELECT convert cột sang dạng hiển thị
+> (vd `IIF(Status=1, N'Đang dùng', N'Không dùng')`, `Format(Date,'dd/MM/yyyy')`,
+> `Convert(varchar,Counter)`) — kiểu cột trả về KHÁC kiểu cột vật lý trong bảng, map thẳng
+> vào DTO dùng kiểu vật lý (bool/int/DateTime) sẽ làm Dapper throw lỗi cast ngay dòng đầu tiên.
+
+```csharp
+// Repository — KHÔNG map thẳng vào DTO public (BankPOSListDto), dùng row riêng khớp đúng
+// cột SP trả (text/string), rồi convert sang kiểu UI cần trong bước project.
+var rows = await QueryAsync<BankPOSListRow>(sql, param, ct: ct);
+return rows.Select(r => new BankPOSListDto
+{
+    IsOnline = r.IsOnline == "Có",                              // text tiếng Việt → bool
+    Status   = r.Status == "Đang được sử dụng" ? 1 : 0,          // text tiếng Việt → int (round-trip Save)
+    StatusText = r.Status,                                      // giữ nguyên text để hiển thị/export
+    Counter  = r.Counter,                                       // varchar sẵn — giữ string, không ép int
+}).ToList();
+
+private sealed class BankPOSListRow { public string IsOnline {get;set;} = ""; /* ... khớp đúng tên+kiểu cột SP trả */ }
+```
+
+**Quan trọng:**
+- Giữ nguyên field kiểu "gốc" (vd `Status` int) trên DTO nếu còn nơi khác (form Edit/Save) cần round-trip đúng kiểu đó — chỉ thêm field mới (`StatusText`) cho phần hiển thị, KHÔNG đổi kiểu field đang được dùng để ghi ngược lại DB.
+- Dapper `QueryAsync<T>` không throw khi property DTO không có cột khớp (giữ default) — an toàn khi SP sau này thêm cột mới (vd thêm `PartnerId` vào SELECT) mà không cần sửa code map nếu đã khai báo sẵn field tương ứng.
+
+> Ví dụ thực tế: `src/POS.Infrastructure/Repositories/MasterData/CentralMDRepository.cs` (`GetBankPOSListAsync` + `BankPOSListRow`)
+
+---
+
+## Pattern: SP trả kết quả qua OUTPUT param khi ủy quyền SP-legacy có result set
+
+> Áp dụng khi: SP mới `EXEC` một SP legacy tự `SELECT` (vd Interface_Errors) và/hoặc có `ROLLBACK` bên trong.
+
+Không thể hứng result set legacy bằng `INSERT...EXEC` nếu SP legacy có `ROLLBACK` ("Cannot use the
+ROLLBACK statement within an INSERT-EXEC statement"). Nếu để result set legacy lọt ra, Dapper
+`QueryFirstOrDefault<T>` đọc NHẦM set đầu → `null` → báo lỗi giả. Giải pháp: trả `@Ok bit/@Message`
+qua **OUTPUT param**; repository dùng `ExecuteAsync` (ExecuteNonQuery nuốt hết result set rồi mới gán output).
+
+```csharp
+p.Add("@Ok", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+p.Add("@Message", dbType: DbType.String, size: 4000, direction: ParameterDirection.Output);
+await conn.ExecuteAsync(new CommandDefinition("dbo.usp_X", p, commandType: CommandType.StoredProcedure));
+var ok = p.Get<bool?>("@Ok") ?? false;
+```
+> Ví dụ thực tế: `docs/sql/SetupSalePrice_Save.sql`, `src/POS.Infrastructure/Repositories/Price/PriceRepository.cs` (`SaveAsync`).
+
+---
+
+## Pattern: SP đổi 1 cột từ mã (code) sang tên hiển thị (name) — luôn thêm cột mã gốc riêng cho composite key
+
+> Áp dụng khi: sửa/mở rộng 1 SP list có sẵn để JOIN thêm bảng lookup và **thế** cột mã bằng cột tên hiển thị
+> (vd `SalesCode` từ trả `PriceGroupCode` đổi sang trả `PriceGroupName` cho đẹp UI). Rút ra từ sự cố thực tế:
+> `GetSalesPriceList` đổi `SalesCode` sang trả tên nhóm giá, nhưng code Sửa/Xóa (`PriceRowKey`) vẫn dùng
+> đúng field đó làm khoá gửi tới `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**, không phải
+> tên) → mọi thao tác Sửa/Xóa sẽ báo "Không tìm thấy dữ liệu" ngay khi Code ≠ Name.
+
+**Quy tắc**: mỗi khi 1 cột SP đang được dùng làm khoá composite (Update/Delete/lookup ngược) bị đổi ý nghĩa
+sang giá trị hiển thị, **PHẢI** thêm 1 cột mới song song mang mã gốc (lấy thẳng từ bảng vật lý, không qua
+JOIN lookup có thể `LEFT JOIN` miss), map vào 1 field riêng trên DTO (đặt tên rõ ràng kiểu `XxxCode`, có
+comment "KHÔNG hiển thị — dùng làm khoá"), rồi sửa nơi build khoá composite dùng field mã mới thay vì field
+hiển thị cũ.
+
+```sql
+-- SP list — thêm cột mã gốc song song với cột tên hiển thị đã đổi
+ISNULL(G.PriceGroupName,'') AS SalesCode,       -- tên hiển thị (đã đổi ý nghĩa)
+ISNULL(S.[SalesCode],'')    AS SalesGroupCode,  -- mã gốc — LẤY THẲNG từ bảng vật lý, dùng cho Sửa/Xóa
+```
+```csharp
+// DTO — field mã gốc tách riêng, comment rõ mục đích
+public string? SalesCode { get; set; }       // tên hiển thị — cột lưới
+public string? SalesGroupCode { get; set; }  // mã gốc — KHÔNG hiển thị, dùng build PriceRowKey
+```
+
+> Anti-pattern: tiếp tục dùng field cũ (`row.SalesCode`) để build khoá sau khi ý nghĩa cột đã đổi — lỗi
+> không xuất hiện lúc build/test (kiểu vẫn là `string`), chỉ lộ ra khi chạy thật với dữ liệu có Code≠Name.
+> Ví dụ thực tế: `docs/sql/GetSalesPriceList_AddSaleType.sql` (`SalesGroupCode`),
+> `docs/sql/GetSalesPriceList_AddSalesTypeCode.sql` (`SalesTypeCode`),
+> `src/POS.Web/Components/Pages/Catalog/Price/PricesPage.razor` (`TryBuildKey`).
 
 ---
 

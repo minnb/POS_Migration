@@ -12,7 +12,7 @@ Dùng lệnh này để tạo BCrypt hash từ mật khẩu plain-text và cập
 
 Hoặc cung cấp mật khẩu luôn:
 ```
-/gen-hash Admin@2024!
+/web-gen-hash Admin@2024!
 ```
 
 ---

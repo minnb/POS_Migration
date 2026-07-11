@@ -1,6 +1,14 @@
+---
+name: web-theming
+description: Cách sửa PosTheme.cs (màu/typography/elevation toàn app) trong POS.Web. Rule/pattern hiện hành (Button/Sidebar/Elevation/Density) là .claude/rules/mudblazor-flat-ui.md — file này chỉ có code C# + checklist khi sửa theme.
+---
+
 # Theming — Custom MudBlazor Theme
 
 > **Áp dụng khi:** cần đổi màu/typography toàn bộ MudBlazor components (primary, sidebar, appbar, success/error...) mà không sửa từng file Razor.
+> **Nguồn sự thật cho MỌI rule/pattern hiện hành** (Button convention, Elevation, Sidebar visual,
+> Filter panel, Density Standard): **`.claude/rules/mudblazor-flat-ui.md`** — file này CHỈ giữ code
+> `PosTheme.cs` thực tế + checklist khi sửa theme, không lặp lại rule đã có ở đó.
 
 ---
 
@@ -9,9 +17,8 @@
 > **v3 — cập nhật 2026-07-05**, theo mockup `docs/web/theme/theme_html.html` (do người dùng cung
 > cấp): sidebar navy đậm, card có shadow thật, radius 2 cấp, Button `Filled` cho CTA. Thay hoàn
 > toàn cho bản v2 (2026-07-04, "Mud Mini": sidebar sáng, card borderless, radius 16px, Button
-> `Outlined` mọi nơi — đã lỗi thời). Chi tiết đầy đủ + lịch sử quyết định (kể cả các đề xuất đã
-> cân nhắc và loại bỏ): `.claude/skills/web/ui-polish-standard.md` + `.claude/rules/mudblazor-flat-ui.md` §3/§15 (đọc trước
-> nếu cần rationale, file này chỉ tóm tắt pattern).
+> `Outlined` mọi nơi — đã lỗi thời). Lịch sử quyết định đầy đủ (kể cả các đề xuất đã cân nhắc và
+> loại bỏ): `docs/web/theme/theme-decision-log.md`.
 
 ```csharp
 // src/POS.Web/Theme/PosTheme.cs
@@ -81,7 +88,7 @@ public static class PosTheme
         {
             DefaultBorderRadius = "12px",   // Paper/Card/Dialog (control Button/Chip/Input ép 8px qua CSS)
             DrawerWidthLeft     = "260px",
-            AppbarHeight        = "50px",   // khớp mockup .topbar{height:50px} — KHÔNG dùng Dense (xem SKILLS.md §Breadcrumb)
+            AppbarHeight        = "50px",   // khớp mockup .topbar{height:50px} — KHÔNG dùng Dense (xem sidebar-nav.md §Breadcrumb)
         }
     };
 }
@@ -152,147 +159,9 @@ LayoutProperties = new LayoutProperties { DefaultBorderRadius = "12px" },
 
 ---
 
-## Pattern: Button — Filled cho CTA, Outlined cho phần còn lại
+## Rule/pattern hiện hành — chỉ tham chiếu, không lặp lại
 
-> Thay cho pattern v2 "Button — Outlined mọi nơi" (đã loại bỏ). Theo mockup, `.btn-primary` là nền
-> đặc màu (Filled), không phải viền trong suốt. Chi tiết đầy đủ + lý do:
-> `.claude/rules/mudblazor-flat-ui.md` §3 "Button — Filled cho CTA, Outlined cho phần còn lại".
-
-| Loại hành động | Variant | Color | Ví dụ |
-|---|---|---|---|
-| CTA chính (Lưu, Thêm mới, Cập nhật, Tìm) | `Filled` | `Primary` | "Lưu", "Thêm mới", "Tìm" |
-| Hành động tích cực chốt luồng (Duyệt, Kích hoạt, Xác nhận) | `Filled` | `Success` | "Duyệt", "Kích hoạt" |
-| Phá hủy/không hoàn tác (Xóa, Khóa, Hủy giao dịch) | `Outlined` | `Error` | "Xóa" |
-| Trung tính (Hủy/Đóng dialog, Xóa bộ lọc, Quay lại) | `Outlined` | *(không đặt Color)* | "Hủy", "Đóng" |
-| Phụ có ngữ nghĩa riêng (Export Excel, Import, In) | `Outlined` | Color phù hợp | "Export Excel" |
-
-```razor
-<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">Tìm</MudButton>
-<MudButton Variant="Variant.Outlined" OnClick="ClearFilter">Xóa</MudButton>
-<MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DeleteAsync">Xóa</MudButton>
-<MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="ApproveAsync">Duyệt</MudButton>
-```
-
-- "Lưu" LUÔN là CTA (`Filled`/`Primary`), KHÔNG phải `Success`. "Sửa"/"Thêm dòng" cũng xếp CTA.
-- Nút điều hướng thuần túy (quay lại, chuyển trang) xếp Trung tính.
-- Không rõ 1 nút thuộc loại nào → ưu tiên Trung tính (`Outlined`, không đặt `Color`).
-- **Bẫy confirm dialog**: `DialogService.ShowAsync<MudMessageBox>(...)` render nút Yes bằng markup
-  mặc định, không sửa được — **KHÔNG** dùng cách gọi này. Luôn khai báo
-  `<MudMessageBox @ref="_confirmBox">` trực tiếp + `<YesButton>` tường minh, chọn Variant/Color
-  theo bảng trên. Pattern đầy đủ: `.claude/skills/web/SKILLS.md` §"MudMessageBox @ref".
-
----
-
-## Pattern: Page header — title/icon/button
-
-```razor
-<div class="pos-page-header mb-4">
-    <MudText Typo="Typo.h5" Class="pos-page-header-title" Style="font-weight:400">
-        <MudIcon Icon="@Icons.Material.Filled.XYZ" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
-        Tên trang
-    </MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-               StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn">
-        Thêm
-    </MudButton>
-</div>
-```
-
-- `.pos-page-header-title` (CSS `app.css`) đã giảm `font-size` xuống `1.25rem` (từ mặc định h5
-  MudBlazor ~1.5rem). Icon cạnh title **bắt buộc** `Size="Size.Small"`.
-- Title mặc định vẫn đậm (`Typography.H5.FontWeight=800`). Muốn chữ "tự nhiên" (không đậm) → thêm
-  `Style="font-weight:400"` **cục bộ trên `MudText` đó**, không sửa `.pos-page-header-title` global.
-- Nút CTA trong header dùng `Variant="Variant.Filled" Color="Color.Primary"` + `Size="Size.Small"`
-  (đảo ngược v2, xem bảng Button convention ở trên).
-
----
-
-## Pattern: Filter panel — nền trắng + border
-
-> Thay cho pattern v2 "soft-tint" (đã loại bỏ) — theo mockup `.filter-bar` (nền trắng, border 1px,
-> không tint màu).
-
-```razor
-<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
-    <MudGrid Spacing="2">@* filter fields *@</MudGrid>
-</MudPaper>
-```
-
-- Class `pos-filter-panel` (CSS `app.css`) = nền **trắng** (`var(--pos-surface)`) + `border: 1px
-  solid var(--pos-border)` — phân biệt vùng nhập liệu với card dữ liệu bên dưới bằng viền, không
-  bằng màu tint.
-- `Elevation="1"` = flat (không shadow), khớp quy tắc elevation ở mục trên.
-
----
-
-## Pattern: Sidebar — navy đậm, brand text-only, 3 cấp phân biệt icon
-
-```razor
-<MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always">
-    <div class="pos-sidebar-brand">
-        @* text-only 2 dòng: tên app + subtitle — KHÔNG icon/avatar (khớp .logo mockup) *@
-        <MudText Typo="Typo.subtitle1">RPOS</MudText>
-        <MudText Typo="Typo.caption">Dashboard</MudText>
-    </div>
-    <MudNavMenu Margin="Margin.Dense">
-        @* L1 — CHỮ IN HOA, KHÔNG icon (label tĩnh, không click — xem SKILLS.md "Sidebar nav 3 cấp") *@
-        <div class="pos-nav-section-label">CỬA HÀNG</div>
-        @* L2 — MudNavGroup có icon riêng theo nhóm, luôn hiển thị dưới L1 *@
-        <MudNavGroup Title="Vận hành" Icon="@Icons.Material.Outlined.MonitorHeart" Class="pos-nav-l2" HideExpandIcon="true" @bind-Expanded="_expandStoreOps">
-            @* L3 — leaf link, icon ChevronRight đồng nhất *@
-            <MudNavLink Href="/store/business-day" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Xác nhận kết thúc ngày</MudNavLink>
-        </MudNavGroup>
-    </MudNavMenu>
-    <div class="pos-sidebar-footer">
-        @* avatar chữ cái đầu + tên + role + nút logout — dời từ MudAppBar xuống đây *@
-    </div>
-</MudDrawer>
-```
-
-- `DrawerBackground = "#0D1B2A"` (navy đậm) — **KHÔNG** còn sidebar sáng như v2.
-  `MudDrawer Elevation="0"` — sidebar tự tách khỏi nền sáng bằng màu, không cần shadow riêng.
-- Active nav item: nền **đặc** `var(--pos-primary)`, chữ/icon trắng, `border-radius:
-  var(--pos-radius-sm)` (8px — **không phải** `-lg` 12px). Hover (không active): nền
-  `var(--pos-drawer-hover)` (`#1E3448`).
-- **Icon set giữ `Icons.Material.Outlined.*`** (mockup dùng emoji nhưng dự án cố ý KHÔNG dùng
-  emoji — xem anti-pattern bên dưới).
-- `pos-sidebar-brand`: text-only, KHÔNG avatar (khác v2). `pos-sidebar-footer`
-  (`margin-top:auto`): avatar chữ cái đầu (tròn, nền Primary) + tên + role + nút logout — user-info
-  đã dời từ `MudAppBar` xuống đây, AppBar giờ chỉ còn menu-toggle + title/breadcrumb + spacer.
-- Cấu trúc 3 cấp đầy đủ (L1 label tĩnh không click / L2 luôn hiện có icon / L3 leaf chevron), quy
-  tắc `UpdateExpanded`, và breadcrumb động: xem `.claude/skills/web/SKILLS.md` §"Sidebar nav
-  (MainLayout) — 3 cấp" + §"AppBar — Breadcrumb động" (phần LOGIC điều hướng, không đổi ở đây).
-
-**Anti-pattern:**
-- ❌ Truyền emoji/text thường vào tham số `Icon=` của `MudNavLink`/`MudNavGroup`/`MudIcon` — tham
-  số này nhận **SVG path**, không phải ligature; icon sẽ biến mất hoàn toàn (không lỗi, không cảnh
-  báo). Đã thử 1 lần với emoji ở v3, phải rollback — giữ nguyên `Icons.Material.Outlined.*`.
-- ❌ Sidebar dùng `MudAvatar` tròn ở brand header (kiểu v2) — v3 brand text-only.
-- ❌ Đặt user-info ở `MudAppBar` (kiểu v2) — v3 đã dời xuống `pos-sidebar-footer`.
-- ❌ Radius active nav dùng `-lg` (12px) — phải dùng `-sm` (8px).
-
----
-
-## Pattern: Density Standard — Comfortable-tight
-
-> Áp dụng khi: cần tối ưu density cho app dashboard (không quá rộng, mobile-safe). Không đổi qua
-> các bản theme (v2 → v3 giữ nguyên).
-
-| Thành phần | Giá trị |
-|---|---|
-| `LineHeight` (theme) | `"1.5"` |
-| `MudTable` | `Dense="true"` — luôn |
-| `MudGrid Spacing` | `Spacing="2"` (filter), `Spacing="3"` (KPI/chart) |
-| Form Margin | `Margin="Margin.Dense"` trong filter panel |
-| `MudAppBar` | chiều cao set qua `LayoutProperties.AppbarHeight` trong `PosTheme.cs` (không còn `Dense="true"` — xem breadcrumb pattern ở SKILLS.md) |
-| `MudNavMenu` | `Margin="Margin.Dense"` (2px inter-item) |
-
-**app.css overrides đã có sẵn** (không thêm lại):
-- `.mud-list-item` → `padding: 5px` desktop / `8px` mobile
-- `.mud-drawer .mud-nav-link` → `padding: 4px; margin: 1px` desktop / `9px; 2px` mobile
-- `@media (max-width: 599.98px)` → min-height 40px cho button/icon-button (WCAG 2.5.5)
-- `.d-flex.flex-wrap > div > .mud-paper { height: 100% }` → KPI cards equal height
-
-**Anti-pattern:**
-- ❌ Thêm lại `@media (max-width: 599.98px)` cho từng component riêng — CSS global đã đủ
-- ❌ `MudGrid` không có `Spacing` — tự default về 4 (16px), quá rộng
+> Toàn bộ rule Button convention, Page header, Filter panel, Sidebar (visual), Density Standard đã
+> chốt tại **`.claude/rules/mudblazor-flat-ui.md`** §3/§6/§7/§5/§15 — đọc trực tiếp file đó khi cần
+> áp dụng, KHÔNG lặp lại bảng/code ở đây (từng gây lệch khi 1 nơi cập nhật, nơi kia quên).
+> Logic C# sidebar 3 cấp (`UpdateExpanded`) + breadcrumb động: `.claude/skills/web/sidebar-nav.md`.

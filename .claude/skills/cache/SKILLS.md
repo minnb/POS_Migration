@@ -1,3 +1,8 @@
+---
+name: cache-redis-pattern
+description: Pattern cache Redis StandAlone (IRedisService/IRedisManager) — key convention, TTL, Hash/String, OAuth2 token (nguồn canonical), report cache, distributed lock/throttle, diagnostics. Đọc TRƯỚC khi thêm cache cho bất kỳ data nào.
+---
+
 # Skill: Redis Cache Pattern
 
 > **Áp dụng khi:** thêm cache cho bất kỳ master data / config nào đọc từ DB nhiều lần

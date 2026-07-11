@@ -1,3 +1,8 @@
+---
+name: web-datatable-and-lists
+description: Luật bắt buộc cho danh sách/bảng biểu/filter panel — MudTable mặc định, Elevation, ServerData, row actions, chuẩn đặt tên cột + format DateTime. Đọc khi tạo/sửa bất kỳ danh sách dữ liệu nào.
+---
+
 # Skill: DataTable & Danh sách POS.Web (MudBlazor 9.5.0)
 
 > **Đọc file này khi:** tạo/sửa bất kỳ danh sách dữ liệu, bảng biểu, filter panel gắn kèm bảng trong
@@ -119,6 +124,84 @@
   ```razor
   <MudIconButton ... @onclick:stopPropagation="true" OnClick="@(() => EditAsync(context))"/>
   ```
+
+---
+
+## 6. Chuẩn đặt tên cột DataTable — BẮT BUỘC áp dụng toàn dự án
+
+> Tiêu đề cột trong `<MudTh>` **BẮT BUỘC** dùng tên field tiếng Anh tương ứng với tên cột trong database / DTO.
+> Áp dụng cho tất cả page trong menu **Vận hành** và **Quản trị**.
+> `DataLabel` trong `<MudTd>` phải **khớp** với tiêu đề `<MudTh>` tương ứng.
+
+**Ngoại lệ tên cột (mapping đặc biệt):**
+
+| Bảng DB | DB Column | Header cột |
+|---|---|---|
+| `Store` | `[No]` | `StoreNo` |
+| `Store` | `[ClosingMethod]` | `Status` |
+| `POSTerminal` | `[No]` | `PosNo` |
+| `Branch` | `[No]` | `BranchNo` |
+
+```razor
+@* Header — tên field DB *@
+<HeaderContent>
+    <MudTh><MudTableSortLabel SortBy="...">StoreNo</MudTableSortLabel></MudTh>
+    <MudTh>Name</MudTh>
+    <MudTh>IPAddress</MudTh>
+    <MudTh>LastDateModified</MudTh>
+    <MudTh>Status</MudTh>
+</HeaderContent>
+
+@* RowTemplate — DataLabel phải khớp Header *@
+<RowTemplate>
+    <MudTd DataLabel="StoreNo">@context.StoreNo</MudTd>
+    <MudTd DataLabel="Name">@context.Name</MudTd>
+    <MudTd DataLabel="IPAddress">@context.IPAddress</MudTd>
+    <MudTd DataLabel="LastDateModified">@(context.LastDateModified?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+    <MudTd DataLabel="Status">...</MudTd>
+</RowTemplate>
+```
+
+**Mapping đã áp dụng (tham khảo):**
+
+| Page | DTO | Cột đã chuyển sang English |
+|---|---|---|
+| `LogsPage.razor` | `InterfaceErrorDto` | ErrorID, ErrorDateTime, UserName, ErrorProcedure, ErrorMessage, ErrorSeverity, ErrorNumber |
+| `DataRawLogPage.razor` | `DataRawJsonLogDto` | CrtDate, DataType, Flag, ErrorMessage |
+| `PosMapPage.razor` | `PosTerminalListDto` | IsOnline, PosNo, StoreNo, IPAddress, StyleProfile, BluePosVersion, Status, DateTimePos |
+| `StorePage.razor` | `StoreListDto` | StoreNo, Name, Address, BranchNo, Status, LastDateModified |
+| `ProvincesPage.razor` | `BranchAdminDto` | BranchNo, Description, Address, VATRegistrationNo |
+| `UsersPage.razor` | `DashboardUser` | Id, Username, FullName, Role, IsActive |
+| `AuditPage.razor` | `AuditRecord` | Id, Actor, Database, Status, RowsAffected, HasWhere, SqlText, ElapsedMs, ExecutedAt, DecidedAt |
+
+---
+
+## 7. Chuẩn format hiển thị DateTime — BẮT BUỘC áp dụng toàn dự án
+
+| Loại trường | Format | Ví dụ |
+|---|---|---|
+| Cột datetime trong datatable (Created, Updated, timestamp...) | `"yyyy-MM-dd HH:mm:ss"` | `2025-06-25 14:30:00` |
+| Ngày thuần (business date, date picker label) | `"dd/MM/yyyy"` | `25/06/2025` |
+| Label chart / trục X | `"dd/MM"` | `25/06` |
+| Timestamp UI phụ (KPI card "Lần cuối", header in/out) | `"HH:mm:ss"` | `14:30:00` |
+
+```razor
+@* Cột datatable — datetime đầy đủ *@
+<MudTd DataLabel="Tạo lúc">@context.CreatedDate?.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+<MudTd DataLabel="Cập nhật lúc">@context.UpdatedDate?.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+<MudTd DataLabel="Thời gian">@(context.CrtDate.ToString("yyyy-MM-dd HH:mm:ss"))</MudTd>
+
+@* Nullable — dùng null-coalescing *@
+<MudTd DataLabel="Last seen">@(context.DateTimePos?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+
+@* Ngày thuần — giữ dd/MM/yyyy *@
+<MudTd DataLabel="Ngày KD">@context.BussinessDate.ToString("dd/MM/yyyy")</MudTd>
+```
+
+**Đã áp dụng tại:** `PosMapPage.razor` (Last seen), `DataRawLogPage.razor` (CrtDate),
+`LogsPage.razor` (ErrorDateTime), `EosShiftsPage.razor` (CloseShiftDate),
+`PosTerminalDetailDialog.razor` (CreatedDate/UpdatedDate/LastDateModified/DateTimePos),
+`AuditPage.razor` (ExecutedAt/DecidedAt — đã đúng từ đầu).
 
 ---
 

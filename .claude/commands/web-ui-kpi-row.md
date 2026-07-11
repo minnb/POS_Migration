@@ -3,9 +3,9 @@
 Dùng lệnh này để chèn **KPI summary row** vào một page POS.Web đang có sẵn.
 Command hỏi thông tin rồi sinh code sẵn sàng paste vào đúng vị trí.
 
-> **LUẬT THÉP**: đây là khuôn mẫu **BẮT BUỘC** — xem CLAUDE.md §"POS.Web" mục 0 và
-> `.claude/rules/mudblazor-flat-ui.md` mục 11 "KPI card — khuôn mẫu chuẩn". KHÔNG tự viết
-> `MudGrid`/`MudPaper` tùy ý khi thêm KPI row.
+> **LUẬT THÉP**: đây là khuôn mẫu **BẮT BUỘC** — xem `.claude/rules/blazor-web-app.md` mục
+> "LUẬT THÉP" và `.claude/rules/mudblazor-flat-ui.md` mục 11 "KPI card — khuôn mẫu chuẩn". KHÔNG
+> tự viết `MudGrid`/`MudPaper` tùy ý khi thêm KPI row.
 
 ---
 

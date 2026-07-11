@@ -1,3 +1,8 @@
+---
+name: migration-legacy-port
+description: Template + checklist viết file FEATURE_{Name}_ANALYSIS.md khi port chức năng từ src/legacy/ (VCM.BLUEPOS) sang POS.Web/POS.Api mới. Đọc trước khi bắt đầu port hoặc viết phân tích nghiệp vụ.
+---
+
 # Skill: Phân tích & Port chức năng từ src/legacy/ (VCM.BLUEPOS)
 
 > **Áp dụng khi:** chuẩn bị port bất kỳ chức năng nào từ `src/legacy/VCM.BLUEPOS/` sang

@@ -1,3 +1,8 @@
+---
+name: web-audit-logging
+description: Chuẩn Audit Log bắt buộc cho mọi page Create/Update/Delete trong POS.Web — IAuditLogger, mask dữ liệu nhạy cảm, dialog trả DTO đầy đủ. Đọc khi tạo/sửa page có thao tác CRUD.
+---
+
 # Skill: Audit Log — CRUD Operations (POS.Web)
 
 > **Đọc file này khi:** tạo hoặc sửa page/dialog có thao tác **Create, Update, Delete** dữ liệu

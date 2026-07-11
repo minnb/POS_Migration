@@ -63,7 +63,7 @@ Admin section:
 
 ### Auth
 ✅ admin user: BCrypt hash present in migration SQL
-❌ HASH_PLACEHOLDER chưa được thay — chạy /gen-hash
+❌ HASH_PLACEHOLDER chưa được thay — chạy /web-gen-hash
 
 ### Gợi ý bước tiếp theo
 - {việc cần làm tiếp theo dựa trên kết quả audit}

@@ -1,3 +1,8 @@
+---
+name: web-deployment
+description: Deploy POS.Web production (Docker/nginx/self-contained) — UseRouting, _framework/blazor.web.js 404, nginx WebSocket config, DataProtection keys. Đọc khi deploy hoặc debug lỗi cấu hình production.
+---
+
 # Production Deployment — POS.Web
 
 > **Áp dụng khi:** deploy POS.Web lên production (Docker / nginx / self-contained) hoặc gặp lỗi `_framework/blazor.web.js` 404, cookie crash, WebSocket không kết nối.

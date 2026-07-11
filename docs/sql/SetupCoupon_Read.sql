@@ -138,6 +138,6 @@ BEGIN
             ISNULL(Barcode, '')       AS Barcode
     FROM    dbo.CpnVchBOMLine (NOLOCK)
     WHERE   ItemNo = @ItemNo
-    ORDER BY LineNo;
+    ORDER BY [LineNo];
 END
 GO

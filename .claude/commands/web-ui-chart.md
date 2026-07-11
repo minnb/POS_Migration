@@ -195,15 +195,6 @@ Báo:
 
 ## Lưu ý quan trọng — MudBlazor v9
 
-| Sai (v8) | Đúng (v9) |
-|---|---|
-| `<MudChart ChartType="ChartType.Line">` | `<Line T="double">` |
-| `<MudChart ChartType="ChartType.Bar">` | `<Bar T="double">` |
-| `ChartSeries<double>="@_series"` | `ChartSeries="@_series"` với `T="double"` |
-| `XAxisLabels` | `ChartLabels` |
-| `double[]` | `new ChartData<double>(double[])` |
-| `ChartOptions { LineStrokeWidth }` | `LineChartOptions { LineStrokeWidth }` |
-| `ChartOptions { YAxisTicks }` | `BarChartOptions { ShowLegend }` |
-| `_series[0].Data.Length == 0` | `bool _chartEmpty` set trong BuildChartData |
-
-> Tham chiếu đầy đủ: `.claude/skills/web/SKILLS.md` mục "MudBlazor v9 breaking changes".
+> Chi tiết đầy đủ breaking changes v8→v9 (bảng so sánh, Y-axis auto-scale...):
+> **`.claude/skills/web/charts.md`** — đọc file đó nếu code sinh ra không compile hoặc cần biến thể
+> khác (bar-list, nhiều series).

@@ -12,7 +12,7 @@
 > |---|---|---|---|
 > | Đảm nhiệm | `PosFileImportService` (file .zip, dùng chung `ftpbluepos` với Web/Api) | `PosSalesConsumerWorker` (RabbitMQ) + `Rpt_ReportSaleDetail_Insert` (SQL) + heartbeat | `MasterDataZipGeneratorWorker` (poll watermark → sinh zip lên SFTP/FTP), có thể gộp thêm consumer nếu không dùng Docker |
 > | Cách chạy | `dotnet POS.Worker.dll --run-once` qua crontab, chạy 1 chu kỳ rồi thoát | `docker run`/`docker-compose` service `pos-worker`, process dài hạn trong container | `dotnet POS.Worker.dll` (không `--run-once`) làm systemd service, process dài hạn native trên host |
-> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override qua `-e` | `appsettings.Production.json`/`UAT.json` + `WorkerRoles__*` override qua `Environment=` trong unit file |
+> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override qua `-e` | `appsettings.ProductionHost.json` (`DOTNET_ENVIRONMENT=ProductionHost` — **không phải** `Production.json`, xem cảnh báo 2026-07-11 ở mục 9.4) + `WorkerRoles__*` override qua `Environment=` trong unit file |
 > | Chi tiết | mục 5 | mục 1-4 | mục **9** |
 >
 > Chọn Model C khi cần **daemon dài hạn nhưng không được phép chạy Docker** trên host — khác Model A
@@ -423,6 +423,14 @@ sudo usermod -aG posops posworker
 
 ### 9.4. File unit `/etc/systemd/system/pos-worker.service`
 
+> ⚠️ **Cập nhật 2026-07-11 — `DOTNET_ENVIRONMENT` PHẢI là `ProductionHost`, KHÔNG phải
+> `Production`.** `appsettings.Production.json` đã đổi `ConnectionStrings`/`SetDb` sang
+> `host.docker.internal` (fix lỗi Model B Docker không kết nối được SQL — xem `docs/CHANGELOG.md`
+> [2026-07-11]) — hostname này **chỉ resolve được bên trong container Docker**, KHÔNG resolve
+> được cho process bare-metal như Model C. Dùng `appsettings.ProductionHost.json` (đã có sẵn địa
+> chỉ `127.0.0.1` đúng cho bare-metal — xem mục 3.5) + override `WorkerRoles` qua `Environment=`
+> như dưới đây.
+
 ```ini
 [Unit]
 Description=POS Worker (MasterDataZipGenerator daemon)
@@ -438,8 +446,9 @@ Restart=always
 RestartSec=10
 KillSignal=SIGINT
 SyslogIdentifier=pos-worker
-Environment=DOTNET_ENVIRONMENT=Production
+Environment=DOTNET_ENVIRONMENT=ProductionHost
 Environment=TZ=Asia/Ho_Chi_Minh
+Environment=POS_SECRET_KEY=<CÙNG giá trị đang dùng cho pos-api-prod/pos-web-prod/pos-worker-prod>
 Environment=WorkerRoles__EnableFileProcessing=false
 Environment=WorkerRoles__EnableRabbitMQConsumer=false
 Environment=WorkerRoles__EnableSqlReportWorker=false

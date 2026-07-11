@@ -14,7 +14,7 @@ Command tự động cập nhật SKILLS, CURRENT_STRUCTURE, WEB_STATUS, CHANGEL
 
 Hoặc cung cấp mô tả ngay:
 ```
-/task-done "Thêm TransactionPage cho Store section — MudDataGrid + date filter"
+/task-done "Thêm TransactionPage cho Store section — MudTable + date filter"
 ```
 
 ---

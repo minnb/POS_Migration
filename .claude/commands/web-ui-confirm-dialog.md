@@ -1,7 +1,10 @@
 # /web-ui-confirm-dialog — Thêm confirm dialog vào page hoặc component đã có
 
-Dùng lệnh này để thêm **hộp thoại xác nhận** (MudDialog) vào một page POS.Web.
-Kiểm tra `PosConfirmDialog` đã có chưa — tạo component nếu cần, chỉ sinh phần inject nếu đã có.
+Dùng lệnh này để thêm **hộp thoại xác nhận** vào một page POS.Web.
+Sinh code theo pattern bắt buộc `MudMessageBox @ref` — **KHÔNG** dựng dialog component tùy biến
+riêng và **KHÔNG** gọi `DialogService.ShowAsync<MudMessageBox>(...)` (xem
+`.claude/skills/web/SKILLS.md` mục "Pattern: MudMessageBox @ref" + `.claude/rules/mudblazor-flat-ui.md` §3
+"Bẫy confirm dialog").
 
 ---
 
@@ -28,58 +31,53 @@ Hoặc cung cấp thông tin ngay:
 **2. Tên hành động cần confirm**
 > Ví dụ: "xóa user", "reset config", "tắt POS terminal", "xóa cache"
 
-**3. Mức độ nguy hiểm:**
-- `Error` — nguy hiểm, không thể hoàn tác (xóa, reset...)
-- `Warning` — cần cẩn thận nhưng có thể phục hồi
-- `Info` — thao tác bình thường cần xác nhận
+**3. Bản chất hành động Yes** — quyết định Variant/Color của `<YesButton>`
+   (xem bảng Button convention `.claude/rules/mudblazor-flat-ui.md` §3):
+- **Phá hủy/không hoàn tác** (xóa, hủy giao dịch, khóa) → `Variant.Outlined` + `Color.Error`
+- **Tích cực/chốt luồng, không phá hủy** (kích hoạt, mở khóa, đồng bộ lại, retry) →
+  `Variant.Filled` + `Color.Primary` (hoặc `Color.Success`/`Color.Warning` nếu ngữ cảnh cần nhấn
+  mạnh cảnh báo, vd "Xác nhận kết thúc ngày")
 
 **4. Tên method thực thi sau khi user xác nhận**
 > Ví dụ: `DeleteUserAsync`, `ResetConfigAsync`, `ShutdownTerminalAsync`
 
+**5. Dialog dùng cho 1 hành động cố định hay nhiều hành động khác bản chất (vd khóa/mở khóa)?**
+> Nếu nhiều hành động → cần Title/YesText/Color động (xem Bước 3, phần "Title/YesText/Color động").
+
 ---
 
-### Bước 2 — Kiểm tra PosConfirmDialog
+### Bước 2 — Đọc file page hiện tại
 
-Kiểm tra file `src/POS.Web/Components/Shared/PosConfirmDialog.razor`:
-- **Đã có** → bỏ qua Phần B, chỉ sinh Phần A
-- **Chưa có** → sinh cả Phần A và Phần B
+Đọc file để xác định:
+- Vị trí chèn `<MudMessageBox @ref="...">` — đặt gần đầu content, TRƯỚC mọi `@if` bao ngoài
+- Đã có field `_confirmBox`/`_confirmMsg` trùng tên chưa (đổi tên nếu page đã có dialog confirm khác)
 
 ---
 
 ### Bước 3 — Sinh code
 
-#### Phần A — Thêm vào file đã chọn
+#### Trường hợp tĩnh — 1 hành động cố định
 
 ```razor
-@* Thêm vào phần inject (đầu file, nếu chưa có) *@
-@inject IDialogService DialogService
+@* Khai báo trong Razor template — đặt gần đầu content, TRƯỚC mọi @if bao ngoài *@
+<MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa user" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton><MudButton Variant="Variant.Outlined" Color="Color.Error">Xóa</MudButton></YesButton>
+</MudMessageBox>
 ```
 
 ```csharp
-// Thêm vào @code — method confirm
-private async Task Confirm{Action}Async(string targetName)
+// Thêm vào @code
+private MudMessageBox? _confirmBox;
+private string _confirmMsg = string.Empty;
+
+private async Task ConfirmDeleteUserAsync(string targetName)
 {
-    var parameters = new DialogParameters<PosConfirmDialog>
-    {
-        { x => x.Title,   "Xác nhận xóa user" },              // ← thay nội dung
-        { x => x.Message, $"Bạn có chắc muốn xóa '{targetName}'? Thao tác không thể hoàn tác." },
-        { x => x.Color,   Color.Error }                        // ← Color.Error|Warning|Info
-    };
+    _confirmMsg = $"Bạn có chắc muốn xóa '{targetName}'? Không thể hoàn tác.";
+    var ok = await _confirmBox!.ShowAsync();
+    if (ok != true) return;
 
-    var options = new DialogOptions
-    {
-        CloseOnEscapeKey = true,
-        MaxWidth = MaxWidth.ExtraSmall,
-        FullWidth = true
-    };
-
-    var dialog = await DialogService.ShowAsync<PosConfirmDialog>("", parameters, options);
-    var result = await dialog.Result;
-
-    if (result is { Canceled: false })
-    {
-        await {Action}Async(targetName);  // ← thay tên method thực thi
-    }
+    await DeleteUserAsync(targetName);   // ← thay tên method thực thi
 }
 ```
 
@@ -93,45 +91,39 @@ private async Task Confirm{Action}Async(string targetName)
 @* ← thay action và parameter cho đúng *@
 ```
 
----
-
-#### Phần B — Tạo PosConfirmDialog.razor (nếu chưa có)
-
-File: `src/POS.Web/Components/Shared/PosConfirmDialog.razor`
+#### Trường hợp động — dialog dùng chung nhiều hành động khác bản chất (vd khóa/mở khóa)
 
 ```razor
-@using MudBlazor
-
-<MudDialog>
-    <TitleContent>
-        <MudIcon Icon="@Icons.Material.Filled.Warning"
-                 Color="@Color" Class="mr-2" Style="vertical-align:middle"/>
-        @Title
-    </TitleContent>
-    <DialogContent>
-        <MudText>@Message</MudText>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text">Huỷ</MudButton>
-        <MudButton OnClick="Confirm"
-                   Color="@Color"
-                   Variant="Variant.Filled"
-                   Class="ml-2">
-            Xác nhận
+<MudMessageBox @ref="_confirmBox" Title="@_confirmTitle" CancelText="Hủy">
+    <MessageContent>@_confirmMsg</MessageContent>
+    <YesButton>
+        <MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)"
+                   Color="@_confirmYesColor">
+            @_confirmYesText
         </MudButton>
-    </DialogActions>
-</MudDialog>
+    </YesButton>
+</MudMessageBox>
+```
 
-@code {
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = null!;
+```csharp
+private MudMessageBox? _confirmBox;
+private string _confirmMsg = string.Empty;
+private string _confirmTitle = string.Empty;
+private string _confirmYesText = string.Empty;
+private Color _confirmYesColor;
 
-    [Parameter] public string Title   { get; set; } = "Xác nhận";
-    [Parameter] public string Message { get; set; } = "Bạn có chắc muốn thực hiện thao tác này?";
-    [Parameter] public Color  Color   { get; set; } = Color.Warning;
+private async Task ConfirmToggleAsync(MyItem item)
+{
+    var locking = item.IsActive;
+    _confirmTitle   = locking ? "Xác nhận khóa" : "Xác nhận kích hoạt";
+    _confirmMsg     = $"Bạn có chắc muốn {(locking ? "khóa" : "kích hoạt")} '{item.Name}'?";
+    _confirmYesText = locking ? "Khóa" : "Kích hoạt";
+    _confirmYesColor = locking ? Color.Error : Color.Success;
 
-    private void Cancel()  => MudDialog.Cancel();
-    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+    var ok = await _confirmBox!.ShowAsync();
+    if (ok != true) return;
+
+    await ToggleAsync(item);   // ← thay tên method thực thi
 }
 ```
 
@@ -140,17 +132,22 @@ File: `src/POS.Web/Components/Shared/PosConfirmDialog.razor`
 ### Bước 4 — Xác nhận
 
 Báo:
-- Đã inject `IDialogService` và thêm method `Confirm{Action}Async` vào file nào
-- `PosConfirmDialog.razor` đã tạo hay đã có sẵn
-- Button trigger cần chèn vào vị trí nào trong markup
+- Đã thêm `<MudMessageBox @ref="_confirmBox">` và method confirm vào file nào
+- Button trigger đã chèn vào vị trí nào trong markup
+- Nếu là audit CRUD (xóa/khóa/kích hoạt...) → nhắc gọi `IAuditLogger.LogAsync(...)` sau khi thao
+  tác thành công (xem `.claude/skills/web/audit-logging.md`)
 
 ---
 
 ## Lưu ý
 
-- `IMudDialogInstance` là interface đúng của MudBlazor v9 — **không** dùng `MudDialogInstance` (v8)
-- `[CascadingParameter]` bắt buộc để dialog nhận được instance từ MudDialog provider
-- Nếu `PosConfirmDialog` đã tồn tại: không tạo lại, chỉ thêm `@inject IDialogService` và method vào page
-- Color `Error` → nút Xác nhận màu đỏ, `Warning` → màu vàng, `Info` → màu xanh
-- `DialogResult.Ok(true)` cho phép caller kiểm tra `result.Data` nếu cần trả về thêm data
-- Không để method thực thi (`{Action}Async`) trong dialog component — chỉ trả kết quả, page tự xử lý
+- **KHÔNG** dùng `IDialogService.ShowMessageBox(...)` — overload đó không tồn tại trong MudBlazor v9.
+- **KHÔNG** gọi `DialogService.ShowAsync<MudMessageBox>(title, parameters, options)` — cách này
+  render nút Yes bằng markup mặc định của MudBlazor, không có `<YesButton>` slot để chỉnh
+  Variant/Color theo bản chất hành động. Đây là lỗi có thật đã xảy ra ở 8 page trong dự án.
+- Luôn khai báo `<MudMessageBox @ref="_confirmBox">` trực tiếp trong Razor của page/component —
+  KHÔNG tạo dialog component riêng (`PosConfirmDialog` hay tương tự) cho nhu cầu confirm đơn giản.
+- Chọn Variant/Color theo đúng bảng Button convention (`.claude/rules/mudblazor-flat-ui.md` §3) —
+  không mặc định mọi Yes button là `Color.Error`.
+- Không để method thực thi (`{Action}Async`) chạy trước khi `ShowAsync()` trả về — luôn kiểm tra
+  `if (ok != true) return;` trước khi gọi hành động thật.

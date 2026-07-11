@@ -1,3 +1,8 @@
+---
+name: web-filter-store
+description: Combobox chọn cửa hàng chuẩn (dual-mode StoreOperator readonly vs ITOps/Admin autocomplete) cho page StoreAndAbove. Đọc khi thêm bộ lọc cửa hàng vào page mới.
+---
+
 # Filter Store — Combobox Cửa hàng chuẩn
 
 > **Áp dụng bắt buộc** cho mọi page `StoreAndAbove` có bộ lọc theo cửa hàng.

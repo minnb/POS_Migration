@@ -1,3 +1,8 @@
+---
+name: web-charts
+description: Thêm biểu đồ Line/Bar bằng MudBlazor v9 (cú pháp đổi hoàn toàn so với v8) — ChartSeries, ChartData, LineChartOptions/BarChartOptions, Y-axis auto-scale. Đọc trước khi thêm chart vào page.
+---
+
 # Charts — MudBlazor v9 (Line / Bar)
 
 > **Áp dụng khi:** thêm biểu đồ đường/cột vào page POS.Web.

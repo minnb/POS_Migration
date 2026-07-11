@@ -13,6 +13,181 @@
 > conflict — chỉ prepend entry mới an toàn phía trên, không chạm vào các khối conflict cũ. Người
 > phụ trách cần dọn thủ công khi có dịp.
 
+## [2026-07-11] Refactor toàn bộ không gian cấu hình AI (.claude/rules, .claude/skills, .claude/commands)
+
+**Layer:** Tài liệu cấu hình AI (không đụng `src/`) — `.claude/rules/`, `.claude/skills/`, `.claude/commands/`, `docs/web/theme/`
+
+**Loại:** Refactor
+
+**Thay đổi:**
+- `.claude/skills/database/SKILLS.md`: gỡ Git conflict marker chưa resolve (giữ cả 2 pattern hợp lệ: timeline merge set-based + SP đổi Status dùng UPDLOCK/HOLDLOCK), gộp thêm 7 pattern Repository/SP chuyển từ `api/SKILLS.md` sang.
+- `.claude/skills/api/SKILLS.md` (678→159 dòng): tách `middleware-patterns.md` (X-API key middleware, Kestrel MinResponseDataRate) + `file-streaming-patterns.md` (Parallel.ForEachAsync, SHA-256 companion, tách N file theo cờ DB, resolve path SyncDataPos); dedupe OAuth2 token (canonical ở `cache/SKILLS.md`) và Worker Program.cs bootstrap (canonical ở `worker/SKILLS.md`).
+- `.claude/skills/worker/SKILLS.md` (417→148 dòng): tách `templates.md` (Template A/B/Pattern C).
+- `.claude/skills/web/SKILLS.md` (1299→292 dòng): tách 7 file mới (`security-hardening.md`, `sidebar-nav.md`, `bulk-import-excel.md`, `image-upload.md`, `syntax-highlight-textarea.md`, `trigger-api-task-via-di.md`, `form-input-special-modes.md`), gộp phần còn lại vào `02/03/04-*.md` và `datatable.md`/`form-input.md`; dedupe page pattern/DI table/auth flow (trỏ `rules/blazor-web-app.md`) và badge dot-pill (trỏ `rules/mudblazor-flat-ui.md` §4a).
+- `.claude/skills/web/theming.md` (299→145 dòng): bỏ nội dung trùng `rules/mudblazor-flat-ui.md` (Button/Sidebar/Filter panel/Density), chỉ giữ code `PosTheme.cs` + checklist.
+- `.claude/rules/mudblazor-flat-ui.md` (510→361 dòng): chuyển lịch sử quyết định/rollout/TODO sang `docs/web/theme/theme-decision-log.md` (file mới).
+- 7 file `.claude/commands/`: sửa 2 command sinh code `MudDataGrid` (phải `MudTable`), viết lại `web-ui-confirm-dialog.md` theo đúng pattern `MudMessageBox @ref`, sửa `/gen-hash` → `/web-gen-hash` (2 file), sửa link hỏng "CLAUDE.md §POS.Web mục 0", bỏ bảng MudBlazor v9 chép lại trong `web-ui-chart.md`.
+- Thêm YAML front-matter (`name`/`description`) cho toàn bộ ~40 file `.claude/skills/**/*.md`.
+
+**Pattern mới:** Không phải pattern nghiệp vụ mới — đây chính là đợt refactor cấu trúc skill/rule.
+
+**Lưu ý cho session sau:** `.claude/skills/web/SKILLS.md` giờ chỉ là index + luật lõi (292 dòng) —
+patterns cụ thể đã có file riêng, tra bảng "Skill con" đầu file trước khi tìm trong SKILLS.md.
+Lịch sử/rollout theme không còn nằm trong `mudblazor-flat-ui.md` — xem
+`docs/web/theme/theme-decision-log.md`. Đã verify không còn broken reference/conflict marker
+trong `.claude/` bằng grep + script PowerShell kiểm tra toàn bộ path — chưa build/test vì đây là
+thay đổi thuần tài liệu, không đụng code `src/`.
+
+---
+
+## [2026-07-11] Sửa `LineNo` chưa bracket-quote trong docs/sql (5 file)
+
+**Layer:** Tài liệu SQL (`docs/sql/`) + `.claude/skills/database/SKILLS.md`
+
+**Loại:** Bug fix (script SQL)
+
+**Thay đổi:**
+- `docs/sql/SetupCoupon_Read.sql`, `SetupVoucher_Read.sql`: `ORDER BY LineNo` → `ORDER BY [LineNo]`
+- `docs/sql/SetupCoupon_Save.sql`, `SetupVoucher_Save.sql`, `SetupVoucher_SaveIssue.sql`: INSERT
+  column-list `(ItemNo, LineNo, ...)` → `(ItemNo, [LineNo], ...)`
+- `.claude/skills/database/SKILLS.md`: bổ sung ghi chú vào mục "Reserved keyword — BẮT BUỘC
+  bracket-quote `[ ]`" đã có sẵn, liệt kê 5 vị trí vừa sửa + ví dụ sai/đúng, nhấn mạnh INSERT
+  column-list và `ORDER BY` là nơi dễ sót ngoặc nhất (không có prefix bảng nhắc nhớ).
+
+**Pattern mới:** Không phải pattern mới — củng cố rule đã có sẵn (`LineNo` từng ghi nhận gây lỗi
+Msg 156 trong `CentralSaleRepository.cs`). `docs/sql/database/CentralMD.sql`/`CentralSale.sql` đã
+bracket-quote đúng từ trước, không cần sửa.
+
+**Lưu ý cho session sau:** Khi copy/viết script SQL mới có cột `LineNo` (đặc biệt trong INSERT
+column-list hoặc `ORDER BY`), luôn bracket-quote `[LineNo]` — đã verify bằng Grep quét toàn bộ
+`docs/sql` sau khi sửa, không còn `LineNo` trần nào sót lại. Chưa chạy được script thật trên SQL
+Server (sandbox không có kết nối DB) để verify hết lỗi Msg 156.
+
+---
+
+## [2026-07-11] Ghi nhật ký fix deploy POS.Worker (Docker + bare-metal) trên `sit-uat-server`
+
+**Layer:** POS.Worker (tài liệu deploy — không đổi code/appsettings thêm trong đợt này)
+
+**Loại:** Tài liệu (runbook sự cố thực tế)
+
+**Bối cảnh:** Tiếp nối task fix SQL connection + setup Model C bare-metal đã ghi ở entry
+"Fix POS.Worker không kết nối được SQL Server..." bên dưới — trong quá trình user thực thi runbook
+trên host `sit-uat-server`, phát sinh thêm 5 lỗi vận hành liên tiếp (quyền thư mục publish,
+systemd 217/USER, systemd 216/GROUP, script thiếu execute bit, nhầm `DOTNET_ENVIRONMENT` cho Model
+C). Ghi lại thành 1 file runbook sự cố riêng để lần deploy Model C tiếp theo (host mới) không lặp
+lại đúng chuỗi lỗi này.
+
+**Thay đổi:**
+- `docs/deploy/fix_issue_pos-worker-host.md` (**file mới**): nhật ký 6 vấn đề — mỗi mục có triệu
+  chứng thực tế (log/error message) → nguyên nhân → lệnh fix cụ thể đã áp dụng thành công, kèm
+  checklist rút gọn cho lần deploy Model C kế tiếp trên host mới.
+
+**Pattern mới:** Không có — thuần ghi nhận sự cố vận hành, không phát sinh pattern code.
+
+**Lưu ý cho session sau:** Khi deploy Model C (bare-metal, systemd) lần đầu trên 1 host mới, đọc
+`docs/deploy/fix_issue_pos-worker-host.md` TRƯỚC — đặc biệt 2 lỗi dễ tái diễn nhất: (1) quên chạy
+`deploy/linux/setup-pos-dirs.sh` trước khi tạo user/group cho service (→ `216/GROUP`); (2) file
+`.sh` mất execute bit khi transfer lên host không qua `git clone`/`git pull` (→ báo nhầm
+"command not found" thay vì "Permission denied", dễ đoán sai là lỗi đường dẫn).
+
+---
+
+## [2026-07-11] LogFilePage (/admin/logs) — đổi từ liệt kê đệ quy sang duyệt thư mục drill-down
+
+**Layer:** POS.Web
+
+**Loại:** Refactor UI + thay đổi hành vi (không đổi contract JSON POS — DTO nội bộ POS.Web)
+
+**Thay đổi:**
+- `src/POS.Web/Services/LogFileInfo.cs`: bỏ property `FolderName` (dư thừa — mỗi listing giờ chỉ
+  chứa đúng 1 thư mục, vị trí đã thể hiện qua breadcrumb).
+- `src/POS.Web/Services/LogFolderInfo.cs` (mới): `record LogFolderInfo(string Name, string RelativePath)`.
+- `src/POS.Web/Services/LogDirectoryListing.cs` (mới): `record LogDirectoryListing(string CurrentRelativePath, IReadOnlyList<LogFolderInfo> Folders, IReadOnlyList<LogFileInfo> Files)`.
+- `src/POS.Web/Services/ILogFileService.cs`: thay `GetLogFilesAsync()` (quét
+  `SearchOption.AllDirectories` toàn bộ root) bằng `GetDirectoryListingAsync(string relativePath = "", ...)`
+  — chỉ liệt kê đúng 1 cấp thư mục (folders + files trực tiếp bên trong).
+- `src/POS.Web/Services/LogFileService.cs`: thêm helper `ResolveSafePath` dùng chung cho cả
+  listing lẫn download (gộp logic path-traversal-guard đang lặp lại, hành vi validate giữ nguyên).
+- `src/POS.Web/Components/Pages/Admin/LogFilePage.razor`: mặc định load danh sách thư mục con của
+  root; click 1 thư mục (nút dạng "chip" `MudButton` icon Folder) mới load file `.txt`/`.log` bên
+  trong qua `GetDirectoryListingAsync(relativePath)`; breadcrumb thủ công bằng `MudLink` (không
+  dùng `MudBreadcrumbs` — component đó thiết kế cho `Href`/URL navigation thật, không hợp để chỉ
+  đổi state nội bộ trong cùng 1 trang); tải file về máy giữ nguyên qua `JS.SaveAsFileAsync` (JS
+  interop có sẵn, không thêm endpoint HTTP nào).
+
+**Pattern mới (nếu có):** Không thêm pattern mới vào SKILLS.md — chỉ là UI refinement dùng đúng
+component có sẵn (`MudButton`, `MudLink`, `MudTable`), chưa đủ tính lặp lại để tách thành chuẩn
+dùng chung.
+
+**Lưu ý cho session sau:** Verify mới chạy được `dotnet build src/POS.Web/POS.Web.csproj` (0
+error) + `dotnet test tests/POS.ContractTests` (45/45 xanh) — **chưa chạy app thật trên trình
+duyệt** (sandbox không có `POS_SECRET_KEY`/SQL/Redis), cần tự kiểm tra bằng mắt: vào `/admin/logs`
+→ thấy thư mục gốc (không phải file) → click 1 thư mục → thấy file bên trong → bấm Download → file
+tải về đúng nội dung. `docs/CURRENT_STRUCTURE.md` **cố ý không cập nhật** — đã xác nhận file đó
+chỉ track POS.Common/POS.Application/POS.Infrastructure (kể cả `IWebUserService` của POS.Web
+cũng chưa từng được ghi ở đó), nên `ILogFileService`/DTO mới không thuộc phạm vi doc này.
+
+---
+
+## [2026-07-11] Fix POS.Worker không kết nối được SQL Server khi deploy Docker/bare-metal trên Ubuntu
+
+**Layer:** POS.Worker (appsettings — config only, không đổi code C#)
+
+**Loại:** Bug fix (hạ tầng/deploy)
+
+**Bối cảnh:** User deploy `pos-worker-prod` (Model B, Docker) theo đúng
+`docs/deploy/pos-worker-ubuntu-guide.md` mục 3, đã truyền `POS_SECRET_KEY` đúng nhưng
+`Rpt_ReportSaleDetail_Insert` báo `SqlException: ...server was not found or not accessible`.
+Sau đó tiếp tục dựng thêm 1 instance bare-metal chạy `MasterDataZipGeneratorWorker` (Model C) song
+song bằng systemd, gặp thêm chuỗi lỗi cấu hình hệ thống (user/group/thư mục publish) trước khi
+chạy được ổn định.
+
+**Nguyên nhân + Thay đổi:**
+- `src/POS.Worker/appsettings.Production.json`: `ConnectionStrings:*` + `SetDb:DB1` hardcode
+  `Data Source=mssql_2019,14333` — `mssql_2019` là service name trong `docker-compose.yml`, chỉ
+  resolve được trong network do `docker compose up` tạo ra. Container `pos-worker-prod` chạy bằng
+  `docker run` độc lập (không qua compose) nên hostname này không resolve được. Đổi sang
+  `host.docker.internal,14333` — khớp pattern đã dùng sẵn cho `RabbitMQ:Host` trong CHÍNH file này
+  (route qua `--add-host host.docker.internal:host-gateway` đã có sẵn trong lệnh `docker run` mẫu).
+- `src/POS.Worker/appsettings.ProductionHost.json`: giảm `MasterDataZipGenerator.IntervalSeconds`
+  300 → 120 theo yêu cầu vận hành (poll watermark mỗi 2 phút thay vì 5 phút).
+
+**Phát hiện quan trọng cho session sau (chưa sửa code, chỉ ghi nhận):** `Program.cs` — cờ
+`--run-once` **chỉ hard-code chạy `PosFileImportService`** (Model A), **không đọc `WorkerRoles`**.
+Hiện KHÔNG có cách chạy `MasterDataZipGeneratorWorker` (hay bất kỳ worker nào khác) kiểu "chạy 1
+lần rồi thoát" qua crontab — muốn định kỳ chỉ có thể chỉnh `IntervalSeconds` bên trong daemon dài
+hạn (systemd), không thể chuyển sang mô hình cron thật cho các worker này nếu không sửa
+`Program.cs` để tách logic 1 chu kỳ thành method gọi được riêng (giống mẫu `RunOnceAsync` của
+`PosFileImportService`).
+
+**Gotcha vận hành khác phát hiện trong quá trình debug (ghi nhận cho lần deploy sau):**
+- Lỗi systemd `status=217/USER` / `status=216/GROUP` = user/group khai báo ở `User=`/`Group=`
+  trong unit file chưa tồn tại trên host — phải chạy `deploy/linux/setup-pos-dirs.sh` (tạo group
+  `posops`) và `useradd posworker` + `usermod -aG posops posworker` TRƯỚC khi start service, đúng
+  thứ tự mục 9.3 của `pos-worker-ubuntu-guide.md` (dễ bị bỏ qua nếu chỉ làm theo mục 3.5).
+- Nếu dùng path publish tùy biến khác `/srv/pos/app/...` (vd `/var/www/posWeb/worker`) — BẮT BUỘC
+  tách thư mục riêng cho mỗi model (Model A cron / ProductionHost daemon) như guide đã cảnh báo ở
+  mục 3.5, nếu không lần `dotnet publish` sau sẽ ghi đè binary đang được process khác dùng.
+- Khi cần chạy Model C (`MasterDataZipGeneratorWorker`) trên host bare-metal: dùng
+  `DOTNET_ENVIRONMENT=ProductionHost` (file này đã có sẵn địa chỉ SQL/Redis đúng cho bare-metal,
+  `127.0.0.1`) rồi **override `WorkerRoles` qua `Environment=` trong unit file**
+  (`EnableMasterDataZipGenerator=true`, `EnableHeartbeat=true`, tắt hết còn lại) — KHÔNG dùng
+  `DOTNET_ENVIRONMENT=Production` như mô tả gốc ở mục 9.4, vì file `Production.json` sau khi sửa
+  ở trên đã trỏ SQL sang `host.docker.internal` (chỉ resolve trong container, không resolve được
+  cho process bare-metal).
+
+**Pattern mới:** Không có (config fix + ghi nhận giới hạn code hiện tại, không phát sinh pattern
+code mới).
+
+**Lưu ý cho session sau:** `docs/deploy/pos-worker-ubuntu-guide.md` mục 9.4 hiện vẫn ghi
+`DOTNET_ENVIRONMENT=Production` cho Model C — đã lỗi thời so với thực tế sau khi
+`appsettings.Production.json` đổi sang `host.docker.internal`. Nên cập nhật lại guide (đổi hướng
+dẫn Model C sang `ProductionHost` + override `WorkerRoles`) trong lần chạm vào file guide gần
+nhất, tránh người sau làm theo hướng dẫn cũ và gặp lại đúng lỗi SQL connection.
+
+---
+
 ## [2026-07-11] DROP bảng `Internal_Voucher_Legacy` — dọn tài liệu + script SQL liên quan
 
 **Layer:** POS.Common tài liệu (không đổi code C#/logic runtime — bảng đã hết được tham chiếu từ trước)
