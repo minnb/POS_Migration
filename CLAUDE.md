@@ -629,6 +629,8 @@ Nhất quán với POS.Api và POS terminals.
 > Mọi page/component mới trong POS.Web PHẢI tuân theo chuẩn này.
 > Tự áp dụng khi tạo page — không cần nhắc.
 
+> **Chi tiết đầy đủ: `.claude/skills/mudblazor-compliance/SKILL.md`** — dùng skill này để audit một trang .razor đối chiếu chuẩn Responsive/Flat UI/Density trước khi coi là hoàn thành.
+
 #### Breakpoints (MudBlazor built-in)
 
 | Tên | Phạm vi | Target |
