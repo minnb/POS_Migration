@@ -17,6 +17,42 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-07-12] Tích hợp MCP (SQL read-only + Redis) + hạ tầng Unit Test luồng Payment
+
+**Layer:** Tooling/hạ tầng (`.mcp.json`, `.claude/`, `tests/POS.UnitTests/`, `docs/mcp/`) — KHÔNG đụng code `src/`
+
+**Loại:** Pattern mới (tooling + test infra)
+
+**Thay đổi:**
+- `.mcp.json` (mới): khai báo 2 MCP server `mssql-rpos-readonly` (npx) + `redis-rpos` (uvx), **chỉ dùng
+  `${VAR}`** — không hardcode connection string; được commit (đã thêm `!.mcp.json` vượt rule `*.json`).
+- `.claude/settings.local.json` (mới, **gitignored**): chứa endpoint + credential DEV thật, không commit.
+- `.gitignore`: thêm `!.mcp.json` + chặn tường minh `settings.local.json`.
+- `.claude/skills/payment-test-generator/SKILL.md` (mới, số ít + YAML frontmatter): skill sinh unit
+  test xUnit+Moq+FluentAssertions, mã hóa Nguyên tắc Mock (test qua seam interface Application).
+- `tests/POS.UnitTests/` (mới): `POS.UnitTests.csproj` (Moq 4.20.72 + FluentAssertions **7.0.0** free) +
+  3 file test luồng Payment (`PaymentControllerTests`/`GotITServiceTests`/`UrboxServiceTests`) — **13 test PASS**.
+- `POS.slnx`: đăng ký `tests/POS.UnitTests`.
+- `docs/mcp/step-by-step-mcp-guide.md` (mới): hướng dẫn dev bật/dùng MCP + chạy/sinh test.
+- `CLAUDE.md`: +2 dòng Router Index (skill test + guide MCP).
+
+**Pattern mới:** `payment-test-generator` (skill) — unit test qua interface Application, mock Moq,
+assert theo StatusCode (success→200/fail→400/unknown→BadRequest/throw→500), delegation thin-wrapper.
+Bẫy đã ghi vào skill: class `GotITService`/`UrboxService` **trùng tên** Application↔Infrastructure
+(AppService 3-layer) → phải alias namespace (`using AppPartner = ...`) tránh CS0104.
+
+**Verify:** `dotnet test tests/POS.UnitTests` → 13/13 PASS; `dotnet test tests/POS.ContractTests` →
+45/45 PASS (không hồi quy); `dotnet build POS.slnx` → 0 error/0 warning.
+
+**Lưu ý cho session sau:**
+- **MCP CHƯA chạy thật** — 2 blocker hạ tầng: `uvx` chưa cài (Redis) + npm/npx bị chặn TLS công ty
+  (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`, cần `NODE_EXTRA_CA_CERTS`). NuGet KHÔNG dính (OS trust store) nên
+  Unit Test chạy đủ. Chi tiết gỡ chặn: `docs/mcp/step-by-step-mcp-guide.md` mục 1.
+- FluentAssertions ghim **7.x** (Apache-2.0 free) — KHÔNG nâng 8.x (license thương mại Xceed).
+- MCP SQL luôn dùng login `db_datareader` (read-only) — bảo vệ dữ liệu 5.000 POS.
+
+---
+
 ## [2026-07-12] Đóng gói pattern External API Integration (SysWebApi/SysWebApiRoute) thành luật thép
 
 **Layer:** Tài liệu (`.claude/rules/`, `CLAUDE.md`) — không đụng code

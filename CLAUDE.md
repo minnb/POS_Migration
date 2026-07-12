@@ -69,6 +69,8 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Page có thao tác Create/Update/Delete cần audit log | **`.claude/skills/web/audit-logging.md`** |
 | Viết file phân tích nghiệp vụ trước khi port (`FEATURE_{Name}_ANALYSIS.md`) | **`.claude/skills/migration/SKILLS.md`** |
 | Định kỳ dọn dẹp/refactor file `.claude/rules/` hoặc `.claude/skills/` khi đã phình to (tách lịch sử, gộp trùng lặp, tách sub-skill) | **`.claude/commands/refactor-skills.md`** (skill `/refactor-skills`) |
+| Sinh unit test (xUnit + Moq + FluentAssertions) cho luồng Payment / service tầng Application | **`.claude/skills/payment-test-generator/SKILL.md`** (skill `/payment-test-generator`; test đặt ở `tests/POS.UnitTests/`) |
+| Bật/dùng MCP server (SQL read-only, Redis) để debug dữ liệu/cache + cách chạy unit test | **`docs/mcp/step-by-step-mcp-guide.md`** (config `.mcp.json` dùng `${VAR}`; secret ở `.claude/settings.local.json` gitignored — KHÔNG hardcode) |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
 
