@@ -64,6 +64,8 @@ Controller (POS.Api)
           → Infrastructure/AppServices/{Domain}/{Name}Service  (HTTP client thực sự)
 ```
 
+> **Chi tiết đầy đủ: `.claude/skills/appservice-scaffold/SKILL.md`** — dùng skill này để scaffold đúng chuẩn khi tạo AppService mới, thay vì tự tra lại checklist thủ công.
+
 ### Ví dụ đã có (tham chiếu khi tạo service mới)
 
 | Partner | Application interface | Infrastructure AppService |
