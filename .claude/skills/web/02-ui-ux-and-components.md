@@ -132,11 +132,36 @@ description: Luật bắt buộc layout/styling/data display/dialog/responsive/K
 | Card nội dung | `MudCard` + `MudCardContent` |
 | Paper nền | `MudPaper Elevation="2" Class="pa-4"` |
 | Grid layout | `MudGrid` + `MudItem xs="12" sm="6"` |
+| Cây thư mục / dữ liệu phân cấp (duyệt lazy từng cấp) | `MudTreeView<string>` + `ServerData` — xem "Pattern: MudTreeView lazy-load" ngay dưới bảng này |
 
 > Bảng trên map theo **nhu cầu chức năng** (cần làm gì → dùng component nào). Khi polish/tạo UI
 > mới đối chiếu trực tiếp với 1 mockup HTML (`div.sidebar`, `div.card`, `button.btn-primary`...),
 > dùng bảng **"Mapping HTML mockup → MudBlazor Component"** ở `.claude/rules/mudblazor-flat-ui.md`
 > mục 0 — map theo **cấu trúc/markup**, bổ sung cho bảng này chứ không lặp lại.
+
+### Pattern: MudTreeView lazy-load (`ServerData`) — không đệ quy toàn cây
+> Áp dụng khi: cần hiển thị cây thư mục/danh mục phân cấp mà không muốn liệt kê đệ quy toàn bộ
+> 1 lần (tốn I/O, mở rộng blast-radius nếu root chứa nhiều nhánh không liên quan).
+
+`ServerData` nhận **`Value` (kiểu `T`) của node cha**, KHÔNG phải `TreeItemData<T>?` — gọi khi user
+bấm expand 1 node **đã tồn tại**, KHÔNG tự gọi cho top-level. Top-level phải nạp qua `Items` (1 lần,
+1 cấp) — `Items` + `ServerData` dùng **song song**, không phải chọn 1 trong 2.
+
+```csharp
+<MudTreeView T="string" Items="_rootItems" ServerData="LoadChildrenAsync"
+             SelectedValue="_selected" SelectedValueChanged="OnSelectedAsync"
+             SelectionMode="SelectionMode.SingleSelection" Hover="true" Dense="true" ExpandOnClick="true"/>
+
+private async Task<IReadOnlyCollection<TreeItemData<string>>> LoadChildrenAsync(string parentValue)
+    => (await Repo.GetSubItemsAsync(parentValue)).Select(x => new TreeItemData<string>
+    {
+        Text = x.Name, Value = x.Path, Icon = Icons.Material.Filled.Folder,
+        Expandable = true   // KHÔNG gán HasChildren — computed read-only (Children?.Count > 0), CS0200
+    }).ToList();
+```
+
+> Ví dụ thực tế: `src/POS.Web/Components/Pages/Admin/LogFilePage.razor` +
+> `src/POS.Web/Services/{ILogFileService,LogFileService}.cs` (`GetSubfoldersAsync`).
 
 ---
 

@@ -156,6 +156,7 @@
                 <MudNavGroup Title="Nhật ký" Icon="@Icons.Material.Outlined.Article" Class="pos-nav-l2" @bind-Expanded="_expandOpsLog">
                     <MudNavLink Href="/ops/logs" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Interface Error</MudNavLink>
                     <MudNavLink Href="/ops/data-raw-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">DataRawJson Log</MudNavLink>
+                    <MudNavLink Href="/ops/masterdata-generation-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Log sinh Master Data</MudNavLink>
                     <MudNavLink Href="/ops/activity-log" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhật ký thao tác</MudNavLink>
                     <AuthorizeView Policy="@WebPolicies.AdminOnly" Context="adminCtx">
                         <MudNavLink Href="/admin/logs" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Nhật ký hệ thống</MudNavLink>
@@ -293,6 +294,7 @@
         // VẬN HÀNH / Nhật ký
         ["/ops/logs"]               = ("VẬN HÀNH", "Interface Error"),
         ["/ops/data-raw-log"]       = ("VẬN HÀNH", "DataRawJson Log"),
+        ["/ops/masterdata-generation-log"] = ("VẬN HÀNH", "Log sinh Master Data"),
         ["/ops/activity-log"]       = ("VẬN HÀNH", "Nhật ký thao tác"),
         // VẬN HÀNH / Cấu hình
         ["/ops/pos-data-setup"]     = ("VẬN HÀNH", "POS Data Setup"),
@@ -368,7 +370,7 @@
         }
         _expandOpsPos      = u.Contains("/catalog/pos-setup") || u.Contains("/catalog/bank-pos") || u.Contains("/catalog/pos-versions") || u.Contains("/catalog/print-setup") || u.Contains("/catalog/posweb-users");
         _expandOpsMonitor  = u.Contains("/ops/health") || u.Contains("/ops/alerts") || u.Contains("/ops/queues") || u.Contains("/ops/redis");
-        _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/activity-log") || u.Contains("/admin/logs");
+        _expandOpsLog      = u.Contains("/ops/logs") || u.Contains("/ops/data-raw-log") || u.Contains("/ops/masterdata-generation-log") || u.Contains("/ops/activity-log") || u.Contains("/admin/logs");
         _expandOpsConfig   = u.Contains("/ops/pos-map") || u.Contains("/ops/stores") || u.Contains("/ops/pos-data-setup");
         _expandCatOrg      = u.Contains("/catalog/employees") || u.Contains("/catalog/stores") || u.Contains("/catalog/provinces");
         _expandCatPay      = u.Contains("/catalog/banks") || u.Contains("/catalog/bank-card-types") || u.Contains("/catalog/ewallets") || u.Contains("/catalog/currency-rates");

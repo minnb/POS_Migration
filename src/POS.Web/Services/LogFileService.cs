@@ -19,6 +19,31 @@ public sealed class LogFileService : ILogFileService
         _rootDir = parent?.FullName ?? fullConfiguredDir;
     }
 
+    public Task<IReadOnlyList<LogFolderInfo>> GetSubfoldersAsync(string relativePath = "", CancellationToken ct = default)
+    {
+        var normalizedPath = NormalizeRelativePath(relativePath);
+        try
+        {
+            var fullPath = ResolveSafePath(normalizedPath);
+            if (fullPath is null || !Directory.Exists(fullPath))
+                return Task.FromResult<IReadOnlyList<LogFolderInfo>>([]);
+
+            IReadOnlyList<LogFolderInfo> folders = Directory.EnumerateDirectories(fullPath)
+                .Select(Path.GetFileName)
+                .Where(name => !string.IsNullOrEmpty(name))
+                .Select(name => new LogFolderInfo(name!, CombineRelative(normalizedPath, name!)))
+                .OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return Task.FromResult(folders);
+        }
+        catch (Exception ex)
+        {
+            _fileLogHelper.WriteExpLogs("LogFileService.GetSubfoldersAsync", ex);
+            return Task.FromResult<IReadOnlyList<LogFolderInfo>>([]);
+        }
+    }
+
     public Task<LogDirectoryListing> GetDirectoryListingAsync(string relativePath = "", CancellationToken ct = default)
     {
         var normalizedPath = NormalizeRelativePath(relativePath);

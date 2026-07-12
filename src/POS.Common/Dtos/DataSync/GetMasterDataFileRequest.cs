@@ -27,4 +27,11 @@ public sealed class GetMasterDataFileRequest
     /// Mặc định false — giữ nguyên hành vi hiện hữu cho GetFileFromFTP/PushStartOfDayDataAsync.
     /// </summary>
     public bool ForceRegenerate { get; set; }
+
+    /// <summary>
+    /// Nguồn kích hoạt sinh file — ghi vào dbo.MasterDataGenerationLog.TriggerSource để đối soát.
+    /// "AutoChange" (MasterDataZipGeneratorWorker), "ManualSync" (nút Đồng bộ trên PosMapPage),
+    /// "PosPull" (POS gọi GetFileFromFTP). Chỉ dùng nội bộ để log — KHÔNG ảnh hưởng contract JSON.
+    /// </summary>
+    public string? TriggerSource { get; set; }
 }

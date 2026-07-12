@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
 using POS.Common.Const;
@@ -45,6 +46,40 @@ public sealed class MasterDataSyncService(
         var parts = name.Split('_');
         return parts.Length >= 4 ? (parts[0], parts[2]) : (null, null);
     }
+
+    /// <summary>
+    /// Ghi 1 dòng log MỖI lần sinh 1 zip (hoặc 1 dòng Error/lượt) vào dbo.MasterDataGenerationLog.
+    /// Fail-safe giống LogDownloadAsync: nuốt lỗi (bảng chưa tạo…), KHÔNG phá luồng sinh file. Dùng
+    /// CancellationToken.None để ghi được cả khi request client đã hủy. FileSizeBytes lấy từ zip vừa
+    /// publish trên đĩa (zipName=null cho dòng Error → size 0, FilePath null).
+    /// </summary>
+    private async Task LogGenerationSafe(
+        GetMasterDataFileRequest req, string? zipName, int tableCount,
+        string status, string? message, long durationMs)
+    {
+        try
+        {
+            long fileSizeBytes = 0;
+            string? filePath = null;
+            if (!string.IsNullOrEmpty(zipName))
+            {
+                var fullPath = Path.Combine(req.TargetDir, zipName);
+                if (File.Exists(fullPath)) fileSizeBytes = new FileInfo(fullPath).Length;
+                filePath = $"{req.PathSync}/{req.FolderFile}/{zipName}";
+            }
+            await syncRepository.InsertGenerationLogAsync(
+                req.SiteCode, req.PosTerminal, zipName, filePath, fileSizeBytes, tableCount, durationMs,
+                req.TriggerSource, req.IsChangeMode, status, message, Environment.MachineName,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            fileLogHelper.WriteExpLogs("MasterDataSyncService.LogGeneration", ex);
+        }
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+        => value is { Length: > 0 } && value.Length > maxLength ? value[..maxLength] : value;
 
     public async Task LogDownloadAsync(
         string? fileName, string? filePath, long fileSizeBytes, long durationMs,
@@ -151,6 +186,9 @@ public sealed class MasterDataSyncService(
         Directory.CreateDirectory(req.TargetDir);
         var tmpDir = Path.Combine(req.TargetDir, $"_tmp_{Guid.NewGuid():N}");
         var tableCount = 0;
+        // Đo thời gian cả lượt sinh (ghi vào MasterDataGenerationLog.DurationMs — cùng giá trị cho mọi
+        // zip publish trong lượt này) để đối soát hiệu năng sinh file.
+        var sw = Stopwatch.StartNew();
         try
         {
             Directory.CreateDirectory(tmpDir);
@@ -263,6 +301,7 @@ public sealed class MasterDataSyncService(
                 await PublishZipAsync(req, zipName, commonDir, ct);
                 publishedZipNames.Add(zipName);
                 results.Add(Success(zipName, req, commonTableCount));
+                await LogGenerationSafe(req, zipName, commonTableCount, "Success", null, sw.ElapsedMilliseconds);
             }
 
             // Zip riêng cho từng bảng IsSingleFile=1 thực sự có dữ liệu.
@@ -273,6 +312,7 @@ public sealed class MasterDataSyncService(
                 await PublishZipAsync(req, zipName, singleTableDirs[tableName], ct);
                 publishedZipNames.Add(zipName);
                 results.Add(Success(zipName, req, 1));
+                await LogGenerationSafe(req, zipName, 1, "Success", null, sw.ElapsedMilliseconds);
             }
 
             // Dọn zip mồ côi cùng terminal (khác lượt chạy này, hoặc bảng vừa bị tắt IsSingleFile).
@@ -293,6 +333,8 @@ public sealed class MasterDataSyncService(
             kibanaService.LogException("MasterDataSync.Ensure", req.PosTerminal, 0, "",
                 $"Generate master data failed: {ex.Message}");
             fileLogHelper.WriteExpLogs("MasterDataSyncService.EnsureMasterDataFileAsync", ex);
+            // Ghi 1 dòng Error (FileName=NULL) để đối soát được cả lượt sinh lỗi (không publish zip nào).
+            await LogGenerationSafe(req, null, tableCount, "Error", Truncate(ex.Message, 500), sw.ElapsedMilliseconds);
             throw;
         }
         finally

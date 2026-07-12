@@ -298,3 +298,13 @@ run*.log
 
 # ---- Loại trừ thư mục backend cũ (không đẩy lên Git) ----
 POS.Backend/
+
+# ============================================================
+# MCP config (Claude Code) — thêm cho tích hợp SQL/Redis MCP read-only
+# ============================================================
+# .mcp.json = cấu hình MCP dùng CHUNG, KHÔNG chứa secret (chỉ tham chiếu ${VAR}) → CẦN commit.
+# Phải override rule "*.json" ở dòng 48 (giống cách !**/appsettings.json được giữ lại).
+!.mcp.json
+# settings.local.json = chứa endpoint + credential DEV (secret) → TUYỆT ĐỐI KHÔNG commit.
+# (đã bị "*.json" chặn sẵn, thêm dòng này cho tường minh & phòng negation tương lai)
+.claude/settings.local.json

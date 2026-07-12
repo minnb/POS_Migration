@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "mssql-rpos-readonly": {
+      "command": "npx",
+      "args": ["-y", "@c0h1b4/mssql-mcp-server"],
+      "env": {
+        "MSSQL_HOST": "${MSSQL_HOST}",
+        "MSSQL_PORT": "${MSSQL_PORT}",
+        "MSSQL_DATABASE": "${MSSQL_DATABASE}",
+        "MSSQL_USER": "${MSSQL_RO_USER}",
+        "MSSQL_PASSWORD": "${MSSQL_RO_PASSWORD}",
+        "MSSQL_ENCRYPT": "true",
+        "MSSQL_TRUST_SERVER_CERTIFICATE": "true"
+      }
+    },
+    "redis-rpos": {
+      "command": "uvx",
+      "args": [
+        "--from", "redis-mcp-server@latest", "redis-mcp-server",
+        "--url", "${REDIS_URL}"
+      ]
+    }
+  }
+}

@@ -12,6 +12,37 @@
 > theo 1 ảnh mẫu MudBlazor "Mud Mini" tham khảo), v3 bám sát 1 file mockup HTML/CSS cụ thể — mọi
 > giá trị màu/radius/shadow đều đối chiếu trực tiếp CSS gốc của file đó, không suy đoán.
 
+> ## ⚡ Tóm tắt luật thép (đọc nhanh)
+> **✅ DO:**
+> - Trước khi viết markup: tra bảng mapping HTML mockup → MudBlazor Component (mục 0)
+> - Card/Paper có nội dung: `Elevation="2"` (shadow thật); filter panel/toolbar: `Elevation="1"`
+>   (flat) (mục 1, mục 7)
+> - Input/Select/DatePicker: luôn `Variant="Variant.Outlined"` + `Margin="Margin.Dense"` (mục 2)
+> - Button CTA (Lưu/Thêm/Tìm): `Filled`+`Primary`; Hủy/trung tính: `Outlined` không màu; Phá hủy:
+>   `Outlined`+`Color.Error` — mọi `MudButton` thêm class `pos-btn-mockup`, nút trung tính thêm
+>   thêm `pos-btn-secondary-mockup` (mục 3, mục 3a)
+> - DataTable: `MudTable Dense Hover Striped HorizontalScrollbar`; badge trạng thái tĩnh dùng
+>   `.pos-status-chip` + modifier `.pos-status-{success,error,warning,info}` (mục 4, mục 4a)
+> - Sidebar: `DrawerBackground="#0D1B2A"`, 3 cấp L1 (uppercase, không icon)/L2 (icon riêng)/L3
+>   (chevron) (mục 5)
+> - KPI card: dùng đúng khuôn mẫu chuẩn (`.pos-kpi-value`/`.pos-kpi-label` + `<PosDeltaBadge>`) —
+>   xem checklist Typography bắt buộc (mục 11, mục 11.1)
+> - Màu Palette theo đúng bảng hex đã chốt (mục 8); màu trend/delta tăng=xanh/giảm=đỏ giữ nguyên
+>   qua mọi bản (mục 9)
+>
+> **❌ DON'T:**
+> - Cấm tự thêm `border`/`box-shadow` CSS cho `MudPaper`/`MudCard` — dùng `Elevation` (mục 1)
+> - Cấm truyền emoji vào tham số `Icon=` của `MudNavLink`/`MudIcon` (nhận SVG path, icon sẽ biến
+>   mất không cảnh báo) (mục 5)
+> - Cấm gọi `DialogService.ShowAsync<MudMessageBox>(...)` cho confirm dialog — luôn khai báo
+>   `<MudMessageBox @ref>` tường minh (mục 3)
+> - Cấm `MudTablePager PageSizeOptions` không chứa `10` (mục 4)
+> - Cấm phát minh class/spacing/màu mới khi đã có sẵn trong file này — bổ sung vào đúng mục tương
+>   ứng nếu thật sự chưa có, không tạo rule song song khác
+>
+> *(Chi tiết đầy đủ — bảng màu/CSS/code mẫu/lịch sử quyết định — xem các mục đánh số bên dưới,
+> KHÔNG bị đổi.)*
+
 ## 0. Mapping HTML mockup → MudBlazor Component
 
 > Dùng bảng này khi polish/tạo mới bất kỳ page/component nào đối chiếu với mockup HTML

@@ -1,0 +1,285 @@
+@page "/ops/masterdata-generation-log"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Web.Auth
+@using POS.Common.Dtos.DataSync
+@using POS.Infrastructure.Repositories.Interfaces
+@using POS.Infrastructure.Logging
+
+@inject ISyncRepository SyncRepo
+@inject IFileLogHelper FileLogger
+@inject ISnackbar Snackbar
+
+<PageTitle>Log sinh Master Data – POS Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:400">
+    <MudIcon Icon="@Icons.Material.Filled.Inventory2" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
+    Log sinh Master Data — đối soát file .zip đã tạo
+</MudText>
+
+@* ── Filter ────────────────────────────────────────────────────────────────── *@
+<MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker Label="Từ ngày" @bind-Date="_fromDate" DateFormat="dd/MM/yyyy"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudDatePicker Label="Đến ngày" @bind-Date="_toDate" DateFormat="dd/MM/yyyy"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_storeNo" Label="Mã cửa hàng"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Store"
+                          Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudTextField @bind-Value="_posNo" Label="Mã POS"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.PointOfSale"
+                          Clearable="true"/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_statusFilter" Label="Trạng thái"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((string?)null)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("Success")">Thành công</MudSelectItem>
+                <MudSelectItem Value="@("Error")">Lỗi</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_triggerFilter" Label="Nguồn"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((string?)null)">Tất cả</MudSelectItem>
+                <MudSelectItem Value="@("AutoChange")">Worker (tự động)</MudSelectItem>
+                <MudSelectItem Value="@("ManualSync")">Đồng bộ thủ công</MudSelectItem>
+                <MudSelectItem Value="@("PosPull")">POS kéo</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_maxRows" Label="Số dòng"
+                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="100">100</MudSelectItem>
+                <MudSelectItem Value="200">200</MudSelectItem>
+                <MudSelectItem Value="500">500</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
+            <MudStack Row="true" Spacing="1" Class="w-100">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Class="pos-btn-mockup"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="LoadDataAsync" FullWidth="true"
+                           Disabled="_loading">Tìm</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="ResetFilter" FullWidth="true">Xóa</MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+}
+else if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+else
+{
+    @* ── KPI Row ──────────────────────────────────────────────────────────────── *@
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 200px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:var(--pos-info)">@_records.Count.ToString("N0")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label">Tổng lượt (đã tải)</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 200px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:var(--pos-success)">@_fileCount.ToString("N0")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label">Số file .zip sinh</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 200px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-tertiary)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value">@FormatSize(_totalBytes)</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label">Tổng dung lượng</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 200px">
+            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+                <MudText Typo="Typo.h5" Class="pos-kpi-value" Style="color:var(--pos-danger)">@_errorCount.ToString("N0")</MudText>
+                <MudText Typo="Typo.body2" Class="pos-kpi-label">Số lượt lỗi</MudText>
+            </MudPaper>
+        </div>
+    </div>
+
+    @if (_records.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">Không có dữ liệu trong khoảng thời gian đã chọn.</MudAlert>
+    }
+    else
+    {
+        @* ── DataTable ────────────────────────────────────────────────────────────── *@
+        <MudTable Items="@_records"
+                  Hover="true" Striped="true" Dense="true"
+                  Breakpoint="Breakpoint.Sm" Elevation="2"
+                  HorizontalScrollbar="true">
+            <HeaderContent>
+                <MudTh Style="min-width:150px"><MudTableSortLabel SortBy="new Func<MasterDataGenerationLogDto, object>(x => x.GeneratedAt)" InitialDirection="SortDirection.Descending">Thời điểm</MudTableSortLabel></MudTh>
+                <MudTh Style="min-width:90px"><MudTableSortLabel SortBy="new Func<MasterDataGenerationLogDto, object>(x => x.StoreNo ?? string.Empty)">Cửa hàng</MudTableSortLabel></MudTh>
+                <MudTh Style="min-width:80px">POS</MudTh>
+                <MudTh Style="min-width:260px">Tên file .zip</MudTh>
+                <MudTh Style="min-width:100px; text-align:right">Dung lượng</MudTh>
+                <MudTh Style="min-width:70px; text-align:right">Số bảng</MudTh>
+                <MudTh Style="min-width:80px; text-align:right">Thời gian (ms)</MudTh>
+                <MudTh Style="min-width:140px">Nguồn</MudTh>
+                <MudTh Style="min-width:110px; text-align:center">Trạng thái</MudTh>
+                <MudTh Style="min-width:140px">Host</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Thời điểm" Style="white-space:nowrap">@context.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+                <MudTd DataLabel="Cửa hàng">@(context.StoreNo ?? "—")</MudTd>
+                <MudTd DataLabel="POS">@(context.PosNo ?? "—")</MudTd>
+                <MudTd DataLabel="Tên file .zip" Style="font-family:monospace; font-size:0.78rem; word-break:break-all">@(context.FileName ?? "—")</MudTd>
+                <MudTd DataLabel="Dung lượng" Style="text-align:right; white-space:nowrap">@FormatSize(context.FileSizeBytes)</MudTd>
+                <MudTd DataLabel="Số bảng" Style="text-align:right">@context.TableCount</MudTd>
+                <MudTd DataLabel="Thời gian (ms)" Style="text-align:right">@context.DurationMs.ToString("N0")</MudTd>
+                <MudTd DataLabel="Nguồn">
+                    @{ var (trigCls, trigLabel) = TriggerDisplay(context.TriggerSource); }
+                    <span class="pos-status-chip @trigCls">@trigLabel</span>
+                </MudTd>
+                <MudTd DataLabel="Trạng thái" Style="text-align:center">
+                    @if (string.Equals(context.Status, "Success", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <span class="pos-status-chip pos-status-success">Thành công</span>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrEmpty(context.Message))
+                        {
+                            <MudTooltip Text="@context.Message" Placement="Placement.Top">
+                                <span class="pos-status-chip pos-status-error" style="cursor:help">Lỗi</span>
+                            </MudTooltip>
+                        }
+                        else
+                        {
+                            <span class="pos-status-chip pos-status-error">Lỗi</span>
+                        }
+                    }
+                </MudTd>
+                <MudTd DataLabel="Host" Style="font-size:0.78rem">@(context.InstanceId ?? "—")</MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                               InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                               RowsPerPageString="Số dòng mỗi trang:"/>
+            </PagerContent>
+        </MudTable>
+
+        <MudText Typo="Typo.caption" Class="mt-2" Style="color:var(--mud-palette-text-secondary)">
+            Hiển thị @_records.Count dòng (tối đa @_maxRows)
+        </MudText>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private bool    _loading = true;
+    private string? _errorMsg;
+
+    private DateTime? _fromDate = DateTime.Today;
+    private DateTime? _toDate   = DateTime.Today;
+    private string?   _storeNo;
+    private string?   _posNo;
+    private string?   _statusFilter;
+    private string?   _triggerFilter;
+    private int       _maxRows = 100;
+
+    private List<MasterDataGenerationLogDto> _records = [];
+
+    // KPI dẫn xuất từ bộ dữ liệu đã tải (không query riêng — trang giám sát nhẹ).
+    private int  _fileCount;
+    private int  _errorCount;
+    private long _totalBytes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải log sinh Master Data.";
+            FileLogger.WriteExpLogs("MasterDataGenerationLogPage.OnInitialized", ex);
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading  = true;
+        _errorMsg = null;
+        try
+        {
+            _records = await SyncRepo.GetGenerationLogsAsync(
+                _fromDate, _toDate, _storeNo, _posNo, _statusFilter, _triggerFilter, _maxRows);
+
+            _fileCount  = _records.Count(r => string.Equals(r.Status, "Success", StringComparison.OrdinalIgnoreCase)
+                                              && !string.IsNullOrEmpty(r.FileName));
+            _errorCount = _records.Count(r => !string.Equals(r.Status, "Success", StringComparison.OrdinalIgnoreCase));
+            _totalBytes = _records.Sum(r => r.FileSizeBytes);
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải log sinh Master Data.";
+            FileLogger.WriteExpLogs("MasterDataGenerationLogPage.LoadData", ex);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResetFilter()
+    {
+        _fromDate      = DateTime.Today;
+        _toDate        = DateTime.Today;
+        _storeNo       = null;
+        _posNo         = null;
+        _statusFilter  = null;
+        _triggerFilter = null;
+        _maxRows       = 100;
+        await LoadDataAsync();
+    }
+
+    private static (string CssClass, string Label) TriggerDisplay(string? trigger) => trigger switch
+    {
+        "AutoChange" => ("pos-status-success", "Worker"),
+        "ManualSync" => ("pos-status-info", "Đồng bộ thủ công"),
+        "PosPull"    => ("pos-status-warning", "POS kéo"),
+        _            => ("pos-status-info", trigger ?? "—")
+    };
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes <= 0) return "0";
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1) { size /= 1024; unit++; }
+        return $"{size:0.##} {units[unit]}";
+    }
+}

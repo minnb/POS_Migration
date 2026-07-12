@@ -169,7 +169,7 @@ public sealed class LoyaltyController(
     }
 
     [HttpPost]
-    [Route("v2/loyalty/transaction/add")]
+        
     public async Task<IActionResult> AddTransaction([FromBody] VinIDSalesRequest model)
     {
         if (!ModelState.IsValid) return ExceptionModels();

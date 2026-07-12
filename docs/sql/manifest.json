@@ -57,6 +57,8 @@
 
     { "order": 800, "file": "SyncGetDataByTable_AddFilter.sql", "target": "CentralMD", "runOnce": false },
     { "order": 810, "file": "MasterDataDownloadLog.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 815, "file": "MasterDataGenerationLog.sql", "target": "CentralMD", "runOnce": false,
+      "note": "Bang log moi luot SINH file .zip master data (bo sung cho MasterDataDownloadLog). Ghi fail-safe - chua chay script thi luong sinh file van chay binh thuong (nuot loi log). Nen chay som de bat dau thu log." },
     { "order": 820, "file": "SyncTableList_AddIsSingleFile.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy" },
     { "order": 830, "file": "SyncTableList_AddAction.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy" },
     { "order": 840, "file": "SyncTableList_BulkUpdateCounter.sql", "target": "CentralMD", "runOnce": false },

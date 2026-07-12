@@ -2,6 +2,38 @@
 
 > Tính năng cho máy POS đầu ngày tải master data đã nén. Endpoint giữ **contract cũ** (5.000 POS không đổi).
 
+> ## ⚡ Tóm tắt luật thép (đọc nhanh)
+> **✅ DO:**
+> - Giữ nguyên response `List<PathFileAPIModel>` cho `GetFileFromFTP` — không đổi shape (mục
+>   "Quyết định kiến trúc")
+> - File trong zip = JSON envelope `SyncTableList`, stream trực tiếp từ `SqlDataReader`
+>   (`SequentialAccess`) qua `JsonTextWriter` — không nạp DataTable/RAM
+> - Publish zip theo kiểu atomic: ghi `{guid}.zip` tạm → `File.Move(overwrite:true)` sang tên
+>   chính thức; lỗi giữa chừng phải cleanup, không publish dở dang
+> - `Action` (TRUNC-INSERT/INSERT/DELETE-INSERT) BẮT BUỘC lấy từ cột DB `SyncTableList.Action` —
+>   phải chạy `docs/sql/SyncTableList_AddAction.sql` trước khi dùng luồng này
+> - Bọc ngoặc điều kiện `Counter` trong SP `[SyncGetDataByTable]` khi filter per-store
+>   (`([Counter]>N OR 0=N) AND [Col]=@val`) — thiếu ngoặc sẽ lọt mọi dòng
+> - Cập nhật `POSLastCounter`/`ZipWatermarkCounter` bất đồng bộ qua `Channel` + `BackgroundService`
+>   batch-flush, KHÔNG update đồng bộ trong cùng transaction ghi Counter
+> - ACK watermark bằng giá trị **snapshot đã đọc đầu cycle**, không re-read DB lúc ACK (mục
+>   "Worker sinh zip theo watermark + quarantine")
+>
+> **❌ DON'T:**
+> - Cấm tự xóa file sau khi POS download (giữ cache ngày, dọn bằng daily-refresh + `KeepZipDays`)
+> - Cấm tự đoán/hardcode giá trị `Action` trong C# khi cột DB rỗng/NULL — phải fail loud
+>   (`InvalidOperationException`), không tự fallback `TRUNC-INSERT`/`DELETE-INSERT`
+> - Cấm dùng RabbitMQ/SQL Job/Trigger cho việc cập nhật `POSLastCounter` — dùng `Channel`
+>   in-process (đã cân nhắc và loại bỏ, xem lý do trong mục tương ứng)
+> - Cấm đụng cột `POSLastCounter`/SP `usp_SyncTableList_BulkUpdateCounter` khi sửa cơ chế
+>   `ZipWatermarkCounter` — 2 cơ chế tách biệt hoàn toàn, không gộp
+> - Cấm regenerate lẻ từng zip khi thiếu 1 file trong lượt — all-or-nothing, regenerate toàn bộ
+>   lượt (common + từng bảng single)
+> - Cấm coi cơ chế SHA-256 companion là chống giả mạo (authenticity) — chỉ là integrity check
+>
+> *(Chi tiết đầy đủ — cơ chế, lý do kiến trúc, bảng rollout, vị trí file — xem nội dung bên dưới,
+> KHÔNG bị đổi.)*
+
 ## Luồng
 
 ```
@@ -35,6 +67,25 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 > chủ đích — cả 2 đều là 1 lượt xóa không thành công POS cần biết); nhánh path-traversal-blocked KHÔNG log (không
 > phải luồng xóa hợp lệ). Fail-safe giống `LogDownloadAsync`: nếu 2 cột `DeletedAt`/`DeleteStatus` chưa được
 > ALTER TABLE (script gộp chung `docs/sql/MasterDataDownloadLog.sql`), lỗi bị nuốt, không phá luồng xóa file.
+
+> **Generation logging** (cập nhật 2026-07-11 — giám sát/đối soát việc SINH file, bổ sung cho
+> download/delete logging): bảng `dbo.MasterDataGenerationLog` (script `docs/sql/MasterDataGenerationLog.sql`,
+> manifest order 815) ghi **1 dòng cho MỖI file `.zip` được publish** ngay trong
+> `MasterDataSyncService.EnsureMasterDataFileAsync` (sau mỗi `PublishZipAsync`) → phủ **MỌI luồng
+> sinh**, phân biệt bằng cột `TriggerSource`: `AutoChange` (`MasterDataZipGeneratorWorker`),
+> `ManualSync` (nút "Đồng bộ dữ liệu" `PushStartOfDayDataAsync`), `PosPull` (`GetFileFromFTP` nhánh
+> ALL). Cột `TriggerSource` gắn ở request `GetMasterDataFileRequest.TriggerSource` tại đúng 3 nơi
+> tạo request (worker/PosMapPage/controller), tầng sâu chỉ đọc lại — KHÔNG sửa logic từng caller.
+> Lượt sinh lỗi (throw trước khi publish) ghi 1 dòng `Status='Error'`, `FileName=NULL`, `Message`=lý
+> do. Cột `StoreNo`/`PosNo` (`varchar(10)`, đồng nhất `Store.No`/`POSTerminal.No` — KHÁC
+> `MasterDataDownloadLog` dùng `SiteCode`/`PosTerminal`), `FileSizeBytes` lấy từ `FileInfo` của zip
+> vừa publish, `InstanceId`=`Environment.MachineName` (biết host nào sinh — vd Ubuntu worker),
+> `DurationMs`=thời gian cả lượt `EnsureMasterDataFileAsync`. Ghi **fail-safe** giống
+> `LogDownloadAsync` (`ISyncRepository.InsertGenerationLogAsync`, `ct=CancellationToken.None`): bảng
+> chưa tạo → nuốt lỗi qua `IFileLogHelper`, KHÔNG phá luồng sinh file → **script không bắt buộc chạy
+> trước deploy**, chạy sớm chỉ để bắt đầu thu log. Đọc qua `ISyncRepository.GetGenerationLogsAsync`
+> → trang giám sát POS.Web `/ops/masterdata-generation-log` (policy `OpsAndAbove`). Đối soát "đã
+> sinh ↔ POS đã tải": JOIN `MasterDataDownloadLog` theo `FileName`.
 
 ## Quyết định kiến trúc (giữ chuẩn cho session sau)
 
@@ -288,7 +339,8 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 
 | Layer | File | Namespace |
 |---|---|---|
-| Contracts | `POS.Common/Dtos/DataSync/{SyncTableInfo,GetMasterDataFileRequest,GetMasterDataFileResult}.cs` | `POS.Common.Dtos.DataSync` |
+| Contracts | `POS.Common/Dtos/DataSync/{SyncTableInfo,GetMasterDataFileRequest,GetMasterDataFileResult}.cs` (`GetMasterDataFileRequest.TriggerSource` mới) | `POS.Common.Dtos.DataSync` |
+| Contracts | `POS.Common/Dtos/DataSync/MasterDataGenerationLogDto.cs` — read DTO cho trang giám sát | `POS.Common.Dtos.DataSync` |
 | Infra repo | `POS.Infrastructure/Repositories/DataSync/{I}SyncRepository.cs` | `...Repositories(.Interfaces)` |
 | Infra repo | `POS.Infrastructure/Repositories/DataSync/{I}SyncTrackerRepository.cs` — `BulkUpdateCounterAsync` | `...Repositories(.Interfaces)` |
 | Infra sync tracker | `POS.Infrastructure/Sync/{ISyncTableTrackerService,SyncTableTrackerService,SyncTableCounterFlushWorker,SyncTableTrackerOptions}.cs` | `POS.Infrastructure.Sync` |
@@ -297,6 +349,8 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 | App exception | `POS.Application/Features/DataSync/MasterDataThrottleException.cs` | `POS.Application.Features.DataSync` |
 | Infra throttle | `POS.Infrastructure/Cache/IRedisManager.cs` — `TryAcquireSlotAsync`/`ReleaseSlotAsync` (ZSET+Lua) + `POS.Infrastructure/Redis/IRedisService.cs` thin wrapper | `POS.Infrastructure.Cache` / `POS.Infrastructure.Redis` |
 | Worker | `POS.Worker/Workers/{MasterDataZipGeneratorWorker,MasterDataZipGeneratorOptions}.cs` — poll watermark (cột DB), generate zip, quarantine terminal lỗi | `POS.Worker.Workers` |
+| Web page | `POS.Web/Components/Pages/Ops/MasterDataGenerationLogPage.razor` — `/ops/masterdata-generation-log` (policy `OpsAndAbove`), giám sát/đối soát log sinh file (nav nhóm "Nhật ký") | — |
+| Infra repo | `SyncRepository.InsertGenerationLogAsync`/`GetGenerationLogsAsync` — ghi/đọc `MasterDataGenerationLog` (raw Dapper, fail-safe) | `...Repositories(.Interfaces)` |
 | Config | `appsettings.json` → section `"MasterDataSync"` (`SqlCommandTimeoutSeconds`, `KeepZipDays`, `DateInZipName`, `ZipCompressionLevel`, `MaxConcurrentGeneration`, `ThrottleStaleAfterSeconds`) | — |
 | Config | `POS.Worker/appsettings.json` → section `"MasterDataZipGenerator"` (`IntervalSeconds`, `LockTtlMinutes`, `MaxParallelTerminals`, `QuarantineThreshold`) + `"WorkerRoles":"EnableMasterDataZipGenerator"` | — |
 | Config | `appsettings.json` (POS.Api + POS.Web) → section `"SyncTableTracker"` (`FlushIntervalSeconds`, `ChannelCapacity`) | — |
@@ -306,5 +360,6 @@ GET api/posblue/DeleteFileFromFTP?filePath=...  → xóa file vật lý (+ .sha2
 | DB script | `docs/sql/SyncTableList_AddZipWatermark.sql` — cột `SyncTableList.ZipWatermarkCounter` (backfill) + TVP `dbo.TVP_ZipWatermarkUpdate` + SP `usp_SyncTableList_BulkUpdateZipWatermark` + SP `[SyncTable_Get]` (thêm SELECT nhánh `'C'`) — thay thế Redis watermark của `MasterDataZipGeneratorWorker` | CentralMD (áp dụng thủ công, BẮT BUỘC trước deploy code) |
 | DB script | `docs/sql/Product_Save.sql` — thêm `@OutItemCounter`/`@OutBarcodeCounter` OUTPUT cho `usp_Product_Save` | CentralMD (áp dụng thủ công) |
 | DB script | `docs/sql/SalesPrice_AddCounterOutput.sql` — thêm `@OutCounter` OUTPUT (`usp_SetupSalePrice_Save`) + cột `Counter` vào result set (`usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete`) | CentralMD (áp dụng thủ công, SAU `SetupSalePrice_Save.sql`+`SalesPrice_EditDelete*.sql`) |
+| DB script | `docs/sql/MasterDataGenerationLog.sql` — bảng `dbo.MasterDataGenerationLog` (log mỗi lượt SINH file .zip, đối soát với `MasterDataDownloadLog`) | CentralMD (manifest order 815, idempotent — KHÔNG bắt buộc trước deploy vì ghi fail-safe) |
 
 > Thư mục đích dùng `AppSettings:FtpRootPath` qua `MapFtpPath` — KHÔNG thêm `RootPath` riêng.

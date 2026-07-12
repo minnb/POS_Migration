@@ -88,7 +88,8 @@ public sealed class SyncDataPosController(
                     FolderFile = folderFile ?? "",
                     PathSync = pathSync ?? "",
                     TypeSync = typeSync,
-                    TargetDir = pathFile
+                    TargetDir = pathFile,
+                    TriggerSource = "PosPull"   // POS gọi GetFileFromFTP → MasterDataGenerationLog
                 };
                 try
                 {

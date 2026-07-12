@@ -1,5 +1,8 @@
 # POS.Web — Báo cáo hiện trạng
-<<<<<<< HEAD
+> Cập nhật: 2026-07-11 (LogFilePage `/admin/logs` — refactor bố cục master–detail `MudTreeView`
+> (trái, lazy-load `Items`+`ServerData` 2 tầng) + `MudTable` (phải) thay bản breadcrumb/drill-down
+> cùng ngày trước đó; xem chi tiết đầy đủ ở entry L1 trong bảng bên dưới. Build 0 error, ContractTests
+> 45/45 xanh — chưa test tay app thật trên trình duyệt.)
 > Cập nhật: 2026-07-10 (2 trang Promotion — filter theo ngày + bỏ cột trùng lặp, sau đó tự sửa lại
 > bug do chính đợt dọn cột gây ra — xem entry "Fix bug cột Mã CTKM" bên dưới để biết bản mới nhất:
 > (1) **OffersPage.razor** `/promotion/offers` — bỏ cột "Bonus Buy" (chỉ giữ "Mã CTKM" =
@@ -178,9 +181,6 @@
 > Trước đó 2026-07-07 (Dashboard mặc định cho role Cửa hàng `/store/dashboard` — landing page mới
 > thay `/store/revenue` cho StoreOperator, xem G24. Kèm resolve git-conflict marker tồn đọng trong
 > file này + `docs/CHANGELOG.md` — xem chi tiết `docs/CHANGELOG.md`.)
-> Trước đó 2026-07-06 (Đổi ngữ nghĩa `IsCheckItem` trên `VoucherIssuePage.razor`/`VouchersPage.razor`
-=======
-<<<<<<< HEAD
 > Cập nhật: 2026-07-06 (PriceGroupsPage `/catalog/price-groups` — chức năng MỚI "Danh mục nhóm giá"
 > trong menu Giá bán: CRUD nhóm giá (header dbo.StorePriceGroupHeader + chi tiết store dbo.StorePriceGroup
 > link qua PriceGroupCode). Trang danh sách (filter mã/tên + MudTable ServerData, cột Độ ưu tiên/Số cửa
@@ -223,11 +223,7 @@
 > SP cần chạy tay: `GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`,
 > `SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet test tests/POS.ContractTests` 25/25 (build
 > POS.Web bị khoá file do instance đang chạy — không phải lỗi biên dịch). Chi tiết: `docs/CHANGELOG.md`)
-> Trước đó 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
-=======
-<<<<<<< HEAD
 > Cập nhật: 2026-07-06 (Đổi ngữ nghĩa `IsCheckItem` trên `VoucherIssuePage.razor`/`VouchersPage.razor`
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 > `/promotion/vouchers*`: sau điều tra xác nhận code cũ khớp đúng legacy nhưng NGƯỢC nghĩa Coupon —
 > theo quyết định người dùng, đổi Voucher khớp Coupon (`IsCheckItem=1`=theo sản phẩm). Đã sửa
 > C#/Razor + 2 SP script + docs; **CHƯA chạy SP/migration data trên DB thật** — xem D10
@@ -337,15 +333,7 @@
 > Cập nhật `docs/web/logic/LOGIC_APPROVE_CTKM.md`. Verify: `dotnet build` 0 lỗi,
 > `dotnet test tests/POS.ContractTests` 25/25. Chưa test UI thật (chờ người dùng tự test lại theo
 > đúng kịch bản đã gặp bug). Chi tiết: `docs/CHANGELOG.md`)
-> Trước đó 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
-<<<<<<< HEAD
-=======
-=======
-<<<<<<< HEAD
 > Cập nhật: 2026-07-06 (Topbar/AppBar + Typography audit theo mockup `theme_html.html` —
->>>>>>> dev
->>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 > (1) **Typography pixel-perfect**: `PosTheme.cs` (`Default.LineHeight` 1.45→1.5, `Button.FontSize`
 > thêm 12px + bỏ letter-spacing thừa, `Body1.FontSize` 12px→12.5px), `app.css` (sidebar L1/L2 size,
 > `.mud-table-body .mud-table-cell` 12.5px mới, `.mud-input-label-inputcontrol` uppercase/bold mới,
@@ -414,23 +402,6 @@
 > web/SKILLS.md` (pattern per-variant FontFamily + MudMessageBox YesButton). Verify: `dotnet build`
 > 0 lỗi, `dotnet test tests/POS.ContractTests` 25/25. Chưa xác nhận trực quan trên browser thật —
 > cần tự chạy app kiểm tra. Chi tiết: `docs/CHANGELOG.md`)
-<<<<<<< HEAD
-> Trước đó 2026-07-06 (PricesPage `/catalog/prices` — nâng cấp 9.1 Danh mục Bảng giá: (1) thêm
-> cột "Hình thức" (SaleTypeName) trước "Nhóm giá" + cột "Trạng thái" (Hiệu lực/Chưa hiệu lực/Hết
-> hiệu lực, MudChip màu, tính client-side theo Start/EndingDateStr); (2) ngày `01/01/9999` hiển thị
-> "Vô thời hạn"; (3) filter Barcode/SalesCode (text tự do) → combobox "Hình thức bán hàng"/"Nhóm
-> giá" (reuse `PriceService.GetSetupLookupAsync`), ẩn cột Site; (4) format nghìn khi nhập "Giá bán"
-> (`FormatThousands`, khớp pattern `PriceSetupPage.razor`); (5) **FIX bug Sửa/Xóa giá**: SP
-> `GetSalesPriceList` đổi trả `SalesCode`=tên nhóm giá (không phải mã) → thêm cột `SalesGroupCode`/
-> `SalesTypeCode` (mã gốc) + field `PriceRowKey.SalesType` để định vị đúng dòng khi 1 item/uom/nhóm
-> giá/ngày hiệu lực có nhiều dòng khác SalesType; (6) phát hiện `SalesPrice` thực ra CÓ cột
-> `IsActive`/`LastTimeUpdate` (đính chính ghi chú cũ), `usp_SalesPrice_SoftDelete` nay set
-> `IsActive=0` khi xóa mềm (trước đây có thể sót hiển thị dòng đã xóa khi bỏ check "Còn hiệu lực").
-> SP cần chạy tay: `GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`,
-> `SalesPrice_EditDelete_AddSalesType.sql`. Verify: `dotnet test tests/POS.ContractTests` 25/25 (build
-> POS.Web bị khoá file do instance đang chạy — không phải lỗi biên dịch). Chi tiết: `docs/CHANGELOG.md`)
-=======
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 > Trước đó 2026-07-05 (BusinessDayPage `/store/business-day` — 4 điều chỉnh: (1) FIX crash
 > "duplicate key" khi tìm kiếm — SP `GetSalesEODConfirm` trả cột tên legacy (`TerminalID`,
 > `AmountTotal`…) ≠ property DTO → Dapper để trống `PosTerminal`, thêm class trung gian
@@ -531,6 +502,9 @@ src/POS.Web/
 │       ├── Ops/
 │       │   ├── HealthPage.razor / AlertsPage.razor / QueuesPage.razor
 │       │   ├── LogsPage.razor / DataRawLogPage.razor / StorePage.razor
+│       │   ├── MasterDataGenerationLogPage.razor ← /ops/masterdata-generation-log — giám sát/đối
+│       │   │                                     soát log SINH file .zip master data (MasterDataGenerationLog),
+│       │   │                                     filter ngày/store/POS/status/nguồn, OpsAndAbove (nav "Nhật ký")
 │       │   ├── PosMapPage.razor               ← /catalog/pos-setup — menu "Thiết bị POS" (sidebar
 │       │   │                                     nay ở VẬN HÀNH, không phải DANH MỤC), OpsAndAbove
 │       │   │                                     (2026-07-09 đổi từ BackOfficeAndAbove); cột
@@ -703,7 +677,7 @@ src/POS.Web/
 | K4 | PricesPage – /catalog/prices + OpsAndAbove | Pages/Catalog/Price/PricesPage.razor | ✅ | 9.1 Danh mục Bảng giá — reuse SP `GetSalesPriceList`/`_Export` (Dapper server-side paging); filter mã/tên + combobox "Hình thức bán hàng"/"Nhóm giá" (reuse `GetSetupLookupAsync`) + "Còn hiệu lực" (mặc định off); cột Hình thức + Trạng thái (MudChip); format nghìn khi sửa giá; Sửa/Xóa định vị bằng `SalesGroupCode`+`SalesTypeCode` (mã gốc, không dùng cột hiển thị); Export Excel (ClosedXML); pos-page-header. Migrate 9.1 (2026-07-06: fix bug Sửa/Xóa sai dòng) |
 | K5 | PriceSetupPage + PriceItemPickerDialog – /catalog/price-setup + OpsAndAbove | Pages/Catalog/Price/PriceSetupPage.razor + Dialogs/PriceItemPickerDialog.razor | ✅ | 9.3 Setup giá (streamlined) — chọn Hình thức bán + cửa hàng → import Excel (MudFileUpload+ClosedXML) → ValidateImportAsync → lưới preview MudTable sửa inline (giá/ngày) + RowStyleFunc highlight lỗi + item picker thêm dòng → Lưu (block khi còn lỗi) + audit log. SP mới `usp_SetupSalePrice_Save` (TVP, ủy quyền Setup_SalePrice_Get_ALL). Migrate 9.3 |
 | H1 | Build pass (0 error, 14 warning pre-existing) | — | ✅ | `dotnet build POS.Web` → Build succeeded. 0 Error(s). ContractTests 23/23 pass (DI validation xanh). |
-| L1 | LogFilePage – /admin/logs + AdminOnly + InteractiveServer | Pages/Admin/LogFilePage.razor | ✅ | Quản lý Log Server — **đổi 2026-07-11: từ liệt kê đệ quy toàn bộ subfolder sang duyệt thư mục kiểu drill-down** (mặc định chỉ hiện danh sách thư mục con của root + file `.txt`/`.log` nằm trực tiếp trong root nếu có; click 1 thư mục — nút "chip" `MudButton` icon Folder — mới load nội dung thư mục đó qua `GetDirectoryListingAsync(relativePath)`; breadcrumb thủ công bằng `MudLink` để quay lại thư mục cha/gốc, không dùng `MudBreadcrumbs` vì component đó thiết kế cho `Href`/URL navigation thật, không hợp cho state nội bộ trong cùng 1 trang). `ILogFileService`/`LogFileService` (Services/) — service riêng của POS.Web (như `IWebUserService`), whitelist extension `.txt`/`.log` cả lúc list lẫn download, chống path traversal bằng helper dùng chung `ResolveSafePath` (`Path.GetFullPath` + so khớp prefix root, cùng pattern `SyncDataPosController.DowloadFileStream`); mọi lỗi bọc try/catch ghi `IFileLogHelper.WriteExpLogs`, không throw ra UI. DTO: `LogFileInfo` (bỏ `FolderName` — dư thừa vì mỗi listing giờ chỉ chứa đúng 1 thư mục), `LogFolderInfo`, `LogDirectoryListing` (mới). Download qua `JS.SaveAsFileAsync` (byte[], JS interop có sẵn) — không qua controller HTTP, không đổi. Đăng ký `AddScoped<ILogFileService, LogFileService>()` trong Program.cs — không đổi. Verify: `dotnet build src/POS.Web/POS.Web.csproj` 0 error + `dotnet test tests/POS.ContractTests` 45/45 xanh — **chưa chạy app thật trên trình duyệt** (sandbox thiếu POS_SECRET_KEY/DB/Redis), cần tự kiểm tra bằng mắt sau khi deploy. |
+| L1 | LogFilePage – /admin/logs + AdminOnly + InteractiveServer | Pages/Admin/LogFilePage.razor | ✅ | Quản lý Log Server — **đổi 2026-07-11 (lần 2, cùng ngày): từ breadcrumb+nút folder drill-down sang bố cục master–detail `MudTreeView` (trái, 1/4) + `MudTable` (phải, 3/4)**, thay cho bản drill-down trước đó (lần 1 cùng ngày). Cây dùng **lazy-load 2 tầng**: top-level nạp 1 lần qua `Items` (gọi `GetSubfoldersAsync("")` trong `OnInitializedAsync`), cấp con nạp qua `ServerData` khi user bấm expand từng node — **KHÔNG đệ quy toàn cây 1 lần** (quyết định kiến trúc có chủ đích, xem review "Solution Architect" trong plan — tránh amplify blast-radius enumerate so với hành vi cũ). API `ServerData` đã verify bằng reflection trực tiếp trên `MudBlazor.dll` 9.5.0 + đối chiếu source GitHub tag `v9.5.0` (XML doc NuGet không đủ chi tiết): nhận `Value` (T) của node cha, gọi trong `MudTreeViewItem.TryInvokeServerLoadFunc()` khi expand — không tự gọi cho top-level. Bẫy đã gặp: `TreeItemData.HasChildren` là **computed read-only** (`Children?.Count > 0`) → gán trực tiếp lỗi `CS0200`; sửa bằng chỉ set `Expandable = true`, để `Children = null`. Pattern đã ghi vào `.claude/skills/web/02-ui-ux-and-components.md` ("Pattern: MudTreeView lazy-load"). Backend: thêm `ILogFileService.GetSubfoldersAsync(relativePath, ct)` (tách từ `GetDirectoryListingAsync`, tái dùng nguyên `ResolveSafePath` — không đổi cơ chế chống path traversal). `GetDirectoryListingAsync`/`DownloadLogFileAsync`/DI/whitelist `.txt`/`.log` giữ nguyên 100%. Chọn node → `LoadFilesAsync(path)` load bảng file cột phải (Tên/Dung lượng/Lần sửa/Download, giữ nguyên `MudTable`+`JS.SaveAsFileAsync`). Verify: `dotnet build src/POS.Web/POS.Web.csproj` 0 error + `dotnet test tests/POS.ContractTests` 45/45 xanh — **chưa chạy app thật trên trình duyệt** để test click/expand node tree (sandbox thiếu POS_SECRET_KEY/DB/Redis) — cần tự kiểm tra bằng mắt, đặc biệt hành vi expand liên tục vì `MudTreeView` là component MỚI lần đầu dùng trong dự án (không có tiền lệ, rủi ro circuit crash tương tự `MudAutocomplete` chưa được loại trừ bằng test tay). |
 
 ---
 

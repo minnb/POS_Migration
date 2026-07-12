@@ -2,6 +2,33 @@
 
 > Webapp quản trị nội bộ: `src/POS.Web/` — .NET 10, Blazor Server, MudBlazor 9.5.0
 
+> ## ⚡ Tóm tắt luật thép (đọc nhanh)
+> **✅ DO:**
+> - Trước khi viết markup page/component mới: đọc `.claude/skills/web/SKILLS.md` +
+>   `.claude/rules/mudblazor-flat-ui.md` mục 0 (§0 "LUẬT THÉP")
+> - Đăng nhập: dùng bridge token qua minimal API endpoint, KHÔNG gọi `SignInAsync` trong
+>   InteractiveServer component (§2)
+> - Page mới theo template 3-state `_loading`/`_errorMsg`/content + filter theo `store_codes`
+>   claim (§5)
+> - Inject service trực tiếp qua DI (POS.Application/POS.Infrastructure) — KHÔNG gọi HTTP đến
+>   POS.Api (§4)
+> - DataTable dùng `MudTable` với `HorizontalScrollbar="true"` (§10.B); page header dùng
+>   `div.pos-page-header` (§10.A); mọi component mới tuân Density Standard (§15) và Responsive
+>   Checklist (§10.G)
+> - Page có Create/Update/Delete: inject `IAuditLogger`, `await AuditLogger.LogAsync(...)` sau
+>   mỗi thao tác ghi thành công (§16)
+>
+> **❌ DON'T:**
+> - Cấm dùng `System.Text.Json` — phải `Newtonsoft.Json` (§9, §11)
+> - Cấm `MudStack Row="true" Justify.SpaceBetween` cho page header, cấm tự viết
+>   `<table class="pos-table">` cho DataTable mới, cấm `MudChart ChartType="..."` (v8 syntax —
+>   xem §6 breaking changes v9) (§11)
+> - Cấm `ResetValueOnEmptyText="true"` cùng `MinCharacters="0"` trên `MudAutocomplete` (gây circuit
+>   crash) — luôn `.Take(N)` trong `SearchFunc` (§13)
+> - Cấm quên `@attribute [Authorize(...)]` hoặc `@rendermode InteractiveServer` trên page mới (§11)
+>
+> *(Chi tiết đầy đủ — bảng/code/lý do — xem các mục đánh số bên dưới, KHÔNG bị đổi.)*
+
 ## 🔒 LUẬT THÉP — BẮT BUỘC TUYỆT ĐỐI khi thiết kế UI trang/component mới
 
 > Áp dụng cho **MỌI** page hoặc component UI mới trong `src/POS.Web/` — không có ngoại lệ. Vi

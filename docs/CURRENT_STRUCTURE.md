@@ -66,7 +66,7 @@ src/
 │       │   ├── IDataRawService.cs / DataRawService.cs
 │       │   ├── ISyncDataPosService.cs / SyncDataPosService.cs
 │       │   ├── IKafkaService.cs / KafkaService.cs
-│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync trả List<GetMasterDataFileResult> (Parallel SP2 × MaxParallelTables; bảng SyncTableList.IsSingleFile=1 → zip riêng/bảng, còn lại gom zip "common") + LogDownloadAsync; throttle Redis (IRedisService.TryAcquireSlotAsync, ném MasterDataThrottleException nếu đầy) TRƯỚC khóa per-terminal ISyncFileLock
+│       │   └── IMasterDataSyncService.cs / MasterDataSyncService.cs   ← EnsureMasterDataFileAsync trả List<GetMasterDataFileResult> (Parallel SP2 × MaxParallelTables; bảng SyncTableList.IsSingleFile=1 → zip riêng/bảng, còn lại gom zip "common"); ghi MasterDataGenerationLog 1 dòng/zip publish (fail-safe, LogGenerationSafe) + LogDownloadAsync; throttle Redis (IRedisService.TryAcquireSlotAsync, ném MasterDataThrottleException nếu đầy) TRƯỚC khóa per-terminal ISyncFileLock
 │       │   └── MasterDataThrottleException.cs                        ← ném khi throttle đầy (MaxConcurrentGeneration) — controller/POS.Web bắt riêng để trả đúng thông báo
 │       ├── Sap/
 │       │   └── ISAPService.cs / SAPService.cs
@@ -134,8 +134,9 @@ src/
 │   │   │   └── ProductDetailDto.cs (ProductDetailDto: header + List<BarcodeRowDto> + ImageBase64?)  ← xem chi tiết SP (2026-07-06)
 │   │   ├── DataSync/
 │   │   │   ├── SyncTableInfo.cs          ← map SP1 row (TableName, POSLastCounter, ZipWatermarkCounter — watermark ACK của MasterDataZipGeneratorWorker, chỉ có giá trị thật khi isChange="C", Procedure, OrderByName, IsByStore, ColumnFilter, IsFirstDataAll, GroupName, IsSingleFile — true = đóng gói riêng 1 zip, Action — Action theo bảng từ SyncTableList.Action, null nếu SP chưa có cột)
-│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, IsChangeMode (@IsChange SP SyncTable_Get: "A"=ALL sync mặc định, "W"=Web Sync/push 1 POS, "C"=Change detection MasterDataZipGeneratorWorker), ForceRegenerate (bool, mặc định false — true bỏ qua short-circuit "đã có zip hôm nay" trong EnsureMasterDataFileAsync)
-│   │   │   └── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
+│   │   │   ├── GetMasterDataFileRequest.cs   ← SiteCode, PosTerminal, FolderFile, PathSync, TypeSync, TargetDir, IsChangeMode (@IsChange SP SyncTable_Get: "A"=ALL sync mặc định, "W"=Web Sync/push 1 POS, "C"=Change detection MasterDataZipGeneratorWorker), ForceRegenerate (bool, mặc định false — true bỏ qua short-circuit "đã có zip hôm nay" trong EnsureMasterDataFileAsync), TriggerSource (string?, nguồn kích hoạt ghi MasterDataGenerationLog: "AutoChange"/"ManualSync"/"PosPull")
+│   │   │   ├── GetMasterDataFileResult.cs    ← nội bộ service (Success, FileName, RelativePath, TableCount, Message) — không lên HTTP body
+│   │   │   └── MasterDataGenerationLogDto.cs  ← read DTO bảng MasterDataGenerationLog (Id, StoreNo, PosNo, FileName, FilePath, FileSizeBytes, TableCount, DurationMs, TriggerSource, IsChangeMode, Status, Message, InstanceId, GeneratedAt) — trang /ops/masterdata-generation-log
 │   │   ├── Coupon/CouponDto.cs
 │   │   ├── SetupCoupon/SetupCouponDtos.cs   ← 8.1/8.2 (List/Detail/IssueSave/AdvancedSave/IssueMore/Code…) + CouponHeaderListFilter/CouponHeaderListItemDto (master list /promotion/coupons)
 │   │   ├── Voucher/SetupVoucherDtos.cs      ← 8.3/8.4 (VoucherList/Detail/Save/IssueSave/IssueMoreRequest + VoucherPublished lookup)
@@ -329,7 +330,7 @@ src/
         ├── Price/                          ← 9.1/9.3 Bảng giá + Danh mục nhóm giá (CentralMD)
         │   └── IPriceRepository.cs / PriceRepository.cs                     ← reuse SP GetSalesPriceList*; validate TVP + SP usp_SetupSalePrice_Save; Sửa/Xóa giá 9.1 qua usp_SalesPrice_UpdatePrice/_SoftDelete; Danh mục nhóm giá qua usp_StorePriceGroup_Save/_Delete (StorePriceGroupHeader + StorePriceGroup)
         └── DataSync/
-            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + GetSyncTableCountersAsync(isChange="A"/"C") KHÔNG cache (dùng cho MasterDataZipGeneratorWorker cần POSLastCounter mới nhất ngay, cache 1h của GetSyncTablesAsync sẽ làm trễ phát hiện thay đổi) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog) + AckZipWatermarkAsync (mới 2026-07-11 — TVP TVP_ZipWatermarkUpdate → SP usp_SyncTableList_BulkUpdateZipWatermark, ACK watermark SyncTableList.ZipWatermarkCounter của MasterDataZipGeneratorWorker, thay thế Redis Hash Worker:Watermark:MasterDataZip)
+            ├── ISyncRepository.cs / SyncRepository.cs   ← SP1 (GetSyncTablesAsync(isChange="A"/"W"), Redis cache MD:SyncTableList:A / MD:SyncTableList:W) + GetSyncTableCountersAsync(isChange="A"/"C") KHÔNG cache (dùng cho MasterDataZipGeneratorWorker cần POSLastCounter mới nhất ngay, cache 1h của GetSyncTablesAsync sẽ làm trễ phát hiện thay đổi) + SP2 stream (StreamTableToFilesAsync) + InsertDownloadLogAsync + UpdateDeleteLogAsync (MasterDataDownloadLog) + InsertGenerationLogAsync/GetGenerationLogsAsync (MasterDataGenerationLog — log mỗi lượt SINH file .zip, fail-safe; đọc cho trang /ops/masterdata-generation-log) + AckZipWatermarkAsync (mới 2026-07-11 — TVP TVP_ZipWatermarkUpdate → SP usp_SyncTableList_BulkUpdateZipWatermark, ACK watermark SyncTableList.ZipWatermarkCounter của MasterDataZipGeneratorWorker, thay thế Redis Hash Worker:Watermark:MasterDataZip)
             └── ISyncTrackerRepository.cs / SyncTrackerRepository.cs   ← BulkUpdateCounterAsync — TVP dbo.TVP_SyncCounterUpdate → SP usp_SyncTableList_BulkUpdateCounter (UPDATE idempotent WHERE Counter > POSLastCounter); gọi bởi SyncTableCounterFlushWorker
 ```
 

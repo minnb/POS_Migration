@@ -53,6 +53,25 @@ public interface ISyncRepository
         string deleteStatus, DateTime deletedAt, CancellationToken ct = default);
 
     /// <summary>
+    /// Ghi 1 dòng log MỖI lần sinh 1 file .zip master data vào bảng dbo.MasterDataGenerationLog.
+    /// (Service gọi bọc try/catch fail-safe — bảng chưa tồn tại thì nuốt lỗi, không phá luồng sinh file.)
+    /// </summary>
+    Task InsertGenerationLogAsync(
+        string? storeNo, string? posNo, string? fileName, string? filePath,
+        long fileSizeBytes, int tableCount, long durationMs,
+        string? triggerSource, string? isChangeMode, string status,
+        string? message, string? instanceId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Đọc log sinh file master data (dbo.MasterDataGenerationLog) cho trang giám sát POS.Web.
+    /// Các tham số filter đều optional (null/rỗng = bỏ qua điều kiện đó). Trả TOP <paramref name="maxRows"/>
+    /// dòng mới nhất theo GeneratedAt DESC.
+    /// </summary>
+    Task<List<MasterDataGenerationLogDto>> GetGenerationLogsAsync(
+        DateTime? fromDate, DateTime? toDate, string? storeNo, string? posNo,
+        string? status, string? triggerSource, int maxRows, CancellationToken ct = default);
+
+    /// <summary>
     /// ACK watermark của MasterDataZipGeneratorWorker — batch update SyncTableList.ZipWatermarkCounter
     /// qua TVP dbo.TVP_ZipWatermarkUpdate → SP dbo.usp_SyncTableList_BulkUpdateZipWatermark (idempotent,
     /// chỉ ghi đè khi Counter &gt; ZipWatermarkCounter hiện có). <paramref name="snapshotCounters"/>

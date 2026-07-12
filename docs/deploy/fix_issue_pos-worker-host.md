@@ -149,6 +149,40 @@ gọi được riêng, theo mẫu `PosFileImportService.RunOnceAsync`) — ngoà
 □ redis-cli -n 0 GET Worker:Heartbeat:MasterDataZipGenerator vừa cập nhật theo IntervalSeconds mới
 ```
 
+## Giám sát / đối soát worker có SINH file không (thêm 2026-07-11)
+
+> Trước đây chỉ có `journalctl` (log text) + heartbeat Redis để biết worker "còn sống", **không**
+> biết nó có thật sự tạo ra file `.zip` nào không. Nay mỗi lượt sinh file được ghi 1 dòng vào bảng
+> `dbo.MasterDataGenerationLog` (RPOSMasterData) — tra cứu bằng SQL hoặc trang POS.Web
+> `/ops/masterdata-generation-log`.
+
+**BẮT BUỘC 1 lần**: chạy `docs/sql/MasterDataGenerationLog.sql` trên `RPOSMasterData` (idempotent,
+fail-safe — chưa chạy thì worker vẫn sinh file bình thường nhưng KHÔNG có gì để tra cứu).
+
+- **Worker có sinh file gì hôm nay không** (`TriggerSource='AutoChange'` = do worker tự động):
+  ```sql
+  SELECT TOP 50 GeneratedAt, StoreNo, PosNo, FileName, FileSizeBytes,
+         TableCount, DurationMs, Status, InstanceId
+  FROM dbo.MasterDataGenerationLog
+  WHERE TriggerSource = 'AutoChange'
+  ORDER BY GeneratedAt DESC;
+  ```
+  Có dòng `Status='Success'` = worker đã sinh file thật (kèm host `InstanceId`, dung lượng, thời
+  điểm). `InstanceId` = tên máy Ubuntu host → xác nhận đúng tiến trình bare-metal đang chạy.
+- **Đối soát "đã sinh ↔ POS đã tải"** (JOIN theo `FileName`):
+  ```sql
+  SELECT g.FileName, g.GeneratedAt, g.FileSizeBytes, d.DownloadedAt, d.Status AS DownloadStatus
+  FROM dbo.MasterDataGenerationLog g
+  LEFT JOIN dbo.MasterDataDownloadLog d ON d.FileName = g.FileName
+  WHERE g.GeneratedAt >= CAST(GETDATE() AS date)
+  ORDER BY g.GeneratedAt DESC;
+  ```
+  `DownloadedAt IS NULL` = file đã sinh nhưng POS chưa tải.
+- **Lượt sinh lỗi**: `WHERE Status='Error'` — cột `Message` chứa lý do (file thiếu bảng… đã throw,
+  không publish zip nào).
+
+> Chi tiết cơ chế + vị trí file: `.claude/rules/masterdata-sync.md` mục "Generation logging".
+
 ## Tham chiếu
 
 | Nội dung | Xem tại |

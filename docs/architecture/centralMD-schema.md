@@ -47,7 +47,7 @@
 | [Loyalty / Offline Percent](#loyalty--offline-percent) | CXOfflinePercent, VinIDOfflinePercent, LoyaltyRate |
 | [Staff & User](#staff--user) | Staff, User |
 | [Weight Scale](#weight-scale) | WeightScale_AssortmentItem, WeightScale_AssortmentSite, WeightScale_INGREDIENT, WeightScale_Item_Change, WeightScale_Log, WeightScale_Multimex, WeightScale_PLU_LIST, WeightScale_PLU_PRICE_STORE, WeightScale_Processing |
-| [Sync / Master Data Distribution](#sync--master-data-distribution) | SyncTableList, SyncTableFromPOS, MasterDataDownloadLog |
+| [Sync / Master Data Distribution](#sync--master-data-distribution) | SyncTableList, SyncTableFromPOS, MasterDataDownloadLog, MasterDataGenerationLog |
 | [SysWebApi](#syswebapi) | SysWebApi, SysWebApiConfig, SysWebApiRoute, SysWebApiUser |
 | [Survey](#survey) | SurveyQuestion, SurveyAnswer |
 | [Dashboard / Web Admin (POS.Web)](#dashboard--web-admin-posweb) | DashboardUsers, DashboardAuditLog, SqlConsoleAuditLog |
@@ -2299,6 +2299,34 @@ DeleteStatus      varchar(20)        NULL       -- 'Success' | 'Failed'
 > theo `DownloadedAt DESC`, cập nhật bằng 1 UPDATE duy nhất (`ISyncRepository.UpdateDeleteLogAsync`).
 > Fail-safe tương tự — nếu 2 cột này chưa được ALTER TABLE, lỗi bị nuốt, không phá luồng xóa file.
 
+### MasterDataGenerationLog
+PK: `Id` identity (`PK_MasterDataGenerationLog`)
+```
+Id             bigint identity(1,1) NOT NULL   -- PK
+StoreNo        varchar(10)        NULL          -- đồng nhất Store.No (khác MasterDataDownloadLog.SiteCode)
+PosNo          varchar(10)        NULL          -- đồng nhất POSTerminal.No (khác MasterDataDownloadLog.PosTerminal)
+FileName       nvarchar(260)      NULL          -- tên zip (khớp MasterDataDownloadLog.FileName để JOIN đối soát)
+FilePath       nvarchar(1000)     NULL          -- RelativePath của zip
+FileSizeBytes  bigint             NOT NULL      -- default 0
+TableCount     int                NOT NULL      -- default 0
+DurationMs     bigint             NOT NULL      -- default 0 — thời gian cả lượt EnsureMasterDataFileAsync
+TriggerSource  varchar(20)        NULL          -- 'AutoChange' | 'ManualSync' | 'PosPull'
+IsChangeMode   varchar(2)         NULL          -- 'A' | 'C' | 'W'
+Status         varchar(20)        NOT NULL      -- 'Success' | 'Error'
+Message        nvarchar(500)      NULL          -- lý do lỗi khi Status='Error'
+InstanceId     varchar(100)       NULL          -- Environment.MachineName (host nào sinh — vd Ubuntu worker)
+GeneratedAt    datetime           NOT NULL      -- default getdate()
+```
+> Log MỖI lần **sinh** 1 file .zip master data (bổ sung cho `MasterDataDownloadLog` — log POS
+> **tải/xóa**). Ghi 1 dòng/zip publish (hoặc 1 dòng `Status='Error'`/lượt sinh lỗi, `FileName=NULL`)
+> ở tầng sâu nhất `MasterDataSyncService.EnsureMasterDataFileAsync` → phủ MỌI luồng sinh
+> (`AutoChange`=`MasterDataZipGeneratorWorker`, `ManualSync`=nút Đồng bộ PosMapPage,
+> `PosPull`=`GetFileFromFTP`). Ghi qua `ISyncRepository.InsertGenerationLogAsync` (raw Dapper),
+> đọc qua `GetGenerationLogsAsync` (trang `/ops/masterdata-generation-log`). **Fail-safe** giống
+> `LogDownloadAsync` — bảng chưa tồn tại thì nuốt lỗi, KHÔNG phá luồng sinh file. Script:
+> `docs/sql/MasterDataGenerationLog.sql` (manifest order 815). Đối soát "đã sinh ↔ POS đã tải":
+> JOIN `MasterDataDownloadLog` theo `FileName`.
+
 ---
 
 ## SysWebApi
@@ -2574,6 +2602,8 @@ Pkey            varchar(50)     NULL
 | `Item.Pkey` | `''` |
 | `MasterDataDownloadLog.FileSizeBytes` / `DurationMs` | `0` |
 | `MasterDataDownloadLog.DownloadedAt` | `getdate()` |
+| `MasterDataGenerationLog.FileSizeBytes` / `TableCount` / `DurationMs` | `0` |
+| `MasterDataGenerationLog.GeneratedAt` | `getdate()` |
 | `POSDataSetup.Counter` | `0` |
 | `POSDataSetup.Pkey` | `''` |
 | `POSMonitor.IsMonitor` | `1` |

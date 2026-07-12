@@ -242,6 +242,75 @@ INNER JOIN (
         return rows > 0;
     }
 
+    public Task InsertGenerationLogAsync(
+        string? storeNo, string? posNo, string? fileName, string? filePath,
+        long fileSizeBytes, int tableCount, long durationMs,
+        string? triggerSource, string? isChangeMode, string status,
+        string? message, string? instanceId, CancellationToken ct = default)
+    {
+        const string sql = @"
+INSERT INTO dbo.MasterDataGenerationLog
+    (StoreNo, PosNo, FileName, FilePath, FileSizeBytes, TableCount, DurationMs,
+     TriggerSource, IsChangeMode, Status, Message, InstanceId, GeneratedAt)
+VALUES
+    (@StoreNo, @PosNo, @FileName, @FilePath, @FileSizeBytes, @TableCount, @DurationMs,
+     @TriggerSource, @IsChangeMode, @Status, @Message, @InstanceId, @GeneratedAt)";
+        return ExecuteAsync(sql, new
+        {
+            StoreNo = storeNo,
+            PosNo = posNo,
+            FileName = fileName,
+            FilePath = filePath,
+            FileSizeBytes = fileSizeBytes,
+            TableCount = tableCount,
+            DurationMs = durationMs,
+            TriggerSource = triggerSource,
+            IsChangeMode = isChangeMode,
+            Status = status,
+            Message = message,
+            InstanceId = instanceId,
+            GeneratedAt = DateTime.Now
+        }, ct: ct);
+    }
+
+    public async Task<List<MasterDataGenerationLogDto>> GetGenerationLogsAsync(
+        DateTime? fromDate, DateTime? toDate, string? storeNo, string? posNo,
+        string? status, string? triggerSource, int maxRows, CancellationToken ct = default)
+    {
+        if (maxRows <= 0) maxRows = 100;
+
+        var sql = new StringBuilder(@"
+SELECT TOP (@MaxRows)
+       Id, StoreNo, PosNo, FileName, FilePath, FileSizeBytes, TableCount, DurationMs,
+       TriggerSource, IsChangeMode, Status, Message, InstanceId, GeneratedAt
+FROM dbo.MasterDataGenerationLog WITH (NOLOCK)
+WHERE 1 = 1");
+        if (fromDate.HasValue) sql.Append(" AND GeneratedAt >= @FromDate");
+        if (toDate.HasValue) sql.Append(" AND GeneratedAt < @ToDate");
+        if (!string.IsNullOrWhiteSpace(storeNo)) sql.Append(" AND StoreNo = @StoreNo");
+        if (!string.IsNullOrWhiteSpace(posNo)) sql.Append(" AND PosNo = @PosNo");
+        if (!string.IsNullOrWhiteSpace(status)) sql.Append(" AND Status = @Status");
+        if (!string.IsNullOrWhiteSpace(triggerSource)) sql.Append(" AND TriggerSource = @TriggerSource");
+        sql.Append(" ORDER BY GeneratedAt DESC");
+
+        var rows = await QueryAsync<MasterDataGenerationLogDto>(
+            sql.ToString(),
+            new
+            {
+                MaxRows = maxRows,
+                FromDate = fromDate,
+                // Đến ngày là exclusive-upper (< ngày hôm sau) để bao trọn cả ngày đã chọn.
+                ToDate = toDate?.Date.AddDays(1),
+                StoreNo = storeNo,
+                PosNo = posNo,
+                Status = status,
+                TriggerSource = triggerSource
+            },
+            commandTimeout: _opt.SqlCommandTimeoutSeconds,
+            ct: ct);
+        return rows.ToList();
+    }
+
     public async Task AckZipWatermarkAsync(
         IReadOnlyDictionary<string, long> snapshotCounters, CancellationToken ct = default)
     {

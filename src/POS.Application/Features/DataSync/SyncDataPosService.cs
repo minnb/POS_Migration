@@ -284,7 +284,8 @@ public sealed class SyncDataPosService(
             PathSync = pathSync,
             TypeSync = "ALL",          // full data (POSLastCounter=0) + zip đặt tên _ALL_
             IsChangeMode = "W",        // Web Sync: gọi SyncTable_Get @IsChange='W' — Action lấy động từ SP (nhánh W luôn trả DELETE-INSERT), áp dụng mọi batch
-            TargetDir = targetDir
+            TargetDir = targetDir,
+            TriggerSource = "ManualSync"   // nút "Đồng bộ dữ liệu" trên PosMapPage → MasterDataGenerationLog
         };
 
         // Tái dùng nguyên logic sinh file txt/zip hiện có của POS.Api — KHÔNG sửa đổi.
@@ -323,7 +324,8 @@ public sealed class SyncDataPosService(
             TypeSync = "ALL",
             IsChangeMode = "C",   // SyncTable_Get @IsChange='C' — chỉ bảng IsOnlyChange=1
             TargetDir = targetDir,
-            ForceRegenerate = true // watermark-driven — không phụ thuộc short-circuit theo ngày
+            ForceRegenerate = true, // watermark-driven — không phụ thuộc short-circuit theo ngày
+            TriggerSource = "AutoChange"   // MasterDataZipGeneratorWorker → MasterDataGenerationLog
         };
 
         var results = await masterDataSyncService.EnsureMasterDataFileAsync(req, ct);

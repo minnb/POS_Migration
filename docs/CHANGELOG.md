@@ -6,12 +6,179 @@
 > `POS.Backend`) — nay **phát triển mới (greenfield)**. Các entry cũ có từ "migrate"/"Migrated"
 > là ghi chép lịch sử tại thời điểm đó, giữ nguyên để tra cứu.
 >
-> **⚠️ Ghi nhận 2026-07-10 (chưa xử lý)**: file này đang có nhiều khối merge-conflict marker
-> chưa giải quyết (`<<<<<<< HEAD` / `=======` / `>>>>>>>`) rải rác — xác nhận qua grep, xuất hiện
-> ở nhiều vị trí (quanh dòng ~1488, ~1581, ~1865-1873, ~1914-1955, ~2184-2225 tại thời điểm ghi
-> nhận). KHÔNG tự động resolve trong đợt cập nhật này vì cần hiểu đúng ý đồ nội dung 2 phía mỗi
-> conflict — chỉ prepend entry mới an toàn phía trên, không chạm vào các khối conflict cũ. Người
-> phụ trách cần dọn thủ công khi có dịp.
+> **✅ Đã xử lý 2026-07-11**: các khối merge-conflict marker (`<<<<<<< HEAD` / `=======` /
+> `>>>>>>>`) từng tồn đọng rải rác trong file này (ghi nhận 2026-07-10, quanh dòng ~1488, ~1581,
+> ~1865-1873, ~1914-1955, ~2184-2225 tại thời điểm đó) đã được resolve thủ công — đọc kỹ nội dung
+> 2 phía mỗi conflict, xác nhận qua so khớp tiêu đề `## [...]` trùng lặp: hầu hết là các entry
+> **rời rạc** (2 nhánh cùng thêm entry khác nhau) → giữ cả 2; phát hiện 1 cặp entry **trùng lặp
+> thật** ("Danh mục Bảng giá (9.1)" và "Cài đặt giá / Danh mục Bảng giá") — bản cũ tham chiếu
+> `database-schema.md` (tên file trước khi đổi), bản đúng tham chiếu `centralMD-schema.md` (đã đổi
+> tên 2026-07-09) → xóa bản cũ, giữ bản đã cập nhật tên file. Verify: `grep -rn '^<<<<<<<\|^=======$\|^>>>>>>>'`
+> trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
+> `sort | uniq -d`).
+
+## [2026-07-12] Đóng gói pattern External API Integration (SysWebApi/SysWebApiRoute) thành luật thép
+
+**Layer:** Tài liệu (`.claude/rules/`, `CLAUDE.md`) — không đụng code
+
+**Loại:** Pattern mới (governance, không phải code)
+
+**Thay đổi:**
+- `.claude/rules/external-api-integration.md` (mới): trace thực tế `LoyaltyController`
+  (AkaChain/FMV) + `PaymentController` (GotIT/Urbox) để đóng gói pattern lấy config partner API
+  (bảng `SysWebApi`/`SysWebApiRoute`, cache-aside Redis Hash `MD:SysWebApi` TTL 12h qua
+  `ICentralMDRepository.GetSysWebApiAsync`, AppService 3-layer) thành luật DO/DON'T bắt buộc —
+  trỏ sang `.claude/skills/api/SKILLS.md` cho template code/checklist chi tiết (không lặp lại).
+- `CLAUDE.md:57`: router table dòng "external HTTP API" nay trỏ tới cả rule mới +
+  `.claude/skills/api/SKILLS.md` (đọc cả 2 — rule là luật bắt buộc, skill là template chi tiết).
+
+**Pattern mới:** Không phải pattern code mới — cơ chế `SysWebApi`/`SysWebApiRoute` + Redis cache đã
+chạy production qua Loyalty/Payment từ trước, chỉ có "skill" hướng dẫn chưa có "rule" enforce. Task
+này nâng cấp thành rule bắt buộc, router-index trong `CLAUDE.md`.
+
+**Lưu ý cho session sau:**
+- Phát hiện bug ngoài phạm vi task (đã hỏi user, quyết định **chỉ ghi chú, KHÔNG sửa**):
+  `LoyaltyController.AddTransaction` (dòng 171-173) có `[HttpPost]` nhưng **thiếu**
+  `[Route("v2/loyalty/transaction/add")]` — endpoint hiện tại không map đúng URL tài liệu/log ngụ ý
+  (effective route là `POST /api` trống). Nếu đụng lại `LoyaltyController`, nhắc lại bug này với
+  user để quyết định fix.
+- `PartnerEnum.FMV` đã tồn tại (=13) nhưng `AkaChainLoyaltyAppService.cs:49` vẫn dùng literal
+  `"FMV"` thay vì `PartnerEnum.FMV.ToString()` — inconsistency có sẵn trong code, không phải mẫu
+  chuẩn để copy khi viết AppService partner mới (dùng `GotITService`/`UrboxService` làm ví dụ
+  chuẩn thay thế).
+- `RedisConst.Redis_Key_SysWebApi`/`Redis_Key_SysWebApiUser` (`POS.Common/Const/RedisConst.cs:21-22`)
+  là hằng số dead, lệch với key thật `"MD:SysWebApi"` — chưa dọn, đã ghi vào rule mới để tránh nhầm.
+
+---
+
+## [2026-07-11] LogFilePage `/admin/logs` — refactor master–detail MudTreeView + MudTable
+
+**Layer:** POS.Web
+**Loại:** Refactor UI + Pattern mới
+
+**Thay đổi:**
+- `src/POS.Web/Services/ILogFileService.cs`: thêm `GetSubfoldersAsync(relativePath, ct)` — liệt kê subfolder **1 cấp** (tách từ `GetDirectoryListingAsync`).
+- `src/POS.Web/Services/LogFileService.cs`: implement `GetSubfoldersAsync`, tái dùng nguyên `ResolveSafePath` (không đổi cơ chế chống path traversal). `GetDirectoryListingAsync`/`DownloadLogFileAsync` giữ nguyên.
+- `src/POS.Web/Components/Pages/Admin/LogFilePage.razor`: bỏ breadcrumb + nút folder (`MudLink`/`MudButton`) → `MudGrid` 2 cột — trái `MudTreeView<string>` (lazy-load: top-level qua `Items` nạp 1 lần `OnInitializedAsync`, cấp con qua `ServerData` khi expand từng node), phải `MudTable` file (giữ nguyên 100% — cột Tên/Dung lượng/Lần sửa + nút Download qua `JS.SaveAsFileAsync`).
+
+**Pattern mới:** `MudTreeView` lazy-load qua `ServerData` (lần đầu dùng component này trong dự án) → đã cập nhật `.claude/skills/web/02-ui-ux-and-components.md` mục 7 (bảng mapping + "Pattern: MudTreeView lazy-load").
+
+**Quyết định kiến trúc có chủ đích:** ban đầu định đệ quy dựng toàn bộ cây thư mục 1 lần
+(`GetFolderTreeAsync`) khi load trang — tự rà soát lại với vai trò Solution Architect trước khi
+code, phát hiện cách này mở rộng blast-radius enumerate so với hành vi breadcrumb cũ (chỉ liệt kê
+đúng 1 cấp/lần, on-demand), đặc biệt vì `_rootDir` là **thư mục cha** của `Logging:FileLogDirectory`
+(có thể chứa nội dung ngoài ý muốn). Đã đổi sang lazy 2 tầng (`Items` cho top-level + `ServerData`
+cho từng cấp expand) để giữ đúng risk profile như hiện trạng.
+
+**API MudBlazor 9.5.0 verify bằng reflection + source, không đoán:** XML doc NuGet không đủ chi
+tiết signature `ServerData`. Đã dùng scratch console app (`dotnet run` + reflection trên
+`MudBlazor.dll`) + đối chiếu source GitHub tag `v9.5.0` (`MudTreeViewItem.razor.cs`) để xác nhận:
+`ServerData: Func<T, Task<IReadOnlyCollection<TreeItemData<T>>>>` nhận **Value của node cha**
+(không phải `TreeItemData<T>?`), chỉ gọi khi user bấm expand — top-level phải tự nạp qua `Items`.
+Bẫy đã gặp lúc build: `TreeItemData.HasChildren` là **computed read-only** → gán trực tiếp lỗi
+`CS0200`; sửa bằng chỉ set `Expandable = true`.
+
+**Verify:** `dotnet build src/POS.Web/POS.Web.csproj` → 0 error. `dotnet test tests/POS.ContractTests` → 45/45 passed.
+**CHƯA verify runtime** (chưa chạy app thật trên trình duyệt trong sandbox này) — cần test tay hành vi click/expand node trước khi coi hoàn toàn xong, vì `MudTreeView` là component mới, chưa có tiền lệ trong dự án (khác `MudAutocomplete` — từng có sự cố crash circuit thật, đã ghi bài học trong rule).
+
+**Lưu ý cho session sau:** nếu cần thêm cây phân cấp khác (không chỉ log), tái dùng pattern
+`Items` (top-level, nạp 1 lần) + `ServerData` (children, lazy theo expand) — KHÔNG đệ quy dựng toàn
+cây, xem `.claude/skills/web/02-ui-ux-and-components.md` "Pattern: MudTreeView lazy-load".
+
+---
+
+## [2026-07-11] Format lại `.claude/rules/` theo chuẩn Rule-based Prompting (DO/DON'T)
+
+**Layer:** Tài liệu (`.claude/rules/`) — không đụng code
+
+**Loại:** Refactor tài liệu
+
+**Bối cảnh:** Các file luật trong `.claude/rules/` viết theo văn phong văn xuôi khiến AI khó nhận
+diện đâu là "luật thép" bắt buộc. Yêu cầu viết lại theo khuôn `# Rule / 🎯 Context / ✅ DO /
+❌ DON'T`.
+
+**Quyết định phạm vi (quan trọng — đọc trước khi động vào `.claude/rules/` lần sau):**
+- **Chỉ format lại 3 file "luật thuần"**: `architecture-layers.md`, `backend-api-rules.md`,
+  `legacy-migration.md` — viết lại đầy đủ theo khuôn Rule/DO/DON'T (1 file gốc có thể tách thành
+  nhiều khối `# Rule:` theo chủ đề con).
+- **3 file còn lại GIỮ NGUYÊN cấu trúc đánh số**: `blazor-web-app.md` (§0-§16),
+  `mudblazor-flat-ui.md` (mục 0-11), `masterdata-sync.md` — chỉ thêm 1 khối "⚡ Tóm tắt luật thép"
+  ở đầu file, không sửa 1 ký tự nào bên dưới. Lý do: 3 file này là đặc tả kỹ thuật dày đặc (bảng
+  hex màu, class CSS, SQL script, nhật ký quyết định) được **~30 file khác** (skills/commands/docs)
+  tham chiếu theo **số mục cụ thể** (`§0`, `§10.B`, `mục 11`...) — đổi cấu trúc heading sẽ phá vỡ
+  các tham chiếu đó. Đã verify bằng `git diff`: 3 file này 0 dòng bị xóa/sửa, chỉ có phần thêm mới.
+
+**Thay đổi:**
+- `.claude/rules/architecture-layers.md`: viết lại thành 3 khối `# Rule:` (Layer Structure &
+  Dependency Flow / AppService 3-Layer Pattern / Greenfield Feature Organization).
+- `.claude/rules/backend-api-rules.md`: viết lại thành 3 khối `# Rule:` (POS.Common Serialization &
+  DTO / Controller DI-ModelState-NullValueHandling-ReturnType / Guardrails & Testing).
+- `.claude/rules/legacy-migration.md`: viết lại thành 1 khối `# Rule:`, giữ nguyên quy trình 6 bước
+  tuần tự trong mục DO.
+- `.claude/rules/blazor-web-app.md`, `mudblazor-flat-ui.md`, `masterdata-sync.md`: thêm khối tóm
+  tắt DO/DON'T đầu file, trỏ số mục gốc.
+
+**Pattern mới:** Không — thuần tài liệu, không phát sinh code pattern mới.
+
+**Lưu ý cho session sau:** Cụm từ heading gốc được nơi khác trích dẫn nguyên văn (`AppService 3
+lớp`, `Khuôn thêm 1 nghiệp vụ mới`, `Cổng chặn trùng lặp`) đã được giữ lại nguyên văn trong bản
+mới — nếu sửa tiếp 3 file đã format, tránh đổi các cụm từ này. Nếu sau này cần format nốt
+`blazor-web-app.md`/`mudblazor-flat-ui.md`/`masterdata-sync.md`, phải rà lại toàn bộ ~30 file tham
+chiếu số mục trước, không làm tùy tiện.
+
+---
+
+## [2026-07-11] Log mỗi lần SINH file master data (giám sát/đối soát MasterDataZipGeneratorWorker)
+
+**Layer:** POS.Common + POS.Infrastructure + POS.Application + POS.Api + POS.Web
+
+**Loại:** Feature
+
+**Bối cảnh:** `MasterDataZipGeneratorWorker` đã chạy trên Ubuntu host nhưng không có cách đối soát
+nó có thật sự SINH ra file `.zip` nào không (chỉ có `journalctl` + heartbeat Redis; trên
+ProductionHost sink Elasticsearch bị tắt `Nodes:[""]` nên log Kibana chỉ vào file text). Bảng
+`MasterDataDownloadLog` chỉ log POS TẢI/XÓA, không log bước SINH.
+
+**Thay đổi:**
+- `docs/sql/MasterDataGenerationLog.sql` (mới) + `docs/sql/manifest.json` (order 815): bảng
+  `dbo.MasterDataGenerationLog` — 1 dòng/mỗi zip publish. Cột `StoreNo`/`PosNo` `varchar(10)` (đồng
+  nhất `Store.No`/`POSTerminal.No`, KHÁC `MasterDataDownloadLog` dùng `SiteCode`/`PosTerminal`).
+- `src/POS.Common/Dtos/DataSync/GetMasterDataFileRequest.cs`: thêm `TriggerSource` (nội bộ, không lên HTTP).
+- `src/POS.Common/Dtos/DataSync/MasterDataGenerationLogDto.cs` (mới): read DTO cho trang giám sát.
+- `src/POS.Infrastructure/.../SyncRepository.cs` (+interface): `InsertGenerationLogAsync` (raw Dapper) + `GetGenerationLogsAsync` (filter, TOP N).
+- `src/POS.Application/.../MasterDataSyncService.cs`: ghi log 1 dòng/zip sau mỗi `PublishZipAsync` (fail-safe `LogGenerationSafe`, `FileSizeBytes` từ `FileInfo`, `InstanceId=MachineName`, `DurationMs`) + 1 dòng `Error` trong `catch`. Ghi ở tầng sâu nhất `EnsureMasterDataFileAsync` → phủ MỌI luồng.
+- `SyncDataPosService.cs` (2 chỗ) + `SyncDataPosController.cs` (1 chỗ): set `TriggerSource` = `AutoChange`/`ManualSync`/`PosPull`.
+- `src/POS.Web/Components/Pages/Ops/MasterDataGenerationLogPage.razor` (mới) + `MainLayout.razor`: trang `/ops/masterdata-generation-log` (OpsAndAbove) + nav nhóm "Nhật ký" + breadcrumb + expand.
+- Docs: `centralMD-schema.md`, `CURRENT_STRUCTURE.md`, `masterdata-sync.md`, `ROLLOUT.md`, `deploy/fix_issue_pos-worker-host.md` (thêm mục Giám sát/đối soát + query SQL).
+
+**Pattern mới:** không — tái dùng đúng pattern fail-safe DB logging đã có của `LogDownloadAsync`
+(đã ghi tại `.claude/rules/masterdata-sync.md`, không thêm vào SKILLS).
+
+**Verify:** `dotnet build POS.slnx` → 0 error; `dotnet test tests/POS.ContractTests` → 45/45 passed
+(gồm SqlManifest + DI test). **CHƯA verify** với DB/Redis/worker thật (dev không có kết nối) —
+cần chạy `MasterDataGenerationLog.sql` trên `RPOSMasterData` rồi để worker chạy 1 cycle.
+
+**Lưu ý cho session sau:** bảng ghi **fail-safe** → KHÔNG bắt buộc chạy script trước deploy (chưa
+có bảng thì luồng sinh file vẫn chạy, chỉ không thu được log). Đối soát "đã sinh ↔ đã tải" = JOIN
+`MasterDataDownloadLog` theo `FileName`. `TriggerSource='AutoChange'` = do worker sinh.
+
+---
+
+## [2026-07-11] Thêm luật "Single File Constraint" cho sửa SP trong docs/sql
+
+**Layer:** Tài liệu cấu hình AI (không đụng `src/`) — `.claude/skills/database/SKILLS.md`, `CLAUDE.md`
+
+**Loại:** Pattern mới (quy tắc quản lý file SQL, không phải code)
+
+**Thay đổi:**
+- `.claude/skills/database/SKILLS.md`: thêm section "Single File Constraint — BẮT BUỘC khi sửa/refactor/fix bug SP đã tồn tại" (đặt giữa "Nơi đặt script SQL" và "Template SP ghi dữ liệu") — cấm tạo file `.sql` thứ 2 song song (`_v2`, `_new`...) cho cùng 1 SP để tránh `tools/POS.DbMigrator` áp dụng trùng/xung đột qua `docs/sql/manifest.json`. Định nghĩa 2 chiến lược: Ghi đè tại chỗ (mặc định, Track A idempotent) vs Backup `.sql.bak` + tạo file mới (chỉ Track B rủi ro cao).
+- `CLAUDE.md`: mở rộng dòng router SP trong "MỤC LỤC ĐIỀU PHỐI" từ "Tạo stored procedure mới" → "Tạo mới/sửa/refactor/fix bug stored procedure" để dòng này kích hoạt cho cả task sửa SP đã có, không chỉ SP mới.
+
+**Pattern mới:** Single File Constraint (2 chiến lược Ghi đè/Backup theo Track A/B) → đã cập nhật `.claude/skills/database/SKILLS.md`.
+
+**Lưu ý cho session sau:** Không tạo `.claude/rules/database.md` riêng — `SKILLS.md` đã là nguồn sự thật duy nhất cho mọi quy ước SP (đặt tên, TVP, manifest, checklist, và nay thêm Single File Constraint); mọi bổ sung quy tắc SP mới nên vào thẳng file này.
+
+---
 
 ## [2026-07-11] Refactor toàn bộ không gian cấu hình AI (.claude/rules, .claude/skills, .claude/commands)
 
@@ -643,7 +810,6 @@ alert nào liên quan tới heartbeat `PosSalesConsumer`.
 
 ---
 
-<<<<<<< HEAD
 ## [2026-07-10] Fix bug cột "Mã CTKM" hiển thị trùng lặp trên OffersPage.razor
 
 **Layer:** POS.Web
@@ -2122,8 +2288,6 @@ browser** (không có môi trường DB/POS.Web chạy thật trong phiên này)
 
 ---
 
-=======
-<<<<<<< HEAD
 ## [2026-07-06] Danh mục nhóm giá (StorePriceGroup) — CRUD mới trong menu Giá bán
 
 **Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common + SQL
@@ -2215,9 +2379,6 @@ mẫu từ query DB thật hoặc để trống ItemNo/UOM ở dòng mẫu trong
 
 ---
 
-=======
-<<<<<<< HEAD
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 ## [2026-07-06] Bổ sung check Validity_From_Date cho SAP CheckVoucher
 
 **Layer:** POS.Application
@@ -2499,15 +2660,6 @@ tests/POS.ContractTests` 25/25).
 
 ---
 
-<<<<<<< HEAD
-=======
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> dev
->>>>>>> 2aea5a4746dfe518fa0843f23e9f6146198518c3
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 ## [2026-07-06] FIX: "Duyệt CTKM" publish dữ liệu nháp cũ khi chưa Lưu tạm lại
 
 **Layer:** POS.Web
@@ -2548,48 +2700,6 @@ dùng tự test lại theo đúng kịch bản đã gặp bug).
 
 ---
 
-<<<<<<< HEAD
-=======
-## [2026-07-06] Danh mục Bảng giá (9.1) — cột Hình thức/Trạng thái, filter combobox, fix bug Sửa/Xóa sai dòng
-
-**Layer:** POS.Web, POS.Common, POS.Infrastructure + SQL
-**Loại:** Feature + Bug fix
-
-**Thay đổi:**
-- `PricesPage.razor`: ẩn cột Site; đổi label "Vùng giá"→"Nhóm giá"; thêm cột **"Hình thức"** (`SaleTypeName`, trước cột "Nhóm giá") + cột **"Trạng thái"** (Hiệu lực/Chưa hiệu lực/Hết hiệu lực — `MudChip` màu, tính client-side từ `StartingDateStr`/`EndingDateStr`); ngày `01/01/9999` hiển thị "Vô thời hạn"; filter Barcode/SalesCode (text tự do) → `MudSelect` "Hình thức bán hàng"/"Nhóm giá" (reuse `PriceService.GetSetupLookupAsync`, không tạo lookup mới); mặc định "Còn hiệu lực" **bỏ check**; format nghìn khi nhập Giá bán (`FormatThousands`, khớp pattern `PriceSetupPage.razor`).
-- **FIX bug Sửa/Xóa giá sai dòng**: SP `GetSalesPriceList`/`_Export` (DBA sửa 2026-07-05→06) đổi trả cột `SalesCode` = **tên** nhóm giá (`PriceGroupName`) thay vì mã — code cũ dùng thẳng field này làm khoá gửi `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (đang lọc theo **mã**) → luôn báo "Không tìm thấy dữ liệu" khi Code≠Name. Thêm cột mã gốc `SalesGroupCode`/`SalesTypeCode` vào SP (script `docs/sql/GetSalesPriceList_AddSaleType.sql` → `_AddSalesTypeCode.sql`), map vào `PriceListItemDto`, sửa `TryBuildKey` dùng field mã thay field hiển thị.
-- **FIX bug thứ 2 phát hiện khi review**: 1 item/uom/nhóm giá/ngày hiệu lực có thể có nhiều dòng khác nhau theo `SalesType` (hình thức bán hàng) — composite PK cũ (ItemNo, SalesCode, StartingDate, UOM) không đủ định vị. Thêm field `PriceRowKey.SalesType` + tham số `@SalesType` vào `usp_SalesPrice_UpdatePrice`/`_SoftDelete` (script `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`).
-- `GetSalesPriceList_Export`: fix thêm 1 bug review-time không liên quan yêu cầu ban đầu — proc tham chiếu sai tên temp table (`#SalsePriceExportTemp` không tồn tại, bảng thật là `#TempSalesPrice`) → nút Xuất Excel sẽ crash runtime nếu không sửa.
-- **Đính chính schema**: `database-schema.md` từng ghi "SalesPrice KHÔNG có Id/IsActive" — SAI. Source thật của `GetSalesPriceList` (`AND S.IsActive = 1`, bắt buộc bất kể `@isCheck`) + bản `usp_SalesPrice_SoftDelete` mới (set `IsActive=0` khi xóa mềm) xác nhận bảng CÓ 2 cột này. Trước bản vá này, xóa mềm chỉ set `EndingDate` năm 7777 mà không set `IsActive=0` → dòng đã xóa có thể vẫn hiển thị khi bỏ check "Còn hiệu lực" (SP luôn yêu cầu `IsActive=1`, không điều kiện theo `@isCheck`).
-- `PriceListDto.cs`: `PriceListItemDto` +`SalesGroupCode`+`SalesTypeCode`; `PriceListFilter` bỏ `Barcode`, `SalesCode`→`SaleType`+`SalesGroup` (mặc định `"ALL"`). `PriceSetupDto.cs`: `PriceRowKey` +`SalesType`. `PriceRepository.cs`: `GetListAsync`/`GetExportListAsync` đổi tham số EXEC theo SP mới + `NormalizeSalesGroup` (dịch UI sentinel `"ALL"`→`""`); `UpdatePriceAsync`/`SoftDeletePriceAsync` truyền thêm `@SalesType`.
-
-**Pattern mới:** SP đổi 1 cột từ mã sang tên hiển thị → luôn thêm cột mã gốc riêng cho composite key (không tái dùng field hiển thị để build khoá Update/Delete). Đã cập nhật `.claude/skills/api/SKILLS.md`.
-
-**Lưu ý cho session sau:** phải chạy đủ 3 script SQL theo thứ tự trước khi test: `GetSalesPriceList_AddSaleType.sql` → `GetSalesPriceList_AddSalesTypeCode.sql` → `SalesPrice_EditDelete_AddSalesType.sql`. Khi 1 SP legacy/tự-quản lý đổi ý nghĩa 1 cột đang dùng làm khoá composite ở nơi khác, luôn rà lại MỌI nơi consume cột đó (không chỉ nơi hiển thị) trước khi merge.
-
----
-
-## [2026-07-05] Cài đặt giá / Danh mục Bảng giá — Sửa/Xóa giá 9.1, fix lưu SP, format UI, menu
-
-**Layer:** POS.Web, POS.Application, POS.Infrastructure, POS.Common + SQL
-**Loại:** Feature + Bug fix
-
-**Thay đổi:**
-- `docs/sql/SalesPrice_EditDelete.sql` (MỚI): `usp_SalesPrice_UpdatePrice` (sửa UnitPrice in-place theo composite PK + bump Counter) và `usp_SalesPrice_SoftDelete` (soft-delete = EndingDate năm 7777 + Counter). Bảng `SalesPrice` không có cột `Id` → định vị dòng bằng composite PK `(ItemNo,SalesCode,StartingDate,UOM)`.
-- `PricesPage.razor` (9.1): thêm cột Thao tác — sửa giá inline + xóa (confirm) + `IAuditLogger`.
-- `PriceSetupPage.razor` (9.3): thêm route thứ 2 `/catalog/price-declare`; đổi tiêu đề "Cài đặt giá"; format ô Giá bán khi nhập (thousand sep `,`, căn phải); `.pos-price-grid table{min-width:1040px}` để lưới cuộn ngang, ô ngày không bị bóp.
-- `MainLayout.razor`: menu "Giá bán"→**"Danh mục Bảng giá"** (`/catalog/prices`); thêm "Cài đặt giá" (`/catalog/price-declare`); **ẩn** "Setup giá (Bulk Import)" (`/catalog/price-setup`, route còn).
-- `PriceSetupDto.cs`: +`PriceRowKey`. `IPriceService/PriceService` +`UpdatePriceAsync`/`DeletePriceAsync`. `IPriceRepository/PriceRepository` +`UpdatePriceAsync`/`SoftDeletePriceAsync`.
-- `docs/sql/SetupSalePrice_Save.sql` (FIX): (1) trả kết quả qua **OUTPUT param** `@Ok/@Message` thay vì result set — vì nhánh update `EXEC Setup_SalePrice_Get_ALL` tự SELECT Interface_Errors (+ROLLBACK bên trong → không hứng được bằng INSERT...EXEC), trước đây Dapper `QueryFirstOrDefault` đọc nhầm set rỗng → báo "thất bại" giả khi Pkey đã tồn tại; (2) chuẩn hóa sentinel "vô thời hạn" `9999-12-31 → 9999-01-01` khi INSERT (khớp legacy) để lần cập nhật sau không sinh khoảng "đuôi" thừa. `PriceRepository.SaveAsync` đổi sang `ExecuteAsync` + đọc output param.
-- `FileLogHelper.WriteExpLogs`: ghi `ex.ToString()` (full stack + inner) thay `JsonConvert.SerializeObject(ex)` (dễ ném lỗi → file rỗng).
-
-**Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
-
-**Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `database-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
-
----
-
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 ## [2026-07-06] Topbar/AppBar breadcrumb + Typography pixel-perfect theo mockup `theme_html.html`
 
 **Layer:** POS.Web
@@ -2818,7 +2928,6 @@ size/family/weight), phải set trên TỪNG variant cần áp dụng — không
 xuống. Còn ~15 page report có inline `font-size` bespoke cho KPI-number/badge (không phải font-
 family) — cố ý chưa đổi vì là tuning riêng từng page, không phải lỗi theme. Chưa xác nhận trực
 quan trên browser thật trong session này (không có công cụ browser) — cần người dùng tự chạy app.
-<<<<<<< HEAD
 
 ---
 
@@ -2858,8 +2967,6 @@ quan trên browser thật trong session này (không có công cụ browser) —
 **Pattern mới:** SP ủy quyền SP-legacy-trả-result-set → dùng OUTPUT param (không result set); + format số khi nhập bằng dấu `,` để khớp `ParsePrice`. Đã cập nhật `.claude/skills/api/SKILLS.md`, `.claude/skills/web/SKILLS.md`.
 
 **Lưu ý cho session sau:** `dbo.SalesPrice` schema thật trên DB CÓ cột `IsActive` (khác `centralMD-schema.md` ghi 15 cột); sentinel vô thời hạn lưu là `9999-01-01`, đã xóa là năm `7777`. Chạy `SalesPrice_EditDelete.sql` + `SetupSalePrice_Save.sql` trên DB trước khi test. Chạy app bằng `dotnet run` (Development) — chạy `.exe` trực tiếp = Production (DB `127.0.0.1,14333`, log `/app/logs`).
-=======
->>>>>>> b710abedccea4d1504c654b754030908580c20af
 
 ---
 

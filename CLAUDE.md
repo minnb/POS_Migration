@@ -54,7 +54,7 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Tạo mới / sửa / refactor / fix bug stored procedure cho `RPOSMasterData` / `RPOSCentralSales` / `RPOSLoyalty` | **`.claude/skills/database/SKILLS.md`** (quy tắc đặt tên `usp_{Domain}_{Action}`, TVP, template SP, **Single File Constraint** khi sửa SP đã tồn tại) — script CentralMD mới **BẮT BUỘC** đăng ký vào `docs/sql/manifest.json` cùng commit (`tools/POS.DbMigrator`, xem `docs/ROLLOUT.md` §D0) |
 | Deploy/vận hành `tools/POS.DbMigrator` (Ubuntu bare-metal, Docker, CLI args, troubleshooting) | **`docs/deploy/pos-dbmigrator-guide.md`** |
 | Cấu hình Health Check `/ops/health` khi deploy POS.Web (section `HealthCheck`/`WorkerHeartbeat`, `PosApiBaseUrl` theo môi trường) | **`docs/deploy/web-health-guide.md`** |
-| Cấu hình external HTTP API (host/credentials/routes lấy từ DB, không hardcode) | **`.claude/skills/api/SKILLS.md`** |
+| Tích hợp API đối tác ngoài (Loyalty/AkaChain, GotIT, Urbox...) qua config DB `SysWebApi`/`SysWebApiRoute` + cache | **`.claude/rules/external-api-integration.md`** + `.claude/skills/api/SKILLS.md` (đọc cả 2 — rule là luật bắt buộc, skill là template/checklist chi tiết) |
 | Thêm cache Redis StandAlone (key convention, TTL, pattern Hash/String) | **`.claude/skills/cache/SKILLS.md`** |
 | Thêm scheduled job / message consumer trong `POS.Worker` | **`.claude/skills/worker/SKILLS.md`** |
 | Deploy/vận hành `POS.Worker` (Docker, cron Ubuntu, Task Scheduler Windows, health check) | **`docs/worker/worker_status.md`** |

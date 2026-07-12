@@ -234,6 +234,12 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
   (`DowloadFileStream`) + 2 cột `DeletedAt`/`DeleteStatus` (ALTER TABLE idempotent) cập nhật khi POS gọi
   `DeleteFileFromFTP` xóa file xong. App fail-safe: nếu bảng/cột chưa tạo, download/xóa vẫn chạy, chỉ không
   ghi được log (nuốt lỗi). Script chạy lại an toàn nhiều lần (idempotent, kiểm tra `OBJECT_ID`/`COL_LENGTH`).
+- **Nên apply** `docs/sql/MasterDataGenerationLog.sql` trên `RPOSMasterData` (manifest order 815) — tạo bảng
+  log MỖI lượt **sinh** file `.zip` master data (`MasterDataGenerationLog`), bổ sung cho `MasterDataDownloadLog`
+  (log tải/xóa). Dùng để giám sát/đối soát `MasterDataZipGeneratorWorker` (và luồng Đồng bộ thủ công / POS
+  kéo) có thật sự sinh file không — xem trang POS.Web `/ops/masterdata-generation-log`. App **fail-safe**: nếu
+  bảng chưa tạo, luồng sinh file **vẫn chạy bình thường**, chỉ không ghi được log (nuốt lỗi) → **KHÔNG bắt
+  buộc chạy trước deploy**, nên chạy sớm để bắt đầu thu log. Idempotent (kiểm tra `OBJECT_ID`).
 - **Section `"MasterDataSync"`** trong `appsettings` (giá trị mặc định chạy được, chỉ chỉnh nếu cần):
   ```json
   "MasterDataSync": {
