@@ -336,6 +336,8 @@ cho Basic Auth). Ngoài DEV, test route bằng curl trực tiếp.
   đó là dấu vết cho thấy thay đổi là có chủ đích, không phải tai nạn.
 - **Khi tạo DTO response mới**: thêm một `[Fact]` khoá field cho nó (dùng `AssertFields`).
 
+> **Chi tiết đầy đủ: `.claude/skills/contract-test-guardian/SKILL.md`** — dùng skill này để xác định DTO nào cần khóa test, sinh đúng stanza `AssertFields`, và audit DTO response chưa có test.
+
 ### 2. DI validation test — chặn "quên đăng ký DI"
 
 - File: `tests/POS.ContractTests/DependencyInjectionTests.cs`.
