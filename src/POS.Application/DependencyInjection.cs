@@ -7,6 +7,7 @@ using POS.Application.Features.Partner;
 using POS.Application.Features.Promotion;
 using POS.Application.Features.Redis;
 using POS.Application.Features.Sap;
+using POS.Application.Features.SpAudit;
 using POS.Application.Features.StoreActivities;
 
 namespace POS.Application;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IVoucherPublishedService, VoucherPublishedService>();
         services.AddScoped<IBusinessDayService, BusinessDayService>();
         services.AddScoped<IRedisManagementService, RedisManagementService>();
+        services.AddScoped<ISpAuditService, SpAuditService>();
         return services;
     }
 }

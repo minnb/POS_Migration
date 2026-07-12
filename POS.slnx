@@ -7,11 +7,12 @@
     <Project Path="src/POS.Web/POS.Web.csproj" />
     <Project Path="src/POS.Worker/POS.Worker.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/POS.DbMigrator/POS.DbMigrator.csproj" />
+    <Project Path="tools/POS.SqlAuditCli/POS.SqlAuditCli.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/POS.ContractTests/POS.ContractTests.csproj" />
     <Project Path="tests/POS.UnitTests/POS.UnitTests.csproj" />
-  </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/POS.DbMigrator/POS.DbMigrator.csproj" />
   </Folder>
 </Solution>

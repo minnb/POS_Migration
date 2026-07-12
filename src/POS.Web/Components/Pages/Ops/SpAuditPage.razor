@@ -1,0 +1,200 @@
+@page "/ops/sp-audit"
+@attribute [Authorize(Policy = WebPolicies.OpsAndAbove)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using POS.Application.Features.SpAudit
+@using POS.Common.Dtos.Ops.SpAudit
+@using POS.Common.Enums
+@using POS.Infrastructure.Logging
+@using POS.Web.Auth
+
+@inject ISpAuditService SpAuditService
+@inject IKibanaService KibanaService
+
+<PageTitle>SQL Audit – POS Dashboard</PageTitle>
+
+<div class="pos-page-header mb-4">
+    <MudText Typo="Typo.h5" Class="pos-page-header-title">
+        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" Style="vertical-align:middle"/>
+        SQL Stored Procedure Audit
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="LoadDataAsync"
+               Disabled="_loading"
+               Class="pos-page-header-btn">
+        Làm mới
+    </MudButton>
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+}
+else if (_errorMsg != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
+}
+else if (_snapshot == null)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        Chưa có lần audit nào. Chạy <code>dotnet run --project tools/POS.SqlAuditCli</code> để tạo kết quả đầu tiên.
+    </MudAlert>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_snapshot.ErrorMessage))
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">@_snapshot.ErrorMessage</MudAlert>
+    }
+
+    <div class="d-flex flex-wrap gap-3 mb-4">
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h6" Color="Color.Primary">@_snapshot.RunFinishedUtc.ToLocalTime().ToString("dd/MM HH:mm")</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Lần chạy cuối</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5">@_snapshot.TotalProcedures</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Tổng procedure</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Color="Color.Info">@_migrationCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Có thể chuyển sang code</MudText>
+            </MudPaper>
+        </div>
+        <div style="flex:1 1 160px">
+            <MudPaper Elevation="2" Class="pa-4 text-center">
+                <MudText Typo="Typo.h5" Color="Color.Warning">@_cleanupCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Có thể dọn dẹp</MudText>
+            </MudPaper>
+        </div>
+    </div>
+
+    <div class="d-flex gap-1 flex-wrap mb-4">
+        <MudChip T="string" Color="@(_filter == null ? Color.Primary : Color.Default)"
+                 Variant="@(_filter == null ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetFilter(null))">
+            Tất cả (@_snapshot.Items.Count)
+        </MudChip>
+        <MudChip T="string" Color="@(_filter == SpRecommendation.MigrationCandidate ? Color.Info : Color.Default)"
+                 Variant="@(_filter == SpRecommendation.MigrationCandidate ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetFilter(SpRecommendation.MigrationCandidate))">
+            Migration (@_migrationCount)
+        </MudChip>
+        <MudChip T="string" Color="@(_filter == SpRecommendation.CleanupCandidate ? Color.Warning : Color.Default)"
+                 Variant="@(_filter == SpRecommendation.CleanupCandidate ? Variant.Filled : Variant.Outlined)"
+                 OnClick="@(() => SetFilter(SpRecommendation.CleanupCandidate))">
+            Cleanup (@_cleanupCount)
+        </MudChip>
+    </div>
+
+    <MudTable Items="@_filteredItems" Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<SpInventoryItemDto, object>(x => x.ProcedureName)">Procedure</MudTableSortLabel></MudTh>
+            <MudTh>Database</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<SpInventoryItemDto, object>(x => x.Complexity)">Complexity</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<SpInventoryItemDto, object>(x => x.Recommendation)">Recommendation</MudTableSortLabel></MudTh>
+            <MudTh>Execution</MudTh>
+            <MudTh>Lần chạy cuối (SP)</MudTh>
+            <MudTh>Ghi chú</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Procedure">@($"{context.Schema}.{context.ProcedureName}")</MudTd>
+            <MudTd DataLabel="Database">@context.DatabaseKey</MudTd>
+            <MudTd DataLabel="Complexity">
+                <MudChip T="string" Size="Size.Small" Color="@ComplexityColor(context.Complexity)" Variant="Variant.Filled">
+                    @context.Complexity
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Recommendation">
+                <MudChip T="string" Size="Size.Small" Color="@RecommendationColor(context.Recommendation)" Variant="Variant.Outlined">
+                    @context.Recommendation
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Execution">@context.ExecutionCount</MudTd>
+            <MudTd DataLabel="Lần chạy cuối (SP)">@(context.LastExecutionAt?.ToString("dd/MM/yyyy HH:mm") ?? "-")</MudTd>
+            <MudTd DataLabel="Ghi chú">@context.Note</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _errorMsg;
+    private SpAuditSnapshotDto? _snapshot;
+    private List<SpInventoryItemDto> _filteredItems = [];
+    private SpRecommendation? _filter;
+    private int _migrationCount;
+    private int _cleanupCount;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _errorMsg = null;
+        StateHasChanged();
+        try
+        {
+            _snapshot = await SpAuditService.GetLatestRunAsync();
+            _migrationCount = _snapshot?.Items.Count(i => i.Recommendation == SpRecommendation.MigrationCandidate) ?? 0;
+            _cleanupCount = _snapshot?.Items.Count(i => i.Recommendation == SpRecommendation.CleanupCandidate) ?? 0;
+            ApplyFilter();
+            KibanaService.LogInfo("SpAuditPage.LoadData", "", $"Loaded SQL audit snapshot: {_snapshot?.TotalProcedures ?? 0} procedures");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = "Không thể tải dữ liệu audit.";
+            KibanaService.LogException("SpAuditPage.LoadData", "", 0, "", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetFilter(SpRecommendation? filter)
+    {
+        _filter = filter;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        _filteredItems = _snapshot == null
+            ? []
+            : _filter == null
+                ? [.. _snapshot.Items]
+                : _snapshot.Items.Where(i => i.Recommendation == _filter).ToList();
+    }
+
+    private static Color ComplexityColor(SpComplexity c) => c switch
+    {
+        SpComplexity.Simple => Color.Success,
+        SpComplexity.Moderate => Color.Warning,
+        SpComplexity.Complex => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Color RecommendationColor(SpRecommendation r) => r switch
+    {
+        SpRecommendation.MigrationCandidate => Color.Info,
+        SpRecommendation.CleanupCandidate => Color.Warning,
+        SpRecommendation.KeepAsIs => Color.Default,
+        _ => Color.Default
+    };
+}

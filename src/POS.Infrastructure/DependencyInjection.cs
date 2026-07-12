@@ -56,6 +56,12 @@ public static class DependencyInjection
         services.AddScoped<IWincodeRepository, WincodeRepository>();
         services.AddScoped<IVoucherCodeRepository, VoucherCodeRepository>();
 
+        // ── SQL Audit CLI (tools/POS.SqlAuditCli) ────────────────────────────────
+        // Kiểm kê/phân loại stored procedure — chỉ SELECT, không bao giờ ALTER/DROP/CREATE.
+        services.Configure<SpAuditOptions>(configuration.GetSection(SpAuditOptions.SectionName));
+        services.AddScoped<ISpInventoryRepository, SpInventoryRepository>();
+        services.AddScoped<ISpAuditRunRepository, SpAuditRunRepository>();
+
         // ── Redis ─────────────────────────────────────────────────────────────
         // Singleton: ConnectionMultiplexer thread-safe, thiết kế để share toàn app.
         services.AddSingleton<IRedisManager, RedisManager>();
