@@ -1,6 +1,6 @@
 ---
 name: database-stored-procedure
-description: Convention SP (dbo.usp_{Domain}_{Action}, TVP), template SP ghi dữ liệu, reserved keyword bracket-quote, và pattern Repository/SP (audit log try/finally, UPDLOCK/HOLDLOCK Counter, OUTPUT param, timeline merge). Đọc TRƯỚC khi viết SP mới cho RPOSMasterData/RPOSCentralSales/RPOSLoyalty.
+description: HOW viết SP cho RPOSMasterData/RPOSCentralSales/RPOSLoyalty — template SP ghi dữ liệu, gọi Dapper/TVP, và các Pattern Repository/SP (audit try/finally, UPDLOCK Counter, OUTPUT param, timeline merge). Rules (naming, reserved keyword, Single File, XACT_ABORT, manifest) ở .claude/rules/database-standards.md.
 ---
 
 # Skill: Stored Procedure — RPOSMasterData / RPOSCentralSales / RPOSLoyalty
@@ -14,152 +14,23 @@ description: Convention SP (dbo.usp_{Domain}_{Action}, TVP), template SP ghi d�
 > **Lưu ý riêng `RPOSCentralSales`**: DB này JOIN chéo sang `RPOSMasterData` trong nhiều SP hiện
 > có (vd `Store`, `Item`, `Staff`, `MCH`) — SP mới nếu cần dữ liệu master, dùng
 > `RPOSMasterData..{Table}` (three-part name), không tạo bản sao dữ liệu.
+>
+> **Rules (tiêu chuẩn bắt buộc — đọc TRƯỚC):** reserved keyword bracket-quote, naming
+> `dbo.usp_{Domain}_{Action}` + TVP, Single File Constraint, `SET XACT_ABORT`+TRY/CATCH+THROW,
+> Counter+UPDLOCK, manifest.json, schema-doc là nguồn sự thật tên bảng/cột, direct-vs-StoreRouted
+> factory — xem **`.claude/rules/database-standards.md`**. File này chỉ giữ template + Pattern (HOW).
 
 ---
 
-## Reserved keyword — BẮT BUỘC bracket-quote `[ ]`
+## Nơi đặt script SQL (HOW)
 
-> Áp dụng cho **mọi** SQL trong dự án — SP mới, script `docs/sql/*.sql`, và Dapper inline query
-> trong Repository — không giới hạn riêng SP.
-
-Trước khi dùng bất kỳ tên cột/bảng nào làm identifier trong SQL Server, nếu trùng với 1 từ khoá
-reserved → viết `[TênCột]`. Case cụ thể đã gặp: cột `LineNo` trong `TransVoidLine`
-(`CentralSaleRepository.cs` → `GetVoidReportAsync`) gây lỗi `Msg 156 "Incorrect syntax near the
-keyword 'LineNo'"` khi không bracket-quote — sửa thành `vl.[LineNo]`. Dự án đã có tiền lệ tương tự
-với `[Source]` trong `CentralSaleRepository.cs` (`GetDataRawJsonListAsync`).
-
-**Dấu hiệu nhận biết**: SQL Server báo lỗi **156** "Incorrect syntax near the keyword 'X'" mà cột
-`X` **có tồn tại thật** trong bảng (khác lỗi **207** "Invalid column name 'X'", là lỗi tên cột sai/
-không tồn tại) → chắc chắn là reserved keyword, bracket-quote ngay `[X]`, không cần đoán thêm.
-
-**Rà soát 2026-07-11**: grep toàn bộ `docs/sql/**/*.sql` phát hiện `LineNo` **chưa** bracket-quote
-ở 5 vị trí (`ORDER BY LineNo` và INSERT column-list `(ItemNo, LineNo, ...)`) trong
-`SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupVoucher_Read.sql`, `SetupVoucher_Save.sql`,
-`SetupVoucher_SaveIssue.sql` — đã sửa thành `[LineNo]`. **Khi viết/copy bất kỳ câu SQL nào có cột
-`LineNo`** (SELECT, INSERT column list, ORDER BY, JOIN, GROUP BY...) → luôn viết `[LineNo]`, kể cả
-khi chỉ copy lại 1 đoạn từ script khác trong cùng file — dễ sót nhất ở INSERT column-list và
-ORDER BY vì không có prefix bảng nhắc nhớ (khác `t.[LineNo]` trong JOIN đã có prefix).
-
-```sql
--- SAI — gây lỗi Msg 156 "Incorrect syntax near the keyword 'LineNo'"
-INSERT INTO dbo.CpnVchBOMLine (ItemNo, LineNo, LineItemNo, ...)
-ORDER BY LineNo;
-
--- ĐÚNG
-INSERT INTO dbo.CpnVchBOMLine (ItemNo, [LineNo], LineItemNo, ...)
-ORDER BY [LineNo];
-```
-
----
-
-## Quy tắc đặt tên — BẮT BUỘC
-
-**Mọi stored procedure mới PHẢI đặt tên theo:**
-
-```
-dbo.usp_{Domain}_{Action}
-```
-
-| Phần | Ý nghĩa | Ví dụ |
-|---|---|---|
-| `usp_` | Prefix cố định cho mọi SP mới của dự án | — |
-| `{Domain}` | Tên nghiệp vụ/entity, PascalCase | `Product`, `SetupCoupon`, `ProductLock` |
-| `{Action}` | Hành động, PascalCase | `Save`, `Get`, `Delete`, `CheckCodesExist` |
-
-**Ví dụ đã có trong dự án** (tham chiếu khi đặt tên SP mới):
-
-| SP | Domain | Action |
-|---|---|---|
-| `dbo.usp_Product_Save` | Product | Save |
-| `dbo.usp_SetupCoupon_SaveIssue` | SetupCoupon | SaveIssue |
-| `dbo.usp_SetupCoupon_SaveAdvanced` | SetupCoupon | SaveAdvanced |
-| `dbo.usp_SetupCoupon_CheckCodesExist` | SetupCoupon | CheckCodesExist |
-| `dbo.usp_SetupCoupon_Delete` | SetupCoupon | Delete |
-
-> **KHÔNG** dùng các dạng tên khác đã thấy trong legacy/DB cũ (`sp_Article_Save`,
-> `GetProductList`, `sp_ProductList_Get`, `[SyncGetDataByTable]`...) cho SP **mới tạo**.
-> Các SP đã tồn tại sẵn trong DB với tên khác (đã dùng trước khi có convention này) thì
-> **giữ nguyên tên**, không đổi tên SP đang chạy production chỉ để khớp convention.
-
-**Table-Valued Parameter (TVP)** đi kèm SP (khi cần truyền list/child rows) đặt tên:
-
-```
-dbo.{Name}TVP
-```
-Ví dụ: `dbo.ProductBarcodeTVP`, `dbo.CouponCodeTVP`, `dbo.CouponLineTVP`.
-
----
-
-## Nơi đặt script SQL
-
-Mỗi SP mới (+ TVP đi kèm nếu có) viết thành 1 file trong `docs/sql/{Domain}_{Action}.sql`, đăng ký
-vào `docs/sql/manifest.json` (xem "Checklist tạo SP mới" bước 6). SP idempotent trên `RPOSMasterData`
-(CentralMD) → `tools/POS.DbMigrator` tự động apply mỗi lần deploy (`docs/ROLLOUT.md` §D0) — KHÔNG
-còn phải nhớ chạy tay. `RPOSCentralSales`/`RPOSLoyalty` (và mọi script rủi ro cao Track B) vẫn áp
-dụng **thủ công 1 lần** trên đúng database đích — chưa có migrator tự động cho 2 DB này. Ghi rõ
-`USE [TênDB];` đầu script.
-
-Ví dụ đã có: `docs/sql/Product_Save.sql`, `docs/sql/SetupCoupon_Save.sql`,
+Mỗi SP mới (+ TVP đi kèm nếu có) viết thành 1 file `docs/sql/{Domain}_{Action}.sql`, có
+`USE [TênDB];` đầu file. Ví dụ đã có: `docs/sql/Product_Save.sql`, `docs/sql/SetupCoupon_Save.sql`,
 `docs/sql/SpecialCombo_Save.sql`, `docs/sql/SetupVoucher_Save.sql`.
 
-Nếu SP đụng bảng nào — **tra tên bảng/cột đúng trong file schema tương ứng TRƯỚC khi viết**,
-không suy đoán tên bảng/cột (xem mục "Cổng chặn trùng lặp" trong `CLAUDE.md`):
-
-| Database | File schema | Script gốc |
-|---|---|---|
-| `RPOSMasterData` (CentralMD) | `docs/architecture/centralMD-schema.md` | `docs/sql/database/CentralMD.sql` |
-| `RPOSCentralSales` | `docs/architecture/centralsale-schema.md` | `docs/sql/database/CentralSale.sql` (UTF-16) |
-| `RPOSLoyalty` | `docs/architecture/loyalty-schema.md` | `docs/sql/database/Loyalty.sql` (UTF-16) |
-
-Bảng chưa có trong doc tương ứng → đọc lại script gốc (2 file `CentralSale.sql`/`Loyalty.sql` là
-UTF-16, dùng PowerShell `Get-Content -Encoding Unicode -Raw` để đọc được, không dùng tool đọc
-text thường), bổ sung vào file schema đúng DB trong cùng commit.
-
----
-
-## Single File Constraint — BẮT BUỘC khi sửa/refactor/fix bug SP đã tồn tại
-
-> Áp dụng: mọi lần tạo mới, chỉnh sửa, refactor, hoặc fix bug 1 stored procedure/script trong
-> `docs/sql/`. Lý do: `tools/POS.DbMigrator` quét theo `docs/sql/manifest.json` — 1 SP bị tách
-> thành 2 file `.sql` chạy song song (vd giữ file cũ + tạo thêm `_v2.sql`) khiến Migrator áp dụng
-> cả 2 nguồn, gây xung đột hoặc chạy trùng logic.
-
-**TUYỆT ĐỐI KHÔNG** tạo file `.sql` thứ hai cho cùng 1 SP đang sửa (không hậu tố `_v2`, `_new`,
-`_fix`...). Mỗi SP chỉ có đúng 1 file nguồn trong `docs/sql/manifest.json`.
-
-Khi sửa 1 SP đã tồn tại, chọn đúng 1 trong 2 chiến lược sau theo Track của script đó (xem
-`trackDefinitions` trong `manifest.json`):
-
-**Chiến lược 1 — Ghi đè (mặc định cho Track A — idempotent, `runOnce: false`)**
-
-Sửa trực tiếp nội dung SQL trong chính file `.sql` đang tồn tại (`DROP PROCEDURE IF EXISTS` +
-`CREATE PROCEDURE` — đã là pattern chuẩn của mọi SP mới, xem "Template SP ghi dữ liệu" bên dưới).
-`manifest.json` **giữ nguyên entry cũ** (không thêm dòng mới) — Migrator tự áp dụng bản mới ở lần
-`--apply` kế tiếp. Đây là chiến lược **mặc định** cho tuyệt đại đa số SP trong dự án (đã idempotent
-sẵn theo thiết kế).
-
-**Chiến lược 2 — Backup an toàn (chỉ dùng cho Track B — one-shot rủi ro cao, `runOnce: true`, hoặc
-khi cần giữ lại bản cũ để đối chiếu/rollback thủ công)**
-
-1. Đổi tên file cũ thêm hậu tố `.bak` ngay trong `docs/sql/` (vd `SetupCoupon_Save.sql.bak`) —
-   phần mở rộng khác `.sql` nên Migrator/`SqlManifestTests` bỏ qua tự động, không cần code xử lý
-   riêng.
-2. Tạo file `.sql` mới cùng tên gốc (không hậu tố) thay thế hoàn toàn.
-3. **Cập nhật `manifest.json`**: entry của SP vẫn trỏ đúng 1 file (tên gốc) — không thêm entry cho
-   file `.bak`.
-4. Ghi 1 dòng note trong entry `manifest.json` chỉ tới lý do rewrite + tên file `.bak` tương ứng,
-   để lần sau không nhầm là file rác.
-
-**Naming convention khi viết SQL** (áp dụng cho cả 2 chiến lược, không đổi so với quy ước hiện có):
-bracket-quote `[TênCộtTrùngReservedKeyword]` (xem mục "Reserved keyword" phía trên), dùng
-`WITH (UPDLOCK, HOLDLOCK)` khi đọc-rồi-ghi giá trị tăng dần có khả năng race condition (Counter,
-mã tự sinh...) — xem "Pattern: SP đổi Status trên bảng có cột `Counter`".
-
-**KHÔNG làm:**
-- ❌ Tạo `{Domain}_{Action}_v2.sql` chạy song song `{Domain}_{Action}.sql` cho cùng 1 SP.
-- ❌ Để cả file `.bak` lẫn file gốc cùng có mặt trong `manifest.json`.
-- ❌ Dùng Chiến lược 2 (backup) cho SP Track A thông thường — tăng số file không cần thiết khi
-  Chiến lược 1 (ghi đè) đã đủ an toàn nhờ tính idempotent.
+> Bảng schema-file để tra tên bảng/cột + quy tắc manifest.json/Track A-B là **Rules** — xem
+> `.claude/rules/database-standards.md`. 2 file `CentralSale.sql`/`Loyalty.sql` là UTF-16, đọc bằng
+> PowerShell `Get-Content -Encoding Unicode -Raw`.
 
 ---
 
@@ -214,9 +85,8 @@ END
 GO
 ```
 
-**Bắt buộc** trong mọi SP ghi dữ liệu: `SET XACT_ABORT ON` + `BEGIN TRY/CATCH` +
-`ROLLBACK TRANSACTION` khi lỗi + `THROW` (không nuốt lỗi trong SP — để C# bắt qua
-`SqlException` như bình thường).
+> `SET XACT_ABORT ON` + `BEGIN TRY/CATCH` + `ROLLBACK` + `THROW` là **Rule bắt buộc** cho mọi SP
+> ghi dữ liệu — xem `.claude/rules/database-standards.md`.
 
 ---
 
@@ -596,9 +466,10 @@ public string? SalesGroupCode { get; set; }  // mã gốc — KHÔNG hiển th�
 
 ## Checklist tạo SP mới
 
-1. Tên SP: `dbo.usp_{Domain}_{Action}` — tên TVP (nếu có): `dbo.{Name}TVP`.
-2. Tra đúng tên bảng/cột trong file schema đúng DB đích (bảng ở mục "Nơi đặt script SQL") trước
-   khi viết SQL.
+1. Tên SP: `dbo.usp_{Domain}_{Action}` — tên TVP (nếu có): `dbo.{Name}TVP` (Rule:
+   `.claude/rules/database-standards.md`).
+2. Tra đúng tên bảng/cột trong file schema đúng DB đích (bảng schema-file ở
+   `.claude/rules/database-standards.md`) trước khi viết SQL.
 3. Viết script trong `docs/sql/{Domain}_{Action}.sql`, có `USE [TênDB];` đầu file — có
    `TRY/CATCH` + `XACT_ABORT` + rollback cho SP ghi dữ liệu.
 4. Sửa Repository gọi qua `DynamicParameters` + `CommandType.StoredProcedure` (không còn

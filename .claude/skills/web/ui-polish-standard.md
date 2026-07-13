@@ -17,21 +17,21 @@ description: Checklist + pattern polish markup-only (giữ nguyên @code) — st
 ## 1. Checklist áp dụng (tự check theo thứ tự)
 
 > Giá trị chuẩn (Elevation/Button convention/Density) nay là "luật thép" ở
-> `02-ui-ux-and-components.md`, `04-datatable-and-lists.md` và `.claude/rules/mudblazor-flat-ui.md`
+> `.claude/rules/blazor-web-app.md` (§10, §17) và `.claude/rules/mudblazor-flat-ui.md`
 > — checklist dưới đây chỉ là danh sách thao tác polish, không lặp lại giá trị chi tiết.
 
 ```
 □ 1. Page header có button  → div.pos-page-header (KHÔNG MudStack Justify.SpaceBetween),
                               icon + nút đi kèm dùng Size="Size.Small" (title đã thu nhỏ 1.25rem)
 □ 2. Page header chỉ title  → MudText Typo.h5 trực tiếp (không cần pos-page-header)
-□ 3. Filter panel           → 02-ui-ux-and-components.md §1 (MudPaper Elevation="1" pos-filter-panel)
+□ 3. Filter panel           → blazor-web-app.md §17.2 / mudblazor-flat-ui.md §7 (MudPaper Elevation="1" pos-filter-panel)
 □ 4. Filter button group    → MudItem xs="12" sm="12" md="2" Class="d-flex align-center"
                               + MudStack Row Spacing="1" w-100 + FullWidth="true" mỗi nút
                               — màu nút theo Button convention `.claude/rules/mudblazor-flat-ui.md` §3
-□ 5. DataTable              → 04-datatable-and-lists.md §2 (Elevation trên MudTable, Dense/Hover/Striped/HorizontalScrollbar)
+□ 5. DataTable              → blazor-web-app.md §17.2 (Elevation trên MudTable, Dense/Hover/Striped/HorizontalScrollbar)
 □ 6. Cột Trạng thái (tĩnh)  → span.pos-status-chip .pos-status-{success/error/warning/info}
                               (MudChip chỉ khi cần tương tác: multi-select/closable/filter)
-□ 7. NoRecordsContent       → pattern §3 file này (icon + text canh giữa) — 04-datatable-and-lists.md §2 dẫn cùng pattern
+□ 7. NoRecordsContent       → pattern §3 file này (icon + text canh giữa) — blazor-web-app.md §17.2 dẫn cùng pattern
 □ 8. Editor tab "Thông tin" → tách nhóm field có subtitle + divider (pattern §4)
 □ 9. Action bar Lưu/Duyệt  → MudPaper Elevation="1" pa-3 mt-4 justify-end (pattern §5)
                               — màu nút theo Button convention `.claude/rules/mudblazor-flat-ui.md` §3

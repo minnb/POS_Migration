@@ -10,18 +10,11 @@ description: Thêm biểu đồ Line/Bar bằng MudBlazor v9 (cú pháp đổi h
 
 ---
 
-## MudBlazor v9 — breaking changes bắt buộc biết
+## MudBlazor v9 — breaking changes
 
-| Thứ | v8 (sai — không dùng) | v9 (đúng) |
-|---|---|---|
-| Chart component | `<MudChart ChartType="ChartType.Line">` | `<Line T="double">` hoặc `<Bar T="double">` |
-| Series attribute | `ChartSeries<double>="@..."` như HTML attr | `ChartSeries="@..."` với `T="double"` trên tag |
-| X-axis labels | `XAxisLabels` | `ChartLabels` |
-| Data type | `double[]` | `new ChartData<double>(double[])` |
-| Options (line) | `ChartOptions { LineStrokeWidth, YAxisTicks }` | `LineChartOptions { LineStrokeWidth, ShowLegend }` |
-| Options (bar) | `ChartOptions { YAxisTicks }` | `BarChartOptions { ShowLegend }` |
-| Empty check | `series[0].Data.Length == 0` | bool flag set trong LoadData |
-| Chip | `<MudChip Color="...">` | `<MudChip T="string" Color="...">` |
+> Bảng đối chiếu v8 (sai) → v9 (đúng) đầy đủ là **Rule** ở **`.claude/rules/blazor-web-app.md` §6**
+> (`<Line T="double">`/`<Bar T="double">` thay `<MudChart>`, `ChartData<double>`, `LineChartOptions`/
+> `BarChartOptions`, `ChartLabels`...). File này giữ code mẫu dùng đúng v9 (HOW) bên dưới.
 
 ```razor
 @using MudBlazor.Charts

@@ -574,3 +574,86 @@ CSS global (`app.css`) đã tự xử lý trên `@media (max-width: 599.98px)`:
 - ❌ Gọi `AuditLogger.LogAsync` mà không `await`
 - ❌ Log trước khi xác nhận DB op thành công
 - ❌ Dialog trả `Ok(true)` — page không có newValue để log UPDATE/CREATE
+
+## 17. Performance, DataTable & Component standards (gộp từ web numbered layer 2026-07-13)
+
+> Các luật bắt buộc dưới đây trước đây nằm rải trong `skills/web/01/02/03/04-*.md` (lớp
+> "rules-index" trùng lặp — đã gộp về đây làm canonical, các file numbered đó đã xóa). Code mẫu +
+> pattern thực thi tương ứng ở `.claude/skills/web/{datatable,form-input,component-patterns}.md`.
+
+### 17.1 Hiệu năng & anti-crash (bổ sung §13)
+- **Redis trong circuit**: LUÔN dùng bản `...Async` (`StringGetAsync`/`HashSetAsync`...) — các
+  method sync của `IRedisService` block bằng `.GetAwaiter().GetResult()`, rủi ro treo circuit khi
+  Redis chậm.
+- **`CancellationToken` cho call dài**: truyền `CancellationToken` vào Service/Repository call
+  DB/HTTP tốn thời gian; component tạo `CancellationTokenSource` riêng, `Cancel()` trong
+  `Dispose`/`DisposeAsync`, bắt `OperationCanceledException` bỏ qua khi đã dispose.
+- **`@key` BẮT BUỘC** trong mọi `@foreach` viết tay sinh UI element (row/card/component con lặp) —
+  dùng định danh ổn định (Id/mã, KHÔNG index). (`<MudTable>` tự diffing nội bộ — không cần `@key` thủ công.)
+- **`IAsyncDisposable` BẮT BUỘC** cho component đăng ký event vòng đời dài hơn 1 render
+  (`NavigationManager.LocationChanged`, `IJSObjectReference`, timer/`PeriodicTimer`) — gỡ đăng ký
+  trong `DisposeAsync()`.
+- **JS Interop**: 1-shot → static extension trên `IJSRuntime`; giữ state/module → service riêng
+  implement `IAsyncDisposable`. CẤM `IJSRuntime.InvokeAsync` rải rác trong `@code` nhiều page cho
+  cùng 1 tác vụ; CẤM `alert()`/`confirm()` JS native cho thông báo lỗi (dùng `ISnackbar`).
+- **State chia sẻ giữa component trong 1 circuit**: dùng **Scoped Service** (`AddScoped<T>`) —
+  KHÔNG `static`/`Singleton` (Blazor Server 1 circuit = 1 user, Singleton bị chia chéo giữa user).
+
+### 17.2 DataTable & Lists — chuẩn hành vi
+- **`MudTable` là mặc định BẮT BUỘC** cho danh sách dữ liệu. `MudDataGrid` chỉ khi nghiệp vụ thật
+  sự cần grouping động/advanced filter cấp user — xác nhận nhu cầu trước khi phá nhất quán 100% MudTable.
+- **`<NoRecordsContent>` BẮT BUỘC** — KHÔNG để bảng trống trơn. Dùng pattern icon +
+  `var(--mud-palette-text-secondary)` (`ui-polish-standard.md` §3), KHÔNG hex cứng.
+- **Debounce ô search text tự do**: BẮT BUỘC `Immediate="true" DebounceInterval="500"` trên `MudTextField`.
+- **`ServerData` (trả `TableData<T>`) BẮT BUỘC** cho danh sách có khả năng vượt 100 dòng — CẤM
+  `.ToListAsync()` không giới hạn rồi tự phân trang UI. Truyền `CancellationToken` do `MudTable` cấp
+  **tận xuống Repository**. Gắn `Loading="@_loading"`.
+- **Row actions**: cột thao tác là **cột cuối**, căn giữa; `MudIconButton Size="Size.Small"` **BẮT
+  BUỘC bọc `MudTooltip`** (KHÔNG chỉ `Title=`); màu theo ngữ nghĩa (Xem→Default/Info, Sửa→Primary,
+  Xóa→Error); Xóa/Deactive luôn kèm `MudMessageBox @ref` xác nhận; bảng có `OnRowClick` → nút trong
+  cell gắn `@onclick:stopPropagation="true"`.
+- **CẤM** hiển thị summary dạng text "Tìm thấy X dòng" — số liệu tổng qua **KPI Cards** (mục 11
+  `mudblazor-flat-ui.md`).
+
+### 17.3 Chuẩn đặt tên cột DataTable
+Tiêu đề `<MudTh>` dùng **tên field tiếng Anh** khớp cột DB/DTO; `DataLabel` trong `<MudTd>` khớp
+tiêu đề `<MudTh>`. Áp dụng cho page menu **Vận hành** và **Quản trị**. Mapping ngoại lệ:
+
+| Bảng DB | DB Column | Header cột |
+|---|---|---|
+| `Store` | `[No]` | `StoreNo` |
+| `Store` | `[ClosingMethod]` | `Status` |
+| `POSTerminal` | `[No]` | `PosNo` |
+| `Branch` | `[No]` | `BranchNo` |
+
+### 17.4 Chuẩn format hiển thị DateTime
+
+| Loại trường | Format | Ví dụ |
+|---|---|---|
+| Cột datetime trong datatable (Created/Updated/timestamp) | `"yyyy-MM-dd HH:mm:ss"` | `2025-06-25 14:30:00` |
+| Ngày thuần (business date, date picker label) | `"dd/MM/yyyy"` | `25/06/2025` |
+| Label chart / trục X | `"dd/MM"` | `25/06` |
+| Timestamp UI phụ (KPI "Lần cuối", header in/out) | `"HH:mm:ss"` | `14:30:00` |
+
+Nullable → null-coalescing `?.ToString(...) ?? "—"`.
+
+### 17.5 MudBlazor component mapping (nhu cầu chức năng → component)
+
+| Cần làm | MudBlazor component |
+|---|---|
+| Bảng dữ liệu có sort/filter/page | `MudTable<T>` + `MudTableSortLabel` + `MudTablePager` |
+| Bảng server-side paging | `MudTable<T>` với `ServerData` + `@ref` + `ReloadServerData()` |
+| Biểu đồ đường / cột | `<Line T="double">` / `<Bar T="double">` (v9 — cần `@using MudBlazor.Charts`) |
+| Số liệu tổng quan (KPI card) | `MudPaper` + `.pos-kpi-value`/`.pos-kpi-label` (khuôn mẫu mục 11 `mudblazor-flat-ui.md`) |
+| Thông báo popup | `ISnackbar` (`Snackbar.Add(...)`) |
+| Dialog xác nhận đơn giản | `MudMessageBox @ref` trong Razor + `await _msgBox!.ShowAsync()` |
+| Dialog form đầy đủ | `IDialogService` + `DialogService.ShowAsync<T>()` |
+| Input text / Dropdown / Date | `MudTextField<T>` / `MudSelect<T>` / `MudDatePicker` |
+| Chip lọc tương tác | `MudChip T="string"` (bắt buộc `T=`) |
+| Badge trạng thái tĩnh | `<span class="pos-status-chip pos-status-{success,error,warning,info}">` (§4a mudblazor-flat-ui) |
+| Loading | `MudProgressLinear`/`MudProgressCircular Indeterminate="true"` |
+| Alert cố định / Card / Paper / Grid | `MudAlert` / `MudCard` / `MudPaper Elevation="2"` / `MudGrid`+`MudItem` |
+| Cây phân cấp (duyệt lazy từng cấp) | `MudTreeView<string>` + `ServerData` (pattern: `skills/web/component-patterns.md`) |
+
+> Bảng map theo **nhu cầu chức năng**. Map theo **markup mockup** (`div.sidebar`/`div.card`/
+> `button.btn-primary`) → dùng bảng ở `mudblazor-flat-ui.md` mục 0.

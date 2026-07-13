@@ -3,11 +3,16 @@ name: api-file-streaming-patterns
 description: Xử lý file quy mô lớn trong POS.Api — song song hóa Parallel.ForEachAsync, SHA-256 companion file, tách N file output theo cờ DB, resolve đường dẫn file POS gửi (SyncDataPos). Đọc khi làm việc với sinh/stream/publish file cho máy POS.
 ---
 
-# File & Stream Patterns — POS.Api
+# File & Stream Patterns — POS.Api (HOW)
 
 > **Áp dụng khi:** POS.Api sinh, publish, hoặc stream file (thường là master data .zip) cho ~5.000
 > máy POS — batch job xử lý nhiều bảng/file song song, verify integrity, hoặc route đường dẫn file
 > POS gửi lên.
+>
+> **Rules (nguồn canonical):** quyết định kiến trúc (`.sha256` không nằm trong response, flag
+> trên bảng DB thay vì appsettings, atomic publish, all-or-nothing regenerate, giới hạn phạm vi
+> bảo vệ SHA-256) là **Rules** ở **`.claude/rules/masterdata-sync.md`**. File này chỉ giữ code mẫu
+> (HOW) cho các quyết định đó.
 
 ---
 

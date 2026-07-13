@@ -50,11 +50,19 @@ dung trùng lặp giữa các file — rồi đề xuất (và khi được xác
    trừ khi chạy với `apply <file>` tường minh.
 4. **Tách file mới phải theo đúng tiền lệ cấu trúc đã có trong dự án** — không phát minh convention
    thư mục mới. Tiền lệ tham khảo:
-   - `.claude/skills/web/SKILLS.md` → tách `01-architecture-and-logic.md`, `02-ui-ux-and-components.md`,
-     `03-integration-and-performance.md`, `04-datatable-and-lists.md` (theo chủ đề, đánh số thứ tự đọc)
-     + các file chủ đề hẹp không đánh số (`filter-store.md`, `datatable.md`, `charts.md`, `reports.md`...)
+   - `.claude/skills/web/SKILLS.md` (index) → các file chủ đề hẹp (`filter-store.md`, `datatable.md`,
+     `charts.md`, `reports.md`, `component-patterns.md`, `form-input.md`...). **LUẬT nền tảng KHÔNG
+     nằm ở skill** — đã gộp về `.claude/rules/blazor-web-app.md` (§17) từ 2026-07-13 (lớp numbered
+     `01–04` cũ đã xóa).
    - `.claude/rules/` — mỗi file 1 domain lớn (`architecture-layers.md`, `backend-api-rules.md`,
-     `blazor-web-app.md`, `mudblazor-flat-ui.md`, `legacy-migration.md`, `masterdata-sync.md`)
+     `blazor-web-app.md`, `mudblazor-flat-ui.md`, `legacy-migration.md`, `masterdata-sync.md`,
+     `caching-standards.md`, `database-standards.md`, `worker-standards.md`, `logging-standards.md`,
+     `unit-testing-standards.md`)
+
+   > **Nguyên tắc phân định Rules ↔ Skills (chốt 2026-07-13):** Rules (`.claude/rules/`) = tiêu
+   > chuẩn/ràng buộc bất biến (WHAT/WHY — naming, TTL, layer, security, "BẮT BUỘC/CẤM"). Skills
+   > (`.claude/skills/`) = hướng dẫn thực thi (HOW — template, code mẫu, các bước). Mỗi mẩu nội dung
+   > chỉ ở 1 nơi; skill trỏ ngược về rule thay vì lặp lại. KHÔNG nhúng khối rule mới vào skill.
 5. **Không refactor file chưa vượt ngưỡng** dù "trông dài dòng" — tránh over-engineering. Chỉ hành
    động khi có số liệu cụ thể vượt ngưỡng ở Bước 1.
 6. Không tự `git commit`/`git push` — để user tự review diff trước khi commit.

@@ -195,7 +195,7 @@ private string StoreDisplayText => _allStores.FirstOrDefault(s => s.StoreNo == _
 > tự rỗng, sẵn sàng chọn mục tiếp theo. Chống trùng bằng cách **bỏ qua im lặng** (không Snackbar/alert
 > — trùng là thao tác bình thường của người dùng, không phải lỗi). KHÔNG dùng
 > `ResetValueOnEmptyText`/`MinCharacters=0` để tự clear (gây reset-loop crash circuit — xem
-> `01-architecture-and-logic.md` §5); `ClearAsync()` sau add là cách an toàn.
+> `.claude/rules/blazor-web-app.md` §13); `ClearAsync()` sau add là cách an toàn.
 
 ```csharp
 private MudAutocomplete<StoreDto>? _picker;

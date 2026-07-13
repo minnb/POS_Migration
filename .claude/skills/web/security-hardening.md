@@ -70,7 +70,7 @@ description: Bảo mật tầng Admin trong POS.Web — security headers/CSP, SQ
   cookie/session bị đánh cắp đủ để tự đặt lại PIN theo ý kẻ tấn công rồi vượt qua chính lớp bảo vệ
   vừa thêm, phá vỡ hoàn toàn mục đích của PIN gate.
 - **BẮT BUỘC `try/catch/finally` đầy đủ** quanh lời gọi verify — `try/finally` không đủ, exception
-  không lường trước (hash sai định dạng...) sẽ crash circuit (xem `01-architecture-and-logic.md`
+  không lường trước (hash sai định dạng...) sẽ crash circuit (xem `.claude/rules/blazor-web-app.md` §17.1
   mục lifecycle cho lý do circuit crash).
 
 > Ví dụ thực tế: `Components/Pages/Admin/SqlConsolePage.razor` (PIN card + `VerifyPinAsync`), `src/POS.Web/Auth/WebUserService.cs` (`VerifyPinAsync`, `SetPinAsync`), `Components/Pages/Admin/Dialogs/ChangeMyPinDialog.razor`
