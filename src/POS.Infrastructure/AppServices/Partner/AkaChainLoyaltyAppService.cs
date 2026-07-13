@@ -543,7 +543,7 @@ public sealed class AkaChainLoyaltyAppService(
             {
                 if (dataError.Error.Code == "701")
                 {
-                    return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, dataError.Error.Message ?? $"Không tìm thấy thông tin khách hàng", body);
+                    return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, dataError.Error.Message ?? $"Khách hàng chưa đăng ký hội viên", new InfoMemberModel());
                 }
                 return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, dataError.Error.Message ?? "JSON conversion error", body);
             }
