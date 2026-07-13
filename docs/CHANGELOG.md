@@ -17,6 +17,34 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-07-13] Fix POS.Worker crontab (Ubuntu) không ghi log — thiếu `appsettings.CronHost.json`
+
+**Layer:** POS.Worker (deploy/infra)
+**Loại:** Bug fix
+
+**Bối cảnh:** Worker deploy qua crontab trên Ubuntu (Model A, `--run-once`) chạy với
+`DOTNET_ENVIRONMENT=CronHost` nhưng `src/POS.Worker/appsettings.CronHost.json` mà
+`docs/deploy/pos-worker-ubuntu-guide.md` mô tả chưa từng tồn tại trong repo. File môi trường là
+optional trong .NET Generic Host nên app âm thầm fallback về `appsettings.json` gốc (path kiểu
+Windows `D:\ROOT\...`) — job "chạy thành công" (exit code 0) mỗi phút nhưng không xử lý file thật
+và không ghi log thật (Serilog file sink lỗi âm thầm, không có `SelfLog`).
+
+**Thay đổi:**
+- `src/POS.Worker/appsettings.CronHost.json`: tạo mới, path Linux đúng cho `FileImport`/`Logging`.
+- `.gitignore`: thêm ngoại lệ `!**/appsettings.UAT.json`, `!**/appsettings.CronHost.json`,
+  `!**/appsettings.ProductionHost.json` — trước đó rule `*.json` âm thầm chặn các file này khỏi
+  git, kể cả file vừa tạo, khiến `git pull` trên server không bao giờ nhận được.
+
+**Pattern mới:** gotcha "file appsettings môi trường thiếu → fallback im lặng" → đã cập nhật
+`.claude/skills/worker/SKILLS.md`.
+
+**Lưu ý cho session sau:** khi tạo file `appsettings.{Env}.json` mới cho bất kỳ project nào, LUÔN
+chạy `git status`/`git check-ignore -v <path>` ngay sau khi tạo để xác nhận file không bị
+`.gitignore` nuốt âm thầm — đây là lớp lỗi dễ tái diễn cho môi trường mới (`ProductionHost`,
+hoặc môi trường tương lai khác) nếu quên thêm dòng ngoại lệ tương ứng.
+
+---
+
 ## [2026-07-13] Fix `usp_SetupSalePrice_Save` "too many arguments" — dọn vi phạm Single File Constraint + fix DbUp sort-order
 
 **Layer:** Infrastructure (SQL scripts) + `tools/POS.DbMigrator`

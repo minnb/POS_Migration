@@ -140,6 +140,16 @@ chạy file processing). Thêm worker mới cần bật/tắt độc lập theo 
 > `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5. Nhớ tắt `EnableHeartbeat` ở 1 trong 2 bên (xem
 > gotcha heartbeat ở mục trên) nếu cùng vai trò.
 
+> ⚠️ **Gotcha đã gặp thực tế (2026-07-13)**: `appsettings.{DOTNET_ENVIRONMENT}.json` là **optional**
+> trong ASP.NET Core Generic Host — thiếu file này KHÔNG làm crash app, chỉ âm thầm fallback về
+> `appsettings.json` gốc. Nếu file gốc có path kiểu Windows (`D:\...`) và cron chạy trên Linux với
+> `DOTNET_ENVIRONMENT=CronHost` mà `appsettings.CronHost.json` chưa tồn tại → job vẫn "chạy thành
+> công" (exit code 0) mỗi lần nhưng không xử lý file thật, không ghi log thật (Serilog file sink
+> không có `SelfLog`, lỗi ghi bị nuốt im lặng). **Trước khi tin file môi trường mới đã hoạt động**:
+> xác nhận file đó **thực sự nằm trong thư mục publish** (`ls appsettings.*.json`), và xác nhận
+> file đó **không bị `.gitignore` chặn** (`git check-ignore -v <path>`) — rule `*.json` mặc định
+> chặn mọi file `.json` mới trừ khi có dòng `!**/appsettings.{Env}.json` ngoại lệ tương ứng.
+
 ---
 
 ## KHÔNG làm những điều sau
