@@ -15,9 +15,12 @@
      - Pkey ĐÃ tồn tại   → gọi SP có sẵn [dbo].[Setup_SalePrice_Get_ALL] @Json (đã proven trên
        production) với JSON [{Pkey, FromDate 'yyyy-MM-dd', ToDate, UnitPrice}] — GIỮ NGUYÊN logic update legacy.
 
-   Trả kết quả qua OUTPUT param @Ok bit + @Message nvarchar(4000) (KHÔNG dùng result set — vì nhánh
-   update gọi [Setup_SalePrice_Get_ALL] có SELECT Interface_Errors + ROLLBACK bên trong, không thể
-   hứng/nuốt result set bằng INSERT...EXEC). Lỗi → @Ok=0 + ERROR_MESSAGE(), KHÔNG throw ra ngoài.
+   Trả kết quả qua OUTPUT param @Ok bit + @Message nvarchar(4000) + @OutCounter bigint (KHÔNG dùng
+   result set — vì nhánh update gọi [Setup_SalePrice_Get_ALL] có SELECT Interface_Errors + ROLLBACK
+   bên trong, không thể hứng/nuốt result set bằng INSERT...EXEC). @OutCounter phục vụ
+   POS.Infrastructure.Sync.ISyncTableTrackerService.Track("SalesPrice", counter) — xem
+   .claude/rules/masterdata-sync.md mục "Cập nhật POSLastCounter bất đồng bộ". Lỗi → @Ok=0 +
+   ERROR_MESSAGE(), KHÔNG throw ra ngoài.
 
    ⚠️ SCHEMA (đối chiếu DDL hiện hành dbo.SalesPrice): bảng CHỈ có 15 cột — KHÔNG có
       IsActive / LastTimeUpdate / Id (khác EF model legacy .NET 4.6). INSERT vì vậy chỉ ghi
@@ -72,10 +75,11 @@ SET QUOTED_IDENTIFIER ON
 GO
 CREATE OR ALTER PROCEDURE [dbo].[usp_SetupSalePrice_Save]
 (
-    @Lines   dbo.SetupSalePriceLineTVP READONLY,
-    @Actor   nvarchar(200)  = NULL,
-    @Ok      bit            = 0   OUTPUT,
-    @Message nvarchar(4000) = N'' OUTPUT
+    @Lines      dbo.SetupSalePriceLineTVP READONLY,
+    @Actor      nvarchar(200)  = NULL,
+    @Ok         bit            = 0   OUTPUT,
+    @Message    nvarchar(4000) = N'' OUTPUT,
+    @OutCounter bigint         = 0   OUTPUT
 )
 AS
 BEGIN
@@ -122,6 +126,11 @@ BEGIN
         /* 4b) Pkey ĐÃ tồn tại -> engine set-based (soft-delete + interval split) */
         IF @Json IS NOT NULL AND LEN(@Json) > 0
             EXEC dbo.Setup_SalePrice_Get_ALL @Json = @Json, @IsInsert = 1;
+
+        -- Đọc lại Counter mới nhất SAU khi cả 2 nhánh (insert trực tiếp + update qua
+        -- Setup_SalePrice_Get_ALL) đã chạy xong — nhánh update tự bump Counter nội bộ, không có
+        -- OUTPUT trực tiếp nên không lấy được giá trị đúng bằng cách nào khác.
+        SET @OutCounter = ISNULL((SELECT MAX(Counter) FROM dbo.SalesPrice), 0);
 
         SET @Ok = 1;
         SET @Message = N'Cập nhật thành công bảng giá';

@@ -17,6 +17,43 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-07-13] Fix `usp_SetupSalePrice_Save` "too many arguments" — dọn vi phạm Single File Constraint + fix DbUp sort-order
+
+**Layer:** Infrastructure (SQL scripts) + `tools/POS.DbMigrator`
+**Loại:** Bug fix + Pattern mới
+
+**Bối cảnh:** Lưu giá bán ở `catalog/price-declare` báo lỗi "usp_SetupSalePrice_Save has too many
+arguments specified". Điều tra qua nhiều vòng trên `sit-uat-server` phát hiện 2 lớp nguyên nhân:
+(1) `usp_SetupSalePrice_Save`/`usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete` bị định nghĩa
+**2 lần** ở 2 file (`SetupSalePrice_Save.sql`/`SalesPrice_EditDelete_AddSalesType.sql` bản mới nhất,
+và `SalesPrice_AddCounterOutput.sql` bản CŨ HƠN, viết đè Counter output lên nhưng làm mất fix
+tombstone/IsActive đã có) — vi phạm "Single File Constraint"; (2) `POS.DbMigrator.ApplyTrackA` sort
+`entries` theo `Order` đúng ở C# nhưng DbUp tự sắp xếp lại theo `SqlScript.Name` (alphabet) trước
+khi thực thi, vô hiệu hoàn toàn sort đó — khiến script chạy sai thứ tự dù `manifest.json` khai báo
+đúng phụ thuộc.
+
+**Thay đổi:**
+- `docs/sql/SetupSalePrice_Save.sql`: thêm `@OutCounter bigint OUTPUT` vào `usp_SetupSalePrice_Save`
+  (giữ nguyên IsActive check/LastTimeUpdate/`@IsInsert=1`).
+- `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`: thêm cột `Counter` vào 8 nhánh SELECT của
+  `usp_SalesPrice_UpdatePrice`/`usp_SalesPrice_SoftDelete` (giữ nguyên fix tombstone).
+- Xóa `docs/sql/SalesPrice_AddCounterOutput.sql` + entry order 503 trong `docs/sql/manifest.json`
+  — mỗi SP chỉ còn đúng 1 file nguồn.
+- `tools/POS.DbMigrator/Program.cs` (`ApplyTrackA`): prefix `SqlScript.Name` bằng `Order` zero-pad
+  để DbUp alphabet-sort trùng khớp thứ tự `manifest.json`.
+- `docs/architecture/centralMD-schema.md`: cập nhật signature `usp_SetupSalePrice_Save` (5 tham số).
+
+**Pattern mới:** "Sửa SP Track A đã có — sửa TRỰC TIẾP file gốc, KHÔNG tạo file mới định nghĩa lại"
+→ đã thêm vào `.claude/skills/database/SKILLS.md`.
+
+**Lưu ý cho session sau:** Trên `sit-uat-server`, DB thật hiện đang có bản SP CŨ (do user chạy tay
+`SalesPrice_AddCounterOutput.sql` để qua bug tạm thời) — **bắt buộc chạy lại `POS.DbMigrator
+--apply`** sau khi pull code này để áp đúng bản đã gộp (khôi phục fix tombstone + đủ tham số).
+`dotnet test tests/POS.ContractTests` đã xanh (45/45) nhưng KHÔNG kiểm chứng nội dung SP trên DB
+thật — cần verify bằng `sp_helptext`/test tay trên UI sau khi apply.
+
+---
+
 ## [2026-07-13] LogFilePage (`/admin/logs`) — Production-hardening: streaming, symlink, quyền hạ tầng, đổi UI lần 3
 
 **Layer:** POS.Web (+ `deploy/linux/`, `docs/guide-deploy.md`, `docs/ROLLOUT.md`)

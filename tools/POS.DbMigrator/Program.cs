@@ -235,8 +235,13 @@ static async Task<int> RunApplyAsync(string sqlDir, string configPath)
 
 static bool ApplyTrackA(string label, string connectionString, string sqlDir, List<ManifestEntry> entries)
 {
+    // DbUp tu sap xep lai script theo SqlScript.Name (alphabet) truoc khi thuc thi, bat ke thu tu
+    // duoc dua vao qua .WithScripts() - "entries" da OrderBy(Order) o ManifestScriptProvider.TrackAFor
+    // se bi vo hieu neu Name chi la ten file. Prefix Name bang Order (zero-pad) de alphabet-sort
+    // cua DbUp trung khop voi thu tu Order trong manifest.json (khong doi ten file that tren dia -
+    // duong dan doc file van dung e.File nguyen ven).
     var scripts = entries
-        .Select(e => new DbUp.Engine.SqlScript(e.File, File.ReadAllText(Path.Combine(sqlDir, e.File))))
+        .Select(e => new DbUp.Engine.SqlScript($"{e.Order:D6}_{e.File}", File.ReadAllText(Path.Combine(sqlDir, e.File))))
         .ToArray();
 
     Console.WriteLine($"=== Apply Track A — {label} ({scripts.Length} script) ===");

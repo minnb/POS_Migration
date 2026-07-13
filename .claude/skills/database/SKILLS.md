@@ -464,6 +464,32 @@ public string? SalesGroupCode { get; set; }  // mã gốc — KHÔNG hiển th�
 
 ---
 
+## Pattern: Sửa SP Track A đã có — sửa TRỰC TIẾP file gốc, KHÔNG tạo file mới định nghĩa lại
+
+> Áp dụng khi: cần thêm tham số/cột cho 1 SP **đã tồn tại** trong `docs/sql/` (Track A). Rút ra từ
+> sự cố thực tế: thêm `@OutCounter OUTPUT` cho `usp_SetupSalePrice_Save` bằng cách tạo file MỚI
+> (`SalesPrice_AddCounterOutput.sql`, order chạy sau) thay vì sửa thẳng `SetupSalePrice_Save.sql` —
+> vi phạm Single File Constraint (`.claude/rules/database-standards.md`). Hệ quả kép:
+> 1. **DbUp không tôn trọng `order` trong manifest** — nó tự sắp xếp lại script theo
+>    `SqlScript.Name` (alphabet tên file) trước khi thực thi, bất kể thứ tự đưa vào qua
+>    `.WithScripts()` (đã sửa 1 lần trong `tools/POS.DbMigrator/Program.cs` — `ApplyTrackA` giờ
+>    prefix `Name` bằng `Order` zero-pad để ép alphabet-sort trùng `Order`, nhưng đây chỉ là lưới an
+>    toàn thứ 2, không phải lý do để tiếp tục tách file).
+> 2. **File mới thường viết lại toàn bộ thân SP dựa trên 1 bản logic cũ hơn** (copy-paste từ snapshot
+>    trước đó), nên dù chạy đúng thứ tự vẫn **âm thầm xóa mất các fix nghiệp vụ** đã thêm ở những
+>    lần sửa gần nhất (vd 1 file sau đó "thêm Counter output" đã vô tình xóa mất điều kiện loại
+>    tombstone `ISNULL(IsActive,1)=1 AND YEAR(EndingDate)<>7777` mà 1 file trước đó đã fix).
+
+**Quy tắc**: mở đúng file `.sql` hiện có của SP đó, `CREATE OR ALTER` thẳng trong file đó (thêm
+tham số/cột mới vào cuối danh sách, giữ nguyên mọi logic khác), giữ nguyên entry `manifest.json`
+(không thêm entry mới, không đổi `order`). Chỉ tạo file `.sql` mới cho 1 SP nếu SP đó **chưa từng
+tồn tại** trong `docs/sql/`.
+
+> Ví dụ thực tế (đã dọn lại đúng chuẩn): `docs/sql/SetupSalePrice_Save.sql` (thêm `@OutCounter`),
+> `docs/sql/SalesPrice_EditDelete_AddSalesType.sql` (thêm cột `Counter` vào 8 nhánh SELECT).
+
+---
+
 ## Checklist tạo SP mới
 
 1. Tên SP: `dbo.usp_{Domain}_{Action}` — tên TVP (nếu có): `dbo.{Name}TVP` (Rule:

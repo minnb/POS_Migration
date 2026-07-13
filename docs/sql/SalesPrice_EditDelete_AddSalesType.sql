@@ -31,7 +31,7 @@ BEGIN
     BEGIN TRY
         IF @UnitPrice <= 0
         BEGIN
-            SELECT CAST(0 AS bit) AS Ok, N'Giá bán phải lớn hơn 0' AS Message;
+            SELECT CAST(0 AS bit) AS Ok, N'Giá bán phải lớn hơn 0' AS Message, CAST(0 AS bigint) AS Counter;
             RETURN;
         END
 
@@ -49,13 +49,13 @@ BEGIN
 
         IF @Pkey IS NULL
         BEGIN
-            SELECT CAST(0 AS bit) AS Ok, N'Không tìm thấy dữ liệu cần cập nhật' AS Message;
+            SELECT CAST(0 AS bit) AS Ok, N'Không tìm thấy dữ liệu cần cập nhật' AS Message, CAST(0 AS bigint) AS Counter;
             RETURN;
         END
 
         IF @oldPrice = @UnitPrice
         BEGIN
-            SELECT CAST(0 AS bit) AS Ok, N'Không có dữ liệu thay đổi' AS Message;
+            SELECT CAST(0 AS bit) AS Ok, N'Không có dữ liệu thay đổi' AS Message, CAST(0 AS bigint) AS Counter;
             RETURN;
         END
 
@@ -75,11 +75,11 @@ BEGIN
             UPDATE dbo.SalesPrice SET Counter = @newCounter WHERE Pkey = @Pkey;
         COMMIT;
 
-        SELECT CAST(1 AS bit) AS Ok, N'Success' AS Message;
+        SELECT CAST(1 AS bit) AS Ok, N'Success' AS Message, @newCounter AS Counter;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
-        SELECT CAST(0 AS bit) AS Ok, ERROR_MESSAGE() AS Message;
+        SELECT CAST(0 AS bit) AS Ok, ERROR_MESSAGE() AS Message, CAST(0 AS bigint) AS Counter;
     END CATCH
 END
 GO
@@ -121,7 +121,7 @@ BEGIN
 
         IF @Pkey IS NULL
         BEGIN
-            SELECT CAST(0 AS bit) AS Ok, N'Không tìm thấy dữ liệu cần xóa' AS Message;
+            SELECT CAST(0 AS bit) AS Ok, N'Không tìm thấy dữ liệu cần xóa' AS Message, CAST(0 AS bigint) AS Counter;
             RETURN;
         END
 
@@ -149,11 +149,11 @@ BEGIN
                        AND (@SalesType = '' OR SalesType = @SalesType));
         COMMIT;
 
-        SELECT CAST(1 AS bit) AS Ok, N'Success' AS Message;
+        SELECT CAST(1 AS bit) AS Ok, N'Success' AS Message, @newCounter AS Counter;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
-        SELECT CAST(0 AS bit) AS Ok, ERROR_MESSAGE() AS Message;
+        SELECT CAST(0 AS bit) AS Ok, ERROR_MESSAGE() AS Message, CAST(0 AS bigint) AS Counter;
     END CATCH
 END
 

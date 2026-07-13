@@ -2889,10 +2889,14 @@ Update cột `STATUS` trên `SetupPromotionHEADER` theo `BBYNR`.
 
 ### usp_SetupSalePrice_Save
 ```
-(@Lines dbo.SetupSalePriceLineTVP READONLY, @Actor nvarchar(200)=NULL)
+(@Lines dbo.SetupSalePriceLineTVP READONLY, @Actor nvarchar(200) = NULL,
+ @Ok bit = 0 OUTPUT, @Message nvarchar(4000) = N'' OUTPUT, @OutCounter bigint = 0 OUTPUT)
 ```
 Ghi loạt giá vào `SalesPrice`. `Counter` mới = `MAX(Counter) WHERE YEAR(EndingDate) <> 7777` + 1
-(convention: `EndingDate` năm `7777` = giá vô thời hạn, không tính vào max).
+(convention: `EndingDate` năm `7777` = giá vô thời hạn, không tính vào max). `@OutCounter` =
+`MAX(Counter)` sau khi cả 2 nhánh (insert trực tiếp + update qua `Setup_SalePrice_Get_ALL`) đã chạy
+xong — dùng bởi `ISyncTableTrackerService.Track("SalesPrice", counter)` (xem
+`.claude/rules/masterdata-sync.md`). Định nghĩa: `docs/sql/SetupSalePrice_Save.sql`.
 
 ### usp_SetupVoucher_CheckCodesExist
 ```
