@@ -44,7 +44,7 @@ public sealed class LoyaltyController(
             {
                 var data = new CustomerRegistrationResponse
                 {
-                    CreatedId = 123456789,
+                    CreatedId = 700000064,
                     Warnings = [],
                     SideEffects = []
                 };
@@ -52,9 +52,9 @@ public sealed class LoyaltyController(
                 result = new ResultResponse
                     {
                         Data = data,
-                        Message = "OK",
+                        Message = "Đăng ký Hội viên thành công",
                         Status = HttpStatusCode.OK,
-                        MessageTechnical = request.PosCode
+                        MessageTechnical = request.PhoneNo
                     };
             }
             else
