@@ -255,7 +255,7 @@ public sealed class AkaChainLoyaltyAppService(
             var data = StringHelper.StringToObject<MemberProfileAkaChain>(body);
             if (data == null)
             {
-                return GetResponseError(body, new object(), false);
+                return GetResponseError(body,  false);
             }    
             return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingInfoMember(data), "AkaChainLoyalty");
         }
@@ -283,34 +283,13 @@ public sealed class AkaChainLoyaltyAppService(
 
             if (status != HttpStatusCode.OK)
             {
-                var err = StringHelper.StringToObject<AkaChainErrorResponse>(body);
-                return ResponseHelper.MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
+                return GetResponseError(body, true);
             }
 
             var data = StringHelper.StringToObject<AddTransactionAkaChainResponse>(body);
             if (data == null)
             {
-                var dataSkip = new PointModePOSResponse
-                {
-                    PointEarn = 0,
-                    PointRedeem = 0,
-                    RedemptionValue = 0,
-                    Balance = null,
-                    CurrentRate = 0,
-                    IsOfflineVinID = false,
-                    EmpCode = null,
-                    MasanerPackageInd = null,
-                    StaffPercentage = null,
-                    NormCustPercentage = null,
-                    RedemptionId = null,
-                    ReversalId = null,
-                    OrderNo = model.OrderNo,
-                    CreatedId = "",
-                    ExtraEarnByCampaign = null,
-                    TransLine = null,
-                    StatusCode = 400
-                };
-                return GetResponseError(body, dataSkip, true);
+                return GetResponseError(body, true);
             }    
 
             LoggingLoyaltyDto? dataLoyaltyRedeem = null;
@@ -526,13 +505,33 @@ public sealed class AkaChainLoyaltyAppService(
         }
     }
 
-    private ResultResponse GetResponseError(string body, object obj, bool isSkip = false)
+    private ResultResponse GetResponseError(string body, bool isSkip = false)
     {
         try
         {
             if (isSkip) 
             {
-                return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", obj);
+                var dataSkip = new PointModePOSResponse
+                {
+                    PointEarn = 0,
+                    PointRedeem = 0,
+                    RedemptionValue = 0,
+                    Balance = null,
+                    CurrentRate = 0,
+                    IsOfflineVinID = false,
+                    EmpCode = null,
+                    MasanerPackageInd = null,
+                    StaffPercentage = null,
+                    NormCustPercentage = null,
+                    RedemptionId = null,
+                    ReversalId = null,
+                    OrderNo = "",
+                    CreatedId = "",
+                    ExtraEarnByCampaign = null,
+                    TransLine = null,
+                    StatusCode = 400
+                };
+                return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", dataSkip);
             }
 
             var dataError = StringHelper.StringToObject<AkaChainErrorResponse>(body);
