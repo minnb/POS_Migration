@@ -54,43 +54,69 @@ namespace POS.Common.Mapping
         public static PointModePOSResponse MappingAddTransaction(
         AddTransactionAkaChainResponse response, VinIDSalesRequest model, int pointEarn)
         {
-            var extraEarn = new List<PointModePOSData>();
-
-            if (response.RewardBalance?.Any() == true)
+            try
             {
-                foreach (var pair in response.RewardBalance)
+                var extraEarn = new List<PointModePOSData>();
+
+                if (response.RewardBalance?.Any() == true)
                 {
-                    extraEarn.Add(new PointModePOSData
+                    foreach (var pair in response.RewardBalance)
                     {
-                        LoyaltyMerchantId = pair.CurrencyId,
-                        Amount = 0,
-                        EarnedPoints = (int)pair.Value,
-                        EntityType = response.State,
-                        Type = pair.CurrencyName
-                    });
+                        extraEarn.Add(new PointModePOSData
+                        {
+                            LoyaltyMerchantId = pair.CurrencyId,
+                            Amount = 0,
+                            EarnedPoints = (int)pair.Value,
+                            EntityType = response.State,
+                            Type = pair.CurrencyName
+                        });
+                    }
                 }
-            }
 
-            return new PointModePOSResponse
+                return new PointModePOSResponse
+                {
+                    PointEarn = pointEarn,
+                    PointRedeem = (long)response.UsedPoint,
+                    RedemptionValue = (long)response.MemberBalance,
+                    Balance = response.MemberBalance > 0 ? (long?)response.MemberBalance : null,
+                    CurrentRate = 0,
+                    IsOfflineVinID = false,
+                    EmpCode = null,
+                    MasanerPackageInd = null,
+                    StaffPercentage = null,
+                    NormCustPercentage = null,
+                    RedemptionId = null,
+                    ReversalId = null,
+                    OrderNo = model.OrderNo,
+                    CreatedId = response.ActivityEntityValueId,
+                    ExtraEarnByCampaign = extraEarn,
+                    TransLine = null,
+                    StatusCode = 200
+                };
+            }
+            catch
             {
-                PointEarn = pointEarn,
-                PointRedeem = (long)response.UsedPoint,
-                RedemptionValue = (long)response.MemberBalance,
-                Balance = response.MemberBalance > 0 ? (long?)response.MemberBalance : null,
-                CurrentRate = 0,
-                IsOfflineVinID = false,
-                EmpCode = null,
-                MasanerPackageInd = null,
-                StaffPercentage = null,
-                NormCustPercentage = null,
-                RedemptionId = null,
-                ReversalId = null,
-                OrderNo = model.OrderNo,
-                CreatedId = response.ActivityEntityValueId,
-                ExtraEarnByCampaign = extraEarn,
-                TransLine = null,
-                StatusCode = 200
-            };
+                return new PointModePOSResponse
+                {
+                    PointEarn = 0,
+                    PointRedeem = 0,
+                    RedemptionValue = 0,
+                    Balance =  null,
+                    CurrentRate = 0,
+                    IsOfflineVinID = false,
+                    EmpCode = null,
+                    MasanerPackageInd = null,
+                    StaffPercentage = null,
+                    NormCustPercentage = null,
+                    RedemptionId = null,
+                    ReversalId = null,
+                    OrderNo = model.OrderNo,
+                    CreatedId = "",
+                    ExtraEarnByCampaign = null,
+                    TransLine = null,
+                    StatusCode = 400
+                };
+            }
         }
         public static PointModePOSResponse MappingReturnTransaction(
         object response, VinIDRefundRequest model, int pointEarn)

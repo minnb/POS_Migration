@@ -255,19 +255,7 @@ public sealed class AkaChainLoyaltyAppService(
             var data = StringHelper.StringToObject<MemberProfileAkaChain>(body);
             if (data == null)
             {
-                var dataError = StringHelper.StringToObject<AkaChainErrorResponse>(body);
-                if(dataError == null)
-                {
-                    return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
-                }
-                else
-                {
-                    if (dataError.Error.Code == "701")
-                    {
-                        return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, dataError.Error.Message ?? $"Không tìm thấy thông tin khách hàng", body);
-                    }
-                    return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, dataError.Error.Message ?? "JSON conversion error", body);
-                }
+                return GetResponseError(body, new object(), false);
             }    
             return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingInfoMember(data), "AkaChainLoyalty");
         }
@@ -295,13 +283,35 @@ public sealed class AkaChainLoyaltyAppService(
 
             if (status != HttpStatusCode.OK)
             {
-                var err = JsonConvert.DeserializeObject<AkaChainErrorResponse>(body);
+                var err = StringHelper.StringToObject<AkaChainErrorResponse>(body);
                 return ResponseHelper.MakeResponse(status, err?.Error?.Message ?? status.ToString(), err);
             }
 
-            var data = JsonConvert.DeserializeObject<AddTransactionAkaChainResponse>(body);
+            var data = StringHelper.StringToObject<AddTransactionAkaChainResponse>(body);
             if (data == null)
-                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", null, body);
+            {
+                var dataSkip = new PointModePOSResponse
+                {
+                    PointEarn = 0,
+                    PointRedeem = 0,
+                    RedemptionValue = 0,
+                    Balance = null,
+                    CurrentRate = 0,
+                    IsOfflineVinID = false,
+                    EmpCode = null,
+                    MasanerPackageInd = null,
+                    StaffPercentage = null,
+                    NormCustPercentage = null,
+                    RedemptionId = null,
+                    ReversalId = null,
+                    OrderNo = model.OrderNo,
+                    CreatedId = "",
+                    ExtraEarnByCampaign = null,
+                    TransLine = null,
+                    StatusCode = 400
+                };
+                return GetResponseError(body, dataSkip, true);
+            }    
 
             LoggingLoyaltyDto? dataLoyaltyRedeem = null;
             if (data.UsedPoint > 0)
@@ -513,6 +523,35 @@ public sealed class AkaChainLoyaltyAppService(
         {
             fileLogHelper.WriteExpLogs(endpoint, ex);
             return ResponseHelper.MakeResponse(HttpStatusCode.Conflict, ex.Message, null, JsonConvert.SerializeObject(ex));
+        }
+    }
+
+    private ResultResponse GetResponseError(string body, object obj, bool isSkip = false)
+    {
+        try
+        {
+            if (isSkip) 
+            {
+                return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", obj);
+            }
+
+            var dataError = StringHelper.StringToObject<AkaChainErrorResponse>(body);
+            if (dataError == null)
+            {
+                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
+            }
+            else
+            {
+                if (dataError.Error.Code == "701")
+                {
+                    return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, dataError.Error.Message ?? $"Không tìm thấy thông tin khách hàng", body);
+                }
+                return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, dataError.Error.Message ?? "JSON conversion error", body);
+            }
+        }
+        catch(Exception ex) 
+        {
+            return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, ex.Message ?? "JSON conversion error", body);
         }
     }
 }
