@@ -45,8 +45,8 @@ public sealed class LoyaltyController(
                 var data = new CustomerRegistrationResponse
                 {
                     CreatedId = 123456789,
-                    Warnings = null,
-                    SideEffects = null
+                    Warnings = [],
+                    SideEffects = []
                 };
             
                 result = new ResultResponse
