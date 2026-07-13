@@ -1,0 +1,29 @@
+[Unit]
+Description=POS.Web - POS Blazor Server Dashboard
+After=network.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/pos/web
+ExecStart=/usr/bin/dotnet /opt/pos/web/POS.Web.dll
+Restart=always
+RestartSec=10
+
+# ── Ownership / quyền file log — xem giải thích đầy đủ ở pos-api.service ────
+User=pos-web
+Group=posops
+UMask=0027
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5002
+Environment=TZ=Asia/Ho_Chi_Minh
+
+# Chỉ cần nếu appsettings.Production.json có token enc:... — CÙNG khóa với pos-api.env
+# (SecretProtector dùng chung 1 khóa AES cho cả 2 service, xem docs/ROLLOUT.md §C4).
+EnvironmentFile=-/etc/pos/pos-web.env
+
+KillSignal=SIGINT
+SyslogIdentifier=pos-web
+
+[Install]
+WantedBy=multi-user.target

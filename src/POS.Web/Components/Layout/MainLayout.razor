@@ -105,14 +105,6 @@
                     <MudNavLink Href="/catalog/pos-groups" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">POS Group</MudNavLink>
                     -->
                 </MudNavGroup>
-
-                <MudNavGroup Title="Giá bán" Icon="@Icons.Material.Outlined.Sell" Class="pos-nav-l2" @bind-Expanded="_expandCatPrice">
-                    <MudNavLink Href="/catalog/prices" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Danh mục Bảng giá</MudNavLink>
-                    <MudNavLink Href="/catalog/price-declare" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Cài đặt giá</MudNavLink>
-                    @* Ẩn menu "Setup giá (Bulk Import)" (route /catalog/price-setup) — route vẫn còn, chỉ ẩn khỏi menu
-                    <MudNavLink Href="/catalog/price-setup" Icon="@Icons.Material.Outlined.ChevronRight" Match="NavLinkMatch.All">Setup giá (Bulk Import)</MudNavLink>
-                    *@
-                </MudNavGroup>
             </AuthorizeView>
 
             <AuthorizeView Policy="@WebPolicies.BackOfficeAndAbove">

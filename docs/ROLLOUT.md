@@ -39,6 +39,8 @@
 | O9 | `HealthCheck:PosApiBaseUrl` (POS.Web `/ops/health`) — UAT/Production | Điền URL nội bộ POS.Api thật vào `<UAT_POS_API_BASE_URL>` (`appsettings.UAT.json`) và `<PROD_POS_API_BASE_URL>` (`appsettings.Production.json`) — trước đó 2 file này thiếu hẳn section `HealthCheck` nên âm thầm dùng giá trị Dev `http://localhost:8080` | REQUIRED (mục "POS.Api" trên `/ops/health` sai ở UAT/Prod nếu bỏ qua) | [§O9](#o9--healthcheckposapibaseurl-cho-uatproduction) |
 | O10 | `Redis:DefaultDatabase` phải ĐỒNG BỘ giữa POS.Api/POS.Web/POS.Worker trong cùng môi trường | Xác nhận cả 3 file `appsettings.{Production\|UAT}.json` của Api/Web/Worker cùng trỏ 1 số DB — lệch số sẽ khiến `/ops/health` báo sai "Worker offline" dù worker chạy tốt (heartbeat ghi DB khác DB Web đọc) | REQUIRED (kiểm tra lại mỗi khi sửa `Redis:DefaultDatabase` ở bất kỳ file nào trong 3 service) | [§O10](#o10--redisdefaultdatabase-đồng-bộ-giữa-posapiposwebposworker) |
 | O11 | Worker chạy song song Docker + bare-metal cùng host (`appsettings.ProductionHost.json`) | Dùng ĐÚNG file theo ngữ cảnh: Docker → `appsettings.Production.json` (`host.docker.internal`); bare-metal → `appsettings.ProductionHost.json` (`127.0.0.1`, `EnableHeartbeat=false`). Cả 2 đều cần `-e POS_SECRET_KEY=...`/`Environment=POS_SECRET_KEY=...` nếu file đã mã hóa | REQUIRED (khi go-live có ≥2 instance Worker cùng vai trò trên cùng host) | [§O11](#o11--worker-chạy-song-song-docker--bare-metal-cùng-host) |
+| D13 | Index hiệu năng `SalesPrice` (trang `/catalog/prices`) | Chạy `docs/sql/SalesPrice_AddPerfIndex.sql` trên CentralMD (Track A, `POS.DbMigrator --apply` tự chạy) — `CREATE INDEX` trên bảng lớn có thể tốn thời gian/khoá ghi, khuyến nghị chạy giờ thấp tải | OPTIONAL (không chặn deploy code — chỉ ảnh hưởng tốc độ, không có code phụ thuộc index) | [§D13](#d13--index-hiệu-năng-salesprice-trang-catalogprices) |
+| O12 | Thư mục log dùng chung `/srv/pos/logs` cho trang "Nhật ký hệ thống" (`/admin/logs`) | Chạy `deploy/linux/setup-pos-log-dirs.sh` (group `posops`, setgid 2750) TRƯỚC khi start `pos-api`/`pos-web` (systemd) và `docker run` Worker — cả 3 service phải cùng group `posops` mới đọc log chéo nhau được | REQUIRED (thiếu → POS.Web báo lỗi quyền khi duyệt `api`/`worker` trong `/admin/logs`) | [§O12](#o12--thư-mục-log-dùng-chung-srvposlogs-cho-nhật-ký-hệ-thống) |
 
 ---
 
@@ -661,6 +663,11 @@ heartbeat — xem `docs/worker/WorkerHeartbeatService.md` §3), `Logging:FileLog
 
 ## O7 — Fix WebSocket SignalR bị rớt qua subdomain HTTPS (POS.Web)
 
+> **Cập nhật topology (2026-07-13)**: UAT/PROD thật chạy POS.Web **native qua systemd**
+> (`deploy/linux/systemd/pos-web.service`), không phải Docker — xem `docs/guide-deploy.md`. Bản
+> thân vấn đề/cách fix ở mục này KHÔNG đổi (vấn đề nằm ở tầng SSL vhost ngoài repo, độc lập với
+> Kestrel phía sau chạy bằng systemd hay container).
+
 > Phát hiện 2026-07-08: POS.Web (Blazor Server) chạy sau **2 tầng reverse proxy** khi expose qua
 > subdomain HTTPS (vd `https://uat-web.rpos.top`):
 > `Browser → [tầng 1] SSL vhost ngoài (không nằm trong repo) → [tầng 2] nginx/pos-web*.conf (trong
@@ -1166,6 +1173,78 @@ khối lượng công việc riêng, ngoài phạm vi đợt này).
   `docs/web/testing/promotion-setup.md` §Offers — không cần chạy SQL nào cho bug đó).
 - **Chưa verify trên DB thật** (sandbox không có quyền truy cập DB) — chỉ verify được cú pháp SQL
   qua đọc code, DBA cần tự chạy + đối chiếu kết quả trên CentralMD.
+
+---
+
+## D13 — Index hiệu năng `SalesPrice` (trang `/catalog/prices`)
+
+> Trang `GET /catalog/prices` (POS.Web) báo chậm/giật/treo. Audit xác nhận
+> **KHÔNG** phải do client-side pagination — `PricesPage.razor` đã dùng `MudTable ServerData`
+> đúng chuẩn, SP `[dbo].[GetSalesPriceList]` đã có `OFFSET/FETCH` thật. Root cause thật: bảng
+> `dbo.SalesPrice` chỉ có PK composite, không index phụ nào, trong khi SP luôn bắt buộc
+> `WHERE S.IsActive = 1` + `ORDER BY StartingDate DESC` bất kể filter — mở trang không filter
+> (mặc định) buộc quét toàn bộ clustered index mỗi lần tải/đổi trang.
+
+- `docs/sql/SalesPrice_AddPerfIndex.sql` — `CREATE NONCLUSTERED INDEX
+  IX_SalesPrice_IsActive_StartingDate ON dbo.SalesPrice (IsActive, StartingDate DESC) INCLUDE
+  (EndingDate, SalesType, UnitPrice, Counter, Pkey)`, bọc `IF NOT EXISTS` (Track A, idempotent).
+  KHÔNG đổi thân `GetSalesPriceList`/`GetSalesPriceList_Export` — chỉ thêm index.
+- Hưởng lợi cả 2 SP dùng chung điều kiện lọc (list phân trang + export Excel không phân trang).
+  KHÔNG tối ưu nhánh filter theo Mã/Tên sản phẩm (`CHARINDEX`, non-SARGable, giữ nguyên hành vi
+  tìm "chứa chuỗi con" theo quyết định đã chốt) — chỉ tối ưu base-scan + sort cho nhánh phổ biến
+  nhất (mở trang không filter / lọc theo SaleType, SalesGroup, isCheck).
+- Trade-off: thêm nhẹ overhead ghi cho `usp_SetupSalePrice_Save`/`usp_SalesPrice_UpdatePrice`/
+  `usp_SalesPrice_SoftDelete` — chấp nhận được (workload đọc nhiều/ghi ít).
+- **Chưa verify trên DB thật** (không có kết nối SQL live trong phiên audit này) — DBA cần tự
+  đối chiếu `SET STATISTICS IO, TIME ON` + execution plan trước/sau trên UAT trước khi áp dụng
+  Production (xem chi tiết bước verify trong PR/commit thêm index này).
+
+---
+
+## O12 — Thư mục log dùng chung `/srv/pos/logs` cho "Nhật ký hệ thống" (`/admin/logs`)
+
+> Trang `/admin/logs` (`LogFilePage.razor`, policy `AdminOnly`) duyệt + tải file `.log`/`.txt` dưới
+> `Logging:LogDirectory` (mặc định `/srv/pos/logs` ở Production) — thư mục này chứa log của **cả 3
+> service**: `api/` (POS.Api), `web/` (POS.Web), `worker/` (POS.Worker). Vì 3 service chạy theo 3 cơ
+> chế khác nhau ở UAT/PROD (POS.Api/POS.Web native qua systemd, POS.Worker qua Docker — xem
+> `docs/guide-deploy.md`), không có 1 UID chung để `chown` như `deploy/linux/setup-pos-dirs.sh` làm
+> cho `ftpbluepos` — thay vào đó dùng chung **group `posops`** (đã tạo sẵn, gid 1654) + setgid
+> trên thư mục để cấp quyền đọc/ghi chéo.
+
+**Bắt buộc trước khi start `pos-api`/`pos-web` (systemd) lần đầu và `docker run` Worker:**
+
+1. Đảm bảo `deploy/linux/setup-pos-dirs.sh` đã chạy trước (tạo group `posops`, gid 1654).
+2. Chạy `sudo ./deploy/linux/setup-pos-log-dirs.sh` (mặc định `/srv/pos/logs`; truyền path khác cho
+   UAT nếu tách riêng, giống quy ước `ftpbluepos`) — tạo `api/`, `web/`, `worker/`, `chgrp -R posops`
+   + `chmod 2750` (thư mục) / `640` (file có sẵn).
+3. Thêm user systemd vào group: `sudo usermod -aG posops pos-api && sudo usermod -aG posops pos-web`.
+4. `deploy/linux/systemd/pos-api.service`/`pos-web.service` đã đặt sẵn `Group=posops` +
+   `UMask=0027` — file mới 2 service này tạo ra tự động `640`/thư mục `750`, group `posops`.
+5. `docker run` POS.Worker: thêm `--user "<uid>:1654"` (gid **PHẢI** khớp `posops`, xác nhận bằng
+   `getent group posops`) + mount `-v /srv/pos/logs:/srv/pos/logs` (xem `docs/guide-deploy.md` §3.3).
+
+**Chống Symlink Attack (code, đã áp dụng — không cần thao tác vận hành)**: `LogFileService` (qua
+seam `IDirectoryProbe.IsSymbolicLink`) loại bỏ mọi symlink khỏi danh sách duyệt VÀ chặn tải file
+nếu là symlink, kể cả khi ai đó tạo symlink trực tiếp trong `/srv/pos/logs` trỏ ra ngoài (vd
+`/etc/shadow`) — `Path.GetFullPath` + so khớp prefix không tự phát hiện được trường hợp này.
+
+**Streaming download (code, đã áp dụng)**: `DownloadLogFileAsync` trả `FileStream` thật (không
+buffer toàn bộ file vào RAM server) — truyền qua kênh SignalR `/_blazor` có sẵn (JS interop
+`DotNetStreamReference`), KHÔNG qua route HTTP riêng nên KHÔNG cần thêm nginx location mới. Ngưỡng
+kích thước tối đa cấu hình qua `LogViewer:MaxDownloadBytes` (mặc định 500MB).
+
+**Data Protection Keys (liên quan, cùng đợt)**: `src/POS.Web/Program.cs` giờ gọi tường minh
+`PersistKeysToFileSystem` (mặc định `/var/lib/pos-web/dataprotection-keys` trên Linux, đổi qua
+config `DataProtection:KeyPath`) — thư mục này PHẢI tồn tại + user `pos-web` ghi được TRƯỚC khi
+start service lần đầu (xem `deploy/linux/systemd/README.md` bước 4), nếu không mọi cookie đăng nhập
+cũ vô hiệu sau mỗi lần restart.
+
+**CHƯA VERIFY được trên server UAT/PROD thật** (không có quyền SSH) — người vận hành cần tự chạy
+`deploy/linux/setup-pos-log-dirs.sh`, start `pos-api`/`pos-web`, vào `/admin/logs` xác nhận: cây
+thư mục hiện đủ `api`/`web`/`worker`, chọn thư mục → thấy file → tải về đúng nội dung, không có lỗi
+quyền. Đã verify được (môi trường dev Windows): build 0 error, unit test
+`tests/POS.UnitTests/Services/LogFileServiceTests.cs` (10/10 PASS, bao gồm test thật chống path
+traversal + symlink + streaming), `deploy/linux/setup-pos-log-dirs.sh` pass `bash -n` syntax check.
 
 ---
 

@@ -250,7 +250,7 @@ public sealed class AkaChainLoyaltyAppService(
             kibanaService.LogResponse(endpoint, value, 0, "", body);
 
             if (status != HttpStatusCode.OK)
-                return ResponseHelper.MakeResponse(status, status.ToString(), body);
+                return GetResponseError(body, false);
 
             var data = StringHelper.StringToObject<MemberProfileAkaChain>(body);
             if (data == null)

@@ -44,6 +44,8 @@
       "note": "Noi tiep GetSalesPriceList_AddSaleType.sql (order 504) - PHAI chay sau (doc chinh header file)." },
     { "order": 506, "file": "StorePriceGroup_Save.sql", "target": "CentralMD", "runOnce": false },
     { "order": 507, "file": "StorePriceGroup_Delete.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 508, "file": "SalesPrice_AddPerfIndex.sql", "target": "CentralMD", "runOnce": false,
+      "note": "Index bo sung cho GetSalesPriceList/_Export (IsActive luon bat buoc trong WHERE, khong co index phu tren SalesPrice truoc day) - khong doi than 2 SP, thuan DDL idempotent." },
 
     { "order": 600, "file": "CpnVchBOMCodeIssue_ExtendSchema.sql", "target": "CentralMD", "runOnce": true, "phase": "pre-deploy",
       "note": "D6 buoc 1/6. Rebuild bang (Phase B) + sp_rename gian tiep - BAT BUOC backup truoc, cua so bao tri. Chay pre-check trung Code truoc Phase C (query co san trong comment script)." },

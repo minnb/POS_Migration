@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Caching.Memory;
 using MudBlazor;
@@ -111,7 +112,26 @@ builder.Services.AddScoped<IWebUserService, WebUserService>();
 builder.Services.AddScoped<ISqlConsoleService, SqlConsoleService>();
 builder.Services.AddSingleton<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IAuditLogger, DbAuditLogger>();
+builder.Services.AddSingleton<IDirectoryProbe, PhysicalDirectoryProbe>();
 builder.Services.AddScoped<ILogFileService, LogFileService>();
+
+// ── Data Protection Keys — persist tường minh, KHÔNG dựa vào mặc định $HOME ─────
+// Mặc định ASP.NET Core tự dò $HOME/.aspnet/DataProtection-Keys. Nếu process chạy dưới systemd
+// với user không có $HOME ổn định (vd DynamicUser=, hoặc home trên tmpfs) → key sinh mới mỗi lần
+// restart → mọi cookie đăng nhập cũ vô hiệu (user bị đăng xuất hàng loạt sau mỗi lần deploy).
+// Đặt key path tường minh qua config; mặc định /var/lib/pos-web/dataprotection-keys chỉ áp dụng
+// trên Linux (Production/UAT thật) — thư mục này PHẢI được tạo + cấp quyền ghi cho user chạy
+// POS.Web trước khi start service (xem deploy/linux/systemd/pos-web.service + docs/ROLLOUT.md §O11).
+// Windows dev không có key path mặc định tương ứng → giữ nguyên hành vi mặc định của ASP.NET Core
+// (không ép PersistKeysToFileSystem) để không phá local dev.
+var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"]
+    ?? (OperatingSystem.IsWindows() ? null : "/var/lib/pos-web/dataprotection-keys");
+if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
+{
+    builder.Services.AddDataProtection()
+        .SetApplicationName("POS.Web")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
+}
 
 // ── Authentication: Cookie cho browser session ─────────────────────────
 // TÁCH BIỆT với BasicAuth của POS.Api (không ảnh hưởng nhau)

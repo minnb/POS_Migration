@@ -1,21 +1,34 @@
-# Hướng dẫn triển khai UAT / PROD (nginx + Docker)
+# Hướng dẫn triển khai UAT / PROD (nginx + systemd + Docker)
 
 > Dành cho DevOps. Áp dụng cho 3 service: **POS.Api**, **POS.Web**, **POS.Worker**.
 > Mỗi service đã có đủ 3 môi trường: `Development` / `UAT` / `Production`.
+
+> ⚠️ **Cập nhật topology (2026-07-13)**: UAT/PROD thật chạy **POS.Api + POS.Web native qua systemd**
+> trên Ubuntu (không qua Docker), **chỉ POS.Worker chạy Docker**. Đây là điểm dựa theo thông tin
+> người vận hành cung cấp trực tiếp — tôi (Claude) không có quyền SSH vào server UAT/PROD thật để
+> tự xác nhận 100%, nên coi đây là input đáng tin từ người nắm hạ tầng thật.
+> `docker-compose.yml` ở gốc repo + `Dockerfile` (POS.Api) + `src/POS.Web/Dockerfile` **vẫn giữ
+> nguyên, KHÔNG xóa** — dùng cho môi trường **SIT/dev cục bộ** (bằng chứng: tên container
+> `sit_dotnet_api`/`mssql_2019`, bind mount tương đối `./logs`), không đại diện cho cách UAT/PROD
+> thật đang chạy.
 
 ---
 
 ## 1. Tổng quan
 
-| Service | Dockerfile | Cổng trong container | Biến môi trường chọn config | Sau nginx? |
+| Service | Cách chạy (UAT/PROD) | Cổng lắng nghe | Biến môi trường chọn config | Sau nginx? |
 |---|---|---|---|---|
-| **POS.Api** | `Dockerfile` (gốc) | `80` | `ASPNETCORE_ENVIRONMENT` | ✅ |
-| **POS.Web** | `src/POS.Web/Dockerfile` | `8080` | `ASPNETCORE_ENVIRONMENT` | ✅ |
-| **POS.Worker** | `Dockerfile.worker` | — (không HTTP) | `DOTNET_ENVIRONMENT` | ❌ |
+| **POS.Api** | Native — systemd (`deploy/linux/systemd/pos-api.service`) | `127.0.0.1:5001` | `ASPNETCORE_ENVIRONMENT` | ✅ |
+| **POS.Web** | Native — systemd (`deploy/linux/systemd/pos-web.service`) | `127.0.0.1:5002` | `ASPNETCORE_ENVIRONMENT` | ✅ |
+| **POS.Worker** | Docker (`Dockerfile.worker`) | — (không HTTP) | `DOTNET_ENVIRONMENT` | ❌ |
 
 **Giá trị biến môi trường:** `UAT` hoặc `Production` → nạp tương ứng `appsettings.UAT.json` / `appsettings.Production.json`.
 
 > ⚠️ POS.Worker dùng `DOTNET_ENVIRONMENT` (KHÔNG phải `ASPNETCORE_ENVIRONMENT`).
+
+> **Môi trường SIT/dev cục bộ** vẫn dùng Docker cho cả 3 service qua `docker-compose.yml` gốc —
+> xem comment đầu file đó. Từ §3.1/§3.2 trở xuống, tài liệu này mô tả **UAT/PROD thật (systemd)**;
+> §3.3 (POS.Worker) vẫn là Docker cho mọi môi trường.
 
 ---
 
@@ -82,65 +95,64 @@ trường của shell chạy lệnh này (giống §2 mục mã hóa credentials
 
 ---
 
-## 3. Build & chạy container
+## 3. Build & chạy: POS.Api/POS.Web (native, systemd) + POS.Worker (Docker)
 
-### 3.1. POS.Api
-
-```bash
-# Build
-docker build -t pos-api:uat -f Dockerfile .
-
-# Run (UAT)
-docker run -d --name pos-api-uat \
-  -e ASPNETCORE_ENVIRONMENT=UAT \
-  -e TZ=Asia/Ho_Chi_Minh \
-  -e POS_SECRET_KEY="${POS_SECRET_KEY}" \
-  --add-host host.docker.internal:host-gateway \
-  -p 5001:80 \
-  -v $(pwd)/logs:/app/logs \
-  -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
-  --restart unless-stopped \
-  pos-api:uat
-```
-> PROD: đổi `ASPNETCORE_ENVIRONMENT=Production`, tag `pos-api:prod`, tên container khác. Cổng host (`5001`) phải khớp `proxy_pass` trong nginx.
-> `-e POS_SECRET_KEY=...`: chỉ cần khi `appsettings.{UAT|Production}.json` có token `enc:...` (xem §C4 `docs/ROLLOUT.md`) — bỏ qua nếu file còn plaintext.
-> ⚠️ **PROD đổi path mount ftpbluepos**: dùng `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG có tiền tố
-> `uat`). UAT và PROD chạy `docker run` trên **CÙNG một host** này (khác port/tên container) — nếu dùng
-> chung 1 thư mục host, dữ liệu test UAT sẽ lẫn vào master-data/sale file PROD thật. Tạo + cấp quyền 2
-> thư mục này bằng `deploy/linux/setup-pos-dirs.sh` (xem `docs/deploy/ubuntu-guide.md`) TRƯỚC khi chạy
-> `docker run` lần đầu.
-
-### 3.2. POS.Web
+### 3.1. POS.Api (systemd)
 
 ```bash
-# Build
-docker build -t pos-web:uat -f src/POS.Web/Dockerfile .
+# Publish (build Release, xuất ra thư mục chạy thật)
+dotnet publish src/POS.Api/POS.Api.csproj -c Release -o /opt/pos/api
 
-# Run (UAT) — container nghe cổng 8080
-docker run -d --name pos-web-uat \
-  -e ASPNETCORE_ENVIRONMENT=UAT \
-  -e TZ=Asia/Ho_Chi_Minh \
-  -e POS_SECRET_KEY="${POS_SECRET_KEY}" \
-  --add-host host.docker.internal:host-gateway \
-  -p 5002:8080 \
-  -v $(pwd)/logs:/app/logs \
-  -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
-  -v pos-web-dpkeys-uat:/home/app/.aspnet/DataProtection-Keys \
-  --restart unless-stopped \
-  pos-web:uat
+# Cài + khởi động (lần đầu — xem đầy đủ deploy/linux/systemd/README.md)
+sudo cp deploy/linux/systemd/pos-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now pos-api
+
+# Re-deploy (cập nhật version mới)
+sudo systemctl stop pos-api
+dotnet publish src/POS.Api/POS.Api.csproj -c Release -o /opt/pos/api
+sudo systemctl start pos-api
 ```
-> ⚠️ Volume `DataProtection-Keys` BẮT BUỘC giữ qua các lần rebuild — nếu mất key, cookie đăng nhập cũ vô hiệu (user phải login lại).
-> Cổng host (`5002`) phải khớp `proxy_pass` trong `nginx/pos-web.uat.conf`.
-> `-e POS_SECRET_KEY=...`: khóa AES giải mã `enc:...` — **cùng giá trị** với khóa dùng cho POS.Api (khóa dùng chung, xem §C4 `docs/ROLLOUT.md`). Bỏ qua nếu appsettings còn plaintext.
-> ⚠️ **Mount `ftpbluepos` dùng CHUNG với POS.Api** (`AppSettings:FtpRootPath` = `/app/ftpbluepos` ở
-> cả 2 project) — nút "Đẩy dữ liệu đầu ngày" (`/catalog/pos-setup`) ghi file master-data vào đây, máy
-> POS tải lại qua `DowloadFileStream` của POS.Api; thiếu mount này thì 2 container không cùng thư mục
-> vật lý, file sinh ra ở POS.Web sẽ không thấy được ở POS.Api. **PROD đổi path** giống §3.1: dùng
-> `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG tiền tố `uat` — UAT/PROD chạy chung host, không dùng
-> chung thư mục). Tạo + cấp quyền bằng `deploy/linux/setup-pos-dirs.sh` (xem
-> `docs/deploy/ubuntu-guide.md`) TRƯỚC khi chạy `docker run` lần đầu.
+> Unit mẫu `deploy/linux/systemd/pos-api.service` đã đặt `ASPNETCORE_URLS=http://127.0.0.1:5001`
+> (cổng này phải khớp `proxy_pass` trong nginx) + `Environment=ASPNETCORE_ENVIRONMENT=Production`
+> (đổi trực tiếp trong file unit cho UAT). Đổi `User=`/`WorkingDirectory=` khớp tài khoản/thư mục
+> publish thật của server (file mẫu dùng placeholder `pos-api`/`/opt/pos/api`).
+> `EnvironmentFile=-/etc/pos/pos-api.env`: chỉ cần tạo file này (chứa `POS_SECRET_KEY=...`) khi
+> `appsettings.{UAT|Production}.json` có token `enc:...` (xem §C4 `docs/ROLLOUT.md`) — bỏ qua nếu
+> file còn plaintext.
+> `AppSettings:FtpRootPath`/`FolderShare` trỏ thẳng vào đường dẫn thật trên host (không còn khái
+> niệm bind-mount container) — dùng chung `/srv/pos/ftpbluepos` (PROD) / `/srv/pos/uat/ftpbluepos`
+> (UAT) như trước, tạo + cấp quyền bằng `deploy/linux/setup-pos-dirs.sh` (xem
+> `docs/deploy/ubuntu-guide.md`) TRƯỚC khi start service lần đầu — user `pos-api` cần là member
+> group `posops` để ghi/đọc được thư mục này.
 
-### 3.3. POS.Worker
+### 3.2. POS.Web (systemd)
+
+```bash
+dotnet publish src/POS.Web/POS.Web.csproj -c Release -o /opt/pos/web
+
+sudo cp deploy/linux/systemd/pos-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now pos-web
+
+# Re-deploy
+sudo systemctl stop pos-web
+dotnet publish src/POS.Web/POS.Web.csproj -c Release -o /opt/pos/web
+sudo systemctl start pos-web
+# Sau re-deploy, user nên hard refresh (Ctrl+Shift+R) để nạp client mới.
+```
+> Cổng `127.0.0.1:5002` phải khớp `proxy_pass` trong `nginx/pos-web.uat.conf`/`pos-web.conf`.
+> ⚠️ **Data Protection Keys** (thay cho named volume Docker `dp-keys` trước đây): `src/POS.Web/Program.cs`
+> giờ gọi tường minh `PersistKeysToFileSystem` vào `/var/lib/pos-web/dataprotection-keys` (mặc định
+> trên Linux, đổi được qua config `DataProtection:KeyPath`) — **PHẢI tạo thư mục này + cấp quyền ghi
+> cho user `pos-web` TRƯỚC khi start service lần đầu** (xem `deploy/linux/systemd/README.md` bước 4),
+> nếu không mất key qua mỗi lần restart → toàn bộ cookie đăng nhập cũ vô hiệu.
+> ⚠️ **`ftpbluepos` dùng CHUNG với POS.Api** — nút "Đẩy dữ liệu đầu ngày" (`/catalog/pos-setup`) ghi
+> file master-data vào đây, máy POS tải lại qua `DowloadFileStream` của POS.Api; `AppSettings:FtpRootPath`
+> của cả 2 service PHẢI trỏ **cùng 1 đường dẫn vật lý thật trên host** (không còn khái niệm mount
+> riêng theo container) — `/srv/pos/ftpbluepos` (PROD) / `/srv/pos/uat/ftpbluepos` (UAT).
+
+### 3.3. POS.Worker (Docker — không đổi cơ chế, chỉ thêm mount log)
 
 > Runbook chi tiết riêng cho POS.Worker (bảng so sánh Task Scheduler ↔ Docker, checklist,
 > `appsettings.UAT.json` mới thêm): **`docs/deploy/pos-worker-ubuntu-guide.md`**.
@@ -154,16 +166,21 @@ docker run -d --name pos-worker-uat \
   -e DOTNET_ENVIRONMENT=UAT \
   -e TZ=Asia/Ho_Chi_Minh \
   --add-host host.docker.internal:host-gateway \
-  -v $(pwd)/logs:/app/logs \
+  --user "1654:1654" \
+  -v /srv/pos/logs:/srv/pos/logs \
   -v /srv/pos/uat/ftpbluepos:/app/ftpbluepos \
   --restart unless-stopped \
   pos-worker:uat
 ```
 > PROD: đổi `DOTNET_ENVIRONMENT=Production`, tag `pos-worker:prod`, tên container khác — **và đổi path
-> mount** sang `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG tiền tố `uat`, lý do giống POS.Api ở §3.1
-> — UAT/PROD chạy chung host, không được dùng chung thư mục). `PosFileImportWorker` quét
+> mount ftpbluepos** sang `-v /srv/pos/ftpbluepos:/app/ftpbluepos` (KHÔNG tiền tố `uat`, lý do giống
+> §3.1 — UAT/PROD chạy chung host, không được dùng chung thư mục). `PosFileImportWorker` quét
 > `SyncDataPos/Sale/Kafka` bên trong thư mục này — đúng folder mà POS.Api (`UploadFileSale`) đang ghi
 > file sale vào, xem `docs/deploy/ubuntu-guide.md` để biết chi tiết + rủi ro đã biết của việc dùng chung.
+> `--user "1654:1654"` + `-v /srv/pos/logs:/srv/pos/logs` (**mới**, xem `docs/ROLLOUT.md` §O11): GID
+> `1654` PHẢI khớp GID thật của group `posops` trên host (`getent group posops` để xác nhận) — để
+> container ghi log vào `/srv/pos/logs/worker` với group `posops`, cho phép POS.Api/POS.Web (systemd,
+> `Group=posops`) đọc lại được. Chạy `deploy/linux/setup-pos-log-dirs.sh` TRƯỚC lần `docker run` đầu.
 
 ---
 
@@ -224,11 +241,16 @@ server {
 ## 5. Kiểm tra sau deploy
 
 ```bash
-# 1. Container chạy + healthy
-docker ps                          # cột STATUS = "healthy"
-docker logs --tail 50 pos-web-uat  # không có exception lúc khởi động
+# 1. Service chạy (POS.Api/POS.Web — systemd) + healthy
+sudo systemctl status pos-api pos-web        # Active: active (running)
+sudo journalctl -u pos-api -n 50 --no-pager  # không có exception lúc khởi động
+sudo journalctl -u pos-web -n 50 --no-pager
 
-# 2. Health endpoint (qua container)
+# 1b. Worker (Docker — không đổi)
+docker ps                            # cột STATUS = "healthy"
+docker logs --tail 50 pos-worker-uat
+
+# 2. Health endpoint (trực tiếp, chưa qua nginx)
 curl -fsS http://127.0.0.1:5001/health    # POS.Api → "healthy"
 curl -fsS http://127.0.0.1:5002/health    # POS.Web → "healthy"
 
@@ -244,23 +266,36 @@ Mở trình duyệt → F12 → Network → lọc `_blazor` → phải thấy 1 
 ## 6. Cập nhật phiên bản mới (re-deploy)
 
 ```bash
-# Build image mới → dừng container cũ → chạy container mới (cùng tên/volume)
-docker build -t pos-web:uat -f src/POS.Web/Dockerfile .
-docker stop pos-web-uat && docker rm pos-web-uat
-docker run -d --name pos-web-uat ...   # lệnh run như mục 3.2 (GIỮ NGUYÊN volume dp-keys)
+# POS.Api / POS.Web (systemd) — xem §3.1/§3.2
+sudo systemctl stop pos-web
+dotnet publish src/POS.Web/POS.Web.csproj -c Release -o /opt/pos/web
+sudo systemctl start pos-web
+
+# POS.Worker (Docker — không đổi)
+docker build -t pos-worker:uat -f Dockerfile.worker .
+docker stop pos-worker-uat && docker rm pos-worker-uat
+docker run -d --name pos-worker-uat ...   # lệnh run như §3.3
 ```
-> Không cần reload nginx khi chỉ đổi image (cổng không đổi).
-> Sau re-deploy, user POS.Web nên hard refresh (`Ctrl+Shift+R`) để nạp client mới.
+> Không cần reload nginx khi re-deploy Api/Web (cổng không đổi).
+> Sau re-deploy POS.Web, user nên hard refresh (`Ctrl+Shift+R`) để nạp client mới.
 
 ---
 
 ## 7. Rollback nhanh
 
 ```bash
-# Giữ tag image cũ trước mỗi lần deploy (vd pos-web:uat-prev)
-docker stop pos-web-uat && docker rm pos-web-uat
-docker run -d --name pos-web-uat ... pos-web:uat-prev   # chạy lại image cũ
+# POS.Api / POS.Web (systemd) — giữ bản publish cũ ở thư mục khác trước mỗi lần deploy
+# (vd /opt/pos/web-prev), rồi trỏ lại WorkingDirectory/ExecStart trong unit hoặc swap symlink:
+sudo systemctl stop pos-web
+sudo rm /opt/pos/web && sudo ln -s /opt/pos/web-prev /opt/pos/web   # nếu dùng symlink versioning
+sudo systemctl start pos-web
+
+# POS.Worker (Docker — không đổi, giữ tag image cũ vd pos-worker:uat-prev)
+docker stop pos-worker-uat && docker rm pos-worker-uat
+docker run -d --name pos-worker-uat ... pos-worker:uat-prev
 ```
+> Khuyến nghị versioning thư mục publish (`/opt/pos/web-<timestamp>` + symlink `/opt/pos/web` trỏ
+> vào bản đang chạy) để rollback tức thời không cần publish lại — chi tiết tùy quy ước Ops thật.
 
 ---
 
@@ -269,18 +304,23 @@ docker run -d --name pos-web-uat ... pos-web:uat-prev   # chạy lại image cũ
 ```
 □ Điền hết placeholder <...> trong appsettings.{UAT|Production}.json
 □ Chạy POS.DbMigrator --verify → xử lý Track B thiếu → --whatif → --apply (xem §2.5) — TRƯỚC khi
-  build/run container mới
+  publish/restart service mới
 □ Đã chạy deploy/linux/setup-pos-dirs.sh cho đúng môi trường (PROD: mặc định /srv/pos; UAT: /srv/pos/uat
   — KHÔNG dùng chung, xem docs/deploy/ubuntu-guide.md)
-□ Nếu appsettings có token enc:... → set -e POS_SECRET_KEY=... khi docker run (POS.Api + POS.Web, cùng khóa)
-□ Build image đúng Dockerfile từng service
-□ Run với đúng biến môi trường (Api/Web: ASPNETCORE_ENVIRONMENT | Worker: DOTNET_ENVIRONMENT)
-□ POS.Web: mount volume DataProtection-Keys (giữ qua rebuild)
-□ POS.Web: mount /app/ftpbluepos (CHUNG thư mục với POS.Api, xem §3.2) — thiếu → nút "Đẩy dữ liệu
-  đầu ngày" ghi file lệch chỗ, POS không tải được
-□ Cổng host (-p) khớp proxy_pass trong nginx
+□ Đã chạy deploy/linux/setup-pos-log-dirs.sh (thư mục log dùng chung, xem docs/ROLLOUT.md §O11)
+  TRƯỚC khi start pos-api/pos-web/pos-worker lần đầu
+□ Nếu appsettings có token enc:... → điền POS_SECRET_KEY vào /etc/pos/pos-api.env + pos-web.env
+  (systemd EnvironmentFile, cùng khóa cho cả 2)
+□ POS.Api/POS.Web: publish đúng thư mục (`dotnet publish -c Release -o ...`), user systemd
+  (`pos-api`/`pos-web`) là member group `posops`
+□ Run với đúng biến môi trường (Api/Web: ASPNETCORE_ENVIRONMENT trong unit | Worker: DOTNET_ENVIRONMENT)
+□ POS.Web: thư mục Data Protection Keys (`/var/lib/pos-web/dataprotection-keys`) đã tạo + user
+  `pos-web` ghi được TRƯỚC lần start đầu tiên (giữ nguyên qua các lần re-deploy)
+□ POS.Api/POS.Web: `AppSettings:FtpRootPath` cùng trỏ 1 đường dẫn vật lý thật trên host (CHUNG giữa
+  2 service, xem §3.2) — thiếu/lệch → nút "Đẩy dữ liệu đầu ngày" ghi file lệch chỗ, POS không tải được
+□ Cổng nginx `proxy_pass` khớp `ASPNETCORE_URLS` trong từng systemd unit
 □ nginx -t OK → systemctl reload nginx
-□ docker ps = healthy + /health trả "healthy"
+□ systemctl status pos-api pos-web = active (running); docker ps (Worker) = healthy
 □ POS.Web: F12 thấy WebSocket /_blazor = 101 Switching Protocols
 □ PROD ổn định → tắt EnableDetailedErrors (POS.Web)
 ```

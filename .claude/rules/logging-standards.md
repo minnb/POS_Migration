@@ -51,6 +51,52 @@ thực thi nằm ở **`.claude/skills/api/logging.md`**.
 
 ---
 
+# Rule: Đọc file/thư mục hệ thống để hiển thị lên UI (log viewer, file browser)
+
+## 🎯 Context (Khi nào áp dụng)
+Khi viết service/page **liệt kê hoặc tải file/thư mục trên đĩa** để hiển thị cho vận hành (ví dụ
+trang `/admin/logs` — `LogFileService`/`LogFilePage.razor`). Rút ra từ sự cố thực tế: trang log
+báo "Thư mục này không có file log nào" trong khi thư mục có rất nhiều log — nguyên nhân là code
+**nuốt exception thầm lặng** và dùng `Directory.Exists` làm cổng chặn (che giấu cả lỗi phân quyền).
+
+## ✅ DO (Bắt buộc làm)
+- **Phân loại và surface lỗi I/O lên UI** — KHÔNG `catch { return empty; }` thầm lặng. Bắt riêng:
+  - `UnauthorizedAccessException` → thông báo quyền **kèm đường dẫn tuyệt đối + tài khoản tiến
+    trình đang chạy** (`WindowsIdentity.GetCurrent().Name` trên Windows, fallback
+    `Environment.UserName` trên Linux) để vận hành biết cấp quyền cho account nào.
+  - `DirectoryNotFoundException`/`FileNotFoundException` → "không tồn tại: {path}".
+  - Còn lại → "Lỗi đọc {path}: {ex.Message}"; vẫn ghi `IFileLogHelper.WriteExpLogs`.
+  - Trả lỗi qua field trên DTO kết quả (vd `LogDirectoryListing.ErrorMessage`,
+    `LogFileDownload.ErrorMessage`) rồi hiển thị `MudAlert`/`Snackbar` — KHÔNG trả `null`/list rỗng
+    làm mất thông tin lý do.
+- **Luôn hiển thị đường dẫn gốc tuyệt đối đang quét** lên UI (caption) — giúp chẩn đoán nhanh cấu
+  hình sai/nhầm thư mục cha-con.
+- **KHÔNG dùng `Directory.Exists`/`File.Exists` làm cổng chặn duy nhất** trước khi enumerate/read:
+  cả hai trả `false` khi bị **chặn quyền** (nuốt `UnauthorizedAccessException`), khiến UI báo
+  "rỗng" sai sự thật. Để thao tác enumerate/read ném lỗi thật rồi phân loại như trên.
+- **Đọc file đang được ghi** (log của hôm nay): mở bằng
+  `new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)` — `File.ReadAllBytes`
+  (mặc định `FileShare.Read`) ném `IOException` khi file đang có handle ghi.
+- **Guard kích thước trước khi nạp file vào RAM**: chặn ngưỡng (vd 100MB) và báo lỗi rõ ràng thay
+  vì `ReadAllBytes` vô điều kiện (tránh OOM). Download qua `DotNetStreamReference` (chunked, không
+  base64) nên KHÔNG vướng `HubOptions.MaximumReceiveMessageSize` (giới hạn đó chỉ áp chiều
+  client→server) — rủi ro thật là RAM server, không phải giới hạn message SignalR.
+- **Page đọc I/O**: truyền `CancellationToken` (CTS riêng, `Cancel()` trong `DisposeAsync`), bắt
+  `OperationCanceledException` bỏ qua khi circuit dispose (theo `blazor-web-app.md` §17.1). Service
+  phải `throw` lại `OperationCanceledException` (KHÔNG phân loại thành "lỗi đọc").
+- **Chặn path traversal**: chuẩn hóa relative path rồi `Path.GetFullPath` và kiểm tra kết quả nằm
+  trong thư mục gốc (như `ResolveSafePath`).
+
+## ❌ DON'T (Tuyệt đối cấm)
+- Cấm `catch (Exception) { return []; }` / `return null;` cho thao tác đọc file/thư mục hiển thị
+  lên UI — che giấu lỗi phân quyền, người dùng không biết đường sửa.
+- Cấm dùng `Directory.Exists`/`File.Exists` để "kiểm tra rồi bỏ qua im lặng" khi mục đích là hiển
+  thị dữ liệu cho người dùng.
+- Cấm `File.ReadAllBytes(Async)` cho file có thể đang được ghi (mất `FileShare.ReadWrite`) hoặc
+  cho file không giới hạn kích thước.
+
+---
+
 > Interface signature, `CappedCapturingStream`, `GetLevel` code, bảng chi tiết key `RequestLogging`/
 > `LogRetention`, cách đổi retention trên server đang chạy, cơ chế dọn dẹp, checklist:
 > **`.claude/skills/api/logging.md`** — KHÔNG lặp lại quy tắc chọn/anti-pattern ở đây.

@@ -20,6 +20,22 @@ public static class JsDownloadExtensions
         await js.InvokeVoidAsync("posDownloadFileFromStream", fileName, contentType, streamRef);
     }
 
+    /// <summary>
+    /// Overload streaming thật — dùng cho file có thể lớn (vd log server): nhận thẳng 1 Stream đang
+    /// mở (vd FileStream) thay vì byte[], tránh nạp toàn bộ nội dung vào RAM server trước khi gửi.
+    /// Caller giữ quyền sở hữu <paramref name="stream"/> (leaveOpen: true) — phải tự dispose sau khi
+    /// gọi xong.
+    /// </summary>
+    public static async Task SaveAsFileAsync(
+        this IJSRuntime js,
+        string fileName,
+        Stream stream,
+        string contentType = "application/octet-stream")
+    {
+        using var streamRef = new DotNetStreamReference(stream, leaveOpen: true);
+        await js.InvokeVoidAsync("posDownloadFileFromStream", fileName, contentType, streamRef);
+    }
+
     public static async Task<string> CreatePdfBlobUrlAsync(this IJSRuntime js, byte[] bytes)
     {
         using var stream = new MemoryStream(bytes);

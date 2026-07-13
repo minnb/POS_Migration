@@ -1,0 +1,36 @@
+[Unit]
+Description=POS.Api - POS Backend REST API
+After=network.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/pos/api
+ExecStart=/usr/bin/dotnet /opt/pos/api/POS.Api.dll
+Restart=always
+RestartSec=10
+
+# ── Ownership / quyền file log ──────────────────────────────────────────────
+# Group=posops (KHÔNG phải group riêng của user pos-api) — mọi file log mới process này tạo ra sẽ
+# tự động mang group "posops" thay vì group mặc định của user pos-api, để POS.Web (user khác, cũng
+# Group=posops) đọc được. UMask=0027 khiến file mới luôn là 640 (rw-r-----), thư mục 750
+# (rwxr-x---) — loại bỏ hẳn quyền cho "other". Xem deploy/linux/setup-pos-log-dirs.sh (setgid 2750
+# trên thư mục là lớp phòng thủ thứ 2, đề phòng tiến trình con nào đó ghi file không tôn trọng UMask).
+User=pos-api
+Group=posops
+UMask=0027
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5001
+Environment=TZ=Asia/Ho_Chi_Minh
+
+# Chỉ cần nếu appsettings.Production.json có token enc:... (mã hóa credentials, xem
+# docs/ROLLOUT.md §C4) — đặt biến POS_SECRET_KEY trong file này, KHÔNG hardcode trong unit.
+# Dấu "-" đầu đường dẫn: bỏ qua nếu file chưa tồn tại (không chặn service start).
+# Tạo file: sudo install -m 600 -o root -g root /dev/null /etc/pos/pos-api.env
+EnvironmentFile=-/etc/pos/pos-api.env
+
+KillSignal=SIGINT
+SyslogIdentifier=pos-api
+
+[Install]
+WantedBy=multi-user.target

@@ -910,6 +910,13 @@ LastTimeUpdate          datetime         NULL       -- xác nhận qua usp_Sales
 > và bản cập nhật `usp_SalesPrice_SoftDelete` (set `IsActive = 0` + `LastTimeUpdate = getdate()` khi xóa mềm,
 > `docs/sql/SalesPrice_EditDelete_AddSalesType.sql`). Sửa/Xóa vẫn định vị dòng bằng composite PK + `SalesType`
 > (không dùng `IsActive`/`Id` làm khoá — bảng không có `Id`).
+> **Index bổ sung (2026-07)**: `IX_SalesPrice_IsActive_StartingDate` — nonclustered
+> `(IsActive, StartingDate DESC) INCLUDE (EndingDate, SalesType, UnitPrice, Counter, Pkey)`.
+> Trước đó bảng chỉ có PK composite, không index phụ nào — `GetSalesPriceList`/
+> `GetSalesPriceList_Export` luôn `WHERE S.IsActive = 1` + `ORDER BY StartingDate DESC` bất kể
+> filter, nên mở trang `/catalog/prices` không filter (mặc định) buộc quét toàn bộ clustered
+> index (root cause chậm/giật đã xác nhận qua audit `PricesPage.razor`, không phải do
+> client-side pagination). Script: `docs/sql/SalesPrice_AddPerfIndex.sql` (Track A, idempotent).
 
 ### SalesPriceRange
 PK: (none) — bảng giá theo khoảng số lượng
