@@ -1,12 +1,16 @@
 using Elastic.Transport;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Application.Features.Partner;
 using POS.Common;
 using POS.Common.Dtos.Loyalty;
+using POS.Common.Dtos.Loyalty.CX;
 using POS.Infrastructure.Logging;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Net;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace POS.Api.Controllers;
 
@@ -230,5 +234,52 @@ public sealed class LoyaltyController(
             _kibanaService.LogException(endpoint, model.TerminalId ?? "", 0, "", ex.Message);
             return BadRequestResult(ex);
         }
+    }
+
+    [HttpGet]
+    [Route("v2/otp/generate")]
+    public IActionResult GenerateOTPV2([Required] string posNo = "201801", [Required] string phoneNumber = "0948886666", string action = "WIN_MEMBER_REGISTER")
+    {
+        var data = new CXResponse()
+        {
+            Message = "",
+            DeveloperMessage = "",
+            Data = new
+            {
+                MessageId = Guid.NewGuid(),
+                Status = "PROCESSING",
+                Reason = ""
+            }
+        };
+
+        var result = new ResultResponse
+        {
+            Data = data,
+            Message = "Success",
+            Status = HttpStatusCode.OK,
+            MessageTechnical = ""
+        };
+
+        return StatusCode((int)result.Status, result);
+    }
+
+    [HttpPost]
+    [Route("v2/otp/verify")]
+    public IActionResult VerifyOTPV2(POSVerifyOTPRequest request)
+    {
+        var result = new ResultResponse
+        {
+            Data = new VerifyOTPData()
+            {
+                PhoneNumber = request.PhoneNumber,
+                Otp = request.Otp,
+                IsValid = true
+            },
+            Message = "Success",
+            Status = HttpStatusCode.OK,
+            MessageTechnical = ""
+        };
+
+        return StatusCode((int)result.Status, result);
     }
 }
