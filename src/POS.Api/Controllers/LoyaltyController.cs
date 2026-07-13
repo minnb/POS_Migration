@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using POS.Application.Features.Partner;
 using POS.Common;
+using POS.Common.Dtos.Capillary.Customer;
 using POS.Common.Dtos.Loyalty;
 using POS.Common.Dtos.Loyalty.CX;
 using POS.Infrastructure.Logging;
@@ -41,13 +42,20 @@ public sealed class LoyaltyController(
             ResultResponse result;
             if (res.Status == HttpStatusCode.OK)
             {
-                result = new ResultResponse
+                var data = new CustomerRegistrationResponse
                 {
-                    Data = res.Data,
-                    Message = "OK",
-                    Status = HttpStatusCode.OK,
-                    MessageTechnical = request.PosCode
+                    CreatedId = 123456789,
+                    Warnings = null,
+                    SideEffects = null
                 };
+            
+                result = new ResultResponse
+                    {
+                        Data = data,
+                        Message = "OK",
+                        Status = HttpStatusCode.OK,
+                        MessageTechnical = request.PosCode
+                    };
             }
             else
             {
