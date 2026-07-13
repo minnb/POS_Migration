@@ -255,18 +255,18 @@ public sealed class AkaChainLoyaltyAppService(
             var data = StringHelper.StringToObject<MemberProfileAkaChain>(body);
             if (data == null)
             {
-                var dataError = StringHelper.StringToObject<ErrorDetailsAkaChain>(body);
+                var dataError = StringHelper.StringToObject<AkaChainErrorResponse>(body);
                 if(dataError == null)
                 {
                     return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
                 }
                 else
                 {
-                    if (dataError.Code == "701")
+                    if (dataError.Error.Code == "701")
                     {
-                        return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, dataError.Message??$"Không tìm thấy thông tin khách hàng", body);
+                        return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, dataError.Error.Message ?? $"Không tìm thấy thông tin khách hàng", body);
                     }
-                    return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, dataError.Message ?? "JSON conversion error", body);
+                    return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, dataError.Error.Message ?? "JSON conversion error", body);
                 }
             }    
             return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingInfoMember(data), "AkaChainLoyalty");
