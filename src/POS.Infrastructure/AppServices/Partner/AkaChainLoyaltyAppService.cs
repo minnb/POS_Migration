@@ -93,6 +93,9 @@ public sealed class AkaChainLoyaltyAppService(
                 return null;
             }
 
+            config.Host = $"http://fmv-pos-gw-loyaltyos.famimapoint.com.vn";
+            tokenRoute = "/connect/token";
+
             // BUG FIX 1: Dùng Uri.EscapeDataString thay FormUrlEncodedContent.
             // FormUrlEncodedContent encode space → '+' (HTML4).
             // AkaChain token server (IdentityServer) parse scope bằng RFC 3986:
