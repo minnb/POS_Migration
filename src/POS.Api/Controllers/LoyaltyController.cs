@@ -82,7 +82,6 @@ public sealed class LoyaltyController(
         {
             var res = await _akaChainLoyaltyService.GetMemberProfileAsync("Phone", numberCard);
             sw.Stop();
-
             ResultResponse result;
             if (res.Status == HttpStatusCode.OK)
             {
