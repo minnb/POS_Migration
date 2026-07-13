@@ -22,15 +22,12 @@ Luồng Payment (`api/v2/partner` — validate & redeem voucher GotIT/Urbox) hi�
 Regression về routing-theo-partner, nhánh `success=false`, nhánh exception chỉ lộ ở production.
 Skill này đóng gói quy trình sinh test **đúng chuẩn dự án** để lặp lại nhanh cho mọi partner.
 
-## 1. Nguyên tắc Mock (CỐT LÕI — bắt buộc tuân thủ)
+## 1. Nguyên tắc Mock + quy ước đặt tên → Rules
 
-1. **Test vào seam interface Application**, KHÔNG test thẳng Infrastructure AppService, KHÔNG gọi
-   HTTP/DB thật. Controller phụ thuộc `IGotITService`/`IUrboxService` → mock đúng 2 interface này.
-2. **Mock bằng Moq**, assert bằng **FluentAssertions**. Framework test: **xUnit** (đồng bộ toàn repo).
-3. **Không thêm production code, không đổi field JSON** của DTO response (contract 5.000 POS bất biến).
-   Skill chỉ *đọc* DTO `POS.Common.Dtos.PartnerApi`.
-4. **Không phá Clean Architecture**: test là consumer của interface, dependency flow không đổi.
-5. **Tách project**: test đặt ở `tests/POS.UnitTests` (mới) — KHÔNG trộn vào `POS.ContractTests`.
+> Nguyên tắc Mock (5 ràng buộc: test qua seam Application, Moq+FluentAssertions+xUnit, không thêm
+> production code/đổi DTO, không phá Clean Architecture, tách project) và quy ước đặt tên test
+> (`Method_condition_expectedResult`, AAA) là **Rules** — xem
+> **`.claude/rules/unit-testing-standards.md`**. Riêng DTO Payment đọc ở `POS.Common.Dtos.PartnerApi`.
 
 ## 2. Setup project `tests/POS.UnitTests` (làm 1 lần)
 
@@ -101,13 +98,9 @@ Return type là **positional Tuple** — nhớ đúng thứ tự `Item`:
 
 DTO tại `src/POS.Common/Dtos/PartnerApi/` (`CheckVoucherPartnerPOSRequest` có property `Partner`).
 
-## 5. Quy ước đặt tên & bố cục
+## 5. Bố cục file (quy ước đặt tên: `.claude/rules/unit-testing-standards.md`)
 
-- Namespace: `namespace POS.UnitTests.Features.Partner;` (file-scoped).
-- Tên method test: `Method_condition_expectedResult`
-  (vd `ValidateVoucher_gotitFails_returns400`, `ValidateVoucher_unknownPartner_returnsBadRequest`).
-- Bố cục: **Arrange–Act–Assert** rõ ràng. Mỗi `[Fact]` một hành vi; dùng `[Theory]`+`[InlineData]`
-  khi cùng logic khác partner code.
+- Namespace file-scoped: `namespace POS.UnitTests.Features.Partner;`.
 - File: `tests/POS.UnitTests/Features/Partner/{PaymentControllerTests,GotITServiceTests,UrboxServiceTests}.cs`.
 
 ## 6. Template snippet (điều chỉnh theo signature thật khi sinh)

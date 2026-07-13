@@ -52,25 +52,26 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Viết query/SP/Repository đụng bảng `RPOSMasterData` (CentralMD) — tên bảng/cột/kiểu dữ liệu/PK | **`docs/architecture/centralMD-schema.md`** (gồm business rules bảng `dbo.Store`) |
 | Viết query/SP/Repository đụng bảng `RPOSCentralSales` (giao dịch bán hàng, ca/shift, EOD, void, bonus/point/coupon-voucher) | **`docs/architecture/centralsale-schema.md`** |
 | Viết query/SP/Repository đụng bảng `RPOSLoyalty` (log giao dịch loyalty) | **`docs/architecture/loyalty-schema.md`** |
-| Tạo mới / sửa / refactor / fix bug stored procedure cho `RPOSMasterData` / `RPOSCentralSales` / `RPOSLoyalty` | **`.claude/skills/database/SKILLS.md`** (quy tắc đặt tên `usp_{Domain}_{Action}`, TVP, template SP, **Single File Constraint** khi sửa SP đã tồn tại) — script CentralMD mới **BẮT BUỘC** đăng ký vào `docs/sql/manifest.json` cùng commit (`tools/POS.DbMigrator`, xem `docs/ROLLOUT.md` §D0) |
+| Tạo mới / sửa / refactor / fix bug stored procedure cho `RPOSMasterData` / `RPOSCentralSales` / `RPOSLoyalty` | **`.claude/rules/database-standards.md`** (LUẬT: naming `usp_{Domain}_{Action}`, TVP, reserved-keyword, **Single File Constraint**, XACT_ABORT, Counter/UPDLOCK, manifest.json) + **`.claude/skills/database/SKILLS.md`** (HOW: template SP, Dapper call, các Pattern) — đọc cả 2 |
 | Deploy/vận hành `tools/POS.DbMigrator` (Ubuntu bare-metal, Docker, CLI args, troubleshooting) | **`docs/deploy/pos-dbmigrator-guide.md`** |
 | Cấu hình Health Check `/ops/health` khi deploy POS.Web (section `HealthCheck`/`WorkerHeartbeat`, `PosApiBaseUrl` theo môi trường) | **`docs/deploy/web-health-guide.md`** |
 | Tích hợp API đối tác ngoài (Loyalty/AkaChain, GotIT, Urbox...) qua config DB `SysWebApi`/`SysWebApiRoute` + cache | **`.claude/rules/external-api-integration.md`** + `.claude/skills/api/SKILLS.md` (đọc cả 2 — rule là luật bắt buộc, skill là template/checklist chi tiết) |
-| Thêm cache Redis StandAlone (key convention, TTL, pattern Hash/String) | **`.claude/skills/cache/SKILLS.md`** |
-| Thêm scheduled job / message consumer trong `POS.Worker` | **`.claude/skills/worker/SKILLS.md`** |
+| Thêm cache Redis StandAlone (key convention, TTL, pattern Hash/String) | **`.claude/rules/caching-standards.md`** (LUẬT: key convention, TTL, phân tầng) + **`.claude/skills/cache/SKILLS.md`** (HOW: API + Pattern 1–8) |
+| Thêm scheduled job / message consumer trong `POS.Worker` | **`.claude/rules/worker-standards.md`** (LUẬT: thin-host, 8 luật, anti-pattern, heartbeat) + **`.claude/skills/worker/SKILLS.md`** (HOW: 4 khuôn mẫu + templates.md) |
+| Logging POS.Api/Infrastructure (chọn IFileLogHelper/IKibanaService/middleware) | **`.claude/rules/logging-standards.md`** (LUẬT: chọn cơ chế, anti-pattern, config) + **`.claude/skills/api/logging.md`** (HOW: signature, code, config chi tiết) |
 | Deploy/vận hành `POS.Worker` (Docker, cron Ubuntu, Task Scheduler Windows, health check) | **`docs/worker/worker_status.md`** |
 | Kiểm tra contract JSON với 5.000 POS | `docs/API_CONTRACT.md` + `tests/POS.ContractTests/` |
 | Cách thêm DTO mới | `.claude/commands/add-dto-common.md` (skill `/add-dto-common`) |
 | Tra quy tắc mã hóa credentials appsettings (`enc:` / `POS_SECRET_KEY`) | **`docs/architecture/appsetting.md`** |
 | Trạng thái / lịch sử POS.Web | `docs/WEB_STATUS.md`, `docs/CHANGELOG.md` |
 | Luồng nghiệp vụ module Chương trình khuyến mãi (Offer/Setup CTKM) | **`docs/web/logic/promotion_technical_spec.md`** |
-| Viết bất kỳ page/component UI mới trong `src/POS.Web/` — auth, roles, template page, responsive, density, audit log | **`.claude/rules/blazor-web-app.md`** + **`.claude/skills/web/SKILLS.md`** (đọc cả 2 — SKILLS.md có index các skill con: form-input/filter-store/datatable/charts/reports) |
+| Viết bất kỳ page/component UI mới trong `src/POS.Web/` — auth, roles, template page, responsive, density, performance, DataTable/cột/DateTime, component mapping, audit log | **`.claude/rules/blazor-web-app.md`** (LUẬT nền tảng, §17 gộp từ lớp web numbered cũ) + **`.claude/skills/web/SKILLS.md`** (index skill con: form-input/filter-store/datatable/charts/reports/component-patterns) |
 | Theme/màu/Input/Button/Card/Elevation/Sidebar MudBlazor (mapping mockup → component) — **LUẬT THÉP mọi UI mới** | **`.claude/rules/mudblazor-flat-ui.md`** |
 | Làm đẹp/đồng bộ UI trang đã có (chỉ sửa markup, giữ `@code`) | **`.claude/skills/web/ui-polish-standard.md`** |
 | Page có thao tác Create/Update/Delete cần audit log | **`.claude/skills/web/audit-logging.md`** |
 | Viết file phân tích nghiệp vụ trước khi port (`FEATURE_{Name}_ANALYSIS.md`) | **`.claude/skills/migration/SKILLS.md`** |
 | Định kỳ dọn dẹp/refactor file `.claude/rules/` hoặc `.claude/skills/` khi đã phình to (tách lịch sử, gộp trùng lặp, tách sub-skill) | **`.claude/commands/refactor-skills.md`** (skill `/refactor-skills`) |
-| Sinh unit test (xUnit + Moq + FluentAssertions) cho luồng Payment / service tầng Application | **`.claude/skills/payment-test-generator/SKILL.md`** (skill `/payment-test-generator`; test đặt ở `tests/POS.UnitTests/`) |
+| Sinh unit test (xUnit + Moq + FluentAssertions) cho luồng Payment / service tầng Application | **`.claude/rules/unit-testing-standards.md`** (LUẬT: Nguyên tắc Mock, naming) + **`.claude/skills/payment-test-generator/SKILL.md`** (HOW: setup, template; skill `/payment-test-generator`, test ở `tests/POS.UnitTests/`) |
 | Bật/dùng MCP server (SQL read-only, Redis) để debug dữ liệu/cache + cách chạy unit test | **`docs/mcp/step-by-step-mcp-guide.md`** (config `.mcp.json` dùng `${VAR}`; secret ở `.claude/settings.local.json` gitignored — KHÔNG hardcode) |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)

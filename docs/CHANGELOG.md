@@ -17,6 +17,47 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-07-13] Tái cấu trúc `.claude/` — tách triệt để Rules ↔ Skills
+
+**Layer:** Tài liệu AI-context (`.claude/**` + `CLAUDE.md`) — KHÔNG đụng source code/appsettings/DB.
+**Loại:** Refactor
+
+**Bối cảnh:** Lớp `.claude/skills/` trộn lẫn Rules (tiêu chuẩn/ràng buộc — WHAT/WHY) với Skills
+(hướng dẫn thực thi — HOW). Tách theo nguyên tắc: mỗi mẩu nội dung ở đúng 1 nơi; skill chỉ trỏ
+ngược về rule, không lặp lại. Giữ nguyên tên thư mục 6 skill đăng ký (folder = tên invocation) để
+không vỡ harness; giữ đường dẫn file để router không gãy.
+
+**Thay đổi:**
+- **Tạo 5 file rule** (`.claude/rules/`): `caching-standards.md`, `database-standards.md`,
+  `worker-standards.md`, `logging-standards.md`, `unit-testing-standards.md` — trích khối normative
+  từ `cache`/`database`/`worker`/`api/logging`/`payment-test-generator` tương ứng.
+- **Bổ sung rule đã có:** `backend-api-rules.md` (+ "Middleware & API Security", + convention
+  `{DtoName}_locked`); `blazor-web-app.md` (+ §17: performance, DataTable standards, column-naming,
+  DateTime format, component mapping — gộp từ lớp web numbered).
+- **Xóa lớp trùng lặp web numbered:** `web/01-architecture-and-logic.md`, `02-ui-ux-and-components.md`,
+  `03-integration-and-performance.md`, `04-datatable-and-lists.md` (rules → `blazor-web-app.md`;
+  code pattern → `web/component-patterns.md` mới).
+- **Làm mỏng skill (rút rule, thêm con trỏ):** `cache`/`database`/`worker/SKILLS.md`,
+  `api/{logging,middleware-patterns,file-streaming-patterns}.md`, `web/{SKILLS,charts,filter-store,
+  datatable,ui-polish-standard,security-hardening}.md`, `codebase-map`, `contract-test-guardian`,
+  `payment-test-generator`.
+- **Rewire:** cập nhật router `CLAUDE.md` (thêm 5 rule mới theo cặp rule+skill), `refactor-skills.md`
+  (nguyên tắc phân định + danh sách file mới), pointer trong `WEB_STATUS.md`.
+
+**Pattern mới:** không — đây là refactor tài liệu, không thêm nghiệp vụ. KHÔNG cập nhật
+CURRENT_STRUCTURE/appsettings (không đụng code/config).
+
+**Bằng chứng verify:** (1) script quét link `.claude/*.md` → tất cả resolve, 0 gãy; (2) 6 skill
+đăng ký còn nguyên tên thư mục; (3) grep hotspot → bảng normative (Redis key/TTL, SP naming,
+worker 8 luật, Nguyên tắc Mock) chỉ còn ở đúng 1 file rule, skill chỉ còn con trỏ.
+
+**Lưu ý cho session sau:** LUẬT (naming/TTL/layer/security/"BẮT BUỘC-CẤM") sống ở `.claude/rules/`;
+HOW (template/code/các bước) ở `.claude/skills/`. Khi thêm skill mới KHÔNG nhúng khối rule — trỏ về
+rule. Lớp web `01–04` đã xóa; luật web nền tảng nay ở `blazor-web-app.md` (§17), code pattern ở
+`web/component-patterns.md`.
+
+---
+
 ## [2026-07-12] Tích hợp MCP (SQL read-only + Redis) + hạ tầng Unit Test luồng Payment
 
 **Layer:** Tooling/hạ tầng (`.mcp.json`, `.claude/`, `tests/POS.UnitTests/`, `docs/mcp/`) — KHÔNG đụng code `src/`

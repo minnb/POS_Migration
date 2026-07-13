@@ -1,6 +1,6 @@
 ---
 name: worker-background-services
-description: Quy tắc bắt buộc cho scheduled job / message consumer trong POS.Worker — nơi đặt code, 4 khuôn mẫu, DI scope, health/heartbeat. Đọc TRƯỚC khi tạo worker mới; code mẫu copy-paste ở templates.md.
+description: HOW tạo scheduled job / message consumer trong POS.Worker — 4 khuôn mẫu chọn pattern, code mẫu (templates.md), DI scope, health/heartbeat usage, đăng ký Program.cs. Rules (thin-host, 8 luật bắt buộc, 8 anti-pattern, heartbeat/WorkerRoles) ở .claude/rules/worker-standards.md.
 ---
 
 # Skill: Background Worker — POS.Worker / Hosted Services
@@ -8,43 +8,13 @@ description: Quy tắc bắt buộc cho scheduled job / message consumer trong P
 > **Áp dụng khi:** tạo scheduled job, message consumer, hoặc bất kỳ tác vụ chạy nền nào
 > (timer polling, Kafka/RabbitMQ consumer...) trong `POS.Worker`. Đọc file này TRƯỚC khi
 > tạo worker mới.
+>
+> **Rules (tiêu chuẩn bắt buộc — đọc TRƯỚC):** thin-host + vị trí đặt code, 8 quy tắc bắt buộc,
+> 8 anti-pattern, heartbeat key/TTL + gotcha multi-instance, `WorkerRoles` toggle — xem
+> **`.claude/rules/worker-standards.md`**. File này chỉ giữ 4 khuôn mẫu chọn pattern + code (HOW).
 
-> **Mục lục nhanh** (quay lại lần sau, nhảy thẳng tới mục cần — không cần đọc lại từ đầu):
-> `Nguyên tắc cốt lõi` → đặt code worker ở project/namespace nào · `Bốn khuôn mẫu worker` → chọn
-> đúng pattern trước khi viết (code mẫu ở [`templates.md`](templates.md)) · `Quy tắc BẮT BUỘC`
-> (8 mục) + `Checklist tạo worker mới` (7 bước) → đọc trước khi commit ·
-> `WorkerHealthState`/`Heartbeat` → state chia sẻ cho Ops monitoring (có gotcha 2 instance cùng
-> key Redis) · `Đăng ký trong Program.cs` → DI + `WorkerRoles` toggle + pattern Docker/bare-metal ·
-> `KHÔNG làm những điều sau` → 8 anti-pattern cấm.
-
----
-
-## Nguyên tắc cốt lõi — đặt code ở đâu
-
-> **POS.Worker chỉ là host mỏng.** KHÔNG viết logic worker trong project `POS.Worker`.
-
-| Thành phần | Vị trí | Ghi chú |
-|---|---|---|
-| Bootstrap / DI registration | `src/POS.Worker/Program.cs` | Chỉ đăng ký hosted service + config |
-| **Implementation worker** | `src/POS.Infrastructure/Workers/` | `{Name}Worker.cs` — namespace `POS.Infrastructure.Workers` |
-| State chia sẻ | `src/POS.Infrastructure/Workers/WorkerHealthState.cs` | Singleton |
-| Heartbeat | `src/POS.Infrastructure/Workers/WorkerHeartbeatService.cs` | Ghi Redis cho Ops monitoring |
-
-**Lý do:** worker tái dùng repository/service/messaging đã có trong `POS.Infrastructure`;
-đặt cùng layer tránh circular reference và cho phép POS.Web/Ops đọc `WorkerHealthState`,
-heartbeat key cùng convention.
-
-`POS.Worker.csproj` tham chiếu `POS.Application` + `POS.Infrastructure` — đủ để resolve mọi DI.
-
-> **Ngoại lệ đã có tiền lệ**: worker cần gọi trực tiếp 1 Application service (vd
-> `IMasterDataSyncService`/`ISyncDataPosService`), không chỉ Infrastructure repository → đặt ở
-> `src/POS.Worker/Workers/` (namespace `POS.Worker.Workers`), KHÔNG phải `POS.Infrastructure/Workers/`
-> (`POS.Infrastructure` không được reference `POS.Application` — ngược dependency flow). Nhớ thêm
-> `builder.Services.AddApplication()` vào `POS.Worker/Program.cs` (dễ quên — trước giờ chỉ gọi
-> `AddInfrastructure()`). Ví dụ: `MasterDataZipGeneratorWorker.cs`. Nên có 1 test DI-resolution
-> trong `tests/POS.ContractTests/DependencyInjectionTests.cs` (compose lại `AddInfrastructure()+
-> AddApplication()`, assert constructor params resolve) để bắt lỗi thiếu `AddApplication()` lúc
-> build/test thay vì lúc host khởi động thật.
+> **Mục lục nhanh:** `Bốn khuôn mẫu worker` → chọn đúng pattern (code mẫu ở [`templates.md`](templates.md)) ·
+> `Checklist tạo worker mới` · `WorkerHealthState`/`Heartbeat` usage · `Đăng ký trong Program.cs`.
 
 ---
 
@@ -68,18 +38,9 @@ heartbeat key cùng convention.
 
 ## Quy tắc BẮT BUỘC chung cho mọi worker
 
-1. Kế thừa `BackgroundService`, override `ExecuteAsync(CancellationToken)`.
-2. Dùng **primary constructor** để inject — đồng nhất với code hiện có.
-3. Worker là **singleton** → KHÔNG inject trực tiếp repository/service scoped.
-   Inject `IServiceScopeFactory`, mỗi lần xử lý tạo `await using var scope = scopeFactory.CreateAsyncScope();`
-   rồi `scope.ServiceProvider.GetRequiredService<I{X}Repository>()`.
-   - Ngoại lệ: `IRedisService`, `IConfiguration`, `ILogger<T>`, `WorkerHealthState` là singleton → inject thẳng.
-4. **Vòng lặp KHÔNG được chết:** bọc try/catch quanh phần xử lý, nuốt exception, set
-   `healthState.Status = "Degraded"`, log error, rồi tiếp tục lặp.
-5. Tôn trọng `stoppingToken`: bắt `OperationCanceledException` để thoát sạch khi app dừng.
-6. Serialize/deserialize bằng **Newtonsoft.Json** (`JsonConvert.*`) — KHÔNG dùng `System.Text.Json`.
-7. Cập nhật `healthState.IncrementProcessed()` sau mỗi item xử lý thành công.
-8. Logging: prefix `[{WorkerName}]` trong mọi message để dễ filter trên Elasticsearch.
+> 8 quy tắc bắt buộc (BackgroundService/primary ctor/IServiceScopeFactory/loop-must-not-die/
+> stoppingToken/Newtonsoft/health increment/`[WorkerName]` prefix) là **Rules** — xem
+> `.claude/rules/worker-standards.md`. Checklist dưới đây tham chiếu các quy tắc đó.
 
 ---
 
@@ -183,11 +144,7 @@ chạy file processing). Thêm worker mới cần bật/tắt độc lập theo 
 
 ## KHÔNG làm những điều sau
 
-- ❌ Viết logic worker trong project `POS.Worker` — đặt trong `POS.Infrastructure/Workers/`.
-- ❌ Inject trực tiếp repository/service scoped vào worker singleton — dùng `IServiceScopeFactory`.
-- ❌ Để exception thoát khỏi vòng lặp `ExecuteAsync` — worker sẽ chết âm thầm.
-- ❌ `BasicNackAsync(requeue: true)` cho poison message — gây loop vô hạn; dùng dead-letter.
-- ❌ Dùng `System.Text.Json` — phải dùng `Newtonsoft.Json`.
-- ❌ Hardcode host/credentials — đọc từ `IConfiguration` (RabbitMQ/Redis) hoặc DB như AppService.
-- ❌ Quên `AddHostedService<>` trong `Program.cs` — worker sẽ không chạy (không báo lỗi build).
-- ❌ Để heartbeat/logging làm crash worker — luôn try/catch nuốt lỗi phụ trợ.
+> 8 anti-pattern cấm (logic trong POS.Worker, inject scoped vào singleton, exception thoát loop,
+> `BasicNackAsync(requeue:true)` poison, System.Text.Json, hardcode credentials, quên
+> `AddHostedService`, heartbeat crash worker) là **Rules** — xem
+> `.claude/rules/worker-standards.md` mục ❌ DON'T.

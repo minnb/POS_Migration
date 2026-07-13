@@ -114,8 +114,13 @@ Trước mỗi lần commit thay đổi liên quan DTO response, DI registration
   + helper `JsonContract.cs`): khoá tên field JSON của các DTO response mà 5.000 máy POS đang
   parse.
   - Khi CỐ Ý đổi contract: cập nhật danh sách field kỳ vọng trong file test **cùng commit** — dấu
-    vết cho thấy thay đổi có chủ đích.
-  - Khi tạo DTO response mới: thêm một `[Fact]` khoá field cho nó (dùng `AssertFields`).
+    vết cho thấy thay đổi có chủ đích, và nêu lý do trong commit message.
+  - Khi tạo DTO response mới: thêm một `[Fact]` khoá field cho nó (dùng `AssertFields`), đặt tên
+    method **`{DtoName}_locked`** (đúng convention các test hiện có: `ResultResponse_envelope_locked`,
+    `InfoMemberModel_locked`...). Field bị `[JsonIgnore]` không khoá; field có `[JsonProperty("X")]`
+    khoá theo tên `"X"`. Chỉ khoá DTO **thật sự đi ra POS client** (return type Controller hoặc lồng
+    trong `ResultResponse.Data`/`List<T>`/`Tuple`), KHÔNG khoá DTO request-only/nội bộ.
+  - Quy trình audit/sinh stanza chi tiết: skill **`contract-test-guardian`**.
 - **2. DI validation test — chặn "quên đăng ký DI"**
   (`tests/POS.ContractTests/DependencyInjectionTests.cs`): dựng lại đúng cách compose DI của
   `Program.cs`, kiểm tra mọi phụ thuộc `POS.*` trong constructor của tất cả controller + mọi
@@ -136,3 +141,32 @@ Trước mỗi lần commit thay đổi liên quan DTO response, DI registration
   được lỗi này ở lúc build/test, không để lộ ra `InvalidOperationException` lúc gọi API thật.
 - **KHÔNG gỡ** `ExceptionHandlingMiddleware`.
 - Cấm thêm try/catch trong controller chỉ để format lỗi chung (middleware đã lo).
+
+---
+
+# Rule: Middleware & API Security (POS.Api pipeline)
+
+## 🎯 Context (Khi nào áp dụng)
+Khi thêm/sửa middleware tầng pipeline HTTP của `POS.Api` (khác filter/attribute theo controller),
+hoặc endpoint stream file lớn. Code mẫu (`PosApiKeyMiddleware`, Kestrel snippet) ở
+**`.claude/skills/api/middleware-patterns.md`**.
+
+## ✅ DO (Bắt buộc làm)
+- **Xác thực X-API key fail-closed**: middleware xác thực MỌI request ở tầng pipeline (trừ
+  `/health`, `/swagger/*`) — thiếu credential hợp lệ → **401, KHÔNG pass-through**. Rà soát mọi
+  script/monitor nội bộ có gửi đúng header trước khi deploy.
+- **MD5 uppercase hex**: hash X-API dùng `MD5.HashData()` + `Convert.ToHexString()` (uppercase),
+  khớp `MD5(privateKey).toUpper()` phía POS. Lấy privateKey qua `GetPOSDataSetupAsync()` (cache
+  Redis `MD:POSDataSetup`).
+- **Write401 khớp contract**: response 401 phải dùng `DefaultContractResolver` +
+  `NullValueHandling.Ignore` để khớp `ResultResponse` (PascalCase, bỏ field `Data` null).
+- **Scope MinResponseDataRate per-request**: endpoint stream file lớn cho client mạng yếu (máy POS)
+  → tắt `IHttpMinResponseDataRateFeature.MinDataRate` **chỉ cho request đó** trước khi stream —
+  KHÔNG sửa `Program.cs`/Kestrel global (giữ bảo vệ chống slow-loris cho các endpoint khác).
+- Scoped service trong middleware singleton: nhận qua **tham số `InvokeAsync`**, KHÔNG inject vào
+  constructor.
+
+## ❌ DON'T (Tuyệt đối cấm)
+- Cấm để request thiếu credential đi qua (pass-through) — phải 401.
+- Cấm tắt `MinResponseDataRate` ở tầng global (`Program.cs`/Kestrel) để phục vụ 1 endpoint stream.
+- Cấm hash X-API bằng lowercase hex hoặc thuật toán khác MD5 uppercase (vỡ khớp phía POS).

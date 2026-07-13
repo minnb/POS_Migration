@@ -9,6 +9,10 @@ Bảo vệ hợp đồng JSON quan trọng nhất của dự án: **tên field r
 Dùng skill này bất cứ khi nào tạo DTO response mới, sửa property của DTO đã tồn tại, hoặc trước khi
 commit thay đổi trong `src/POS.Common/Dtos/`.
 
+> **Rules (tiêu chuẩn bắt buộc):** field response 5.000 POS bất biến, convention `{DtoName}_locked`,
+> chỉ khoá DTO đi ra POS client, quy trình khi cố ý đổi field — xem `.claude/rules/backend-api-rules.md`
+> mục "Guardrails & Testing". File này là quy trình thực thi (HOW) chi tiết cho các quy tắc đó.
+
 Cơ chế thật (đã đọc trực tiếp từ `tests/POS.ContractTests/JsonContract.cs` và
 `JsonFieldContractTests.cs` — không suy diễn):
 

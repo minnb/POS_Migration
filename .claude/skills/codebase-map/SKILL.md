@@ -8,6 +8,11 @@ description: Tra cứu nhanh một domain/feature nằm ở đâu trong kiến t
 Dùng skill này để **định vị nhanh** một domain (VD: `Loyalty`, `GotIT`, `Sap`, `MasterData`) đang nằm
 ở những file/namespace nào, hoặc để biết chính xác phải tạo file mới ở đâu khi thêm nghiệp vụ.
 
+> **Rules (nguồn canonical):** dependency flow, quy tắc layer/namespace, quy ước đặt tên
+> `I{Name}Service` vs `I{Name}AppService`, giữ nguyên namespace Repository — là **Rules** ở
+> **`.claude/rules/architecture-layers.md`**. Bảng dưới đây chỉ là **bản đồ tra cứu nhanh** (HOW)
+> phản ánh lại rule đó, không phải nguồn quyết định — khi lệch, rule thắng.
+
 ## Bản đồ 4 tầng (dependency flow)
 
 ```

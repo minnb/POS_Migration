@@ -1,32 +1,17 @@
 ---
 name: api-logging
-description: 3 cơ chế logging trong POS.Api/POS.Infrastructure (IFileLogHelper/IKibanaService/middleware request-response toàn cục) — khi nào dùng cái nào. Đọc TRƯỚC khi thêm log mới ở bất kỳ đâu.
+description: HOW dùng 3 cơ chế logging POS.Api/POS.Infrastructure — interface signature, CappedCapturingStream, GetLevel, config key chi tiết, cách đổi retention khi đang chạy. Rules (chọn cơ chế nào, anti-pattern, fan-out, 404 level) ở .claude/rules/logging-standards.md.
 ---
 
-# Skill: Logging trong POS.Api/POS.Infrastructure — 3 cơ chế, dùng cái nào khi nào
+# Skill: Logging trong POS.Api/POS.Infrastructure — 3 cơ chế (HOW)
 
 > **Đọc file này trước khi**: thêm log mới ở bất kỳ đâu (Controller/Service/Repository/Middleware),
 > hoặc khi cần bật log request/response để debug 1 API chưa rõ POS gửi/nhận dữ liệu ra sao.
-
----
-
-## Tổng quan — 3 cơ chế, KHÔNG trộn lẫn mục đích
-
-| Cơ chế | Interface | Nơi ghi | Dùng khi |
-|---|---|---|---|
-| **File log thô** | `IFileLogHelper` | File `.txt` local (`File.AppendAllText`, đồng bộ) | Log nghiệp vụ rời rạc, exception cụ thể trong 1 method — KHÔNG dùng cho log chạy trên mọi request (I/O đồng bộ, tốn nếu gọi tần suất cao) |
-| **Structured log → Kibana** | `IKibanaService` | Serilog → Console + File sink (`pos-*.log`) + Elasticsearch | Log có cấu trúc cần tra cứu/dashboard (request/response từng API nghiệp vụ, exception, response time) |
-| **Request/Response toàn cục** | `RequestResponseLoggingMiddleware` (không phải service, tự chạy trong pipeline) | Qua `IKibanaService` — tự động, không cần gọi tay | Bật/tắt qua config để log **MỌI** API khi cần debug 1 đợt, không phải sửa code từng controller |
-
-**Quy tắc chọn:**
-- Cần log 1 dòng debug/exception cụ thể trong logic nghiệp vụ (không cần tra cứu structured) →
-  `IFileLogHelper.WriteLogs`/`WriteExpLogs`.
-- Cần log request/response cho 1 API nghiệp vụ cụ thể có ngữ cảnh riêng (posNo, note, response time
-  đo được ngay tại chỗ) → gọi trực tiếp `IKibanaService.LogRequest`/`LogResponse`/`LogException`
-  trong controller/service đó (xem ví dụ `PaymentController`, `LoyaltyController`).
-- Cần log request/response cho **toàn bộ** API mà không sửa từng controller (vd đang debug 1 API
-  "lạ" chưa rõ POS gửi gì) → dùng `RequestResponseLoggingMiddleware`, chỉ cần bật
-  `RequestLogging:Enabled=true` trong config, KHÔNG viết thêm code.
+>
+> **Rules (tiêu chuẩn bắt buộc — đọc TRƯỚC):** ma trận "3 cơ chế, không trộn mục đích" + quy tắc
+> chọn, anti-pattern (no sync I/O mọi request, no `SerializeObject(ex)` object dispose), fan-out
+> semantics, config governance, 404 log-level — xem **`.claude/rules/logging-standards.md`**. File
+> này chỉ giữ signature + code + config chi tiết (HOW).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: web-datatable-code-recipes
-description: Code mẫu đầy đủ MudTable<T> — client-side paging, server-side paging, cột động, sort cột đặc biệt. Đọc khi cần copy-paste pattern DataTable đầy đủ (luật ngắn gọn xem 04-datatable-and-lists.md).
+description: Code mẫu đầy đủ MudTable<T> — client-side paging, server-side paging, cột động, sort cột đặc biệt. Đọc khi cần copy-paste pattern DataTable đầy đủ (luật DataTable/cột/DateTime xem .claude/rules/blazor-web-app.md §17).
 ---
 
 # DataTable chuẩn — `MudTable<T>`

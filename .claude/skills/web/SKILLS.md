@@ -15,12 +15,17 @@ description: Index + quy tắc nền tảng cho Blazor Server POS.Web (MudBlazor
 
 > File này chỉ giữ quy tắc nền tảng + index. Pattern chi tiết tách ra file riêng — chỉ đọc đúng file khi gặp tình huống.
 
+> **⚠️ Lớp "numbered" (01–04) đã gộp về Rules (2026-07-13):** toàn bộ LUẬT BẮT BUỘC nền tảng
+> (kiến trúc/auth/lifecycle/performance/DataTable/component mapping) nay là canonical ở
+> **`.claude/rules/blazor-web-app.md`** (§2/§4/§5/§10/§13/§16 + **§17 mới** — performance,
+> DataTable standards, column naming, DateTime format, component mapping) và
+> **`.claude/rules/mudblazor-flat-ui.md`** (theme/Elevation/Button/KPI). Code pattern thực thi tách
+> sang **`.claude/skills/web/component-patterns.md`**. Đọc Rules TRƯỚC khi viết page/component mới.
+
 | File | Đọc khi |
 |---|---|
-| **`.claude/skills/web/01-architecture-and-logic.md`** | **Bắt đầu bất kỳ page/component/service nào — bản "hiến pháp" rút gọn LUẬT BẮT BUỘC: render mode, auth/policy, lifecycle 3-state, cấm HttpClient→Api/raw SQL, anti-crash MudAutocomplete, audit CRUD** |
-| **`.claude/skills/web/02-ui-ux-and-components.md`** | **Viết/sửa markup page/component — LUẬT BẮT BUỘC: MudGrid/MudPaper layout, cấm inline CSS, MudTable/KPI card thay text summary, Dialog trả DTO đầy đủ, responsive qua IBrowserViewportService, MudBlazor component mapping** |
-| **`.claude/skills/web/03-integration-and-performance.md`** | **Gọi data/chia sẻ state/xử lý sự kiện async/JS Interop/tối ưu hiệu năng — LUẬT BẮT BUỘC: cấm HttpClient, Scoped Service/CascadingParameter, try-catch+Snackbar+Kibana, CancellationToken, @key, IAsyncDisposable; kèm pattern load nhiều nguồn độc lập, modal lazy-load tab, truyền row object vào dialog** |
-| **`.claude/skills/web/04-datatable-and-lists.md`** | **Tạo/sửa danh sách dữ liệu, bảng biểu, filter panel gắn kèm bảng — LUẬT BẮT BUỘC: MudTable mặc định, Elevation="2", NoRecordsContent, debounce search, ServerData+CancellationToken, row actions, chuẩn đặt tên cột + format DateTime** |
+| **`.claude/rules/blazor-web-app.md`** | **LUẬT BẮT BUỘC nền tảng — render mode, auth/policy, lifecycle 3-state, cấm HttpClient→Api/raw SQL, MudAutocomplete anti-crash (§13), audit CRUD (§16), performance + DataTable + column naming + DateTime + component mapping (§17)** |
+| **`.claude/skills/web/component-patterns.md`** | **Code pattern: load nhiều nguồn độc lập (tách try/catch), modal nhiều tab lazy-load, truyền row object vào dialog, MudTreeView lazy-load** |
 | `.claude/skills/web/form-input.md` | Thiết kế form nhập liệu cơ bản (MudCard section + MudGrid + validation trực quan); Placeholder vs HelperText |
 | `.claude/skills/web/form-input-special-modes.md` | Chế độ CHỈ XEM (bản ghi khóa vĩnh viễn) + field ngoại lệ có nút Lưu điều kiện; MudTimePicker; MudSelect multi-selection; format số tiền khi nhập |
 | `.claude/skills/web/filter-store.md` | Thêm combobox lọc cửa hàng vào page |
@@ -106,7 +111,7 @@ var data = await SaleRepo.GetSalesAsync(
 
 ## DataTable chuẩn — `MudTable<T>`
 
-> **Luật bắt buộc: `.claude/skills/web/04-datatable-and-lists.md`** (Elevation, filter panel,
+> **Luật bắt buộc: `.claude/rules/blazor-web-app.md` §17** (Elevation, filter panel,
 > ServerData/CancellationToken, row actions, chuẩn cột/DateTime). **Pattern code đầy đủ
 > (client/server/cột động/sort/footer tổng): `.claude/skills/web/datatable.md`.** BẮT BUỘC dùng
 > MudBlazor `<MudTable>` — KHÔNG tự viết HTML `<table>` hay base class (ngoại lệ: Pivot report —
@@ -184,7 +189,7 @@ KibanaService.LogException("PageName.MethodName", "", 0, "", ex.Message);
 
 ## Responsive UI — BẮT BUỘC (mobile + tablet + PC)
 
-> **Chi tiết đầy đủ: `.claude/rules/blazor-web-app.md` §10** + `02-ui-ux-and-components.md` §5 —
+> **Chi tiết đầy đủ: `.claude/rules/blazor-web-app.md` §10 + §17** —
 > đọc trước khi tạo hoặc sửa bất kỳ page nào. Áp dụng cho mọi viewport: xs (<600px), sm (600–959px), md+ (960px+).
 
 | Tình huống | Sai | Đúng |

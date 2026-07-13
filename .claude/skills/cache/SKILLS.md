@@ -1,22 +1,16 @@
 ---
 name: cache-redis-pattern
-description: Pattern cache Redis StandAlone (IRedisService/IRedisManager) — key convention, TTL, Hash/String, OAuth2 token (nguồn canonical), report cache, distributed lock/throttle, diagnostics. Đọc TRƯỚC khi thêm cache cho bất kỳ data nào.
+description: HOW cache Redis StandAlone (IRedisService/IRedisManager) — API + code mẫu Hash/String/OAuth2/report/existence/lock/throttle/diagnostics. Rules (key convention, TTL, phân tầng) ở .claude/rules/caching-standards.md. Đọc TRƯỚC khi thêm cache.
 ---
 
 # Skill: Redis Cache Pattern
 
 > **Áp dụng khi:** thêm cache cho bất kỳ master data / config nào đọc từ DB nhiều lần
 > (SysWebApi, stores, rates, card level...). Đọc file này TRƯỚC khi thêm chỗ nào dùng cache.
-
----
-
-## Quy tắc cốt lõi
-
-Cache dùng **Redis StandAlone** (`IRedisService`) — cross-process, survive restart.
-**KHÔNG** dùng in-memory cache (IIS `MemoryCache`, `IMemoryCache`) cho dữ liệu chia sẻ giữa
-nhiều instance/process.
-
-> Mọi master data từ DB cần đọc nhiều lần phải có Redis cache tương ứng qua `IRedisService`.
+>
+> **Rules (tiêu chuẩn bắt buộc):** key naming convention, TTL strategy, phân tầng cache
+> (config→Repository, AppService chỉ cache OAuth token), MemoryCacheConst→Redis map — xem
+> **`.claude/rules/caching-standards.md`**. File này chỉ giữ API + code mẫu (HOW).
 
 ---
 
@@ -38,47 +32,10 @@ void     StringSetRaw(string key, string value, TimeSpan? ttl = null); // dùng 
 
 ---
 
-## Redis key naming convention
+## Redis key naming convention + TTL strategy
 
-| Loại dữ liệu | Redis key | Redis type | Field |
-|---|---|---|---|
-| SysWebApi config | `MD:SysWebApi` | Hash | `{appCode}` (e.g. `"FMV"`) |
-| SysWebApi users | `MD:SysWebApiUser` | String | — (serialize cả list) |
-| LoyaltyRate | `MD:LoyaltyRate` | Hash | `{code}` |
-| CardLevel | `MD:CardLevel` | String | — |
-| Stores | `MD:Store` | String | — |
-| StoreSetup | `MD:StoreSetup` | String | — |
-| StoreSetConfig | `MD:StoreSetConfig` | String | — |
-| StoreMappingVinID | `MD:StoreMappingVinID` | String | — |
-| WinCode | `MD:WinCode` | String | — |
-| StagingDBConfig | `MD:StagingDBConfig` | String | — |
-| MemberBusiness | `MD:MemberBusiness` | String | — |
-| WinPayAccumulateSetup | `MD:WinPayAccumulateSetup` | String | — |
-| WinMoneyConversion | `MD:WinMoneyConversion` | String | — |
-| MemoryCacheConfig | `MD:MemoryCacheConfig` | String | — |
-| NotifyConfig | `MD:NotifyConfig` | String | — |
-| POSDataSetup | `MD:POSDataSetup` | Hash | `{code}` |
-| OfferStaffSetup | `MD:OfferStaffSetup` | String | — |
-| MMLSchemeHeader | `MD:MMLSchemeHeader` | Hash | `{code}` |
-| MMLSchemeItem | `MD:MMLSchemeItem` | String | — |
-| MMLSchemeResponse | `MD:MMLSchemeResponse` | Hash | `{headerCode}-{code}` |
-| ItemPointsMember | `MD:ItemPointsMember` | Hash | `{pointsCode}-{itemNo}-{uom}` |
-| OAuth2 access token | `{Partner}:{Service}:AccessToken` | StringRaw | — |
-
-> **Prefix `MD:`** = Master Data từ CentralMD DB.
-> **OAuth tokens** dùng key riêng không có prefix `MD:`.
-
----
-
-## TTL strategy
-
-| Loại | TTL | Lý do |
-|---|---|---|
-| Config tĩnh (SysWebApi, Store, CardLevel…) | `43200s` (12h) | Thay đổi ít, refresh 2 lần/ngày |
-| Rate/price (LoyaltyRate) | `3600s` (1h) | Có thể cập nhật trong ngày |
-| Short-lived data (ItemPointsMember) | `360s` (6 phút) | Dữ liệu promotion thay đổi thường xuyên |
-| OAuth2 access token | `expires_in - 60s` | Từ response, buffer 60s để tránh race |
-| No TTL | Không dùng | Không dùng TTL vô hạn trong production |
+> **→ `.claude/rules/caching-standards.md`** — bảng key convention (`MD:*` + OAuth token) và bảng
+> TTL strategy là **Rules**, đã chuyển sang file rule. Tra tên key/TTL đúng ở đó trước khi code.
 
 ---
 
@@ -153,7 +110,7 @@ private async Task<string?> GetAccessTokenAsync()
 
 ---
 
-## Nơi đặt logic cache
+## Nơi đặt logic cache (code skeleton)
 
 ```
 POS.Infrastructure/
@@ -167,41 +124,14 @@ POS.Infrastructure/
     └── {Name}AppService.cs                  ← chỉ token caching ở đây, KHÔNG cache config
 ```
 
-> **KHÔNG** đặt Redis cache config (SysWebApi, stores, rates...) trực tiếp trong AppService hay Service.
-> Config cache PHẢI qua Repository → Repository handles Redis + DB fallback.
-> AppService chỉ được cache OAuth token (vì token là per-partner, không phải master data).
-
----
-
-## Mapping MemoryCacheConst → Redis key
-
-Khi thấy `_memoryCacheService.GetCache<T>("MemoryXxx")` trong code cũ:
-
-| `MemoryCacheConst` cũ | Redis key mới | Ghi chú |
-|---|---|---|
-| `MemoryCacheSysWebApi` | `MD:SysWebApi` (Hash, field=appCode) | Thêm `GetSysWebApiAsync(appCode)` vào ICentralMDRepository |
-| `MemoryCacheSysWebUserApi` | `MD:SysWebApiUser` | String, full list |
-| `MemoryCardLevel` | `MD:CardLevel` | String, full list |
-| `MemoryCacheStores` | `MD:Store` | String, full list |
-| `MemoryCacheStoreSetup` | `MD:StoreSetup` | String, full list |
-| `MemoryStoreSetConfig` | `MD:StoreSetConfig` | String, full list |
-| `MemoryCacheStoreMappingVinID` | `MD:StoreMappingVinID` | String, full list — inject LoyaltyRepository |
-| `MemoryCacheWinCode` | `MD:WinCode` | String, full list |
-| `MemoryCacheStagingDBConfig` | `MD:StagingDBConfig` | String, full list |
-| `MemoryMemberBusiness` | `MD:MemberBusiness` | String, full list |
-| `WinPayAccumulateSetup` | `MD:WinPayAccumulateSetup` | String, full list |
-| `WinMoneyConversion` | `MD:WinMoneyConversion` | String, full list |
-| `MemoryCacheConfigLoyalty` | `MD:MemoryCacheConfig` | String, full list |
-| `MemoryGetNotifyConfig` | `MD:NotifyConfig` | String, full list |
-| `MemoryGetPOSDataSetup` | `MD:POSDataSetup` (Hash, field=code) | Lookup theo code |
-| `MemoryOfferStaffSetup` | `MD:OfferStaffSetup` | String, full list |
-| `Redis_Key_LoyaltyRate` | `MD:LoyaltyRate` (Hash, field=code) | Đã có trong CentralMDRepository |
+> Luật phân tầng (config→Repository, AppService chỉ cache OAuth token) và mapping
+> `MemoryCacheConst`→Redis key là **Rules** — xem `.claude/rules/caching-standards.md`.
 
 ---
 
 ## Checklist khi thêm cache cho một loại data mới
 
-- [ ] Đặt tên Redis key theo convention (xem bảng trên)
+- [ ] Đặt tên Redis key theo convention (`.claude/rules/caching-standards.md`)
 - [ ] Nếu method chưa có trong Repository interface → thêm vào `ICentralMDRepository` hoặc `ILoyaltyRepository`
 - [ ] Implement trong Repository theo Pattern 1 hoặc 2 (KHÔNG bỏ TTL)
 - [ ] AppService/Service inject Repository (KHÔNG inject IRedisService trực tiếp cho config data)

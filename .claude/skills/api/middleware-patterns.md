@@ -1,12 +1,16 @@
 ---
 name: api-middleware-patterns
-description: Middleware tầng pipeline POS.Api — xác thực X-API key toàn cục, tắt Kestrel MinResponseDataRate cho stream file lớn. Đọc khi thêm/sửa middleware trong POS.Api.
+description: HOW code middleware tầng pipeline POS.Api — code mẫu xác thực X-API key toàn cục, tắt Kestrel MinResponseDataRate cho stream file lớn. Rules (fail-closed auth, MD5 uppercase, Write401 contract, per-request scope) ở .claude/rules/backend-api-rules.md.
 ---
 
-# Middleware Patterns — POS.Api
+# Middleware Patterns — POS.Api (HOW)
 
 > **Áp dụng khi:** thêm middleware chạy ở tầng pipeline HTTP của POS.Api (khác filter/attribute
 > theo controller).
+>
+> **Rules (tiêu chuẩn bắt buộc):** fail-closed auth, MD5 uppercase hex, Write401 khớp
+> `ResultResponse`, scope `MinResponseDataRate` per-request — xem mục "Middleware & API Security"
+> ở **`.claude/rules/backend-api-rules.md`**. File này chỉ giữ code mẫu (HOW).
 
 ---
 
