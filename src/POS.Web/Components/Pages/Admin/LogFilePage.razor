@@ -38,153 +38,120 @@
     Thư mục gốc đang quét: <b>@LogFileService.RootDirectory</b>
 </MudText>
 
-<MudGrid Spacing="3">
-    <MudItem xs="12" md="3">
-        <MudPaper Elevation="2" Class="pa-2">
-            @if (_treeLoading)
-            {
-                <MudProgressLinear Indeterminate="true" Color="Color.Primary"/>
-            }
-            else if (_rootItems.Count == 0)
-            {
-                <MudText Class="pa-2" Style="color:var(--mud-palette-text-secondary)">Không có thư mục log nào.</MudText>
-            }
-            else
-            {
-                @* KHÔNG dùng ExpandOnClick: click thân node = chọn (load file panel phải),
-                   caret = expand/collapse. ExpandOnClick khiến click bị nuốt thành expand → không select. *@
-                <MudTreeView T="string" Items="_rootItems" ServerData="LoadTreeItemsAsync"
-                             SelectedValue="_selectedPath" SelectedValueChanged="OnSelectedValueChangedAsync"
-                             SelectionMode="SelectionMode.SingleSelection"
-                             Hover="true" Dense="true"/>
-            }
-        </MudPaper>
-    </MudItem>
+@* Breadcrumb thủ công bằng MudLink — MudBreadcrumbs thiết kế cho Href/URL navigation thật,
+   không hợp để chỉ đổi state nội bộ trong cùng 1 trang. *@
+<MudPaper Elevation="1" Class="pa-3 mb-4 d-flex align-center flex-wrap gap-1">
+    <MudLink OnClick="NavigateToRootAsync" Style="cursor:pointer">
+        <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Small" Class="mr-1" Style="vertical-align:middle"/>
+        Gốc
+    </MudLink>
+    @for (var i = 0; i < BreadcrumbSegments.Count; i++)
+    {
+        var idx = i; // capture đúng biến vòng lặp cho closure OnClick bên dưới
+        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Style="vertical-align:middle"/>
+        <MudLink OnClick="@(() => NavigateToBreadcrumbAsync(idx))" Style="cursor:pointer">
+            @BreadcrumbSegments[idx]
+        </MudLink>
+    }
+</MudPaper>
 
-    <MudItem xs="12" md="9">
-        <MudTable Items="@_files" Hover="true" Striped="true" Dense="true"
-                  Breakpoint="Breakpoint.Sm" Elevation="2" Loading="@_filesLoading"
-                  HorizontalScrollbar="true">
-            <HeaderContent>
-                <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.FileName)">Tên file</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.SizeBytes)">Dung lượng</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.LastModifiedUtc)">Lần cuối sửa</MudTableSortLabel></MudTh>
-                <MudTh>Hành động</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Tên file">@context.FileName</MudTd>
-                <MudTd DataLabel="Dung lượng">@FormatSize(context.SizeBytes)</MudTd>
-                <MudTd DataLabel="Lần cuối sửa">@context.LastModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-                <MudTd DataLabel="Hành động">
-                    <MudTooltip Text="Tải file log">
-                        <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
-                                       Color="Color.Primary"
-                                       OnClick="@(() => DownloadAsync(context))"/>
-                    </MudTooltip>
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                <MudText Align="Align.Center" Class="pa-4">@NoFilesText</MudText>
-            </NoRecordsContent>
-            <PagerContent>
-                <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
-                               InfoFormat="{first_item}–{last_item} / {all_items} dòng"
-                               RowsPerPageString="Số dòng mỗi trang:"/>
-            </PagerContent>
-        </MudTable>
-    </MudItem>
-</MudGrid>
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"/>
+}
+else
+{
+    @if (_folders.Count > 0)
+    {
+        <MudList T="string" Clickable="true" Class="mb-4">
+            @foreach (var folder in _folders)
+            {
+                <MudListItem T="string" @key="folder.RelativePath"
+                             Icon="@Icons.Material.Filled.Folder"
+                             OnClick="@(() => NavigateToFolderAsync(folder))">
+                    @folder.Name
+                </MudListItem>
+            }
+        </MudList>
+    }
+
+    <MudTable Items="@_files" Hover="true" Striped="true" Dense="true"
+              Breakpoint="Breakpoint.Sm" Elevation="2"
+              HorizontalScrollbar="true">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.FileName)">Tên file</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.SizeBytes)">Dung lượng</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<LogFileInfo, object>(x => x.LastModifiedUtc)">Lần cuối sửa</MudTableSortLabel></MudTh>
+            <MudTh>Hành động</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Tên file">@context.FileName</MudTd>
+            <MudTd DataLabel="Dung lượng">@FormatSize(context.SizeBytes)</MudTd>
+            <MudTd DataLabel="Lần cuối sửa">@context.LastModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+            <MudTd DataLabel="Hành động">
+                <MudTooltip Text="Tải file log">
+                    <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                   Color="Color.Primary"
+                                   OnClick="@(() => DownloadAsync(context))"/>
+                </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Align="Align.Center" Class="pa-4">Thư mục này không có file log nào.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50, 100 }"
+                           InfoFormat="{first_item}–{last_item} / {all_items} dòng"
+                           RowsPerPageString="Số dòng mỗi trang:"/>
+        </PagerContent>
+    </MudTable>
+}
 
 @code {
-    private List<TreeItemData<string>> _rootItems = [];
-    private string _selectedPath = "";
+    private string _currentPath = ""; // relative path, "" = gốc
+    private IReadOnlyList<LogFolderInfo> _folders = [];
     private IReadOnlyList<LogFileInfo> _files = [];
     private string? _errorMsg;
-    private bool _treeLoading = true;
-    private bool _filesLoading = true;
+    private bool _loading = true;
     private readonly CancellationTokenSource _cts = new();
 
-    private string NoFilesText =>
-        string.IsNullOrEmpty(_selectedPath)
-            ? "Thư mục gốc không chứa file log trực tiếp — hãy chọn một thư mục con ở cây bên trái để xem file log."
-            : "Thư mục này không có file log nào.";
+    private IReadOnlyList<string> BreadcrumbSegments =>
+        string.IsNullOrEmpty(_currentPath) ? [] : _currentPath.Split('/');
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadTreeRootAsync();
-        await LoadFilesAsync("");
-    }
+    protected override async Task OnInitializedAsync() => await LoadAsync("");
 
-    private async Task LoadTreeRootAsync()
+    private async Task LoadAsync(string path)
     {
-        _treeLoading = true;
-        try
-        {
-            var listing = await LogFileService.GetDirectoryListingAsync("", _cts.Token);
-            _rootItems = listing.Folders.Select(MapToTreeItem).ToList();
-            if (listing.ErrorMessage is not null)
-                _errorMsg = listing.ErrorMessage;
-        }
-        catch (OperationCanceledException) { /* circuit đang dispose */ }
-        finally { _treeLoading = false; }
-    }
-
-    private async Task<IReadOnlyCollection<TreeItemData<string>>> LoadTreeItemsAsync(string parentPath)
-    {
-        try
-        {
-            var listing = await LogFileService.GetDirectoryListingAsync(parentPath, _cts.Token);
-            if (listing.ErrorMessage is not null)
-            {
-                _errorMsg = listing.ErrorMessage;
-                StateHasChanged();
-            }
-            return listing.Folders.Select(MapToTreeItem).ToList();
-        }
-        catch (OperationCanceledException)
-        {
-            return [];
-        }
-    }
-
-    private static TreeItemData<string> MapToTreeItem(LogFolderInfo folder) => new()
-    {
-        Text = folder.Name,
-        Value = folder.RelativePath,
-        Icon = Icons.Material.Filled.Folder,
-        Expandable = folder.HasSubfolders
-    };
-
-    private async Task OnSelectedValueChangedAsync(string value)
-    {
-        _selectedPath = value;
-        await LoadFilesAsync(value);
-    }
-
-    private async Task LoadFilesAsync(string relativePath)
-    {
-        _filesLoading = true;
-        _errorMsg = null;
+        _loading = true;
         StateHasChanged();
         try
         {
-            var listing = await LogFileService.GetDirectoryListingAsync(relativePath, _cts.Token);
-            _files = listing.Files;
-            _errorMsg = listing.ErrorMessage;
+            var result = await LogFileService.GetDirectoryListingAsync(path, _cts.Token);
+            _currentPath = result.CurrentRelativePath;
+            _folders = result.Folders;
+            _files = result.Files;
+            _errorMsg = result.ErrorMessage;
         }
         catch (OperationCanceledException) { /* circuit đang dispose */ }
         finally
         {
-            _filesLoading = false;
+            _loading = false;
             StateHasChanged();
         }
     }
 
-    private async Task RefreshAsync()
+    private Task NavigateToFolderAsync(LogFolderInfo folder) => LoadAsync(folder.RelativePath);
+
+    private Task NavigateToBreadcrumbAsync(int index)
     {
-        await LoadTreeRootAsync();
-        await LoadFilesAsync(_selectedPath);
+        var segments = BreadcrumbSegments;
+        var path = string.Join('/', segments.Take(index + 1));
+        return LoadAsync(path);
     }
+
+    private Task NavigateToRootAsync() => LoadAsync("");
+
+    private Task RefreshAsync() => LoadAsync(_currentPath);
 
     private async Task DownloadAsync(LogFileInfo file)
     {

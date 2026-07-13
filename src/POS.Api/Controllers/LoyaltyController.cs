@@ -11,7 +11,6 @@ using POS.Infrastructure.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Net;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace POS.Api.Controllers;
 
@@ -54,7 +53,7 @@ public sealed class LoyaltyController(
                         Data = data,
                         Message = "Đăng ký Hội viên thành công",
                         Status = HttpStatusCode.OK,
-                        MessageTechnical = request.PhoneNo
+                        MessageTechnical = JsonConvert.SerializeObject(res)
                     };
             }
             else

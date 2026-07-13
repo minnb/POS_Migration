@@ -17,6 +17,86 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-07-13] LogFilePage (`/admin/logs`) — Production-hardening: streaming, symlink, quyền hạ tầng, đổi UI lần 3
+
+**Layer:** POS.Web (+ `deploy/linux/`, `docs/guide-deploy.md`, `docs/ROLLOUT.md`)
+**Loại:** Bug fix + Security hardening + Refactor UI + Pattern mới
+
+**Bối cảnh:** Review lại với vai trò Security Expert phát hiện 4 gap thật trong tính năng "Nhật ký
+hệ thống" (tưởng đã xong ở các đợt trước): (1) `System.IO` trong `LogFileService` — xác minh
+POS.Web là Blazor **Server** (không phải WebAssembly, `Program.cs` dùng
+`AddInteractiveServerComponents`) nên dùng `System.IO` là đúng kiến trúc, KHÔNG chuyển sang gọi
+REST POS.Api (sẽ vi phạm luật "cấm gọi HTTP đến POS.Api từ POS.Web"); (2) `DownloadLogFileAsync`
+nạp toàn bộ file vào `byte[]` — rủi ro RAM khi nhiều user tải file lớn đồng thời; (3) chưa chống
+Symlink Attack — `Path.GetFullPath` + so khớp prefix không phát hiện được symlink tạo bên trong
+root trỏ ra ngoài; (4) hạ tầng Linux (systemd cho POS.Api/POS.Web thật, khác giả định Docker trước
+đó) chưa có script cấp quyền + unit mẫu. Sau khi fix xong, review lại UI lần nữa và quyết định bỏ
+`MudTreeView` (đổi 2026-07-11) — hierarchy log chỉ nông 2-3 cấp, TreeView tạo bug expand-vs-select
+không cần thiết — quay lại breadcrumb + drill-down (đã từng dùng trước 2026-07-11).
+
+**Thay đổi:**
+- `src/POS.Web/Services/LogFileDownload.cs`: `Bytes: byte[]?` → `Content: Stream?` — không buffer
+  toàn bộ file vào RAM server nữa.
+- `src/POS.Web/Services/LogFileService.cs`: `DownloadLogFileAsync` trả `FileStream` thật (mở
+  `FileShare.ReadWrite`, không `ReadExactlyAsync`); `GetDirectoryListingAsync`/`DownloadLogFileAsync`
+  lọc/chặn symlink qua `IDirectoryProbe.IsSymbolicLink` (2 lớp: lọc khỏi listing + chặn lại lúc
+  download đề phòng race condition); constructor inject thêm `IDirectoryProbe`; ngưỡng
+  `MaxDownloadBytes` đổi thành config `LogViewer:MaxDownloadBytes` (mặc định nâng 100MB→500MB vì
+  không còn là giới hạn RAM cứng).
+- `src/POS.Web/Services/IDirectoryProbe.cs` (mới): seam bọc `Directory.EnumerateDirectories/Files`
+  + `IsSymbolicLink` (dùng `FileSystemInfo.LinkTarget`, .NET 6+) — cho phép unit test giả lập
+  `UnauthorizedAccessException`/symlink mà không cần thao túng ACL/symlink thật.
+- `src/POS.Web/Services/JsDownloadExtensions.cs`: thêm overload `SaveAsFileAsync(IJSRuntime, string,
+  Stream, string)` dùng `DotNetStreamReference(stream, leaveOpen: true)` — giữ nguyên overload
+  `byte[]` cũ (16 trang khác đang dùng, không đụng).
+- `src/POS.Web/Components/Pages/Admin/LogFilePage.razor`: bỏ `MudTreeView`/`TreeItemData`/
+  `ServerData` lazy-load, thay bằng breadcrumb `MudLink` thủ công + `MudList`/`MudListItem`
+  drill-down (1 hành động duy nhất, không còn khái niệm expand/select tách biệt) — tái dùng thẳng
+  `GetDirectoryListingAsync(relativePath)` sẵn có (trả folders+files của đúng 1 cấp), không cần API
+  "get subfolders" riêng. `MudTable` phần file giữ nguyên 100%.
+- `src/POS.Web/Program.cs`: đăng ký `AddSingleton<IDirectoryProbe, PhysicalDirectoryProbe>()`; thêm
+  `AddDataProtection().PersistKeysToFileSystem(...)` tường minh (gap phát hiện khi audit — trước đó
+  dựa mặc định `$HOME/.aspnet/DataProtection-Keys`, rủi ro mất session sau mỗi lần restart systemd
+  nếu user không có `$HOME` ổn định; mặc định `/var/lib/pos-web/dataprotection-keys` chỉ áp dụng
+  Linux, Windows dev giữ hành vi mặc định cũ).
+- `src/POS.Web/appsettings{,.Development,.UAT,.Production}.json`: thêm `Logging:LogDirectory` tường
+  minh (thay suy luận ngầm thư mục cha của `FileLogDirectory` — cách cũ có bug thật với UAT vì
+  `FileLogDirectory` không có subfolder riêng, suy ra sai root).
+- `deploy/linux/systemd/{pos-api,pos-web}.service` + `README.md` (mới): unit mẫu cho topology thật
+  UAT/PROD — POS.Api/POS.Web chạy **native qua systemd** (không Docker), `Group=posops` +
+  `UMask=0027` để file log mới luôn `640`/group `posops`.
+- `deploy/linux/setup-pos-log-dirs.sh` (mới): cấp quyền `/srv/pos/logs` dùng chung group `posops`
+  (tái dùng group đã có từ `setup-pos-dirs.sh`, KHÔNG tạo group mới) + setgid `2750` — vì 3 service
+  chạy theo 3 cơ chế khác nhau (2 systemd + 1 Docker) nên không có 1 UID chung để `chown`.
+- `docs/guide-deploy.md`: viết lại §1/§3.1-3.3/§5-7/checklist — POS.Api/POS.Web sang systemd, giữ
+  Docker cho POS.Worker (thêm mount `/srv/pos/logs` + `--user gid:posops`); `docker-compose.yml` gốc
+  + `Dockerfile`/`src/POS.Web/Dockerfile` giữ nguyên (dùng cho SIT/dev cục bộ, không đại diện
+  UAT/PROD thật).
+- `docs/ROLLOUT.md`: thêm §O12 (thư mục log dùng chung) + ghi chú topology mới ở §O7.
+- `.claude/skills/web/component-patterns.md`: mục 4 (MudTreeView) thêm caveat "không còn ví dụ
+  thực tế nào trong repo dùng pattern này" + khi nào KHÔNG nên chọn TreeView; thêm mục 4b
+  ("Breadcrumb + drill-down list") — pattern mới cho hierarchy nông.
+- `tests/POS.UnitTests/Services/LogFileServiceTests.cs` (mới, 10 test) + `POS.UnitTests.csproj`
+  thêm `ProjectReference` tới `POS.Web.csproj`: test thật trên filesystem thật (bao gồm 1 test chạy
+  trực tiếp trên `D:\ROOT\Logs` — không mock), path traversal (2 vector: `../../../Windows`,
+  `C:/Windows`), symlink filtering/blocking, unauthorized (mock qua `IDirectoryProbe`), streaming
+  content đúng dữ liệu.
+
+**Pattern mới:** "Breadcrumb + drill-down list" (thay thế MudTreeView cho hierarchy nông 2-3 cấp) →
+đã cập nhật `.claude/skills/web/component-patterns.md` mục 4b. Seam `IDirectoryProbe` (test I/O
+filesystem qua interface tối thiểu, giả lập lỗi/symlink bằng Moq thay vì thao túng ACL/symlink
+thật) — chưa tách thành pattern riêng trong skill, xem code `Services/IDirectoryProbe.cs` làm
+tham chiếu nếu cần lặp lại cho tính năng đọc file khác.
+
+**Lưu ý cho session sau:** (1) `docker-compose.yml` gốc + `Dockerfile`/`src/POS.Web/Dockerfile` là
+cho **SIT/dev cục bộ** — UAT/PROD thật dùng systemd cho Api/Web (thông tin từ user, chưa tự verify
+được qua SSH); đừng nhầm 2 topology này khi đọc `docs/guide-deploy.md`. (2) `ILogFileService`
+KHÔNG có method `GetSubfoldersAsync` — nếu thấy tài liệu cũ nhắc tới method này (đã xóa khỏi
+`WEB_STATUS.md`/`component-patterns.md` trong đợt này) thì đó là tàn dư từ 1 thiết kế trung gian đã
+bị thay thế, không tồn tại trong code hiện tại.
+
+---
+
 ## [2026-07-13] Tái cấu trúc `.claude/` — tách triệt để Rules ↔ Skills
 
 **Layer:** Tài liệu AI-context (`.claude/**` + `CLAUDE.md`) — KHÔNG đụng source code/appsettings/DB.

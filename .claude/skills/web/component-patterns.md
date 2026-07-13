@@ -127,7 +127,10 @@ nội dung mỗi `MudTabPanel` (kể cả `MudTable ServerData`) chỉ render l�
 
 ## 4. MudTreeView lazy-load (`ServerData`) — không đệ quy toàn cây
 
-> Áp dụng khi: hiển thị cây thư mục/danh mục phân cấp mà không liệt kê đệ quy toàn bộ 1 lần.
+> Áp dụng khi: cây **thật sự sâu/nhiều nhánh** (nhiều cấp, hàng trăm+ node) mà đệ quy load 1 lần sẽ
+> tốn kém — và người dùng cần nhìn thấy toàn bộ cấu trúc phân cấp cùng lúc (nhiều nhánh mở song
+> song). **KHÔNG** dùng cho hierarchy nông (2-3 cấp cố định, mục đích chỉ là "duyệt xuống 1 nhánh
+> tại 1 thời điểm") — xem mục 4b bên dưới, đơn giản hơn nhiều và không có lớp bug expand-vs-select.
 
 `ServerData` nhận **`Value` (kiểu `T`) của node cha**, KHÔNG phải `TreeItemData<T>?` — gọi khi user
 bấm expand 1 node **đã tồn tại**, KHÔNG tự gọi cho top-level. Top-level nạp qua `Items` (1 lần, 1
@@ -147,4 +150,60 @@ private async Task<IReadOnlyCollection<TreeItemData<string>>> LoadChildrenAsync(
     }).ToList();
 ```
 
-> Ví dụ thực tế: `Admin/LogFilePage.razor` + `Services/{ILogFileService,LogFileService}.cs`.
+> ⚠️ **`ExpandOnClick="true"` vs `SelectedValueChanged`**: nếu bật `ExpandOnClick` VÀ cần phân biệt
+> "click để chọn" khác "click để mở rộng", click thân node bị nuốt thành hành động expand, KHÔNG
+> fire `SelectedValueChanged` — user thấy như click không phản ứng. Nếu chỉ cần 1 hành động (không
+> phân biệt select/expand), giữ `ExpandOnClick="true"` là đủ và không gặp bug này.
+>
+> **2026-07-13 — KHÔNG còn ví dụ thực tế nào trong repo dùng pattern này**: `Admin/LogFilePage.razor`
+> (ví dụ gốc của pattern) đã đổi hẳn sang breadcrumb + drill-down (mục 4b) vì hierarchy log server
+> chỉ nông 2-3 cấp cố định — dùng MudTreeView cho trường hợp này là over-engineering, tự tạo bug
+> expand-vs-select không cần thiết. Giữ pattern này lại làm tài liệu tham khảo cho use-case cây THẬT
+> SỰ sâu/nhiều nhánh trong tương lai — không xóa, nhưng ưu tiên xét mục 4b trước khi chọn TreeView.
+
+## 4b. Breadcrumb + drill-down list — duyệt hierarchy nông (2-3 cấp cố định)
+
+> Áp dụng khi: duyệt cấu trúc phân cấp NÔNG (thư mục log, danh mục 2-3 cấp...) mà tại 1 thời điểm
+> chỉ cần xem 1 nhánh (không cần nhìn nhiều nhánh mở song song như tree). Đơn giản hơn MudTreeView —
+> chỉ 1 hành động "click để đi xuống", không có khái niệm expand tách biệt select nên không có lớp
+> bug ở mục 4 phía trên. Không dùng `MudBreadcrumbs` (component đó thiết kế cho `Href`/URL
+> navigation thật) — breadcrumb thủ công bằng `MudLink` đổi state nội bộ trong cùng 1 trang.
+
+```razor
+<MudPaper Elevation="1" Class="pa-3 mb-4 d-flex align-center flex-wrap gap-1">
+    <MudLink OnClick="NavigateToRootAsync" Style="cursor:pointer">Gốc</MudLink>
+    @for (var i = 0; i < _segments.Count; i++)
+    {
+        var idx = i; // capture đúng biến vòng lặp cho closure OnClick
+        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"/>
+        <MudLink OnClick="@(() => NavigateToBreadcrumbAsync(idx))" Style="cursor:pointer">@_segments[idx]</MudLink>
+    }
+</MudPaper>
+
+<MudList T="string" Clickable="true">
+    @foreach (var folder in _folders)
+    {
+        <MudListItem T="string" @key="folder.RelativePath" Icon="@Icons.Material.Filled.Folder"
+                     OnClick="@(() => NavigateToFolderAsync(folder))">@folder.Name</MudListItem>
+    }
+</MudList>
+```
+```csharp
+private string _currentPath = "";
+private IReadOnlyList<string> _segments => string.IsNullOrEmpty(_currentPath) ? [] : _currentPath.Split('/');
+
+private async Task LoadAsync(string path)
+{
+    var result = await Repo.GetDirectoryListingAsync(path); // trả CẢ folders+files của ĐÚNG 1 cấp path này
+    _currentPath = result.CurrentRelativePath;
+    _folders = result.Folders;
+}
+
+private Task NavigateToFolderAsync(FolderInfo folder) => LoadAsync(folder.RelativePath);
+private Task NavigateToBreadcrumbAsync(int index) => LoadAsync(string.Join('/', _segments.Take(index + 1)));
+private Task NavigateToRootAsync() => LoadAsync("");
+```
+
+> Ví dụ thực tế: `Admin/LogFilePage.razor` + `Services/{ILogFileService,LogFileService}.cs`
+> (`GetDirectoryListingAsync(relativePath)` trả folders+files của đúng 1 cấp — không cần API "get
+> subfolders" riêng, tái dùng thẳng cho cả tree lẫn drill-down).
