@@ -256,6 +256,11 @@ public sealed class AkaChainLoyaltyAppService(
             if (data == null)
                 return ResponseHelper.MakeResponse(HttpStatusCode.BadRequest, "JSON conversion error", body);
 
+            if(data.MemberId == null)
+            {
+                return ResponseHelper.MakeResponse(HttpStatusCode.NotFound, "Không tìm thấy thông tin khách hàng", body);
+            }
+
             return ResponseHelper.MakeResponse(HttpStatusCode.OK, "Success", AkaChainMapping.MappingInfoMember(data), "AkaChainLoyalty");
         }
         catch (Exception ex)
