@@ -17,6 +17,72 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-07-15] Dọn dẹp hệ thống điều phối AI: gỡ conflict-marker trong CLAUDE.md, tạo COORDINATION.md, đổi tên lệnh /resume
+
+**Layer:** Tooling/Docs (`CLAUDE.md`, `.claude/rules/`, `.claude/commands/`, root)
+**Loại:** Refactor
+
+**Thay đổi:**
+- `CLAUDE.md`: gỡ conflict-marker Git (`<<<<<<< HEAD`/`=======`/`>>>>>>>`) đã bị commit nhầm từ
+  trước (commit "D", 2026-07-13) — file trước đó dài 888 dòng vì chứa CẢ router index mới lẫn toàn
+  bộ nội dung cũ đã trùng lặp với `.claude/rules/*.md`. Rút gọn còn 114 dòng: giữ nguyên router
+  index + cổng chặn trùng lặp, thêm mục mới "Lệnh hệ thống nhanh" (bảng tổng hợp toàn bộ
+  slash-command hiện có) và "Bàn giao ca" (trỏ tới `COORDINATION.md`).
+- `.claude/rules/database-standards.md`: nối thêm section "Business rule bảng `dbo.Store`" (di dời
+  từ đoạn cuối CLAUDE.md cũ, không xóa — đoạn duy nhất trong nội dung cũ chưa từng được extract ra
+  rule file nào).
+- `COORDINATION.md` (mới, gốc repo): file bàn giao ca tổng quát giữa các phiên làm việc — khác
+  `docs/migrations/STATUS.md` (chỉ theo dõi riêng tiến độ port từ `src/legacy/`).
+- `.claude/commands/resume.md` → đổi tên thành `.claude/commands/task-resume.md` theo yêu cầu user
+  (lệnh gọi đổi từ `/resume` thành `/task-resume`); cập nhật lại tham chiếu trong `CLAUDE.md`.
+
+**Pattern mới (nếu có):** Không có — đây là dọn dẹp tài liệu điều phối AI, không đụng `src/`.
+
+**Lưu ý cho session sau:**
+- Gọi lệnh khôi phục context bằng **`/task-resume`** (lệnh `/resume` không còn tồn tại).
+- `.claude/rules/` và `.claude/skills/` đã được audit và **đạt chuẩn Progressive Disclosure sẵn**
+  (không cần dọn thêm) — chỉ còn 1 điểm chưa nhất quán: 6 skill dùng `SKILL.md` (số ít) vs 6 skill
+  dùng `SKILLS.md` (số nhiều), user chưa quyết định có đồng bộ tên hay không.
+- Phát hiện ngoài phạm vi task này: `git status` lúc đó cho thấy nhiều file đang dở
+  (`docs/sql/manifest.json`, `tools/POS.DbMigrator/{ManifestScriptProvider,Program}.cs`,
+  `tests/POS.ContractTests/DbMigratorScriptOrderTests.cs`, appsettings UAT/Production...) — khớp
+  với entry `[2026-07-14] Điều tra MasterDataZipGeneratorWorker...` ngay bên dưới, nhiều khả năng
+  là WIP chưa commit từ task đó, không phải của task này — CHƯA VERIFY, cần hỏi lại trước khi
+  commit để tránh gộp nhầm việc dở của task khác.
+
+---
+
+## [2026-07-14] Điều tra `MasterDataZipGeneratorWorker` sinh zip CHANGE liên tục trên PROD
+
+**Layer:** POS.Worker (deploy/infra)
+**Loại:** Điều tra sự cố (không sửa code)
+
+**Bối cảnh:** Sau khi deploy `MasterDataZipGeneratorWorker` (Model C) lên PROD, log ghi nhận
+worker sinh lại file `.zip` CHANGE liên tục ở mọi cycle dù không có thay đổi dữ liệu thật. User
+nghi ngờ lỗi ở logic so sánh `POSLastCounter`.
+
+**Kết luận review:** logic so sánh
+`changedTables = tables.Where(t => t.POSLastCounter > t.ZipWatermarkCounter)`
+(`MasterDataZipGeneratorWorker.cs`) và cơ chế ACK snapshot-based đều đúng — **không phải bug code**.
+Nguyên nhân gốc xác nhận: migration `docs/sql/SyncTableList_AddZipWatermark.sql` (manifest order
+850, `runOnce: true, phase: pre-deploy`) chưa được chạy trên CentralMD PROD trước khi deploy code
+worker — cột `ZipWatermarkCounter` chưa tồn tại → Dapper để giá trị mặc định `0` (không throw) →
+điều kiện so sánh luôn đúng → mọi bảng `IsOnlyChange=1` bị coi là "vừa đổi" ở mọi cycle.
+
+**Thay đổi:**
+- `docs/deploy/fix_issue_pos-worker-host.md`: thêm "Vấn đề 7" ghi lại triệu chứng/nguyên nhân/fix
+  đầy đủ, theo đúng mẫu Vấn đề 1-6 đã có trong file.
+- Không sửa code — user tự chạy migration `SyncTableList_AddZipWatermark.sql` trên CentralMD PROD
+  theo runbook có sẵn ở `docs/ROLLOUT.md §O8` bước 4.
+
+**Lưu ý cho session sau:** migration `runOnce: true, phase: pre-deploy` không được `POS.DbMigrator`
+tự áp dụng — bỏ sót không gây lỗi ồn ào ngay (Dapper không throw khi SELECT thiếu cột, chỉ default
+property về giá trị mặc định), mà gây hành vi sai âm thầm giống bug logic. Khi nhận báo cáo "worker
+hành xử sai logic" sau 1 lần deploy mới, **luôn kiểm tra trước** các migration `pre-deploy` bắt buộc
+đã ghi trong `ROLLOUT.md` đã chạy đủ chưa, trước khi nghi ngờ code.
+
+---
+
 ## [2026-07-13] Fix POS.Worker crontab (Ubuntu) không ghi log — thiếu `appsettings.CronHost.json`
 
 **Layer:** POS.Worker (deploy/infra)

@@ -120,6 +120,36 @@ Environment=WorkerRoles__EnableMasterDataZipGenerator=true
 ```
 Đã cập nhật lại `docs/deploy/pos-worker-ubuntu-guide.md` mục 9.4 + bảng đầu file theo đúng fix này.
 
+## Vấn đề 7 (2026-07-14) — Model C sinh zip CHANGE liên tục dù không có thay đổi dữ liệu thật
+
+**Triệu chứng:** sau khi deploy `MasterDataZipGeneratorWorker` (Model C), log ghi nhận worker sinh
+lại file `.zip` CHANGE cho mọi POS terminal ở **mọi cycle** (mỗi `IntervalSeconds`), kể cả khi
+không có thay đổi dữ liệu nào — không thấy exception, worker chạy ổn định, chỉ liên tục "phát
+hiện thay đổi" sai.
+
+**Nguyên nhân:** migration `docs/sql/SyncTableList_AddZipWatermark.sql` (manifest order 850,
+`runOnce: true, phase: pre-deploy`) **chưa được chạy** trên CentralMD PROD trước khi deploy code
+worker mới — đúng cảnh báo đã ghi sẵn ở `docs/ROLLOUT.md §O8` bước 4 nhưng bị bỏ sót lúc go-live.
+Xác nhận bằng: `SELECT TOP 5 TableName, POSLastCounter, ZipWatermarkCounter FROM
+dbo.SyncTableList;` báo lỗi "Invalid column name 'ZipWatermarkCounter'" (cột chưa tồn tại).
+
+Vì cột chưa tồn tại, SP `[dbo].[SyncTable_Get]` bản đang chạy trên PROD (nhánh `@IsChange='C'`)
+là bản CŨ hơn order 850, không SELECT cột này → Dapper để `SyncTableInfo.ZipWatermarkCounter`
+mặc định `0` (không throw khi thiếu cột) → so sánh `POSLastCounter (luôn > 0) > ZipWatermarkCounter
+(luôn = 0)` luôn đúng → worker coi MỌI bảng `IsOnlyChange=1` là "vừa đổi" ở MỌI cycle. **Không phải
+bug logic C#** — logic so sánh counter trong `MasterDataZipGeneratorWorker.cs` đúng thiết kế.
+
+**Fix:** chạy `docs/sql/SyncTableList_AddZipWatermark.sql` trên CentralMD PROD (theo đúng
+`docs/ROLLOUT.md §O8` bước 4), verify 2 cột `POSLastCounter`/`ZipWatermarkCounter` bằng nhau sau
+backfill, `redis-cli DEL MD:SyncTableList:C`. Không cần restart worker — cycle tiếp theo tự đọc
+đúng cột mới.
+
+**Bài học:** migration `runOnce: true, phase: pre-deploy` không được `POS.DbMigrator` tự áp dụng —
+nếu bỏ sót, hậu quả có thể **âm thầm** (Dapper không throw khi thiếu cột, chỉ để property về giá
+trị mặc định) thay vì báo lỗi rõ ràng ngay. Trước khi bật `WorkerRoles:EnableMasterDataZipGenerator`
+ở môi trường mới, **luôn** chạy lại query verify ở `ROLLOUT.md §O8` bước 4 trước, không chỉ tin
+rằng "deploy xong là xong".
+
 ## Thay đổi cấu hình khác (không phải fix lỗi — theo yêu cầu vận hành)
 
 `src/POS.Worker/appsettings.ProductionHost.json`: `MasterDataZipGenerator.IntervalSeconds`

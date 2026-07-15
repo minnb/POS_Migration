@@ -488,6 +488,24 @@ tồn tại** trong `docs/sql/`.
 > Ví dụ thực tế (đã dọn lại đúng chuẩn): `docs/sql/SetupSalePrice_Save.sql` (thêm `@OutCounter`),
 > `docs/sql/SalesPrice_EditDelete_AddSalesType.sql` (thêm cột `Counter` vào 8 nhánh SELECT).
 
+**Ngoại lệ đã có tiền lệ — chuỗi cumulative nhiều file (không vi phạm Single File Constraint)**: 1
+số SP được phép `ALTER`/`CREATE OR ALTER` lại ở NHIỀU entry `manifest.json` khác nhau khi mỗi entry
+gắn với 1 migration DDL riêng biệt cần chạy tuần tự thật sự (thường là Track B `runOnce: true`, vd
+`SyncTable_Get` bị sửa lại ở order 820 → 830 → 850, mỗi file thêm 1 cột DB mới + copy nguyên nội
+dung SP từ file trước rồi bổ sung). Khác với vi phạm ở trên (file mới viết lại SP dựa trên snapshot
+CŨ, làm mất fix), pattern này ĐÚNG khi:
+1. Mỗi file sau **copy nguyên văn** toàn bộ nội dung SP từ file ngay trước nó rồi mới thêm phần
+   mới (không viết lại từ một snapshot cũ hơn) — verify bằng cách đọc trực tiếp cả 2 file, không
+   suy đoán.
+2. Entry `manifest.json` của MỌI file trong chuỗi đều có `"note"` cross-reference 2 chiều ("PHẢI
+   chạy SAU order X" / "là bản cumulative thứ N của SP Y") — xem mẫu tại note order 820/830/850
+   trong `manifest.json`. Thiếu note ở bất kỳ mắt xích nào trong chuỗi = gap thật (đã từng xảy ra —
+   phát hiện lúc audit 2026-07-15, xem `.claude/rules/database-standards.md` mục "order PHẢI phản
+   ánh ĐÚNG phụ thuộc ngữ nghĩa").
+3. Regression test `tests/POS.ContractTests/DbMigratorScriptOrderTests.cs` vẫn xanh (test này chỉ
+   guard cơ chế sort của DbUp khớp `order`, KHÔNG tự phát hiện được sai sót nội dung cumulative —
+   phần (1) vẫn phải verify tay bằng cách đọc file).
+
 ---
 
 ## Checklist tạo SP mới

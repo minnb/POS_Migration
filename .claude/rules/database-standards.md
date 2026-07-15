@@ -45,6 +45,25 @@ Khi viết/sửa/refactor bất kỳ stored procedure, script `docs/sql/*.sql`, 
   `runOnce`) **cùng commit** — thiếu → `SqlManifestTests.cs` FAIL. SP idempotent →
   `runOnce: false` (Track A, `POS.DbMigrator` tự chạy). DDL một-lần rủi ro cao → `runOnce: true`
   (Track B, DBA chạy tay + ghi `docs/ROLLOUT.md`).
+- **`order` PHẢI phản ánh ĐÚNG phụ thuộc ngữ nghĩa, không chỉ cần DUY NHẤT** — sự cố thật đã xảy ra
+  (xem `docs/CHANGELOG.md` mục "[2026-07-13] Fix `usp_SetupSalePrice_Save`... + fix DbUp
+  sort-order"): `POS.DbMigrator` (`tools/POS.DbMigrator/Program.cs` — `ApplyTrackA`) build tên
+  script bằng `ManifestScriptProvider.BuildScriptName` (zero-pad `order`) để DbUp thực thi ĐÚNG thứ
+  tự `order` — cơ chế này chỉ đúng khi **con người gán đúng số `order` theo quan hệ phụ thuộc thật
+  sự**, không có gì validate tính đúng của thứ tự tương đối (chỉ test được tính DUY NHẤT của
+  `order`, xem `OrderKhongDuocTrung` trong `SqlManifestTests.cs`). Vì Track A chạy lại **TOÀN BỘ**
+  mỗi lần `--apply` (`NullJournal`, không có lịch sử), gán sai `order` không phải lỗi 1 lần mà **ghi
+  đè mất fix mới ở MỌI lần deploy tiếp theo** cho tới khi có người phát hiện.
+  - Khi 1 script mới `ALTER`/`CREATE OR ALTER` lại **đúng SP mà 1 script `order` thấp hơn đã định
+    nghĩa** (chuỗi cumulative nhiều bước — vd `SyncTable_Get` bị sửa lại liên tiếp ở order
+    820→830→850), **BẮT BUỘC** thêm `"note"` cross-reference nêu rõ "PHẢI chạy SAU order X, nếu
+    đảo ngược sẽ mất field/nhánh Y" — xem mẫu tại note order 820/830/850 và 970/980 trong
+    `manifest.json`.
+  - Guard tự động hiện có (đọc trước khi thêm entry mới): regression test
+    `tests/POS.ContractTests/DbMigratorScriptOrderTests.cs` (mô phỏng đúng cách DbUp resort, so
+    với thứ tự `order` thật trong manifest) + CI workflow `.github/workflows/dotnet-tests.yml`
+    (gate `dotnet test tests/POS.ContractTests` + `tests/POS.UnitTests` tự động trên push/PR vào
+    `main` — trước đây 2 project test này chỉ chạy khi có người/agent chủ động chạy tay).
 - **Connection factory**: chỉ dùng `StoreRoutedConnectionFactory` khi ghi vào bảng **sharded theo
   store** (TransHeader...); SP/bảng không phụ thuộc shard (audit log, master data) → ưu tiên
   `directConnectionFactory` (tránh thêm điểm lỗi mạng theo `StoreSetServer`).
@@ -60,6 +79,42 @@ Khi viết/sửa/refactor bất kỳ stored procedure, script `docs/sql/*.sql`, 
 - Cấm nuốt lỗi trong SP ghi dữ liệu (thiếu `THROW`); cấm gọi SP legacy có `ROLLBACK` bằng
   `INSERT...EXEC` (dùng OUTPUT param).
 - Cấm tính `MAX(Counter)+1` ở C# rồi UPDATE riêng (race condition đa request).
+- Cấm gán `order` mới cho 1 script chỉ bằng cách "cộng thêm 10 vào số lớn nhất hiện có" mà không
+  xét quan hệ phụ thuộc thật (script có `ALTER`/`CREATE OR ALTER` lại SP đã có ở `order` khác) —
+  đây chính là nguyên nhân gốc của sự cố `usp_SetupSalePrice_Save` (`docs/CHANGELOG.md`
+  2026-07-13). Thêm entry phụ thuộc script khác → BẮT BUỘC đọc nội dung script đó trước, xác nhận
+  `order` mới lớn hơn mọi script nó phụ thuộc, và ghi `"note"` cross-reference.
+
+---
+
+# Rule: Business rule bảng `dbo.Store` (RPOSMasterData)
+
+## 🎯 Context (Khi nào áp dụng)
+Khi viết query/SP/Repository đụng bảng `dbo.Store` — đặc biệt logic xác định cửa hàng đang hoạt
+động (store picker, danh sách store cho POS.Web, v.v.).
+
+## ✅ DO (Bắt buộc làm)
+- Tra đúng ý nghĩa cột:
+
+  | Column | Ý nghĩa | Giá trị |
+  |--------|---------|---------|
+  | `No` | Mã cửa hàng (primary key) | `"VIN001"`, `"VIN002"`... |
+  | `Name` | Tên cửa hàng | |
+  | `ClosingMethod` | Trạng thái hoạt động | `0` = đang mở cửa, `1` = đã đóng cửa |
+
+- Query chuẩn khi lấy danh sách cửa hàng đang hoạt động:
+  ```sql
+  SELECT No AS StoreNo, Name
+  FROM dbo.Store (NOLOCK)
+  WHERE ClosingMethod = 0
+  ORDER BY No
+  ```
+- Dùng ở đâu: `CentralMDRepository.GetStoreListAsync`, mọi query liên quan đến danh sách store
+  picker trong POS.Web.
+
+## ❌ DON'T (Tuyệt đối cấm)
+- Cấm dùng cột `Blocked` để xác định trạng thái hoạt động — cột này không tồn tại hoặc không phản
+  ánh trạng thái hoạt động của cửa hàng trong dự án này.
 
 ---
 

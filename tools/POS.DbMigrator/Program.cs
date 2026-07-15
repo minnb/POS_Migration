@@ -237,11 +237,12 @@ static bool ApplyTrackA(string label, string connectionString, string sqlDir, Li
 {
     // DbUp tu sap xep lai script theo SqlScript.Name (alphabet) truoc khi thuc thi, bat ke thu tu
     // duoc dua vao qua .WithScripts() - "entries" da OrderBy(Order) o ManifestScriptProvider.TrackAFor
-    // se bi vo hieu neu Name chi la ten file. Prefix Name bang Order (zero-pad) de alphabet-sort
-    // cua DbUp trung khop voi thu tu Order trong manifest.json (khong doi ten file that tren dia -
-    // duong dan doc file van dung e.File nguyen ven).
+    // se bi vo hieu neu Name chi la ten file. ManifestScriptProvider.BuildScriptName zero-pad Order
+    // vao ten de alphabet-sort cua DbUp trung khop voi thu tu Order trong manifest.json (khong doi
+    // ten file that tren dia - duong dan doc file van dung e.File nguyen ven). Regression test:
+    // tests/POS.ContractTests/DbMigratorScriptOrderTests.cs.
     var scripts = entries
-        .Select(e => new DbUp.Engine.SqlScript($"{e.Order:D6}_{e.File}", File.ReadAllText(Path.Combine(sqlDir, e.File))))
+        .Select(e => new DbUp.Engine.SqlScript(ManifestScriptProvider.BuildScriptName(e), File.ReadAllText(Path.Combine(sqlDir, e.File))))
         .ToArray();
 
     Console.WriteLine($"=== Apply Track A — {label} ({scripts.Length} script) ===");
