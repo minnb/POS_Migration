@@ -120,10 +120,9 @@
                     @{
                         var (latColor, latText) = LatencyDisplay(item.LatencyMs, item.Ok);
                     }
-                    <MudChip T="string" Size="Size.Small" Color="@latColor" Variant="Variant.Text"
-                             Style="margin-left:-4px">
+                    <span class="pos-status-chip">
                         ⚡ @latText
-                    </MudChip>
+                    </span>
 
                     @* Message *@
                     <MudText Typo="Typo.caption"

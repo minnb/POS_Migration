@@ -1,4 +1,4 @@
-﻿@page "/store/revenue-category"
+@page "/store/revenue-category"
 @namespace POS.Web.Components.Pages.Store
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
@@ -29,11 +29,11 @@
         <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Doanh thu theo ngành hàng
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small"
+    <MudButton Size="Size.Small"
                StartIcon="@Icons.Material.Filled.PictureAsPdf"
                OnClick="@OnExportPdfClick"
                Disabled="@(_loading || _isEmpty || _exporting)"
-               Class="pos-page-header-btn pos-btn-mockup">Xuất PDF</MudButton>
+               Class="pos-page-header-btn pos-btn-mockup pos-btn-primary">Xuất PDF</MudButton>
 </div>
 
 @if (_loading)
@@ -97,17 +97,13 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true"
                            Style="align-self:center; white-space:nowrap">Tìm kiếm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -127,8 +123,7 @@
             <span style="font-size:0.9rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;
                          white-space:nowrap;max-width:60%;">@_pdfFileName</span>
             <MudStack Row="true" Spacing="1">
-                <MudButton Variant="Variant.Outlined" Color="Color.Success"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Download"
                            Size="Size.Small"
                            OnClick="@OnDownloadPdfFromPreviewAsync">Tải xuống</MudButton>

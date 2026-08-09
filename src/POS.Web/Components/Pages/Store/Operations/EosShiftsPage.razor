@@ -1,4 +1,4 @@
-﻿@page "/store/eos-shifts"
+@page "/store/eos-shifts"
 @namespace POS.Web.Components.Pages.Store
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
@@ -89,16 +89,12 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -120,31 +116,31 @@
 {
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_shifts.Count</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số ca</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_closedCount</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Đã đóng ca</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@_openCount</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Chưa đóng ca</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_shifts.Sum(s => s.TotalRevenue))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh thu</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_shifts.Sum(s => s.TransactionCount)</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số GD</MudText>
             </MudPaper>
@@ -153,7 +149,7 @@
 }
 
 @* ── Table ────────────────────────────────────────────────────────────── *@
-<MudTable Items="@FilteredShifts"
+<MudTable Class="pos-table" Items="@FilteredShifts"
           Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"

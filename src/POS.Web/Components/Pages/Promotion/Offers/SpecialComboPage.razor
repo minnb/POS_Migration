@@ -1,4 +1,4 @@
-﻿@page "/promotion/special-combo"
+@page "/promotion/special-combo"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
@@ -38,7 +38,7 @@
             <MudIcon Icon="@Icons.Material.Filled.Fastfood" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             Special Combo
         </MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup pos-page-header-btn"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNewAsync">Thêm combo</MudButton>
     </div>
 
@@ -89,7 +89,7 @@
         </MudGrid>
     </MudPaper>
 
-    <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+    <MudTable Class="pos-table" @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
               Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="SpecialComboListItemDto">
         <HeaderContent>
             <MudTh Style="width:48px">STT</MudTh>
@@ -236,7 +236,7 @@ else
                            OnClick="@(() => _lines.Add(new SpecialComboLineDto()))">Thêm dòng</MudButton>
                 <MudText Typo="Typo.caption" Class="ml-2">Gom sản phẩm theo cùng "Mã nhóm". Tối đa 1 dòng giá động.</MudText>
             </div>
-            <MudTable Items="_lines" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="SpecialComboLineDto">
+            <MudTable Class="pos-table" Items="_lines" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="SpecialComboLineDto">
                 <HeaderContent>
                     <MudTh Style="width:110px">Mã nhóm</MudTh>
                     <MudTh Style="width:140px">Tên nhóm</MudTh>
@@ -296,7 +296,7 @@ else
                                      ValueChanged="AddStore" Variant="Variant.Outlined" Margin="Margin.Dense"
                                      MaxItems="50" Style="max-width:420px" Clearable="true"/>
                 </div>
-                <MudTable Items="_stores" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="SpecialComboStoreDto">
+                <MudTable Class="pos-table" Items="_stores" Dense="true" Hover="true" Striped="true" HorizontalScrollbar="true" T="SpecialComboStoreDto">
                     <HeaderContent><MudTh>Mã CH</MudTh><MudTh Style="text-align:center">Xóa</MudTh></HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Mã CH">@context.StoreNo</MudTd>

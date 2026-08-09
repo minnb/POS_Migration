@@ -20,11 +20,11 @@
         <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" Style="vertical-align:middle"/>
         SQL Stored Procedure Audit
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Refresh"
                OnClick="LoadDataAsync"
                Disabled="_loading"
-               Class="pos-page-header-btn">
+               Class="pos-btn-primary pos-page-header-btn">
         Làm mới
     </MudButton>
 </div>
@@ -95,7 +95,7 @@ else
         </MudChip>
     </div>
 
-    <MudTable Items="@_filteredItems" Hover="true" Striped="true" Dense="true"
+    <MudTable Class="pos-table" Items="@_filteredItems" Hover="true" Striped="true" Dense="true"
               Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true">
         <HeaderContent>
             <MudTh><MudTableSortLabel SortBy="new Func<SpInventoryItemDto, object>(x => x.ProcedureName)">Procedure</MudTableSortLabel></MudTh>
@@ -110,14 +110,14 @@ else
             <MudTd DataLabel="Procedure">@($"{context.Schema}.{context.ProcedureName}")</MudTd>
             <MudTd DataLabel="Database">@context.DatabaseKey</MudTd>
             <MudTd DataLabel="Complexity">
-                <MudChip T="string" Size="Size.Small" Color="@ComplexityColor(context.Complexity)" Variant="Variant.Filled">
+                <span class="pos-status-chip">
                     @context.Complexity
-                </MudChip>
+                </span>
             </MudTd>
             <MudTd DataLabel="Recommendation">
-                <MudChip T="string" Size="Size.Small" Color="@RecommendationColor(context.Recommendation)" Variant="Variant.Outlined">
+                <span class="pos-status-chip">
                     @context.Recommendation
-                </MudChip>
+                </span>
             </MudTd>
             <MudTd DataLabel="Execution">@context.ExecutionCount</MudTd>
             <MudTd DataLabel="Lần chạy cuối (SP)">@(context.LastExecutionAt?.ToString("dd/MM/yyyy HH:mm") ?? "-")</MudTd>

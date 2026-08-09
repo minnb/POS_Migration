@@ -1,4 +1,4 @@
-﻿@page "/catalog/products"
+@page "/catalog/products"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 @implements IDisposable
@@ -31,9 +31,9 @@
         <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Danh sách Sản phẩm / Barcode
     </MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+    <MudButton Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
-               Class="pos-page-header-btn pos-btn-mockup"
+               Class="pos-page-header-btn pos-btn-mockup pos-btn-primary"
                OnClick="OpenDialogAsync">
         Thêm mới
     </MudButton>
@@ -87,20 +87,20 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="SearchAsync" Disabled="@_searching"
                            FullWidth="true">
                     @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Tìm
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="ClearFilter"
                            FullWidth="true">
                     Xóa
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Success" Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.FileDownload"
                            OnClick="ExportExcelAsync"
                            Disabled="@(_totalItems == 0 || _exporting)"
@@ -127,7 +127,7 @@
           Breakpoint="Breakpoint.Sm"
           HorizontalScrollbar="true"
           Loading="@_searching"
-          Class="mb-4">
+          Class="pos-table mb-4">
     <NoRecordsContent>
         <div class="d-flex flex-column align-center pa-6">
             <MudIcon Icon="@Icons.Material.Filled.Inbox" Style="font-size:3rem;color:var(--pos-text-disabled)" Class="mb-2"/>

@@ -18,10 +18,10 @@
         else
         {
             <div class="d-flex align-center gap-2 flex-wrap mb-4">
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@_value.Type</MudChip>
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                <span class="pos-status-chip">@_value.Type</span>
+                <span class="pos-status-chip">
                     TTL: @(_value.TtlSeconds.HasValue ? $"{_value.TtlSeconds}s" : "Không hết hạn")
-                </MudChip>
+                </span>
             </div>
             <MudTextField T="string" Value="@_value.Value" ReadOnly="true" Lines="20"
                           Variant="Variant.Outlined"

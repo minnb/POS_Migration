@@ -68,9 +68,9 @@
                     @{
                         var (latColor, latText) = LatencyDisplay(_status.PingMs, _status.IsOnline);
                     }
-                    <MudChip T="string" Size="Size.Small" Color="@latColor" Variant="Variant.Text">
+                    <span class="pos-status-chip">
                         ⚡ @latText
-                    </MudChip>
+                    </span>
                 </div>
             </MudStack>
             <MudText Typo="Typo.caption" Color="@(_status.IsOnline ? Color.Secondary : Color.Error)"
@@ -153,7 +153,7 @@
     <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMsg</MudAlert>
 }
 
-<MudTable Items="@_keys"
+<MudTable Class="pos-table" Items="@_keys"
           Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"
@@ -169,7 +169,7 @@
             <MudText Style="font-family:monospace; font-size:0.85rem">@context.Key</MudText>
         </MudTd>
         <MudTd DataLabel="Type">
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@context.Type</MudChip>
+            <span class="pos-status-chip">@context.Type</span>
         </MudTd>
         <MudTd DataLabel="TTL" Style="text-align:right">
             @(context.TtlSeconds.HasValue ? FormatTtl(context.TtlSeconds.Value) : "Không hết hạn")

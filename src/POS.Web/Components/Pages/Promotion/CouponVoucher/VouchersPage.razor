@@ -1,4 +1,4 @@
-﻿@page "/promotion/vouchers"
+@page "/promotion/vouchers"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
@@ -27,7 +27,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Xóa</MudButton>
+        <MudButton Class="pos-btn-mockup pos-btn-secondary">Xóa</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -38,13 +38,13 @@
         Danh mục Voucher
     </MudText>
     <div class="d-flex align-center gap-2">
-        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
+        <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary"
                    StartIcon="@Icons.Material.Filled.FileDownload"
                    Disabled="_exporting" OnClick="ExportExcelAsync">
             @(_exporting ? "Đang xuất..." : "Xuất Excel")
         </MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                   StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn pos-btn-mockup"
+        <MudButton Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Add" Class="pos-page-header-btn pos-btn-mockup pos-btn-primary"
                    OnClick="@(() => Nav.NavigateTo("/promotion/vouchers/issue"))">Phát hành Voucher</MudButton>
     </div>
 </div>
@@ -72,9 +72,9 @@
         </MudItem>
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
             </MudStack>
         </MudItem>
@@ -87,7 +87,7 @@
 }
 
 @* ── Voucher table (server-side) ─────────────────────────────────────────── *@
-<MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+<MudTable Class="pos-table" @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
           Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="VoucherListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>

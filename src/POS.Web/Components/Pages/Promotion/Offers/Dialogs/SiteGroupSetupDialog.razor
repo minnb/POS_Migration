@@ -22,8 +22,8 @@
         </MudText>
     </TitleContent>
     <DialogContent>
-        <MudTabs Outlined="true" PanelClass="pa-3">
-            <MudTabPanel Text="Cài đặt nhóm CH/ST" Icon="@Icons.Material.Filled.AddBusiness">
+        <MudTabs Outlined="true">
+            <MudTabPanel Text="Cài đặt nhóm CH/ST" Icon="@Icons.Material.Filled.AddBusiness" PanelClass="pa-3">
                 <MudForm @ref="_form" @bind-IsValid="_formValid">
                     <MudGrid Spacing="2">
                         <MudItem xs="12" sm="6">
@@ -56,7 +56,7 @@
                     <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_errorMsg</MudAlert>
                 }
                 <div class="d-flex justify-end mt-3">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" Disabled="_saving"
+                    <MudButton Class="pos-btn-mockup pos-btn-primary" Disabled="_saving"
                                OnClick="SubmitAsync">
                         @if (_saving)
                         {
@@ -71,7 +71,7 @@
                 </div>
             </MudTabPanel>
 
-            <MudTabPanel Text="Danh sách nhóm CH/ST" Icon="@Icons.Material.Filled.List">
+            <MudTabPanel Text="Danh sách nhóm CH/ST" Icon="@Icons.Material.Filled.List" PanelClass="pa-3">
                 <MudGrid Spacing="2" Class="mb-2">
                     <MudItem xs="12" sm="6">
                         <MudTextField @bind-Value="_filterGroupCode" Label="Mã nhóm" Clearable="true"
@@ -86,7 +86,7 @@
                                       OnKeyUp="@(async e => { if (e.Key == "Enter") await _table.ReloadServerData(); })"/>
                     </MudItem>
                 </MudGrid>
-                <MudTable @ref="_table" ServerData="LoadGroupsAsync" Dense="true" Hover="true" Striped="true"
+                <MudTable Class="pos-table" @ref="_table" ServerData="LoadGroupsAsync" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="SiteGroupListItemDto">
                     <HeaderContent>
                         <MudTh>Mã nhóm</MudTh>
@@ -134,7 +134,7 @@
                 {
                     <MudPaper Elevation="1" Class="pa-3 mt-3">
                         <MudText Typo="Typo.subtitle2" Class="mb-2">Danh sách CH/ST — @_viewingGroupCode</MudText>
-                        <MudTable Items="_viewingStores" Dense="true" Hover="true" Striped="true" Elevation="0"
+                        <MudTable Class="pos-table" Items="_viewingStores" Dense="true" Hover="true" Striped="true" Elevation="0"
                                   HorizontalScrollbar="true" T="SiteGroupStoreItemDto">
                             <HeaderContent>
                                 <MudTh>Mã CH/ST</MudTh><MudTh>Tên CH/ST</MudTh>
@@ -153,7 +153,7 @@
         </MudTabs>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
+        <MudButton OnClick="Cancel" Class="pos-btn-mockup pos-btn-secondary">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 

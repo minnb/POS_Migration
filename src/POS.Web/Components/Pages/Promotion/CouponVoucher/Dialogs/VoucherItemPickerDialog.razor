@@ -29,7 +29,7 @@
             </MudItem>
         </MudGrid>
 
-        <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+        <MudTable Class="pos-table" @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
                   Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="VoucherLineDto"
                   MultiSelection="true" @bind-SelectedItems="_selected">
             <HeaderContent>

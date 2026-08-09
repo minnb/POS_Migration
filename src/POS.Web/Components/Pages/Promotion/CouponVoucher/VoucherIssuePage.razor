@@ -1,4 +1,4 @@
-﻿@page "/promotion/vouchers/issue"
+@page "/promotion/vouchers/issue"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
@@ -32,12 +32,12 @@
         @(IsEditing ? $"Xem voucher {_model.ItemNo}" : "Phát hành Voucher")
     </MudText>
     <MudStack Row="true" Spacing="1" Class="pos-page-header-btn">
-        <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="pos-btn-mockup pos-btn-secondary-mockup" StartIcon="@Icons.Material.Filled.ArrowBack"
+        <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-secondary" StartIcon="@Icons.Material.Filled.ArrowBack"
                    OnClick="@(() => Nav.NavigateTo("/promotion/vouchers"))">Danh sách</MudButton>
         @* Xem voucher: nút PHÁT HÀNH luôn hiện — phát hành thêm 1 lô mã Auto mới cho voucher đã có *@
         @if (IsEditing)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
+            <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary" Disabled="_saving"
                        StartIcon="@Icons.Material.Filled.QrCode2" OnClick="OpenIssueMoreDialogForExistingAsync">
                 PHÁT HÀNH
             </MudButton>
@@ -47,7 +47,7 @@
            Xem voucher: nút Lưu chỉ hiện khi trạng thái Khóa (Blocked) bị đổi — ngoại lệ duy nhất được sửa *@
         @if (!IsEditing && IsAuto)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
+            <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary" Disabled="_saving"
                        OnClick="OpenIssueMoreDialogForNewAsync">
                 @if (_saving)
                 {
@@ -63,7 +63,7 @@
         }
         @if ((!IsEditing && !IsAuto) || (IsEditing && BlockedChanged))
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-btn-mockup" Disabled="_saving"
+            <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary" Disabled="_saving"
                        OnClick="@(() => IsEditing ? SaveBlockedAsync() : SaveAsync())">
                 @if (_saving)
                 {
@@ -96,7 +96,7 @@ else
         @* ── Xem voucher: CHỈ hiển thị thông tin (không phải input) + ngoại lệ Khóa (Blocked) ── *@
         <MudCard Elevation="1" Class="mb-4">
             <MudCardContent>
-                <MudPaper Outlined="true" Class="pa-3 mb-3 rounded-lg" Style="position:relative">
+                <MudPaper Class="pos-filter-panel pa-4 mb-3" Style="position:relative">
                     <MudText Typo="Typo.subtitle2" Color="Color.Primary"
                              Style="position:absolute; top:-11px; left:12px; padding:0 6px; background:var(--mud-palette-surface); line-height:1;">
                         Thông tin voucher
@@ -146,7 +146,7 @@ else
                 </MudPaper>
 
                 @* Ngoại lệ DUY NHẤT được sửa: trạng thái khóa voucher *@
-                <MudPaper Outlined="true" Class="pa-3 rounded-lg" Style="position:relative">
+                <MudPaper Class="pos-filter-panel pa-4" Style="position:relative">
                     <MudText Typo="Typo.subtitle2" Color="Color.Primary"
                              Style="position:absolute; top:-11px; left:12px; padding:0 6px; background:var(--mud-palette-surface); line-height:1;">
                         Trạng thái khóa
@@ -168,7 +168,7 @@ else
     @* ── Form nhập liệu (1 card, 1 nhóm "Thông tin chung" duy nhất) ────────── *@
     <MudCard Elevation="1" Class="mb-4">
         <MudCardContent>
-            <MudPaper Outlined="true" Class="pa-3 rounded-lg" Style="position:relative">
+            <MudPaper Class="pos-filter-panel pa-4 mb-4" Style="position:relative">
                 <MudText Typo="Typo.subtitle2" Color="Color.Primary"
                          Style="position:absolute; top:-11px; left:12px; padding:0 6px; background:var(--mud-palette-surface); line-height:1;">
                     Thông tin chung
@@ -215,13 +215,12 @@ else
                         <MudItem xs="12" sm="8" md="8" Class="d-flex align-center gap-2 flex-wrap">
                             <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
                                 <ActivatorContent>
-                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-btn-mockup"
-                                               StartIcon="@Icons.Material.Filled.UploadFile">
+                                    <MudButton Class="pos-btn-primary">
                                         @(_importFile?.Name ?? "Chọn file Excel")
                                     </MudButton>
                                 </ActivatorContent>
                             </MudFileUpload>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="pos-btn-mockup"
+                            <MudButton Class="pos-btn-secondary"
                                        StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
                                 File mẫu
                             </MudButton>
@@ -272,11 +271,11 @@ else
                 @if (_items.Count > 0 && !IsEditing)
                 {
                     <div class="d-flex justify-end mb-2">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Add"
+                        <MudButton Class="pos-btn-mockup pos-btn-primary" StartIcon="@Icons.Material.Filled.Add"
                                    OnClick="OpenItemPickerAsync">Thêm sản phẩm</MudButton>
                     </div>
                 }
-                <MudTable Items="@_items" Dense="true" Hover="true" Striped="true"
+                <MudTable Class="pos-table" Items="@_items" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="VoucherLineDto">
                     <HeaderContent>
                         <MudTh>Mã sản phẩm</MudTh>
@@ -307,8 +306,8 @@ else
                         <div class="d-flex flex-column align-center pa-4" style="color:var(--mud-palette-text-secondary)">
                             @if (!IsEditing)
                             {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                                           OnClick="OpenItemPickerAsync" Class="mb-3 pos-btn-mockup">Thêm sản phẩm</MudButton>
+                                <MudButton StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="OpenItemPickerAsync" Class="mb-3 pos-btn-mockup pos-btn-primary">Thêm sản phẩm</MudButton>
                             }
                             <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" Class="mb-2"/>
                             <MudText Typo="Typo.body2">Chưa có sản phẩm áp dụng.</MudText>
@@ -322,7 +321,7 @@ else
         @if (IsEditing)
         {
             <MudTabPanel Text="Mã đã phát hành" Icon="@Icons.Material.Filled.QrCode2">
-                <MudTable @ref="_codeTable" ServerData="LoadCodesData" Dense="true" Hover="true" Striped="true"
+                <MudTable Class="pos-table" @ref="_codeTable" ServerData="LoadCodesData" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="VoucherCodeDto">
                     <HeaderContent>
                         <MudTh Style="width:48px">STT</MudTh>

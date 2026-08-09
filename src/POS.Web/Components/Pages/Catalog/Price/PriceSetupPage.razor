@@ -1,4 +1,4 @@
-﻿@page "/catalog/price-setup"
+@page "/catalog/price-setup"
 @page "/catalog/price-declare"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
@@ -110,20 +110,20 @@ else
             <MudItem xs="12" sm="8" md="4" Class="d-flex align-center gap-2 flex-wrap">
                 <MudFileUpload T="IBrowserFile" @bind-Files="_importFile" Accept=".xls,.xlsx" MaximumFileCount="1">
                     <ActivatorContent>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" Class="pos-btn-mockup"
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" Class="pos-btn-secondary"
                                    StartIcon="@Icons.Material.Filled.UploadFile">
                             @(_importFile?.Name ?? "Chọn file Excel")
                         </MudButton>
                     </ActivatorContent>
                 </MudFileUpload>
-                <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="pos-btn-mockup"
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" Class="pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.PlaylistAddCheck"
                            Disabled="_importFile == null || _validating" OnClick="LoadImportAsync">
                     @(_validating ? "Đang nạp..." : "Import giá bán")
                 </MudButton>
             </MudItem>
             <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
-                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Class="pos-btn-mockup" FullWidth="true"
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Class="pos-btn-secondary" FullWidth="true"
                            StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplateAsync">
                     File mẫu
                 </MudButton>
@@ -142,10 +142,10 @@ else
         @if (_rows.Count > 0)
         {
             <div class="d-flex gap-2 flex-wrap">
-                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">Tổng: @_rows.Count</MudChip>
+                <span class="pos-status-chip">Tổng: @_rows.Count</span>
                 @if (_errorCount > 0)
                 {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled">Lỗi: @_errorCount</MudChip>
+                    <span class="pos-status-chip pos-status-error">Lỗi: @_errorCount</span>
                 }
             </div>
         }
@@ -154,7 +154,7 @@ else
     @* ── Lưới khai báo / preview ────────────────────────────────────────── *@
     <MudTable Items="@_rows" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm"
               Elevation="2" HorizontalScrollbar="true" T="PriceEditRow"
-              RowStyleFunc="@RowStyle" Class="pos-price-grid">
+              RowStyleFunc="@RowStyle" Class="pos-table pos-price-grid">
         <HeaderContent>
             <MudTh Style="width:56px">STT</MudTh>
             <MudTh Style="width:1%; white-space:nowrap">Nhóm giá</MudTh>

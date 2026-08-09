@@ -102,23 +102,20 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="SearchAsync" Disabled="@_searching"
                            FullWidth="true">
                     @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Tìm
                 </MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="ClearFilter"
                            FullWidth="true">
                     Xóa
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Success"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.FileDownload"
                            OnClick="ExportExcelAsync" Disabled="@(_items.Count == 0 || _exporting)"
                            FullWidth="true">
@@ -142,19 +139,19 @@
 {
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 130px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_items.Count</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Nhân viên</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND(_totalRevenue)</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh số</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 130px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@_totalOrders.ToString("N0")</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng hóa đơn</MudText>
             </MudPaper>
@@ -169,7 +166,7 @@
           HorizontalScrollbar="true"
           Loading="@_searching"
           SortLabel="Sắp xếp theo"
-          Class="mb-4">
+          Class="pos-table mb-4">
     <NoRecordsContent>
         @if (_searched)
         {

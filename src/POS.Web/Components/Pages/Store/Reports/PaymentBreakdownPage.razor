@@ -78,12 +78,10 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync" Disabled="@_loading" FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Default"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync" Disabled="@_loading" FullWidth="true">Xóa</MudButton>
             </MudStack>
@@ -111,7 +109,7 @@
 @* ── KPI Cards (equal height) ──────────────────────────────────────────────── *@
 <div class="d-flex flex-wrap gap-3 mb-4">
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_kpi.TotalPaymentAmount)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tiền thu (thuần)</MudText>
             <PosDeltaBadge Current="(decimal)_kpi.TotalPaymentAmount" Previous="(decimal?)_kpiPrev?.TotalPaymentAmount" Enabled="_compareEnabled" Class="mt-1"/>
@@ -120,7 +118,7 @@
     </div>
 
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Info">@_kpi.NonCashPct.ToString("0.0")%</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tỷ lệ KHÔNG tiền mặt</MudText>
             <PosDeltaBadge Current="(decimal)_kpi.NonCashPct" Previous="(decimal?)_kpiPrev?.NonCashPct" Enabled="_compareEnabled" AsPercentPoint="true" Class="mt-1"/>
@@ -129,7 +127,7 @@
     </div>
 
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND(_kpi.CashAmount)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tiền mặt</MudText>
             <PosDeltaBadge Current="(decimal)_kpi.CashAmount" Previous="(decimal?)_kpiPrev?.CashAmount" Enabled="_compareEnabled" Class="mt-1"/>
@@ -138,7 +136,7 @@
     </div>
 
     <div style="flex:1 1 150px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-secondary)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-secondary)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Secondary">@_kpi.TotalOrders.ToString("N0")</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số hóa đơn</MudText>
             <PosDeltaBadge Current="_kpi.TotalOrders" Previous="_kpiPrev?.TotalOrders" Enabled="_compareEnabled" Class="mt-1"/>
@@ -227,7 +225,7 @@
 </MudGrid>
 
 @* ── Bảng chi tiết ─────────────────────────────────────────────────────────── *@
-<MudTable Items="@_byMethod" Hover="true" Striped="true" Dense="true"
+<MudTable Class="pos-table" Items="@_byMethod" Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"
           HorizontalScrollbar="true" T="PaymentByMethodDto">

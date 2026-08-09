@@ -1,4 +1,4 @@
-﻿@page "/store/revenue-hourly"
+@page "/store/revenue-hourly"
 @namespace POS.Web.Components.Pages.Store
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
@@ -94,16 +94,12 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -137,7 +133,7 @@
 <div class="d-flex flex-wrap gap-3 mb-4">
 
     <div style="flex:1 1 140px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_kpi.GrossRevenue)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">DT Gộp</MudText>
             <PosDeltaBadge Current="_kpi.GrossRevenue" Previous="_kpiPrev?.GrossRevenue" Enabled="_compareEnabled" Class="mt-1"/>
@@ -146,7 +142,7 @@
     </div>
 
     <div style="flex:1 1 140px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-success)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@FormatVND(_kpi.NetRevenue)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">DT Thuần</MudText>
             <PosDeltaBadge Current="_kpi.NetRevenue" Previous="_kpiPrev?.NetRevenue" Enabled="_compareEnabled" Class="mt-1"/>
@@ -155,7 +151,7 @@
     </div>
 
     <div style="flex:1 1 140px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-info)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Info">@_kpi.TotalOrders.ToString("N0")</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số giao dịch</MudText>
             <PosDeltaBadge Current="_kpi.TotalOrders" Previous="_kpiPrev?.TotalOrders" Enabled="_compareEnabled" Class="mt-1"/>
@@ -164,7 +160,7 @@
     </div>
 
     <div style="flex:1 1 140px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-warning)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@FormatVND(_kpi.ATV)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">ATV</MudText>
             <PosDeltaBadge Current="_kpi.ATV" Previous="_kpiPrev?.ATV" Enabled="_compareEnabled" Class="mt-1"/>
@@ -173,7 +169,7 @@
     </div>
 
     <div style="flex:1 1 140px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-error)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@_kpi.TotalReturnOrders.ToString("N0")</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Hóa đơn hủy</MudText>
             <PosDeltaBadge Current="_kpi.TotalReturnOrders" Previous="_kpiPrev?.TotalReturnOrders" Enabled="_compareEnabled" LowerIsBetter="true" Class="mt-1"/>
@@ -182,7 +178,7 @@
     </div>
 
     <div style="flex:1 1 140px">
-        <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-tertiary)">
+        <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-tertiary)">
             <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Tertiary">@FormatVND(_kpi.TotalDiscount)</MudText>
             <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng giảm giá</MudText>
             <PosDeltaBadge Current="_kpi.TotalDiscount" Previous="_kpiPrev?.TotalDiscount" Enabled="_compareEnabled" LowerIsBetter="true" Class="mt-1"/>
@@ -199,7 +195,7 @@
         Xu hướng theo ngày (triệu đồng)
         @if (_compareEnabled && _kpiPrev != null)
         {
-            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined" Class="ml-2">So sánh kỳ trước</MudChip>
+            <span class="pos-status-chip">So sánh kỳ trước</span>
         }
     </MudText>
     @if (_lineEmpty)
@@ -232,9 +228,9 @@
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mr-1">Cao điểm:</MudText>
                     @foreach (var h in _peakHours.OrderByDescending(h => _hourlyValues[h]))
                     {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
+                        <span class="pos-status-chip pos-status-warning">
                             @($"{h}:00 – {h + 1}:00")
-                        </MudChip>
+                        </span>
                     }
                 </div>
             }
@@ -279,7 +275,7 @@
 </MudGrid>
 
 @* ── Bảng chi tiết theo ngày ─────────────────────────────────────────────── *@
-<MudTable Items="@_tableRows"
+<MudTable Class="pos-table" Items="@_tableRows"
           Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"

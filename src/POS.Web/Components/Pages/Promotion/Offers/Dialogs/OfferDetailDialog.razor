@@ -24,8 +24,8 @@
         </MudText>
     </TitleContent>
     <DialogContent>
-        <MudTabs Outlined="true" PanelClass="pa-3">
-            <MudTabPanel Text="Offer Header" Icon="@Icons.Material.Filled.Info">
+        <MudTabs Outlined="true">
+            <MudTabPanel Text="Offer Header" Icon="@Icons.Material.Filled.Info" PanelClass="pa-3">
                 @if (_headerLoading)
                 {
                     <MudProgressLinear Indeterminate="true" Color="Color.Primary"/>
@@ -50,17 +50,17 @@
                 }
             </MudTabPanel>
 
-            <MudTabPanel Text="Offer Buy" Icon="@Icons.Material.Filled.ShoppingCart">
+            <MudTabPanel Text="Offer Buy" Icon="@Icons.Material.Filled.ShoppingCart" PanelClass="pa-3">
                 <div class="d-flex flex-wrap gap-2 mb-2 align-center">
                     <MudTextField @bind-Value="_buySearch" Label="Tìm theo Mã sản phẩm (No)" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
                                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
                                   OnKeyUp="@(async e => { if (e.Key == "Enter") await _buyTable.ReloadServerData(); })"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
+                    <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary"
                                StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_buyExporting"
                                OnClick="ExportBuyAsync">@(_buyExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
                 </div>
-                <MudTable @ref="_buyTable" ServerData="LoadBuyAsync" Dense="true" Hover="true" Striped="true"
+                <MudTable Class="pos-table" @ref="_buyTable" ServerData="LoadBuyAsync" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferBuyDetailLineDto">
                     <HeaderContent>
                         <MudTh>Line</MudTh><MudTh>Mã</MudTh><MudTh style="white-space:normal">Tên</MudTh>
@@ -87,8 +87,8 @@
                 </MudTable>
             </MudTabPanel>
 
-            <MudTabPanel Text="Offer Benefits" Icon="@Icons.Material.Filled.CardGiftcard">
-                <MudTable @ref="_benefitTable" ServerData="LoadBenefitAsync" Dense="true" Hover="true" Striped="true"
+            <MudTabPanel Text="Offer Benefits" Icon="@Icons.Material.Filled.CardGiftcard" PanelClass="pa-3">
+                <MudTable Class="pos-table" @ref="_benefitTable" ServerData="LoadBenefitAsync" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferBenefitLineDto">
                     <HeaderContent>
                         <MudTh>Line</MudTh><MudTh>Mã</MudTh><MudTh style="white-space:normal">Tên</MudTh>
@@ -114,17 +114,17 @@
                 </MudTable>
             </MudTabPanel>
 
-            <MudTabPanel Text="Offer Get" Icon="@Icons.Material.Filled.Redeem">
+            <MudTabPanel Text="Offer Get" Icon="@Icons.Material.Filled.Redeem" PanelClass="pa-3">
                 <div class="d-flex flex-wrap gap-2 mb-2 align-center">
                     <MudTextField @bind-Value="_getSearch" Label="Tìm theo Mã sản phẩm (No)" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
                                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
                                   OnKeyUp="@(async e => { if (e.Key == "Enter") await _getTable.ReloadServerData(); })"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
+                    <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary"
                                StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_getExporting"
                                OnClick="ExportGetAsync">@(_getExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
                 </div>
-                <MudTable @ref="_getTable" ServerData="LoadGetAsync" Dense="true" Hover="true" Striped="true"
+                <MudTable Class="pos-table" @ref="_getTable" ServerData="LoadGetAsync" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferGetDetailLineDto">
                     <HeaderContent>
                         <MudTh>Line</MudTh><MudTh>Mã</MudTh><MudTh style="white-space:normal">Tên</MudTh>
@@ -151,17 +151,17 @@
                 </MudTable>
             </MudTabPanel>
 
-            <MudTabPanel Text="Offer Site" Icon="@Icons.Material.Filled.Store">
+            <MudTabPanel Text="Offer Site" Icon="@Icons.Material.Filled.Store" PanelClass="pa-3">
                 <div class="d-flex flex-wrap gap-2 mb-2 align-center">
                     <MudTextField @bind-Value="_siteSearch" Label="Tìm theo Mã cửa hàng" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:280px"
                                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Store"
                                   OnKeyUp="@(async e => { if (e.Key == "Enter") await _siteTable.ReloadServerData(); })"/>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
+                    <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary"
                                StartIcon="@Icons.Material.Filled.FileDownload" Disabled="_siteExporting"
                                OnClick="ExportSiteAsync">@(_siteExporting ? "Đang xuất..." : "Export To Excel")</MudButton>
                 </div>
-                <MudTable @ref="_siteTable" ServerData="LoadSiteAsync" Dense="true" Hover="true" Striped="true"
+                <MudTable Class="pos-table" @ref="_siteTable" ServerData="LoadSiteAsync" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferSiteLineDetailDto">
                     <HeaderContent>
                         <MudTh>Mã cửa hàng</MudTh><MudTh>Price Group</MudTh><MudTh>Kênh</MudTh>
@@ -180,8 +180,8 @@
                 </MudTable>
             </MudTabPanel>
 
-            <MudTabPanel Text="Offer Priority" Icon="@Icons.Material.Filled.LowPriority">
-                <MudTable @ref="_priorityTable" ServerData="LoadPriorityAsync" Dense="true" Hover="true" Striped="true"
+            <MudTabPanel Text="Offer Priority" Icon="@Icons.Material.Filled.LowPriority" PanelClass="pa-3">
+                <MudTable Class="pos-table" @ref="_priorityTable" ServerData="LoadPriorityAsync" Dense="true" Hover="true" Striped="true"
                           Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="OfferPriorityLineDto">
                     <HeaderContent>
                         <MudTh>Loại CTKM</MudTh><MudTh>Priority</MudTh><MudTh>Is Member</MudTh><MudTh>Is Duplicate</MudTh>
@@ -203,7 +203,7 @@
         </MudTabs>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Close" Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup">Đóng</MudButton>
+        <MudButton OnClick="Close" Class="pos-btn-mockup pos-btn-secondary">Đóng</MudButton>
     </DialogActions>
 </MudDialog>
 

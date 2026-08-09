@@ -1,4 +1,4 @@
-﻿@page "/catalog/provinces"
+@page "/catalog/provinces"
 @namespace POS.Web.Components.Pages.Catalog.Organization
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
@@ -63,7 +63,7 @@
 }
 
 @* ── Branch list ─────────────────────────────────────────────────────── *@
-<MudTable Items="@_filtered" Dense="true" Hover="true" Striped="true"
+<MudTable Class="pos-table" Items="@_filtered" Dense="true" Hover="true" Striped="true"
           Breakpoint="Breakpoint.Sm" Loading="@(_loading && !_allItems.Any())"
           HorizontalScrollbar="true" OnRowClick="@OnRowClick" T="BranchAdminDto"
           RowStyle="cursor:pointer">

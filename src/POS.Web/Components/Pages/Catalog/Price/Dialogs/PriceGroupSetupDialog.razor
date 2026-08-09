@@ -55,7 +55,7 @@
             Cửa hàng trong nhóm (@(_existingStores.Count + _newStores.Count))
         </MudText>
         <MudTable Items="_allRows" Dense="true" Hover="true" Elevation="0"
-                  HorizontalScrollbar="true" T="StoreRow" Class="mt-1">
+                  HorizontalScrollbar="true" T="StoreRow" Class="pos-table mt-1">
             <HeaderContent>
                 <MudTh>Mã CH</MudTh>
                 <MudTh Style="width:100%">Tên cửa hàng</MudTh>
@@ -68,11 +68,11 @@
                 <MudTd DataLabel="Trạng thái" Style="text-align:center">
                     @if (context.IsExisting)
                     {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Default">Đã gán</MudChip>
+                        <span class="pos-status-chip">Đã gán</span>
                     }
                     else
                     {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Info">Mới</MudChip>
+                        <span class="pos-status-chip pos-status-info">Mới</span>
                     }
                 </MudTd>
                 <MudTd DataLabel="Xóa" Style="text-align:center">
@@ -104,8 +104,8 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SubmitAsync">
+        <MudButton Class="pos-btn-secondary"  OnClick="Cancel" Variant="Variant.Outlined">Hủy</MudButton>
+        <MudButton Class="pos-btn-mockup"  Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SubmitAsync">
             @if (_saving)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>

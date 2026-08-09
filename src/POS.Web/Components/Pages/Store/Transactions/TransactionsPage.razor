@@ -94,15 +94,12 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -126,7 +123,7 @@
 }
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
-<MudTable Items="@_transactions"
+<MudTable Class="pos-table" Items="@_transactions"
           Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
           Loading="@_loading" LoadingProgressColor="Color.Primary"
@@ -165,11 +162,11 @@
         <MudTd DataLabel="Thao tác" Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Visibility"
                            Size="Size.Small" Color="Color.Primary"
-                           Title="Xem chi tiết"
+                           title="Xem chi tiết"
                            OnClick="@(() => OpenDetailAsync(context))"/>
             <MudIconButton Icon="@Icons.Material.Filled.Print"
                            Size="Size.Small" Color="Color.Default"
-                           Title="Print view (sắp ra mắt)"
+                           title="Print view (sắp ra mắt)"
                            Disabled="true"/>
         </MudTd>
     </RowTemplate>

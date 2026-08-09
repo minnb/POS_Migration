@@ -19,8 +19,7 @@
 <MudMessageBox @ref="_confirmBox" Title="@_confirmTitle" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="@(_confirmYesColor == Color.Success ? Variant.Filled : Variant.Outlined)"
-                   Color="@_confirmYesColor" Class="pos-btn-mockup">@_confirmYesText</MudButton>
+        <MudButton Class="@($"pos-btn-mockup {(_confirmYesColor == Color.Success ? "pos-btn-primary" : "pos-btn-secondary")}")">@_confirmYesText</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -30,20 +29,16 @@
         <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Quản lý người dùng
     </MudText>
-    <MudButton Variant="Variant.Outlined"
-               Color="Color.Primary"
-               Size="Size.Small"
+    <MudButton Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Lock"
                OnClick="@OpenChangePinDialogAsync"
-               Class="pos-page-header-btn pos-btn-mockup">
+               Class="pos-page-header-btn pos-btn-primary">
         Đổi mã PIN
     </MudButton>
-    <MudButton Variant="Variant.Filled"
-               Color="Color.Primary"
-               Size="Size.Small"
+    <MudButton Size="Size.Small"
                StartIcon="@Icons.Material.Filled.PersonAdd"
                OnClick="@(() => OpenDialogAsync(null))"
-               Class="pos-page-header-btn pos-btn-mockup">
+               Class="pos-page-header-btn pos-btn-mockup pos-btn-primary">
         Thêm người dùng
     </MudButton>
 </div>
@@ -62,7 +57,7 @@ else
     @* ── KPI Row ─────────────────────────────────────────────────────── *@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-primary)">
                 <div>
                     <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng tài khoản</MudText>
                     <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_users.Count</MudText>
@@ -71,7 +66,7 @@ else
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudPaper Class="pos-filter-panel pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-success)">
                 <div>
                     <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Đang hoạt động</MudText>
                     <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_users.Count(u => u.IsActive)</MudText>
@@ -80,7 +75,7 @@ else
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-error)">
+            <MudPaper Class="pos-filter-panel pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-error)">
                 <div>
                     <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tạm khóa</MudText>
                     <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Error">@_users.Count(u => !u.IsActive)</MudText>
@@ -125,11 +120,9 @@ else
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                               Class="pos-btn-mockup"
+                    <MudButton Class="pos-btn-mockup pos-btn-primary"
                                FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
-                    <MudButton Variant="Variant.Outlined"
-                               Class="pos-btn-mockup pos-btn-secondary-mockup"
+                    <MudButton Class="pos-btn-mockup pos-btn-secondary"
                                FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
                 </MudStack>
             </MudItem>
@@ -137,7 +130,7 @@ else
     </MudPaper>
 
     @* ── Table ───────────────────────────────────────────────────────────── *@
-    <MudTable Items="@_filteredUsers"
+    <MudTable Class="pos-table" Items="@_filteredUsers"
               Hover="true" Striped="true" Dense="true"
               Breakpoint="Breakpoint.Sm" Elevation="2"
               Loading="@_loading" LoadingProgressColor="Color.Primary"

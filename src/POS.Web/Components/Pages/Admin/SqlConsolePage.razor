@@ -1,4 +1,4 @@
-﻿@page "/admin/sql-console"
+@page "/admin/sql-console"
 @attribute [Authorize(Policy = WebPolicies.AdminOnly)]
 @rendermode InteractiveServer
 @implements IAsyncDisposable
@@ -178,39 +178,39 @@ else
         <div class="d-flex align-center gap-2 flex-wrap mb-3">
             @if (_pending.Kind == StatementKind.CreateProcedure)
             {
-                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                <span class="pos-status-chip pos-status-error">
                     Sẽ tạo/sửa stored procedure @(_pending.ObjectName ?? "(không xác định)")
-                </MudChip>
+                </span>
             }
             else if (_pending.Kind == StatementKind.TableDdl)
             {
-                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                <span class="pos-status-chip pos-status-error">
                     Sẽ tạo/sửa bảng @(_pending.ObjectName ?? "(không xác định)")
-                </MudChip>
+                </span>
             }
             else if (_pending.Kind == StatementKind.Other)
             {
-                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                <span class="pos-status-chip pos-status-error">
                     Sẽ thực thi thay đổi khác (DDL/Script) — kiểm tra kỹ trước khi Commit
-                </MudChip>
+                </span>
             }
             else
             {
-                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled">
+                <span class="pos-status-chip pos-status-error">
                     @_pending.RowsAffected dòng sẽ bị @(_pending.Kind switch
                     {
                         StatementKind.Insert => "thêm",
                         StatementKind.Delete => "xóa",
                         _ => "thay đổi"
                     })
-                </MudChip>
+                </span>
             }
-            <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined">
+            <span class="pos-status-chip">
                 @_pending.ElapsedMs ms
-            </MudChip>
-            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined">
+            </span>
+            <span class="pos-status-chip pos-status-warning">
                 Auto-rollback sau 60s nếu không hành động
-            </MudChip>
+            </span>
         </div>
 
         <MudStack Row="true" Spacing="2" Class="flex-wrap">
@@ -242,17 +242,17 @@ else
 @if (_result != null && _result.Success)
 {
     <div class="d-flex align-center gap-2 flex-wrap mb-3">
-        <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+        <span class="pos-status-chip pos-status-success">
             @_result.Rows.Count dòng
-        </MudChip>
-        <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+        </span>
+        <span class="pos-status-chip">
             @_result.ElapsedMs ms
-        </MudChip>
+        </span>
         @if (_result.Truncated)
         {
-            <MudChip T="string" Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small">
+            <span class="pos-status-chip pos-status-warning">
                 Kết quả bị cắt tại 500 dòng
-            </MudChip>
+            </span>
         }
     </div>
 }
@@ -268,7 +268,7 @@ else
     }
     else
     {
-        <MudTable Items="@_result.Rows"
+        <MudTable Class="pos-table" Items="@_result.Rows"
                   Hover="true" Striped="true" Dense="true"
                   Breakpoint="Breakpoint.None" Elevation="2"
                   HorizontalScrollbar="true">

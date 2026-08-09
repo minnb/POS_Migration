@@ -16,7 +16,7 @@
                        StartIcon="@Icons.Material.Filled.Search" OnClick="SearchAsync">Tìm</MudButton>
         </div>
 
-        <MudTable Items="@_results" Dense="true" Hover="true" Striped="true" FixedHeader="true"
+        <MudTable Class="pos-table" Items="@_results" Dense="true" Hover="true" Striped="true" FixedHeader="true"
                   Height="360px" Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true"
                   MultiSelection="true" @bind-SelectedItems="_selected" T="ItemOptionDto" Loading="_loading">
             <HeaderContent>

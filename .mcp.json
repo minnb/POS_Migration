@@ -19,6 +19,9 @@
         "--from", "redis-mcp-server@latest", "redis-mcp-server",
         "--url", "${REDIS_URL}"
       ]
+    },
+    "sherlock": {
+      "command": "sherlock-mcp"
     }
   }
 }

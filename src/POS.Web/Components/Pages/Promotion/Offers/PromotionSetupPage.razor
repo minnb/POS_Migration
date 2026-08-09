@@ -1,4 +1,4 @@
-﻿@page "/promotion/setup"
+@page "/promotion/setup"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
@@ -23,14 +23,14 @@
 <MudMessageBox @ref="_confirmBox" Title="Duyệt CTKM" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Success" Class="pos-btn-mockup">Duyệt</MudButton>
+        <MudButton Class="pos-btn-mockup pos-btn-primary">Duyệt</MudButton>
     </YesButton>
 </MudMessageBox>
 
 <MudMessageBox @ref="_confirmDiscountBox" Title="Xác nhận" CancelText="Không">
     <MessageContent>@_confirmDiscountMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Có</MudButton>
+        <MudButton Class="pos-btn-mockup pos-btn-secondary">Có</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -42,7 +42,7 @@
             <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
             Cài đặt CTKM
         </MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="pos-page-header-btn"
+        <MudButton Size="Size.Small" Class="pos-btn-mockup pos-page-header-btn pos-btn-primary"
                    StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNewAsync">Thêm CTKM</MudButton>
     </div>
 
@@ -96,16 +96,16 @@
             </MudItem>
             <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
+                    <MudButton Class="pos-btn-mockup pos-btn-primary"
                                FullWidth="true" OnClick="SearchAsync">Tìm</MudButton>
-                    <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
+                    <MudButton Class="pos-btn-mockup pos-btn-secondary"
                                FullWidth="true" OnClick="ClearFilterAsync">Xóa</MudButton>
                 </MudStack>
             </MudItem>
         </MudGrid>
     </MudPaper>
 
-    <MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+    <MudTable Class="pos-table" @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
               Breakpoint="Breakpoint.Sm" HorizontalScrollbar="true" T="PromotionSetupListItemDto">
         <HeaderContent>
             <MudTh Style="width:48px">STT</MudTh>
@@ -175,12 +175,12 @@ else
                 <span class="pos-status-chip pos-status-success ml-2">Đã duyệt — chỉ xem</span>
             }
         </MudText>
-        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary-mockup" OnClick="BackToList">Quay lại</MudButton>
+        <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowBack"
+                   Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary" OnClick="BackToList">Quay lại</MudButton>
     </div>
 
     @* ── Khối form cố định (ngoài 4 tab) — khớp SetupMain.cshtml gốc ── *@
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudPaper Elevation="2" Class="pos-filter-panel pa-4 mb-4">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="4" md="3">
                 <MudTextField Value="@_header.No" Label="Mã CTKM" ReadOnly="true"
@@ -261,7 +261,7 @@ else
         @if (!_isReadonly)
         {
             <div class="d-flex justify-end mt-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" Disabled="@(_saving || !CanSave)" OnClick="@(() => SaveAsync(true))">
+                <MudButton Class="pos-btn-mockup pos-btn-primary" Disabled="@(_saving || !CanSave)" OnClick="@(() => SaveAsync(true))">
                     @if (_saving)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
@@ -276,9 +276,9 @@ else
         }
     </MudPaper>
 
-    <MudTabs Outlined="true" ApplyEffectsToContainer="true" PanelClass="pa-4" SliderColor="Color.Primary">
+    <MudTabs Outlined="true" ApplyEffectsToContainer="true" SliderColor="Color.Primary">
         @* ── Tab Thông tin chung — điều kiện chung + bảng tóm tắt lịch áp dụng ── *@
-        <MudTabPanel Text="Thông tin chung" Icon="@Icons.Material.Filled.Info">
+        <MudTabPanel Text="Thông tin chung" Icon="@Icons.Material.Filled.Info" PanelClass="pa-4">
             @if (CurrentOfferTypeIsTotalBill)
             {
                 <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
@@ -295,7 +295,7 @@ else
             }
             <MudCard Elevation="2">
                 <MudCardContent>
-                    <MudTable Items="@(new[] { _header })" Dense="true" Hover="false" Elevation="0"
+                    <MudTable Class="pos-table" Items="@(new[] { _header })" Dense="true" Hover="false" Elevation="0"
                               HorizontalScrollbar="true" T="PromotionSetupHeaderDto">
                         <HeaderContent>
                             <MudTh>Mã CTKM</MudTh>
@@ -345,10 +345,10 @@ else
         @* ── Tab Sản phẩm mua (Buy) — ẩn cho ZB06/ZB13 và loại IsSetupBuy=0 ── *@
         @if (BuyTabVisible)
         {
-        <MudTabPanel Text="Sản phẩm mua" Icon="@Icons.Material.Filled.ShoppingCart">
+        <MudTabPanel Text="Sản phẩm mua" Icon="@Icons.Material.Filled.ShoppingCart" PanelClass="pa-4">
             <MudCard Elevation="1">
                 <MudCardContent>
-                    <MudTable Items="_buyRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                    <MudTable Class="pos-table" Items="_buyRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
                               HorizontalScrollbar="true" T="OfferBuyLineDto">
                         <ToolBarContent>
                             <MudNumericField T="int" @bind-Value="_bulkAddCountBuy" Label="Số lượng dòng" Style="max-width:140px"
@@ -362,7 +362,7 @@ else
                             <MudSpacer/>
                             @if (!_isReadonly)
                             {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Add"
+                                <MudButton Class="pos-btn-mockup pos-btn-primary" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="BulkAddBuyRows">Thêm dòng (Ctrl+A)</MudButton>
                             }
                         </ToolBarContent>
@@ -410,7 +410,7 @@ else
                                 else
                                 {
                                     <div class="d-flex align-center gap-1">
-                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" Class="pos-btn-mockup"
+                                        <MudButton Size="Size.Small" Class="pos-btn-primary"
                                                    Disabled="_isReadonly" StartIcon="@Icons.Material.Filled.Settings"
                                                    OnClick="@(() => OpenItemGroupSetupDialogAsync(context))">Cấu hình nhóm</MudButton>
                                         @if (!string.IsNullOrEmpty(context.GroupCode))
@@ -474,7 +474,7 @@ else
         @* ── Tab Sản phẩm khuyến mãi (Get) — ẩn khi IsSetupGet=0 ── *@
         @if (GetTabVisible)
         {
-        <MudTabPanel Text="Sản phẩm khuyến mãi" Icon="@Icons.Material.Filled.CardGiftcard">
+        <MudTabPanel Text="Sản phẩm khuyến mãi" Icon="@Icons.Material.Filled.CardGiftcard" PanelClass="pa-4">
             <MudCard Elevation="1">
                 <MudCardContent>
                     @if (CurrentOfferTypeIsGift)
@@ -490,7 +490,7 @@ else
                             (nhập ở tab "Thông tin chung"). Khi Duyệt, dữ liệu ghi vào bảng OfferBenefits.
                         </MudAlert>
                     }
-                    <MudTable Items="_getRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                    <MudTable Class="pos-table" Items="_getRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
                               HorizontalScrollbar="true" T="OfferGetLineDto">
                         <ToolBarContent>
                             <MudNumericField T="int" @bind-Value="_bulkAddCountGet" Label="Số lượng dòng" Style="max-width:140px"
@@ -524,7 +524,7 @@ else
                             }
                             @if (!_isReadonly && !_header.CheckTotalDiscount)
                             {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Add"
+                                <MudButton Class="pos-btn-mockup pos-btn-primary" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="BulkAddGetRows">Thêm dòng (Ctrl+A)</MudButton>
                             }
                         </ToolBarContent>
@@ -576,7 +576,7 @@ else
                                 else
                                 {
                                     <div class="d-flex align-center gap-1">
-                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" Class="pos-btn-mockup"
+                                        <MudButton Size="Size.Small" Class="pos-btn-primary"
                                                    Disabled="_isReadonly" StartIcon="@Icons.Material.Filled.Settings"
                                                    OnClick="@(() => OpenItemGroupSetupDialogAsync(context))">Cấu hình nhóm</MudButton>
                                         @if (!string.IsNullOrEmpty(context.GroupCode))
@@ -640,7 +640,7 @@ else
         }
 
         @* ── Tab Cửa hàng (Site) ── *@
-        <MudTabPanel Text="Cửa hàng áp dụng" Icon="@Icons.Material.Filled.Store">
+        <MudTabPanel Text="Cửa hàng áp dụng" Icon="@Icons.Material.Filled.Store" PanelClass="pa-4">
             <MudCard Elevation="1">
                 <MudCardContent>
                     @if (!_isReadonly)
@@ -650,11 +650,11 @@ else
                                              SearchFunc="SearchSiteGroupAsync" ToStringFunc="@(s => s == null ? "" : $"{s.SiteGroupCode} – {s.GroupName}")"
                                              ValueChanged="AddSite" Variant="Variant.Outlined" Margin="Margin.Dense"
                                              MaxItems="50" Style="max-width:420px" Clearable="true"/>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.Settings"
+                            <MudButton Class="pos-btn-primary" StartIcon="@Icons.Material.Filled.Settings"
                                        OnClick="OpenSiteGroupSetupDialogAsync">Chọn nhóm CH/ST</MudButton>
                         </div>
                     }
-                    <MudTable Items="_siteRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                    <MudTable Class="pos-table" Items="_siteRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
                               HorizontalScrollbar="true" T="OfferSiteLineDto">
                         <HeaderContent>
                             <MudTh>Site group</MudTh>
@@ -691,7 +691,7 @@ else
                     {
                         <MudPaper Elevation="1" Class="pa-3 mt-3">
                             <MudText Typo="Typo.subtitle2" Class="mb-2">Danh sách CH/ST — @_viewingSiteGroupCode</MudText>
-                            <MudTable Items="_viewingSiteStores" Dense="true" Hover="true" Striped="true" Elevation="0"
+                            <MudTable Class="pos-table" Items="_viewingSiteStores" Dense="true" Hover="true" Striped="true" Elevation="0"
                                       HorizontalScrollbar="true" T="SiteGroupStoreItemDto">
                                 <HeaderContent>
                                     <MudTh>Mã CH/ST</MudTh><MudTh>Tên CH/ST</MudTh>
@@ -711,7 +711,7 @@ else
         </MudTabPanel>
 
         @* ── Tab Cài đặt nâng cao (Advanced) ── *@
-        <MudTabPanel Text="Cài đặt nâng cao" Icon="@Icons.Material.Filled.Settings">
+        <MudTabPanel Text="Cài đặt nâng cao" Icon="@Icons.Material.Filled.Settings" PanelClass="pa-4">
             <MudCard Elevation="1" Class="mb-4">
                 <MudCardHeader>
                     <CardHeaderAvatar>
@@ -836,9 +836,9 @@ else
 
     @if (!_isReadonly && !string.IsNullOrEmpty(_header.No))
     {
-        <MudPaper Elevation="1" Class="pa-4 mt-4 d-flex justify-end gap-2 flex-wrap">
+        <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mt-4 d-flex justify-end gap-2 flex-wrap">
             <MudTooltip Text="Lưu tạm dữ liệu hiện tại rồi Duyệt & phát hành CTKM cho máy POS (không sửa lại được)">
-                <MudButton Variant="Variant.Filled" Color="Color.Success" Class="pos-btn-mockup" StartIcon="@Icons.Material.Filled.CheckCircle"
+                <MudButton Class="pos-btn-mockup pos-btn-primary" StartIcon="@Icons.Material.Filled.CheckCircle"
                            Disabled="_saving" OnClick="ApproveFromEditorAsync">Duyệt CTKM</MudButton>
             </MudTooltip>
         </MudPaper>

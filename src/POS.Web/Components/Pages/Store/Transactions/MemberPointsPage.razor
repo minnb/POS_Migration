@@ -27,9 +27,8 @@
         <MudIcon Icon="@Icons.Material.Filled.CardMembership" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Hội viên
     </MudText>
-    <MudButton Variant="Variant.Outlined"
-               StartIcon="@Icons.Material.Filled.FileDownload"
-               Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary-mockup"
+    <MudButton StartIcon="@Icons.Material.Filled.FileDownload"
+               Class="pos-page-header-btn pos-btn-mockup pos-btn-secondary"
                Disabled="@_exporting"
                OnClick="ExportToExcelAsync">
         @if (_exporting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
@@ -137,14 +136,11 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@OnSearch"
                            FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@OnReset"
                            FullWidth="true">Xóa</MudButton>
@@ -160,7 +156,7 @@
 }
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
-<MudTable @ref="_table"
+<MudTable Class="pos-table" @ref="_table"
           ServerData="LoadServerData"
           Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
@@ -201,7 +197,7 @@
         <MudTd DataLabel="Thao tác" Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Visibility"
                            Size="Size.Small" Color="Color.Primary"
-                           Title="Xem chi tiết"
+                           title="Xem chi tiết"
                            OnClick="@(() => OpenDetailDialog(context))"/>
         </MudTd>
     </RowTemplate>

@@ -17,6 +17,74 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-08-09 phiên tooling] Cài Sherlock MCP + skill `frontend-design` (fallback); `database-architect` bị chặn thiếu nội dung
+
+**Layer:** Tooling (`.mcp.json`, `.claude/skills/`) — không đụng code C#/Razor
+**Loại:** Thiết lập công cụ dev (không phải feature/bug fix nghiệp vụ)
+
+**Thay đổi:**
+- `.mcp.json`: thêm MCP server `sherlock` → `{"command": "sherlock-mcp"}`. Đã xác minh trước khi
+  thêm: package `Sherlock.MCP.Server` (NuGet, tác giả `jcucci`, MIT, v2.13.0, hỗ trợ .NET 8/9/10)
+  là thật, không phải hallucination. Cấu hình `dotnet tool run sherlock-mcp` đề xuất ban đầu SAI
+  cú pháp (repo chưa có `.config/dotnet-tools.json`) → dùng global tool + command trực tiếp theo
+  README chính chủ thay thế.
+- Máy dev (ngoài git, không thuộc working tree): đã chạy `dotnet tool install -g
+  Sherlock.MCP.Server`, xác nhận qua `dotnet tool list -g` → `sherlock.mcp.server 2.13.0`.
+- `.claude/skills/frontend-design/SKILL.md` (mới, untracked): tạo theo nhánh fallback vì lệnh gốc
+  `npx skills add anthropics/claude-code --skill frontend-design` **thất bại thật** — máy này
+  không có Node.js/npm/npx (`command not found`, exit 127). Nội dung ghi rõ đây KHÔNG phải nguồn
+  chuẩn UI — nguồn thật vẫn là `.claude/rules/mudblazor-flat-ui.md` (tự khai "nguồn sự thật duy
+  nhất") + skill `blazor-ui` sẵn có, tránh 2 nguồn song song.
+- `database-architect`: **CHƯA tạo**. Yêu cầu tạo skill này bị cắt nội dung 2 lần liên tiếp (dừng
+  ngay sau "Tạo file SKILL.md với Frontmatter:", không kèm frontmatter/nội dung) → đã hỏi lại user,
+  chưa nhận được phần còn thiếu tại thời điểm ghi entry này.
+
+**Phát hiện phụ (ngoài phạm vi sửa của phiên này — không đụng):** `git status` cho thấy **59 file
+`.razor` trong `src/POS.Web/`** đang modified nhưng KHÔNG phải do phiên này gây ra — khớp với cảnh
+báo "20+ file rác từ đợt V4 (15/07)" mà chính user nêu ngay từ đầu phiên làm việc này.
+
+**Lưu ý cho session sau:**
+1. `database-architect` đang treo — trước khi tạo, đối chiếu với skill `database` sẵn có
+   (`.claude/skills/database/SKILLS.md` + `.claude/rules/database-standards.md`, nguồn sự thật cho
+   naming SP `usp_{Domain}_{Action}`/TVP/manifest.json) để tránh trùng mục đích, đúng kiểu vấn đề
+   đã gặp với `frontend-design` vs `blazor-ui`.
+2. Chưa verify `sherlock`/`frontend-design` có thực sự được Claude Code CLI nhận diện (`/mcp`,
+   danh sách skill) — cần restart phiên CLI để xác nhận.
+3. 59 file `.razor` chưa commit vẫn còn nguyên trong working tree — cần user xác nhận có phải WIP
+   hợp lệ trước khi bất kỳ ai chạy `git add -A`/commit hàng loạt.
+
+---
+
+## [2026-08-09 phiên bổ sung] Audit git bundling & bổ sung backlog bàn giao ca (Promotion Setup V4)
+
+**Layer:** Tooling / quy trình (không đụng code C#)
+**Loại:** Git hygiene + cập nhật tài liệu bàn giao (không phải feature/bug fix code)
+
+**Bối cảnh:** phiên này được giao "đóng gói an toàn" cho task Promotion Setup V4 (xem entry
+`[2026-08-09] Rà soát & vá 5 điểm yếu...` ngay bên dưới) — nhưng khi kiểm tra, `PromotionSetupPage.razor`
+và `PromotionRepository.cs` **đã có sẵn trong commit `fd9823e` ("D")** trước khi phiên này bắt đầu
+(`git status --short` trên 2 file này → rỗng, không có gì để commit thêm).
+
+**Phát hiện:** `fd9823e` là 1 commit gộp **169 file / +42376/-1744 dòng** — lẫn 2 file Promotion
+Setup V4 với hàng loạt file không liên quan (`.claude/commands/`, `.claude/skills/{mcp-builder,pdf,
+skill-creator}/`, test UiTests...) — dấu hiệu lỡ chạy `git add -A`/`git add .` thay vì add đích danh
+từng file. Đã hỏi user: **giữ nguyên lịch sử, KHÔNG rewrite** (branch `minhnb` chưa có upstream nên
+rủi ro thấp, nhưng chọn phương án an toàn không đụng lịch sử).
+
+**Thay đổi:**
+- `COORDINATION.md`: thêm ghi chú về sự cố commit gộp `fd9823e` (cảnh báo phiên sau không
+  `git add -A`); thêm 2 bullet backlog "CHƯA VERIFY E2E (Promotion Setup V4)" + "GATED (Chờ DBA)"
+  theo yêu cầu tường minh của user.
+- **Không có code C#/DTO/pattern mới.** Không đụng `docs/CURRENT_STRUCTURE.md`/`WEB_STATUS.md`/
+  `SKILLS.md` — các file đó đã được cập nhật đầy đủ ở entry code fix bên dưới, từ phiên trước.
+
+**Lưu ý cho session sau:** `COORDINATION.md` hiện có **2 cặp mục trùng ý nhau** (CHƯA VERIFY E2E ×2,
+GATED chờ DBA ×2 — 1 cặp chi tiết từ đợt fix gốc, 1 cặp ngắn gọn vừa thêm theo yêu cầu tường minh của
+user) — cân nhắc gộp lại khi có dịp dọn dẹp bàn giao. Nhắc lại: tuyệt đối không `git add -A`/
+`git add .`/`git commit -a`, luôn add đích danh file.
+
+---
+
 ## [2026-08-09] Rà soát & vá 5 điểm yếu nghiệp vụ form Cài đặt CTKM (`PromotionSetupPage`)
 
 **Layer:** POS.Web + POS.Infrastructure

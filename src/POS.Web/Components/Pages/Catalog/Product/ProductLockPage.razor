@@ -1,4 +1,4 @@
-﻿@page "/catalog/product-lock"
+@page "/catalog/product-lock"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 @implements IDisposable
@@ -22,9 +22,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận thao tác" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="@(_confirmMsg.Contains("mở khóa") ? Variant.Filled : Variant.Outlined)"
-                   Color="@(_confirmMsg.Contains("mở khóa") ? Color.Primary : Color.Error)"
-                   Class="pos-btn-mockup">
+        <MudButton Class="@($"pos-btn-mockup {(_confirmMsg.Contains("mở khóa") ? "pos-btn-primary" : "pos-btn-secondary")}")">
             Xác nhận
         </MudButton>
     </YesButton>
@@ -82,14 +80,14 @@
 
         <MudItem xs="12" sm="12" md="3" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="SearchAsync" Disabled="@(_searching || string.IsNullOrEmpty(_filter.StoreNo))"
                            FullWidth="true">
                     @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1"/> }
                     Tìm
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="ClearFilter"
                            FullWidth="true">
@@ -104,18 +102,18 @@
 @* ── Bulk action bar ──────────────────────────────────────────────────────── *@
 @if (_selectedItems.Count > 0)
 {
-    <MudPaper Elevation="1" Class="pa-3 mb-3">
+    <MudPaper Class="pos-filter-panel pa-4 mb-3">
         <div class="d-flex align-center gap-3 flex-wrap">
             <MudText Typo="Typo.body2" Color="Color.Secondary">
                 Đã chọn <strong>@_selectedItems.Count</strong> sản phẩm
             </MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" Class="pos-btn-mockup"
+            <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-secondary"
                        StartIcon="@Icons.Material.Filled.Lock"
                        OnClick="@(() => BulkToggleAsync(true))"
                        Disabled="@_saving">
                 Khóa đã chọn
             </MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" Class="pos-btn-mockup"
+            <MudButton Size="Size.Small" Class="pos-btn-mockup pos-btn-primary"
                        StartIcon="@Icons.Material.Filled.LockOpen"
                        OnClick="@(() => BulkToggleAsync(false))"
                        Disabled="@_saving">
@@ -148,7 +146,7 @@ else
               Breakpoint="Breakpoint.Sm"
               HorizontalScrollbar="true"
               Loading="@_searching"
-              Class="mb-4">
+              Class="pos-table mb-4">
         <NoRecordsContent>
             <div class="d-flex flex-column align-center pa-6">
                 <MudIcon Icon="@Icons.Material.Filled.Inbox" Style="font-size:3rem;color:var(--pos-text-disabled)" Class="mb-2"/>

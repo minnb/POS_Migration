@@ -21,7 +21,7 @@
 <MudMessageBox @ref="_confirmBox" Title="Xác nhận xóa" CancelText="Hủy">
     <MessageContent>@_confirmMsg</MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="pos-btn-mockup">Xóa</MudButton>
+        <MudButton Class="pos-btn-mockup pos-btn-secondary">Xóa</MudButton>
     </YesButton>
 </MudMessageBox>
 
@@ -31,12 +31,10 @@
         <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         POS Data Setup
     </MudText>
-    <MudButton Variant="Variant.Filled"
-               Color="Color.Primary"
-               Size="Size.Small"
+    <MudButton Size="Size.Small"
                StartIcon="@Icons.Material.Filled.Add"
                OnClick="@(() => OpenDialogAsync(null))"
-               Class="pos-page-header-btn pos-btn-mockup">
+               Class="pos-page-header-btn pos-btn-mockup pos-btn-primary">
         Thêm cấu hình
     </MudButton>
 </div>
@@ -55,7 +53,7 @@ else
     @* ── KPI Row ─────────────────────────────────────────────────────── *@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-primary)">
                 <div>
                     <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng cấu hình</MudText>
                     <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_kpiTotal</MudText>
@@ -64,7 +62,7 @@ else
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-success)">
+            <MudPaper Class="pos-filter-panel pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-success)">
                 <div>
                     <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Số cửa hàng</MudText>
                     <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Success">@_kpiStores</MudText>
@@ -73,7 +71,7 @@ else
             </MudPaper>
         </div>
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-warning)">
+            <MudPaper Class="pos-filter-panel pa-4 pos-kpi-card-icon" Style="border-left:4px solid var(--mud-palette-warning)">
                 <div>
                     <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Thiếu Value</MudText>
                     <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Warning">@_kpiMissingValue</MudText>
@@ -105,11 +103,9 @@ else
             </MudItem>
             <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
                 <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                               Class="pos-btn-mockup"
+                    <MudButton Class="pos-btn-mockup pos-btn-primary"
                                FullWidth="true" OnClick="ApplyFilter">Tìm</MudButton>
-                    <MudButton Variant="Variant.Outlined"
-                               Class="pos-btn-mockup pos-btn-secondary-mockup"
+                    <MudButton Class="pos-btn-mockup pos-btn-secondary"
                                FullWidth="true" OnClick="ClearFilter">Xóa</MudButton>
                 </MudStack>
             </MudItem>
@@ -117,7 +113,7 @@ else
     </MudPaper>
 
     @* ── Table ───────────────────────────────────────────────────────────── *@
-    <MudTable Items="@_filteredItems"
+    <MudTable Class="pos-table" Items="@_filteredItems"
               Hover="true" Striped="true" Dense="true"
               Breakpoint="Breakpoint.Sm" Elevation="2"
               Loading="@_loading" LoadingProgressColor="Color.Primary"
@@ -152,7 +148,7 @@ else
             </MudTd>
             <MudTd DataLabel="Description">@context.Description</MudTd>
             <MudTd DataLabel="StoreNo">
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@context.StoreNo</MudChip>
+                <span class="pos-status-chip">@context.StoreNo</span>
             </MudTd>
             <MudTd DataLabel="Counter" Style="text-align:right">
                 <MudText Typo="Typo.caption" Style="color:var(--pos-text-muted)">@(context.Counter?.ToString() ?? "—")</MudText>

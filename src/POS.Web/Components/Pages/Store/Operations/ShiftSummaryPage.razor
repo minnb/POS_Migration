@@ -1,4 +1,4 @@
-﻿@page "/store/shift-summary"
+@page "/store/shift-summary"
 @namespace POS.Web.Components.Pages.Store
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
@@ -86,16 +86,12 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@LoadDataAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -117,19 +113,19 @@
     @* ── KPI Cards (4 — flex 1 dòng) ──────────────────────────────────────── *@
     <div class="d-flex flex-wrap gap-3 mb-4">
         <div style="flex:1 1 160px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@FormatVND(_summaries.Sum(s => s.TotalRevenue))</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng doanh thu</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="border-left:4px solid var(--mud-palette-primary)">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="Color.Primary">@_summaries.Sum(s => s.TotalTransactions)</MudText>
                 <MudText Typo="Typo.body2" Class="pos-kpi-label" Color="Color.Secondary">Tổng số GD</MudText>
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="@($"border-left:4px solid var(--mud-palette-{(_summaries.Sum(s => s.OpenCount) > 0 ? "error" : "success")})")">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="@($"border-left:4px solid var(--mud-palette-{(_summaries.Sum(s => s.OpenCount) > 0 ? "error" : "success")})")">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.OpenCount) > 0 ? Color.Error : Color.Success)">
                     @_summaries.Sum(s => s.OpenCount)
                 </MudText>
@@ -137,7 +133,7 @@
             </MudPaper>
         </div>
         <div style="flex:1 1 120px">
-            <MudPaper Elevation="2" Class="pa-4 text-center" Style="@($"border-left:4px solid var(--mud-palette-{(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? "warning" : "success")})")">
+            <MudPaper Class="pos-filter-panel pa-4 text-center" Style="@($"border-left:4px solid var(--mud-palette-{(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? "warning" : "success")})")">
                 <MudText Typo="Typo.h5" Class="pos-kpi-value" Color="@(_summaries.Sum(s => s.DiscrepancyCount) > 0 ? Color.Warning : Color.Success)">
                     @_summaries.Sum(s => s.DiscrepancyCount)
                 </MudText>
@@ -194,7 +190,7 @@
                 Phân tích theo số ca
             </MudText>
         </div>
-        <MudTable Items="@_summaries" Hover="true" Striped="true" Dense="true"
+        <MudTable Class="pos-table" Items="@_summaries" Hover="true" Striped="true" Dense="true"
                   Breakpoint="Breakpoint.Sm" Elevation="0"
                   HorizontalScrollbar="true">
             <HeaderContent>
@@ -249,7 +245,7 @@
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-2">(@_shifts.Count ca)</MudText>
                 </MudText>
             </div>
-            <MudTable Items="@_shifts" Hover="true" Striped="true" Dense="true"
+            <MudTable Class="pos-table" Items="@_shifts" Hover="true" Striped="true" Dense="true"
                       Breakpoint="Breakpoint.Sm" Elevation="0"
                       HorizontalScrollbar="true">
                 <HeaderContent>

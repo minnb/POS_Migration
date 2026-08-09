@@ -89,6 +89,11 @@ Chiến dịch dọn dẹp hệ thống điều phối AI (`CLAUDE.md` + `.claud
       `.claude/skills/database/SKILLS.md`, appsettings UAT/Production, thư mục `.github/`) có phải
       WIP hợp lệ từ task `[2026-07-14] Điều tra MasterDataZipGeneratorWorker...` hay không, trước
       khi bất kỳ ai commit — tránh gộp nhầm việc dở của task khác.
+- [ ] **CHƯA VERIFY E2E (Promotion Setup V4):** Sandbox hiện tại thiếu SQL Server/Redis. Cần QA test thủ công theo `docs/web/testing/promotion-setup.md §10.5`. Đặc biệt chú ý 3 hành vi UI mới:
+  1. Dọn field khi bỏ tick Voucher.
+  2. Chuẩn hoá format "020000" → "02:00:00" khi Enter.
+  3. Lệnh Trim() khi map xuống ZVCTIME_AFTER.
+- [ ] **GATED (Chờ DBA):** Bảng `OfferHeader` trên Production đang thiếu cột `ZVCDAY_AFTER`/`ZVCTIME_AFTER`. Tạm thời voucher delay vẫn rớt ở bước publish. Đã chốt: CỐ Ý KHÔNG SỬA SP/Table ở phase này, chờ DBA alter table.
 
 ## Next steps
 

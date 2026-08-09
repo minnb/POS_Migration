@@ -1,4 +1,4 @@
-﻿@page "/catalog/prices"
+@page "/catalog/prices"
 @attribute [Authorize(Policy = WebPolicies.BackOfficeAndAbove)]
 @rendermode InteractiveServer
 
@@ -28,7 +28,7 @@
         <MudIcon Icon="@Icons.Material.Filled.PriceChange" Size="Size.Small" Class="mr-2" Style="vertical-align:middle"/>
         Danh mục Bảng giá
     </MudText>
-    <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="pos-page-header-btn pos-btn-mockup"
+    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" Class="pos-page-header-btn pos-btn-mockup"
                StartIcon="@Icons.Material.Filled.FileDownload"
                Disabled="_exporting" OnClick="ExportExcelAsync">
         @(_exporting ? "Đang xuất..." : "Xuất Excel")
@@ -88,7 +88,7 @@
 }
 
 @* ── Price table (server-side) ───────────────────────────────────────────── *@
-<MudTable @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
+<MudTable Class="pos-table" @ref="_table" ServerData="LoadServerData" Dense="true" Hover="true" Striped="true"
           Breakpoint="Breakpoint.Sm" Elevation="2" HorizontalScrollbar="true" T="PriceListItemDto">
     <HeaderContent>
         <MudTh Style="width:48px">STT</MudTh>

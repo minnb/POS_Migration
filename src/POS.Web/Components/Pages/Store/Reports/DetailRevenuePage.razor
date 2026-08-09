@@ -1,4 +1,4 @@
-﻿@page "/store/revenue-detail"
+@page "/store/revenue-detail"
 @namespace POS.Web.Components.Pages.Store
 @attribute [Authorize(Policy = WebPolicies.StoreAndAbove)]
 @rendermode InteractiveServer
@@ -170,16 +170,12 @@
 
         <MudItem xs="12" sm="12" md="2" Class="d-flex align-center">
             <MudStack Row="true" Spacing="1" Class="w-100">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="pos-btn-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-primary"
                            StartIcon="@Icons.Material.Filled.Search"
                            OnClick="@SearchAsync"
                            Disabled="@_loading"
                            FullWidth="true">Tìm</MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Class="pos-btn-mockup pos-btn-secondary-mockup"
+                <MudButton Class="pos-btn-mockup pos-btn-secondary"
                            StartIcon="@Icons.Material.Filled.Clear"
                            OnClick="@ResetFilterAsync"
                            Disabled="@_loading"
@@ -197,7 +193,7 @@
 }
 
 @* ── Table ───────────────────────────────────────────────────────────── *@
-<MudTable @ref="_table"
+<MudTable Class="pos-table" @ref="_table"
           ServerData="ServerReloadAsync"
           Hover="true" Striped="true" Dense="true"
           Breakpoint="Breakpoint.Sm" Elevation="2"
