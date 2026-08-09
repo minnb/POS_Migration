@@ -190,21 +190,24 @@
    DrawerBackground = #0D1B2A (navy đậm, theo theme_html.html mockup).
    Active item = nền Primary đặc, chữ/icon trắng. */
 .mud-drawer .mud-nav-link.active {
-    background-color: var(--pos-primary) !important;
-    color: #FFFFFF !important;
+    background-color: var(--mud-palette-primary) !important;
+    color: var(--mud-palette-primary-text) !important;
     font-weight: 600;
-    border-radius: var(--pos-radius-sm);   /* mockup .nav-item dùng --radius (8px), không phải --radius-lg */
+    border-radius: 8px;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .mud-drawer .mud-nav-link.active .mud-icon-root {
-    color: #FFFFFF !important;
+    color: var(--mud-palette-primary-text) !important;
     opacity: 1 !important;
+    transition: color 0.2s ease;
 }
 
 /* Hover nhẹ cho non-active items */
 .mud-drawer .mud-nav-link:not(.active):hover {
-    background-color: var(--pos-drawer-hover) !important;
-    border-radius: var(--pos-radius-sm);
+    background-color: var(--mud-palette-action-default-hover) !important;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
 }
 
 /* ── Pixel-Perfect Refinement (theo theme_html.html .nav-item) ───────────
@@ -380,8 +383,8 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--pos-primary);
-    color: #FFFFFF;
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-text);
     display: flex;
     align-items: center;
     justify-content: center;

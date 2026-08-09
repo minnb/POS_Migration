@@ -12,7 +12,7 @@
 > |---|---|---|---|
 > | Đảm nhiệm | `PosFileImportService` (file .zip, dùng chung `ftpbluepos` với Web/Api) | `PosSalesConsumerWorker` (RabbitMQ) + `Rpt_ReportSaleDetail_Insert` (SQL) + heartbeat | `MasterDataZipGeneratorWorker` (poll watermark → sinh zip lên SFTP/FTP), có thể gộp thêm consumer nếu không dùng Docker |
 > | Cách chạy | `dotnet POS.Worker.dll --run-once` qua crontab, chạy 1 chu kỳ rồi thoát | `docker run`/`docker-compose` service `pos-worker`, process dài hạn trong container | `dotnet POS.Worker.dll` (không `--run-once`) làm systemd service, process dài hạn native trên host |
-> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override qua `-e` | `appsettings.ProductionHost.json` (`DOTNET_ENVIRONMENT=ProductionHost` — **không phải** `Production.json`, xem cảnh báo 2026-07-11 ở mục 9.4) + `WorkerRoles__*` override qua `Environment=` trong unit file |
+> | Cấu hình | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) | `appsettings.Production.json`/`UAT.json` + env `WorkerRoles__*` override qua `-e` | `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost` — **dùng chung file với Model A**, xem cảnh báo 2026-07-15 ở mục 9.4) + `WorkerRoles__*` override qua `Environment=` trong unit file |
 > | Chi tiết | mục 5 | mục 1-4 | mục **9** |
 >
 > Chọn Model C khi cần **daemon dài hạn nhưng không được phép chạy Docker** trên host — khác Model A
@@ -68,7 +68,7 @@ trên Ubuntu — cùng mục đích, khác cơ chế.
 | Cấu hình `FileImport` (path, poll interval...) | `docs/ROLLOUT.md` §O2 | Đã mô tả đầy đủ |
 | `appsettings.Production.json` (Worker) | `src/POS.Worker/appsettings.Production.json` | Khớp `src/POS.Api/appsettings.Production.json` (cùng `RabbitMQ:Host=host.docker.internal`, `Redis:SentinelHosts=172.17.0.1:6379`, `Redis:DefaultDatabase=0`). **File đã mã hóa `enc:...`** (RabbitMQ password + ConnectionStrings) — container **BẮT BUỘC** nhận biến môi trường `POS_SECRET_KEY` lúc `docker run`, xem cảnh báo ở mục 3. |
 | `appsettings.UAT.json` (Worker) | `src/POS.Worker/appsettings.UAT.json` | **Vừa tạo mới** (file này trước đây không tồn tại — xem mục 2) |
-| `appsettings.ProductionHost.json` (Worker) | `src/POS.Worker/appsettings.ProductionHost.json` | **Mới tách ra** — dùng khi chạy Worker **bare-metal song song với container Docker cùng roles** (RabbitMQ consumer + SQL report), vì SQL Server chạy trong Docker trên cùng host nên 2 ngữ cảnh cần địa chỉ khác nhau (`host.docker.internal` cho container vs `127.0.0.1` cho process bare) — xem mục 3.5 |
+| `appsettings.CronHost.json` (Worker) | `src/POS.Worker/appsettings.CronHost.json` | Config **DUY NHẤT cho mọi tiến trình bare-metal** trên Ubuntu host (`DOTNET_ENVIRONMENT=CronHost`) — dùng chung cho **cả Model A** (cron `--run-once`, mục 5) **lẫn Model C** (systemd daemon, mục 9) và biến thể chạy song song Docker (mục 3.5). Địa chỉ SQL/Redis/RabbitMQ dùng `127.0.0.1` (khác `host.docker.internal` của `Production.json` — Docker-only). Phân biệt vai trò giữa các tiến trình bare-metal chỉ qua `WorkerRoles__*` override trong `Environment=`/script của từng systemd unit hoặc crontab, KHÔNG qua file appsettings riêng (trước 2026-07-15 có thêm `appsettings.ProductionHost.json` tách riêng cho Model C — đã gộp lại vào file này, xem `docs/CHANGELOG.md` [2026-07-15]) |
 
 > ⚠️ **Lưu ý phạm vi**: `POS.Api` và `POS.Web` cũng đang thiếu `appsettings.UAT.json` tương tự — đây
 > là lỗ hổng có sẵn trong repo, **ngoài phạm vi việc deploy Worker lần này**. Nếu cần deploy UAT đầy
@@ -167,7 +167,7 @@ docker run -d --name pos-worker-uat \
 > việc xử lý file đã chuyển sang **Model A** (mục 5). `POS_SECRET_KEY` chỉ cần cho PROD (xem cảnh
 > báo phía trên) — UAT bỏ qua vì `appsettings.UAT.json` còn plaintext.
 
-## 3.5. Chạy song song bare-metal cùng roles với Docker (`appsettings.ProductionHost.json`)
+## 3.5. Chạy song song bare-metal cùng roles với Docker (`appsettings.CronHost.json`)
 
 > Áp dụng khi bạn cần chạy **CÙNG WorkerRoles** (RabbitMQ consumer + SQL report) vừa trong Docker
 > container (mục 3) **vừa bằng bản publish bare-metal** trên cùng Ubuntu host — không phải Model A
@@ -178,16 +178,21 @@ docker run -d --name pos-worker-uat \
 > KHÔNG resolve được bên ngoài container (chỉ có hiệu lực nhờ `--add-host` lúc `docker run`). Dùng
 > chung 1 file `appsettings.Production.json` cho cả 2 ngữ cảnh sẽ khiến 1 trong 2 luôn kết nối SQL
 > sai địa chỉ.
+>
+> **Cập nhật 2026-07-15**: bản bare-metal dùng chung `appsettings.CronHost.json` với Model A/Model C
+> (trước đây tách riêng `appsettings.ProductionHost.json` — file đó đã bị xoá). Vai trò
+> (`RabbitMQ consumer + SQL report` ở đây, hay `MasterDataZipGenerator` ở mục 9) chỉ khác nhau qua
+> `WorkerRoles__*` override trong `Environment=` của từng unit file, KHÔNG qua file appsettings.
 
 **Khác biệt so với `appsettings.Production.json` (bản Docker):**
 
-| Key | `Production.json` (Docker) | `ProductionHost.json` (bare-metal) |
+| Key | `Production.json` (Docker) | `CronHost.json` (bare-metal) |
 |---|---|---|
 | `RabbitMQ:Host` | `host.docker.internal` | `127.0.0.1` |
 | `ConnectionStrings:*` / `SetDb:DB1` | `Data Source=host.docker.internal,14333` | `Data Source=127.0.0.1,14333` |
-| `WorkerRoles:EnableHeartbeat` | `true` | **`false`** |
-| `Logging:FileLogDirectory` | `/srv/pos/logs/worker` | `/srv/pos/logs/worker-host` |
-| `Elasticsearch:IndexFormat` | (mặc định `pos-worker-logs-*`) | `pos-worker-host-logs-*` |
+| `WorkerRoles:EnableHeartbeat` | `true` | **`false`** (mặc định trong file — bật riêng qua `Environment=` nếu 1 instance cụ thể cần heartbeat, xem cảnh báo dưới) |
+| `Logging:FileLogDirectory` | `/srv/pos/logs/worker` | `/srv/pos/logs/worker` (giống nhau — dùng chung 1 thư mục log trên host cho cả Docker lẫn mọi tiến trình bare-metal) |
+| `Elasticsearch` | tắt (`Nodes:[""]`) | tắt (`Nodes:[""]`) |
 | `Redis:SentinelHosts`/`DefaultDatabase` | giống nhau (`172.17.0.1:6379`, DB 0) | giống nhau — địa chỉ này là interface `docker0` thật trên host, dùng được từ CẢ container lẫn bare process, không cần đổi |
 
 > ⚠️ **`EnableHeartbeat=false` là CHỦ Ý** — key Redis `Worker:Heartbeat:PosSalesConsumer` bị
@@ -220,13 +225,22 @@ Restart=always
 RestartSec=10
 KillSignal=SIGINT
 SyslogIdentifier=pos-worker-prodhost
-Environment=DOTNET_ENVIRONMENT=ProductionHost
+Environment=DOTNET_ENVIRONMENT=CronHost
 Environment=TZ=Asia/Ho_Chi_Minh
 Environment=POS_SECRET_KEY=<CÙNG giá trị đang dùng cho pos-api-prod/pos-web-prod/pos-worker-prod>
+Environment=WorkerRoles__EnableFileProcessing=false
+Environment=WorkerRoles__EnableRabbitMQConsumer=true
+Environment=WorkerRoles__EnableSqlReportWorker=true
+Environment=WorkerRoles__EnableHeartbeat=false
+Environment=WorkerRoles__EnableMasterDataZipGenerator=false
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+> `WorkerRoles__*` override BẮT BUỘC khai rõ ở đây — mặc định trong `appsettings.CronHost.json`
+> hiện đang bật `EnableMasterDataZipGenerator=true` (phục vụ Model C, mục 9), phải tắt lại và bật
+> đúng `EnableRabbitMQConsumer`/`EnableSqlReportWorker` cho unit này.
 
 ```bash
 sudo systemctl daemon-reload
@@ -234,7 +248,7 @@ sudo systemctl enable --now pos-worker-prodhost.service
 sudo journalctl -u pos-worker-prodhost.service -f
 ```
 
-`POS_SECRET_KEY` vẫn bắt buộc — `appsettings.ProductionHost.json` giữ nguyên các giá trị `enc:...`
+`POS_SECRET_KEY` vẫn bắt buộc — `appsettings.CronHost.json` giữ nguyên các giá trị `enc:...`
 (cùng token với `Production.json`, cùng khóa giải mã).
 
 ## 4. Kiểm chứng sau deploy (Model B)
@@ -423,13 +437,19 @@ sudo usermod -aG posops posworker
 
 ### 9.4. File unit `/etc/systemd/system/pos-worker.service`
 
-> ⚠️ **Cập nhật 2026-07-11 — `DOTNET_ENVIRONMENT` PHẢI là `ProductionHost`, KHÔNG phải
+> ⚠️ **Cập nhật 2026-07-11 — `DOTNET_ENVIRONMENT` PHẢI là bare-metal riêng, KHÔNG phải
 > `Production`.** `appsettings.Production.json` đã đổi `ConnectionStrings`/`SetDb` sang
 > `host.docker.internal` (fix lỗi Model B Docker không kết nối được SQL — xem `docs/CHANGELOG.md`
 > [2026-07-11]) — hostname này **chỉ resolve được bên trong container Docker**, KHÔNG resolve
-> được cho process bare-metal như Model C. Dùng `appsettings.ProductionHost.json` (đã có sẵn địa
+> được cho process bare-metal như Model C. Dùng `appsettings.CronHost.json` (đã có sẵn địa
 > chỉ `127.0.0.1` đúng cho bare-metal — xem mục 3.5) + override `WorkerRoles` qua `Environment=`
 > như dưới đây.
+>
+> ⚠️ **Cập nhật 2026-07-15 — `appsettings.ProductionHost.json` đã bị XOÁ.** Model C nay dùng
+> **CHUNG** `DOTNET_ENVIRONMENT=CronHost` với Model A (mục 5) — không còn file riêng cho bare-metal
+> daemon. Vai trò MasterDataZipGenerator vẫn được kích hoạt qua `WorkerRoles__*` trong `Environment=`
+> của unit file như trước; `--run-once` (Model A) không đọc `WorkerRoles` nên dùng chung file không
+> ảnh hưởng tới cron.
 
 ```ini
 [Unit]
@@ -446,7 +466,7 @@ Restart=always
 RestartSec=10
 KillSignal=SIGINT
 SyslogIdentifier=pos-worker
-Environment=DOTNET_ENVIRONMENT=ProductionHost
+Environment=DOTNET_ENVIRONMENT=CronHost
 Environment=TZ=Asia/Ho_Chi_Minh
 Environment=POS_SECRET_KEY=<CÙNG giá trị đang dùng cho pos-api-prod/pos-web-prod/pos-worker-prod>
 Environment=WorkerRoles__EnableFileProcessing=false

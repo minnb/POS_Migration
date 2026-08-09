@@ -295,7 +295,6 @@ run*.log
 !**/appsettings.Production.json
 !**/appsettings.UAT.json
 !**/appsettings.CronHost.json
-!**/appsettings.ProductionHost.json
 # Solution & project config mới
 !*.slnx
 

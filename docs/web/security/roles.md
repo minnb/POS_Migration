@@ -251,7 +251,7 @@ biệt chính giữa `OpsAndAbove` và `BackOfficeAndAbove` sau khi thêm role `
 
 ### 6.2 Tạo user trực tiếp bằng SQL (khi cần seed/khôi phục)
 
-- Dùng skill `/web-gen-hash` để sinh BCrypt hash cho password trước khi viết `INSERT`.
+- Dùng skill `/web-ops gen-hash` để sinh BCrypt hash cho password trước khi viết `INSERT`.
 - Xem mẫu seed trong `001_DashboardUsers.sql` (user `admin` mặc định).
 - **Role phải khớp chính xác** 1 trong 4 chuỗi: `StoreOperator` / `BackOffice` / `ITOps` /
   `SystemAdmin` (phân biệt hoa/thường, không có khoảng trắng) — sai chính tả sẽ khiến
@@ -310,4 +310,4 @@ dạng JSON. Xem lịch sử tại `/admin/audit` (`AuditPage`, `AdminOnly`).
 | Luồng đăng nhập chi tiết (bridge token, cookie) | `docs/web/logic/login-flow.md` |
 | Audit log CRUD pattern | `.claude/skills/web/audit-logging.md` |
 | Cấu trúc code dùng chung (DTO/Service/Repository) | `docs/CURRENT_STRUCTURE.md` |
-| Slash command sinh BCrypt hash | `/web-gen-hash` |
+| Slash command sinh BCrypt hash | `/web-ops gen-hash` |

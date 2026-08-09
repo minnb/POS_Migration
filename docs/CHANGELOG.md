@@ -17,6 +17,455 @@
 > trên toàn `docs/` → 0 kết quả; không còn tiêu đề `## [...]` nào trùng lặp (kiểm tra bằng
 > `sort | uniq -d`).
 
+## [2026-08-09] Rà soát & vá 5 điểm yếu nghiệp vụ form Cài đặt CTKM (`PromotionSetupPage`)
+
+**Layer:** POS.Web + POS.Infrastructure
+**Loại:** Bug fix (2 bug thật) + siết validation
+
+**Kết quả rà soát 5 mục — 3 mục đã đúng sẵn, KHÔNG sửa** (xác minh bằng đọc code, chưa chạy DB):
+- `TOTALMINVALUE`: `SaveSetupAsync` suy server-side từ cờ `OfferType.IsTotalBill`, **không tin giá
+  trị client** (`PromotionRepository.cs:286-290, 369`) → `SetupPromotion_Save.sql:209/239/259`.
+- `TOTALDISCOUNTTYPE`: save `0→'%' 2→'P' else 'R'` (`SetupPromotion_Save.sql:213`), đọc lại đối
+  xứng (`PromotionRepository.cs:180-181`), khớp `Setup_Promotion_Insert.sql:86`.
+- Advanced: `PriorityBBY` (1–10), `MaxQuantity`, `LimitQty` (nhãn "Giới hạn KH / Limit by
+  customer") đều có trên tab Nâng cao và bind đúng. Lưu ý: **không có** property tên
+  `LimitByCustomer` — khái niệm đó chính là `LimitQty`.
+
+**Thay đổi:**
+- `src/POS.Web/.../Promotion/Offers/PromotionSetupPage.razor`: `Quantity` `Min="0"`→`Min="1"` (tab
+  Buy + Get); `SaveAsync` lọc dòng trống (+Snackbar báo số dòng bỏ qua) rồi chặn sớm 3 lớp
+  (`Quantity<1`, `MinValue<=0` khi CTKM tổng bill, `AllowUseAfterTime` sai format); dọn
+  `AllowUseAfterDay/Time` khi `!IsVoucher`; thêm `FormatTimeDigitsWithSeconds` +
+  `OnAllowUseAfterTimeKeyUp` (Enter → chuẩn hoá `"020000"`→`"02:00:00"`) + `HelperText`.
+- `src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs`: `BuildBuyTable`/
+  `BuildGetTable` thêm `.Where(HasLineItem)`; validate format `hh:mm:ss` cho `AllowUseAfterTime`;
+  `Trim()` giá trị trước khi `p.Add("@AllowUseAfterTime", …)`.
+- `COORDINATION.md`, `docs/WEB_STATUS.md`, `.claude/skills/web/SKILLS.md`.
+
+**2 BUG THẬT đã fix:**
+1. **Dòng Buy/Get trắng ghi xuống DB → nguy cơ chia 0 ở engine.** Validate `Quantity≥1` bị gate bởi
+   `HasLineItem(r)` nên dòng trắng lọt qua, còn `BuildBuyTable`/`BuildGetTable` ghi **mọi** dòng vào
+   TVP (`MAT_QUAN='0'`). Nhánh `MGP` của `Setup_Promotion_Insert.sql:126-135` **không** lọc
+   `MATGROUP<>''` (chỉ nhánh `MAT` lọc `MAT_NR<>''` ở `:150`) → publish `OfferBuy` có `No=''`,
+   `Quantity=0`, `Step=0` → vỡ phép chia **không guard** trong `docs/web/offers/offer_procedure.sql`
+   (L941, L1001, L2338, L2940, L10855, L10860 — `@StepQty` bind từ `Quantity`).
+2. **Voucher delay ghi được dữ liệu rác.** `SaveAsync` dọn `VoucherFromDate/ToDate` khi
+   `!IsVoucher` nhưng **bỏ sót** `AllowUseAfterDay/Time`; validate 2 field này lại gate theo
+   `IsVoucher`, còn `p.Add(...)` ghi vô điều kiện → tick Voucher → nhập giờ sai → **bỏ tick** → Lưu
+   ⇒ chuỗi rác xuống `ZVCDAY_AFTER`/`ZVCTIME_AFTER`.
+
+**Pattern mới:** "Field trong khối `@if` có điều kiện — PHẢI dọn khi điều kiện tắt" + "Ô nhập giờ
+dạng text — chuẩn hoá khi Enter, KHÔNG âm thầm xoá input sai" → đã thêm vào
+`.claude/skills/web/SKILLS.md`.
+
+**Bằng chứng:** `dotnet build POS.slnx` → 0 error; `dotnet test tests/POS.ContractTests` →
+49/49 passed. `tests/POS.UnitTests` có 1 test đỏ (`LogFileServiceTests.GetDirectoryListingAsync_
+realConfiguredLogDirectory_listsActualSubfolders`) hardcode `D:\ROOT\Logs` — phụ thuộc môi trường
+máy, không liên quan code CTKM; **chưa chạy baseline trước khi sửa** nên không khẳng định được nó đã
+đỏ từ trước.
+
+**CHƯA VERIFY end-to-end** (sandbox thiếu SQL Server/Redis) — cần test tay theo
+`docs/web/testing/promotion-setup.md §10.5`.
+
+**Lưu ý cho session sau:** 🔴 GAP chờ DBA — `OfferHeader` (60 cột,
+`docs/architecture/centralMD-schema.md:997-1064`) **thiếu** cột `ZVCDAY_AFTER`/`ZVCTIME_AFTER` nên
+voucher delay lưu nháp thành công nhưng **rớt hoàn toàn khi publish**; engine cũng chưa đọc 2 cột
+(0 hit). Đợt này **cố ý không** ALTER bảng/sửa SP publish. Ngoài ra working tree đang có 20+ file
+chưa commit **từ đợt V4 2026-07-15/16** — commit chọn lọc, đừng `git add -A`.
+
+---
+
+## [2026-08-09] Refactor `.claude/commands/` → `.claude/skills/`: gộp 9 lệnh thành 3 skill
+
+**Layer:** Tooling (`.claude/commands/`, `.claude/skills/`) — không đụng code C#
+**Loại:** Refactor (chuẩn hóa cấu trúc Claude Code, không đổi hành vi nghiệp vụ)
+
+**Thay đổi:**
+- `.claude/commands/task-review.md` (mới): gộp `/review-task` cũ — rà soát code chỉ đọc, giữ
+  nguyên toàn bộ quy trình + checklist gốc, bổ sung fallback `git --no-pager diff`/`--staged` và
+  case "diff rỗng → dừng, không tự tìm file khác để review".
+- `.claude/skills/blazor-ui/SKILL.md` (mới): gộp 6 lệnh cũ (`/web-add-feature`,
+  `/web-ui-chart`, `/web-ui-data-table`, `/web-ui-kpi-row`, `/web-ui-confirm-dialog`,
+  `/web-ui-status-grid`) thành 1 skill `/blazor-ui [feature|chart|table|kpi|dialog|grid]` —
+  điều phối theo đối số đầu, chỉ đọc đúng 1 mục (§A–§F) tương ứng để tiết kiệm context. Đã
+  verify đủ 13 code-marker đặc trưng của cả 6 lệnh gốc còn nguyên trong nội dung gộp.
+- `.claude/skills/web-ops/SKILL.md` (mới): gộp `/web-check-status` + `/web-gen-hash` thành
+  `/web-ops [check-status|gen-hash]`. Verify đủ 6 marker (build command, migration SQL,
+  HASH_PLACEHOLDER, BCrypt.Net-Next, workFactor 11, bridge endpoint).
+- Đã xóa: `.claude/commands/{review-task,web-add-feature,web-check-status,web-gen-hash,
+  web-ui-chart,web-ui-confirm-dialog,web-ui-data-table,web-ui-kpi-row,web-ui-status-grid}.md`
+  (9 file) sau khi xác nhận nội dung đã copy an toàn sang skill mới.
+- Cập nhật tham chiếu lệnh cũ sang lệnh mới: `CLAUDE.md` (bảng lệnh hệ thống),
+  `.claude/rules/blazor-web-app.md` (mục 12 + LUẬT THÉP bước 5), `.claude/skills/web/SKILLS.md`
+  (link pattern MudMessageBox), `.claude/commands/refactor-skills.md` (ví dụ minh họa),
+  `docs/web/security/roles.md`, `docs/ROLLOUT.md`, `docs/web/testing/testing_login_guide.md`,
+  `README.md`.
+
+**Pattern mới (nếu có):** Không phải pattern code C# — là cấu trúc tổ chức skill/command
+(nhóm nhiều biến thể cùng domain UI vào 1 skill, điều phối bằng đối số đầu `$ARGUMENTS`, mỗi
+biến thể tự chứa đủ luật + code mẫu trong 1 mục con `§X` để không phải load toàn bộ file). Không
+cập nhật `.claude/skills/{api,cache,web}/SKILLS.md` vì đây không phải pattern nghiệp vụ POS.Web.
+
+**Lưu ý cho session sau:** Lệnh gọi feature/UI POS.Web đã đổi tên — dùng `/blazor-ui feature`
+(không còn `/web-add-feature`), `/blazor-ui chart|table|kpi|dialog|grid` (không còn 6 lệnh
+`/web-ui-*` cũ), `/web-ops check-status|gen-hash` (không còn `/web-check-status`/`/web-gen-hash`
+riêng). Rà soát code dùng `/task-review` (không còn `/review-task`). `.claude/commands/` vẫn còn
+tồn tại vì còn 5 file khác (`add-dto-common`, `refactor-skills`, `task-done`, `task-resume`,
+`task-review`) — KHÔNG tự xóa thư mục này.
+
+---
+
+## [2026-07-16] CTKM: bắt buộc chọn nhóm cửa hàng + smoke test dùng mã sản phẩm THẬT (config)
+
+**Layer:** POS.Infrastructure (C#) + POS.Web + test tooling
+**Loại:** Bug fix (validation) + cải tiến test
+
+**Thay đổi:**
+- `src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs`: `SaveSetupAsync` validate
+  bắt buộc ≥1 nhóm cửa hàng (`siteTable.Rows.Count==0` → trả lỗi) — CTKM không site publish 0 dòng
+  Offer* lúc Duyệt.
+- `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`: `CanSave` thêm
+  `_siteRows.Count > 0` (disable "Lưu tạm" đến khi chọn nhóm cửa hàng).
+- `tests/POS.Web.UiTests/smoke_promotion_setup.py`: (1) `add_site_group()` chọn nhóm cửa hàng
+  (mặc định `POSWEB_TEST_SITE_GROUP`=2018, fallback nhóm đầu nếu không có); (2) loader
+  `test_products.json` + `random_product()` → điền **ItemNo + Uom THẬT** vào ô "Nhập barcode..."
+  (`context.No`) và "ĐVT" (`context.UnitOfMeasure`), bỏ mã hardcode `TESTSKU*`; override qua
+  `POSWEB_TEST_PRODUCTS_FILE`.
+- `tests/POS.Web.UiTests/test_products.json` (mới): danh sách mã sản phẩm thật để chọn ngẫu nhiên.
+- `docs/sql/_diag/{Diag_SetupPromotion_Insert_ZB06,Diag_Publish_ZB06_6000000047}.sql`: script chẩn
+  đoán read-only (không đăng ký manifest).
+
+**Lưu ý cho session sau:** smoke test nay **dùng mã sản phẩm thật** từ `test_products.json` — điền
+mã có trong `dbo.Item` trước khi chạy (chưa điền → WARN + placeholder). Nhóm cửa hàng mặc định
+'2018' KHÔNG có trong dev hiện tại → test fallback nhóm 'ALL'. Cần POS.Web đang chạy để verify
+e2e; lần chạy cuối app đã tắt (`ERR_CONNECTION_REFUSED`) nên **chưa verify e2e với mã thật**.
+
+## [2026-07-16] Fix publish CTKM ZB06 rỗng — LIMIT='5.000' vỡ CONVERT int trong SP legacy (nuốt lỗi)
+
+**Layer:** POS.Infrastructure (C#) + SQL (CentralMD)
+**Loại:** Bug fix (backend). Verify bằng DB count thật.
+
+**Bối cảnh:** Sau fix 266, Duyệt CTKM ZB06 báo "thành công" nhưng **0 dòng sang Offer***; `EXEC
+Setup_Promotion_Insert '6000000047'` không ra dữ liệu.
+
+**Nguyên nhân (CONFIRMED — chạy `docs/sql/_diag/Diag_Publish_ZB06_6000000047.sql`):** cột
+`SetupPromotionHEADER.LIMIT` chứa `'5.000'` (ô "Giới hạn KH/Limit by customer"=5). `PromotionSetupDto.LimitQty`
+là `decimal`, `(5.000m).ToString(InvariantCulture)`="5.000" (decimal giữ scale). SP legacy
+`Setup_Promotion_Insert` dòng 82 `IIF(H.LIMIT='' OR..., 9999, H.LIMIT)` gán vào `OfferHeader.LimitQty`
+(INT) → ép ngầm `'5.000'→int` ném **Msg 245**. SP legacy **nuốt lỗi** (CATCH chỉ ROLLBACK, KHÔNG
+THROW, KHÔNG ghi Interface_Errors) → cả transaction rollback → 0 dòng ở MỌI Offer*, SP trả về
+"thành công". OfferHeader KHÔNG phụ thuộc site (đính chính giả thuyết "site-driven" trước đó).
+
+**Fix:**
+1. `PromotionRepository.SaveSetupAsync` — `@LimitQty` ghi `.ToString("F0", InvariantCulture)` → "5"
+   (số nguyên), không còn "5.000".
+2. `usp_SetupPromotion_Approve` (`SetupPromotion_ApproveAndStatus.sql`) — sau `EXEC
+   Setup_Promotion_Insert`, nếu `OfferHeader` không có dòng cho BBYNR → `THROW 51003` (chống
+   "success giả" do SP legacy nuốt lỗi). Thêm 51003 vào `KnownBusinessErrorNumbers`.
+
+**Verify (DB count thật, BBYNR 6000000048):** OfferHeader=1, OfferBenefits=1, OfferGet=0 (đúng
+total-bill), OfferSite=1, `LIMIT`='5'. Smoke test ZB06 `SUMMARY: ALL PASSED`.
+
+## [2026-07-16] Fix Duyệt CTKM ZB06 fail — SQL Error 266 (trancount mismatch) do wrapper bọc transaction
+
+**Layer:** SQL (CentralMD) — `docs/sql/SetupPromotion_ApproveAndStatus.sql`
+**Loại:** Bug fix (backend). Verify bằng `smoke_promotion_setup.py` ZB06 → `SUMMARY: ALL PASSED`.
+
+**Bối cảnh:** Chạy `tests/POS.Web.UiTests/smoke_promotion_setup.py` với `POSWEB_TEST_OFFER_TYPES=ZB06`
+FAIL ở CTKM-13 (Duyệt CTKM) + CTKM-14 — snackbar "Lỗi hệ thống". Khâu TẠO (Lưu tạm) ZB06 vốn đã
+PASS, chỉ bước Duyệt lỗi.
+
+**Nguyên nhân (verify từ log + DB thật):** `D:\ROOT\Logs\POS.Web\Exception\log-20260716.txt` ghi
+lặp `SqlException Error 266` tại `PromotionRepository.ApproveSetupAsync:402`: "Transaction count
+after EXECUTE indicates a mismatching number of BEGIN and COMMIT statements. Previous count = 1,
+current count = 0." `usp_SetupPromotion_Approve` mở `BEGIN TRANSACTION` (trancount=1) rồi
+`EXEC [dbo].[Setup_Promotion_Insert]` — SP legacy này **tự quản transaction** và có nhánh
+`ROLLBACK`/COMMIT làm trancount tụt về 0 khi bị bọc trong tran ngoài → SQL ném 266 ngay tại EXEC.
+266 không thuộc `KnownBusinessErrorNumbers` → C# rơi catch chung → "Lỗi hệ thống". Chẩn đoán DB
+(`docs/sql/_diag/Diag_SetupPromotion_Insert_ZB06.sql`) chứng minh: **EXEC `Setup_Promotion_Insert`
+trực tiếp (không bọc tran) chạy KHÔNG lỗi** → không có lỗi nghiệp vụ ZB06, 266 là toàn bộ vấn đề.
+Đây đúng anti-pattern `.claude/rules/database-standards.md` cấm ("gọi SP legacy có ROLLBACK").
+
+**Fix:** Bỏ `BEGIN/COMMIT TRANSACTION` bọc ngoài trong `usp_SetupPromotion_Approve`, để SP legacy
+tự quản transaction. Đảo thứ tự: `EXEC Setup_Promotion_Insert` publish TRƯỚC → thành công mới
+`UPDATE IsApprove=1` → đọc `MAX(Counter)` gán OUTPUT param (không đổi chữ ký, C# giữ nguyên). Giữ
+`SET NOCOUNT/XACT_ABORT ON`, guard 51002, THROW lại lỗi gốc (nay không còn bị 266 che).
+
+**Verify:** deploy `SetupPromotion_ApproveAndStatus.sql` → chạy lại ZB06 test: CTKM-02/13/14 đều
+PASS, `SUMMARY: ALL PASSED`, không sinh entry 266 mới trong log. `dotnet test tests/POS.ContractTests`
+49/49 xanh.
+
+## [2026-07-16] Auto-test Playwright cho PromotionSetupPage (Cài đặt CTKM) + filter theo OfferType
+
+**Layer:** POS.Web (Docs/QA + test tooling — không đổi code C#/SQL)
+**Loại:** Pattern mới (Playwright/MudBlazor testing) + **Bug thật phát hiện ở SP** (chưa fix)
+
+**Bối cảnh:** User yêu cầu viết script Playwright test trang Cài đặt CTKM (`/promotion/setup`,
+`PromotionSetupPage.razor`) theo đúng khuôn đã dùng cho `smoke_coupon_issue.py`. Trang này phức
+tạp hơn Coupon nhiều: 1 file Razor vừa là list vừa là editor (toggle `_editing`), 5 tab, tab
+Buy/Get ẩn-hiện động theo cờ `dbo.OfferType`, và có nút Duyệt publish dữ liệu thật sang `Offer*`.
+
+**Kết quả — auto-test `tests/POS.Web.UiTests/smoke_promotion_setup.py`** (Playwright, theo khuôn
+`smoke_coupon_issue.py`): positive flow đầy đủ gồm Duyệt (CTKM-02/10/11/13/14/23) + 3 case negative
+(CTKM-03/04/22) + 2 case conditional (CTKM-18/19) + **sweep** tự động qua TOÀN BỘ Loại CTKM có
+trong dropdown (tự điền MinValue/Voucher date theo cờ động, không hardcode mã ZB) + **filter theo
+Loại cụ thể** qua biến môi trường `POSWEB_TEST_OFFER_TYPES` (bổ sung theo yêu cầu thêm của user —
+tránh phải sweep hết mọi Loại khi chỉ cần test kỹ 1 Loại). Đã chạy thật nhiều lần (không filter +
+có filter `ZB06`) trên dev tới khi mọi selector đúng.
+
+**🔴 Bug thật phát hiện (CONFIRMED, tái hiện 100%, chưa fix):** `usp_SetupPromotion_Approve`
+(`docs/sql/SetupPromotion_ApproveAndStatus.sql`) lỗi SQL Server 266 "Transaction count after
+EXECUTE indicates a mismatching number of BEGIN and COMMIT statements" mỗi khi gọi — `BEGIN
+TRANSACTION` tường minh bọc ngoài `EXEC Setup_Promotion_Insert` (SP legacy tự quản lý transaction
+riêng) làm lệch `@@TRANCOUNT`; `SET XACT_ABORT ON` khiến lỗi này **rollback toàn bộ** kể cả
+`UPDATE IsApprove=1` đã chạy trước đó → **nút "Duyệt CTKM" hoàn toàn không dùng được** trên môi
+trường đã test. Bằng chứng: `D:\ROOT\Logs\POS.Web\Exception\log-20260716.txt`. Chi tiết + hướng
+sửa gợi ý (chưa áp dụng, cần DBA xác nhận): `docs/web/testing/testing_promotion_setup_guide.md`
+mục 6. Đã ghi vào backlog `COORDINATION.md`.
+
+**Guide mới**: `docs/web/testing/testing_promotion_setup_guide.md` (mirror cấu trúc
+`testing_coupon_issue_guide.md`) — bảng map kịch bản↔TC-ID, mục 2.1 hướng dẫn filter theo Loại,
+mục 4.1 giải thích cơ chế sweep, mục 6 báo cáo bug SP đầy đủ, mục 7 "dữ liệu để lại" (1 bản ghi/lần
+khi filter 1 Loại, 1+N khi sweep toàn bộ — N = số Loại trong dropdown), mục 8 "Xử lý sự cố".
+
+**Pattern mới:** đã MỞ RỘNG (không tạo mới) pattern "Playwright automation cho page MudBlazor" có
+sẵn trong `.claude/skills/web/SKILLS.md` — thêm: cách sửa TRIỆT ĐỂ vấn đề `MudSelect` hidden-input
+(click ancestor `.mud-input-control`, chọn qua `role="option"`), xác nhận `MudCheckBox` KHÔNG có
+vấn đề này, `MudNumericField<decimal>` hiển thị theo culture vi-VN (phẩy = decimal separator),
+nút Save bị disable bởi computed property (`CanSave`) là 1 cơ chế unreachable-qua-UI khác auto-clamp,
+thứ tự validate rule ảnh hưởng cách cô lập 1 case negative, và pattern "test 1 page có nhiều
+loại/kiểu" (đọc dropdown động + filter qua biến môi trường thay vì hardcode).
+
+**Không chạy Bước 2 (appsettings)/Bước 4 (CURRENT_STRUCTURE)/Bước 5 (WEB_STATUS)** — session này
+không sửa file `.cs`/`.razor`/`.json` nào (chỉ docs + 1 script Python + 1 skill file cập nhật),
+không có DTO/Service/Repository/Component mới, không đổi trạng thái hoàn thành của page (page đã
+có sẵn từ trước, chỉ thêm test tooling).
+
+**Lưu ý cho session sau:** Đừng chạy `smoke_promotion_setup.py` mà không set
+`POSWEB_TEST_OFFER_TYPES` nếu chỉ cần test 1 Loại — mặc định sweep hết mọi Loại trong dropdown, tốn
+thời gian + tạo nhiều bản ghi nháp (không có nút xóa trên trang này). Nút "Duyệt CTKM" sẽ LUÔN FAIL
+(CTKM-13/14) cho tới khi bug SP ở trên được fix — đừng coi đó là lỗi mới, kiểm tra guide mục 6 nếu
+lần đầu gặp. Nếu được giao fix bug SP đó, chạy lại script này ngay sau — 3 assertion CTKM-13/14
+chuyển PASS là xác nhận đã fix đúng (regression test tự nhiên).
+
+---
+
+## [2026-07-16] Bổ sung coupon-flow.md + auto-test Playwright cho CouponIssuePage (Phát hành Coupon)
+
+**Layer:** POS.Web (Docs/QA + test tooling — không đổi code C#)
+**Loại:** Gap Analysis + Pattern mới (Playwright/MudBlazor testing)
+
+**Bối cảnh:** User yêu cầu đánh giá `docs/web/testing/coupon-flow.md` có phản ánh đúng logic thật
+của `CouponIssuePage.razor` không, bổ sung ngay nếu thiếu, rồi viết kịch bản + auto-test Playwright
+(nhân rộng cách làm của `docs/test/testing_login_guide.md` — nay đã dời sang
+`docs/web/testing/testing_login_guide.md`, xem entry dưới) cho chức năng Phát hành Coupon.
+
+**Kết quả — `coupon-flow.md` CHƯA đầy đủ, đã sửa 7+1 gap (kèm bằng chứng file:dòng)**:
+- **G0**: Policy sai — doc ghi `OpsAndAbove`, code thật `WebPolicies.BackOfficeAndAbove` (hệ thống
+  đã có 4 role: StoreOperator/BackOffice/ITOps/SystemAdmin, không phải 3 như tài liệu cũ).
+- **G1**: Thiếu hoàn toàn nhánh "Chế độ Xem" (`?mode=view`) — thêm mục 3.1 + TC-L07/TC-I07/TC-I08.
+- **G2**: TC-I04 ("Cài đặt nâng cao") **không còn thực hiện được qua UI** — `_showAdvancedButton =
+  false` hardcoded; field discount đã chuyển inline vào form chính.
+- **G3**: TC-N03 sai text kỳ vọng; thêm TC-N03b (validate % giảm giá ở form chính, không phải
+  "Advanced" như doc cũ gắn nhầm).
+- **G4**: TC-I01 sai hành vi — Lưu thành công điều hướng THẲNG về list, không "reload tại chỗ".
+- **G5**: Phát hiện lỗi **MỚI — E13**: retry sau khi `SaveAdvancedAsync` lỗi có thể tạo COUPON THỨ
+  HAI trùng lặp, có mã thật nhưng "vô hình" với người dùng (`_model.ItemNo` không được gán lại sau
+  khi `SaveIssueAsync` thành công).
+- **G6**: Sửa 2 dòng sai trong ma trận điều kiện hiển thị (mục 2).
+- **G7**: Phát hiện thêm khi đọc `CouponsPage.razor` để viết auto-test — **KHÔNG có icon "Sửa"**
+  trên list (chỉ "Xem chi tiết" + "Xóa" — mà "Xóa" thực chất là soft-block qua
+  `UpdateBlockedAsync`, không phải hard-delete); filter panel/cột bảng đã đổi hoàn toàn so với mô
+  tả cũ (doc cũ có vẻ viết cho phiên bản List trước khi redesign).
+- Qua chạy thật script: phát hiện thêm **TC-N06 cũng không tái hiện được** — `MudNumericField
+  Min="1"` tự clamp giá trị về 1 phía client trước khi submit.
+
+**Auto-test**: `tests/POS.Web.UiTests/smoke_coupon_issue.py` (Playwright, theo khuôn
+`smoke_login_full.py`) — positive flow đầy đủ (tạo coupon Auto **thật**, dùng được cho POS, theo
+đúng yêu cầu user — không dry-run) + 4 case negative (TC-N01/N03/N03b/N14). Đã chạy thật nhiều lần
+để sửa lỗi thực nghiệm, **kết quả cuối: 17/17 PASS, exit code 0** (coupon `C70000020` tạo thành
+công, ảnh chụp bằng chứng ở `tests/POS.Web.UiTests/artifacts/coupon_issue_*.png`).
+
+**Guide mới**: `docs/web/testing/testing_coupon_issue_guide.md` (mirror cấu trúc
+`testing_login_guide.md`) — có bảng map kịch bản↔TC-ID, mục "giới hạn/KHÔNG phủ", mục "dữ liệu để
+lại sau test", và mục "Xử lý sự cố" ghi lại đúng 5 lỗi thực nghiệm gặp phải khi dựng script.
+
+**Pattern mới:** "Playwright automation cho page MudBlazor — gotcha đã xác nhận qua chạy thật" →
+đã thêm vào cuối `.claude/skills/web/SKILLS.md` (MudNumericField/MudSelect tự clamp Min/Max phía
+client; `get_by_label` trên MudSelect có thể trúng input ẩn; `.mud-table-row` khớp cả header;
+`MudDatePicker` không `Editable` phải thao tác qua calendar popup, không class `-today` riêng;
+tên file screenshot cần `slugify()` tránh ký tự Windows cấm).
+
+**Việc phụ đã làm theo yêu cầu user (không thuộc phạm vi ban đầu):** dời
+`docs/test/testing_login_guide.md` → `docs/web/testing/testing_login_guide.md` (gom 2 guide test
+Playwright POS.Web về cùng thư mục) — cập nhật lại tham chiếu duy nhất tới file này trong
+`testing_coupon_issue_guide.md`. `docs/test/` vẫn giữ các file khác (`01-03-pure-logic/...`,
+`README.md`) không liên quan.
+
+**Không chạy Bước 2 (appsettings)/Bước 4 (CURRENT_STRUCTURE)/Bước 5 (WEB_STATUS)** — session này
+không sửa file `.cs`/`.razor`/`.json` nào (chỉ docs + 1 script Python mới), không có DTO/Service/
+Repository/Component mới.
+
+**Lưu ý cho session sau:** Nếu cần mở rộng auto-test coupon (Import Excel, Item picker, TC-I08
+"PHÁT HÀNH THÊM" bấm thật, hay điểm yếu E1-E13) — đọc `docs/web/testing/coupon-flow.md` mục 5-6 và
+`testing_coupon_issue_guide.md` mục 5 "Giới hạn" trước, đã liệt kê rõ case nào unreachable qua UI
+(đừng test lại những case đã xác nhận không tái hiện được — TC-I04, TC-N06/N15/N18/N19). Mỗi lần
+chạy `smoke_coupon_issue.py` tạo thêm 1 coupon thật trong `RPOSMasterData` (`Prefix='ZTST'`),
+không tự dọn — xem mục 6 guide nếu cần dọn tay.
+
+---
+
+## [2026-07-16] Audit chéo UI vs Procedure — trang Cài đặt CTKM (`PromotionSetupPage.razor`)
+
+**Layer:** Docs/QA (không đổi code)
+**Loại:** Audit / Gap Analysis (đọc-only, theo yêu cầu user — System Architect + QA cross-reference)
+
+**Bối cảnh:** User yêu cầu đối chiếu chéo Data Payload Model của UI (`PromotionSetupPage.razor`)
+với toàn bộ pipeline backend/DB phía sau, theo quy trình 3 bước có checkpoint duyệt. Phát hiện
+`offer_procedure.sql` (file user chỉ định ban đầu) thực chất là **engine tính KM chạy trên POS**
+(30 SP `BLUEPOS_PRO_Cal_*`, đọc bảng `Offer*` đã publish) chứ KHÔNG nhận payload UI trực tiếp — đã
+hỏi lại user và chốt audit **toàn bộ pipeline**: UI → `usp_SaveSetupCTKMAll` (Lưu) →
+`Setup_Promotion_Insert` (Duyệt/publish) → `offer_procedure.sql` (engine).
+
+**Kết quả:** `docs/web/offers/ui_procedure_logic_audit.md` (234 dòng) — Data Payload Model,
+Data Mapping Matrix đủ 3 tầng, và **Gap Analysis với 8 phát hiện** (verify bằng Grep độc lập trên
+toàn bộ 28 stored procedure của engine, không chỉ dựa vào tài liệu cũ):
+
+- 🔴 **Lịch Mon–Sun (ngày trong tuần) không có tác dụng với BẤT KỲ loại CTKM nào** — 0/28 calc-proc
+  tham chiếu cột `Mon..Sun`/`DayOfWeek`, dù dữ liệu được publish đúng vào `OfferHeader`.
+- 🔴 **2 field voucher delay (`AllowUseAfterDay`/`AllowUseAfterTime`) bị mất ngay ở bước Duyệt** —
+  `Setup_Promotion_Insert` chưa từng đưa `ZVCDAY_AFTER`/`ZVCTIME_AFTER` vào `INSERT INTO
+  OfferHeader` (41 cột, đọc trực tiếp dòng 60-70) — lỗi ở SP publish, không phải Save SP hay UI.
+- 🟠 **"Độ ưu tiên (1–10)" (`PriorityBBY`) không có tác dụng** — 0/28 calc-proc đọc cột này; engine
+  dùng bảng `OfferPriority` riêng (theo `OfferType`, không theo từng CTKM), và ngay cả join đó cũng
+  không thấy được dùng tiếp trong `ZB013_ZB14`.
+- 🟠 Thiếu validate bắt buộc ≥1 "Nhóm cửa hàng áp dụng" — CTKM có thể Lưu+Duyệt với `OfferSite`=0
+  dòng, áp dụng ở **không cửa hàng nào**, không cảnh báo.
+- 🟡 `ApplyDaysOfMonth`/`NUMOFDAYSLIST` (cơ chế mới) không publish sang `OfferHeader` (biết trước,
+  có chủ đích) + `NumOfDays` (cột cũ, publish được) lại không có control UI nào set — cả 2 nửa của
+  tính năng "giới hạn ngày trong tháng" đều không hoạt động, vì 2 lý do khác nhau.
+- 🟢 Đã xác minh AN TOÀN (không phải gap): decimal→`nvarchar` TVP→`float` dùng
+  `CultureInfo.InvariantCulture` nhất quán, không có rủi ro convert do locale.
+
+File audit có bảng "mức độ tin cậy" tách CONFIRMED (verify bằng Grep/đọc trực tiếp source, không
+suy đoán) vs PLAUSIBLE (vd `ConditionBuy`/`ConditionGet` — chỉ đọc được ở 1/28 proc, biến thể
+`_NEW`, không xác định được có phải bản đang chạy production hay không).
+
+**Không đổi code trong session này** — task-done không chạy Bước 2 (appsettings)/3 (SKILLS)/4
+(CURRENT_STRUCTURE)/5 (WEB_STATUS) vì không có file `.cs`/`.razor`/`.json` nào bị sửa.
+
+**Lưu ý cho session sau:** File `docs/web/offers/ui_procedure_logic_audit.md` là điểm bắt đầu tốt
+nếu có task fix 2 gap 🔴 (Mon-Sun schedule + voucher delay fields) — đã có sẵn số dòng, tên cột,
+tên SP cụ thể. Trước khi sửa `offer_procedure.sql`/`Setup_Promotion_Insert.sql`, xem lại giới hạn
+đã nêu trong audit: **chưa xác định được biến thể `_NEW`/`_BK`/`_Duplicate` nào đang chạy thật trên
+production** — cần hỏi DBA/chủ engine trước khi sửa nhầm biến thể chết. Ngoài ra vẫn còn khối công
+việc CHƯA COMMIT từ session `[2026-07-15]` (xem `git status`) — không liên quan tới audit này, xem
+`COORDINATION.md` mục "CHƯA VERIFY" trước khi commit bất cứ gì.
+
+---
+
+## [2026-07-15] Fix lỗi gốc + hoàn thiện logic Setup CTKM theo đúng loại (`PromotionSetupPage.razor`)
+
+**Layer:** POS.Web, POS.Infrastructure, POS.Common
+**Loại:** Bug fix (nghiêm trọng) + Feature completion
+
+**Bối cảnh:** User yêu cầu review lại toàn bộ logic "Setup chương trình khuyến mãi" đối chiếu
+`docs/web/offers/{offer_type,dien_giai,kich_ban_test,tom_tat_kich_ban_test}.md` (tài liệu nghiệp
+vụ) + 2 file SP thật user cung cấp thêm: `docs/web/offers/Setup_Promotion_Insert.sql` (SP publish
+nháp→Offer*) và `docs/web/offers/offer_procedure.sql` (30 calc-proc `BLUEPOS_PRO_Cal_*` — engine
+tính KM trên POS). Đọc trực tiếp 2 SP này phát hiện lỗi gốc nghiêm trọng không thấy được nếu chỉ
+đọc code Razor/Repository. Kế hoạch đầy đủ (V1→V4, qua 3 vòng review + sửa lỗi nghiệp vụ):
+`docs/web/offers/setup_offer_plan_V4.md`.
+
+**LỖI GỐC đã fix:** `usp_SaveSetupCTKMAll` (luồng Lưu tạm) trước đây KHÔNG có tham số nào ghi cột
+`SetupPromotionHEADER.TOTALMINVALUE`. SP publish `Setup_Promotion_Insert` dùng ĐÚNG cột này (0/1)
+để quyết định dòng `SetupPromotionGET` đi vào bảng `OfferGet` (=0) hay `OfferBenefits` (=1,
+`StepAmount = MINVALUE`) — luôn = 0 mặc định ⇒ **`OfferBenefits` không bao giờ được sinh** cho
+CTKM tổng bill (ZB06/ZB12/ZB13/ZB14/ZB15), khiến các CTKM này không chạy đúng trên POS dù Lưu/Duyệt
+"thành công" không báo lỗi gì.
+
+**Thay đổi:**
+- `src/POS.Common/Dtos/Promotion/PromotionSetupDto.cs`: thêm `PromotionSetupHeaderDto.IsTotalBill`
+  (cờ tổng bill tự gán) + `MaxQuantity`; `OfferBuyLineDto` thêm `DiscountType`/`DiscountValue`
+  (ZB02 combo/ZB07 ngưỡng bill) + `Quantity` default 1 (cả Buy/Get — chống `Step=0`); thêm static
+  class `PromotionOfferTypeRules` (`BuyHiddenOfferTypes={ZB06,ZB13}`,
+  `BuyOptionalOfferTypes={ZB05,ZB10}`, `IsBuyRequired(...)`) dùng chung Razor + Repository.
+- `src/POS.Infrastructure/Repositories/Promotion/PromotionRepository.cs`: `SaveSetupAsync` gán
+  `@TotalMinValue` = cờ `IsTotalBill` của OfferType đang chọn (fix lỗi gốc) + `@MaxQuantity`; thêm
+  6 rule validate server theo cờ OfferType (Buy/Get bắt buộc theo loại, MinValue>0 khi tổng bill,
+  Quantity≥1 mọi dòng, Voucher cần voucher dates); `BuildBuyTable`/`GetSetupDetailAsync` đọc/ghi
+  Buy DiscountType/Value + TOTALMINVALUE.
+- `src/POS.Web/Components/Pages/Promotion/Offers/PromotionSetupPage.razor`: ẩn tab "Sản phẩm mua"
+  cho ZB06/ZB13 (ZB14/ZB15 vẫn giữ — SP publish CHỈ loại ZB06/ZB13 khỏi `OfferBuy`); MinValue chuyển
+  từ toolbar tab Buy sang tab "Thông tin chung" (là điều kiện, không phải quà); ẩn checkbox "Giảm
+  giá tổng bill" (whole-bill, cơ chế RIÊNG ZB21/ZB09) khi `IsTotalBill` để không xoá nhầm dòng Get
+  là benefits; thêm cột Buy DiscountType/DiscountValue + tooltip; thêm ô "Độ ưu tiên (1–10)" +
+  "Giới hạn SL KM tối đa" (Advanced); sửa nhãn ScaleType `C`→"Bằng (Equal)"; đổi `UserGuide` sang
+  `MarkupString` (trước hiện thẻ `<b>/<br/>` thô do Blazor auto-escape).
+- SQL: `docs/sql/SetupPromotion_AddMaxQuantity.sql` (mới, order 95, Track A — cột
+  `SetupPromotionHEADER.MaxQuantity`, BẮT BUỘC chạy TRƯỚC `SetupPromotion_Save.sql`);
+  `docs/sql/SetupPromotion_Save.sql` bản 5 (TVP Buy thêm DiscountType/DiscountValue — drop+recreate
+  TYPE; SP thêm `@TotalMinValue`/`@MaxQuantity`; fix `TOTALDISCOUNTTYPE` lưu ký hiệu `'%'/'R'/'P'`
+  thay vì int, khớp publish `IIF('%'→0,'P'→2,else 1)`); `docs/sql/SetupPromotion_Insert_AddMaxQty.sql`
+  (mới, **GATED** — Track B order 115, SP companion `usp_SetupPromotion_PublishMaxQuantity` publish
+  `OfferMaxQuantity`; KHÔNG tự động apply vì hiện 0/30 calc-proc đọc bảng này, cần DBA/chủ engine
+  POS xác nhận trước).
+- Docs: `docs/web/offers/PROMOTION_SETUP_MANUAL.md` (mới — tài liệu bàn giao QA đầy đủ: kiến trúc
+  luồng dữ liệu, ma trận cấu hình 8 loại, validation rules, 5 test case chi tiết theo từng loại,
+  checklist SQL verify SSMS); `docs/CURRENT_STRUCTURE.md`, `docs/ROLLOUT.md` §D1,
+  `docs/web/testing/promotion-setup.md` §10.5 (6 test case bổ sung CTKM-18→23) đã cập nhật.
+
+**Pattern mới:** Cờ động DB + ngoại lệ nghiệp vụ dùng chung Razor & Repository (type-driven
+UI/validate) → đã cập nhật `.claude/skills/web/SKILLS.md`.
+
+**Lưu ý cho session sau:** **CHƯA VERIFY end-to-end** (sandbox không có SQL Server/Redis) — chỉ
+verify được qua `dotnet build` (0 error) + `dotnet test tests/POS.ContractTests` (49/49 pass). Khi
+có DB thật: chạy đúng thứ tự SQL ở `docs/ROLLOUT.md` §D1 rồi test theo 5 Test Case trong
+`PROMOTION_SETUP_MANUAL.md` (đặc biệt TC-4 ZB06 — xác nhận `OfferBenefits.StepAmount = MinValue`
+sau Duyệt, đây là bằng chứng lỗi gốc đã fix). KHÔNG chạy `SetupPromotion_Insert_AddMaxQty.sql` cho
+tới khi DBA/chủ engine POS xác nhận target bảng + cam kết sửa calc-proc đọc `OfferMaxQuantity`.
+
+---
+
+## [2026-07-15] POS.Worker: gộp `appsettings.ProductionHost.json` vào `appsettings.CronHost.json` (bare-metal dùng chung 1 file)
+
+**Layer:** POS.Worker (deploy/infra)
+**Loại:** Refactor cấu hình
+
+**Bối cảnh:** `appsettings.ProductionHost.json` (tạo 2026-07-11, xem entry [2026-07-11] "Fix
+POS.Worker không kết nối được SQL Server...") vốn dành riêng cho các tiến trình bare-metal
+(Model C `MasterDataZipGeneratorWorker`, và biến thể Model B chạy song song Docker ở mục 3.5)
+— tách biệt với `appsettings.CronHost.json` (dành cho Model A `--run-once`). Trên môi trường
+Production thực tế, cả 2 mô hình bare-metal đã được vận hành chung 1 file
+`appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`), phân biệt vai trò hoàn toàn qua
+`WorkerRoles__*` override trong `Environment=` của từng systemd unit/script — không còn dùng
+`appsettings.ProductionHost.json` nữa.
+
+**Thay đổi:**
+- Xoá `src/POS.Worker/appsettings.ProductionHost.json` — không còn được tham chiếu ở đâu.
+- `.gitignore`: xoá dòng ngoại lệ `!**/appsettings.ProductionHost.json` (chỉ còn
+  `!**/appsettings.CronHost.json`).
+- `docs/deploy/pos-worker-ubuntu-guide.md`: cập nhật bảng so sánh 3 mô hình, mục 1 (inventory
+  file), mục 3.5 (Model B chạy song song Docker — nay dùng `CronHost.json` + thêm
+  `WorkerRoles__*` tường minh trong mẫu unit file vì mặc định trong file đã lệch sang vai trò
+  Model C), mục 9.4 (Model C — thêm cảnh báo file `ProductionHost.json` đã xoá).
+- `docs/ROLLOUT.md` §O11: cập nhật hướng dẫn "dùng đúng file theo ngữ cảnh" sang `CronHost.json`
+  cho mọi bare-metal.
+- `docs/deploy/fix_issue_pos-worker-host.md`: giữ nguyên nhật ký lỗi gốc (Vấn đề 6), thêm ghi chú
+  cập nhật 2026-07-15 trỏ sang `CronHost.json`; cập nhật checklist rút gọn cuối file.
+- `docs/worker/worker_status.md`, `.claude/skills/worker/SKILLS.md`: cập nhật ghi chú pattern
+  "chạy song song Docker + bare-metal" sang `CronHost.json`.
+
+**Pattern mới:** Mọi tiến trình `POS.Worker` chạy **bare-metal** trên Ubuntu host (cron one-shot
+hay systemd daemon dài hạn, bất kể vai trò `WorkerRoles` nào) dùng **chung 1**
+`DOTNET_ENVIRONMENT=CronHost` / `appsettings.CronHost.json` — KHÔNG tạo thêm file
+`appsettings.{Env}Host.json` riêng theo từng mô hình/vai trò. Phân biệt vai trò (file import /
+RabbitMQ consumer+SQL report / MasterDataZipGenerator) chỉ qua `WorkerRoles__*` override trong
+`Environment=` của từng systemd unit file hoặc wrapper script, cộng với thư mục publish riêng cho
+mỗi tiến trình dài hạn (tránh 2 process ghi đè cùng binary).
+
+---
+
 ## [2026-07-15] Dọn dẹp hệ thống điều phối AI: gỡ conflict-marker trong CLAUDE.md, tạo COORDINATION.md, đổi tên lệnh /resume
 
 **Layer:** Tooling/Docs (`CLAUDE.md`, `.claude/rules/`, `.claude/commands/`, root)

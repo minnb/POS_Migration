@@ -83,67 +83,58 @@ public static class PosTheme
 
         Typography = new Typography
         {
-            // theme_html.html: body{font-family:'Segoe UI',system-ui,sans-serif}. MudBlazor sinh
-            // CSS variable RIÊNG cho mỗi typography variant (--mud-typography-h5-family,
-            // --mud-typography-body1-family...) — KHÔNG kế thừa từ Default. Phải set FontFamily
-            // trên TỪNG variant, nếu không phần lớn chữ hiển thị thật (H5/H6/Subtitle1/Body1/
-            // Body2/Caption/Button) vẫn giữ font mặc định của MudBlazor.
             Default = new DefaultTypography
             {
-                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
-                FontSize   = "0.8125rem",   // 13px — khớp base mockup (cũ 0.875rem/14px)
-                LineHeight = "1.5",         // khớp mockup body{line-height:1.5}
+                FontFamily = ["Inter", "Roboto", "Helvetica Neue", "sans-serif"],
+                FontSize   = "0.875rem",
+                LineHeight = "1.5",
             },
-            H1 = new H1Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
-            H2 = new H2Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
-            H3 = new H3Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
-            H4 = new H4Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
+            H1 = new H1Typography { FontFamily = ["Inter", "Roboto", "sans-serif"] },
+            H2 = new H2Typography { FontFamily = ["Inter", "Roboto", "sans-serif"] },
+            H3 = new H3Typography { FontFamily = ["Inter", "Roboto", "sans-serif"] },
+            H4 = new H4Typography { FontFamily = ["Inter", "Roboto", "sans-serif"] },
             H5 = new H5Typography
             {
-                FontFamily    = ["Segoe UI", "system-ui", "sans-serif"],
-                FontWeight    = "800",
-                LetterSpacing = "-0.02em",
+                FontFamily    = ["Inter", "Roboto", "sans-serif"],
+                FontWeight    = "700",
+                LetterSpacing = "-0.01em",
             },
             H6 = new H6Typography
             {
-                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
+                FontFamily = ["Inter", "Roboto", "sans-serif"],
                 FontWeight = "600",
             },
             Subtitle1 = new Subtitle1Typography
             {
-                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
+                FontFamily = ["Inter", "Roboto", "sans-serif"],
                 FontWeight = "600",
             },
-            Subtitle2 = new Subtitle2Typography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
+            Subtitle2 = new Subtitle2Typography { FontFamily = ["Inter", "Roboto", "sans-serif"] },
             Body1 = new Body1Typography
             {
-                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
-                FontSize   = "0.78125rem", // 12.5px — khớp mockup .input,.select,.textarea. Chi phối
-                                          // text input/value trong MudTextField/MudSelect/
-                                          // MudDatePicker + dropdown/autocomplete popup (KHÔNG ảnh
-                                          // hưởng DataTable — cell MudTable dùng size cố định riêng
-                                          // của MudBlazor, không cascade từ Body1).
-                FontWeight = "400",       // chữ tự nhiên, không đậm
+                FontFamily = ["Inter", "Roboto", "sans-serif"],
+                FontSize   = "0.875rem",
+                FontWeight = "400",
             },
             Body2 = new Body2Typography
             {
-                FontFamily = ["Segoe UI", "system-ui", "sans-serif"],
+                FontFamily = ["Inter", "Roboto", "sans-serif"],
                 FontSize   = "0.8125rem",
             },
             Caption = new CaptionTypography
             {
-                FontFamily    = ["Segoe UI", "system-ui", "sans-serif"],
+                FontFamily    = ["Inter", "Roboto", "sans-serif"],
                 FontSize      = "0.75rem",
-                FontWeight    = "600",
-                LetterSpacing = "0.04em",
+                FontWeight    = "500",
+                LetterSpacing = "0.02em",
             },
-            Overline = new OverlineTypography { FontFamily = ["Segoe UI", "system-ui", "sans-serif"] },
+            Overline = new OverlineTypography { FontFamily = ["Inter", "Roboto", "sans-serif"] },
             Button = new ButtonTypography
             {
-                FontFamily    = ["Segoe UI", "system-ui", "sans-serif"],
-                FontSize      = "0.75rem", // 12px — khớp mockup .btn
+                FontFamily    = ["Inter", "Roboto", "sans-serif"],
+                FontSize      = "0.875rem",
                 FontWeight    = "600",
-                TextTransform = "none",   // bỏ ALL CAPS mặc định của MudBlazor
+                TextTransform = "none",
             },
         },
 
@@ -152,31 +143,31 @@ public static class PosTheme
             Elevation =
             [
                 "none",                                         // 0
-                "none",                                         // 1 — flat/bordered (filter panel, toolbar)
-                "0 2px 8px rgba(0,0,0,0.08)",                   // 2 — card shadow thật (KPI card, table-wrap, alert) — theme_html --shadow
-                "0 2px 8px rgba(0,0,0,0.08)",                   // 3 — = elevation 2
-                "0 4px 20px rgba(0,0,0,0.12)",                  // 4 — theme_html --shadow-lg (Login card)
-                "0 4px 20px rgba(0,0,0,0.12)",                  // 5 — = elevation 4
-                "0 5px 18px rgba(26,43,69,0.15)",              // 6
-                "0 6px 20px rgba(26,43,69,0.16)",              // 7
-                "0 6px 22px rgba(26,43,69,0.17)",              // 8
-                "0 7px 24px rgba(26,43,69,0.18)",              // 9
-                "0 8px 26px rgba(26,43,69,0.19)",              // 10 — AppBar
-                "0 8px 28px rgba(26,43,69,0.20)",              // 11
-                "0 9px 30px rgba(26,43,69,0.21)",              // 12 — Dialog
-                "0 10px 32px rgba(26,43,69,0.22)",             // 13
-                "0 10px 34px rgba(26,43,69,0.23)",             // 14
-                "0 12px 36px rgba(26,43,69,0.24)",             // 15
-                "0 12px 38px rgba(26,43,69,0.25)",             // 16
-                "0 14px 40px rgba(26,43,69,0.26)",             // 17
-                "0 14px 42px rgba(26,43,69,0.27)",             // 18
-                "0 16px 44px rgba(26,43,69,0.28)",             // 19
-                "0 16px 46px rgba(26,43,69,0.29)",             // 20
-                "0 18px 48px rgba(26,43,69,0.30)",             // 21
-                "0 18px 50px rgba(26,43,69,0.31)",             // 22
-                "0 20px 52px rgba(26,43,69,0.32)",             // 23
-                "0 20px 54px rgba(26,43,69,0.33)",             // 24
-                "0 22px 56px rgba(26,43,69,0.35)",             // 25
+                "0 1px 2px rgba(0,0,0,0.05)",                   // 1 — flat/bordered 
+                "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)", // 2 — soft card shadow
+                "0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.025)", // 3
+                "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)", // 4 — Login card
+                "0 25px 50px -12px rgba(0,0,0,0.15)",           // 5 
+                "0 5px 18px rgba(26,43,69,0.08)",              // 6 (softened)
+                "0 6px 20px rgba(26,43,69,0.09)",              // 7
+                "0 6px 22px rgba(26,43,69,0.10)",              // 8
+                "0 7px 24px rgba(26,43,69,0.11)",              // 9
+                "0 8px 26px rgba(26,43,69,0.12)",              // 10 — AppBar
+                "0 8px 28px rgba(26,43,69,0.13)",              // 11
+                "0 9px 30px rgba(26,43,69,0.14)",              // 12 — Dialog
+                "0 10px 32px rgba(26,43,69,0.15)",             // 13
+                "0 10px 34px rgba(26,43,69,0.16)",             // 14
+                "0 12px 36px rgba(26,43,69,0.17)",             // 15
+                "0 12px 38px rgba(26,43,69,0.18)",             // 16
+                "0 14px 40px rgba(26,43,69,0.19)",             // 17
+                "0 14px 42px rgba(26,43,69,0.20)",             // 18
+                "0 16px 44px rgba(26,43,69,0.21)",             // 19
+                "0 16px 46px rgba(26,43,69,0.22)",             // 20
+                "0 18px 48px rgba(26,43,69,0.23)",             // 21
+                "0 18px 50px rgba(26,43,69,0.24)",             // 22
+                "0 20px 52px rgba(26,43,69,0.25)",             // 23
+                "0 20px 54px rgba(26,43,69,0.26)",             // 24
+                "0 22px 56px rgba(26,43,69,0.27)",             // 25
             ]
         }
     };

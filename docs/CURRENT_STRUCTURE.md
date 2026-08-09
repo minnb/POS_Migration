@@ -1150,10 +1150,11 @@ File này chứa nhiều model dùng cho CommonController:
 | Class | Các field chính |
 |-------|----------------|
 | `PromotionSetupListItemDto` | No, Description, OfferType, SalesType, Status, ValidFrom, ValidTo, IsApprove, Total |
-| `PromotionSetupHeaderDto` | No, Description, SalesType, OfferType, Status, StartingDate, EndingDate, IsVoucher, IsApprove, ConditionBuy, ConditionGet, LimitQty, MemberOnly, MemberCode, PriorityBBY, NumOfDays (giữ nguyên, không dùng ở UI), ApplyDaysOfMonth (List\<int\>, cột mới NUMOFDAYSLIST — nhiều ngày trong tháng), VoucherFromDate/ToDate, VoucherValidDay, VoucherLimitNumber, AllowUseAfterDay, AllowUseAfterTime, FromTime, ToTime, Mon..Sun (bool), MinValue, CheckTotalDiscount, TotalDiscountType, TotalDiscountValue |
+| `PromotionSetupHeaderDto` | No, Description, SalesType, OfferType, Status, StartingDate, EndingDate, IsVoucher, IsApprove, ConditionBuy, ConditionGet, LimitQty, MemberOnly, MemberCode, PriorityBBY, NumOfDays (giữ nguyên, không dùng ở UI), ApplyDaysOfMonth (List\<int\>, cột mới NUMOFDAYSLIST — nhiều ngày trong tháng), VoucherFromDate/ToDate, VoucherValidDay, VoucherLimitNumber, AllowUseAfterDay, AllowUseAfterTime, FromTime, ToTime, Mon..Sun (bool), MinValue, **IsTotalBill (bit → cột TOTALMINVALUE, tự gán theo cờ OfferType — publish rẽ Get→OfferBenefits)**, **MaxQuantity (cột mới SetupPromotionHEADER.MaxQuantity)**, CheckTotalDiscount, TotalDiscountType, TotalDiscountValue |
 | `OfferTypeOptionDto` | Value, Text, IsTotalBill, IsSetupBuy, IsSetupGet, IsVoucher, IsGift, UserGuide — option Loại CTKM kèm cờ điều khiển UI |
+| `PromotionOfferTypeRules` (static) | BuyHiddenOfferTypes={ZB06,ZB13} (ẩn tab Buy — publish loại khỏi OfferBuy), BuyOptionalOfferTypes={ZB05,ZB10} (Buy không bắt buộc); `IsBuyHidden`, `IsBuyRequired(offerType, isSetupBuy)` — dùng chung Razor + Repository |
 | `IOfferLineItem` (interface) | LineType, No, GroupCode, Description, UnitOfMeasure |
-| `OfferBuyLineDto : IOfferLineItem` | + Quantity, ScaleType |
+| `OfferBuyLineDto : IOfferLineItem` | + Quantity (default 1), ScaleType, **DiscountType, DiscountValue** (ZB02 combo/ZB07 ngưỡng bill → SetupPromotionBUY.DiscountType/Value) |
 | `OfferGetLineDto : IOfferLineItem` | + Quantity, ScaleType, DiscountType, DiscountValue |
 | `OfferSiteLineDto` | SiteGroupCode, GroupName |
 | `PromotionSetupSaveRequest` | Header, BuyRows, GetRows, SiteGroupCodes |

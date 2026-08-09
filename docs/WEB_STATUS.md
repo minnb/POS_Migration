@@ -1,4 +1,42 @@
 # POS.Web — Báo cáo hiện trạng
+> Cập nhật: 2026-08-09 (`PromotionSetupPage.razor` `/promotion/setup` — rà soát & vá 5 điểm yếu
+> nghiệp vụ của đợt V4 bên dưới). **Xác nhận đã đúng sẵn, không sửa:** mapping `TOTALMINVALUE`
+> (suy server-side theo cờ `OfferType.IsTotalBill`), `TOTALDISCOUNTTYPE` (`0→'%' 2→'P' else 'R'`,
+> khớp `Setup_Promotion_Insert`), và 3 field Advanced `PriorityBBY`/`MaxQuantity`/`LimitQty`.
+> **Đã vá:** (1) `Quantity` `Min="0"`→`Min="1"` cả tab Buy/Get + chặn ở `SaveAsync` (trước đây chỉ
+> chặn sau round-trip server); (2) **BUG THẬT** — dòng Buy/Get trắng (bulk-add dư) lọt xuống DB với
+> `MAT_QUAN='0'` vì `BuildBuyTable`/`BuildGetTable` không lọc và validate `Quantity≥1` bị gate bởi
+> `HasLineItem`, nhánh `MGP` của SP publish lại không lọc `MATGROUP<>''` → sinh `OfferBuy` có
+> `Step=0` → vỡ phép chia không guard trong `offer_procedure.sql` (L941/L1001/L2338/L2940/L10855);
+> nay lọc `.Where(HasLineItem)` ở cả 2 tầng; (3) **BUG THẬT** — `AllowUseAfterDay/Time` không được
+> dọn khi bỏ tick Voucher (2 field ngày voucher thì có) → validate gate theo `IsVoucher` bị bỏ qua
+> nhưng tham số vẫn ghi chuỗi rác xuống `ZVCDAY_AFTER/ZVCTIME_AFTER`; (4) thêm validate format
+> `hh:mm:ss` cho `AllowUseAfterTime` ở cả UI lẫn Repository (trước đó **không** validate ở tầng
+> nào) + chuẩn hoá `"020000"→"02:00:00"` khi Enter + `Trim()` trước khi ghi tham số SP.
+> **KHÔNG đụng DTO / stored procedure / schema.** Build 0 error, `POS.ContractTests` 49/49 xanh.
+> 🔴 **GAP còn lại chờ DBA:** `OfferHeader` (60 cột) **thiếu** `ZVCDAY_AFTER`/`ZVCTIME_AFTER` →
+> voucher delay lưu nháp OK nhưng **rớt hoàn toàn khi publish** (grep `Setup_Promotion_Insert` = 0
+> hit); engine cũng chưa đọc 2 cột này. Chi tiết: `COORDINATION.md`.
+> **CHƯA VERIFY end-to-end** (sandbox thiếu SQL Server/Redis) — cần test tay theo
+> `docs/web/testing/promotion-setup.md §10.5`.
+>
+> Cập nhật: 2026-07-15 (`PromotionSetupPage.razor` `/promotion/setup` — hoàn thiện logic setup theo
+> ĐÚNG loại CTKM, đối chiếu trực tiếp SP publish thật `Setup_Promotion_Insert` + 30 calc-proc
+> `BLUEPOS_PRO_Cal_*` — xem `docs/web/offers/setup_offer_plan_V4.md`. **Fix lỗi gốc**: luồng lưu
+> trước đây KHÔNG set cột `SetupPromotionHEADER.TOTALMINVALUE` → bảng `OfferBenefits` không bao giờ
+> được publish cho CTKM tổng bill (ZB06/ZB12/ZB13/ZB14/ZB15) — nay `SaveSetupAsync` tự gán
+> `@TotalMinValue` theo cờ `IsTotalBill` của OfferType đang chọn. Cùng đợt: ẩn tab "Sản phẩm mua"
+> cho ZB06/ZB13 (ZB14/ZB15 vẫn giữ Buy — khác ZB13, đúng theo SP publish), MinValue chuyển sang tab
+> "Thông tin chung", thêm cột Buy `DiscountType/DiscountValue` (ZB02 combo/ZB07 ngưỡng bill), thêm
+> "Độ ưu tiên"/"Giới hạn SL KM tối đa" (Advanced tab), validate `Quantity≥1` mọi dòng (chống
+> `Step=0` vỡ phép chia interval calc-proc), fix `TOTALDISCOUNTTYPE` lưu ký hiệu `'%'/'R'/'P'` (trước
+> lưu int, lệch với publish). SQL mới: `SetupPromotion_AddMaxQuantity.sql` (order 95, BẮT BUỘC
+> trước `SetupPromotion_Save.sql`) + `SetupPromotion_Save.sql` bản 5 + GATED
+> `SetupPromotion_Insert_AddMaxQty.sql` (Track B order 115 — publish `OfferMaxQuantity`, chờ
+> DBA/engine xác nhận vì hiện 0 calc-proc đọc bảng này). Tài liệu QA đầy đủ:
+> `docs/web/offers/PROMOTION_SETUP_MANUAL.md`. Build 0 error, `POS.ContractTests` 49/49 xanh.
+> **CHƯA VERIFY end-to-end** (sandbox thiếu SQL Server/Redis) — cần chạy SQL §0 trong
+> `PROMOTION_SETUP_MANUAL.md` rồi test tay theo 5 Test Case của tài liệu đó.
 > Cập nhật: 2026-07-13 (LogFilePage `/admin/logs` — production-hardening + đổi UI lần 3: quay lại
 > breadcrumb + drill-down (bỏ hẳn `MudTreeView`, xem lý do ở entry L1), thêm streaming download
 > (không buffer `byte[]` toàn bộ file vào RAM), chống Symbolic Link Attack qua seam

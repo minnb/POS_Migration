@@ -12,9 +12,9 @@
 
 | Hạng mục | Chi tiết |
 |---|---|
-| Route | `/promotion/coupons` (list), `/promotion/coupons/issue` (form), `/promotion/coupons/issue?id={ItemNo}` (sửa) |
+| Route | `/promotion/coupons` (list), `/promotion/coupons/issue` (form tạo mới), `/promotion/coupons/issue?id={ItemNo}` (sửa), `/promotion/coupons/issue?id={ItemNo}&mode=view` (xem — xem mục 3.1) |
 | Render mode | `InteractiveServer` (Blazor Server — có circuit/WebSocket) |
-| Policy | `WebPolicies.OpsAndAbove` (ITOps + SystemAdmin). **StoreOperator KHÔNG vào được** |
+| Policy | `WebPolicies.BackOfficeAndAbove` — **BackOffice + ITOps + SystemAdmin** (`CouponIssuePage.razor:2`, `CouponsPage.razor:2`; `WebRoles.cs:11-16` xác nhận hệ thống đã có 4 role: StoreOperator/BackOffice/ITOps/SystemAdmin — **StoreOperator KHÔNG vào được**, nhưng role `BackOffice` CÓ vào được, khác với ghi chú cũ "OpsAndAbove" chỉ gồm ITOps+SystemAdmin) |
 | Luồng | `Page → ICouponService → ICouponRepository → SP usp_SetupCoupon_*` (DB `RPOSMasterData`) |
 | Sinh mã Auto | Ở tầng Application (`CouponService`, C#), KHÔNG ở SP |
 | Bảng tác động | `CpnVchBOMIssueRule`, `CpnVchBOMHeader`, `CpnVchBOMCodeIssue`, `CpnVchBOMLine`, `CpnVchBOMStore` |
@@ -24,7 +24,8 @@
 **Pre-condition chung cho MỌI test:**
 - Đã deploy 3 script: `docs/sql/SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupCoupon_Delete.sql` trên `RPOSMasterData`.
 - Đã chạy migration bảng audit (`migration_dashboard_audit_log.sql`) — nếu chưa, audit fail-safe (không crash).
-- Đăng nhập bằng user role **ITOps** hoặc **SystemAdmin**.
+- Đăng nhập bằng user role **BackOffice**, **ITOps** hoặc **SystemAdmin** (policy
+  `WebPolicies.BackOfficeAndAbove` — xem G0 mục 1, đã sửa từ "OpsAndAbove" ghi sai ở bản cũ).
 - Có sẵn dữ liệu: ≥1 `SalesOrderType(IsActive=1)`, ≥1 `StoreGroup(Status=1)` có store, ≥1 `UnitOfMeasure`, ≥1 `Item(Blocked=0)`.
 
 ---
@@ -34,14 +35,20 @@
 | Thành phần | Điều kiện hiển thị / enable | Nguồn code |
 |---|---|---|
 | Nút **Xóa** (list) | Chỉ hiện khi `QtyCoupon == 0` | `CouponsPage.razor` `@if (context.QtyCoupon == 0)` |
-| Field Auto (Prefix/LenCode/CharOfNumber/CharPosition/Quantity) | Chỉ hiện khi `IssueType == "Auto"`; **khóa** khi `CodeFieldsLocked` | `IsAuto`, `CodeFieldsLocked` |
-| Khối Import (upload + file mẫu) | Chỉ hiện khi `IssueType == "Import"` | `else` của `@if (IsAuto)` |
+| Field Auto (Prefix/LenCode/CharOfNumber/CharPosition/Quantity) | **KHÔNG còn hiện trên form chính** — thu thập qua dialog "Phát hành mã coupon" khi bấm Lưu (coupon mới/chưa có mã) hoặc "PHÁT HÀNH THÊM" (coupon đã tồn tại) | `CouponIssuePage.razor:132-134` (comment xác nhận), `Dialogs/CouponIssueMoreDialog.razor` |
+| Khối Import (upload + file mẫu) | Chỉ hiện khi `IssueType == "Import"` **và không phải View mode** | `@if (!IsAuto && !IsViewMode)` (dòng 135) |
+| "Cách phát hành" (Select) | Disable khi `CodeFieldsLocked` **hoặc** `IsViewMode` | dòng 115 — doc bản cũ thiếu vế `IsViewMode` |
 | `CodeFieldsLocked` (khóa Cách phát hành + field Auto/Import) | `IsEditing && _quantityCodeInDb > 0` | `CodeFieldsLocked` |
-| Tab **Mã coupon đã phát hành** | Bảng chỉ có dữ liệu khi `IsEditing`; ngược lại hiện alert | `@if (!IsEditing)` |
-| Nút **Lưu** | Disable khi `_saving == true` | `Disabled="_saving"` |
-| Tiêu đề trang | "Sửa coupon {ItemNo}" khi `IsEditing`, ngược lại "Phát hành Coupon" | `IsEditing` |
+| Alert "Tick 'Áp dụng theo danh sách sản phẩm'..." | Hiện khi `!_applyPerItem && _quantityCodeInDb == 0` (KHÔNG phải điều kiện `IsEditing` như bản cũ ghi) | dòng 214 |
+| Tab **Danh sách sản phẩm** | Hiện khi `_applyPerItem == true` (độc lập với `IsEditing`) | dòng 224 |
+| Tab **Mã coupon đã phát hành** | Hiện khi `_quantityCodeInDb > 0` (KHÔNG phải `IsEditing` như bản cũ ghi — 1 coupon mới tạo trong cùng phiên vẫn `_quantityCodeInDb == 0` cho tới khi Lưu xong và mở lại) | dòng 273 |
+| Nút **Lưu** (chính) | Chỉ hiện khi `!IsViewMode`; disable khi `_saving == true` | dòng 62-76 |
+| Nút **PHÁT HÀNH THÊM** | Chỉ hiện khi `IsViewMode` (xem mục 3.1) | dòng 38-43 |
+| Nút **Lưu** (View mode) | Chỉ hiện khi `IsViewMode && BlockedChanged` — dùng để lưu riêng field Blocked | dòng 44-60 |
+| Tiêu đề trang | 3 nhánh: `IsViewMode` → "Xem coupon {ItemNo}"; else `IsEditing` → "Sửa coupon {ItemNo}"; else "Phát hành Coupon" (bản cũ chỉ ghi 2 nhánh, thiếu View mode) | dòng 32 |
 
-> `IsEditing = !string.IsNullOrWhiteSpace(_model.ItemNo)`.
+> `IsEditing = !string.IsNullOrWhiteSpace(_model.ItemNo)`. `IsViewMode = Mode == "view"` (query
+> string `?mode=view`) — xem mục 3.1 "Chế độ Xem" (mới bổ sung) cho toàn bộ hành vi liên quan.
 
 ---
 
@@ -58,7 +65,87 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 
 ---
 
+## 3.1 Chế độ Xem (`?mode=view`) — [BỔ SUNG, trước đây thiếu hoàn toàn]
+
+> Toàn bộ nhánh hành vi này chưa từng được tài liệu hóa ở các bản trước — đối chiếu trực tiếp với
+> `CouponIssuePage.razor` để bổ sung. Entry point: icon "Xem chi tiết" (👁, tooltip "Xem chi tiết")
+> trên `CouponsPage.razor` → điều hướng `/promotion/coupons/issue?id={ItemNo}&mode=view`.
+
+- **Tiêu đề**: "Xem coupon {ItemNo}" (khác "Sửa coupon .../Phát hành Coupon").
+- **Toàn bộ field bị khóa** (`ReadOnly`/`Disabled` theo `IsViewMode`): Tên phát hành, Cách phát
+  hành, Từ/Đến ngày, Hình thức bán hàng, Nhóm cửa hàng, Kiểu giảm giá, Giá trị giảm giá, Giảm tối
+  đa, checkbox "Áp dụng theo danh sách sản phẩm". Bảng sản phẩm ẩn nút Thêm/Xóa dòng.
+- **Ngoại lệ DUY NHẤT vẫn sửa được**: checkbox "Khóa (Blocked)" (dòng 206, comment code ghi rõ
+  "Xem coupon: Blocked là ngoại lệ DUY NHẤT được sửa").
+- **Bộ nút header đổi hẳn** (dòng 38-61):
+  - **"PHÁT HÀNH THÊM"** (luôn hiện) — mở lại dialog "Phát hành mã coupon" (`CouponIssueMoreDialog`,
+    title tham số "Phát hành thêm mã coupon") để sinh **thêm 1 lô mã Auto mới** cho coupon đã tồn
+    tại, gọi `CouponService.IssueMoreAsync` — có **Redis distributed lock** `IVoucherIssueLock`
+    (key cố định `Lock:VoucherIssue`, TTL 30s, poll 300ms, `MaxWait` 15s — xem mục 10) để tránh va
+    chạm mã giữa nhiều lượt "phát hành thêm" đồng thời.
+  - **"Lưu"** — chỉ hiện khi `BlockedChanged` (đã đổi checkbox Blocked so với giá trị gốc), gọi
+    `SaveBlockedAsync` (dòng 602-630) — **một hàm lưu riêng biệt thứ 3** (khác `SaveIssueAsync`/
+    `SaveAdvancedAsync`), chỉ update field `Blocked` qua `CouponService.UpdateBlockedAsync`, audit
+    snapshot `oldJson` **ĐÚNG** (lấy trước khi gọi update — không dính bug E2, xem mục 9.3).
+
+### TC-I07 — Xem coupon: field khóa + đổi Blocked (Positive)
+- **Pre-condition:** Có ≥1 coupon đã tồn tại (bất kỳ trạng thái).
+- **Steps:** 1) Từ list, bấm icon "Xem chi tiết". 2) Quan sát toàn bộ field. 3) Tick/bỏ tick
+  "Khóa (Blocked)". 4) Bấm **Lưu**.
+- **Expected Result:** Mọi field khác Blocked là `ReadOnly`/`Disabled`. Nút "Lưu" **chỉ xuất hiện
+  sau khi đổi Blocked** (trước đó chỉ có "PHÁT HÀNH THÊM"). Sau Lưu: Snackbar thành công, audit
+  `UPDATE / SetupCoupon` với `oldValueJson` phản ánh đúng giá trị Blocked gốc (khác bug E2).
+- **Edge Cases:** Bấm Lưu khi Blocked chưa đổi → nút không hiện, không thể bấm nhầm.
+
+### TC-I08 — Xem coupon: PHÁT HÀNH THÊM mã Auto (Positive)
+- **Pre-condition:** Coupon `IssueType == "Auto"` đã có ≥1 mã.
+- **Steps:** 1) Từ list, bấm icon "Xem chi tiết". 2) Bấm **PHÁT HÀNH THÊM**. 3) Điền Prefix/Kích
+  thước mã/Số chữ cái/Vị trí đứng/Số lượng trong dialog. 4) Bấm **PHÁT HÀNH**.
+- **Expected Result:** Ở lại trang (không điều hướng đi), tab "Mã coupon đã phát hành" tự
+  `ReloadServerData()` hiển thị thêm N mã mới, Snackbar thành công, audit `ISSUE / SetupCoupon`.
+- **Edge Cases:** 2 tab/2 phiên cùng bấm "PHÁT HÀNH THÊM" cho **cùng 1 coupon** gần như đồng thời →
+  Redis lock `Lock:VoucherIssue` serialize hóa, phiên thứ 2 chờ tới `MaxWait=15s` rồi mới chạy hoặc
+  nhận lỗi "Hệ thống đang xử lý phát hành coupon khác, vui lòng thử lại sau." nếu hết thời gian chờ.
+  **Lưu ý:** lock này **CHỈ** bọc `IssueMoreAsync` — **KHÔNG** bọc `SaveIssueAsync` (tạo coupon Auto
+  mới lần đầu, xem mục 10 "Constraint").
+
+---
+
 ## 4. Test cases 8.1 — CouponsPage (`/promotion/coupons`)
+
+> ⚠️ **[BỔ SUNG — G7, phát hiện khi đọc lại code thật `CouponsPage.razor` để viết auto-test cho
+> mục 5]** Trang **List đã được viết lại hoàn toàn** so với mô tả gốc bên dưới (cột bảng, filter
+> panel, và cơ chế Xóa **khác hẳn** những gì TC-L01–L04/L06 mô tả) — nhiều khả năng doc này được
+> viết cho 1 phiên bản List cũ trước khi redesign. Phạm vi yêu cầu ban đầu chỉ audit
+> `CouponIssuePage.razor` (8.2) nên **KHÔNG** làm lại toàn bộ ma trận TC-L01/L02 ở đây (cần 1 lượt
+> audit riêng cho `CouponsPage.razor` nếu cần), nhưng 3 sự thật sau **ảnh hưởng trực tiếp** đến
+> luồng CouponIssuePage (entry point + auto-test) nên phải sửa ngay:
+> 1. **KHÔNG có icon "Sửa" (Edit) nào trên list** — cột "Thao tác" chỉ có 2 icon: "Xem chi tiết"
+>    (`Icons.Material.Filled.Visibility` → `?id={ItemNo}&mode=view`) và "Xóa"
+>    (`Icons.Material.Filled.Delete`, xem điểm 2). **TC-L06 cũ (điều hướng Sửa qua icon) sai** — xem
+>    bản sửa bên dưới.
+> 2. **"Xóa" không phải hard-delete** — `DeleteAsync` (`CouponsPage.razor:183-203`) gọi
+>    `CouponService.UpdateBlockedAsync(item.ItemNo, true)` (soft-block, **giống hệt cơ chế** đổi
+>    checkbox "Khóa (Blocked)" ở View mode) — **KHÔNG** gọi `usp_SetupCoupon_Delete`/xóa khỏi
+>    `CpnVchBOMIssueRule`/`CpnVchBOMHeader` như TC-L03/TC-L04 mô tả. Icon Xóa **luôn hiển thị**,
+>    không có điều kiện `QtyCoupon == 0` nào cả (TC-L03/TC-L04 toàn bộ đã lỗi thời — audit riêng
+>    nếu cần dùng lại, không sửa chi tiết ở đây vì ngoài phạm vi task).
+> 3. **Filter panel thực tế** chỉ có 2 field: "Từ khóa (mã / tên / mã coupon)" (1 ô gộp, không tách
+>    riêng Mã/Tên) + "Hiệu lực" (dropdown `"-1"`=Tất cả/`"0"`=Hiệu lực **[mặc định]**/`"1"`=Hết hiệu
+>    lực) — **không có** filter "Cách phát hành" như TC-L02 mô tả.
+> 4. **Cột bảng thực tế**: STT, Thao tác, Mã, Tên, Loại giảm, Giá trị giảm, SL tối đa, Tổng bill,
+>    Từ ngày, Đến ngày, Hiệu lực — **không có** cột Cách phát hành/Tiền tố/Kích thước mã/Số chữ
+>    cái/Vị trí đứng/Số lượng như TC-L01 liệt kê (số mã đã phát chỉ xem được trong tab "Mã coupon
+>    đã phát hành" của trang Issue, không hiện ở list).
+> 5. **Hệ quả quan trọng nhất cho CouponIssuePage**: vì không có icon Sửa, chế độ **"Sửa" (Edit,
+>    không phải View)** — `?id={ItemNo}` **KHÔNG kèm** `&mode=view` — **chỉ truy cập được bằng cách
+>    gõ thẳng URL**, không có bất kỳ nút/link nào trong toàn bộ POS.Web dẫn tới đó (đã grep toàn bộ
+>    `src/POS.Web` xác nhận chỉ có 2 điều hướng thật: `/promotion/coupons/issue` (tạo mới) và
+>    `/promotion/coupons/issue?id={ItemNo}&mode=view` (xem)). TC-I05/TC-I06 (mục 5.1) **vẫn đúng về
+>    mặt hành vi code** (`CodeFieldsLocked`, form nạp từ `GetDetailAsync`...) nhưng **Pre-
+>    condition/Steps phải sửa lại**: không phải "bấm icon Sửa từ list", mà "truy cập trực tiếp
+>    bằng URL `?id={ItemNo}` (không `mode=view`)" — auto-test dùng `page.goto()` trực tiếp thay vì
+>    click icon.
 
 ### TC-L01 — Load danh sách + phân trang (Positive)
 - **Scenario:** Trang load danh sách coupon phân trang server-side.
@@ -93,9 +180,20 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 - **Steps:** Mở `/promotion/coupons`.
 - **Expected Result:** Banner đỏ "Không thể tải danh sách coupon. (Kiểm tra SP usp_SetupCoupon_* đã deploy chưa)". Ghi file log `CouponsPage.Load`. **App không crash**.
 
-### TC-L06 — Điều hướng Sửa (Positive)
-- **Steps:** Bấm icon Sửa ✏ ở 1 dòng.
-- **Expected Result:** Chuyển sang `/promotion/coupons/issue?id={ItemNo}`, form nạp sẵn dữ liệu (xem TC-I06).
+### TC-L06 — Truy cập chế độ Sửa qua URL trực tiếp (Positive) [SỬA — không còn icon Sửa]
+- **Steps:** Gõ thẳng URL `/promotion/coupons/issue?id={ItemNo}` (**không** `&mode=view`) — **KHÔNG
+  có icon/nút nào trên list dẫn tới đây** (đã xác nhận qua grep `src/POS.Web`, xem cảnh báo G7 đầu
+  mục 4). Đường vào duy nhất trong UI là icon "Xem chi tiết" → `mode=view` (TC-L07).
+- **Expected Result:** Form nạp sẵn dữ liệu, `IsEditing=true`, `IsViewMode=false` (xem TC-I06),
+  tiêu đề "Sửa coupon {ItemNo}", nút "Lưu" chính hiển thị, field Auto khóa nếu `QtyCoupon>0`
+  (`CodeFieldsLocked`, xem TC-I05).
+
+### TC-L07 — Điều hướng Xem chi tiết (Positive) [BỔ SUNG]
+- **Steps:** Bấm icon "Xem chi tiết" (👁, `Icons.Material.Filled.Visibility`) ở 1 dòng — đây là
+  icon **DUY NHẤT** trên list dẫn sang trang Issue của 1 coupon đã tồn tại (icon còn lại là "Xóa",
+  xem G7 điểm 2 — không liên quan điều hướng).
+- **Expected Result:** Chuyển sang `/promotion/coupons/issue?id={ItemNo}&mode=view` — xem hành vi
+  đầy đủ ở mục 3.1 "Chế độ Xem" + TC-I07/TC-I08.
 
 ---
 
@@ -107,8 +205,25 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 - **Scenario:** Phát hành coupon tự sinh mã.
 - **Pre-condition:** Có SalesType, StoreGroup (có store), role Ops+.
 - **Steps:** 1) Mở trang (không `?id`). 2) Nhập Tên phát hành. 3) Cách phát hành = "Tự động tạo mã". 4) Chọn Hình thức bán + Nhóm cửa hàng. 5) Từ ngày / Đến ngày. 6) Prefix = `TEST`, Kích thước mã = `10`, Số chữ cái = `2`, Vị trí đứng = `3`, Số lượng = `5`. 7) Bỏ tick "Áp dụng theo danh sách sản phẩm". 8) Bấm **Lưu**.
-- **Expected Result:** Snackbar "Cập nhật thành công coupon C7...". Form reload sang chế độ Sửa (tiêu đề "Sửa coupon C7..."), field Auto **bị khóa** (`CodeFieldsLocked`). Tab "Mã coupon đã phát hành" hiển thị 5 mã (mỗi mã bắt đầu `TEST`, độ dài ≤ 20). DB: 1 dòng IssueRule + 1 Header + 5 CodeIssue + store rows theo group. Audit `CREATE / SetupCoupon`.
-- **Edge Cases:** Xem E5 (Số lượng quá lớn), E6 (mã trùng).
+- **Expected Result:** Snackbar "Cập nhật thành công coupon C7...". **[SỬA — bản cũ ghi sai]**
+  Trang **điều hướng thẳng về `/promotion/coupons`** (`Nav.NavigateTo`, dòng 590) ngay sau khi cả
+  `SaveIssueAsync` **và** `SaveAdvancedAsync` đều thành công — **KHÔNG** có việc "form reload tại
+  chỗ sang chế độ Sửa". Muốn quan sát field Auto bị khóa (`CodeFieldsLocked`) + tab "Mã coupon đã
+  phát hành" (5 mã, mỗi mã bắt đầu `TEST`, độ dài ≤ 20), phải quay lại từ list và bấm icon Sửa (xem
+  TC-I05/TC-I06) — đây là 2 bước riêng biệt, không phải hệ quả tức thời của 1 lần Lưu. DB: 1 dòng
+  IssueRule + 1 Header + 5 CodeIssue + store rows theo group. Audit `CREATE / SetupCoupon` +
+  `CREATE / SetupCouponAdvanced` (2 entity riêng — xem mục 9.3).
+- **Field bắt buộc điền trên form chính trước khi Lưu (dễ bỏ sót):** "Giá trị giảm giá (%/VNĐ)" —
+  field này **luôn** được gửi kèm qua `SaveAdvancedAsync` ngay sau `SaveIssueAsync` (xem TC-I04 đã
+  đổi ý nghĩa bên dưới). **[XÁC NHẬN LẠI qua verify DOM thật, 2026-07-16 — sửa nhận định sai trước
+  đó]**: `CouponAdvancedSaveRequest.DiscountType` có property initializer `= 1`
+  (`SetupCouponDtos.cs:183`) → coupon mới **mặc định đã chọn sẵn "Discount Percent (%)"**, KHÔNG
+  cần tự chọn dropdown "Kiểu giảm giá". Nhưng `DiscountValue` (double, không có initializer) mặc
+  định = `0` → vì `DiscountType==1` sẵn, `ValidateHeaderFields` (dòng 446) **LUÔN LUÔN** chặn Lưu
+  với coupon mới nếu không tự điền "Giá trị giảm giá" > 0 — đây là field **bắt buộc thực sự** dễ bỏ
+  sót nhất khi test/thao tác thật.
+- **Edge Cases:** Xem E5 (Số lượng quá lớn), E6 (mã trùng), **E13** (mục 6 — retry sau khi
+  `SaveAdvancedAsync` lỗi có thể tạo coupon thứ hai trùng lặp).
 
 #### TC-I02 — Import Excel hợp lệ
 - **Steps:** 1) Cách phát hành = "Import excel". 2) Bấm **File mẫu** → tải file `.xlsx` (cột `CodeCoupon`). 3) Điền vài mã hợp lệ vào file. 4) Bấm **Chọn file Excel** → chọn file. 5) Điền Tên + ngày. 6) **Lưu**.
@@ -120,18 +235,35 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 - **Expected Result:** Item thêm vào bảng (không trùng `ItemNo` — dedupe theo `ItemNo`). Xóa dòng → biến mất khỏi bảng ngay. Khi Lưu → ghi `CpnVchBOMLine` (replace toàn bộ theo ItemNo).
 - **Edge Cases:** Chọn cùng item 2 lần → chỉ 1 dòng. Xem E3 (bỏ tick checkbox làm mất item).
 
-#### TC-I04 — Cài đặt nâng cao
-- **Steps:** 1) Nhập Tên + ngày (bắt buộc trước khi mở). 2) Bấm **Cài đặt nâng cao**. 3) Chọn ĐVT, Kiểu giảm giá = %, Giá trị = 10, các checkbox. 4) **Lưu** trong dialog.
-- **Expected Result:** Dialog đóng, Snackbar thành công. `_model.ItemNo` được gán (nếu trước đó chưa có). Audit `UPDATE / SetupCouponAdvanced`. DB: Header cập nhật discount/limit/blocked.
-- **Edge Cases:** Xem E1 (tạo coupon không mã), E8 (chặn ngày quá khứ chỉ ở luồng này).
+#### TC-I04 — Cài đặt nâng cao — ⚠️ KHÔNG THỂ THỰC HIỆN QUA UI HIỆN TẠI [SỬA]
+- **Trạng thái thật của code:** `_showAdvancedButton = false` (hardcoded, `CouponIssuePage.razor:347`)
+  → nút "Cài đặt nâng cao" **không bao giờ render**. `OpenAdvancedAsync`/`CouponAdvancedDialog`
+  vẫn còn tồn tại trong code nhưng là **dead UI path** — không có cách nào người dùng thường kích
+  hoạt được qua giao diện.
+- **Vì sao vẫn giữ lại mục này:** để QA/dev biết code chết vẫn tồn tại (rủi ro maintenance — 2
+  luồng lưu discount song song, xem E1), và để phân biệt với hành vi THẬT hiện tại: field Kiểu
+  giảm giá/Giá trị giảm giá/Giảm tối đa VNĐ đã **inline ngay trên form chính** (Card "Thông tin
+  chung", dòng 183-198), luôn được gửi kèm **mọi lần bấm Lưu chính** qua `SaveAdvancedAsync` gọi
+  tự động ngay sau `SaveIssueAsync` thành công (dòng 578) — không còn là 1 hành động tùy chọn tách
+  biệt như tên gọi "Cài đặt nâng cao" gợi ý.
+- **Field bị ẩn/cố định hoàn toàn khỏi UI** (`SetDefaultsForNewCoupon`, dòng 394-403): ĐVT luôn
+  `"CAI"`, Giới hạn số lượng `199999999`, Số lần sử dụng `1`, "Sử dụng nhiều lần" luôn `false`.
+- **Hệ quả với các TC negative liên quan** (xem đánh dấu tương ứng ở mục 5.2): TC-N15 (ĐVT trống),
+  TC-N18 (Số lần sử dụng=0), TC-N19 (ngày quá khứ) **không còn tái hiện được qua UI** — chỉ còn ý
+  nghĩa nếu gọi thẳng `CouponService.SaveAdvancedAsync`/`OpenAdvancedAsync` bằng test code (ngoài
+  phạm vi Playwright UI test).
+- **Edge Cases:** Xem E1 (tạo coupon không mã — vẫn có giá trị lý thuyết vì code chưa xóa hẳn),
+  E8 (chặn ngày quá khứ — nay **không quan sát được qua UI**, xem ghi chú cập nhật ở mục 6).
 
 #### TC-I05 — Sửa coupon đã có mã
 - **Pre-condition:** Coupon `QtyCoupon > 0`.
-- **Steps:** Vào qua `?id=`. Sửa Tên / thêm sản phẩm. **Lưu**.
+- **Steps:** Truy cập **trực tiếp bằng URL** `?id={ItemNo}` (**không** `&mode=view` — xem G7 mục 4,
+  không có icon nào trong UI dẫn tới đây, phải gõ/điều hướng thẳng URL). Sửa Tên / thêm sản phẩm.
+  **Lưu**.
 - **Expected Result:** Cách phát hành + field Auto/Import **bị khóa** (không sinh lại mã — `needCodes=false`). Chỉ cập nhật Header + Line + Store. Audit `UPDATE / SetupCoupon`.
 - **Edge Cases:** Xem E10 (ô Số lượng hiện 0).
 
-#### TC-I06 — Nạp form khi Sửa (`?id=`)
+#### TC-I06 — Nạp form khi Sửa (`?id=`, truy cập trực tiếp bằng URL — xem G7)
 - **Expected Result:** Tên, Cách phát hành, Hình thức bán, Nhóm CH, Từ/Đến ngày, checkbox, danh sách sản phẩm, số mã đã phát sinh — nạp đúng từ `GetDetailAsync`.
 
 ### 5.2 Negative (validate trong `CouponService`)
@@ -140,10 +272,11 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 |---|---|---|
 | TC-N01 | Bỏ trống Tên phát hành → Lưu | "Vui lòng nhập tên phát hành coupon" (Warning) |
 | TC-N02 | Không chọn Từ ngày / Đến ngày → Lưu | "Vui lòng chọn ngày bắt đầu" / "...kết thúc" (Warning) |
-| TC-N03 | Từ ngày > Đến ngày → Lưu | "TỪ NGÀY không lớn hơn ĐẾN NGÀY" (Error) |
+| TC-N03 | Từ ngày **≥** Đến ngày → Lưu | **[SỬA]** `"Từ ngày phải nhỏ hơn Đến ngày"` (Warning — `CouponIssuePage.razor:445`, bản cũ ghi sai text "TỪ NGÀY không lớn hơn ĐẾN NGÀY"; điều kiện thật là `>=` — ngày **bằng nhau** cũng bị chặn, không chỉ trường hợp Từ ngày sau Đến ngày) |
+| TC-N03b | **[MỚI]** Kiểu giảm giá = "Discount Percent (%)" (**mặc định sẵn** cho coupon mới, xem TC-I01), Giá trị giảm giá ≤ 0 (mặc định `0`, dễ tái hiện nhất — chỉ cần KHÔNG điền field này) hoặc > 100 → Lưu | `"Giá trị giảm giá theo % phải lớn hơn 0 và không vượt quá 100"` (Warning, `ValidateHeaderFields`, dòng 446-450) — chạy **ngay tại trang chính** khi bấm Lưu, chỉ kích hoạt khi `DiscountType == 1`; đây chính là 2 rule N16/N17 cũ nhưng **không phải luồng "Advanced"** (dialog đã ẩn — xem TC-I04) mà là validate của form chính |
 | TC-N04 | Auto: Kích thước mã < 5 hoặc > 20 | "Kích thước mã từ 5->20 ký tự" |
 | TC-N05 | Auto: LenCode + độ dài Prefix + Số chữ cái > 20 | "Tổng ký tự coupon đã vượt hơn 20" |
-| TC-N06 | Auto: Số lượng ≤ 0 | "Vui lòng nhập số lượng phát hành" |
+| TC-N06 | ~~Auto: Số lượng ≤ 0~~ | ⚠️ **[SỬA — xác nhận qua auto-test thật 2026-07-16]** **KHÔNG tái hiện được qua UI**: `MudNumericField Min="1"` của ô "Số lượng mã phát hành" (`CouponIssueMoreDialog.razor:36-39`) **tự động clamp** giá trị gõ vào về `1` trước khi submit (giống cơ chế `Max="100"` tự clamp của "Giá trị giảm giá" — xem TC-N03b) — gõ `0` vào ô này rồi bấm "PHÁT HÀNH" **KHÔNG bị chặn**, dialog đóng bình thường và **coupon được tạo thành công với Quantity thực nhận = 1** (không phải 0). Rule service-side "Vui lòng nhập số lượng phát hành" (`CouponService`) do đó **không có đường nào từ UI đưa giá trị ≤0 tới được nó** — chỉ còn ý nghĩa nếu gọi thẳng `CouponService.SaveIssueAsync`/`IssueMoreAsync` bằng test code. |
 | TC-N07 | Auto/Import: mã đã tồn tại trong DB | "Mã coupon trùng trong DB (...)..." |
 | TC-N08 | Import: không chọn file | "Vui lòng chọn file excel để import" |
 | TC-N09 | Import: file rỗng (không có mã) | "Vui lòng kiểm tra file Excel, không có mã coupon" |
@@ -152,11 +285,11 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 | TC-N12 | Import: mã > 20 ký tự | "Có N mã coupon ... vượt quá 20 ký tự (...)" |
 | TC-N13 | Import: mã trùng nhau trong file | "File excel có giá trị trùng (...)..." |
 | TC-N14 | Tick "theo sản phẩm" nhưng danh sách rỗng → Lưu | "Vui lòng thêm sản phẩm vào voucher/coupon" |
-| TC-N15 | Advanced: bỏ trống ĐVT | "Vui lòng chọn đơn vị tính" |
-| TC-N16 | Advanced: Giá trị giảm ≤ 0 | "Vui lòng nhập giá trị giảm giá" |
-| TC-N17 | Advanced: Kiểu = % và Giá trị > 100 | "Giá trị phần trăm giảm giá không lớn hơn 100" |
-| TC-N18 | Advanced: tick "Sử dụng nhiều lần" + Số lần = 0 | "Vui lòng nhập số lần sử dụng" |
-| TC-N19 | Advanced: Từ ngày < hôm nay | "TỪ NGÀY không được nhỏ hơn ngày hiện tại" (⚠️ chỉ luồng Advanced — xem E8) |
+| TC-N15 | ~~Advanced: bỏ trống ĐVT~~ | ⚠️ **KHÔNG THỂ TÁI HIỆN QUA UI** — ĐVT bị ẩn + hardcode `"CAI"` (`SetDefaultsForNewCoupon`), dialog Advanced không mở được (xem TC-I04). Chỉ còn giá trị nếu gọi thẳng `CouponService.SaveAdvancedAsync` bằng test code |
+| TC-N16 | Giá trị giảm ≤ 0 (Kiểu giảm giá bất kỳ) | **[GỘP vào TC-N03b]** — nay validate ở form chính, không phải Advanced |
+| TC-N17 | Kiểu = % và Giá trị > 100 | **[GỘP vào TC-N03b]** — nay validate ở form chính, không phải Advanced |
+| TC-N18 | ~~Advanced: tick "Sử dụng nhiều lần" + Số lần = 0~~ | ⚠️ **KHÔNG THỂ TÁI HIỆN QUA UI** — checkbox "Sử dụng nhiều lần" bị ẩn + hardcode `false`, dialog Advanced không mở được |
+| TC-N19 | ~~Advanced: Từ ngày < hôm nay~~ | ⚠️ **KHÔNG THỂ TÁI HIỆN QUA UI** — dialog Advanced không mở được; xem E8 (mục 6) đã cập nhật ghi chú |
 
 ---
 
@@ -206,11 +339,18 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 - **Rủi ro:** Người dùng thấy banner lỗi nhưng vẫn có thể nhập & Lưu → tạo coupon mới ngoài ý muốn.
 - **Đề xuất:** Khi id không hợp lệ → chặn form hoặc điều hướng về list.
 
-### E8 — Lệch validate ngày giữa 2 luồng Lưu
+### E8 — Lệch validate ngày giữa 2 luồng Lưu ⚠️ [CẬP NHẬT — không còn quan sát được qua UI]
 - **Mô tả:** "Lưu" (issue) **cho phép** Từ ngày trong quá khứ; "Cài đặt nâng cao" **chặn** `start < today`.
-- **Tái hiện:** Đặt Từ ngày = hôm qua → "Lưu" chính OK; nhưng mở "Cài đặt nâng cao" → Lưu → lỗi "TỪ NGÀY không được nhỏ hơn ngày hiện tại".
-- **Rủi ro:** Trải nghiệm mâu thuẫn, khó hiểu quy tắc nghiệp vụ.
-- **Đề xuất:** Thống nhất 1 quy tắc ngày cho cả 2 luồng.
+- **Tái hiện (LÝ THUYẾT — không còn thực hiện được qua UI hiện tại):** Đặt Từ ngày = hôm qua →
+  "Lưu" chính OK; nhưng mở "Cài đặt nâng cao" → Lưu → lỗi "TỪ NGÀY không được nhỏ hơn ngày hiện
+  tại". **Do `_showAdvancedButton = false` (xem TC-I04), nút "Cài đặt nâng cao" không còn render**
+  → nhánh validate `OpenAdvancedAsync`/`CouponAdvancedDialog` này không ai kích hoạt được qua UI
+  nữa. Chỉ còn tái hiện được nếu gọi thẳng `CouponService.SaveAdvancedAsync`/`OpenAdvancedAsync`
+  bằng test code (unit test/reflection), không phải qua trình duyệt.
+- **Rủi ro:** Trải nghiệm mâu thuẫn (vẫn tồn tại trong code, chỉ không lộ ra qua UI); nếu tương lai
+  bật lại nút "Cài đặt nâng cao" (`_showAdvancedButton = true`) thì bug này lập tức tái xuất.
+- **Đề xuất:** Thống nhất 1 quy tắc ngày cho cả 2 luồng — hoặc xóa hẳn code Advanced dialog chết
+  nếu xác nhận không còn dùng, tránh vừa giữ code chết vừa giữ bug tiềm ẩn.
 
 ### E9 — Double-click "Lưu" / mất mạng giữa chừng
 - **Mô tả:** Nút Lưu `Disabled="_saving"`; `_saving` set true khi bắt đầu, reset trong `finally`.
@@ -236,6 +376,29 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 - **Rủi ro:** Ghi đè thầm lặng.
 - **Đề xuất:** Dùng `Counter`/`LastDateModified` làm optimistic concurrency token.
 
+### E13 — [MỚI, phát hiện khi đối chiếu code 2026-07-16] Retry sau khi `SaveAdvancedAsync` lỗi có thể tạo COUPON THỨ HAI trùng lặp, mã thật đã phát nhưng "vô hình" với người dùng
+- **Mô tả:** Trong `SaveAsync` (`CouponIssuePage.razor:520-599`), sau khi `SaveIssueAsync` thành
+  công (đã sinh mã Auto + ghi audit `CREATE/SetupCoupon`, dòng 552-561), code **KHÔNG BAO GIỜ gán
+  lại `_model.ItemNo = result.ItemNo`** — chỉ `_advanced.ItemNo` được gán (dòng 565). Nếu bước tiếp
+  theo `SaveAdvancedAsync` thất bại (dòng 578-584) → set `_errorMsg`/Snackbar lỗi rồi `return`,
+  **KHÔNG điều hướng đi**. Hệ quả: `_model.ItemNo` vẫn rỗng, `_quantityCodeInDb` vẫn = 0 (field này
+  chỉ được nạp trong `LoadDetailAsync` lúc load trang ban đầu, không có chỗ nào refresh lại sau
+  Save) — trang vẫn hiển thị y hệt trạng thái "tạo mới".
+- **Tái hiện:** Tạo coupon Auto mới → cố tình làm `SaveAdvancedAsync` thất bại (vd giá trị
+  `DiscountValue` bị Service từ chối do rule N16/N17 áp dụng phía server, hoặc SP `usp_SetupCoupon_
+  SaveAdvanced` lỗi tạm thời/mất kết nối DB giữa 2 lệnh gọi) → thấy Snackbar lỗi "..." → bấm **Lưu
+  lại** → vì `NeedsCodeDialog` (`ItemNo rỗng || quantityCodeInDb==0`, dòng 438) vẫn `true` → dialog
+  "Phát hành mã coupon" mở lại → xác nhận → `SaveIssueAsync` được gọi **LẦN NỮA với `ItemNo` rỗng**
+  → server sinh **`ItemNo` MỚI** + **lô mã Auto MỚI** hoàn toàn tách biệt với lô đầu tiên.
+- **Rủi ro:** Coupon đầu tiên đã có mã thật (dùng được ở POS ngay lập tức) nhưng **KHÔNG có audit
+  `SetupCouponAdvanced`**, discount/giảm giá của nó chưa từng lưu đúng, và **không hiển thị ở đâu
+  để người dùng biết nó tồn tại** (form vẫn hiện như đang "tạo mới", không có cách nào tra ngược lại
+  `ItemNo` vừa sinh trừ khi chủ động vào list tìm theo Tên phát hành). Mỗi lần bấm Lưu lại sau lỗi
+  advanced → phát sinh thêm 1 coupon "rác" có mã thật, không bị chặn bởi bất kỳ guard nào.
+- **Đề xuất:** Gán `_model.ItemNo = result.ItemNo;` (và cập nhật `_quantityCodeInDb` tương ứng) ngay
+  sau khi `SaveIssueAsync` trả `Ok=true`, **trước khi** gọi `SaveAdvancedAsync` — để lần Lưu lại
+  (nếu `SaveAdvancedAsync` lỗi) đi vào nhánh "update coupon đã tồn tại" thay vì "tạo mới".
+
 ---
 
 ## 7. Checklist regression nhanh
@@ -246,10 +409,15 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 □ Nút Xóa chỉ hiện khi QtyCoupon==0; xóa → audit DELETE
 □ Auto: tạo mới hợp lệ → 5 mã đúng prefix/độ dài; field khóa sau lưu
 □ Import: tải file mẫu; import file hợp lệ; các case lỗi N09–N13
-□ Advanced: mở dialog, validate N15–N19, lưu OK
+□ Advanced (giá trị giảm giá): validate TC-N03b ở form chính OK (dialog "Cài đặt nâng cao"
+  KHÔNG còn tồn tại qua UI — xem TC-I04, N15/N18/N19 chỉ test được qua Service trực tiếp)
 □ Sửa coupon có mã: field code khóa, chỉ update header/line/store
-□ Toàn bộ validate Negative TC-N01..N19 hiện đúng thông báo
-□ Điểm yếu E1–E12: xác nhận hành vi thực tế + log lại để dev vá
+□ Xem chi tiết (?mode=view): mọi field khóa trừ Blocked; nút đổi thành PHÁT HÀNH THÊM (TC-I07/I08)
+□ Toàn bộ validate Negative TC-N01, N02, N03, N03b, N04, N05, N07-N14 hiện đúng thông báo
+  (N06/N15/N18/N19 KHÔNG thể test qua UI — MudNumericField Min/Max tự clamp hoặc dialog Advanced
+  ẩn, xem TC-N06/TC-I04)
+□ Điểm yếu E1–E13: xác nhận hành vi thực tế + log lại để dev vá (đặc biệt E13 — nguy cơ tạo
+  coupon trùng lặp có mã thật khi retry sau lỗi advanced)
 □ SP chưa deploy → banner đỏ, app không crash
 ```
 
@@ -257,7 +425,8 @@ Khi bấm **Lưu** (SP `usp_SetupCoupon_SaveIssue`), bảng `CpnVchBOMStore` đ�
 
 - **Bắt buộc** deploy: `docs/sql/SetupCoupon_Read.sql`, `SetupCoupon_Save.sql`, `SetupCoupon_Delete.sql` (xem `docs/ROLLOUT.md` §D3).
 - Bảng audit: chạy `src/POS.Web/Auth/migration_dashboard_audit_log.sql` trên `RPOSMasterData` (nếu chưa → audit fail-safe, không crash).
-- Role test: **ITOps** hoặc **SystemAdmin** (policy `OpsAndAbove`). StoreOperator sẽ bị chặn (403/AccessDenied).
+- Role test: **BackOffice**, **ITOps** hoặc **SystemAdmin** (policy `BackOfficeAndAbove` — xem G0
+  mục 1). StoreOperator sẽ bị chặn (403/AccessDenied).
 - Blazor Server: mọi test cần lưu ý **circuit** (mất mạng, reload tab làm mất state form đang nhập).
 
 ---

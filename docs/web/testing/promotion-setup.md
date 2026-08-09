@@ -288,6 +288,43 @@ PromotionSetupPage.SaveAsync()
   **Không có tầng AppService HTTP** ở đây vì đây là truy vấn DB nội bộ, không phải external partner
   API — không áp dụng pattern "AppService 3 lớp" của `.claude/rules/architecture-layers.md`.
 
+### 10.5 Logic theo loại CTKM — bản sửa lần 5 (2026-07-15)
+
+> Khớp chuỗi **UI → SetupPromotion\* → (Duyệt: Setup_Promotion_Insert) → Offer\* → calc-proc POS**.
+> Đọc `docs/web/offers/setup_offer_plan_V4.md` để hiểu đầy đủ.
+
+- **Cờ động `dbo.OfferType`** (`IsSetupBuy/IsSetupGet/IsTotalBill/IsVoucher/IsGift`) điều khiển hiện/ẩn
+  tab + validate. Không hardcode theo mã ZB, trừ 2 tập ngoại lệ nghiệp vụ (bù cờ DB có thể lệch):
+  `BuyHiddenOfferTypes={ZB06,ZB13}` (ẩn tab Buy — publish loại 2 mã này khỏi `OfferBuy`),
+  `BuyOptionalOfferTypes={ZB05,ZB10}` (Buy không bắt buộc). **ZB14/ZB15 KHÔNG thuộc 2 tập → vẫn có tab Buy.**
+- **`TOTALMINVALUE` (cờ tổng bill)** tự gán = `IsTotalBill` của OfferType khi Lưu (C#
+  `SaveSetupAsync` → `@TotalMinValue`). Đây là cột quyết định publish rẽ dòng **Get → `OfferBenefits`**
+  (khi =1, `StepAmount = MINVALUE`) hay **`OfferGet`** (khi =0). **TRƯỚC bản 5 cột này không hề được set
+  → `OfferBenefits` không bao giờ sinh cho ZB06/ZB12/ZB13/ZB14/ZB15** (lỗi gốc, đã fix).
+- **MinValue** (ngưỡng tổng bill) chuyển sang tab **"Thông tin chung"** (là điều kiện, không phải quà),
+  bắt buộc > 0 cho loại tổng bill.
+- **Checkbox "Giảm giá tổng bill"** (whole-bill, cơ chế RIÊNG ZB21/ZB09 → `TotalDiscountType/Value`) **ẩn
+  cho loại tổng bill** để không xóa nhầm dòng Get (là benefits).
+- **Cột Buy `DiscountType/DiscountValue`** (mới): ZB02 combo (Giá cố định + giá bán combo), ZB07 (ngưỡng
+  giá trị bill). Publish đọc `SetupPromotionBUY.DiscountType/DiscountValue`.
+- **`Step = Quantity`** do publish suy ra → mọi dòng Buy/Get phải `Quantity ≥ 1` (validate) để tránh
+  Step=0 vỡ phép chia interval trong calc-proc. New row mặc định Quantity=1.
+- **Giới hạn số lượng KM**: `LimitQty` ("Limit by customer" — số lần lặp, calc-proc dùng thật) +
+  per-line `Quantity` = lớp chặn CHÍNH. Trường **MaxQuantity** (mới) publish sang `OfferMaxQuantity`
+  qua script **GATED** `SetupPromotion_Insert_AddMaxQty.sql` — chỉ chạy sau khi DBA/engine xác nhận (hiện
+  0 calc-proc đọc `OfferMaxQuantity`).
+
+**Test cases bổ sung (bản 5):**
+
+| ID | Mục tiêu | Bước | Kết quả mong đợi |
+|---|---|---|---|
+| CTKM-18 | Ẩn tab Buy ZB06/ZB13 | Chọn Loại = ZB06 (hoặc ZB13) | Tab "Sản phẩm mua" **không hiện**; ô MinValue hiện ở tab "Thông tin chung". |
+| CTKM-19 | ZB14/ZB15 vẫn có Buy | Chọn Loại = ZB14 (hoặc ZB15) | Tab "Sản phẩm mua" **vẫn hiện** & nhập được (khác ZB13). |
+| CTKM-20 | Publish OfferBenefits (lỗi gốc) | Tạo ZB06: MinValue=100000, tab Get 1 SP giảm 20% → Lưu → Duyệt | `SetupPromotionHEADER.TOTALMINVALUE='1'`; sau Duyệt có dòng `OfferBenefits` với `StepAmount=100000`. |
+| CTKM-21 | Buy combo ZB02 | ZB02: tab Buy 1 SP, Loại KM=Giá cố định, Giá trị=50000 → Lưu | `SetupPromotionBUY.DiscountType='2'`, `DiscountValue='50000'`. |
+| CTKM-22 | Chặn Quantity=0 | Thêm dòng Get, đặt Số lượng=0 → Lưu | Báo "Số lượng của mỗi dòng sản phẩm phải ≥ 1"; không ghi DB. |
+| CTKM-23 | Ưu tiên + Limit | Nâng cao: Độ ưu tiên=3, Limit by customer=5 → Lưu → mở lại | `ZPRIOR='3'`, `LIMIT='5'`; sau Duyệt `OfferHeader.PriorityBBY=3`, `LimitQty=5`. |
+
 ---
 
 # PHẦN B — Danh mục khuyến mãi (`/promotion/offers`)

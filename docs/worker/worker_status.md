@@ -88,8 +88,9 @@ Hoặc dùng sẵn `docker compose up -d --build` (service `pos-worker` trong `d
 env `WorkerRoles__*` đã cấu hình sẵn giống lệnh trên).
 
 > **Chạy song song bare-metal cùng roles (Model B'), khi SQL Server cũng chạy Docker trên cùng
-> host**: dùng `appsettings.ProductionHost.json` (`DOTNET_ENVIRONMENT=ProductionHost`, địa chỉ
-> `127.0.0.1` thay vì `host.docker.internal`, `EnableHeartbeat=false`) thay vì lặp lại
+> host**: dùng `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost` — dùng chung file với
+> Model A/Model C, xem cập nhật 2026-07-15; địa chỉ `127.0.0.1` thay vì `host.docker.internal`,
+> `EnableHeartbeat=false` mặc định) + `WorkerRoles__*` override qua `Environment=` thay vì lặp lại
 > `Production.json` — xem `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5 và
 > `docs/ROLLOUT.md` §O11.
 

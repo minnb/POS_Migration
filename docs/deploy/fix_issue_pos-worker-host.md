@@ -120,6 +120,11 @@ Environment=WorkerRoles__EnableMasterDataZipGenerator=true
 ```
 Đã cập nhật lại `docs/deploy/pos-worker-ubuntu-guide.md` mục 9.4 + bảng đầu file theo đúng fix này.
 
+> **Cập nhật 2026-07-15 — `appsettings.ProductionHost.json` đã bị XOÁ, gộp vào
+> `appsettings.CronHost.json`.** Model C nay dùng `DOTNET_ENVIRONMENT=CronHost` (dùng chung file
+> với Model A) — `WorkerRoles__*` override trong `Environment=` giữ nguyên như trên. Chi tiết:
+> `docs/deploy/pos-worker-ubuntu-guide.md` mục 9.4 + `docs/CHANGELOG.md` [2026-07-15].
+
 ## Vấn đề 7 (2026-07-14) — Model C sinh zip CHANGE liên tục dù không có thay đổi dữ liệu thật
 
 **Triệu chứng:** sau khi deploy `MasterDataZipGeneratorWorker` (Model C), log ghi nhận worker sinh
@@ -152,8 +157,9 @@ rằng "deploy xong là xong".
 
 ## Thay đổi cấu hình khác (không phải fix lỗi — theo yêu cầu vận hành)
 
-`src/POS.Worker/appsettings.ProductionHost.json`: `MasterDataZipGenerator.IntervalSeconds`
-300 → 120 (poll watermark mỗi 2 phút thay vì 5 phút).
+`src/POS.Worker/appsettings.ProductionHost.json` (nay đã gộp vào `appsettings.CronHost.json`, xem
+cập nhật 2026-07-15 ở Vấn đề 6): `MasterDataZipGenerator.IntervalSeconds` 300 → 120 (poll
+watermark mỗi 2 phút thay vì 5 phút).
 
 ## Giới hạn đã biết — chưa xử lý
 
@@ -172,7 +178,7 @@ gọi được riêng, theo mẫu `PosFileImportService.RunOnceAsync`) — ngoà
 □ sudo useradd -r -s /usr/sbin/nologin posworker && sudo usermod -aG posops posworker
 □ mkdir + chown thư mục publish cho đúng user trước khi dotnet publish
 □ dotnet publish ra thư mục RIÊNG cho model này (không dùng chung với Model A cron)
-□ Unit file: DOTNET_ENVIRONMENT=ProductionHost (KHÔNG phải Production) + WorkerRoles__* đúng vai trò
+□ Unit file: DOTNET_ENVIRONMENT=CronHost (KHÔNG phải Production) + WorkerRoles__* đúng vai trò
 □ POS_SECRET_KEY trong Environment= khớp giá trị dùng chung 3 service khác
 □ sudo systemctl daemon-reload && enable && start → status = active (running)
 □ journalctl -u <service> -f không còn exception

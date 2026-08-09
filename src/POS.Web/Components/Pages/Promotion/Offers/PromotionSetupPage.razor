@@ -240,7 +240,20 @@ else
             @if (!string.IsNullOrEmpty(CurrentOfferTypeUserGuide))
             {
                 <MudItem xs="12">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@CurrentOfferTypeUserGuide</MudText>
+                    @* UserGuide (dbo.OfferType) chứa HTML (<b>/<br/>) do admin cấu hình — render qua
+                       MarkupString để hiển thị đúng định dạng thay vì hiện thẻ thô. Nguồn là master data
+                       nội bộ (dashboard OpsAndAbove), không phải input người dùng cuối. *@
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @((MarkupString)CurrentOfferTypeUserGuide)
+                    </MudText>
+                </MudItem>
+            }
+            @if (string.IsNullOrEmpty(_header.OfferType))
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Chọn <b>Loại CTKM</b> để hiện đúng các tab nhập liệu (Sản phẩm mua / khuyến mãi) và điều kiện theo loại.
+                    </MudAlert>
                 </MudItem>
             }
         </MudGrid>
@@ -264,8 +277,22 @@ else
     </MudPaper>
 
     <MudTabs Outlined="true" ApplyEffectsToContainer="true" PanelClass="pa-4" SliderColor="Color.Primary">
-        @* ── Tab Thông tin chung — bảng tóm tắt lịch áp dụng ── *@
+        @* ── Tab Thông tin chung — điều kiện chung + bảng tóm tắt lịch áp dụng ── *@
         <MudTabPanel Text="Thông tin chung" Icon="@Icons.Material.Filled.Info">
+            @if (CurrentOfferTypeIsTotalBill)
+            {
+                <MudPaper Elevation="1" Class="pos-filter-panel pa-4 mb-4">
+                    <MudText Typo="Typo.subtitle2" Class="pos-section-label">Điều kiện áp dụng chung</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="decimal" @bind-Value="_header.MinValue" Label="Giá trị tổng bill tối thiểu để hưởng KM"
+                                             Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             HideSpinButtons="true" Min="0" Adornment="Adornment.End" AdornmentText="VNĐ"
+                                             HelperText="Ngưỡng tổng hóa đơn (bắt buộc > 0). Duyệt → OfferBenefits.StepAmount."/>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
             <MudCard Elevation="2">
                 <MudCardContent>
                     <MudTable Items="@(new[] { _header })" Dense="true" Hover="false" Elevation="0"
@@ -315,7 +342,9 @@ else
             </MudCard>
         </MudTabPanel>
 
-        @* ── Tab Sản phẩm mua (Buy) ── *@
+        @* ── Tab Sản phẩm mua (Buy) — ẩn cho ZB06/ZB13 và loại IsSetupBuy=0 ── *@
+        @if (BuyTabVisible)
+        {
         <MudTabPanel Text="Sản phẩm mua" Icon="@Icons.Material.Filled.ShoppingCart">
             <MudCard Elevation="1">
                 <MudCardContent>
@@ -330,10 +359,6 @@ else
                                 <MudSelectItem T="string" Value="@("AND")">AND</MudSelectItem>
                                 <MudSelectItem T="string" Value="@("OR")">OR</MudSelectItem>
                             </MudSelect>
-                            <MudNumericField T="decimal" @bind-Value="_header.MinValue" Label="Giá trị tổng tiền tối thiểu"
-                                             Disabled="@(_isReadonly || !CurrentOfferTypeIsTotalBill)" Variant="Variant.Outlined"
-                                             Margin="Margin.Dense" HideSpinButtons="true" Min="0"
-                                             Adornment="Adornment.End" AdornmentText="VNĐ" Style="max-width:220px"/>
                             <MudSpacer/>
                             @if (!_isReadonly)
                             {
@@ -348,6 +373,12 @@ else
                             <MudTh Style="width:90px">ĐVT</MudTh>
                             <MudTh Style="width:110px;text-align:right">Số lượng</MudTh>
                             <MudTh Style="width:140px">Điều kiện áp dụng</MudTh>
+                            <MudTh Style="width:150px">
+                                <MudTooltip Text="ZB02 combo: chọn 'Giá cố định' + nhập giá bán combo. ZB07: dùng 'Giá trị' làm ngưỡng bill. Loại khác để mặc định %.">
+                                    <span>Loại KM (Buy)</span>
+                                </MudTooltip>
+                            </MudTh>
+                            <MudTh Style="width:120px;text-align:right">Giá trị</MudTh>
                             <MudTh Style="width:56px;text-align:center">Xóa</MudTh>
                         </HeaderContent>
                         <RowTemplate>
@@ -394,9 +425,10 @@ else
                                               Variant="Variant.Outlined" Margin="Margin.Dense"/>
                             </MudTd>
                             <MudTd DataLabel="Số lượng" Style="text-align:right">
+                                @* Min=1: publish gán Step = Quantity → Quantity=0 làm vỡ phép chia trong offer_procedure. *@
                                 <MudNumericField T="int" Value="@((int)context.Quantity)" ValueChanged="@(v => context.Quantity = v)"
                                                  Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                 HideSpinButtons="true" Min="0"/>
+                                                 HideSpinButtons="true" Min="1"/>
                             </MudTd>
                             <MudTd DataLabel="Điều kiện áp dụng">
                                 <MudSelect T="string" @bind-Value="context.ScaleType" Dense="true" Disabled="_isReadonly"
@@ -405,6 +437,18 @@ else
                                     <MudSelectItem T="string" Value="@("B")">Tối đa</MudSelectItem>
                                     <MudSelectItem T="string" Value="@("C")">Bằng</MudSelectItem>
                                 </MudSelect>
+                            </MudTd>
+                            <MudTd DataLabel="Loại KM (Buy)">
+                                <MudSelect T="int" @bind-Value="context.DiscountType" Dense="true" Disabled="_isReadonly"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                                    <MudSelectItem T="int" Value="0">Phần trăm (%)</MudSelectItem>
+                                    <MudSelectItem T="int" Value="1">Số tiền</MudSelectItem>
+                                    <MudSelectItem T="int" Value="2">Giá cố định</MudSelectItem>
+                                </MudSelect>
+                            </MudTd>
+                            <MudTd DataLabel="Giá trị" Style="text-align:right">
+                                <MudNumericField T="decimal" @bind-Value="context.DiscountValue" Disabled="_isReadonly"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Min="0"/>
                             </MudTd>
                             <MudTd Style="text-align:center">
                                 @if (!_isReadonly)
@@ -425,10 +469,27 @@ else
             </MudCard>
         </MudTabPanel>
 
-        @* ── Tab Sản phẩm khuyến mãi (Get) ── *@
+        }
+
+        @* ── Tab Sản phẩm khuyến mãi (Get) — ẩn khi IsSetupGet=0 ── *@
+        @if (GetTabVisible)
+        {
         <MudTabPanel Text="Sản phẩm khuyến mãi" Icon="@Icons.Material.Filled.CardGiftcard">
             <MudCard Elevation="1">
                 <MudCardContent>
+                    @if (CurrentOfferTypeIsGift)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                            Loại KM tặng quà: sản phẩm khai báo ở đây là quà tặng (POS hiển thị popup chọn quà).
+                        </MudAlert>
+                    }
+                    @if (CurrentOfferTypeIsTotalBill)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                            CTKM tổng bill: các dòng dưới đây là sản phẩm được hưởng KM khi đạt ngưỡng tổng bill
+                            (nhập ở tab "Thông tin chung"). Khi Duyệt, dữ liệu ghi vào bảng OfferBenefits.
+                        </MudAlert>
+                    }
                     <MudTable Items="_getRows" Dense="true" Hover="true" Striped="true" Elevation="0" Breakpoint="Breakpoint.Sm"
                               HorizontalScrollbar="true" T="OfferGetLineDto">
                         <ToolBarContent>
@@ -442,19 +503,24 @@ else
                                 <MudSelectItem T="string" Value="@("OR")">OR</MudSelectItem>
                             </MudSelect>
                             <MudSpacer/>
-                            <MudCheckBox T="bool" Value="_header.CheckTotalDiscount" ValueChanged="OnCheckTotalDiscountChanged"
-                                         Label="Giảm giá tổng bill" Disabled="_isReadonly" Color="Color.Primary"/>
-                            @if (_header.CheckTotalDiscount)
+                            @* "Giảm giá tổng bill" (whole-bill, cơ chế riêng ZB21/ZB09) — ẩn cho loại tổng bill
+                               (ZB06/ZB12…) vì dòng Get của chúng là SP hưởng KM (→ OfferBenefits), không được xóa. *@
+                            @if (!CurrentOfferTypeIsTotalBill)
                             {
-                                <MudSelect T="int" @bind-Value="_header.TotalDiscountType" Label="Loại khuyến mãi"
-                                           Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:220px">
-                                    <MudSelectItem T="int" Value="0">Discount Percent (%)</MudSelectItem>
-                                    <MudSelectItem T="int" Value="1">Discount Amount (VNĐ)</MudSelectItem>
-                                    <MudSelectItem T="int" Value="2">Discount Price (VNĐ)</MudSelectItem>
-                                </MudSelect>
-                                <MudNumericField T="decimal" @bind-Value="_header.TotalDiscountValue" Label="Giá trị khuyến mãi"
-                                                 Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                 HideSpinButtons="true" Min="0" Style="max-width:180px"/>
+                                <MudCheckBox T="bool" Value="_header.CheckTotalDiscount" ValueChanged="OnCheckTotalDiscountChanged"
+                                             Label="Giảm giá tổng bill" Disabled="_isReadonly" Color="Color.Primary"/>
+                                @if (_header.CheckTotalDiscount)
+                                {
+                                    <MudSelect T="int" @bind-Value="_header.TotalDiscountType" Label="Loại khuyến mãi"
+                                               Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:220px">
+                                        <MudSelectItem T="int" Value="0">Discount Percent (%)</MudSelectItem>
+                                        <MudSelectItem T="int" Value="1">Discount Amount (VNĐ)</MudSelectItem>
+                                        <MudSelectItem T="int" Value="2">Discount Price (VNĐ)</MudSelectItem>
+                                    </MudSelect>
+                                    <MudNumericField T="decimal" @bind-Value="_header.TotalDiscountValue" Label="Giá trị khuyến mãi"
+                                                     Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     HideSpinButtons="true" Min="0" Style="max-width:180px"/>
+                                }
                             }
                             @if (!_isReadonly && !_header.CheckTotalDiscount)
                             {
@@ -468,7 +534,11 @@ else
                             <MudTh>Sản phẩm</MudTh>
                             <MudTh Style="width:90px">ĐVT</MudTh>
                             <MudTh Style="width:100px;text-align:right">Số lượng</MudTh>
-                            <MudTh Style="width:130px">Điều kiện áp dụng</MudTh>
+                            <MudTh Style="width:130px">
+                                <MudTooltip Text="A=Tối thiểu (giảm từ SP thứ n+1); B=Tối đa (giảm tối đa n SP); C=Bằng (giảm khi mua đúng n SP).">
+                                    <span>Điều kiện áp dụng</span>
+                                </MudTooltip>
+                            </MudTh>
                             <MudTh Style="width:150px">
                                 <MudTooltip Text="% = giảm theo phần trăm; Số tiền = giảm số tiền cố định; Giá cố định = bán theo giá ấn định">
                                     <span>Loại khuyến mãi</span>
@@ -521,16 +591,17 @@ else
                                               Variant="Variant.Outlined" Margin="Margin.Dense"/>
                             </MudTd>
                             <MudTd DataLabel="Số lượng" Style="text-align:right">
+                                @* Min=1: publish gán Step = Quantity → Quantity=0 làm vỡ phép chia trong offer_procedure. *@
                                 <MudNumericField T="int" Value="@((int)context.Quantity)" ValueChanged="@(v => context.Quantity = v)"
                                                  Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                                 HideSpinButtons="true" Min="0"/>
+                                                 HideSpinButtons="true" Min="1"/>
                             </MudTd>
                             <MudTd DataLabel="Điều kiện áp dụng">
                                 <MudSelect T="string" @bind-Value="context.ScaleType" Dense="true" Disabled="_isReadonly"
                                            Variant="Variant.Outlined" Margin="Margin.Dense">
-                                    <MudSelectItem T="string" Value="@("A")">Tối thiểu</MudSelectItem>
-                                    <MudSelectItem T="string" Value="@("B")">Tối đa</MudSelectItem>
-                                    <MudSelectItem T="string" Value="@("C")">Vòng quay</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("A")">Tối thiểu (From)</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("B")">Tối đa (Upto)</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("C")">Bằng (Equal)</MudSelectItem>
                                 </MudSelect>
                             </MudTd>
                             <MudTd DataLabel="Loại khuyến mãi">
@@ -565,6 +636,8 @@ else
                 </MudCardContent>
             </MudCard>
         </MudTabPanel>
+
+        }
 
         @* ── Tab Cửa hàng (Site) ── *@
         <MudTabPanel Text="Cửa hàng áp dụng" Icon="@Icons.Material.Filled.Store">
@@ -651,10 +724,20 @@ else
                 </MudCardHeader>
                 <MudCardContent>
                     <MudGrid Spacing="2">
-                        <MudItem xs="12" sm="6" md="6">
-                            <MudNumericField T="decimal" @bind-Value="_header.LimitQty" Label="Vòng lặp tính KM"
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="decimal" @bind-Value="_header.LimitQty" Label="Giới hạn KH / Limit by customer"
                                              Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                             HideSpinButtons="true" Min="0" HelperText="0 = không giới hạn số lần"/>
+                                             HideSpinButtons="true" Min="0" HelperText="Số lần lặp tính KM. 0 = không giới hạn (engine coi = 99)"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int" @bind-Value="_header.PriorityBBY" Label="Độ ưu tiên (1–10)"
+                                             Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             HideSpinButtons="true" Min="1" Max="10" HelperText="Ưu tiên tính KM (ZPRIOR)"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int" @bind-Value="_header.MaxQuantity" Label="Giới hạn SL KM tối đa"
+                                             Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             HideSpinButtons="true" Min="0" HelperText="0 = không giới hạn riêng (SL vẫn chặn bởi Số lượng × Limit)"/>
                         </MudItem>
                         <MudItem xs="12" sm="6" md="6">
                             <MudSelect T="int" MultiSelection="true" SelectedValues="_header.ApplyDaysOfMonth"
@@ -740,7 +823,9 @@ else
                             </MudItem>
                             <MudItem xs="12" sm="6" md="6">
                                 <MudTextField @bind-Value="_header.AllowUseAfterTime" Label="Được dùng sau giờ (từ lúc ra bill)"
-                                              Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="hh:mm:ss"/>
+                                              Disabled="_isReadonly" Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="hh:mm:ss"
+                                              OnKeyUp="OnAllowUseAfterTimeKeyUp"
+                                              HelperText="Gõ 020000 rồi Enter → 02:00:00. Để trống nếu không giới hạn giờ."/>
                             </MudItem>
                         </MudGrid>
                     </MudCardContent>
@@ -807,8 +892,15 @@ else
 
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
 
-    private bool VoucherCheckboxLocked => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.IsVoucher ?? false;
-    private bool CurrentOfferTypeIsTotalBill => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.IsTotalBill ?? false;
+    private OfferTypeOptionDto? CurrentOfferType => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType);
+    private bool VoucherCheckboxLocked => CurrentOfferType?.IsVoucher ?? false;
+    private bool CurrentOfferTypeIsTotalBill => CurrentOfferType?.IsTotalBill ?? false;
+    private bool CurrentOfferTypeIsSetupBuy => CurrentOfferType?.IsSetupBuy ?? false;
+    private bool CurrentOfferTypeIsSetupGet => CurrentOfferType?.IsSetupGet ?? false;
+    private bool CurrentOfferTypeIsGift => CurrentOfferType?.IsGift ?? false;
+    // Tab Buy ẩn khi loại thuộc BuyHidden (ZB06/ZB13 — publish loại khỏi OfferBuy) hoặc cờ IsSetupBuy=0.
+    private bool BuyTabVisible => CurrentOfferTypeIsSetupBuy && !PromotionOfferTypeRules.IsBuyHidden(_header.OfferType);
+    private bool GetTabVisible => CurrentOfferTypeIsSetupGet;
 
     // Chỉ chặn bấm Lưu khi rõ ràng thiếu field bắt buộc — validate đầy đủ (kể cả so sánh
     // ngày) vẫn nằm ở PromotionRepository.SaveSetupAsync (nguồn sự thật), đây chỉ là UX
@@ -818,7 +910,11 @@ else
         && !string.IsNullOrWhiteSpace(_header.SalesType)
         && (!string.IsNullOrWhiteSpace(_header.OfferType) || !string.IsNullOrEmpty(_header.No))
         && _fromDate.HasValue
-        && _toDate.HasValue;
+        && _toDate.HasValue
+        // BẮT BUỘC chọn ≥1 nhóm cửa hàng áp dụng (tab "Cửa hàng áp dụng") — CTKM không có site
+        // sẽ publish ra 0 dòng Offer* lúc Duyệt. Backend SaveSetupAsync còn validate lần nữa
+        // (phòng nhóm expand ra 0 store).
+        && _siteRows.Count > 0;
     private string CurrentOfferTypeUserGuide => _offerTypes.FirstOrDefault(o => o.Value == _header.OfferType)?.UserGuide ?? string.Empty;
 
     // Ô "Từ giờ"/"Đến giờ" (tab Thông tin chung) là MudTextField thuần — không mở picker chọn giờ.
@@ -853,6 +949,31 @@ else
             return raw ?? string.Empty; // giữ nguyên input nếu không hợp lệ, để user tự sửa
 
         return $"{h:D2}:{m:D2}";
+    }
+
+    // Ô "Được dùng sau giờ" (tab Nâng cao, khối Voucher) — cùng tinh thần FormatTimeDigits nhưng
+    // giữ giây vì cột ZVCTIME_AFTER lưu dạng hh:mm:ss. Enter để chuẩn hoá; input không hợp lệ giữ
+    // nguyên để validate ở SaveAsync/Repository báo lỗi rõ thay vì âm thầm đổi giá trị user gõ.
+    private void OnAllowUseAfterTimeKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        _header.AllowUseAfterTime = FormatTimeDigitsWithSeconds(_header.AllowUseAfterTime);
+    }
+
+    private static string FormatTimeDigitsWithSeconds(string? raw)
+    {
+        // Rỗng = không đặt độ trễ. Có nội dung nhưng không có chữ số nào (vd "abc") thì GIỮ NGUYÊN
+        // để validate báo lỗi — không âm thầm xoá thành rỗng (sẽ thành "không giới hạn giờ" sai ý).
+        var digits = new string((raw ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (digits.Length == 0)
+            return string.IsNullOrWhiteSpace(raw) ? string.Empty : raw.Trim();
+
+        digits = digits.Length > 6 ? digits[^6..] : digits.PadLeft(6, '0');
+        if (!int.TryParse(digits[..2], out var h) || !int.TryParse(digits[2..4], out var m)
+            || !int.TryParse(digits[4..], out var s) || h > 23 || m > 59 || s > 59)
+            return (raw ?? string.Empty).Trim(); // giữ nguyên input sai để user tự sửa
+
+        return $"{h:D2}:{m:D2}:{s:D2}";
     }
 
     protected override async Task OnInitializedAsync()
@@ -1019,6 +1140,10 @@ else
             _header.IsVoucher = false;
             _voucherForcedByOfferType = false;
         }
+        // Loại tổng bill: dòng Get là SP hưởng KM (→OfferBenefits) — tắt "Giảm giá tổng bill"
+        // (cơ chế whole-bill riêng, sẽ xóa Get) để tránh mất dòng benefits.
+        if (ot.IsTotalBill)
+            _header.CheckTotalDiscount = false;
     }
 
     private async Task OnCheckTotalDiscountChanged(bool value)
@@ -1069,6 +1194,13 @@ else
     }
 
     // ── Save ──
+    // 1 dòng Buy/Get coi là "đã nhập" khi: LineType=0 có mã SP, hoặc LineType=1 có mã nhóm.
+    // Giữ đồng nhất với PromotionRepository.HasLineItem (nguồn sự thật phía server).
+    private static bool HasLineItem(IOfferLineItem line)
+        => line.LineType == 0
+            ? !string.IsNullOrWhiteSpace(line.No)
+            : !string.IsNullOrWhiteSpace(line.GroupCode);
+
     private async Task<bool> SaveAsync(bool showSuccessSnackbar = true)
     {
         if (_saving) return false;
@@ -1076,6 +1208,54 @@ else
         _header.EndingDate = _toDate?.ToString("dd/MM/yyyy") ?? string.Empty;
         _header.VoucherFromDate = _header.IsVoucher ? (_voucherFromDate?.ToString("dd/MM/yyyy") ?? string.Empty) : string.Empty;
         _header.VoucherToDate = _header.IsVoucher ? (_voucherToDate?.ToString("dd/MM/yyyy") ?? string.Empty) : string.Empty;
+        // Khối Voucher chỉ hiện khi IsVoucher → phải dọn luôn 2 field delay như 2 field ngày ở trên.
+        // Nếu không: tick Voucher → nhập giờ sai → bỏ tick → Lưu, validate bị bỏ qua (gate theo
+        // IsVoucher) nhưng tham số vẫn ghi thẳng chuỗi rác vào ZVCDAY_AFTER/ZVCTIME_AFTER.
+        if (!_header.IsVoucher)
+        {
+            _header.AllowUseAfterDay = 0;
+            _header.AllowUseAfterTime = string.Empty;
+        }
+        else
+        {
+            // Chuẩn hoá "020000"/"2:0:0" → "02:00:00" (cùng tinh thần FormatTimeDigits của Từ giờ/
+            // Đến giờ) trước khi validate, để user không bị chặn chỉ vì thiếu dấu ':'.
+            _header.AllowUseAfterTime = FormatTimeDigitsWithSeconds(_header.AllowUseAfterTime);
+        }
+
+        // ── Lọc dòng trống + chặn sớm (lớp chặn UI; nguồn sự thật vẫn là PromotionRepository) ──
+        // Dòng trắng do bulk-add (thêm 10 dòng, nhập 3) nếu lọt xuống DB sẽ ghi MAT_QUAN='0';
+        // nhánh MGP của Setup_Promotion_Insert không lọc MATGROUP<>'' → publish OfferBuy có
+        // Step=0 → vỡ phép chia trong offer_procedure. Lọc ở đây để không lưu dữ liệu rác.
+        var buyRowsToSave = BuyTabVisible ? _buyRows.Where(HasLineItem).ToList() : [];
+        var getRowsToSave = GetTabVisible ? _getRows.Where(HasLineItem).ToList() : [];
+        var skippedRows = (BuyTabVisible ? _buyRows.Count - buyRowsToSave.Count : 0)
+                          + (GetTabVisible ? _getRows.Count - getRowsToSave.Count : 0);
+        if (skippedRows > 0)
+            Snackbar.Add($"Đã bỏ qua {skippedRows} dòng chưa chọn sản phẩm/nhóm sản phẩm.", Severity.Info);
+
+        // Step = Quantity ở bước publish → mọi dòng đã nhập phải có Quantity ≥ 1.
+        if (buyRowsToSave.Any(r => r.Quantity < 1) || getRowsToSave.Any(r => r.Quantity < 1))
+        {
+            Snackbar.Add("Số lượng của mỗi dòng sản phẩm phải ≥ 1", Severity.Warning);
+            return false;
+        }
+
+        // CTKM tổng bill: MINVALUE là ngưỡng bill, publish ghi vào OfferBenefits.StepAmount.
+        if (CurrentOfferTypeIsTotalBill && _header.MinValue <= 0)
+        {
+            Snackbar.Add("CTKM tổng bill cần nhập Giá trị tổng bill tối thiểu (> 0)", Severity.Warning);
+            return false;
+        }
+
+        // Voucher delay: ZVCTIME_AFTER là chuỗi giờ, phải đúng hh:mm:ss (trước đây không validate).
+        if (_header.IsVoucher && !string.IsNullOrWhiteSpace(_header.AllowUseAfterTime)
+            && !TimeSpan.TryParseExact(_header.AllowUseAfterTime.Trim(), "hh\\:mm\\:ss",
+                                       System.Globalization.CultureInfo.InvariantCulture, out _))
+        {
+            Snackbar.Add("Giờ được dùng sau không đúng định dạng (hh:mm:ss)", Severity.Warning);
+            return false;
+        }
 
         _saving = true;
         try
@@ -1084,8 +1264,9 @@ else
             var request = new PromotionSetupSaveRequest
             {
                 Header = _header,
-                BuyRows = _buyRows,
-                GetRows = _getRows,
+                // Section ẩn theo loại CTKM → gửi list rỗng (không lưu dữ liệu thừa của loại khác).
+                BuyRows = buyRowsToSave,
+                GetRows = getRowsToSave,
                 SiteGroupCodes = _siteRows.Select(s => s.SiteGroupCode).Where(c => !string.IsNullOrWhiteSpace(c)).ToList()
             };
             var (ok, message, bbynr) = await PromotionService.SaveSetupAsync(request);

@@ -11,8 +11,8 @@ POS_Migration/
 ├── CLAUDE.md                    ← ⭐ Đọc file này trước tiên (context cho Claude Code)
 ├── POS.slnx                     ← Solution file
 ├── .claude/
-│   ├── commands/                ← Slash command (/add-dto-common, /web-add-feature, ...)
-│   └── skills/                  ← Skill chi tiết theo domain (api, cache, database, worker, web)
+│   ├── commands/                ← Slash command (/add-dto-common, /task-review, /task-done, ...)
+│   └── skills/                  ← Skill theo domain (api, cache, database, worker, web) + skill gọi bằng lệnh (/blazor-ui, /web-ops)
 ├── docs/
 │   ├── CURRENT_STRUCTURE.md     ← Bản đồ DTO/Service/Repository/Helper hiện có (đọc trước khi tạo mới)
 │   ├── architecture/centralMD-schema.md  ← Bản đồ schema DB (RPOSMasterData/CentralMD)

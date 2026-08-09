@@ -38,7 +38,7 @@
 | O8 | `MasterDataZipGeneratorWorker` (POS.Worker) — mới, mặc định TẮT | Đặt `AppSettings:FtpRootPath` (POS.Worker) trỏ đúng thư mục ghi được + DBA `UPDATE SyncTableList SET IsOnlyChange=1` cho bảng cần theo dõi + chỉ bật `WorkerRoles:EnableMasterDataZipGenerator=true` sau khi đã kiểm tra | MEDIUM (opt-in, không ảnh hưởng nếu chưa bật) | [§O8](#o8--masterdatazipgeneratorworker-sinh-zip-theo-watermark-posworker) |
 | O9 | `HealthCheck:PosApiBaseUrl` (POS.Web `/ops/health`) — UAT/Production | Điền URL nội bộ POS.Api thật vào `<UAT_POS_API_BASE_URL>` (`appsettings.UAT.json`) và `<PROD_POS_API_BASE_URL>` (`appsettings.Production.json`) — trước đó 2 file này thiếu hẳn section `HealthCheck` nên âm thầm dùng giá trị Dev `http://localhost:8080` | REQUIRED (mục "POS.Api" trên `/ops/health` sai ở UAT/Prod nếu bỏ qua) | [§O9](#o9--healthcheckposapibaseurl-cho-uatproduction) |
 | O10 | `Redis:DefaultDatabase` phải ĐỒNG BỘ giữa POS.Api/POS.Web/POS.Worker trong cùng môi trường | Xác nhận cả 3 file `appsettings.{Production\|UAT}.json` của Api/Web/Worker cùng trỏ 1 số DB — lệch số sẽ khiến `/ops/health` báo sai "Worker offline" dù worker chạy tốt (heartbeat ghi DB khác DB Web đọc) | REQUIRED (kiểm tra lại mỗi khi sửa `Redis:DefaultDatabase` ở bất kỳ file nào trong 3 service) | [§O10](#o10--redisdefaultdatabase-đồng-bộ-giữa-posapiposwebposworker) |
-| O11 | Worker chạy song song Docker + bare-metal cùng host (`appsettings.ProductionHost.json`) | Dùng ĐÚNG file theo ngữ cảnh: Docker → `appsettings.Production.json` (`host.docker.internal`); bare-metal → `appsettings.ProductionHost.json` (`127.0.0.1`, `EnableHeartbeat=false`). Cả 2 đều cần `-e POS_SECRET_KEY=...`/`Environment=POS_SECRET_KEY=...` nếu file đã mã hóa | REQUIRED (khi go-live có ≥2 instance Worker cùng vai trò trên cùng host) | [§O11](#o11--worker-chạy-song-song-docker--bare-metal-cùng-host) |
+| O11 | Worker chạy song song Docker + bare-metal cùng host (`appsettings.CronHost.json`) | Dùng ĐÚNG file theo ngữ cảnh: Docker → `appsettings.Production.json` (`host.docker.internal`); bare-metal (Model A/C/song song) → `appsettings.CronHost.json` (`127.0.0.1`, `EnableHeartbeat=false` mặc định) + `WorkerRoles__*` override đúng vai trò qua `Environment=`. Cả 2 đều cần `-e POS_SECRET_KEY=...`/`Environment=POS_SECRET_KEY=...` nếu file đã mã hóa | REQUIRED (khi go-live có ≥2 instance Worker cùng vai trò trên cùng host) | [§O11](#o11--worker-chạy-song-song-docker--bare-metal-cùng-host) |
 | D13 | Index hiệu năng `SalesPrice` (trang `/catalog/prices`) | Chạy `docs/sql/SalesPrice_AddPerfIndex.sql` trên CentralMD (Track A, `POS.DbMigrator --apply` tự chạy) — `CREATE INDEX` trên bảng lớn có thể tốn thời gian/khoá ghi, khuyến nghị chạy giờ thấp tải | OPTIONAL (không chặn deploy code — chỉ ảnh hưởng tốc độ, không có code phụ thuộc index) | [§D13](#d13--index-hiệu-năng-salesprice-trang-catalogprices) |
 | O12 | Thư mục log dùng chung `/srv/pos/logs` cho trang "Nhật ký hệ thống" (`/admin/logs`) | Chạy `deploy/linux/setup-pos-log-dirs.sh` (group `posops`, setgid 2750) TRƯỚC khi start `pos-api`/`pos-web` (systemd) và `docker run` Worker — cả 3 service phải cùng group `posops` mới đọc log chéo nhau được | REQUIRED (thiếu → POS.Web báo lỗi quyền khi duyệt `api`/`worker` trong `/admin/logs`) | [§O12](#o12--thư-mục-log-dùng-chung-srvposlogs-cho-nhật-ký-hệ-thống) |
 
@@ -199,7 +199,7 @@ Cơ chế đã có trong code; đây là **giá trị cần đặt** khi triển
 1. Chạy migration `src/POS.Web/Database/Migrations/004_DashboardUsers_AddPinHash.sql` trên
    `RPOSMasterData` (từng môi trường Dev/UAT/Prod riêng — cột `PinHash`, không dùng chung config).
 2. Với từng tài khoản `SystemAdmin` cần dùng SQL Console: sinh BCrypt hash cho PIN đã chọn (tái
-   dùng cơ chế hash của skill `/web-gen-hash`, `BCrypt.HashPassword(pin, workFactor: 11)`), rồi
+   dùng cơ chế hash của skill `/web-ops gen-hash`, `BCrypt.HashPassword(pin, workFactor: 11)`), rồi
    chạy thủ công:
    ```sql
    UPDATE DashboardUsers SET PinHash = '<hash>' WHERE Username = '<username>';
@@ -597,17 +597,25 @@ heartbeat — xem `docs/worker/WorkerHeartbeatService.md` §3), `Logging:FileLog
 `Elasticsearch:IndexFormat` riêng để không lẫn log 2 instance. Chi tiết đầy đủ + mẫu systemd unit:
 `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5.
 
+> **Cập nhật (2026-07-15)**: `appsettings.ProductionHost.json` đã bị **XOÁ**. Mọi tiến trình
+> bare-metal (Model A cron, Model C daemon, và biến thể song song Docker ở mục này) nay dùng
+> **chung** `appsettings.CronHost.json` (`DOTNET_ENVIRONMENT=CronHost`) — phân biệt vai trò hoàn
+> toàn qua `WorkerRoles__*` override trong `Environment=` của từng unit file/script, không còn qua
+> file appsettings riêng theo mô hình. `Logging:FileLogDirectory` giờ dùng chung
+> `/srv/pos/logs/worker` cho cả Docker lẫn bare-metal (không còn suffix `-host` riêng).
+
 **Bắt buộc khi go-live có ≥2 instance Worker cùng vai trò (Docker + bare-metal) trên cùng host:**
 
 1. Dùng đúng file theo ngữ cảnh chạy (đừng copy nhầm) — Docker → `Production.json`; bare-metal →
-   `ProductionHost.json`.
+   `CronHost.json`.
 2. Cả 2 đều cần `POS_SECRET_KEY` nếu file đã mã hóa `enc:...` (xem §C4) — thiếu → crash-loop ngay
    lúc khởi động, không phải lỗi thầm lặng.
 3. Chỉ bật `EnableHeartbeat=true` ở ĐÚNG 1 trong 2 instance cùng vai trò — bật cả 2 sẽ ghi đè lẫn
    nhau lên cùng 1 key Redis, `/ops/health` không phân biệt được instance nào.
 4. Nếu thêm môi trường/máy chủ mới cần mô hình tương tự (hạ tầng phụ thuộc chạy Docker, worker chạy
-   cả 2 nơi) → tạo file `appsettings.{TênMoiTruong}Host.json` theo đúng pattern này, đăng ký vào
-   bảng ở mục 1 của `docs/deploy/pos-worker-ubuntu-guide.md`.
+   cả 2 nơi) → **không** tạo thêm file `appsettings.{TênMoiTruong}Host.json` riêng — dùng chung
+   `CronHost.json` (hoặc file bare-metal tương ứng môi trường đó nếu đã có) và phân biệt vai trò
+   qua `WorkerRoles__*`, đăng ký ghi chú vào bảng ở mục 1 của `docs/deploy/pos-worker-ubuntu-guide.md`.
 
 ---
 
@@ -807,6 +815,18 @@ tạo `tools/POS.DbMigrator`. Không lặp lại nội dung đó ở đây — m
     sẽ lỗi `Cannot insert the value NULL into column 'ID'`. **Chạy lại script này** trên các môi trường đã deploy bản cũ.
   - `docs/sql/SetupPromotion_ApproveAndStatus.sql` — `dbo.usp_SetupPromotion_Approve` (đánh dấu duyệt + EXEC `Setup_Promotion_Insert` publish sang Offer*) và `dbo.usp_SetupPromotion_UpdateStatus`.
 - **SP tái dùng (đã có, không tạo lại):** `[dbo].[Setup_Promotion_Insert] @BBY`.
+- **BẢN SỬA LẦN 5 (2026-07-15) — khớp cơ chế publish thật.** BẮT BUỘC chạy TRƯỚC `SetupPromotion_Save.sql`:
+  - `docs/sql/SetupPromotion_AddMaxQuantity.sql` (manifest order **95**) — `ALTER TABLE dbo.SetupPromotionHEADER
+    ADD MaxQuantity int NULL DEFAULT 0`. Proc bản 5 ghi cột này → thiếu script → Lưu lỗi.
+  - Rồi chạy lại `docs/sql/SetupPromotion_Save.sql` (bản 5): TVP Buy thêm `DiscountType`/`DiscountValue`
+    (drop+recreate TYPE); proc thêm `@TotalMinValue` (ghi cột **TOTALMINVALUE** — quyết định publish rẽ dòng
+    Get→**OfferBenefits** cho CTKM tổng bill ZB06/ZB12/ZB13/ZB14/ZB15; TRƯỚC bản 5 cột này KHÔNG hề được set →
+    OfferBenefits không bao giờ sinh) + `@MaxQuantity` + ghi Buy `DiscountType/DiscountValue` + `TOTALDISCOUNTTYPE`
+    lưu ký hiệu `'%'/'R'/'P'` (fix mapping whole-bill discount).
+  - **GATED — KHÔNG tự chạy:** `docs/sql/SetupPromotion_Insert_AddMaxQty.sql` (Track B, manifest order 115) — SP
+    companion `usp_SetupPromotion_PublishMaxQuantity` publish MaxQuantity → `OfferMaxQuantity`. HIỆN **0 calc-proc
+    đọc OfferMaxQuantity** (SL KM đang chặn bởi Quantity × LimitQty). Chỉ chạy + tích hợp sau khi **DBA/chủ engine POS
+    xác nhận** target bảng + sẽ sửa calc-proc đọc bảng này (xem header script).
 - **Nếu chưa chạy script** → trang báo lỗi khi Lưu/Duyệt (SP không tồn tại). Repository nuốt lỗi, hiện snackbar đỏ.
 - Cột INSERT bám đúng schema legacy; nếu sau này `SetupPromotionHEADER` thêm cột NOT NULL mới → cập nhật `usp_SaveSetupCTKMAll`.
 - **Lưu ý tên bảng:** bảng nhóm cửa hàng vật lý là `dbo.SetupGroupSite` (số ít) — tên DbSet EF legacy `SetupGroupSites`

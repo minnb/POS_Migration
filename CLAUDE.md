@@ -73,6 +73,11 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 | Định kỳ dọn dẹp/refactor file `.claude/rules/` hoặc `.claude/skills/` khi đã phình to (tách lịch sử, gộp trùng lặp, tách sub-skill) | **`.claude/commands/refactor-skills.md`** (skill `/refactor-skills`) |
 | Sinh unit test (xUnit + Moq + FluentAssertions) cho luồng Payment / service tầng Application | **`.claude/rules/unit-testing-standards.md`** (LUẬT: Nguyên tắc Mock, naming) + **`.claude/skills/payment-test-generator/SKILL.md`** (HOW: setup, template; skill `/payment-test-generator`, test ở `tests/POS.UnitTests/`) |
 | Bật/dùng MCP server (SQL read-only, Redis) để debug dữ liệu/cache + cách chạy unit test | **`docs/mcp/step-by-step-mcp-guide.md`** (config `.mcp.json` dùng `${VAR}`; secret ở `.claude/settings.local.json` gitignored — KHÔNG hardcode) |
+| Tạo mới / sửa / tối ưu 1 skill hoặc rule (đúng chuẩn Agent Skill spec của Anthropic, chạy eval/benchmark description) | **`.claude/skills/skill-creator/SKILL.md`** (official Anthropic skill) — dùng khi soạn/refactor skill trong `.claude/skills/`; bổ trợ `/refactor-skills` |
+| **Tự viết MCP server mới** (Python FastMCP / Node TS SDK) cho POS — vd wrap CentralMD/CentralSale/Redis thành tool | **`.claude/skills/mcp-builder/SKILL.md`** (official) — HOW build server; khác `docs/mcp/step-by-step-mcp-guide.md` (chỉ *cấu hình* server sẵn có) |
+| Đọc/sinh/sửa file Excel (.xlsx/.csv): làm báo cáo, đối soát, làm sạch dữ liệu tabular trong phiên dev | **`.claude/skills/xlsx/SKILL.md`** (official) — ⚠️ skill Python (openpyxl) thao tác tài liệu, **KHÔNG** phải thư viện C# runtime cho POS.Api/POS.Web |
+| Đọc/trích xuất/tạo/merge/split/điền form/OCR file PDF (hóa đơn, biên lai, báo cáo) trong phiên dev | **`.claude/skills/pdf/SKILL.md`** (official) — ⚠️ skill Python thao tác tài liệu, **KHÔNG** phải thư viện C# runtime |
+| Test end-to-end page Blazor POS.Web bằng browser automation (Playwright): verify UI, chụp screenshot, xem log browser | **`.claude/skills/webapp-testing/SKILL.md`** (official) — bổ sung hướng test UI thật, khác `tests/POS.ContractTests`/`tests/POS.UnitTests` (xUnit) |
 | Đang làm dở gì / bước tiếp theo là gì (bàn giao ca giữa các phiên) | **`COORDINATION.md`** (xem mục "Bàn giao ca" cuối file này) |
 
 ### Cổng chặn trùng lặp (BẮT BUỘC theo thứ tự)
@@ -116,18 +121,12 @@ Dependency flow: `POS.Api → POS.Application → POS.Infrastructure → POS.Com
 |---|---|
 | `/task-resume` | Khôi phục context sau khi phiên bị gián đoạn (đọc `docs/CHANGELOG.md` + quét TODO còn dở) |
 | `/task-done` | Cập nhật tài liệu (`docs/CURRENT_STRUCTURE.md`...) sau khi hoàn thành task |
-| `/review-task` | Rà soát code của task vừa làm trong phiên (chỉ đọc, KHÔNG sửa) |
+| `/task-review` | Rà soát code của task vừa làm trong phiên (chỉ đọc, KHÔNG sửa) — `.claude/commands/task-review.md` (thay `/review-task` cũ đã gộp) |
 | `/refactor-skills` | Dọn dẹp/refactor định kỳ file `.claude/rules/`/`.claude/skills/` khi phình to |
 | `/add-dto-common` | Thêm DTO mới vào `src/POS.Common/` |
 | `/payment-test-generator` | Sinh unit test (xUnit+Moq+FluentAssertions) cho luồng Payment / service Application |
-| `/web-add-feature` | Tạo page mới hoàn chỉnh cho POS.Web (page + service + model) |
-| `/web-check-status` | Build + audit trạng thái POS.Web |
-| `/web-gen-hash` | Tạo BCrypt hash cho SQL khởi tạo user dashboard |
-| `/web-ui-kpi-row` | Thêm hàng KPI cards vào page POS.Web đã có |
-| `/web-ui-data-table` | Thêm data table vào page POS.Web đã có |
-| `/web-ui-chart` | Thêm biểu đồ vào page POS.Web đã có |
-| `/web-ui-confirm-dialog` | Thêm confirm dialog vào page/component POS.Web đã có |
-| `/web-ui-status-grid` | Thêm POS status grid vào page Ops |
+| `/blazor-ui [feature\|chart\|table\|kpi\|dialog\|grid]` | Tạo page mới hoàn chỉnh (page + service + model) hoặc chèn component UI (chart / data table / KPI row / confirm dialog / POS status grid) vào page POS.Web đã có — `.claude/skills/blazor-ui/` (gộp 6 lệnh `/web-add-feature` + `/web-ui-*` cũ) |
+| `/web-ops [check-status\|gen-hash]` | Build + audit trạng thái POS.Web; tạo BCrypt hash cho SQL khởi tạo user dashboard — `.claude/skills/web-ops/` (gộp `/web-check-status` + `/web-gen-hash` cũ) |
 
 ## Bàn giao ca
 

@@ -54,13 +54,48 @@ public class PromotionSetupHeaderDto
     public bool Sat { get; set; } = true;
     public bool Sun { get; set; } = true;
 
-    // ── Giá trị tổng tiền tối thiểu (tab Sản phẩm mua) — enable theo IsTotalBill của OfferType đã chọn ──
+    // ── Giá trị tổng tiền tối thiểu (ngưỡng tổng bill) — tab "Thông tin chung", enable theo IsTotalBill ──
+    // Khi IsTotalBill: đây là ngưỡng bill → publish ghi OfferBenefits.StepAmount = MINVALUE.
     public decimal MinValue { get; set; }                       // MINVALUE
 
-    // ── Giảm giá tổng bill (tab Sản phẩm khuyến mãi) — loại trừ với danh sách dòng Get ──
+    // ── Cờ tổng bill (tự gán theo IsTotalBill của OfferType) — quyết định publish rẽ Get→OfferBenefits ──
+    // TOTALMINVALUE=1 → dòng Get thành OfferBenefits (StepAmount=MINVALUE); =0 → OfferGet.
+    public bool IsTotalBill { get; set; }                       // TOTALMINVALUE (0/1)
+
+    // ── Giới hạn số lượng KM tối đa được hưởng (Limit by customer bổ trợ) — OfferMaxQuantity.MaxQuantity ──
+    // 0 = không giới hạn riêng theo trường này (vẫn chặn bởi Quantity × LimitQty).
+    public int MaxQuantity { get; set; }                        // SetupPromotionHEADER.MaxQuantity → OfferMaxQuantity
+
+    // ── Giảm giá tổng bill (whole-bill, cơ chế RIÊNG ZB21/ZB09) — loại trừ với danh sách dòng Get ──
     public bool CheckTotalDiscount { get; set; }                // TOTALDISCOUNT cờ 'X'/''
     public int TotalDiscountType { get; set; }                  // TOTALDISCOUNTTYPE: 0=%,1=Amount,2=Price
     public decimal TotalDiscountValue { get; set; }              // TOTALDISCOUNTVALUE
+}
+
+/// <summary>
+/// Quy tắc nghiệp vụ theo mã OfferType — bù cho cờ dbo.OfferType có thể lệch với nghiệp vụ
+/// (KHÔNG bắt sửa cờ DB). Dùng chung UI (PromotionSetupPage) và Repository (validate server).
+/// Căn cứ: publish Setup_Promotion_Insert loại ZB06/ZB13 khỏi OfferBuy; dien_giai.md mục III
+/// (OfferBuy KHÔNG áp dụng cho ZB05/ZB10).
+/// </summary>
+public static class PromotionOfferTypeRules
+{
+    /// <summary>Loại KHÔNG có phần Sản phẩm mua (ẩn tab Buy) — publish loại khỏi OfferBuy.</summary>
+    public static readonly IReadOnlySet<string> BuyHiddenOfferTypes =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ZB06", "ZB13" };
+
+    /// <summary>Loại nghiệp vụ chỉ có OfferGet — cho hiện tab Buy theo cờ nhưng KHÔNG bắt buộc.</summary>
+    public static readonly IReadOnlySet<string> BuyOptionalOfferTypes =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ZB05", "ZB10" };
+
+    public static bool IsBuyHidden(string? offerType)
+        => !string.IsNullOrEmpty(offerType) && BuyHiddenOfferTypes.Contains(offerType);
+
+    /// <summary>Buy bắt buộc khi cờ IsSetupBuy=1 và loại KHÔNG thuộc BuyHidden/BuyOptional.</summary>
+    public static bool IsBuyRequired(string? offerType, bool isSetupBuy)
+        => isSetupBuy && !string.IsNullOrEmpty(offerType)
+           && !BuyHiddenOfferTypes.Contains(offerType)
+           && !BuyOptionalOfferTypes.Contains(offerType);
 }
 
 /// <summary>Option Loại CTKM kèm cờ điều khiển UI (khớp data-attrs của &lt;option&gt; legacy SetupMain.cshtml).</summary>
@@ -94,8 +129,12 @@ public class OfferBuyLineDto : IOfferLineItem
     public string GroupCode { get; set; } = string.Empty;      // MATGROUP
     public string Description { get; set; } = string.Empty;    // hiển thị (không lưu)
     public string UnitOfMeasure { get; set; } = string.Empty;  // MEINH
-    public decimal Quantity { get; set; }
+    public decimal Quantity { get; set; } = 1;                 // MAT_QUAN — mặc định 1, publish suy Step=Quantity (Step=0 vỡ phép chia interval calc)
     public string ScaleType { get; set; } = "C";
+    // ZB02 combo: DiscountType=2 (Giá cố định) + DiscountValue = giá bán combo (= Minimum Value SAP).
+    // ZB07: DiscountValue = ngưỡng giá trị bill để được mua SP KM giá ưu đãi. Loại khác default 0.
+    public int DiscountType { get; set; }                      // SetupPromotionBUY.DiscountType (0=%,1=R,2=P)
+    public decimal DiscountValue { get; set; }                 // SetupPromotionBUY.DiscountValue
 }
 
 /// <summary>Dòng điều kiện NHẬN / chiết khấu (SetupPromotionGET).</summary>
@@ -106,7 +145,7 @@ public class OfferGetLineDto : IOfferLineItem
     public string GroupCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string UnitOfMeasure { get; set; } = string.Empty;
-    public decimal Quantity { get; set; }
+    public decimal Quantity { get; set; } = 1;                 // QTY — mặc định 1, publish suy Step=Quantity (chống Step=0)
     public string ScaleType { get; set; } = "C";
     public int DiscountType { get; set; }                      // 0 = %, 1 = R, 2 = P
     public decimal DiscountValue { get; set; }

@@ -109,6 +109,87 @@ var data = await SaleRepo.GetSalesAsync(
 
 ---
 
+### Pattern: Cờ động DB + ngoại lệ nghiệp vụ dùng chung Razor & Repository (type-driven UI/validate)
+> Áp dụng khi: 1 trang có nhiều "loại" bản ghi (enum động load từ DB, vd `dbo.OfferType`) quyết định
+> tab nào hiện/bắt buộc, và cờ DB có thể lệch với nghiệp vụ thật (KHÔNG được sửa DB để né lệch).
+
+```csharp
+// POS.Common — 1 nguồn sự thật duy nhất, dùng chung UI (ẩn/hiện tab) VÀ Repository (validate server).
+public static class PromotionOfferTypeRules
+{
+    public static readonly IReadOnlySet<string> BuyHiddenOfferTypes =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ZB06", "ZB13" };
+
+    public static bool IsBuyRequired(string? offerType, bool isSetupBuy) => ...
+}
+
+// Razor: ẩn/hiện tab theo đúng rule
+private bool BuyTabVisible => CurrentOfferTypeIsSetupBuy && !PromotionOfferTypeRules.IsBuyHidden(_header.OfferType);
+
+// Repository.SaveSetupAsync: validate SERVER (nguồn sự thật thật sự — Razor chỉ là UX)
+if (PromotionOfferTypeRules.IsBuyRequired(h.OfferType, isSetupBuy) && !request.BuyRows.Any(HasLineItem))
+    return (false, "Loại CTKM này cần ít nhất 1 dòng Sản phẩm mua", string.Empty);
+```
+
+> Không hardcode rẽ nhánh theo mã loại rải rác ở nhiều nơi — gom vào 1 static class trong
+> `POS.Common` để Razor và Repository luôn đồng bộ 1 quy tắc.
+> Ví dụ thực tế: `PromotionOfferTypeRules` (`src/POS.Common/Dtos/Promotion/PromotionSetupDto.cs`),
+> dùng ở `PromotionSetupPage.razor` (`BuyTabVisible`) và `PromotionRepository.SaveSetupAsync`.
+
+---
+
+### Pattern: Field trong khối `@if` có điều kiện — PHẢI dọn khi điều kiện tắt
+> Áp dụng khi: một nhóm field chỉ hiện khi 1 cờ bật (`@if (_header.IsVoucher)`, `@if (MemberOnly)`…)
+> **và** validate của nhóm đó cũng gate theo chính cờ ấy.
+
+```csharp
+// SaveAsync — dọn TẤT CẢ field của khối trước khi validate/gửi request.
+_header.VoucherFromDate = _header.IsVoucher ? (_voucherFromDate?.ToString("dd/MM/yyyy") ?? "") : "";
+if (!_header.IsVoucher)
+{
+    _header.AllowUseAfterDay = 0;          // ⚠️ THIẾU 2 dòng này = lỗ hổng ghi dữ liệu rác
+    _header.AllowUseAfterTime = string.Empty;
+}
+```
+
+> **Anti-pattern (bug thật, `PromotionSetupPage` 2026-08-09):** dọn *một phần* field của khối. Tick
+> Voucher → nhập giờ sai → **bỏ tick** → Lưu: validate bị bỏ qua (gate `if (h.IsVoucher && …)`)
+> nhưng `p.Add("@AllowUseAfterTime", …)` trong Repository ghi **vô điều kiện** → chuỗi rác xuống DB.
+> Field ẩn khỏi UI **không** đồng nghĩa giá trị bị xoá khỏi model — model vẫn giữ giá trị cũ.
+> Quy tắc: gate validate theo cờ nào thì phải dọn **toàn bộ** field của cờ đó; hoặc bỏ gate và
+> validate luôn. Kiểm tra chéo: mọi field trong khối `@if` có mặt đủ trong nhánh dọn không?
+> Ví dụ thực tế: `PromotionSetupPage.SaveAsync` + `PromotionRepository.SaveSetupAsync`.
+
+---
+
+### Pattern: Ô nhập giờ dạng text — chuẩn hoá khi Enter, KHÔNG âm thầm xoá input sai
+> Áp dụng khi: cột DB lưu giờ dạng chuỗi (`TIMEFROM`, `ZVCTIME_AFTER`) nên UI dùng `MudTextField`
+> thay vì time picker, cho user gõ nhanh `"0900"` / `"020000"`.
+
+```csharp
+private void OnAllowUseAfterTimeKeyUp(KeyboardEventArgs e)   // MudTextField OnKeyUp="..."
+{
+    if (e.Key != "Enter") return;
+    _header.AllowUseAfterTime = FormatTimeDigitsWithSeconds(_header.AllowUseAfterTime);
+}
+
+var digits = new string((raw ?? "").Where(char.IsDigit).ToArray());
+if (digits.Length == 0)
+    return string.IsNullOrWhiteSpace(raw) ? string.Empty : raw.Trim();  // "abc" → GIỮ, không xoá
+digits = digits.Length > 6 ? digits[^6..] : digits.PadLeft(6, '0');
+// h>23 || m>59 || s>59 → return raw.Trim() để validate báo lỗi
+```
+
+> **Anti-pattern:** trả `string.Empty` cho mọi input không parse được → `"abc"` bị âm thầm xoá,
+> biến thành "không đặt giới hạn giờ" — sai ý user mà không có cảnh báo nào. Chỉ trả rỗng khi input
+> **thật sự trống**; input sai phải giữ nguyên để lớp validate báo lỗi rõ ràng.
+> Nhớ `Trim()` **cả** ở chỗ ghi tham số SP, không chỉ ở chỗ validate — lệch nhau thì `" 02:00:00 "`
+> lọt validate rồi vào cột `varchar(10)` kèm khoảng trắng.
+> Ví dụ thực tế: `FormatTimeDigits` (hh:mm) / `FormatTimeDigitsWithSeconds` (hh:mm:ss) trong
+> `PromotionSetupPage.razor`.
+
+---
+
 ## DataTable chuẩn — `MudTable<T>`
 
 > **Luật bắt buộc: `.claude/rules/blazor-web-app.md` §17** (Elevation, filter panel,
@@ -335,7 +416,7 @@ src/POS.Web/Components/Pages/
 > — phát hiện vì `grep MudButton.*Variant.Filled` không bắt được (nút đó không tồn tại trong
 > markup của dự án, MudBlazor tự render). Luôn dùng cách khai báo `@ref` bên dưới để nút Yes nằm
 > trong markup của page, chọn đúng Variant/Color theo bảng dưới. Xem thêm quy trình đầy đủ cho
-> lệnh `/web-ui-confirm-dialog` ở `.claude/commands/web-ui-confirm-dialog.md`.
+> lệnh `/blazor-ui dialog` ở `.claude/skills/blazor-ui/SKILL.md` §E.
 
 **Chọn Variant/Color cho `<YesButton>` theo bản chất hành động Yes** (`.claude/rules/mudblazor-flat-ui.md` §3):
 - Yes = phá hủy/không hoàn tác (xóa, hủy giao dịch, khóa) → `Variant="Variant.Outlined" Color="Color.Error"`.
@@ -378,3 +459,69 @@ khóa/mở khóa sản phẩm — ternary theo nội dung `_confirmMsg` vì khô
 
 > Ví dụ thực tế (static Title/YesText): `src/POS.Web/Components/Pages/Catalog/Product/ProductLockPage.razor`,
 > `Ops/PosMapPage.razor`, `Store/Operations/BusinessDayPage.razor`.
+
+---
+
+## Pattern: Playwright automation cho page MudBlazor — gotcha đã xác nhận qua chạy thật
+> Áp dụng khi: viết script Playwright (`tests/POS.Web.UiTests/*.py`, skill `webapp-testing`) để
+> test end-to-end 1 page MudBlazor. Rút ra khi dựng `smoke_coupon_issue.py`
+> (`docs/web/testing/testing_coupon_issue_guide.md`) và `smoke_promotion_setup.py`
+> (`docs/web/testing/testing_promotion_setup_guide.md`) — mất nhiều vòng lặp mới phát hiện vì các
+> hành vi này không lỗi/không log, chỉ âm thầm cho kết quả sai.
+
+- **`MudNumericField`/`MudSelect` với `Min`/`Max` tự CLAMP giá trị phía client** trước khi submit
+  (KHÔNG hiện lỗi validate) — gõ `150` vào field có `Max="100"` sẽ tự động thành `100`; gõ `0` vào
+  field có `Min="1"` sẽ tự động thành `1`. **Không dùng cách "gõ giá trị ngoài biên" để test
+  validate ngoài khoảng** — dùng giá trị mặc định (thường đã ở biên, vd `0` khi field bắt buộc >0)
+  hoặc test qua tầng Service trực tiếp (xUnit) thay vì qua UI. Field không set `Min`/`Max`
+  (`MudNumericField Min="0"` hoặc không set) thì KHÔNG bị clamp — verify bằng đọc trực tiếp source
+  Razor trước khi giả định 1 field có bị clamp hay không, đừng đoán.
+- **`page.get_by_label(...)` trên `MudSelect` trúng `<input type="hidden">`/collapsed nội bộ**
+  (proxy giá trị, không phải phần tử hiển thị) → `.click()` timeout "element is not visible" dù
+  locator "resolve" thành công — xác nhận qua dump DOM thật. **Cách sửa TRIỆT ĐỂ (không chỉ tránh
+  click)**: click vào **ancestor `.mud-input-control`** thay vì input/label —
+  `hidden_input.locator("xpath=ancestor::div[contains(@class,'mud-input-control')][1]")`. Popover
+  mở ra render `<div role="listbox"><div role="option">...` (item đầu tiên đã sẵn `tabindex="0"`)
+  — chọn item bằng `page.get_by_role("option").first.click()` (item đầu) hoặc
+  `page.locator('[role="option"]', has_text=...)` (theo substring). Đọc TOÀN BỘ option để liệt kê
+  dropdown (không chọn gì): mở popup, đọc hết `[role="option"]`, rồi `page.keyboard.press("Escape")`.
+  **`MudCheckBox` KHÔNG có vấn đề này** — `page.get_by_label(label).is_checked()`/`.check()` hoạt
+  động trực tiếp, không cần workaround.
+- **`MudNumericField<decimal>` hiển thị giá trị theo CULTURE vi-VN** — dấu phẩy là **decimal
+  separator** (không phải nghìn): đọc lại field `Value=5` sau khi lưu có thể hiện `"5,000"` (nghĩa
+  là 5.000, 3 số lẻ hiển thị), KHÔNG phải 5000. So sánh round-trip phải `float(val.replace(",", "."))`
+  rồi so số, KHÔNG so sánh string trực tiếp.
+- **Nút Save có thể bị DISABLE bởi 1 computed property client-side dạng `CanSave`** (khác cơ chế
+  auto-clamp) khi field bắt buộc còn rỗng — `.click()` sẽ timeout "element is not enabled". Luôn
+  `save_btn.is_enabled()` trước khi click trong case negative mới; nếu disable → case đó
+  **unreachable qua UI** (in `INFO: SKIP`, KHÔNG tính FAIL) — cùng nhóm hiện tượng với auto-clamp
+  Min/Max nhưng cơ chế khác, cả 2 đều cần soát riêng trước khi viết case negative mới.
+- **Validate nhiều rule chạy THEO THỨ TỰ trong Repository (return sớm ở rule đầu tiên fail)** — khi
+  muốn cô lập test đúng 1 rule cụ thể (vd "Quantity ≥ 1"), PHẢI thoả hết mọi rule đứng TRƯỚC nó
+  (vd "cần ≥1 dòng Buy/Get") trước, nếu không case sẽ FAIL với message của rule khác, dễ nhầm là
+  bug thay vì lỗi setup của chính test case.
+- **`.mud-table-row` khớp CẢ header lẫn body** (MudTable render `<tr class="mud-table-row">` cho
+  cả `<thead>` và `<tbody>`) — đếm số dòng dữ liệu phải dùng `tbody.mud-table-body tr`, không dùng
+  `.mud-table-row` trần trụi (sẽ dư 1 dòng).
+- **`MudDatePicker` (không `Editable`) chỉ đổi được qua calendar popup**, không gõ trực tiếp vào
+  input. MudBlazor 9.5 KHÔNG có class `-today` riêng cho ô ngày hiện tại — phải so khớp header
+  `.mud-picker-calendar-header-transition p` (text `"Tháng M năm YYYY"`) để biết đã đúng tháng
+  chưa, dùng nút `button[aria-label*="Previous month"]`/`button[aria-label*="Next month"]` để lùi/
+  tiến tháng (so sánh `(year,month)` mục tiêu với hiện tại để biết chiều), rồi chọn ô ngày qua
+  `.mud-picker-calendar-day:not(.mud-hidden)` lọc theo số ngày (loại `.mud-hidden` = ngày tháng
+  liền kề hiển thị mờ).
+- **Tên file screenshot lấy từ tên test case tiếng Việt** dễ dính ký tự Windows cấm (`< > : " / \
+  | ? *`) nếu tên case có `%`, `>=`... — luôn qua 1 hàm `slugify()` loại ký tự cấm trước khi ghép
+  tên file, đừng giả định `name.lower().replace(" ", "_")` là đủ an toàn.
+- **Muốn test 1 page có nhiều "loại/kiểu" khác nhau (mỗi kiểu yêu cầu field khác nhau, vd Loại
+  CTKM)** — đừng hardcode 1 kiểu cụ thể; đọc TOÀN BỘ option có sẵn trong dropdown lúc chạy (KHÔNG
+  đảm bảo môi trường nào có đủ mã nào), tự thích ứng field cần điền theo tab/checkbox thực tế hiện
+  ra sau khi chọn (KHÔNG theo mã cứng), và cho phép filter qua biến môi trường (vd
+  `POSWEB_TEST_OFFER_TYPES`) để user chỉ cần test sâu 1 kiểu cụ thể thay vì luôn lặp hết toàn bộ.
+
+> Ví dụ thực tế: `tests/POS.Web.UiTests/smoke_coupon_issue.py` (hàm `slugify`, `pick_date_today`,
+> `form_error_banner` lọc theo class `error` để không nhầm với `MudAlert Severity.Info`);
+> `tests/POS.Web.UiTests/smoke_promotion_setup.py` (hàm `open_select`/`pick_first_select_option`/
+> `select_option_containing` xử lý MudSelect qua ancestor `.mud-input-control`, `is_checkbox_checked`
+> cho MudCheckBox, `fill_type_specific_requirements` thích ứng field theo Loại CTKM đang chọn,
+> `OFFER_TYPE_FILTER` qua biến môi trường `POSWEB_TEST_OFFER_TYPES`).

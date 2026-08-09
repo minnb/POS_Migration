@@ -127,18 +127,20 @@ chạy file processing). Thêm worker mới cần bật/tắt độc lập theo 
 `WorkerRolesOptions` + nhánh `if (roles.EnableX) AddHostedService<XWorker>()`, KHÔNG hardcode
 `AddHostedService` vô điều kiện như ví dụ trên.
 
-> **Pattern: cùng `WorkerRoles` chạy song song Docker + bare-metal trên cùng host** (2026-07-11) —
-> khi hạ tầng phụ thuộc (SQL Server, RabbitMQ) cũng chạy Docker trên chính host, container Worker
-> và process bare-metal cần **địa chỉ khác nhau** tới cùng 1 hạ tầng: `host.docker.internal` (chỉ
-> resolve được TRONG container, cần `--add-host host.docker.internal:host-gateway` lúc
-> `docker run`) cho container, `127.0.0.1` (port đã publish ra host) cho bare-metal — dùng chung 1
-> file `appsettings.Production.json` sẽ khiến 1 bên kết nối sai địa chỉ. Giải pháp: tách file cấu
-> hình riêng theo `DOTNET_ENVIRONMENT` (giống mô hình `CronHost` của Model A) — vd
-> `appsettings.ProductionHost.json` cho bare-metal, chỉ khác `RabbitMQ:Host`/`ConnectionStrings`
-> (địa chỉ) + `Logging:FileLogDirectory`/`Elasticsearch:IndexFormat` (tránh lẫn log) so với file
-> Docker. Ví dụ thật: `src/POS.Worker/appsettings.ProductionHost.json` +
-> `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5. Nhớ tắt `EnableHeartbeat` ở 1 trong 2 bên (xem
-> gotcha heartbeat ở mục trên) nếu cùng vai trò.
+> **Pattern: cùng `WorkerRoles` chạy song song Docker + bare-metal trên cùng host** (2026-07-11,
+> cập nhật 2026-07-15) — khi hạ tầng phụ thuộc (SQL Server, RabbitMQ) cũng chạy Docker trên chính
+> host, container Worker và process bare-metal cần **địa chỉ khác nhau** tới cùng 1 hạ tầng:
+> `host.docker.internal` (chỉ resolve được TRONG container, cần
+> `--add-host host.docker.internal:host-gateway` lúc `docker run`) cho container, `127.0.0.1`
+> (port đã publish ra host) cho bare-metal — dùng chung 1 file `appsettings.Production.json` sẽ
+> khiến 1 bên kết nối sai địa chỉ. Giải pháp: tách file cấu hình riêng theo `DOTNET_ENVIRONMENT` —
+> `appsettings.CronHost.json` cho **MỌI** tiến trình bare-metal trên host (dùng chung cho cả Model A
+> cron lẫn Model C daemon và biến thể song song Docker này — không còn file riêng theo từng mô
+> hình như `ProductionHost.json` cũ, đã xoá 2026-07-15), chỉ khác `RabbitMQ:Host`/
+> `ConnectionStrings` (địa chỉ `127.0.0.1`) so với file Docker. Phân biệt vai trò giữa các tiến
+> trình bare-metal hoàn toàn qua `WorkerRoles__*` override trong `Environment=` của từng unit file.
+> Ví dụ thật: `docs/deploy/pos-worker-ubuntu-guide.md` mục 3.5 + mục 9. Nhớ tắt `EnableHeartbeat` ở
+> 1 trong 2 bên (xem gotcha heartbeat ở mục trên) nếu cùng vai trò.
 
 > ⚠️ **Gotcha đã gặp thực tế (2026-07-13)**: `appsettings.{DOTNET_ENVIRONMENT}.json` là **optional**
 > trong ASP.NET Core Generic Host — thiếu file này KHÔNG làm crash app, chỉ âm thầm fallback về

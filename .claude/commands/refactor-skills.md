@@ -8,7 +8,7 @@ dung trùng lặp giữa các file — rồi đề xuất (và khi được xác
 > **Lý do cần lệnh này**: `docs/CURRENT_STRUCTURE.md` và các file `.claude/rules/`,
 > `.claude/skills/**/SKILLS.md` là nguồn sự thật bắt buộc đọc trước khi code (xem `CLAUDE.md`
 > mục "MỤC LỤC ĐIỀU PHỐI"). Các skill/rule này liên tục được các task khác (`/task-done`,
-> `/web-add-feature`...) **nối thêm** pattern mới vào cuối section — theo thời gian file phình to
+> `/blazor-ui`...) **nối thêm** pattern mới vào cuối section — theo thời gian file phình to
 > (vd `.claude/skills/web/SKILLS.md` ~1300 dòng, `.claude/rules/mudblazor-flat-ui.md` ~510 dòng
 > phần lớn là log quyết định theo ngày). File càng dài, Claude càng dễ đọc sót quy tắc hoặc tạo
 > trùng lặp — đúng thứ mà "Cổng chặn trùng lặp" trong `CLAUDE.md` đang cố ngăn.

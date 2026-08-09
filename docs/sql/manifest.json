@@ -7,8 +7,12 @@
   "scripts": [
     { "order": 90, "file": "SetupPromotion_AddNumOfDaysList.sql", "target": "CentralMD", "runOnce": false,
       "note": "PHAI chay truoc order 100 (SetupPromotion_Save.sql) - proc do ghi cot NUMOFDAYSLIST do script nay them. Xem ROLLOUT.md SS D11." },
+    { "order": 95, "file": "SetupPromotion_AddMaxQuantity.sql", "target": "CentralMD", "runOnce": false,
+      "note": "PHAI chay truoc order 100 (SetupPromotion_Save.sql) - proc do ghi cot MaxQuantity do script nay them (ban sua lan 5). Xem ROLLOUT.md SS D1." },
     { "order": 100, "file": "SetupPromotion_Save.sql", "target": "CentralMD", "runOnce": false },
     { "order": 110, "file": "SetupPromotion_ApproveAndStatus.sql", "target": "CentralMD", "runOnce": false },
+    { "order": 115, "file": "SetupPromotion_Insert_AddMaxQty.sql", "target": "CentralMD", "runOnce": true,
+      "note": "GATED - Track B, tool KHONG tu chay. Publish MaxQuantity -> OfferMaxQuantity. HIEN 0 calc-proc doc OfferMaxQuantity (chan boi Quantity x LimitQty). CHI chay sau khi DBA/engine POS xac nhan target bang + se sua calc-proc doc bang nay. Xem header script + ROLLOUT.md SS D1." },
     { "order": 120, "file": "SetupGroupItem_CreateTable.sql", "target": "CentralMD", "runOnce": false },
     { "order": 130, "file": "SetupGroupItem_Save.sql", "target": "CentralMD", "runOnce": false },
     { "order": 140, "file": "SetupGroupSite_Save.sql", "target": "CentralMD", "runOnce": false },

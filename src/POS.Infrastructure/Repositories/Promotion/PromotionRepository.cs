@@ -32,7 +32,9 @@ public sealed class PromotionRepository(
     // Dải error number nghiệp vụ có chủ đích (THROW trong SP, xem SetupPromotion_Save.sql
     // "BẢN SỬA LẦN 3") — an toàn hiện y nguyên message cho end-user. Lỗi SqlException khác
     // (kết nối/timeout/SP chưa deploy...) bị coi là kỹ thuật, KHÔNG hiện message thô ra UI.
-    private static readonly HashSet<int> KnownBusinessErrorNumbers = [51001, 51002];
+    // 51001=Save, 51002=Approve not-found, 51003=publish thất bại (0 dòng OfferHeader sau EXEC
+    // Setup_Promotion_Insert — SP legacy nuốt lỗi/rollback im lặng, xem usp_SetupPromotion_Approve).
+    private static readonly HashSet<int> KnownBusinessErrorNumbers = [51001, 51002, 51003];
 
     // PageSize lớn để lấy toàn bộ theo filter khi export (SP vẫn OFFSET/FETCH, constant memory phía SQL).
     private const int ExportPageSize = 100_000;
@@ -171,8 +173,12 @@ public sealed class PromotionRepository(
                     CAST(CASE WHEN SAT='X' THEN 1 ELSE 0 END AS bit) AS Sat,
                     CAST(CASE WHEN SUN='X' THEN 1 ELSE 0 END AS bit) AS Sun,
                     ISNULL(TRY_CONVERT(decimal(18,3), MINVALUE),0) AS MinValue,
+                    CAST(CASE WHEN TRY_CONVERT(int, TOTALMINVALUE) = 1 THEN 1 ELSE 0 END AS bit) AS IsTotalBill,
+                    ISNULL(TRY_CONVERT(int, MaxQuantity),0) AS MaxQuantity,
                     CAST(CASE WHEN TOTALDISCOUNT='X' THEN 1 ELSE 0 END AS bit) AS CheckTotalDiscount,
-                    ISNULL(TRY_CONVERT(int, TOTALDISCOUNTTYPE),0) AS TotalDiscountType,
+                    -- TOTALDISCOUNTTYPE lưu ký hiệu '%'/'R'/'P' (bản 5); fallback int cho dữ liệu cũ.
+                    CASE TOTALDISCOUNTTYPE WHEN '%' THEN 0 WHEN 'P' THEN 2 WHEN 'R' THEN 1
+                         ELSE ISNULL(TRY_CONVERT(int, TOTALDISCOUNTTYPE),0) END AS TotalDiscountType,
                     ISNULL(TRY_CONVERT(decimal(18,3), TOTALDISCOUNTVALUE),0) AS TotalDiscountValue
             FROM    dbo.SetupPromotionHEADER (NOLOCK) WHERE BBYNR = @bbynr;
 
@@ -187,7 +193,9 @@ public sealed class PromotionRepository(
                     ISNULL(i.Description,'') AS Description,
                     ISNULL(b.MEINH,'') AS UnitOfMeasure,
                     ISNULL(TRY_CONVERT(decimal(18,3), b.MAT_QUAN),0) AS Quantity,
-                    ISNULL(b.ScaleType,'C') AS ScaleType
+                    ISNULL(b.ScaleType,'C') AS ScaleType,
+                    ISNULL(TRY_CONVERT(int, b.DiscountType),0) AS DiscountType,
+                    ISNULL(TRY_CONVERT(decimal(18,3), b.DiscountValue),0) AS DiscountValue
             FROM    dbo.SetupPromotionBUY (NOLOCK) b
             LEFT JOIN dbo.Item (NOLOCK) i ON i.No = b.MAT_NR
             WHERE   b.BBYNR = @bbynr ORDER BY b.ID;
@@ -273,8 +281,52 @@ public sealed class PromotionRepository(
                 return (false, "Đến giờ phải lớn hơn Từ giờ", string.Empty);
         }
 
+        // ── Validate theo loại CTKM (cờ động dbo.OfferType + ngoại lệ nghiệp vụ) ──
+        // Nguồn sự thật là Repository (không phải UI). Tra cờ loại đang chọn (cache Redis).
+        var offerTypes = await GetOfferTypeOptionsAsync(ct);
+        var ot = offerTypes.FirstOrDefault(o => string.Equals(o.Value, h.OfferType, StringComparison.OrdinalIgnoreCase));
+        var isTotalBill = ot?.IsTotalBill ?? false;
+        var isSetupBuy = ot?.IsSetupBuy ?? false;
+        var isSetupGet = ot?.IsSetupGet ?? false;
+
+        // Buy bắt buộc chỉ khi IsSetupBuy && loại KHÔNG thuộc BuyHidden(ZB06/ZB13)/BuyOptional(ZB05/ZB10).
+        if (PromotionOfferTypeRules.IsBuyRequired(h.OfferType, isSetupBuy)
+            && !request.BuyRows.Any(HasLineItem))
+            return (false, "Loại CTKM này cần ít nhất 1 dòng Sản phẩm mua", string.Empty);
+
+        if (isSetupGet && !request.GetRows.Any(HasLineItem))
+            return (false, "Loại CTKM này cần ít nhất 1 dòng Sản phẩm khuyến mãi", string.Empty);
+
+        // CTKM tổng bill: ngưỡng bill (MINVALUE) phải > 0 (publish ghi OfferBenefits.StepAmount = MINVALUE).
+        if (isTotalBill && h.MinValue <= 0)
+            return (false, "CTKM tổng bill cần nhập Giá trị tổng bill tối thiểu (> 0)", string.Empty);
+
+        // Step = Quantity ở bước publish → mọi dòng đã nhập SP/nhóm phải có Quantity ≥ 1
+        // (Quantity=0 → Step=0 → vỡ phép chia/interval trong offer_procedure).
+        if (request.BuyRows.Any(r => HasLineItem(r) && r.Quantity < 1)
+            || request.GetRows.Any(r => HasLineItem(r) && r.Quantity < 1))
+            return (false, "Số lượng của mỗi dòng sản phẩm phải ≥ 1", string.Empty);
+
+        // Voucher: cần ngày voucher hợp lệ — publish tự vô hiệu CTKM voucher nếu thiếu (Status=2).
+        if (h.IsVoucher && (string.IsNullOrWhiteSpace(h.VoucherFromDate) || string.IsNullOrWhiteSpace(h.VoucherToDate)))
+            return (false, "CTKM Voucher/Coupon cần nhập Voucher từ ngày và đến ngày", string.Empty);
+
+        // Voucher delay: ZVCTIME_AFTER lưu chuỗi giờ — trước đây không validate ở bất kỳ tầng nào,
+        // chuỗi rác vẫn ghi được vào SetupPromotionHEADER. Bỏ trống = không áp dụng độ trễ giờ.
+        if (h.IsVoucher && !string.IsNullOrWhiteSpace(h.AllowUseAfterTime)
+            && !TimeSpan.TryParseExact(h.AllowUseAfterTime.Trim(), "hh\\:mm\\:ss",
+                                       CultureInfo.InvariantCulture, out _))
+            return (false, "Giờ được dùng sau không đúng định dạng (hh:mm:ss)", string.Empty);
+
         // ── Expand nhóm cửa hàng → (SiteGroupCode, SiteCode) ──
         var siteTable = await BuildSiteTableAsync(request.SiteGroupCodes, ct);
+
+        // CTKM BẮT BUỘC có ít nhất 1 cửa hàng áp dụng — publish (Setup_Promotion_Insert) là
+        // site-driven: 0 site → 0 dòng sang Offer* (Duyệt "thành công" nhưng CTKM vô hiệu, không
+        // áp dụng ở đâu). Chặn ngay từ Lưu tạm. siteTable.Rows.Count == 0 xảy ra khi: (a) không
+        // chọn nhóm nào, hoặc (b) nhóm đã chọn không tồn tại/expand ra 0 store trong SetupGroupSite.
+        if (siteTable.Rows.Count == 0)
+            return (false, "Vui lòng chọn ít nhất 1 nhóm cửa hàng áp dụng cho CTKM", string.Empty);
 
         var p = new DynamicParameters();
         p.Add("@BBYNR", string.IsNullOrWhiteSpace(h.No) ? string.Empty : h.No.Trim(),
@@ -289,7 +341,12 @@ public sealed class PromotionRepository(
         p.Add("@BuyLinkCat", h.ConditionBuy == "OR" ? "O" : "A");
         p.Add("@GetLinkCat", h.ConditionGet == "OR" ? "O" : "A");
         // ── Advanced (Phase 2) ──
-        p.Add("@LimitQty", h.LimitQty.ToString(CultureInfo.InvariantCulture));
+        // @LimitQty ghi vào cột SetupPromotionHEADER.LIMIT (nvarchar). SP legacy Setup_Promotion_Insert
+        // publish qua `IIF(H.LIMIT='' OR ... , 9999, H.LIMIT)` gán vào OfferHeader.LimitQty (INT) →
+        // ép ngầm nvarchar→int. LimitQty là decimal, `5.000m.ToString()` = "5.000" (decimal giữ scale)
+        // → convert "5.000"→int NÉM Msg 245, và SP nuốt lỗi (rollback im lặng) → KHÔNG publish gì.
+        // Phải ghi dạng SỐ NGUYÊN ("5") — dùng "F0" (làm tròn, không phần thập phân).
+        p.Add("@LimitQty", h.LimitQty.ToString("F0", CultureInfo.InvariantCulture));
         p.Add("@MemberOnly", h.MemberOnly);
         p.Add("@MemberCode", h.MemberCode ?? string.Empty);
         p.Add("@Priority", (h.PriorityBBY <= 0 ? 1 : h.PriorityBBY).ToString(CultureInfo.InvariantCulture));
@@ -304,7 +361,9 @@ public sealed class PromotionRepository(
         p.Add("@VoucherValidDay", h.VoucherValidDay.ToString(CultureInfo.InvariantCulture));
         p.Add("@VoucherLimitNumber", h.VoucherLimitNumber.ToString(CultureInfo.InvariantCulture));
         p.Add("@AllowUseAfterDay", h.AllowUseAfterDay.ToString(CultureInfo.InvariantCulture));
-        p.Add("@AllowUseAfterTime", h.AllowUseAfterTime ?? string.Empty);
+        // Trim khớp với validate ở trên (validate parse chuỗi đã Trim) — nếu ghi bản chưa trim thì
+        // " 02:00:00 " lọt validate rồi vào ZVCTIME_AFTER varchar(10) kèm khoảng trắng.
+        p.Add("@AllowUseAfterTime", h.AllowUseAfterTime?.Trim() ?? string.Empty);
         p.Add("@FromTime", h.FromTime ?? string.Empty);
         p.Add("@ToTime", h.ToTime ?? string.Empty);
         p.Add("@Mon", h.Mon ? "X" : "");
@@ -315,6 +374,9 @@ public sealed class PromotionRepository(
         p.Add("@Sat", h.Sat ? "X" : "");
         p.Add("@Sun", h.Sun ? "X" : "");
         p.Add("@MinValue", h.MinValue.ToString(CultureInfo.InvariantCulture));
+        // Cờ tổng bill tự gán theo IsTotalBill của OfferType đang chọn → publish rẽ Get→OfferBenefits.
+        p.Add("@TotalMinValue", isTotalBill ? 1 : 0);
+        p.Add("@MaxQuantity", h.MaxQuantity);
         p.Add("@CheckTotalDiscount", h.CheckTotalDiscount ? "X" : "");
         p.Add("@TotalDiscountType", h.TotalDiscountType.ToString(CultureInfo.InvariantCulture));
         p.Add("@TotalDiscountValue", h.TotalDiscountValue.ToString(CultureInfo.InvariantCulture));
@@ -922,8 +984,16 @@ public sealed class PromotionRepository(
         return table;
     }
 
+    // 1 dòng Buy/Get coi là "đã nhập" khi: LineType=0 có mã SP, hoặc LineType=1 có mã nhóm.
+    private static bool HasLineItem(IOfferLineItem line)
+        => line.LineType == 0
+            ? !string.IsNullOrWhiteSpace(line.No)
+            : !string.IsNullOrWhiteSpace(line.GroupCode);
+
     private static DataTable BuildBuyTable(List<OfferBuyLineDto> rows)
     {
+        // Thứ tự cột PHẢI khớp dbo.SetupPromotionBuyTVP (SetupPromotion_Save.sql bản 5):
+        // LineType, ItemNo, GroupCode, Quantity, Uom, ScaleType, DiscountType, DiscountValue.
         var t = new DataTable();
         t.Columns.Add("LineType", typeof(int));
         t.Columns.Add("ItemNo", typeof(string));
@@ -931,9 +1001,15 @@ public sealed class PromotionRepository(
         t.Columns.Add("Quantity", typeof(string));
         t.Columns.Add("Uom", typeof(string));
         t.Columns.Add("ScaleType", typeof(string));
-        foreach (var r in rows)
+        t.Columns.Add("DiscountType", typeof(int));
+        t.Columns.Add("DiscountValue", typeof(string));
+        // Chỉ ghi dòng đã nhập SP/nhóm. Dòng trắng (bulk-add dư) nếu lọt xuống sẽ ghi MAT_QUAN='0';
+        // nhánh MGP của Setup_Promotion_Insert KHÔNG lọc MATGROUP<>'' → publish OfferBuy có No=''
+        // và Step=0 → vỡ phép chia (@StepQty) trong offer_procedure.
+        foreach (var r in rows.Where(HasLineItem))
             t.Rows.Add(r.LineType, r.No ?? "", r.GroupCode ?? "",
-                       r.Quantity.ToString(CultureInfo.InvariantCulture), r.UnitOfMeasure ?? "", r.ScaleType ?? "C");
+                       r.Quantity.ToString(CultureInfo.InvariantCulture), r.UnitOfMeasure ?? "", r.ScaleType ?? "C",
+                       r.DiscountType, r.DiscountValue.ToString(CultureInfo.InvariantCulture));
         return t;
     }
 
@@ -948,7 +1024,8 @@ public sealed class PromotionRepository(
         t.Columns.Add("ScaleType", typeof(string));
         t.Columns.Add("DiscountType", typeof(int));
         t.Columns.Add("DiscountValue", typeof(string));
-        foreach (var r in rows)
+        // Xem chú thích ở BuildBuyTable — chỉ ghi dòng đã nhập SP/nhóm.
+        foreach (var r in rows.Where(HasLineItem))
             t.Rows.Add(r.LineType, r.No ?? "", r.GroupCode ?? "",
                        r.Quantity.ToString(CultureInfo.InvariantCulture), r.UnitOfMeasure ?? "", r.ScaleType ?? "C",
                        r.DiscountType, r.DiscountValue.ToString(CultureInfo.InvariantCulture));

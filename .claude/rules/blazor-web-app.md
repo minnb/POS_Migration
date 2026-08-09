@@ -50,7 +50,7 @@
 4. **Không chắc** một pattern UI đã có chuẩn chưa → tìm trong 2 file rule trên trước, **KHÔNG**
    đoán rồi tự viết CSS/markup mới. Pattern thật sự chưa có → thêm vào đúng file rule **trong
    cùng commit** (không tạo file rule song song khác).
-5. Dùng lệnh `/web-add-feature` khi tạo page hoàn toàn mới, `/web-ui-kpi-row` khi chỉ thêm KPI
+5. Dùng lệnh `/blazor-ui feature` khi tạo page hoàn toàn mới, `/blazor-ui kpi` khi chỉ thêm KPI
    row vào page đã có.
 
 > **Toàn bộ quy tắc Theme (màu/Input/Button/Card/Elevation/Sidebar/Density)**: xem
@@ -451,12 +451,10 @@ public async ValueTask DisposeAsync()
 
 | Command | Mục đích |
 |---------|---------|
-| `/web-add-store-page` | Tạo page mới trong Store section |
-| `/web-add-ops-page` | Tạo page mới trong Ops section |
-| `/web-add-admin-page` | Tạo page mới trong Admin section |
-| `/web-add-feature` | Tạo feature đầy đủ (page + service + model) |
-| `/web-check-status` | Build + audit trạng thái POS.Web |
-| `/web-gen-hash` | Tạo BCrypt hash cho SQL khởi tạo user dashboard |
+| `/blazor-ui feature` | Tạo page mới đầy đủ (page + service + model) cho Store/Ops/Admin section |
+| `/blazor-ui chart\|table\|kpi\|dialog\|grid` | Chèn component UI vào page đã có (biểu đồ / data table / KPI row / confirm dialog / POS status grid) |
+| `/web-ops check-status` | Build + audit trạng thái POS.Web |
+| `/web-ops gen-hash` | Tạo BCrypt hash cho SQL khởi tạo user dashboard |
 | `/add-dto-common` | Thêm DTO mới vào POS.Common (xem `.claude/commands/add-dto-common.md`) |
 
 ## 13. MudAutocomplete — BẮT BUỘC tránh circuit crash

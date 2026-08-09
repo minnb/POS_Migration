@@ -29,20 +29,44 @@
    TRƯỚC script này). @NumOfDays/NUMOFDAYS cũ giữ NGUYÊN 100% — KHÔNG đổi gì —
    vì SP legacy Setup_Promotion_Insert (đang chạy production, không thuộc repo
    này) Convert(int, NUMOFDAYS) thẳng khi Duyệt/publish, đổi kiểu sẽ crash.
+   ----------------------------------------------------------------------------
+   BẢN SỬA LẦN 5 (2026-07-15) — khớp cơ chế publish Setup_Promotion_Insert
+   (docs/web/offers/Setup_Promotion_Insert.sql). 3 thay đổi:
+   (a) TVP Buy thêm DiscountType/DiscountValue → ghi SetupPromotionBUY.DiscountType/
+       DiscountValue (ZB02 combo: giá bán; ZB07: ngưỡng bill). Publish đọc 2 cột này.
+       → drop+recreate TYPE Buy (không còn IF TYPE_ID IS NULL) vì phải thêm cột.
+   (b) @TotalMinValue (0/1) ghi cột TOTALMINVALUE — C# gán = IsTotalBill của
+       OfferType đang chọn. Publish rẽ nhánh Get→OfferBenefits khi TOTALMINVALUE=1
+       (StepAmount = MINVALUE). Trước đây KHÔNG hề set cột này → OfferBenefits
+       KHÔNG BAO GIỜ sinh cho ZB06/ZB12/ZB13/ZB14/ZB15 (lỗi gốc).
+   (c) @MaxQuantity ghi cột MaxQuantity (script SetupPromotion_AddMaxQuantity.sql,
+       order 95, BẮT BUỘC chạy TRƯỚC). Fix TOTALDISCOUNTTYPE: lưu ký hiệu '%'/'R'/'P'
+       (thay vì int '0'/'1'/'2') để publish IIF('%'→0,'P'→2,else 1) trả đúng.
    ============================================================================ */
 USE [RPOSMasterData];
 GO
 
+/* ── Save proc — drop TRƯỚC để có thể drop+recreate TVP Buy (thêm cột) ─────── */
+IF OBJECT_ID(N'dbo.usp_SaveSetupCTKMAll', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.usp_SaveSetupCTKMAll;
+GO
+
 /* ── Table-Valued Types ─────────────────────────────────────────────────── */
-IF TYPE_ID(N'dbo.SetupPromotionBuyTVP') IS NULL
+-- Buy TVP: drop+recreate vì (b5) thêm DiscountType/DiscountValue — TYPE không ALTER
+-- được, phải drop; an toàn vì chỉ usp_SaveSetupCTKMAll (đã drop ở trên) tham chiếu.
+IF TYPE_ID(N'dbo.SetupPromotionBuyTVP') IS NOT NULL
+    DROP TYPE dbo.SetupPromotionBuyTVP;
+GO
 CREATE TYPE dbo.SetupPromotionBuyTVP AS TABLE
 (
-    LineType   int            NULL,   -- 0 = Item, 1 = Group
-    ItemNo     nvarchar(50)   NULL,
-    GroupCode  nvarchar(50)   NULL,
-    Quantity   nvarchar(50)   NULL,
-    Uom        nvarchar(50)   NULL,
-    ScaleType  nvarchar(10)   NULL
+    LineType      int            NULL,   -- 0 = Item, 1 = Group
+    ItemNo        nvarchar(50)   NULL,
+    GroupCode     nvarchar(50)   NULL,
+    Quantity      nvarchar(50)   NULL,
+    Uom           nvarchar(50)   NULL,
+    ScaleType     nvarchar(10)   NULL,
+    DiscountType  int            NULL,   -- 0 = %, 1 = R (amount), 2 = P (price) — ZB02 combo=2
+    DiscountValue nvarchar(50)   NULL    -- ZB02 = giá combo; ZB07 = ngưỡng bill
 );
 GO
 
@@ -66,11 +90,6 @@ CREATE TYPE dbo.SetupPromotionSiteTVP AS TABLE
     SiteGroupCode nvarchar(50)  NULL,
     SiteCode      nvarchar(50)  NULL
 );
-GO
-
-/* ── Save proc ──────────────────────────────────────────────────────────── */
-IF OBJECT_ID(N'dbo.usp_SaveSetupCTKMAll', N'P') IS NOT NULL
-    DROP PROCEDURE dbo.usp_SaveSetupCTKMAll;
 GO
 
 CREATE PROCEDURE dbo.usp_SaveSetupCTKMAll
@@ -102,8 +121,11 @@ CREATE PROCEDURE dbo.usp_SaveSetupCTKMAll
     @FromTime nvarchar(10) = '', @ToTime nvarchar(10) = '',
     @Mon nvarchar(5) = '', @Tue nvarchar(5) = '', @Wed nvarchar(5) = '', @Thu nvarchar(5) = '',
     @Fri nvarchar(5) = '', @Sat nvarchar(5) = '', @Sun nvarchar(5) = '',
-    -- ── Giá trị tổng tiền tối thiểu (Buy) + Giảm giá tổng bill (Get) ──
+    -- ── Ngưỡng tổng bill (MINVALUE) + cờ tổng bill (TOTALMINVALUE) + giới hạn SL KM ──
     @MinValue nvarchar(50) = '0',
+    @TotalMinValue int = 0,   -- (b5) 0/1 — =1 khi OfferType.IsTotalBill → publish rẽ Get→OfferBenefits
+    @MaxQuantity   int = 0,   -- (b5) giới hạn SL KM tối đa (SetupPromotionHEADER.MaxQuantity)
+    -- ── Giảm giá tổng bill (whole-bill, cơ chế riêng ZB21/ZB09) ──
     @CheckTotalDiscount nvarchar(5) = '', @TotalDiscountType nvarchar(10) = '0',
     @TotalDiscountValue nvarchar(50) = '0',
     @Buy          dbo.SetupPromotionBuyTVP  READONLY,
@@ -184,8 +206,11 @@ BEGIN
                    SAT           = @Sat,
                    SUN           = @Sun,
                    MINVALUE      = @MinValue,
+                   TOTALMINVALUE = CASE WHEN @TotalMinValue = 1 THEN '1' ELSE '0' END,
+                   MaxQuantity   = @MaxQuantity,
                    TOTALDISCOUNT      = @CheckTotalDiscount,
-                   TOTALDISCOUNTTYPE  = @TotalDiscountType,
+                   -- Lưu ký hiệu '%'/'R'/'P' (KHÔNG lưu int) — publish IIF('%'→0,'P'→2,else 1)
+                   TOTALDISCOUNTTYPE  = CASE @TotalDiscountType WHEN '0' THEN '%' WHEN '2' THEN 'P' ELSE 'R' END,
                    TOTALDISCOUNTVALUE = @TotalDiscountValue
             WHERE  BBYNR = @BBYNR;
         END
@@ -204,13 +229,15 @@ BEGIN
                      ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
                      PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
                      VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, NUMOFDAYSLIST, ZVCDATE_VA, LIMITNR,
-                     ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
+                     ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALMINVALUE, MaxQuantity, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
                 VALUES
                     (@BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
                      @VcSt, @VcEn, @FromTime, @ToTime, @Mon, @Tue, @Wed, @Thu, @Fri, @Sat, @Sun,
                      @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
                      @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @NumOfDaysList, @VoucherValidDay, @VoucherLimitNumber,
-                     @AllowUseAfterDay, @AllowUseAfterTime, @MinValue, @CheckTotalDiscount, @TotalDiscountType, @TotalDiscountValue);
+                     @AllowUseAfterDay, @AllowUseAfterTime, @MinValue,
+                     CASE WHEN @TotalMinValue = 1 THEN '1' ELSE '0' END, @MaxQuantity, @CheckTotalDiscount,
+                     CASE @TotalDiscountType WHEN '0' THEN '%' WHEN '2' THEN 'P' ELSE 'R' END, @TotalDiscountValue);
             END
             ELSE
             BEGIN
@@ -222,25 +249,29 @@ BEGIN
                      ZVCDATE_ST, ZVCDATE_EN, TIMEFROM, TIMETO, MON, TUE, WED, THUR, FRI, SAT, SUN,
                      PROMOTION, PROMOTIONTEXT, IsVoucher, IsApprove, BUYLINKCAT, GETLINKCAT, CREATEDDATE,
                      VINID, LIMIT, MemberCode, ZPRIOR, NUMOFDAYS, NUMOFDAYSLIST, ZVCDATE_VA, LIMITNR,
-                     ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
+                     ZVCDAY_AFTER, ZVCTIME_AFTER, MINVALUE, TOTALMINVALUE, MaxQuantity, TOTALDISCOUNT, TOTALDISCOUNTTYPE, TOTALDISCOUNTVALUE)
                 VALUES
                     (@newId, @BBYNR, @SalesType, @Description, @OfferType, @Status, @ValidFrom, @ValidTo,
                      @VcSt, @VcEn, @FromTime, @ToTime, @Mon, @Tue, @Wed, @Thu, @Fri, @Sat, @Sun,
                      @BBYNR, @Description, @IsVoucher, 0, @BuyLinkCat, @GetLinkCat, @now,
                      @Vinid, @LimitQty, @MemberCode, @Priority, @NumOfDays, @NumOfDaysList, @VoucherValidDay, @VoucherLimitNumber,
-                     @AllowUseAfterDay, @AllowUseAfterTime, @MinValue, @CheckTotalDiscount, @TotalDiscountType, @TotalDiscountValue);
+                     @AllowUseAfterDay, @AllowUseAfterTime, @MinValue,
+                     CASE WHEN @TotalMinValue = 1 THEN '1' ELSE '0' END, @MaxQuantity, @CheckTotalDiscount,
+                     CASE @TotalDiscountType WHEN '0' THEN '%' WHEN '2' THEN 'P' ELSE 'R' END, @TotalDiscountValue);
             END
         END
 
-        -- 4) BUY: replace
+        -- 4) BUY: replace (b5: thêm DiscountType/DiscountValue — publish đọc 2 cột này)
         DELETE FROM dbo.SetupPromotionBUY WHERE BBYNR = @BBYNR;
         INSERT INTO dbo.SetupPromotionBUY
-            (BBYNR, CREATEDDATE, LINEINDICATOR, BUYTYPE, MAT_NR, MATGROUP, MAT_QUAN, MEINH, ScaleType)
+            (BBYNR, CREATEDDATE, LINEINDICATOR, BUYTYPE, MAT_NR, MATGROUP, MAT_QUAN, MEINH, ScaleType,
+             DiscountType, DiscountValue)
         SELECT @BBYNR, @now, '2',
                CASE WHEN b.LineType = 1 THEN 'MGP' ELSE 'MAT' END,
                CASE WHEN b.LineType = 1 THEN '' ELSE ISNULL(b.ItemNo, '') END,
                CASE WHEN b.LineType = 1 THEN ISNULL(b.GroupCode, '') ELSE '' END,
-               ISNULL(b.Quantity, ''), ISNULL(b.Uom, ''), ISNULL(b.ScaleType, 'C')
+               ISNULL(b.Quantity, ''), ISNULL(b.Uom, ''), ISNULL(b.ScaleType, 'C'),
+               ISNULL(b.DiscountType, 0), ISNULL(b.DiscountValue, '0')
         FROM @Buy b;
 
         -- 5) GET: replace (tính DISTYPE/BBYVAL/BBYPER từ DiscountType/Value)
